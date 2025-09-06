@@ -41,18 +41,25 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 npm install -g archgate
 ```
 
-If you manage Node.js with [proto](https://moonrepo.dev/proto), use its global install command instead so the binary persists across Node.js version switches:
-
-```bash
-proto install-global node archgate
-```
-
 **Requirements:** macOS (arm64) or Linux (x86_64). Node.js is only needed to run the wrapper — the CLI itself is a standalone binary.
+
+> **Using [proto](https://moonrepo.dev/proto)?** Add the following to `~/.proto/config.toml` and your shell profile so globals persist across Node.js version switches:
+>
+> ```toml
+> # ~/.proto/config.toml
+> [tools.npm]
+> shared-globals-dir = true
+> ```
+>
+> ```sh
+> # ~/.zshrc or ~/.bashrc
+> export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
+> ```
 
 ## Quick start
 
 ```bash
-# 1. Install (use proto install-global node archgate if you use proto)
+# 1. Install
 npm install -g archgate
 
 # 2. Initialize governance in your project
@@ -193,8 +200,6 @@ Upgrade to the latest release.
 
 ```bash
 npm update -g archgate
-# or, if using proto:
-proto install-global node archgate
 ```
 
 ### `archgate clean`
