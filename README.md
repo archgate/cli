@@ -6,7 +6,6 @@
 
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/License-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
 [![Release](https://github.com/archgate/cli/actions/workflows/release.yml/badge.svg)](https://github.com/archgate/cli/actions/workflows/release.yml)
-[![npm version](https://badge.fury.io/js/archgate.svg)](https://www.npmjs.com/package/archgate)
 
 </div>
 
@@ -38,41 +37,31 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 
 ## Installation
 
-**Recommended — standalone binary (no runtime required):**
-
 ```bash
 curl -fsSL https://archgate.dev/install.sh | sh
 ```
 
-Installs to `~/.archgate/bin/` and adds it to your PATH.
+Installs the standalone binary to `~/.archgate/bin/` and adds it to your PATH.
 
-**Via npm / bun:**
-
-```bash
-# Run without installing
-bunx archgate [command]
-
-# Install globally
-bun add -g archgate
-npm install -g archgate
-```
-
-**Requirements:** macOS (arm64) or Linux (x86\_64). Bun >= 1.2.21 is required when running via `bunx` or the npm package.
+**Requirements:** macOS (arm64) or Linux (x86\_64).
 
 ## Quick start
 
 ```bash
-# 1. Initialize governance in your project
+# 1. Install
+curl -fsSL https://archgate.dev/install.sh | sh
+
+# 2. Initialize governance in your project
 cd my-project
 archgate init
 
-# 2. Edit the generated ADR to document a real decision
+# 3. Edit the generated ADR to document a real decision
 # .archgate/adrs/ARCH-001-*.md
 
-# 3. Add a companion .rules.ts to enforce it automatically
+# 4. Add a companion .rules.ts to enforce it automatically
 # .archgate/adrs/ARCH-001-*.rules.ts
 
-# 4. Run checks
+# 5. Run checks
 archgate check
 ```
 
