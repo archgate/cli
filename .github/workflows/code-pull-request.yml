@@ -1,0 +1,46 @@
+name: Validate
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - main
+
+concurrency:
+  group: code-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+          cache: true
+          cache-base: main
+      - name: Restore Bun Package Cache
+        id: restore-bun-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.bun/install/cache
+          key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate commit messages
+        run: echo "${{ github.event.pull_request.title }}" | bun run commitlint
+      - name: Validate
+        id: validate
+        run: bun run validate
+      - name: Save Bun Cache
+        uses: actions/cache/save@v4
+        if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: /home/runner/.bun/install/cache
+          key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
