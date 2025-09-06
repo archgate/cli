@@ -1,4 +1,9 @@
 bun = "1.3.8"
+gh = "^2.83.2"
 
 [settings]
 auto-install = true
+auto-clean = true
+
+[plugins.tools]
+gh = "https://raw.githubusercontent.com/appthrust/proto-toml-plugins/main/gh/plugin.toml"
