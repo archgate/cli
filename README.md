@@ -38,18 +38,16 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 ## Installation
 
 ```bash
-curl -fsSL https://archgate.dev/install.sh | sh
+npm install -g archgate
 ```
 
-Installs the standalone binary to `~/.archgate/bin/` and adds it to your PATH.
-
-**Requirements:** macOS (arm64) or Linux (x86_64).
+**Requirements:** macOS (arm64) or Linux (x86_64). Node.js is only needed to run the wrapper — the CLI itself is a standalone binary.
 
 ## Quick start
 
 ```bash
 # 1. Install
-curl -fsSL https://archgate.dev/install.sh | sh
+npm install -g archgate
 
 # 2. Initialize governance in your project
 cd my-project
@@ -188,7 +186,7 @@ Also exposes `adr://{id}` resources for reading individual ADRs by ID.
 Upgrade to the latest release.
 
 ```bash
-archgate upgrade
+npm update -g archgate
 ```
 
 ### `archgate clean`
