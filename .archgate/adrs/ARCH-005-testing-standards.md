@@ -178,7 +178,8 @@ mock.module("node:fetch", () => ({
   default: () => Promise.reject(new Error("network error")),
 }));
 // GOOD: assign globalThis.fetch directly
-globalThis.fetch = (() => Promise.reject(new Error("network error"))) as unknown as typeof fetch;
+globalThis.fetch = (() =>
+  Promise.reject(new Error("network error"))) as unknown as typeof fetch;
 ```
 
 ## Consequences
