@@ -5,5 +5,8 @@ gh = "^2.83.2"
 auto-install = true
 auto-clean = true
 
+[tools.npm]
+shared-globals-dir = true
+
 [plugins.tools]
 gh = "https://raw.githubusercontent.com/appthrust/proto-toml-plugins/main/gh/plugin.toml"
