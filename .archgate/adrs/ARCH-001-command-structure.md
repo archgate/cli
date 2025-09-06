@@ -20,7 +20,7 @@ The explicit register pattern strikes the right balance: each command owns its r
 
 ## Decision
 
-Commands live in src/commands/ and export a register*Command(program) function. The main entry point (src/cli.ts) explicitly imports and calls each register function. Subcommands (e.g., adr create, adr list) use nested directories with an index.ts that composes the subcommand group.
+Commands live in src/commands/ and export a register\*Command(program) function. The main entry point (src/cli.ts) explicitly imports and calls each register function. Subcommands (e.g., adr create, adr list) use nested directories with an index.ts that composes the subcommand group.
 
 **Key constraints:**
 
@@ -34,7 +34,7 @@ Commands live in src/commands/ and export a register*Command(program) function. 
 
 ### Do
 
-- Export a register*Command function from each command module
+- Export a register\*Command function from each command module
 - Keep commands thin: parse args, call helpers/engine, format output
 - Use src/commands/<name>.ts for top-level commands
 - Use src/commands/<name>/index.ts for command groups with subcommands
@@ -177,7 +177,7 @@ export function registerAdrCommand(program: Command) {
 
 ### Positive
 
-- **In-process execution enables testing** — Commands can be tested by calling register*Command() directly, without spawning subprocesses or mocking executables
+- **In-process execution enables testing** — Commands can be tested by calling register\*Command() directly, without spawning subprocesses or mocking executables
 - **Explicit imports make dependencies clear** — Opening src/cli.ts shows every command the CLI supports. No hidden commands loaded at runtime.
 - **Subcommand nesting is straightforward** — Command groups use the same pattern as top-level commands, with an index.ts that composes children
 - **Type-safe registration** — Commander.js @commander-js/extra-typings provides full type inference for options and arguments within each register function
@@ -198,7 +198,7 @@ export function registerAdrCommand(program: Command) {
 
 ### Automated Enforcement
 
-- **Archgate rule** ARCH-001/register-function-export: Scans all command files under src/commands/ (excluding index.ts group files) and verifies each exports a register*Command function. Severity: error.
+- **Archgate rule** ARCH-001/register-function-export: Scans all command files under src/commands/ (excluding index.ts group files) and verifies each exports a register\*Command function. Severity: error.
 - **Archgate rule** ARCH-001/no-business-logic: Detects complex data transformation patterns in command files that should be in helpers. Severity: error.
 - **Build check** bun run build:check: Compiles src/cli.ts with bun build --compile --bytecode as part of bun run validate. A top-level await regression causes an immediate, descriptive parse error.
 
