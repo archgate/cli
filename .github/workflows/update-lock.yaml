@@ -1,0 +1,37 @@
+name: Update Package Lock
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "package.json"
+      - ".github/workflows/update-lock.yaml"
+concurrency:
+  group: pr-lock-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  update-lock:
+    name: Update Package Lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          fetch-depth: 1
+          ref: ${{ github.head_ref }}
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+          cache: true
+          cache-base: main
+      - name: Update locks
+        run: bun install --lockfile-only
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v6

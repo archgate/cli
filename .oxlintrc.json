@@ -1,0 +1,14 @@
+{
+  "categories": {
+    "correctness": "error",
+    "pedantic": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "max-lines-per-function": "off",
+    "max-nested-callbacks": "off",
+    "max-depth": "off",
+    "no-await-in-loop": "warn",
+    "typescript/no-deprecated": "error"
+  }
+}

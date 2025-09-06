@@ -1,0 +1,120 @@
+name: Release Binaries
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: bun-darwin-arm64
+            artifact: archgate-darwin-arm64
+            os: macos-latest
+          - target: bun-linux-x64
+            artifact: archgate-linux-x64
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Setup toolchain (proto)
+        uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate
+        run: bun run validate
+
+      - name: Build binary
+        run: |
+          bun build src/cli.ts \
+            --compile \
+            --bytecode \
+            --minify \
+            --target ${{ matrix.target }} \
+            --outfile dist/${{ matrix.artifact }}
+
+      - name: Generate checksum
+        run: |
+          cd dist
+          sha256sum ${{ matrix.artifact }} > ${{ matrix.artifact }}.sha256
+          cat ${{ matrix.artifact }}.sha256
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
+          files: |
+            dist/${{ matrix.artifact }}
+            dist/${{ matrix.artifact }}.sha256
+
+  update-homebrew:
+    name: Update Homebrew tap
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout CLI repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download checksums
+        run: |
+          BASE="https://github.com/archgate/cli/releases/download/${{ steps.tag.outputs.tag }}"
+          curl -fsSL "${BASE}/archgate-darwin-arm64.sha256" -o darwin-arm64.sha256
+          curl -fsSL "${BASE}/archgate-linux-x64.sha256" -o linux-x64.sha256
+          SHA_DARWIN=$(awk '{print $1}' darwin-arm64.sha256)
+          SHA_LINUX=$(awk '{print $1}' linux-x64.sha256)
+          echo "sha_darwin=${SHA_DARWIN}" >> "$GITHUB_ENV"
+          echo "sha_linux=${SHA_LINUX}" >> "$GITHUB_ENV"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: archgate/homebrew-tap
+          path: homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update formula
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          sed -i "s/PLACEHOLDER_VERSION/${VERSION}/g" scripts/archgate.rb
+          sed -i "s/PLACEHOLDER_SHA256_DARWIN_ARM64/${{ env.sha_darwin }}/g" scripts/archgate.rb
+          sed -i "s/PLACEHOLDER_SHA256_LINUX_X64/${{ env.sha_linux }}/g" scripts/archgate.rb
+          cp scripts/archgate.rb homebrew-tap/Formula/archgate.rb
+
+      - name: Commit and push formula
+        run: |
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/archgate.rb
+          git commit -m "chore: update archgate to ${{ steps.tag.outputs.tag }}"
+          git push

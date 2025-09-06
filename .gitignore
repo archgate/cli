@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist
+*.tsbuildinfo
+
+# Test coverage
+coverage
+*.lcov
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+
+# Proto / Moon
+.moon/cache
+.moon/docker
+
+# Package manager
+*.tgz
+.npm

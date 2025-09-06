@@ -1,0 +1,135 @@
+name: Release
+
+on:
+  issue_comment:
+    types: [created, deleted]
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    name: Context check
+    outputs:
+      continue: ${{ steps.check.outputs.continue }}
+      workflow: ${{ steps.check.outputs.workflow }}
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+          cache: true
+          cache-base: main
+      - name: Restore Bun Package Cache
+        id: restore-bun-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.bun/install/cache
+          key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Context check
+        id: check
+        uses: TrigenSoftware/simple-release-action@v1
+        with:
+          workflow: check
+          github-token: ${{ steps.generate_token.outputs.token }}
+          branch: release
+  pull-request:
+    runs-on: ubuntu-latest
+    name: Pull request
+    needs: check
+    if: needs.check.outputs.workflow == 'pull-request'
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+          cache: true
+          cache-base: main
+      - name: Restore Bun Package Cache
+        id: restore-bun-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.bun/install/cache
+          key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Create or update pull request
+        uses: TrigenSoftware/simple-release-action@v1
+        with:
+          workflow: pull-request
+          github-token: ${{ steps.generate_token.outputs.token }}
+          branch: release
+  release:
+    runs-on: ubuntu-latest
+    name: Release
+    needs: check
+    if: needs.check.outputs.workflow == 'release'
+    steps:
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+          cache: true
+          cache-base: main
+      - name: Restore Bun Package Cache
+        id: restore-bun-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.bun/install/cache
+          key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Validate
+        id: validate
+        run: bun run validate
+      - name: Release
+        uses: TrigenSoftware/simple-release-action@v1
+        with:
+          workflow: release
+          github-token: ${{ steps.generate_token.outputs.token }}
+          branch: release
+      - name: Save Bun Cache
+        uses: actions/cache/save@v4
+        if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: /home/runner/.bun/install/cache
+          key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
