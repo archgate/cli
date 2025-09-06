@@ -1,0 +1,14 @@
+.kiro
+.github
+.oxlintrc.json
+.prettierignore
+.prettierrc.json
+.prototools
+.vscode
+*.tgz
+dist
+.commitlintrc.json
+.czrc
+.simple-release.js
+bunfig.toml
+bun.lock
