@@ -7,23 +7,24 @@ import { registerReviewContextTool } from "../../../src/mcp/tools/review-context
 
 describe("registerReviewContextTool", () => {
   let tempDir: string;
+  let server: McpServer;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-mcp-review-context-test-"));
     mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
+    server = new McpServer({ name: "test", version: "0.0.0" });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await server.close();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   test("does not throw when registering", () => {
-    const server = new McpServer({ name: "test", version: "0.0.0" });
     expect(() => registerReviewContextTool(server, tempDir)).not.toThrow();
   });
 
   test("registers exactly one tool", () => {
-    const server = new McpServer({ name: "test", version: "0.0.0" });
     const registerSpy = spyOn(server, "registerTool");
     registerReviewContextTool(server, tempDir);
     expect(registerSpy).toHaveBeenCalledTimes(1);

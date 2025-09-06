@@ -7,23 +7,24 @@ import { registerResources } from "../../src/mcp/resources";
 
 describe("registerResources", () => {
   let tempDir: string;
+  let server: McpServer;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-mcp-res-test-"));
     mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
+    server = new McpServer({ name: "test", version: "0.0.0" });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await server.close();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   test("does not throw when registering resources", () => {
-    const server = new McpServer({ name: "test", version: "0.0.0" });
     expect(() => registerResources(server, tempDir)).not.toThrow();
   });
 
   test("registers the adr resource template", () => {
-    const server = new McpServer({ name: "test", version: "0.0.0" });
     registerResources(server, tempDir);
     // If registration succeeded without throwing, the resource is registered
     expect(true).toBe(true);

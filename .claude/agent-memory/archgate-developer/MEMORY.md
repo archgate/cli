@@ -26,6 +26,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Patterns & Fixes
 
+- **`McpServer` event loop retention on Linux** — `new McpServer()` from `@modelcontextprotocol/sdk` creates an `AjvJsonSchemaValidator` (backed by `ajv` + `ajv-formats`) that keeps Bun's event loop alive on Linux after tests complete, causing `bun test` to hang for 30+ minutes. macOS drains the event loop fine — this is a Linux-CI-only failure. Fix: manage server lifecycle in `beforeEach`/`afterEach` and call `await server.close()` in `afterEach`. Also captured in ARCH-005 Don'ts.
 - **Bun import cache-busting**: Bun caches `import()` per-process. For long-running processes (MCP server), append `?t=${Date.now()}` to the import path to force re-reading from disk. Applied in `src/engine/loader.ts`.
 - **Never use `bunx prettier` directly** — Always use `bun run format` (to fix) or `bun run format:check` (to verify). Using `bunx prettier` can fail or use a different version than the project's devDependency. The same applies to all dev tools: prefer `bun run <script>` over `bunx <tool>` when a package.json script exists.
 - **`Bun.Glob.match()` triggers oxlint `prefer-regexp-test`** — `Bun.Glob.match()` returns a boolean (not a RegExp), but oxlint can't tell. Suppress with `// oxlint-disable-next-line prefer-regexp-test -- Bun.Glob.match() returns boolean, not RegExp`.
