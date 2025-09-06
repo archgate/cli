@@ -44,6 +44,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **When a test creates a temp git repo and needs to call `git commit`, configure local user identity first** — CI runners have no global git config, so commits fail without explicit local identity. Set it with `await Bun.$\`git config user.email "test@test.com"\`.cwd(tempDir).quiet()`and`await Bun.$\`git config user.name "Test"\`.cwd(tempDir).quiet()`immediately after`git init`.
 - Test public module interfaces, not private implementation details
 - Use descriptive test names that explain the expected behavior
+- **When mocking `fetch` in tests, assign directly to `globalThis.fetch`** — use `globalThis.fetch = mockFn as unknown as typeof fetch`. Restore in `afterEach` via `mock.restore()` (from `bun:test`) or by reassigning the original reference before the test.
 
 ### Don't
 
@@ -54,6 +55,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **Don't rely on globally-configured git identity in temp git repos** — always set `user.email` and `user.name` locally in any repo that makes commits. Omitting this works locally (where developers have global git config) but fails silently in CI, producing a cryptic `ShellPromise` error with no indication that git identity is the cause.
 - Don't skip tests without a tracking issue
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
+- **Don't use `mock.module("node:fetch", ...)` to intercept HTTP fetch calls** — in Bun, the runtime fetch is `globalThis.fetch` and `mock.module` targeting `node:fetch` does not intercept it. The mock silently has no effect: the real network is hit, making tests non-deterministic and dependent on external services. Assign `globalThis.fetch` directly instead (see Do's above).
 
 ## Implementation Pattern
 
@@ -169,6 +171,14 @@ it("reads changes", async () => {
   await Bun.$`git commit -m "init"`.cwd(tempDir).quiet();
   // Fails in CI: "*** Please tell me who you are."
 });
+
+// BAD: mock.module("node:fetch", ...) does NOT intercept globalThis.fetch in Bun.
+// The mock has no effect — the real network is hit and the test becomes non-deterministic.
+mock.module("node:fetch", () => ({
+  default: () => Promise.reject(new Error("network error")),
+}));
+// GOOD: assign globalThis.fetch directly
+globalThis.fetch = (() => Promise.reject(new Error("network error"))) as unknown as typeof fetch;
 ```
 
 ## Consequences
@@ -210,6 +220,7 @@ Code reviewers MUST verify:
 3. Tests clean up after themselves (`afterEach`/`afterAll` cleanup) — including both temp directories and external SDK instances
 4. Tests that instantiate SDK objects (servers, clients, connections) manage their lifecycle in `beforeEach`/`afterEach`, not inside individual test bodies
 5. Tests that call `git commit` on a temp repo configure `user.email` and `user.name` locally before committing
+6. Tests that mock HTTP fetch assign `globalThis.fetch` directly — no `mock.module("node:fetch", ...)` usage
 
 ## References
 
