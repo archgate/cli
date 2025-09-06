@@ -34,12 +34,18 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - **oxlint `no-negated-condition`** — Always write ternaries with the positive condition first: `x === null ? A : B` not `x !== null ? B : A`. Applies to both `if/else` blocks and ternary expressions.
 - **oxlint `no-unused-vars` on catch parameters** — Use bare `catch { }` (no parameter) when the caught error is not used. `catch (err) { }` with unused `err` triggers the rule.
 - **oxlint `no-await-in-loop`** — Sequential `await` inside a `for` loop is flagged (warning). When the sequential order is intentional (e.g., build steps with per-step output), suppress with `// oxlint-disable-next-line no-await-in-loop -- <reason>`.
+- **`bun build --compile --bytecode` rejects top-level `await`** — Even though `bun run` and `tsc` handle top-level `await` fine, the Bun bytecode compiler (`--bytecode`) does not. In `src/cli.ts`, all async bootstrap logic MUST be wrapped in `async function main() { ... }` and called as `main().catch((err) => { logError(String(err)); process.exit(2); })`. Never use top-level `await` in the CLI entry point. See ARCH-001 Do's for the documented pattern.
+- **npm `main` field always gets included in publish** — `"main"` in `package.json` is always included in `npm publish` regardless of the `files` array. If the package doesn't need a default entry point (only sub-path exports like `./rules`), remove `main` entirely to avoid bundling the CLI entry point into the npm package.
 
 ## Validation Pipeline
 
-- `bun run validate` is the mandatory gate: lint → typecheck → format:check → test → ADR check
+- `bun run validate` is the mandatory gate: lint → typecheck → format:check → test → ADR check → build:check
 - All ADR rule severities are `error` (not `warning`) — violations are hard blockers
 - The pipeline is fail-fast — fix failures in order
+
+## CLI Repo Quirk
+
+- **`archgate` command = `bun run cli`** — This is the CLI repo itself, so the `archgate` binary is not installed in PATH. Use `bun run cli <command>` (e.g., `bun run cli check`, `bun run cli adr list`) instead of `archgate <command>`. The `bun run cli` script maps to `bun run src/cli.ts`.
 
 ## MCP Tools Structure
 

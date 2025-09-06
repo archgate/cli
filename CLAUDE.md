@@ -18,14 +18,14 @@ bun run typecheck             # tsc --build
 bun run format                # prettier --write
 bun run format:check          # prettier --check
 bun test                      # all tests
-bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check
+bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + build check
 bun run build                 # binaries → dist/ (darwin-arm64, linux-x64)
 bun run commit                # conventional commit wizard
 ```
 
 ## Validation Gate
 
-**`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
+**`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
 
 ## Architecture
 
