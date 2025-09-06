@@ -4,15 +4,10 @@ import { logDebug } from "./log";
 
 const CACHE_FILE = "last-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const RELEASES_API =
-  "https://api.github.com/repos/archgate/cli/releases/latest";
-
-interface GitHubRelease {
-  tag_name: string;
-}
+const NPM_REGISTRY = "https://registry.npmjs.org/archgate/latest";
 
 /**
- * Checks GitHub for a newer Archgate release (at most once per 24h).
+ * Checks npm for a newer Archgate release (at most once per 24h).
  * Returns a human-readable notice string if an update is available, or null otherwise.
  * All errors are swallowed — this is non-fatal and runs in the background.
  */
@@ -37,38 +32,37 @@ export async function checkForUpdatesIfNeeded(
 
     logDebug("Checking for updates...");
 
-    const response = await fetch(RELEASES_API, {
-      headers: {
-        "User-Agent": "archgate-cli",
-        Accept: "application/vnd.github+json",
-      },
+    const response = await fetch(NPM_REGISTRY, {
+      headers: { "User-Agent": "archgate-cli" },
       signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
-      logDebug("Update check failed — GitHub API returned", response.status);
+      logDebug("Update check failed — npm registry returned", response.status);
       return null;
     }
 
-    const release = (await response.json()) as GitHubRelease;
-    const latestTag = release.tag_name?.replace(/^v/, "");
+    const data = (await response.json()) as { version: string };
+    const latestVersion = data.version;
 
-    if (!latestTag) {
-      logDebug("Update check failed — could not parse tag_name");
+    if (!latestVersion) {
+      logDebug(
+        "Update check failed — could not parse version from npm registry"
+      );
       return null;
     }
 
     // Write new cache timestamp regardless of result
     await Bun.write(cacheFile, String(Date.now()));
 
-    const order = semver.order(currentVersion, latestTag);
+    const order = semver.order(currentVersion, latestVersion);
     if (order === null || order >= 0) {
       // current >= latest or unparseable
-      logDebug("Already up-to-date:", currentVersion, ">=", latestTag);
+      logDebug("Already up-to-date:", currentVersion, ">=", latestVersion);
       return null;
     }
 
-    return `\nArchgate update available: ${currentVersion} -> ${latestTag}\nRun \`archgate upgrade\` to update.`;
+    return `\nArchgate update available: ${currentVersion} -> ${latestVersion}\nRun \`archgate upgrade\` to update.`;
   } catch (err) {
     logDebug("Update check error (non-fatal):", err);
     return null;
