@@ -61,7 +61,7 @@ function getContentPreview(entry: TranscriptEntry): string {
 
 export function registerSessionContextTool(
   server: McpServer,
-  projectRoot: string
+  projectRoot: string | null
 ) {
   server.registerTool(
     "session_context",
@@ -79,7 +79,9 @@ export function registerSessionContextTool(
     },
     async ({ maxEntries }) => {
       const limit = maxEntries ?? 200;
-      const encodedPath = encodeProjectPath(projectRoot);
+      // Fall back to cwd when no project root found — session files are keyed
+      // by the directory the user is working in, not by archgate project state.
+      const encodedPath = encodeProjectPath(projectRoot ?? process.cwd());
       const projectsDir = join(homedir(), ".claude", "projects", encodedPath);
 
       // Find all JSONL files sorted by modification time (most recent first)

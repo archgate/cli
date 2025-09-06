@@ -47,6 +47,9 @@ Use three exit codes with clear semantics:
 - Let unexpected errors crash naturally (exit code 2)
 - Provide actionable suggestions in error messages
 - Write errors to stderr (via `logError()`), not stdout
+- **MCP tools MUST return structured JSON guidance when prerequisites are missing** — use `noProjectResponse()` from `src/mcp/tools/no-project.ts`, which returns `{ error, message, action }` where `action` directs the AI agent to the recovery step (e.g., "Invoke the `@archgate:onboard` skill")
+- **The MCP server MUST start even when no project is found** — `startStdioServer()` and `createMcpServer()` accept `string | null` for `projectRoot`; the `mcp` command passes `findProjectRoot()` directly (which returns `null`) rather than guarding with `process.exit(1)`
+- **MCP tools that don't depend on `.archgate/` MUST fall back to `process.cwd()`** when `projectRoot` is null — e.g., `session_context` reads from `~/.claude/projects/` and uses `process.cwd()` as its path key when no project is found
 
 ### Don't
 
@@ -55,6 +58,9 @@ Use three exit codes with clear semantics:
 - Don't use `console.error()` directly — use `logError()` for consistent formatting
 - Don't exit with code 0 when an operation fails
 - Don't use exit codes other than 0, 1, or 2
+- **Don't call `process.exit()` inside MCP tool handlers** — the MCP server is a long-lived process shared with the AI agent; calling `process.exit()` kills the agent's MCP connection and prevents any recovery
+- **Don't guard MCP server startup with a fatal precondition check** — never call `process.exit(1)` before `startStdioServer()` for expected missing state such as "no project found"; instead pass `null` and let tools degrade gracefully
+- **Don't throw unhandled exceptions from MCP tool handlers** — always catch errors inside the handler and return structured JSON with an `error` field; uncaught exceptions break the MCP transport protocol and produce unreadable output
 
 ## Implementation Pattern
 
@@ -105,6 +111,55 @@ try {
 }
 ```
 
+### MCP Tool Pattern
+
+MCP tools run inside a long-lived server process. They MUST NOT call `process.exit()` or throw unhandled exceptions. Missing prerequisites (e.g., no project found) are communicated via structured JSON responses so the AI agent can recover.
+
+```typescript
+// GOOD: MCP server starts regardless of project state
+// src/commands/mcp.ts
+export function registerMcpCommand(program: Command) {
+  program.command("mcp").action(async () => {
+    // findProjectRoot() returns string | null — pass directly, never exit here
+    await startStdioServer(findProjectRoot());
+  });
+}
+
+// GOOD: MCP tool returns guidance when projectRoot is null
+// src/mcp/tools/check.ts
+async ({ adrId, staged }) => {
+  if (projectRoot === null) {
+    return noProjectResponse(); // { error, message, action: "invoke @archgate:onboard" }
+  }
+  // ... normal tool logic
+};
+
+// GOOD: tool that doesn't need .archgate/ falls back to cwd
+// src/mcp/tools/session-context.ts
+const encodedPath = encodeProjectPath(projectRoot ?? process.cwd());
+```
+
+```typescript
+// BAD: blocking MCP startup with process.exit
+export function registerMcpCommand(program: Command) {
+  program.command("mcp").action(async () => {
+    const root = findProjectRoot();
+    if (!root) {
+      logError("No archgate project found.");
+      process.exit(1); // WRONG — kills the agent's MCP connection
+    }
+    await startStdioServer(root);
+  });
+}
+
+// BAD: throwing from an MCP tool handler
+async ({ adrId }) => {
+  if (projectRoot === null) {
+    throw new Error("No project found"); // WRONG — breaks the MCP transport
+  }
+};
+```
+
 ## Consequences
 
 ### Positive
@@ -139,6 +194,8 @@ Code reviewers MUST verify:
 1. Error messages include actionable suggestions where possible
 2. Expected failures exit with code 1, not code 2
 3. No try-catch blocks that swallow errors without logging or re-throwing
+4. MCP tool handlers do not call `process.exit()` — failures return `{ error, message, action }` JSON
+5. The `mcp` command does not guard `startStdioServer()` with a `process.exit()` on missing project
 
 ## References
 
