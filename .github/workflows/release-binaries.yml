@@ -66,3 +66,5 @@ jobs:
 
       - name: Publish platform package
         run: npm publish ./packages/${{ matrix.artifact }} --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
