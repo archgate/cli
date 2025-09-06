@@ -36,6 +36,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - **oxlint `no-await-in-loop`** — Sequential `await` inside a `for` loop is flagged (warning). When the sequential order is intentional (e.g., build steps with per-step output), suppress with `// oxlint-disable-next-line no-await-in-loop -- <reason>`.
 - **`bun build --compile --bytecode` rejects top-level `await`** — Even though `bun run` and `tsc` handle top-level `await` fine, the Bun bytecode compiler (`--bytecode`) does not. In `src/cli.ts`, all async bootstrap logic MUST be wrapped in `async function main() { ... }` and called as `main().catch((err) => { logError(String(err)); process.exit(2); })`. Never use top-level `await` in the CLI entry point. See ARCH-001 Do's for the documented pattern.
 - **npm `main` field always gets included in publish** — `"main"` in `package.json` is always included in `npm publish` regardless of the `files` array. If the package doesn't need a default entry point (only sub-path exports like `./rules`), remove `main` entirely to avoid bundling the CLI entry point into the npm package.
+- **`CHANGELOG.md` is auto-generated — exclude from Prettier** — `CHANGELOG.md` is written by `TrigenSoftware/simple-release-action` during the release PR workflow. It is committed directly and never formatted by Prettier. It MUST be in `.prettierignore`; otherwise `bun run format:check` (part of `bun run validate`) will fail on the release PR. Do not attempt to run prettier on it post-commit.
 
 ## Validation Pipeline
 
