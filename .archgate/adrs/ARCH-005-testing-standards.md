@@ -41,7 +41,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Use temp directories (`mkdtemp`) for tests that write to the filesystem
 - Clean up temp directories in `afterEach` or `afterAll`
 - **Close external SDK instances** (servers, clients, transports) in `afterEach` or `afterAll` by calling their cleanup method (e.g., `await server.close()`). Manage their lifecycle in `beforeEach`/`afterEach` rather than inside individual test bodies so cleanup is guaranteed.
-- **When a test creates a temp git repo and needs to call `git commit`, configure local user identity first** — CI runners have no global git config, so commits fail without explicit local identity. Set it with `await Bun.$\`git config user.email "test@test.com"\`.cwd(tempDir).quiet()` and `await Bun.$\`git config user.name "Test"\`.cwd(tempDir).quiet()` immediately after `git init`.
+- **When a test creates a temp git repo and needs to call `git commit`, configure local user identity first** — CI runners have no global git config, so commits fail without explicit local identity. Set it with `await Bun.$\`git config user.email "test@test.com"\`.cwd(tempDir).quiet()`and`await Bun.$\`git config user.name "Test"\`.cwd(tempDir).quiet()`immediately after`git init`.
 - Test public module interfaces, not private implementation details
 - Use descriptive test names that explain the expected behavior
 
