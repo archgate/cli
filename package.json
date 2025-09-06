@@ -1,7 +1,7 @@
 {
   "name": "archgate",
   "version": "0.1.0",
-  "description": "AI governance for software development",
+  "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "readme": "README.md",
   "license": "FSL-1.1-ALv2",
   "homepage": "https://archgate.dev",
@@ -40,7 +40,8 @@
     "format:check": "prettier --check .",
     "test": "bun test --timeout 60000",
     "test:watch": "bun test --watch --timeout 60000",
-    "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check",
+    "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check",
+    "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check && bun run build:check",
     "commit": "cz",
     "build": "bun run scripts/build.ts",
     "build:darwin": "bun run scripts/build.ts --target darwin-arm64",
