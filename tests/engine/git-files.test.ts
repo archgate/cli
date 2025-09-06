@@ -59,6 +59,8 @@ describe("git-files", () => {
 
     test("returns both staged and unstaged changes", async () => {
       await Bun.$`git init`.cwd(tempDir).quiet();
+      await Bun.$`git config user.email "test@test.com"`.cwd(tempDir).quiet();
+      await Bun.$`git config user.name "Test"`.cwd(tempDir).quiet();
       writeFileSync(join(tempDir, "a.ts"), "export const a = 1;");
       await Bun.$`git add a.ts`.cwd(tempDir).quiet();
       await Bun.$`git commit -m "init"`.cwd(tempDir).quiet();
