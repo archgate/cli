@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "plugin:archgate:archgate": {
+      "command": "bun",
+      "args": ["run", "/Users/rhuan/dasolve/cli/src/cli.ts", "mcp"]
+    }
+  }
+}
