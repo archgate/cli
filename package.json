@@ -4,14 +4,12 @@
   "description": "AI governance for software development",
   "readme": "README.md",
   "license": "FSL-1.1-ALv2",
-  "main": "src/cli.ts",
   "homepage": "https://archgate.dev",
   "exports": {
     "./rules": "./src/formats/rules.ts"
   },
   "files": [
-    "src/formats/rules.ts",
-    "dist/types/"
+    "src/formats/rules.ts"
   ],
   "author": {
     "name": "Archgate",
