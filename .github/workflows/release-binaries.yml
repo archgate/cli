@@ -11,7 +11,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   build-and-publish:
@@ -65,6 +64,6 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish platform package
-        run: npm publish ./packages/${{ matrix.artifact }} --access public --provenance
+        run: npm publish ./packages/${{ matrix.artifact }} --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
