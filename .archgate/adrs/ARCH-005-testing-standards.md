@@ -41,6 +41,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Use temp directories (`mkdtemp`) for tests that write to the filesystem
 - Clean up temp directories in `afterEach` or `afterAll`
 - **Close external SDK instances** (servers, clients, transports) in `afterEach` or `afterAll` by calling their cleanup method (e.g., `await server.close()`). Manage their lifecycle in `beforeEach`/`afterEach` rather than inside individual test bodies so cleanup is guaranteed.
+- **When a test creates a temp git repo and needs to call `git commit`, configure local user identity first** — CI runners have no global git config, so commits fail without explicit local identity. Set it with `await Bun.$\`git config user.email "test@test.com"\`.cwd(tempDir).quiet()` and `await Bun.$\`git config user.name "Test"\`.cwd(tempDir).quiet()` immediately after `git init`.
 - Test public module interfaces, not private implementation details
 - Use descriptive test names that explain the expected behavior
 
@@ -50,6 +51,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Don't depend on network access in unit tests
 - Don't leave temp files after test runs
 - **Don't leave external SDK instances open after tests** — instances from libraries such as `@modelcontextprotocol/sdk` hold internal references (e.g., `AjvJsonSchemaValidator` backed by `ajv`) that keep Bun's event loop alive on Linux, causing `bun test` to hang indefinitely after all tests complete even though every test passes. Always call the cleanup method in `afterEach`.
+- **Don't rely on globally-configured git identity in temp git repos** — always set `user.email` and `user.name` locally in any repo that makes commits. Omitting this works locally (where developers have global git config) but fails silently in CI, producing a cryptic `ShellPromise` error with no indication that git identity is the cause.
 - Don't skip tests without a tracking issue
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
 
@@ -82,6 +84,22 @@ describe("runChecks", () => {
     // ...
     expect(getExitCode(results)).toBe(1);
   });
+});
+```
+
+### Good Example — Temp Git Repo with Commits
+
+```typescript
+// tests/engine/git-files.test.ts
+it("returns both staged and unstaged changes", async () => {
+  await Bun.$`git init`.cwd(tempDir).quiet();
+  // GOOD: set local identity before any commit — CI has no global git config
+  await Bun.$`git config user.email "test@test.com"`.cwd(tempDir).quiet();
+  await Bun.$`git config user.name "Test"`.cwd(tempDir).quiet();
+  writeFileSync(join(tempDir, "a.ts"), "export const a = 1;");
+  await Bun.$`git add a.ts`.cwd(tempDir).quiet();
+  await Bun.$`git commit -m "init"`.cwd(tempDir).quiet();
+  // ... rest of test
 });
 ```
 
@@ -142,6 +160,15 @@ it("registers resources", () => {
   // server.close() never called — event loop held open on Linux
   expect(() => registerResources(server, tempDir)).not.toThrow();
 });
+
+// BAD: git commit without local identity — works locally, fails in CI
+it("reads changes", async () => {
+  await Bun.$`git init`.cwd(tempDir).quiet();
+  writeFileSync(join(tempDir, "a.ts"), "x");
+  await Bun.$`git add a.ts`.cwd(tempDir).quiet();
+  await Bun.$`git commit -m "init"`.cwd(tempDir).quiet();
+  // Fails in CI: "*** Please tell me who you are."
+});
 ```
 
 ## Consequences
@@ -182,6 +209,7 @@ Code reviewers MUST verify:
 2. Tests use temp directories for filesystem operations (no hardcoded paths)
 3. Tests clean up after themselves (`afterEach`/`afterAll` cleanup) — including both temp directories and external SDK instances
 4. Tests that instantiate SDK objects (servers, clients, connections) manage their lifecycle in `beforeEach`/`afterEach`, not inside individual test bodies
+5. Tests that call `git commit` on a temp repo configure `user.email` and `user.name` locally before committing
 
 ## References
 
