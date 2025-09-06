@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "plugin:archgate:archgate": {
+      "command": "bun",
+      "args": ["run", "src/cli.ts", "mcp"]
+    }
+  }
+}
