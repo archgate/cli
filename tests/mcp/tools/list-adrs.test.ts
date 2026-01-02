@@ -7,22 +7,23 @@ import { registerListAdrsTool } from "../../../src/mcp/tools/list-adrs";
 
 describe("registerListAdrsTool", () => {
   let tempDir: string;
+  let server: McpServer;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-mcp-list-adrs-test-"));
+    server = new McpServer({ name: "test", version: "0.0.0" });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await server.close();
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   test("does not throw when registering", () => {
-    const server = new McpServer({ name: "test", version: "0.0.0" });
     expect(() => registerListAdrsTool(server, tempDir)).not.toThrow();
   });
 
   test("registers exactly one tool", () => {
-    const server = new McpServer({ name: "test", version: "0.0.0" });
     const registerSpy = spyOn(server, "registerTool");
     registerListAdrsTool(server, tempDir);
     expect(registerSpy).toHaveBeenCalledTimes(1);
