@@ -20,31 +20,34 @@ The explicit register pattern strikes the right balance: each command owns its r
 
 ## Decision
 
-Commands live in `src/commands/` and export a `register*Command(program)` function. The main entry point (`src/cli.ts`) explicitly imports and calls each register function. Subcommands (e.g., `adr create`, `adr list`) use nested directories with an `index.ts` that composes the subcommand group.
+Commands live in src/commands/ and export a register\*Command(program) function. The main entry point (src/cli.ts) explicitly imports and calls each register function. Subcommands (e.g., adr create, adr list) use nested directories with an index.ts that composes the subcommand group.
 
 **Key constraints:**
 
-1. **One command per file** — Each `.ts` file in `src/commands/` defines exactly one command (or one command group via its `index.ts`)
-2. **Explicit registration** — Every command must be manually imported and registered in `src/cli.ts`. No auto-discovery.
+1. **One command per file** — Each .ts file in src/commands/ defines exactly one command (or one command group via its index.ts)
+2. **Explicit registration** — Every command must be manually imported and registered in src/cli.ts. No auto-discovery.
 3. **Thin commands** — Command files handle I/O only: parse arguments, call engine/helpers, format output. No business logic.
 4. **In-process execution** — Commands run in the same Bun process as the CLI entry point. No child process spawning.
+5. **main() wrapper in entry point** — All async bootstrap logic in src/cli.ts MUST be wrapped in an async function main() called via .catch(). Top-level await is forbidden in the entry point.
 
 ## Do's and Don'ts
 
 ### Do
 
-- Export a `register*Command` function from each command module
+- Export a register\*Command function from each command module
 - Keep commands thin: parse args, call helpers/engine, format output
-- Use `src/commands/<name>.ts` for top-level commands
-- Use `src/commands/<name>/index.ts` for command groups with subcommands
-- Import the register function explicitly in `src/cli.ts`
+- Use src/commands/<name>.ts for top-level commands
+- Use src/commands/<name>/index.ts for command groups with subcommands
+- Import the register function explicitly in src/cli.ts
+- Wrap all async logic in src/cli.ts in an async function main() and call it as main().catch((err) => { logError(String(err)); process.exit(2); }) — this is required for bun build --compile --bytecode compatibility
 
 ### Don't
 
-- Don't put business logic in command files — move it to `src/engine/`, `src/helpers/`, or `src/formats/`
-- Don't use `executableDir()` for command discovery
-- Don't call `.parse()` in command files — the entry point handles parsing
+- Don't put business logic in command files — move it to src/engine/, src/helpers/, or src/formats/
+- Don't use executableDir() for command discovery
+- Don't call .parse() in command files — the entry point handles parsing
 - Don't create commands that spawn child processes for subcommand execution
+- Don't use top-level await in src/cli.ts — bun build --compile --bytecode (the binary compiler) rejects it even though bun run and tsc accept it. The symptom is a build-time parse error: "await" can only be used inside an "async" function
 
 ## Implementation Pattern
 
@@ -105,6 +108,49 @@ export function registerCheckCommand(program: Command) {
 }
 ```
 
+### Entry Point main() Pattern
+
+bun build --compile --bytecode — the command used to produce standalone binaries — rejects top-level await at parse time, even though bun run and tsc both accept it. All async bootstrap logic in src/cli.ts MUST be wrapped in an async function main().
+
+```typescript
+// src/cli.ts — GOOD: all async logic wrapped in main()
+import { logError } from "./helpers/log";
+
+// Synchronous bootstrap checks can remain at top level
+if (!semver.satisfies(Bun.version, ">=1.2.21"))
+  throw new Error("You need to update Bun to version 1.2.21 or higher");
+
+createPathIfNotExists(paths.cacheFolder);
+
+async function main() {
+  await installGit(); // async logic goes inside main()
+
+  const program = new Command().name("archgate").version(packageJson.version);
+  registerInitCommand(program);
+  // ... register other commands ...
+
+  const updateCheckPromise = checkForUpdatesIfNeeded(packageJson.version);
+  await program.parseAsync(process.argv);
+  const notice = await updateCheckPromise;
+  if (notice) console.log(notice);
+}
+
+main().catch((err) => {
+  logError(String(err));
+  process.exit(2);
+});
+```
+
+```typescript
+// src/cli.ts — BAD: top-level await breaks bun build --compile --bytecode
+createPathIfNotExists(paths.cacheFolder);
+
+await installGit(); // ERROR: "await" can only be used inside an "async" function
+
+const program = new Command().name("archgate").version(packageJson.version);
+await program.parseAsync(process.argv); // also breaks
+```
+
 ### Subcommand Group Pattern
 
 ```typescript
@@ -131,37 +177,42 @@ export function registerAdrCommand(program: Command) {
 
 ### Positive
 
-- **In-process execution enables testing** — Commands can be tested by calling `register*Command()` directly, without spawning subprocesses or mocking executables
-- **Explicit imports make dependencies clear** — Opening `src/cli.ts` shows every command the CLI supports. No hidden commands loaded at runtime.
-- **Subcommand nesting is straightforward** — Command groups use the same pattern as top-level commands, with an `index.ts` that composes children
-- **Type-safe registration** — Commander.js `@commander-js/extra-typings` provides full type inference for options and arguments within each register function
+- **In-process execution enables testing** — Commands can be tested by calling register\*Command() directly, without spawning subprocesses or mocking executables
+- **Explicit imports make dependencies clear** — Opening src/cli.ts shows every command the CLI supports. No hidden commands loaded at runtime.
+- **Subcommand nesting is straightforward** — Command groups use the same pattern as top-level commands, with an index.ts that composes children
+- **Type-safe registration** — Commander.js @commander-js/extra-typings provides full type inference for options and arguments within each register function
+- **Binary-compatible entry point** — The main() wrapper pattern ensures src/cli.ts compiles cleanly with bun build --compile --bytecode for standalone binary distribution
 
 ### Negative
 
-- **Manual import bookkeeping** — Each new command requires adding an import and registration call in `src/cli.ts`. This is a minor overhead for a CLI with fewer than 15 commands.
+- **Manual import bookkeeping** — Each new command requires adding an import and registration call in src/cli.ts. This is a minor overhead for a CLI with fewer than 15 commands.
 - **No hot-reload of commands** — Adding a new command requires restarting the CLI process. Acceptable for a development tool.
 
 ### Risks
 
-- **Stale imports when commands are removed** — If a command file is deleted but its import in `src/cli.ts` is not removed, TypeScript will catch the error at compile time. The `bun run typecheck` step in the validation pipeline prevents this from reaching production.
-- **Command group index.ts confused with barrels** — The `index.ts` files in command group directories (e.g., `src/commands/adr/index.ts`) contain real composition logic, not re-exports. [ARCH-004 — No Barrel Files](./ARCH-004-no-barrel-files.md) explicitly permits `index.ts` files with logic.
+- **Stale imports when commands are removed** — If a command file is deleted but its import in src/cli.ts is not removed, TypeScript will catch the error at compile time. The bun run typecheck step in the validation pipeline prevents this from reaching production.
+- **Command group index.ts confused with barrels** — The index.ts files in command group directories (e.g., src/commands/adr/index.ts) contain real composition logic, not re-exports. ARCH-004 No Barrel Files explicitly permits index.ts files with logic.
+- **Top-level await regression** — A developer unfamiliar with the --bytecode constraint may introduce top-level await back into src/cli.ts. Mitigation: The bun run build:check step in the validate pipeline catches this immediately — bun run validate will fail locally before the code reaches CI.
 
 ## Compliance and Enforcement
 
 ### Automated Enforcement
 
-- **Archgate rule** `ARCH-001/register-function-export`: Scans all command files under `src/commands/` (excluding `index.ts` group files) and verifies each exports a `register*Command` function. Severity: `error`.
-- **Archgate rule** `ARCH-001/no-business-logic`: Detects complex data transformation patterns in command files that should be in helpers. Severity: `error`.
+- **Archgate rule** ARCH-001/register-function-export: Scans all command files under src/commands/ (excluding index.ts group files) and verifies each exports a register\*Command function. Severity: error.
+- **Archgate rule** ARCH-001/no-business-logic: Detects complex data transformation patterns in command files that should be in helpers. Severity: error.
+- **Build check** bun run build:check: Compiles src/cli.ts with bun build --compile --bytecode as part of bun run validate. A top-level await regression causes an immediate, descriptive parse error.
 
 ### Manual Enforcement
 
 Code reviewers MUST verify:
 
-1. New commands are imported and registered in `src/cli.ts`
+1. New commands are imported and registered in src/cli.ts
 2. Command files delegate to engine/helpers for business logic
-3. Command group `index.ts` files contain composition logic, not just re-exports
+3. Command group index.ts files contain composition logic, not just re-exports
+4. No top-level await has been introduced in src/cli.ts — all async logic must be inside main()
 
 ## References
 
 - [Commander.js documentation](https://github.com/tj/commander.js)
-- [ARCH-004 — No Barrel Files](./ARCH-004-no-barrel-files.md) — Permits `index.ts` with logic, forbids re-export-only barrels
+- [ARCH-004 — No Barrel Files](./ARCH-004-no-barrel-files.md) — Permits index.ts with logic, forbids re-export-only barrels
+- [ARCH-002 — Error Handling](./ARCH-002-error-handling.md) — logError and exit code conventions used in the main().catch() handler
