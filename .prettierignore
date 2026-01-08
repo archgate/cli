@@ -3,3 +3,4 @@ dist
 coverage
 bun.lock
 CHANGELOG.md
+packages/*/bin/
