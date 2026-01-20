@@ -31,4 +31,8 @@ describe("registerTools", () => {
     expect(registerSpy).toHaveBeenCalledTimes(4);
     registerSpy.mockRestore();
   });
+
+  test("does not throw when projectRoot is null", () => {
+    expect(() => registerTools(server, null)).not.toThrow();
+  });
 });

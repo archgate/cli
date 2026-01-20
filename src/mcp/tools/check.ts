@@ -3,8 +3,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { loadRuleAdrs } from "../../engine/loader";
 import { runChecks } from "../../engine/runner";
 import { buildSummary } from "../../engine/reporter";
+import { noProjectResponse } from "./no-project";
 
-export function registerCheckTool(server: McpServer, projectRoot: string) {
+export function registerCheckTool(
+  server: McpServer,
+  projectRoot: string | null
+) {
   server.registerTool(
     "check",
     {
@@ -18,6 +22,10 @@ export function registerCheckTool(server: McpServer, projectRoot: string) {
       },
     },
     async ({ adrId, staged }) => {
+      if (projectRoot === null) {
+        return noProjectResponse();
+      }
+
       const loadedAdrs = await loadRuleAdrs(projectRoot, adrId);
 
       if (loadedAdrs.length === 0) {

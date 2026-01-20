@@ -30,3 +30,20 @@ describe("createMcpServer", () => {
     expect(typeof server.registerResource).toBe("function");
   });
 });
+
+describe("createMcpServer with null projectRoot", () => {
+  let server: McpServer;
+
+  beforeEach(() => {
+    server = createMcpServer(null);
+  });
+
+  afterEach(async () => {
+    await server.close();
+  });
+
+  test("starts successfully without a project root", () => {
+    expect(server).toBeDefined();
+    expect(typeof server.connect).toBe("function");
+  });
+});

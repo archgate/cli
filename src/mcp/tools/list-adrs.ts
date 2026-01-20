@@ -3,8 +3,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseAdr } from "../../formats/adr";
+import { noProjectResponse } from "./no-project";
 
-export function registerListAdrsTool(server: McpServer, projectRoot: string) {
+export function registerListAdrsTool(
+  server: McpServer,
+  projectRoot: string | null
+) {
   server.registerTool(
     "list_adrs",
     {
@@ -19,6 +23,10 @@ export function registerListAdrsTool(server: McpServer, projectRoot: string) {
       },
     },
     async ({ domain }) => {
+      if (projectRoot === null) {
+        return noProjectResponse();
+      }
+
       const adrsDir = join(projectRoot, ".archgate", "adrs");
       const adrs: Array<{
         id: string;

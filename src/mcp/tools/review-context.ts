@@ -2,10 +2,11 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { buildReviewContext } from "../../engine/context";
 import { AdrFrontmatterSchema } from "../../formats/adr";
+import { noProjectResponse } from "./no-project";
 
 export function registerReviewContextTool(
   server: McpServer,
-  projectRoot: string
+  projectRoot: string | null
 ) {
   server.registerTool(
     "review_context",
@@ -33,6 +34,10 @@ export function registerReviewContextTool(
       },
     },
     async ({ staged, runChecks, domain }) => {
+      if (projectRoot === null) {
+        return noProjectResponse();
+      }
+
       const context = await buildReviewContext(projectRoot, {
         staged: staged ?? false,
         runChecks: runChecks ?? false,

@@ -6,8 +6,12 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parseAdr } from "../formats/adr";
 
-export function registerResources(server: McpServer, projectRoot: string) {
-  const adrsDir = join(projectRoot, ".archgate", "adrs");
+export function registerResources(
+  server: McpServer,
+  projectRoot: string | null
+) {
+  const adrsDir =
+    projectRoot === null ? null : join(projectRoot, ".archgate", "adrs");
 
   // Resource template: adr://{id} — returns full ADR markdown
   server.registerResource(
@@ -16,6 +20,18 @@ export function registerResources(server: McpServer, projectRoot: string) {
     { description: "Get full ADR markdown by ID" },
     async (uri, variables) => {
       const requestedId = variables.id as string;
+
+      if (adrsDir === null) {
+        return {
+          contents: [
+            {
+              uri: uri.href,
+              mimeType: "text/plain",
+              text: "No archgate project found. Invoke the @archgate:onboard skill to initialize governance.",
+            },
+          ],
+        };
+      }
 
       let files: string[];
       try {
