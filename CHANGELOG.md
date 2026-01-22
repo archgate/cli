@@ -1,3 +1,9 @@
+## [0.2.4](https://github.com/archgate/cli/compare/v0.2.3...v0.2.4) (2026-02-23)
+
+### Bug Fixes
+
+* **mcp:** start server without a project and guide onboarding ([5f02fa3](https://github.com/archgate/cli/commit/5f02fa39795fcd72102a6bd68fdee47d0d948560))
+
 ## [0.2.3](https://github.com/archgate/cli/compare/v0.2.2...v0.2.3) (2026-02-23)
 
 ### Bug Fixes
