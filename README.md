@@ -185,12 +185,12 @@ archgate mcp
 
 Exposes four tools to MCP-compatible clients (Claude Code, Cursor, etc.):
 
-| Tool              | Description                                                       |
-| ----------------- | ----------------------------------------------------------------- |
-| `check`           | Run ADR compliance checks, optionally on staged files only        |
-| `list_adrs`       | List all ADRs with metadata                                       |
-| `review_context`  | Get changed files grouped by domain with applicable ADR briefings |
-| `session_context` | Read the current Claude Code session transcript                   |
+| Tool                          | Description                                                       |
+| ----------------------------- | ----------------------------------------------------------------- |
+| `check`                       | Run ADR compliance checks, optionally on staged files only        |
+| `list_adrs`                   | List all ADRs with metadata                                       |
+| `review_context`              | Get changed files grouped by domain with applicable ADR briefings |
+| `claude_code_session_context` | Read the current Claude Code session transcript                   |
 
 Also exposes `adr://{id}` resources for reading individual ADRs by ID.
 

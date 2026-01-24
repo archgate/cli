@@ -27,7 +27,7 @@ describe("registerTools", () => {
   test("registers all expected tools", () => {
     const registerSpy = spyOn(server, "registerTool");
     registerTools(server, tempDir);
-    // The tools module registers 4 tools: check, list_adrs, review_context, session_context
+    // The tools module registers 4 tools: check, list_adrs, review_context, claude_code_session_context
     expect(registerSpy).toHaveBeenCalledTimes(4);
     registerSpy.mockRestore();
   });

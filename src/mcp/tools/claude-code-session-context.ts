@@ -59,12 +59,12 @@ function getContentPreview(entry: TranscriptEntry): string {
   return "";
 }
 
-export function registerSessionContextTool(
+export function registerClaudeCodeSessionContextTool(
   server: McpServer,
   projectRoot: string | null
 ) {
   server.registerTool(
-    "session_context",
+    "claude_code_session_context",
     {
       description:
         "Read the current Claude Code session transcript for the project. Returns filtered entries (user + assistant messages only) from the most recent session JSONL file. Use this to recover session context that may have been compacted from the conversation.",
