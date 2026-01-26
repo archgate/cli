@@ -59,7 +59,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## MCP Tools Structure
 
-- MCP tools live in `src/mcp/tools/` — one file per tool (check, list-adrs, review-context, claude-code-session-context)
+- MCP tools live in `src/mcp/tools/` — one file per tool (check, list-adrs, review-context, claude-code-session-context, cursor-session-context)
 - ADR CRUD moved to CLI: `archgate adr create`, `archgate adr update`, `archgate init` (no longer MCP tools)
 - `src/mcp/tools/index.ts` composes all registrations via `registerTools()` (contains real logic, not a barrel per ARCH-004)
 - `src/mcp/server.ts` imports from `./tools/index`
