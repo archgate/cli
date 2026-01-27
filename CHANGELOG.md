@@ -1,3 +1,13 @@
+## [0.4.0](https://github.com/archgate/cli/compare/v0.3.0...v0.4.0) (2026-02-26)
+
+### Features
+
+* **mcp:** add cursor_session_context tool ([#17](https://github.com/archgate/cli/issues/17)) ([8cf9f38](https://github.com/archgate/cli/commit/8cf9f383a0a7129d8e4383f1b51b03aeed1c745e))
+
+### Bug Fixes
+
+* move bundled deps to devDependencies to avoid unnecessary installs ([#19](https://github.com/archgate/cli/issues/19)) ([d61d7e0](https://github.com/archgate/cli/commit/d61d7e062ae8ba6ef3fd441784fd6a2a6e4c4243))
+
 ## [0.3.0](https://github.com/archgate/cli/compare/v0.2.5...v0.3.0) (2026-02-24)
 
 ### Features
