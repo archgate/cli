@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join, basename } from "node:path";
+import { pathToFileURL } from "node:url";
 import { parseAdr } from "../formats/adr";
 import type { AdrDocument } from "../formats/adr";
 import { type RuleSet } from "../formats/rules";
@@ -86,8 +87,10 @@ export async function loadRuleAdrs(
       try {
         // Cache-bust: Bun caches import() per-process, so append a timestamp
         // to force re-reading from disk on every call (critical for MCP server).
+        // Use file:// URL to handle Windows backslash paths in import().
+        const rulesUrl = `${pathToFileURL(rulesFile).href}?t=${Date.now()}`;
         // oxlint-disable-next-line no-await-in-loop -- dynamic import must be sequential
-        const mod = await import(`${rulesFile}?t=${Date.now()}`);
+        const mod = await import(rulesUrl);
         const parsed = RuleSetSchema.safeParse(mod.default);
 
         if (!parsed.success) {

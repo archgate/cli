@@ -19,7 +19,7 @@ bun run format                # prettier --write
 bun run format:check          # prettier --check
 bun test                      # all tests
 bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + build check
-bun run build                 # binaries → dist/ (darwin-arm64, linux-x64)
+bun run build                 # binaries → dist/ (darwin-arm64, linux-x64, win32-x64)
 bun run commit                # conventional commit wizard
 ```
 
@@ -60,7 +60,7 @@ Zod schemas are the single source of truth. Types derived via `z.infer<>` — ne
 ## Conventions
 
 - Commands export `register*Command(program)`, handle I/O only — no business logic
-- OS: macOS and Linux only (Windows blocked, WSL2 recommended)
+- OS: macOS, Linux, and Windows
 - Output: `styleText()` from `node:util`; `--json` for machine-readable; no emoji
 - Exit codes: 0 = success, 1 = violation, 2 = internal error
 - Deps: minimal; prefer Bun built-ins (see ARCH-006)

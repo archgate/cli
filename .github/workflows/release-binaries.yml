@@ -23,9 +23,15 @@ jobs:
           - target: bun-darwin-arm64
             artifact: archgate-darwin-arm64
             os: macos-latest
+            binary_name: archgate
           - target: bun-linux-x64
             artifact: archgate-linux-x64
             os: ubuntu-latest
+            binary_name: archgate
+          - target: bun-windows-x64
+            artifact: archgate-win32-x64
+            os: windows-latest
+            binary_name: archgate.exe
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -39,25 +45,37 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run validate
+      - name: Validate (Unix)
+        if: runner.os != 'Windows'
+        run: bun run validate
+
+      - name: Validate (Windows)
+        if: runner.os == 'Windows'
+        run: bun run lint && bun run typecheck && bun run format:check && bun test
 
       - name: Build binary
         run: |
-          bun build src/cli.ts \
-            --compile \
-            --bytecode \
-            --minify \
-            --target ${{ matrix.target }} \
-            --outfile dist/${{ matrix.artifact }}
+          bun build src/cli.ts --compile --bytecode --minify --target ${{ matrix.target }} --outfile dist/${{ matrix.artifact }}
 
-      - name: Copy binary into npm package
+      - name: Copy binary into npm package (Unix)
+        if: runner.os != 'Windows'
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag }}"
           VERSION="${TAG#v}"
-          cp dist/${{ matrix.artifact }} packages/${{ matrix.artifact }}/bin/archgate
-          chmod +x packages/${{ matrix.artifact }}/bin/archgate
+          cp dist/${{ matrix.artifact }} packages/${{ matrix.artifact }}/bin/${{ matrix.binary_name }}
+          chmod +x packages/${{ matrix.artifact }}/bin/${{ matrix.binary_name }}
           cd packages/${{ matrix.artifact }}
           npm version "$VERSION" --no-git-tag-version
+
+      - name: Copy binary into npm package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name || inputs.tag }}"
+          $version = $tag -replace '^v', ''
+          Copy-Item "dist/${{ matrix.artifact }}.exe" "packages/${{ matrix.artifact }}/bin/${{ matrix.binary_name }}"
+          Set-Location "packages/${{ matrix.artifact }}"
+          npm version "$version" --no-git-tag-version
 
       - uses: actions/setup-node@v4
         with:
