@@ -9,6 +9,7 @@ import { registerAdrCommand } from "./commands/adr/index";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { registerCleanCommand } from "./commands/clean";
 import { registerCheckCommand } from "./commands/check";
+import { registerLoginCommand } from "./commands/login";
 import { registerMcpCommand } from "./commands/mcp";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 import { logError } from "./helpers/log";
@@ -35,6 +36,7 @@ async function main() {
     .description("AI governance for software development");
 
   registerInitCommand(program);
+  registerLoginCommand(program);
   registerAdrCommand(program);
   registerCheckCommand(program);
   registerMcpCommand(program);
