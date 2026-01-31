@@ -1,0 +1,67 @@
+---
+title: Cursor Integration
+description: Use Archgate with Cursor IDE for AI-assisted development with governance.
+---
+
+## Setup
+
+Run `archgate init` with the `--editor cursor` flag to configure Cursor integration in your project:
+
+```bash
+archgate init --editor cursor
+```
+
+This creates the following files inside your project:
+
+| File                                    | Purpose                                                        |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `.cursor/mcp.json`                      | MCP server connection so Cursor's AI agent can access ADRs     |
+| `.cursor/rules/archgate-governance.mdc` | Always-on Cursor rule that instructs the agent to consult ADRs |
+
+If `.cursor/mcp.json` already exists, Archgate merges its configuration additively -- existing MCP server entries are preserved.
+
+## What it configures
+
+The generated `.cursor/mcp.json` registers the Archgate MCP server:
+
+```json
+{
+  "mcpServers": {
+    "archgate": {
+      "command": "archgate",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+The governance rule in `.cursor/rules/archgate-governance.mdc` uses `alwaysApply: true`, which means the Cursor agent always has governance context available without manual activation.
+
+## How it works
+
+Once configured, Cursor's AI agent connects to the Archgate MCP server and gains access to your project's ADRs. The workflow follows four steps:
+
+1. **Review context** -- The agent calls `review_context` to see which ADRs apply to the files being changed. This returns changed files grouped by domain with condensed ADR briefings (Decision and Do's/Don'ts sections only).
+
+2. **Read individual ADRs** -- For full context on a specific decision, the agent reads the `adr://` resource (for example, `adr://ARCH-001`) to get the complete ADR content including rationale, consequences, and compliance sections.
+
+3. **Write code** -- The agent implements changes following the constraints from the applicable ADRs.
+
+4. **Run compliance checks** -- The agent calls `check` (optionally with `staged: true` for pre-commit scenarios) to validate that the code complies with all ADR rules. Violations include file paths and line numbers.
+
+## Session transcript access
+
+The `cursor_session_context` MCP tool reads Cursor agent session transcripts from disk. This allows Archgate-aware plugins and skills to access the history of the current Cursor agent conversation, which is useful for recovering context that may have been compacted or truncated.
+
+The tool accepts two optional parameters:
+
+- `maxEntries` -- Maximum number of entries to return (default: 200, most recent entries).
+- `sessionId` -- A specific session UUID to read. If omitted, the most recent session is used.
+
+## Tips for effective usage
+
+- **Run `check` before committing.** Use `staged: true` to scope checks to only the files being committed.
+- **Use `review_context` at the start of a task.** It is more efficient than calling `list_adrs` and reading each ADR individually.
+- **Read full ADRs when the briefing is not enough.** The `adr://` resource provides the complete document including rationale and examples.
+- **Commit the `.cursor/` directory.** This ensures every team member gets the same governance configuration when they clone the repository.
+- **Keep ADR rules files up to date.** The agent enforces what the rules check for -- if a rule is missing, the violation will not be caught.

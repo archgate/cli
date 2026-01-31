@@ -1,0 +1,179 @@
+---
+title: CI Integration
+description: Add Archgate checks to your CI/CD pipeline.
+---
+
+Archgate checks fit into any CI system that respects exit codes. Add a single step to your pipeline and violations will block merges automatically.
+
+## GitHub Actions
+
+The simplest setup is a dedicated job that installs Archgate and runs `archgate check`:
+
+```yaml
+name: ADR Compliance
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g archgate
+      - run: archgate check
+```
+
+This installs the CLI globally and runs all ADR rules. If any rule reports a violation with `error` severity, the step exits with code 1 and the job fails.
+
+## GitHub Actions annotations
+
+Use `--ci` to output violations as GitHub Actions workflow annotations. These appear inline on the pull request's "Files changed" tab, pointing directly to the offending file and line.
+
+```yaml
+- run: archgate check --ci
+```
+
+The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
+
+## Machine-readable output
+
+Use `--json` for structured output that other tools can parse:
+
+```yaml
+- run: archgate check --json > results.json
+```
+
+The JSON output includes:
+
+```json
+{
+  "pass": false,
+  "total": 6,
+  "passed": 5,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "results": [
+    {
+      "ruleId": "no-unapproved-deps",
+      "adrId": "ARCH-006",
+      "message": "Unapproved production dependency: \"chalk\"",
+      "file": "package.json",
+      "severity": "error"
+    }
+  ],
+  "durationMs": 142
+}
+```
+
+## Exit codes
+
+| Code | Meaning          | CI behavior  |
+| ---- | ---------------- | ------------ |
+| 0    | All checks pass  | Job succeeds |
+| 1    | Violations found | Job fails    |
+| 2    | Internal error   | Job fails    |
+
+Warnings (severity `warning`) are logged but do not affect the exit code. Only `error`-severity violations cause exit code 1.
+
+## Narrowing scope
+
+### Check only staged files
+
+Use `--staged` to limit checking to git-staged files. This is useful in pre-commit hooks or when you only want to validate what is about to be committed:
+
+```yaml
+- run: archgate check --staged
+```
+
+### Check a specific ADR
+
+Use `--adr <id>` to run rules from a single ADR:
+
+```yaml
+- run: archgate check --adr ARCH-006
+```
+
+This is useful when a PR only touches files governed by one ADR and you want faster feedback.
+
+## Adding to an existing pipeline
+
+If you already have a CI configuration, add Archgate as a single step after your checkout:
+
+```yaml
+# Existing pipeline
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: "22"
+  - run: npm ci
+  - run: npm test
+
+  # Add Archgate check
+  - run: npm install -g archgate
+  - run: archgate check --ci
+```
+
+No additional dependencies or configuration files are needed beyond the `.archgate/` directory already in your repository.
+
+## Caching the installation
+
+Cache the `~/.archgate` directory to speed up repeated installs:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Archgate
+        uses: actions/cache@v4
+        with:
+          path: ~/.archgate
+          key: archgate-${{ runner.os }}
+
+      - run: npm install -g archgate
+      - run: archgate check --ci
+```
+
+## GitLab CI
+
+```yaml
+adr-compliance:
+  image: node:22
+  script:
+    - npm install -g archgate
+    - archgate check
+```
+
+## Other CI systems
+
+Archgate works with any CI system that can run shell commands. The pattern is always the same:
+
+1. Install: `npm install -g archgate`
+2. Run: `archgate check`
+3. Check the exit code (0 = pass, 1 = violations, 2 = error)
+
+For systems that support annotations (Azure DevOps, Buildkite, etc.), use `--json` to parse the output and emit annotations in the format your CI expects.
+
+## Pre-commit hooks
+
+You can also run Archgate as a local pre-commit hook. Add this to `.git/hooks/pre-commit` (or use a hook manager like Husky or Lefthook):
+
+```bash
+#!/bin/sh
+archgate check --staged
+```
+
+The `--staged` flag ensures only files about to be committed are checked, keeping the hook fast.
+
+## Verbose output
+
+Use `--verbose` to see passing rules and timing information alongside failures. This is helpful for debugging slow checks or confirming that rules are running as expected:
+
+```yaml
+- run: archgate check --verbose
+```

@@ -1,0 +1,96 @@
+---
+title: Domains
+description: Categorize ADRs by domain for organized governance.
+---
+
+Domains are categories that group related ADRs together. Every ADR belongs to exactly one domain, and the domain determines the prefix used in the ADR's identifier.
+
+## Built-in Domains
+
+Archgate ships with five built-in domains. Each has a short prefix that appears at the start of every ADR ID in that domain.
+
+| Domain         | Prefix | Use for                                             |
+| -------------- | ------ | --------------------------------------------------- |
+| `backend`      | `BE`   | Server-side logic, APIs, databases, services        |
+| `frontend`     | `FE`   | UI components, client-side logic, styling patterns  |
+| `data`         | `DATA` | Data models, schemas, pipelines, storage strategies |
+| `architecture` | `ARCH` | Cross-cutting architectural decisions               |
+| `general`      | `GEN`  | General project conventions and workflows           |
+
+For example, the third backend ADR would have the ID `BE-003`, and a first frontend ADR would be `FE-001`.
+
+## How Domains Are Used
+
+### ADR Identification
+
+The domain prefix is baked into every ADR's `id` field. When you run `archgate adr create` and select a domain, the CLI automatically determines the next available sequence number for that domain's prefix. An architecture domain with two existing ADRs (`ARCH-001`, `ARCH-002`) would assign `ARCH-003` to the next one.
+
+The file name mirrors the ID:
+
+```
+ARCH-003-dependency-policy.md
+ARCH-003-dependency-policy.rules.ts
+```
+
+### Filtering
+
+The `archgate adr list` command supports a `--domain` flag to show only ADRs from a specific domain:
+
+```bash
+archgate adr list --domain backend
+archgate adr list --domain architecture
+```
+
+This is useful in large projects where dozens of ADRs span multiple concerns. Filtering by domain lets you focus on the decisions relevant to your current work.
+
+### AI Agent Context
+
+The MCP server's `review_context` tool groups changed files by domain when providing context to AI agents. When an agent is about to write code, it receives only the ADR briefings relevant to the domains its changes touch, rather than the full set of all ADRs. This scoping reduces noise and helps agents focus on the constraints that actually apply.
+
+### Scoped Validation
+
+While domains themselves do not restrict which files a rule can check (that is the job of the `files` glob in the ADR frontmatter), domains provide a logical grouping that helps teams organize their governance. A backend team can review all `BE-*` ADRs to understand their constraints, while the frontend team focuses on `FE-*`.
+
+## When to Use Which Domain
+
+### backend
+
+Use for decisions about server-side code: API design patterns, database access conventions, authentication flows, service-to-service communication, queue handling, and background job patterns.
+
+**Example ADRs:** API response envelope format, database migration strategy, error code taxonomy.
+
+### frontend
+
+Use for decisions about client-side code: component structure, state management patterns, styling approaches, accessibility requirements, and build tooling choices.
+
+**Example ADRs:** Component file structure, CSS methodology, form validation pattern.
+
+### data
+
+Use for decisions about data: schema design, data pipeline conventions, storage engine choices, serialization formats, and data validation strategies.
+
+**Example ADRs:** Event schema versioning, database naming conventions, data retention policy.
+
+### architecture
+
+Use for cross-cutting decisions that span multiple domains or affect the project's overall structure. These are decisions that backend, frontend, and data teams all need to follow.
+
+**Example ADRs:** Command structure, error handling conventions, dependency management policy, testing standards.
+
+### general
+
+Use for project-wide conventions that do not fit neatly into a technical domain: code review processes, commit message formats, documentation standards, and onboarding practices.
+
+**Example ADRs:** Commit message format, PR description template, documentation requirements.
+
+## Choosing the Right Domain
+
+When deciding which domain an ADR belongs to, consider who needs to follow it:
+
+- If only backend developers need to follow it, use `backend`.
+- If only frontend developers need to follow it, use `frontend`.
+- If it concerns data modeling or pipelines specifically, use `data`.
+- If it applies across multiple technical domains, use `architecture`.
+- If it is a process or convention rather than a technical decision, use `general`.
+
+When in doubt between `architecture` and a specific domain, prefer the more specific domain. Reserve `architecture` for decisions that genuinely cut across boundaries.

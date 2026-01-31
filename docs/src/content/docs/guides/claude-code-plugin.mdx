@@ -1,0 +1,96 @@
+---
+title: Claude Code Plugin
+description: Give AI agents a full governance workflow with the Archgate Claude Code plugin.
+---
+
+The Archgate Claude Code plugin gives AI agents working in [Claude Code](https://claude.ai/code) a structured governance workflow. Instead of relying on prompt instructions that drift over time, agents read your ADRs directly through the MCP server and validate their own code against your rules.
+
+## What the plugin provides
+
+The plugin adds role-based skills to Claude Code. Each skill encapsulates a specific part of the governance workflow, so agents follow the same process every time -- read decisions before coding, validate after, and capture new patterns for the team.
+
+### Skills included
+
+| Skill                      | Purpose                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `archgate:developer`       | General development agent that reads ADRs before coding and validates after           |
+| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+
+## Installation
+
+Install the plugin from the `archgate/claude-code-plugin` GitHub repository. Follow the instructions in the repository README to add it to your Claude Code configuration.
+
+## Initial setup with onboard
+
+After installation, run the `archgate:onboard` skill in your project once. This skill:
+
+1. Explores your codebase structure (directories, key files, package configuration)
+2. Interviews you about your team's conventions, constraints, and architectural decisions
+3. Creates an initial set of ADRs based on your responses
+4. Sets up the `.archgate/` directory with your first rules
+
+The onboard skill is designed to run once per project. After onboarding, the other skills handle day-to-day development.
+
+## How it works in practice
+
+The plugin follows a structured workflow for every coding task:
+
+### 1. Read applicable ADRs
+
+When the developer gives a coding task, the agent reads all ADRs that apply to the files being changed. The MCP server provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+
+The agent does not write code until it has read the applicable ADRs. This is enforced by the `archgate:developer` skill.
+
+### 2. Write code following ADR constraints
+
+The agent writes code that complies with the constraints from the ADRs. The Do's and Don'ts sections serve as concrete guardrails -- the agent references them while coding.
+
+### 3. Validate changes
+
+After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
+
+### 4. Architect review
+
+The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch. The architect skill reviews the full context of the changes against all applicable ADRs.
+
+### 5. Capture learnings
+
+The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing. The quality manager may propose new ADRs or updates to existing ones when recurring conventions emerge.
+
+## ADR-driven refusal
+
+When the agent encounters a task that would require violating an ADR, it refuses and explains which ADR would be violated. It then suggests how to achieve the same goal while staying compliant.
+
+For example, if a developer asks the agent to add `chalk` as a dependency in a project governed by ARCH-006 (dependency policy), the agent will:
+
+1. Refuse, citing ARCH-006 and the approved dependency list
+2. Suggest using `styleText()` from `node:util` instead
+3. Offer to implement the task using the compliant alternative
+
+This behavior is consistent regardless of how the developer phrases the request. ADRs are treated as mandatory constraints, not suggestions.
+
+## MCP server integration
+
+The plugin communicates with your project's ADRs through the Archgate MCP server. The server provides:
+
+- **ADR content** -- full text of any ADR, accessible by ID
+- **Review context** -- condensed briefings of all ADRs applicable to a set of changed files
+- **Rule checking** -- execution of automated rules with violation reporting
+- **ADR listing** -- inventory of all ADRs in the project with metadata
+
+The MCP server runs locally and reads directly from your `.archgate/adrs/` directory. No data leaves your machine.
+
+## When to use each skill
+
+| Scenario                                     | Skill to use               |
+| -------------------------------------------- | -------------------------- |
+| Starting a new project with Archgate         | `archgate:onboard`         |
+| Day-to-day coding tasks                      | `archgate:developer`       |
+| Reviewing a PR for ADR compliance            | `archgate:architect`       |
+| Noticing a recurring pattern worth codifying | `archgate:quality-manager` |
+| Creating or editing an ADR                   | `archgate:adr-author`      |
+
+The `archgate:developer` skill orchestrates the others automatically -- it invokes `archgate:architect` and `archgate:quality-manager` as part of its workflow. Most of the time, you only need to interact with the developer skill directly.

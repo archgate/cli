@@ -30,3 +30,6 @@ coverage
 
 # Platform package binaries (injected by CI)
 packages/*/bin/archgate
+
+# Docs site build artifacts
+docs/.astro/

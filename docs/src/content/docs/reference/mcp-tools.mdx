@@ -1,0 +1,189 @@
+---
+title: MCP Tools
+description: Reference for all MCP tools and resources exposed by the Archgate server.
+---
+
+The Archgate MCP server exposes tools and resources that AI coding agents use to read ADRs, validate code against rules, and access review context. Start the server with `archgate mcp`.
+
+## Tools
+
+### check
+
+Run ADR compliance checks against the codebase.
+
+**Parameters:**
+
+| Name     | Type    | Required | Description                     |
+| -------- | ------- | -------- | ------------------------------- |
+| `adrId`  | string  | No       | Only check a specific ADR by ID |
+| `staged` | boolean | No       | Only check git-staged files     |
+
+**Returns** a JSON object with check results:
+
+```json
+{
+  "pass": false,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "results": [
+    {
+      "adrId": "ARCH-001",
+      "ruleId": "register-function-export",
+      "violations": [
+        {
+          "message": "Command file must export a register*Command function",
+          "file": "src/commands/broken.ts",
+          "severity": "error"
+        }
+      ]
+    }
+  ],
+  "durationMs": 42
+}
+```
+
+When no rules are found, returns `{ "pass": true, "total": 0, "results": [] }`.
+
+Violations are capped at 20 per rule to keep responses concise.
+
+---
+
+### list_adrs
+
+List all ADRs in the project with their metadata.
+
+**Parameters:**
+
+| Name     | Type   | Required | Description                                                                 |
+| -------- | ------ | -------- | --------------------------------------------------------------------------- |
+| `domain` | string | No       | Filter by domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+
+**Returns** a JSON array of ADR objects:
+
+```json
+[
+  {
+    "id": "ARCH-001",
+    "title": "Command Structure",
+    "domain": "architecture",
+    "rules": true
+  },
+  {
+    "id": "BE-001",
+    "title": "API Response Envelope",
+    "domain": "backend",
+    "rules": true
+  }
+]
+```
+
+---
+
+### review_context
+
+Get changed files grouped by domain with applicable ADR briefings. This is the primary tool agents use before writing code -- it provides a condensed view of all relevant ADR decisions and constraints without reading each ADR file individually.
+
+**Parameters:**
+
+| Name        | Type    | Required | Description                                                                           |
+| ----------- | ------- | -------- | ------------------------------------------------------------------------------------- |
+| `staged`    | boolean | No       | When `true`, only include git-staged files. Default: `false` (all changed files).     |
+| `runChecks` | boolean | No       | When `true`, run compliance checks and include results. Default: `false`.             |
+| `domain`    | string  | No       | Filter to a single domain (`backend`, `frontend`, `data`, `architecture`, `general`). |
+
+**Returns** a JSON object with domain-grouped briefings. Each briefing includes the **Decision** and **Do's and Don'ts** sections extracted from the applicable ADR, along with the list of changed files in that domain.
+
+When `runChecks` is `true`, the response also includes the check results for each domain.
+
+---
+
+### claude_code_session_context
+
+Read the current Claude Code session transcript for the project. Useful for recovering session context that may have been compacted from the conversation.
+
+**Parameters:**
+
+| Name         | Type   | Required | Default | Description                                                                    |
+| ------------ | ------ | -------- | ------- | ------------------------------------------------------------------------------ |
+| `maxEntries` | number | No       | 200     | Maximum number of relevant entries to return. Returns the most recent entries. |
+
+**Returns** a JSON object with session metadata and filtered transcript:
+
+```json
+{
+  "sessionFile": "abc123.jsonl",
+  "totalEntries": 450,
+  "relevantEntries": 180,
+  "transcript": [
+    {
+      "type": "user",
+      "role": "user",
+      "contentPreview": "Add a dark mode toggle..."
+    },
+    {
+      "type": "assistant",
+      "role": "assistant",
+      "contentPreview": "[tool_use: edit_file] | Updated styles..."
+    }
+  ]
+}
+```
+
+Only `user` and `assistant` message types are included. Content previews are truncated to 500 characters for user messages and 300 characters per content block for assistant messages.
+
+---
+
+### cursor_session_context
+
+Read Cursor agent session transcripts for the project. Works the same way as `claude_code_session_context` but reads from Cursor's `agent-transcripts` directory.
+
+**Parameters:**
+
+| Name         | Type   | Required | Default | Description                                                               |
+| ------------ | ------ | -------- | ------- | ------------------------------------------------------------------------- |
+| `maxEntries` | number | No       | 200     | Maximum number of relevant entries to return.                             |
+| `sessionId`  | string | No       | --      | Specific session UUID to read. If omitted, reads the most recent session. |
+
+**Returns** a JSON object with session metadata and filtered transcript:
+
+```json
+{
+  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "sessionFile": "a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl",
+  "totalEntries": 320,
+  "relevantEntries": 140,
+  "transcript": [
+    {
+      "role": "user",
+      "contentPreview": "Fix the build error..."
+    },
+    {
+      "role": "assistant",
+      "contentPreview": "The error is caused by..."
+    }
+  ]
+}
+```
+
+If the specified `sessionId` is not found, the response includes a list of available session IDs.
+
+---
+
+## Resources
+
+### adr://\{id\}
+
+Read the full content of an ADR by its ID. Returns the complete markdown including YAML frontmatter and body.
+
+**URI format:** `adr://\{id\}` where `\{id\}` is the ADR identifier (e.g., `ARCH-001`, `BE-003`).
+
+**Example:**
+
+Requesting `adr://ARCH-001` returns the full markdown content of the ARCH-001 ADR file with MIME type `text/markdown`.
+
+If the requested ADR is not found, the resource returns a plain text message: `ADR ARCH-001 not found`.
