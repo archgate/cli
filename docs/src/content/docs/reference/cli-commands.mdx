@@ -3,21 +3,117 @@ title: CLI Commands
 description: Complete reference for all Archgate CLI commands.
 ---
 
+## Global options
+
+These options are available on all commands:
+
+| Option            | Description                |
+| ----------------- | -------------------------- |
+| `--version`, `-V` | Print the Archgate version |
+| `--help`, `-h`    | Show help for any command  |
+
+```bash
+archgate --version
+archgate check --help
+```
+
+---
+
+## archgate login
+
+Authenticate with GitHub to access Archgate editor plugins.
+
+```bash
+archgate login
+```
+
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores both in `~/.archgate/credentials`.
+
+Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, mcp, etc.) works without login.
+
+:::tip[Plugin beta]
+Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://plugins.archgate.dev) to get access.
+:::
+
+### Subcommands
+
+| Subcommand               | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `archgate login`         | Authenticate (skips if already logged in) |
+| `archgate login status`  | Show current authentication status        |
+| `archgate login logout`  | Remove stored credentials                 |
+| `archgate login refresh` | Re-authenticate and claim a new token     |
+
+### Examples
+
+Log in for the first time:
+
+```bash
+archgate login
+```
+
+```
+Authenticating with GitHub...
+
+Open https://github.com/login/device in your browser
+and enter the code: ABCD-1234
+
+Waiting for authorization...
+GitHub user: yourname
+Claiming archgate plugin token...
+
+Authenticated as yourname. Plugin access is now available.
+Run `archgate init` to set up a project with the archgate plugin.
+```
+
+Check login status:
+
+```bash
+archgate login status
+```
+
+```
+Logged in as yourname (since 2026-02-28)
+```
+
+Log out:
+
+```bash
+archgate login logout
+```
+
+Re-authenticate:
+
+```bash
+archgate login refresh
+```
+
+---
+
 ## archgate init
 
 Initialize Archgate governance in the current project.
 
 ```bash
-archgate init [--editor <editor>]
+archgate init [options]
 ```
 
-Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows.
+Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
 
 ### Options
 
-| Option              | Default  | Description                                          |
-| ------------------- | -------- | ---------------------------------------------------- |
-| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`) |
+| Option              | Default  | Description                                                          |
+| ------------------- | -------- | -------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`)                 |
+| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`) |
+
+When `--install-plugin` is passed, the CLI installs the Archgate plugin for the selected editor. If the flag is omitted, the CLI auto-detects: it installs the plugin when valid credentials exist (from a previous `archgate login`) and skips otherwise.
+
+### Plugin installation behavior
+
+**Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
+
+**Cursor:** The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory.
 
 ### Output
 
@@ -26,6 +122,8 @@ Initialized Archgate governance in /path/to/project
   adrs/          - architecture decision records
   lint/          - linter-specific rules
   .claude/       - Claude Code settings configured
+
+Archgate plugin installed for Claude Code.
 ```
 
 When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
@@ -117,17 +215,23 @@ When `--json` is used, the output is a single JSON object:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "truncated": false,
   "results": [
     {
       "adrId": "ARCH-001",
       "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
       "violations": [
         {
           "message": "Command file must export a register*Command function",
           "file": "src/commands/broken.ts",
           "severity": "error"
         }
-      ]
+      ],
+      "durationMs": 12
     }
   ],
   "durationMs": 42
@@ -295,7 +399,7 @@ The server starts even when no `.archgate/` directory is found. In that case, to
 
 ### Configuration
 
-Add to your Claude Code MCP configuration (`.claude/settings.json`):
+Add to your project's MCP configuration (`.mcp.json` at the project root):
 
 ```json
 {
@@ -307,6 +411,8 @@ Add to your Claude Code MCP configuration (`.claude/settings.json`):
   }
 }
 ```
+
+Running `archgate init` creates this configuration automatically for your editor.
 
 ---
 

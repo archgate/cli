@@ -6,6 +6,7 @@
 
 [![License: FSL-1.1-ALv2](https://img.shields.io/badge/License-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
 [![Release](https://github.com/archgate/cli/actions/workflows/release.yml/badge.svg)](https://github.com/archgate/cli/actions/workflows/release.yml)
+[![Docs](https://img.shields.io/badge/docs-cli.archgate.dev-blue)](https://cli.archgate.dev)
 
 </div>
 
@@ -312,6 +313,10 @@ Once installed, run `archgate:onboard` in Claude Code to initialize governance f
 The Cursor plugin bundle is downloaded from [plugins.archgate.dev](https://plugins.archgate.dev) and extracted into `.cursor/` automatically.
 
 Once installed, run the `ag-onboard` skill in Cursor to initialize governance for your project.
+
+## Documentation
+
+Full documentation is available at **[cli.archgate.dev](https://cli.archgate.dev)** -- including guides for writing ADRs, writing rules, CI integration, editor plugin setup, and the complete CLI and MCP reference.
 
 ## Contributing
 

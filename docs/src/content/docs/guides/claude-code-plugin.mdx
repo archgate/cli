@@ -21,7 +21,40 @@ The plugin adds role-based skills to Claude Code. Each skill encapsulates a spec
 
 ## Installation
 
-Install the plugin from the `archgate/claude-code-plugin` GitHub repository. Follow the instructions in the repository README to add it to your Claude Code configuration.
+:::note[Beta access required]
+The Claude Code plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+:::
+
+### 1. Log in with GitHub
+
+Authenticate with your GitHub account to obtain a plugin token:
+
+```bash
+archgate login
+```
+
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+
+### 2. Initialize your project with the plugin
+
+Run `archgate init` in your project. If you are already logged in, the plugin is installed automatically:
+
+```bash
+archgate init
+```
+
+To explicitly request plugin installation:
+
+```bash
+archgate init --install-plugin
+```
+
+If the `claude` CLI is on your PATH, the plugin is installed automatically via:
+
+1. `claude plugin marketplace add` (registers the Archgate marketplace)
+2. `claude plugin install archgate@archgate` (installs the plugin)
+
+If the `claude` CLI is not found, the command prints the manual commands for you to run.
 
 ## Initial setup with onboard
 
