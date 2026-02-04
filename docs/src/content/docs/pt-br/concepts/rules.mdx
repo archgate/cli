@@ -1,0 +1,166 @@
+---
+title: Regras
+description: Como o sistema de regras do Archgate transforma decisões de ADR em verificações automatizadas.
+---
+
+Regras são o lado executável de um ADR. Elas vivem em arquivos `.rules.ts` complementares ao lado do documento ADR e exportam verificações automatizadas via a função `defineRules()`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true`, importa seu arquivo de regras complementar e executa cada verificação contra seu codebase.
+
+## Definindo Regras
+
+Um arquivo de regras é um módulo TypeScript que exporta por padrão o resultado de `defineRules()`. Importe a função do pacote `archgate/rules`:
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "rule-key": {
+    description: "What this rule checks",
+    severity: "error",
+    async check(ctx) {
+      // Inspect files and report violations
+    },
+  },
+});
+```
+
+Cada chave no objeto passado para `defineRules()` se torna o ID da regra. O identificador completo da regra mostrado na saída do check combina o ID do ADR e a chave da regra, por exemplo `ARCH-004/no-barrel-files`.
+
+## Estrutura da Regra
+
+Toda regra tem três partes:
+
+| Propriedade   | Tipo     | Obrigatório | Descrição                                     |
+| ------------- | -------- | ----------- | --------------------------------------------- |
+| `description` | string   | Sim         | Um resumo curto do que a regra verifica       |
+| `severity`    | string   | Não         | `"error"` (padrão), `"warning"`, ou `"info"`  |
+| `check`       | function | Sim         | Função assíncrona que recebe um `RuleContext` |
+
+### Níveis de Severidade
+
+A severidade determina o que acontece quando uma regra encontra um problema:
+
+| Severidade | Exit Code | Efeito                                       |
+| ---------- | --------- | -------------------------------------------- |
+| `error`    | 1         | A violação é reportada e a verificação falha |
+| `warning`  | 0         | O aviso é registrado mas a verificação passa |
+| `info`     | 0         | Mensagem informativa, a verificação passa    |
+
+Quando `archgate check` é executado, exit code 1 significa que pelo menos uma violação de severidade `error` foi encontrada. Exit code 0 significa que não houve erros (avisos e mensagens informativas são registrados mas não bloqueiam).
+
+## O RuleContext
+
+A função `check` recebe um objeto `RuleContext` que fornece tudo que uma regra precisa para inspecionar o codebase e reportar descobertas.
+
+### Informações do Projeto
+
+| Propriedade        | Tipo       | Descrição                                                                                              |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------ |
+| `ctx.projectRoot`  | `string`   | Caminho absoluto para o diretório raiz do projeto                                                      |
+| `ctx.scopedFiles`  | `string[]` | Arquivos que correspondem aos globs `files` do ADR, ou todos os arquivos se não houver globs definidos |
+| `ctx.changedFiles` | `string[]` | Arquivos alterados no git (preenchido ao executar com `--staged`)                                      |
+
+### Operações de Arquivo
+
+| Método               | Retorno             | Descrição                                           |
+| -------------------- | ------------------- | --------------------------------------------------- |
+| `ctx.glob(pattern)`  | `Promise<string[]>` | Encontra arquivos que correspondem a um padrão glob |
+| `ctx.readFile(path)` | `Promise<string>`   | Lê o conteúdo de um arquivo como string             |
+| `ctx.readJSON(path)` | `Promise<unknown>`  | Lê e faz parse de um arquivo JSON                   |
+
+### Operações de Busca
+
+| Método                             | Retorno                | Descrição                                              |
+| ---------------------------------- | ---------------------- | ------------------------------------------------------ |
+| `ctx.grep(file, pattern)`          | `Promise<GrepMatch[]>` | Busca em um único arquivo com um padrão regex          |
+| `ctx.grepFiles(pattern, fileGlob)` | `Promise<GrepMatch[]>` | Busca em múltiplos arquivos que correspondem a um glob |
+
+Tanto `grep` quanto `grepFiles` retornam um array de objetos `GrepMatch`:
+
+```typescript
+interface GrepMatch {
+  file: string; // Relative path from project root
+  line: number; // 1-based line number
+  column: number; // 1-based column number
+  content: string; // The full line content
+}
+```
+
+### Relatórios
+
+O objeto `ctx.report` fornece três métodos para reportar descobertas:
+
+```typescript
+ctx.report.violation({ message, file?, line?, fix? });
+ctx.report.warning({ message, file?, line?, fix? });
+ctx.report.info({ message, file?, line?, fix? });
+```
+
+Cada método aceita um objeto com:
+
+| Propriedade | Tipo   | Obrigatório | Descrição                                |
+| ----------- | ------ | ----------- | ---------------------------------------- |
+| `message`   | string | Sim         | Qual é o problema                        |
+| `file`      | string | Não         | Caminho relativo do arquivo com problema |
+| `line`      | number | Não         | Número da linha onde o problema ocorre   |
+| `fix`       | string | Não         | Sugestão de correção para a violação     |
+
+Use `ctx.report.violation()` para problemas que devem bloquear merges. Use `ctx.report.warning()` para questões que valem ser sinalizadas mas não bloqueiam. Use `ctx.report.info()` para saída puramente informativa.
+
+## Timeout de Regra
+
+Cada regra tem um timeout de execução de 30 segundos. Se a função `check` de uma regra não completar dentro de 30 segundos, ela é terminada e reportada como erro. Isso impede que regras descontroladas bloqueiem o pipeline indefinidamente.
+
+## Exemplo Completo
+
+Aqui está um arquivo de regras completo que verifica um padrão de import proibido. Ele garante que nenhum arquivo fonte importe diretamente de `node:fs` (o projeto requer o uso de um wrapper).
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "no-direct-fs-import": {
+    description:
+      "Source files must not import directly from node:fs; use the fs wrapper",
+    severity: "error",
+    async check(ctx) {
+      const sourceFiles = ctx.scopedFiles.filter(
+        (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
+      );
+
+      for (const file of sourceFiles) {
+        const matches = await ctx.grep(file, /from ["']node:fs["']/);
+
+        for (const match of matches) {
+          ctx.report.violation({
+            message: `Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.`,
+            file: match.file,
+            line: match.line,
+            fix: 'Replace the import with: import { readFile, writeFile } from "../helpers/fs"',
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+Quando essa regra é executada contra um arquivo contendo `import { readFileSync } from "node:fs"`, a saída se parece com:
+
+```
+ARCH-007/no-direct-fs-import  ERROR
+  src/services/config.ts:3 — Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
+  Fix: Replace the import with: import { readFile, writeFile } from "../helpers/fs"
+```
+
+## Modelo de Execução
+
+As regras são executadas com as seguintes garantias:
+
+- **Paralelo entre ADRs** -- Regras de diferentes ADRs são executadas concorrentemente para maior velocidade.
+- **Sequencial dentro de um ADR** -- Regras pertencentes ao mesmo ADR são executadas uma após a outra, para que regras anteriores possam estabelecer contexto para as posteriores.
+- **Arquivos no escopo são pré-resolvidos** -- O array `ctx.scopedFiles` é preenchido antes que sua função `check` seja chamada, com base nos globs `files` do ADR.
+- **Arquivos alterados para modo staged** -- Ao executar `archgate check --staged`, `ctx.changedFiles` contém apenas os arquivos staged no git, permitindo que regras pulem arquivos não alterados para feedback mais rápido.
+
+:::tip[Execute verificações automaticamente com plugins de editor]
+Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) executam `archgate check` automaticamente após cada alteração de código. O agente lê os ADRs aplicáveis, escreve código em conformidade e valida -- sem necessidade de executar comandos de verificação manualmente. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
+:::
