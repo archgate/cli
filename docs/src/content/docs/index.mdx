@@ -16,6 +16,7 @@ hero:
 ---
 
 import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import CodeShowcase from "../../components/CodeShowcase.astro";
 
 ## How it works
 
@@ -25,16 +26,10 @@ Archgate has two layers that work together:
 
 2. **ADRs as rules** — Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
 
-```
-.archgate/
-  adrs/
-    ARCH-001-command-structure.md        # The decision (human + AI readable)
-    ARCH-001-command-structure.rules.ts  # The checks (machine executable)
-    ARCH-002-error-handling.md
-    ARCH-002-error-handling.rules.ts
-  lint/
-    archgate.config.ts                   # Archgate configuration
-```
+<CodeShowcase
+  heading="ADRs that enforce themselves"
+  subtext="Write a decision in Markdown. Add rules in TypeScript. The CLI checks compliance automatically."
+/>
 
 When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file, and reports any violations. Exit code 0 means your code complies. Exit code 1 means it does not.
 
