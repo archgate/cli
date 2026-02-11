@@ -1,3 +1,14 @@
+## [0.8.0](https://github.com/archgate/cli/compare/v0.7.0...v0.8.0) (2026-03-03)
+
+### Features
+
+* **docs:** port terminal/editor chrome from marketing site ([#34](https://github.com/archgate/cli/issues/34)) ([9d11476](https://github.com/archgate/cli/commit/9d11476db1a773b2169b0fcf89210c16deddded0)), closes [#1a1a1](https://github.com/archgate/cli/issues/1a1a1) [#0f0f0](https://github.com/archgate/cli/issues/0f0f0) [#f8f9](https://github.com/archgate/cli/issues/f8f9) [#eef0f2](https://github.com/archgate/cli/issues/eef0f2)
+
+### Bug Fixes
+
+* add .gitkeep to archgate-win32-x64 bin directory ([#36](https://github.com/archgate/cli/issues/36)) ([3b0c3c3](https://github.com/archgate/cli/commit/3b0c3c332efa87a975387e1e803dff0f0834c6e8))
+* **ci:** use workflow-scoped concurrency groups for PR pipelines ([#37](https://github.com/archgate/cli/issues/37)) ([0b1030c](https://github.com/archgate/cli/commit/0b1030cfae6c1f9010aedeb62cc36ba60f4e7d51))
+
 ## [0.7.0](https://github.com/archgate/cli/compare/v0.6.0...v0.7.0) (2026-03-01)
 
 ### Features
