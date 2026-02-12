@@ -6,9 +6,13 @@ on:
     paths:
       - "package.json"
       - ".github/workflows/update-lock.yaml"
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
 jobs:
   update-lock:
     name: Update Package Lock
