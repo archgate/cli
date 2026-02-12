@@ -134,7 +134,8 @@ jobs:
           workflow: release
           github-token: ${{ steps.generate_token.outputs.token }}
           branch: release
-          npm-token: ${{ secrets.NPM_TOKEN }}
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
       - name: Save Bun Cache
         uses: actions/cache/save@v4
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
