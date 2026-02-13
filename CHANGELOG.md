@@ -1,3 +1,10 @@
+## [0.8.1](https://github.com/archgate/cli/compare/v0.8.0...v0.8.1) (2026-03-03)
+
+### Bug Fixes
+
+* **ci:** add explicit permissions to workflows ([#38](https://github.com/archgate/cli/issues/38)) ([eddf428](https://github.com/archgate/cli/commit/eddf428ecd02516518482b2cb332d9b5a6c52675)), closes [#1](https://github.com/archgate/cli/issues/1) [#2](https://github.com/archgate/cli/issues/2) [#3](https://github.com/archgate/cli/issues/3)
+* **ci:** use npm trusted publishing (OIDC) instead of secret tokens ([#40](https://github.com/archgate/cli/issues/40)) ([786711f](https://github.com/archgate/cli/commit/786711fa8d0339a06d1077005991c3c213bbe657))
+
 ## [0.8.0](https://github.com/archgate/cli/compare/v0.7.0...v0.8.0) (2026-03-03)
 
 ### Features
