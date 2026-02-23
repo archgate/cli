@@ -1,3 +1,9 @@
+## [0.2.2](https://github.com/archgate/cli/compare/v0.2.1...v0.2.2) (2026-02-23)
+
+### Bug Fixes
+
+* use NPM_TOKEN for registry auth alongside --provenance ([8fcd418](https://github.com/archgate/cli/commit/8fcd418a049869995b48265cd307833d1b1c519f))
+
 ## [0.2.1](https://github.com/archgate/cli/compare/v0.2.0...v0.2.1) (2026-02-23)
 
 ### Bug Fixes
