@@ -1,3 +1,10 @@
+## [0.2.1](https://github.com/archgate/cli/compare/v0.2.0...v0.2.1) (2026-02-23)
+
+### Bug Fixes
+
+* use NPM_TOKEN secret instead of OIDC for npm publish ([347910a](https://github.com/archgate/cli/commit/347910af7f0f43ad9f8283335704ddd6cce58f98))
+* use OIDC provenance for platform packages, NPM_TOKEN for main package ([34303cb](https://github.com/archgate/cli/commit/34303cb01c38b26c20920d5b9db81a3dceec34ef))
+
 ## [0.2.0](https://github.com/archgate/cli/compare/v0.1.1...v0.2.0) (2026-02-23)
 
 ### Features
