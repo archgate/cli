@@ -11,6 +11,7 @@ import { registerCleanCommand } from "./commands/clean";
 import { registerCheckCommand } from "./commands/check";
 import { registerMcpCommand } from "./commands/mcp";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
+import { logError } from "./helpers/log";
 
 if (typeof Bun === "undefined")
   throw new Error(
@@ -25,21 +26,28 @@ if (!["darwin", "linux"].includes(process.platform))
 
 createPathIfNotExists(paths.cacheFolder);
 
-await installGit();
+async function main() {
+  await installGit();
 
-const program = new Command()
-  .name("archgate")
-  .version(packageJson.version)
-  .description("AI governance for software development");
+  const program = new Command()
+    .name("archgate")
+    .version(packageJson.version)
+    .description("AI governance for software development");
 
-registerInitCommand(program);
-registerAdrCommand(program);
-registerCheckCommand(program);
-registerMcpCommand(program);
-registerUpgradeCommand(program);
-registerCleanCommand(program);
+  registerInitCommand(program);
+  registerAdrCommand(program);
+  registerCheckCommand(program);
+  registerMcpCommand(program);
+  registerUpgradeCommand(program);
+  registerCleanCommand(program);
 
-const updateCheckPromise = checkForUpdatesIfNeeded(packageJson.version);
-await program.parseAsync(process.argv);
-const notice = await updateCheckPromise;
-if (notice) console.log(notice);
+  const updateCheckPromise = checkForUpdatesIfNeeded(packageJson.version);
+  await program.parseAsync(process.argv);
+  const notice = await updateCheckPromise;
+  if (notice) console.log(notice);
+}
+
+main().catch((err: unknown) => {
+  logError(String(err));
+  process.exit(2);
+});
