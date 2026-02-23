@@ -5,11 +5,15 @@
   "readme": "README.md",
   "license": "FSL-1.1-ALv2",
   "homepage": "https://archgate.dev",
+  "bin": {
+    "archgate": "bin/archgate.cjs"
+  },
   "exports": {
     "./rules": "./src/formats/rules.ts"
   },
   "files": [
-    "src/formats/rules.ts"
+    "src/formats/rules.ts",
+    "bin/archgate.cjs"
   ],
   "author": {
     "name": "Archgate",
@@ -43,9 +47,6 @@
     "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check",
     "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check && bun run build:check",
     "commit": "cz",
-    "build": "bun run scripts/build.ts",
-    "build:darwin": "bun run scripts/build.ts --target darwin-arm64",
-    "build:linux": "bun run scripts/build.ts --target linux-x64",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
   },
   "type": "module",
@@ -69,5 +70,9 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "optionalDependencies": {
+    "archgate-darwin-arm64": ">=0.1.1",
+    "archgate-linux-x64": ">=0.1.1"
   }
 }
