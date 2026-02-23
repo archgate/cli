@@ -19,6 +19,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Context check
     outputs:
       continue: ${{ steps.check.outputs.continue }}
@@ -56,6 +57,7 @@ jobs:
           branch: release
   pull-request:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Pull request
     needs: check
     if: needs.check.outputs.workflow == 'pull-request'
@@ -91,6 +93,7 @@ jobs:
           branch: release
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     name: Release
     needs: check
     if: needs.check.outputs.workflow == 'release'
