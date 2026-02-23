@@ -12,8 +12,9 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate
+    name: Validate Code
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout code

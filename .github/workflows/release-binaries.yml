@@ -15,6 +15,7 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.artifact }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -70,6 +71,7 @@ jobs:
   update-homebrew:
     name: Update Homebrew tap
     needs: build
+    timeout-minutes: 5
     runs-on: ubuntu-latest
 
     steps:
