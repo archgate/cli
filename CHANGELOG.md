@@ -1,3 +1,9 @@
+## [0.2.5](https://github.com/archgate/cli/compare/v0.2.4...v0.2.5) (2026-02-23)
+
+### Bug Fixes
+
+* **upgrade:** switch from GitHub API to npm registry for version checks and install ([254a28b](https://github.com/archgate/cli/commit/254a28b25dd07f44dc72fc93eb5a5bb1009b13e2))
+
 ## [0.2.4](https://github.com/archgate/cli/compare/v0.2.3...v0.2.4) (2026-02-23)
 
 ### Bug Fixes
