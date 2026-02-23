@@ -1,0 +1,19 @@
+{
+  "name": "archgate-linux-x64",
+  "version": "0.0.0",
+  "description": "linux x64 binary for archgate",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/archgate"
+  ],
+  "license": "FSL-1.1-ALv2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archgate/cli.git"
+  }
+}

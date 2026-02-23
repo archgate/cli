@@ -27,3 +27,6 @@ coverage
 # Package manager
 *.tgz
 .npm
+
+# Platform package binaries (injected by CI)
+packages/*/bin/archgate
