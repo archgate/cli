@@ -127,7 +127,7 @@ jobs:
       - name: Setup Node.js for npm publish
         uses: actions/setup-node@v4
         with:
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: "https://registry.npmjs.org"
       - name: Release
         uses: TrigenSoftware/simple-release-action@v1
         with:

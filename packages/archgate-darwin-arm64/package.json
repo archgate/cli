@@ -1,0 +1,19 @@
+{
+  "name": "archgate-darwin-arm64",
+  "version": "0.0.0",
+  "description": "darwin arm64 binary for archgate",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "files": [
+    "bin/archgate"
+  ],
+  "license": "FSL-1.1-ALv2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archgate/cli.git"
+  }
+}

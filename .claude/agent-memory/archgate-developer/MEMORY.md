@@ -48,6 +48,14 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 - **`archgate` command = `bun run cli`** — This is the CLI repo itself, so the `archgate` binary is not installed in PATH. Use `bun run cli <command>` (e.g., `bun run cli check`, `bun run cli adr list`) instead of `archgate <command>`. The `bun run cli` script maps to `bun run src/cli.ts`.
 
+## Distribution / Packaging
+
+- **npm binary distribution (Sentry pattern)** — Binaries are distributed as platform npm packages (`archgate-darwin-arm64`, `archgate-linux-x64`) listed as `optionalDependencies` of the main `archgate` package. Main package has a `bin` field pointing to `bin/archgate.cjs`.
+- **`.cjs` extension is mandatory** — Root `package.json` has `"type": "module"`. Any Node.js CJS wrapper script placed at the package root MUST use `.cjs`, not `.js`, or Node.js will attempt to parse it as ESM and fail.
+- **Platform package version placeholder** — Platform `package.json` files start at version `0.0.0`. CI runs `npm version "$VERSION" --no-git-tag-version` inside the package directory before publishing.
+- **Gitignore and prettierignore rules** — `packages/*/bin/archgate` is gitignored (binary injected by CI); `packages/*/bin/` is prettier-ignored (binary files must not be formatted).
+- **npm OIDC publishing** — Uses `id-token: write` permission + `actions/setup-node@v4` with `registry-url: 'https://registry.npmjs.org'`. No `NODE_AUTH_TOKEN` secret needed for OIDC trusted publishing — matches the pattern in `release.yml`.
+
 ## MCP Tools Structure
 
 - MCP tools live in `src/mcp/tools/` — one file per tool (check, list-adrs, review-context, session-context)
