@@ -1,3 +1,9 @@
+## [0.3.0](https://github.com/archgate/cli/compare/v0.2.5...v0.3.0) (2026-02-24)
+
+### Features
+
+* **init:** add Cursor editor integration with MCP and governance rules ([#15](https://github.com/archgate/cli/issues/15)) ([5932530](https://github.com/archgate/cli/commit/593253035da9d764fbc0e7c373fa16b0883284e5))
+
 ## [0.2.5](https://github.com/archgate/cli/compare/v0.2.4...v0.2.5) (2026-02-23)
 
 ### Bug Fixes
