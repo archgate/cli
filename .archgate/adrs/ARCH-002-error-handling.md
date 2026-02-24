@@ -49,7 +49,7 @@ Use three exit codes with clear semantics:
 - Write errors to stderr (via `logError()`), not stdout
 - **MCP tools MUST return structured JSON guidance when prerequisites are missing** — use `noProjectResponse()` from `src/mcp/tools/no-project.ts`, which returns `{ error, message, action }` where `action` directs the AI agent to the recovery step (e.g., "Invoke the `@archgate:onboard` skill")
 - **The MCP server MUST start even when no project is found** — `startStdioServer()` and `createMcpServer()` accept `string | null` for `projectRoot`; the `mcp` command passes `findProjectRoot()` directly (which returns `null`) rather than guarding with `process.exit(1)`
-- **MCP tools that don't depend on `.archgate/` MUST fall back to `process.cwd()`** when `projectRoot` is null — e.g., `session_context` reads from `~/.claude/projects/` and uses `process.cwd()` as its path key when no project is found
+- **MCP tools that don't depend on `.archgate/` MUST fall back to `process.cwd()`** when `projectRoot` is null — e.g., `claude_code_session_context` reads from `~/.claude/projects/` and uses `process.cwd()` as its path key when no project is found
 
 ### Don't
 
@@ -135,7 +135,7 @@ async ({ adrId, staged }) => {
 };
 
 // GOOD: tool that doesn't need .archgate/ falls back to cwd
-// src/mcp/tools/session-context.ts
+// src/mcp/tools/claude-code-session-context.ts
 const encodedPath = encodeProjectPath(projectRoot ?? process.cwd());
 ```
 
