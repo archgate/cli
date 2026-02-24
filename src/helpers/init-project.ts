@@ -3,20 +3,30 @@ import { existsSync, readdirSync } from "node:fs";
 import { createPathIfNotExists, projectPaths } from "./paths";
 import { generateExampleAdr } from "./adr-templates";
 import { configureClaudeSettings } from "./claude-settings";
+import { configureCursorSettings } from "./cursor-settings";
+
+export type EditorTarget = "claude" | "cursor";
+
+export interface InitOptions {
+  editor?: EditorTarget;
+}
 
 export interface InitResult {
   projectRoot: string;
   adrsDir: string;
   lintDir: string;
-  claudeSettingsPath: string;
+  editorSettingsPath: string;
 }
 
 /**
  * Initialize an archgate governance directory. Shared by CLI command and MCP tool.
  * Idempotent — safe to run multiple times. Existing files are overwritten,
- * directories are created only if missing, and Claude settings are merged additively.
+ * directories are created only if missing, and editor settings are merged additively.
  */
-export async function initProject(projectRoot: string): Promise<InitResult> {
+export async function initProject(
+  projectRoot: string,
+  options?: InitOptions
+): Promise<InitResult> {
   const paths = projectPaths(projectRoot);
 
   createPathIfNotExists(paths.adrsDir);
@@ -64,12 +74,16 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
 `
   );
 
-  const claudeSettingsPath = await configureClaudeSettings(projectRoot);
+  const editor = options?.editor ?? "claude";
+  const editorSettingsPath =
+    editor === "cursor"
+      ? await configureCursorSettings(projectRoot)
+      : await configureClaudeSettings(projectRoot);
 
   return {
     projectRoot,
     adrsDir: paths.adrsDir,
     lintDir: paths.lintDir,
-    claudeSettingsPath,
+    editorSettingsPath,
   };
 }

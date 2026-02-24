@@ -66,6 +66,33 @@ describe("initProject", () => {
     );
   });
 
+  test("configures Cursor settings when editor is cursor", async () => {
+    const result = await initProject(tempDir, { editor: "cursor" });
+
+    // Cursor MCP config should exist
+    const mcpConfigPath = join(tempDir, ".cursor", "mcp.json");
+    expect(existsSync(mcpConfigPath)).toBe(true);
+    const mcpContent = JSON.parse(await Bun.file(mcpConfigPath).text());
+    expect(mcpContent.mcpServers.archgate).toBeDefined();
+
+    // Cursor rule should exist
+    const rulePath = join(
+      tempDir,
+      ".cursor",
+      "rules",
+      "archgate-governance.mdc"
+    );
+    expect(existsSync(rulePath)).toBe(true);
+
+    // Claude settings should NOT exist
+    expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
+      false
+    );
+
+    // Result should point to cursor config
+    expect(result.editorSettingsPath).toBe(mcpConfigPath);
+  });
+
   test("skips example ADR when ADRs already exist", async () => {
     // Pre-create .archgate/adrs/ with an existing ADR
     const adrsDir = join(tempDir, ".archgate", "adrs");
@@ -93,9 +120,9 @@ describe("initProject", () => {
     expect(content.enabledMcpjsonServers).toContain("archgate");
   });
 
-  test("includes claudeSettingsPath in result", async () => {
+  test("includes editorSettingsPath in result", async () => {
     const result = await initProject(tempDir);
-    expect(result.claudeSettingsPath).toBe(
+    expect(result.editorSettingsPath).toBe(
       join(tempDir, ".claude", "settings.local.json")
     );
   });
