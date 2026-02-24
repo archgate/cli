@@ -51,16 +51,16 @@ No marketing                   + Blog post / dev.to          + HN / X / conferen
 
 ### Pre-Alpha Checklist
 
-| # | Task | Status | Owner |
-|---|------|--------|-------|
-| 1 | CLI `bun run validate` passes | Done | — |
-| 2 | Binary installs cleanly via `npm install -g archgate` on macOS ARM + Linux x64 | Done | — |
-| 3 | `archgate init` → `archgate check` works on a fresh project | Done | — |
-| 4 | MCP server starts and tools respond correctly | Done | — |
-| 5 | Plugin installs via `plugins.archgate.dev` and skills work | Verify | — |
-| 6 | README covers install + quickstart + rule authoring | Done | — |
-| 7 | CONTRIBUTING.md is accurate | Done | — |
-| 8 | `archgate upgrade` works (fetches latest from npm) | Done | — |
+| #   | Task                                                                           | Status | Owner |
+| --- | ------------------------------------------------------------------------------ | ------ | ----- |
+| 1   | CLI `bun run validate` passes                                                  | Done   | —     |
+| 2   | Binary installs cleanly via `npm install -g archgate` on macOS ARM + Linux x64 | Done   | —     |
+| 3   | `archgate init` → `archgate check` works on a fresh project                    | Done   | —     |
+| 4   | MCP server starts and tools respond correctly                                  | Done   | —     |
+| 5   | Plugin installs via `plugins.archgate.dev` and skills work                     | Verify | —     |
+| 6   | README covers install + quickstart + rule authoring                            | Done   | —     |
+| 7   | CONTRIBUTING.md is accurate                                                    | Done   | —     |
+| 8   | `archgate upgrade` works (fetches latest from npm)                             | Done   | —     |
 
 ### Alpha Actions
 
@@ -80,6 +80,7 @@ No marketing                   + Blog post / dev.to          + HN / X / conferen
 ### Alpha Gate
 
 Advance to Wave 2 when:
+
 - 3+ external users have completed the full loop without hand-holding
 - No critical bugs blocking the core workflow
 - Install → first check takes < 5 minutes for a new user
@@ -95,14 +96,14 @@ Advance to Wave 2 when:
 
 ### Beta Infrastructure
 
-| # | Task | Description | Status |
-|---|------|-------------|--------|
-| B1 | Plugin distribution service | `plugins.archgate.dev` — Bun+Hono virtual git server on Railway with Redis token store | **Done** |
-| B2 | Install script | `curl -fsSL https://archgate.dev/install \| sh` — alternative to npm for teams that don't want Node | Todo |
-| B3 | Landing page | `archgate.dev` — one-page site with value prop, install command, link to docs, beta signup | Todo |
-| B4 | Documentation site | Hosted docs covering: quickstart, ADR authoring guide, rule API reference, CI integration, plugin setup | Todo |
-| B5 | Beta signup flow | Form at `archgate.dev/beta` → admin approval → token generation → email with install instructions (backend token API exists) | Todo |
-| B6 | Feedback channel | GitHub Discussions or Discord for beta users | Todo |
+| #   | Task                        | Description                                                                                                                  | Status   |
+| --- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------- |
+| B1  | Plugin distribution service | `plugins.archgate.dev` — Bun+Hono virtual git server on Railway with Redis token store                                       | **Done** |
+| B2  | Install script              | `curl -fsSL https://archgate.dev/install \| sh` — alternative to npm for teams that don't want Node                          | Todo     |
+| B3  | Landing page                | `archgate.dev` — one-page site with value prop, install command, link to docs, beta signup                                   | Todo     |
+| B4  | Documentation site          | Hosted docs covering: quickstart, ADR authoring guide, rule API reference, CI integration, plugin setup                      | Todo     |
+| B5  | Beta signup flow            | Form at `archgate.dev/beta` → admin approval → token generation → email with install instructions (backend token API exists) | Todo     |
+| B6  | Feedback channel            | GitHub Discussions or Discord for beta users                                                                                 | Todo     |
 
 ### Beta Documentation (B4 Detail)
 
@@ -158,6 +159,7 @@ The documentation site is the single highest-leverage investment for Wave 2. Wit
 ### Beta Gate
 
 Advance to Wave 3 when:
+
 - 20+ beta users are actively using archgate on real projects
 - Plugin distribution service handles 50+ installs without issues
 - Documentation answers 80% of user questions (measure by support volume decrease over time)
@@ -174,12 +176,12 @@ Advance to Wave 3 when:
 
 ### GA Infrastructure
 
-| # | Task | Description | Depends On |
-|---|------|-------------|------------|
-| G1 | Homebrew tap | `brew install archgate/tap/archgate` — auto-updated on release | Binary build pipeline |
-| G2 | Starter ADR packs (npm) | `@archgate/pack-typescript`, `@archgate/pack-testing`, `@archgate/pack-api-design` | Pack infrastructure |
-| G3 | Plugin GA distribution | Move from token-gated beta to public availability (official marketplace or public git repo) | Beta validation |
-| G4 | `archgate pack search` | Search available packs from npm registry | — |
+| #   | Task                    | Description                                                                                 | Depends On            |
+| --- | ----------------------- | ------------------------------------------------------------------------------------------- | --------------------- |
+| G1  | Homebrew tap            | `brew install archgate/tap/archgate` — auto-updated on release                              | Binary build pipeline |
+| G2  | Starter ADR packs (npm) | `@archgate/pack-typescript`, `@archgate/pack-testing`, `@archgate/pack-api-design`          | Pack infrastructure   |
+| G3  | Plugin GA distribution  | Move from token-gated beta to public availability (official marketplace or public git repo) | Beta validation       |
+| G4  | `archgate pack search`  | Search available packs from npm registry                                                    | —                     |
 
 ### GA Marketing
 
@@ -193,27 +195,27 @@ Advance to Wave 3 when:
 
 ## Distribution Channel Summary
 
-| Channel | Wave 1 | Wave 2 | Wave 3 |
-|---------|--------|--------|--------|
-| npm (`npm install -g archgate`) | Yes | Yes | Yes |
-| Install script (`archgate.dev/install`) | No | Yes | Yes |
-| Homebrew (`brew install archgate/tap/archgate`) | No | No | Yes |
-| Plugin (token service at `plugins.archgate.dev`) | Yes | Yes | Yes |
-| Plugin (public/marketplace) | No | No | Yes |
+| Channel                                          | Wave 1 | Wave 2 | Wave 3 |
+| ------------------------------------------------ | ------ | ------ | ------ |
+| npm (`npm install -g archgate`)                  | Yes    | Yes    | Yes    |
+| Install script (`archgate.dev/install`)          | No     | Yes    | Yes    |
+| Homebrew (`brew install archgate/tap/archgate`)  | No     | No     | Yes    |
+| Plugin (token service at `plugins.archgate.dev`) | Yes    | Yes    | Yes    |
+| Plugin (public/marketplace)                      | No     | No     | Yes    |
 
 ---
 
 ## Risk Register
 
-| Risk | Impact | Likelihood | Mitigation |
-|------|--------|------------|------------|
-| Binary size (~55-60MB) deters adoption | Medium | Medium | Document why (embedded Bun runtime). Compare to Deno (60-80MB). Install script makes it invisible. |
-| Claude Code plugin API changes break plugin | High | Medium | Pin to stable plugin API. Monitor Claude Code changelog. Keep plugin minimal (markdown skills + MCP config). |
-| Users expect archgate to work with Cursor/Copilot out of the box | Medium | High | MCP server works with any MCP client. Document MCP setup for other tools. Position Claude Code plugin as the reference integration. |
-| ADR format perceived as too heavyweight | High | Medium | Provide `archgate init` templates that are minimal. Show that a useful ADR can be 10 lines of frontmatter + 3 rules. |
-| npm platform package install fails on some systems | Medium | Low | Install script as fallback. Document manual binary download. `archgate upgrade` as self-healing path. |
-| Plugin distribution service downtime | Low | Medium | Service is stateless (embedded files). Railway auto-restarts. Pre-computed responses at startup. Already deployed — monitor uptime. |
-| No traction — people don't see the value | High | Medium | Focus Wave 1 on getting 3 strong testimonials. Demo video showing real violations caught. Quantify: "X violations caught in CI that would have been merged." |
+| Risk                                                             | Impact | Likelihood | Mitigation                                                                                                                                                   |
+| ---------------------------------------------------------------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Binary size (~55-60MB) deters adoption                           | Medium | Medium     | Document why (embedded Bun runtime). Compare to Deno (60-80MB). Install script makes it invisible.                                                           |
+| Claude Code plugin API changes break plugin                      | High   | Medium     | Pin to stable plugin API. Monitor Claude Code changelog. Keep plugin minimal (markdown skills + MCP config).                                                 |
+| Users expect archgate to work with Cursor/Copilot out of the box | Medium | High       | MCP server works with any MCP client. Document MCP setup for other tools. Position Claude Code plugin as the reference integration.                          |
+| ADR format perceived as too heavyweight                          | High   | Medium     | Provide `archgate init` templates that are minimal. Show that a useful ADR can be 10 lines of frontmatter + 3 rules.                                         |
+| npm platform package install fails on some systems               | Medium | Low        | Install script as fallback. Document manual binary download. `archgate upgrade` as self-healing path.                                                        |
+| Plugin distribution service downtime                             | Low    | Medium     | Service is stateless (embedded files). Railway auto-restarts. Pre-computed responses at startup. Already deployed — monitor uptime.                          |
+| No traction — people don't see the value                         | High   | Medium     | Focus Wave 1 on getting 3 strong testimonials. Demo video showing real violations caught. Quantify: "X violations caught in CI that would have been merged." |
 
 ---
 
@@ -221,32 +223,32 @@ Advance to Wave 3 when:
 
 ### Wave 1 (Alpha)
 
-| Metric | Target |
-|--------|--------|
-| Users completing full loop | 3+ |
-| Critical bugs found | 0 remaining |
+| Metric                           | Target      |
+| -------------------------------- | ----------- |
+| Users completing full loop       | 3+          |
+| Critical bugs found              | 0 remaining |
 | Time from install to first check | < 5 minutes |
 
 ### Wave 2 (Beta)
 
-| Metric | Target |
-|--------|--------|
-| Beta signups | 100+ |
-| Active weekly users (ran `archgate check` in last 7 days) | 20+ |
-| Plugin installs | 50+ |
-| GitHub stars | 100+ |
-| Documentation pages with > 100 views | 5+ |
-| User-reported issues resolved | 80%+ |
+| Metric                                                    | Target |
+| --------------------------------------------------------- | ------ |
+| Beta signups                                              | 100+   |
+| Active weekly users (ran `archgate check` in last 7 days) | 20+    |
+| Plugin installs                                           | 50+    |
+| GitHub stars                                              | 100+   |
+| Documentation pages with > 100 views                      | 5+     |
+| User-reported issues resolved                             | 80%+   |
 
 ### Wave 3 (GA)
 
-| Metric | Target |
-|--------|--------|
-| npm weekly downloads | 500+ |
-| GitHub stars | 500+ |
-| Community ADR packs published | 3+ |
-| Teams using in CI | 20+ |
-| Paying enterprise leads | 3+ |
+| Metric                        | Target |
+| ----------------------------- | ------ |
+| npm weekly downloads          | 500+   |
+| GitHub stars                  | 500+   |
+| Community ADR packs published | 3+     |
+| Teams using in CI             | 20+    |
+| Paying enterprise leads       | 3+     |
 
 ---
 
