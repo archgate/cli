@@ -24,7 +24,7 @@ The CLI is developed using its own governance model. The ADR format, check engin
 
 | Choice               | Technology                       | Rationale                                                                                                                                                                                              |
 | -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Integration Protocol | **MCP (Model Context Protocol)** | The `archgate mcp` server exposes tools (check, list_adrs, review_context, session_context) and resources (adr://{id}) to any MCP-compatible client. Uses `@modelcontextprotocol/sdk`.                 |
+| Integration Protocol | **MCP (Model Context Protocol)** | The `archgate mcp` server exposes tools (check, list_adrs, review_context, claude_code_session_context) and resources (adr://{id}) to any MCP-compatible client. Uses `@modelcontextprotocol/sdk`.     |
 | AI Features          | **Claude Code Plugin**           | Role-based skills (architect, quality-manager, adr-author) and developer agent delivered as a Claude Code plugin (`plugin/`). Claude Code handles all AI interactions — no direct Anthropic API calls. |
 | Multi-LLM (future)   | **MCP-based**                    | Any MCP-compatible AI client can use archgate MCP tools. Not locked to a single provider.                                                                                                              |
 
@@ -108,7 +108,7 @@ archgate/cli/
 │   │       ├── check.ts
 │   │       ├── list-adrs.ts
 │   │       ├── review-context.ts
-│   │       └── session-context.ts
+│   │       └── claude-code-session-context.ts
 │   ├── formats/                 # Zod schemas + parsers (single source of truth)
 │   │   ├── adr.ts               # ADR frontmatter schema, parsing, validation
 │   │   └── rules.ts             # Rule file schema + defineRules()
@@ -264,12 +264,12 @@ archgate check
 
 ### Tools
 
-| Tool              | Description                                                                    | Input                   |
-| ----------------- | ------------------------------------------------------------------------------ | ----------------------- |
-| `check`           | Run ADR compliance checks                                                      | `adrId?`, `staged?`     |
-| `list_adrs`       | List all active ADRs with metadata                                             | `domain?`               |
-| `review_context`  | Pre-compute review context: changed files grouped by domain with ADR briefings | `staged?`, `runChecks?` |
-| `session_context` | Read Claude Code session transcript for context recovery                       | `maxEntries?`           |
+| Tool                          | Description                                                                    | Input                   |
+| ----------------------------- | ------------------------------------------------------------------------------ | ----------------------- |
+| `check`                       | Run ADR compliance checks                                                      | `adrId?`, `staged?`     |
+| `list_adrs`                   | List all active ADRs with metadata                                             | `domain?`               |
+| `review_context`              | Pre-compute review context: changed files grouped by domain with ADR briefings | `staged?`, `runChecks?` |
+| `claude_code_session_context` | Read Claude Code session transcript for context recovery                       | `maxEntries?`           |
 
 ### Resources
 
@@ -305,7 +305,7 @@ The developer agent is the entry point. It enforces a strict workflow:
 4. **VALIDATE** — Runs `check` MCP tool + invokes `@architect` skill for structural compliance
 5. **CAPTURE** — Invokes `@quality-manager` skill to capture learnings and propose new ADRs
 
-The MCP tools (`check`, `list_adrs`, `review_context`, `session_context`) provide the data layer. The skills provide the judgment layer. The agent provides the orchestration layer.
+The MCP tools (`check`, `list_adrs`, `review_context`, `claude_code_session_context`) provide the data layer. The skills provide the judgment layer. The agent provides the orchestration layer.
 
 ---
 
@@ -391,6 +391,6 @@ All migration steps have been executed:
 - [x] Added: `src/engine/context.ts` (review context building for AI tools)
 - [x] Added: `src/helpers/adr-writer.ts`, `claude-settings.ts`, `init-project.ts` (shared logic)
 - [x] Added: `src/commands/adr/update.ts` (complete ADR lifecycle)
-- [x] Added: `src/mcp/tools/` directory with `review-context.ts`, `session-context.ts` (rich AI context)
+- [x] Added: `src/mcp/tools/` directory with `review-context.ts`, `claude-code-session-context.ts` (rich AI context)
 - [x] Added: `.archgate/` self-governance directory with 6 ADRs + rules
 - [x] Added: `tests/` with comprehensive test coverage (30+ test files)

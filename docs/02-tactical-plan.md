@@ -90,7 +90,7 @@ The CLI has evolved from a v0.1.0 scaffolding tool to a full governance engine. 
 
 - [x] **T2.1** Implement `archgate mcp` command
   - `src/mcp/server.ts` + `src/mcp/tools/` + `src/mcp/resources.ts`
-  - Tools: `check`, `list_adrs`, `review_context`, `session_context`
+  - Tools: `check`, `list_adrs`, `review_context`, `claude_code_session_context`
   - Resources: `adr://{id}` for full ADR markdown
   - Stdio transport via `startStdioServer()`
   - `src/engine/context.ts` provides shared review context logic (section extraction, file-to-ADR matching)
@@ -134,7 +134,7 @@ The CLI has evolved from a v0.1.0 scaffolding tool to a full governance engine. 
 
 - [x] **T2.5.4** Rich review context via MCP
   - `review_context` MCP tool — pre-computes domain-grouped ADR briefings (Decision + Do's/Don'ts only)
-  - `session_context` MCP tool — extracts Claude Code session transcripts for context recovery
+  - `claude_code_session_context` MCP tool — extracts Claude Code session transcripts for context recovery
   - `src/engine/context.ts` — shared context building logic (section extraction, file-to-ADR matching)
 
 - [x] **T2.5.5** Shared helper modules
@@ -205,7 +205,7 @@ Phase 1 (Check Engine) ✅
   T1.7 Self-dogfood ✅
 
 Phase 2 (AI Integration) ✅ PIVOTED
-  T2.1 MCP server (check, list_adrs, review_context, session_context) ✅
+  T2.1 MCP server (check, list_adrs, review_context, claude_code_session_context) ✅
   T2.2 Review ── PIVOTED to plugin @architect skill
   T2.3 Capture ── PIVOTED to plugin @quality-manager skill
   T2.4 Skill generation ── REMOVED (replaced by review_context MCP tool)

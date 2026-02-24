@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerSessionContextTool } from "../../../src/mcp/tools/session-context";
+import { registerClaudeCodeSessionContextTool } from "../../../src/mcp/tools/claude-code-session-context";
 
-describe("registerSessionContextTool", () => {
+describe("registerClaudeCodeSessionContextTool", () => {
   let tempDir: string;
   let server: McpServer;
 
@@ -21,12 +21,14 @@ describe("registerSessionContextTool", () => {
   });
 
   test("does not throw when registering", () => {
-    expect(() => registerSessionContextTool(server, tempDir)).not.toThrow();
+    expect(() =>
+      registerClaudeCodeSessionContextTool(server, tempDir)
+    ).not.toThrow();
   });
 
   test("registers exactly one tool", () => {
     const registerSpy = spyOn(server, "registerTool");
-    registerSessionContextTool(server, tempDir);
+    registerClaudeCodeSessionContextTool(server, tempDir);
     expect(registerSpy).toHaveBeenCalledTimes(1);
     registerSpy.mockRestore();
   });
