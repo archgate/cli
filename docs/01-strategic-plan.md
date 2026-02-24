@@ -73,7 +73,7 @@ The governance loop above describes _what_ happens, but not _who drives it_. In 
 - The `plugin/` directory ships with the CLI and provides Claude Code integration
 - Plugin skills (`@architect`, `@quality-manager`, `@adr-author`) define governance roles
 - A developer agent (`agents/developer.md`) orchestrates the full governance workflow
-- MCP tools (`check`, `list_adrs`, `review_context`, `session_context`) connect Claude Code to the archgate CLI
+- MCP tools (`check`, `list_adrs`, `review_context`, `claude_code_session_context`) connect Claude Code to the archgate CLI
 - The `review_context` MCP tool pre-computes domain-grouped ADR briefings for efficient AI review
 
 The critical insight: **the MCP tools and CLI commands are passive capabilities**. The _workflow_ — the ordering, gates, and roles — lives in the plugin's agent and skills. Without the plugin, the tools exist but nothing tells the AI _when_ and _how_ to use them.

@@ -102,7 +102,7 @@ src/
         ├── check.ts        # check tool
         ├── list-adrs.ts    # list_adrs tool
         ├── review-context.ts   # review_context tool
-        └── session-context.ts  # session_context tool
+        └── claude-code-session-context.ts  # claude_code_session_context tool
 tests/                      # Mirrors src/ structure
 .archgate/adrs/             # Self-governance ADRs
 ```
