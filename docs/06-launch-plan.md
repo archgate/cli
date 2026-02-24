@@ -4,25 +4,25 @@
 
 **CLI:** v0.2.5, feature-complete through Phase 2.5. Binary distribution via npm platform packages works. Self-governed by 6 ADRs with executable rules. Full validation pipeline (`bun run validate`) passing.
 
-**Plugin:** Lives in `archgate/claude-code-plugin`. Distribution service planned at `plugins.archgate.dev` (Bun + Hono virtual git server). Not yet deployed.
+**Plugin:** Lives in `archgate/claude-code-plugin` (repo complete). Distribution service live at `plugins.archgate.dev` (Bun + Hono virtual git server with token-based access on Railway).
 
 **What exists:**
 
 - CLI: init, check, adr (create/list/show/update), mcp, upgrade, clean
 - MCP server: check, list_adrs, review_context, session_context tools
 - Plugin: architect, quality-manager, adr-author skills + developer agent
+- Plugin distribution service: `plugins.archgate.dev` with token auth, admin API, Redis KV
 - CI: PR validation, automated releases, binary compilation
 - npm: `archgate` package + platform-specific binary packages
 
 **What doesn't exist yet:**
 
-- Plugin distribution service (plugins.archgate.dev)
 - Install script (archgate.dev/install)
 - Homebrew tap
 - Starter ADR packs
 - Documentation site
 - Landing page (archgate.dev)
-- Beta signup flow
+- Beta signup flow (frontend — backend token API exists)
 - Any public announcement or marketing
 
 ---
@@ -36,7 +36,7 @@ Wave 1: Private Alpha          Wave 2: Closed Beta           Wave 3: Public Laun
 (internal + friendlies)        (invited users)               (open to all)
 
 CLI binary via npm             + Install script              + Homebrew tap
-Plugin via manual install      + Plugin via token service    + Plugin marketplace (GA)
+Plugin via token service       + Beta signup flow            + Plugin marketplace (GA)
 README + CONTRIBUTING          + Documentation site          + Starter ADR packs
 No marketing                   + Blog post / dev.to          + HN / X / conference talks
 ```
@@ -57,7 +57,7 @@ No marketing                   + Blog post / dev.to          + HN / X / conferen
 | 2 | Binary installs cleanly via `npm install -g archgate` on macOS ARM + Linux x64 | Done | — |
 | 3 | `archgate init` → `archgate check` works on a fresh project | Done | — |
 | 4 | MCP server starts and tools respond correctly | Done | — |
-| 5 | Plugin installs manually in Claude Code and skills work | Verify | — |
+| 5 | Plugin installs via `plugins.archgate.dev` and skills work | Verify | — |
 | 6 | README covers install + quickstart + rule authoring | Done | — |
 | 7 | CONTRIBUTING.md is accurate | Done | — |
 | 8 | `archgate upgrade` works (fetches latest from npm) | Done | — |
@@ -69,7 +69,7 @@ No marketing                   + Blog post / dev.to          + HN / X / conferen
   - A project with an existing `.cursorrules` or `CLAUDE.md` (migration story)
   - A monorepo (test scoping behavior)
 
-- [ ] **A2. Plugin manual install test** — Install the plugin in Claude Code without the distribution service. Document the manual steps: copy plugin files, configure `.claude/settings.local.json`, verify MCP connection.
+- [ ] **A2. Plugin install test** — Install the plugin via `plugins.archgate.dev` token service end-to-end. Verify: marketplace add, plugin install, MCP connection, all skills respond correctly.
 
 - [ ] **A3. Collect friction points** — What's confusing? What breaks? What's missing from docs? What do users try that doesn't work? Track as GitHub issues.
 
@@ -91,18 +91,18 @@ Advance to Wave 2 when:
 
 **Audience:** 50-100 invited developers/teams. Mix of early adopters, DevRel contacts, and enterprise prospects.
 
-**Goal:** Validate adoption at scale. Can users self-serve? Do the docs answer their questions? Does the plugin distribution service work? What ADR packs do people need?
+**Goal:** Validate adoption at scale. Can users self-serve? Do the docs answer their questions? What ADR packs do people need?
 
 ### Beta Infrastructure
 
-| # | Task | Description | Depends On |
-|---|------|-------------|------------|
-| B1 | Plugin distribution service | Deploy `plugins.archgate.dev` — Bun+Hono virtual git server on Railway with Redis token store | Plugin repo ready |
-| B2 | Install script | `curl -fsSL https://archgate.dev/install \| sh` — alternative to npm for teams that don't want Node | — |
-| B3 | Landing page | `archgate.dev` — one-page site with value prop, install command, link to docs, beta signup | — |
-| B4 | Documentation site | Hosted docs covering: quickstart, ADR authoring guide, rule API reference, CI integration, plugin setup | — |
-| B5 | Beta signup flow | Form at `archgate.dev/beta` → admin approval → token generation → email with install instructions | B1 |
-| B6 | Feedback channel | GitHub Discussions or Discord for beta users | — |
+| # | Task | Description | Status |
+|---|------|-------------|--------|
+| B1 | Plugin distribution service | `plugins.archgate.dev` — Bun+Hono virtual git server on Railway with Redis token store | **Done** |
+| B2 | Install script | `curl -fsSL https://archgate.dev/install \| sh` — alternative to npm for teams that don't want Node | Todo |
+| B3 | Landing page | `archgate.dev` — one-page site with value prop, install command, link to docs, beta signup | Todo |
+| B4 | Documentation site | Hosted docs covering: quickstart, ADR authoring guide, rule API reference, CI integration, plugin setup | Todo |
+| B5 | Beta signup flow | Form at `archgate.dev/beta` → admin approval → token generation → email with install instructions (backend token API exists) | Todo |
+| B6 | Feedback channel | GitHub Discussions or Discord for beta users | Todo |
 
 ### Beta Documentation (B4 Detail)
 
@@ -198,8 +198,7 @@ Advance to Wave 3 when:
 | npm (`npm install -g archgate`) | Yes | Yes | Yes |
 | Install script (`archgate.dev/install`) | No | Yes | Yes |
 | Homebrew (`brew install archgate/tap/archgate`) | No | No | Yes |
-| Plugin (manual install) | Yes | No | No |
-| Plugin (token service) | No | Yes | Yes |
+| Plugin (token service at `plugins.archgate.dev`) | Yes | Yes | Yes |
 | Plugin (public/marketplace) | No | No | Yes |
 
 ---
@@ -213,7 +212,7 @@ Advance to Wave 3 when:
 | Users expect archgate to work with Cursor/Copilot out of the box | Medium | High | MCP server works with any MCP client. Document MCP setup for other tools. Position Claude Code plugin as the reference integration. |
 | ADR format perceived as too heavyweight | High | Medium | Provide `archgate init` templates that are minimal. Show that a useful ADR can be 10 lines of frontmatter + 3 rules. |
 | npm platform package install fails on some systems | Medium | Low | Install script as fallback. Document manual binary download. `archgate upgrade` as self-healing path. |
-| Plugin distribution service downtime during beta | Low | Medium | Service is stateless (embedded files). Railway auto-restarts. Pre-compute everything at startup. |
+| Plugin distribution service downtime | Low | Medium | Service is stateless (embedded files). Railway auto-restarts. Pre-computed responses at startup. Already deployed — monitor uptime. |
 | No traction — people don't see the value | High | Medium | Focus Wave 1 on getting 3 strong testimonials. Demo video showing real violations caught. Quantify: "X violations caught in CI that would have been merged." |
 
 ---
@@ -258,7 +257,7 @@ This is the ordered backlog. Tasks within a wave can be parallelized where depen
 ### Wave 1 Tasks
 
 1. **W1-01:** Smoke test CLI on 3 real codebases (TS project, project with .cursorrules, monorepo)
-2. **W1-02:** Smoke test plugin manual install in Claude Code — document exact steps
+2. **W1-02:** Smoke test plugin install via `plugins.archgate.dev` token service end-to-end
 3. **W1-03:** Collect and triage friction points from alpha testers
 4. **W1-04:** Fix critical issues blocking the core loop
 5. **W1-05:** Create 1-2 example ADR sets for demo repos (TypeScript API, React frontend)
@@ -266,27 +265,26 @@ This is the ordered backlog. Tasks within a wave can be parallelized where depen
 
 ### Wave 2 Tasks
 
-7. **W2-01:** Build and deploy plugin distribution service (`plugins.archgate.dev`)
-8. **W2-02:** Build install script (`archgate.dev/install`)
-9. **W2-03:** Build landing page (`archgate.dev`)
-10. **W2-04:** Build documentation site (6 pages — see Beta Documentation section)
-11. **W2-05:** Build beta signup flow (form → approval → token → email)
-12. **W2-06:** Set up feedback channel (GitHub Discussions)
-13. **W2-07:** Write launch blog post
-14. **W2-08:** Record demo video (3-5 min)
-15. **W2-09:** Announce beta on social channels
-16. **W2-10:** Monitor beta, iterate on feedback
+7. **W2-01:** Build install script (`archgate.dev/install`)
+8. **W2-02:** Build landing page (`archgate.dev`)
+9. **W2-03:** Build documentation site (6 pages — see Beta Documentation section)
+10. **W2-04:** Build beta signup frontend (form → approval → token → email; backend token API exists)
+11. **W2-05:** Set up feedback channel (GitHub Discussions)
+12. **W2-06:** Write launch blog post
+13. **W2-07:** Record demo video (3-5 min)
+14. **W2-08:** Announce beta on social channels
+15. **W2-09:** Monitor beta, iterate on feedback
 
 ### Wave 3 Tasks
 
-17. **W3-01:** Create Homebrew tap (`archgate/homebrew-tap`) with auto-update CI
-18. **W3-02:** Publish starter ADR packs to npm (`@archgate/pack-typescript`, `@archgate/pack-testing`, `@archgate/pack-api-design`)
-19. **W3-03:** Transition plugin from closed beta to public availability
-20. **W3-04:** Implement `archgate pack search`
-21. **W3-05:** Submit Hacker News Show HN
-22. **W3-06:** Launch on Product Hunt
-23. **W3-07:** Write case studies from beta users
-24. **W3-08:** Submit conference talk proposals
+16. **W3-01:** Create Homebrew tap (`archgate/homebrew-tap`) with auto-update CI
+17. **W3-02:** Publish starter ADR packs to npm (`@archgate/pack-typescript`, `@archgate/pack-testing`, `@archgate/pack-api-design`)
+18. **W3-03:** Transition plugin from closed beta to public availability
+19. **W3-04:** Implement `archgate pack search`
+20. **W3-05:** Submit Hacker News Show HN
+21. **W3-06:** Launch on Product Hunt
+22. **W3-07:** Write case studies from beta users
+23. **W3-08:** Submit conference talk proposals
 
 ---
 
