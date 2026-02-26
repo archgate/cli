@@ -2,7 +2,23 @@ import { readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { parseAdr } from "../formats/adr";
 import type { AdrDocument } from "../formats/adr";
-import { RuleSetSchema, type RuleSet } from "../formats/rules";
+import { type RuleSet } from "../formats/rules";
+import { z } from "zod";
+import type { RuleContext } from "../formats/rules";
+
+const RuleSetSchema = z.object({
+  rules: z.record(
+    z.string(),
+    z.object({
+      description: z.string(),
+      severity: z.enum(["error", "warning", "info"]).optional(),
+      check: z.custom<(ctx: RuleContext) => Promise<void>>(
+        (val) => typeof val === "function",
+        "Expected a function"
+      ),
+    })
+  ),
+});
 import { projectPaths } from "../helpers/paths";
 import { logDebug, logWarn } from "../helpers/log";
 

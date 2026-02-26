@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 // --- Severity ---
 
 export type Severity = "error" | "warning" | "info";
@@ -62,20 +60,6 @@ export interface RuleConfig {
 export type RuleSet = {
   rules: Record<string, RuleConfig>;
 };
-
-export const RuleSetSchema = z.object({
-  rules: z.record(
-    z.string(),
-    z.object({
-      description: z.string(),
-      severity: z.enum(["error", "warning", "info"]).optional(),
-      check: z.custom<(ctx: RuleContext) => Promise<void>>(
-        (val) => typeof val === "function",
-        "Expected a function"
-      ),
-    })
-  ),
-});
 
 /**
  * Define rules in a .rules.ts companion file.
