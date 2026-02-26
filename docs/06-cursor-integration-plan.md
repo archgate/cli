@@ -216,18 +216,15 @@ Installable via `/add-plugin` in Cursor.
 
 ## MCP Tool Compatibility
 
-The `session_context` tool has been renamed to `claude_code_session_context` to signal that it reads Claude Code session transcripts (from `~/.claude/projects/`). This tool is Claude Code-specific and will not function in Cursor.
+The `session_context` tool has been renamed to `claude_code_session_context` to signal that it reads Claude Code session transcripts (from `~/.claude/projects/`). The `cursor_session_context` tool reads Cursor agent transcripts (from `~/.cursor/projects/`).
 
-The remaining three tools are fully editor-agnostic:
-
-| Tool                          | Editor-agnostic? | Notes                                   |
-| ----------------------------- | :--------------: | --------------------------------------- |
-| `check`                       |       Yes        | Runs ADR compliance checks              |
-| `list_adrs`                   |       Yes        | Lists ADRs with metadata                |
-| `review_context`              |       Yes        | Changed files + ADR briefings           |
-| `claude_code_session_context` |        No        | Reads `~/.claude/projects/` JSONL files |
-
-A future `cursor_session_context` tool could be added if Cursor exposes session transcript data.
+| Tool                          | Editor-agnostic? | Notes                                               |
+| ----------------------------- | :--------------: | --------------------------------------------------- |
+| `check`                       |       Yes        | Runs ADR compliance checks                          |
+| `list_adrs`                   |       Yes        | Lists ADRs with metadata                            |
+| `review_context`              |       Yes        | Changed files + ADR briefings                       |
+| `claude_code_session_context` |        No        | Reads `~/.claude/projects/` JSONL files             |
+| `cursor_session_context`      |        No        | Reads `~/.cursor/projects/` agent-transcripts JSONL |
 
 ---
 
