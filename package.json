@@ -1,6 +1,6 @@
 {
   "name": "archgate",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "readme": "README.md",
   "license": "FSL-1.1-ALv2",
