@@ -108,7 +108,8 @@ archgate/cli/
 │   │       ├── check.ts
 │   │       ├── list-adrs.ts
 │   │       ├── review-context.ts
-│   │       └── claude-code-session-context.ts
+│   │       ├── claude-code-session-context.ts
+│   │       └── cursor-session-context.ts
 │   ├── formats/                 # Zod schemas + parsers (single source of truth)
 │   │   ├── adr.ts               # ADR frontmatter schema, parsing, validation
 │   │   └── rules.ts             # Rule file schema + defineRules()
@@ -264,12 +265,13 @@ archgate check
 
 ### Tools
 
-| Tool                          | Description                                                                    | Input                   |
-| ----------------------------- | ------------------------------------------------------------------------------ | ----------------------- |
-| `check`                       | Run ADR compliance checks                                                      | `adrId?`, `staged?`     |
-| `list_adrs`                   | List all active ADRs with metadata                                             | `domain?`               |
-| `review_context`              | Pre-compute review context: changed files grouped by domain with ADR briefings | `staged?`, `runChecks?` |
-| `claude_code_session_context` | Read Claude Code session transcript for context recovery                       | `maxEntries?`           |
+| Tool                          | Description                                                                    | Input                       |
+| ----------------------------- | ------------------------------------------------------------------------------ | --------------------------- |
+| `check`                       | Run ADR compliance checks                                                      | `adrId?`, `staged?`         |
+| `list_adrs`                   | List all active ADRs with metadata                                             | `domain?`                   |
+| `review_context`              | Pre-compute review context: changed files grouped by domain with ADR briefings | `staged?`, `runChecks?`     |
+| `claude_code_session_context` | Read Claude Code session transcript for context recovery                       | `maxEntries?`               |
+| `cursor_session_context`      | Read Cursor agent session transcripts                                          | `maxEntries?`, `sessionId?` |
 
 ### Resources
 

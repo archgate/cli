@@ -183,7 +183,7 @@ Start the MCP server for AI agent integration.
 archgate mcp
 ```
 
-Exposes four tools to MCP-compatible clients (Claude Code, Cursor, etc.):
+Exposes five tools to MCP-compatible clients (Claude Code, Cursor, etc.):
 
 | Tool                          | Description                                                       |
 | ----------------------------- | ----------------------------------------------------------------- |
@@ -191,6 +191,7 @@ Exposes four tools to MCP-compatible clients (Claude Code, Cursor, etc.):
 | `list_adrs`                   | List all ADRs with metadata                                       |
 | `review_context`              | Get changed files grouped by domain with applicable ADR briefings |
 | `claude_code_session_context` | Read the current Claude Code session transcript                   |
+| `cursor_session_context`      | Read Cursor agent session transcripts                             |
 
 Also exposes `adr://{id}` resources for reading individual ADRs by ID.
 
