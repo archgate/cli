@@ -33,7 +33,9 @@ Archgate has two layers:
 
 When a rule is violated, `archgate check` reports the file, line, and which ADR was broken. Exit code 1 means violations — wire it into CI and it blocks merges automatically.
 
-**The AI integration layer** is a Claude Code plugin that gives AI agents live access to your ADRs through the MCP server (`archgate mcp`). Agents read the decisions before writing code, validate changes after, and capture new patterns into the governance base. Archgate ships as its own governance subject — its own development is governed by the ADRs in `.archgate/adrs/`.
+**The CLI is free and open source.** Writing ADRs, enforcing rules, running checks in CI, and wiring up pre-commit hooks all work without an account or subscription.
+
+**Editor plugins are an optional paid add-on** for teams that want AI agents (Claude Code, Cursor) to read ADRs, validate changes, and capture new patterns automatically. Plugins are distributed from [plugins.archgate.dev](https://plugins.archgate.dev). See [Editor plugins](#editor-plugins) for details.
 
 ## Installation
 
@@ -62,25 +64,23 @@ npm install -g archgate
 # 1. Install
 npm install -g archgate
 
-# 2. Log in to enable plugin access (one-time)
-archgate login
-
-# 3. Initialize governance in your project
+# 2. Initialize governance in your project
 cd my-project
-archgate init                  # Claude Code (default)
-archgate init --editor cursor  # or Cursor
+archgate init
 
-# 4. Edit the generated ADR to document a real decision
+# 3. Edit the generated ADR to document a real decision
 # .archgate/adrs/ARCH-001-*.md
 
-# 5. Add a companion .rules.ts to enforce it automatically
+# 4. Add a companion .rules.ts to enforce it automatically
 # .archgate/adrs/ARCH-001-*.rules.ts
 
-# 6. Run checks
+# 5. Run checks
 archgate check
 ```
 
-`archgate init` creates the `.archgate/adrs/` directory with an example ADR and rules file, configures editor settings (`.claude/` or `.cursor/`), and installs the archgate plugin if you are logged in. If the `claude` CLI is on your PATH, the plugin is installed automatically; otherwise the command prints the manual install steps.
+`archgate init` creates the `.archgate/adrs/` directory with an example ADR and rules file, and configures editor settings. No account or login is needed — the CLI is fully functional without plugins.
+
+**Want AI agent integration?** See [Editor plugins](#editor-plugins) to add the optional paid plugin for Claude Code or Cursor.
 
 ## Writing rules
 
@@ -123,7 +123,7 @@ Rules receive the list of files to check (filtered by the ADR's `files` glob if 
 
 ### `archgate login`
 
-Authenticate with GitHub to access archgate plugins.
+Authenticate with GitHub to access the optional paid editor plugins.
 
 ```bash
 archgate login           # authenticate via GitHub Device Flow
@@ -132,7 +132,7 @@ archgate login logout    # remove stored credentials
 archgate login refresh   # re-authenticate and claim a new token
 ```
 
-Opens a browser-based GitHub Device Flow. Once authorized, an archgate plugin token is stored in `~/.archgate/credentials`. This token is used by `archgate init` to install the editor plugin.
+Opens a browser-based GitHub Device Flow. Once authorized, an archgate plugin token is stored in `~/.archgate/credentials`. This token is used by `archgate init` to install the editor plugin. Not required for CLI-only usage.
 
 ### `archgate init`
 
@@ -144,11 +144,11 @@ archgate init --editor cursor    # Cursor
 archgate init --install-plugin   # force plugin install attempt
 ```
 
-Creates `.archgate/adrs/` with an example ADR and rules file, configures editor settings, and installs the archgate plugin when credentials are available.
+Creates `.archgate/adrs/` with an example ADR and rules file and configures editor settings. Works without an account — plugin installation only happens when you are logged in.
 
-**Plugin install behavior:**
+**Plugin install behavior** (optional — requires `archgate login`):
 
-- If you are logged in (`archgate login`), init auto-detects your credentials and installs the plugin.
+- If you are logged in, init auto-detects your credentials and installs the plugin.
 - For **Claude Code**: if the `claude` CLI is on PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If not, the manual commands are printed.
 - For **Cursor**: the plugin bundle is downloaded from [plugins.archgate.dev](https://plugins.archgate.dev) and extracted into `.cursor/`.
 - Use `--install-plugin` to explicitly request plugin installation (useful if auto-detection is skipped).
@@ -258,16 +258,24 @@ pre-commit:
 
 ## Editor plugins
 
-Archgate ships editor plugins that give AI agents a full governance workflow — reading applicable ADRs before writing code, validating changes after implementation, and capturing new patterns back into ADRs.
+> **Plugins are an optional paid add-on.** The CLI works fully without them. Plugins add AI agent integration — your AI coding agent reads ADRs before writing code, validates changes after implementation, and captures new patterns back into ADRs.
 
-Plugins are distributed from [plugins.archgate.dev](https://plugins.archgate.dev). Run `archgate login` once to authenticate, then `archgate init` handles installation.
+Plugins are distributed from [plugins.archgate.dev](https://plugins.archgate.dev).
 
-### Claude Code
+### Setup
 
 ```bash
+# 1. Log in (one-time) — links your GitHub account and issues a plugin token
 archgate login
-archgate init
+
+# 2. Initialize a project with the plugin
+archgate init                  # Claude Code (default)
+archgate init --editor cursor  # or Cursor
 ```
+
+If you are logged in, `archgate init` auto-detects your credentials and installs the plugin. You can also pass `--install-plugin` explicitly.
+
+### Claude Code
 
 If the `claude` CLI is on your PATH, the plugin is installed automatically. Otherwise, run the printed commands manually:
 
@@ -280,12 +288,7 @@ Once installed, run `archgate:onboard` in Claude Code to initialize governance f
 
 ### Cursor
 
-```bash
-archgate login
-archgate init --editor cursor
-```
-
-The Cursor plugin bundle is downloaded and extracted into `.cursor/` automatically.
+The Cursor plugin bundle is downloaded from [plugins.archgate.dev](https://plugins.archgate.dev) and extracted into `.cursor/` automatically.
 
 ## Contributing
 
