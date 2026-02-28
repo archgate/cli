@@ -4,7 +4,7 @@
 
 **Enforce Architecture Decision Records as executable rules — for both humans and AI agents.**
 
-[![License: FSL-1.1-ALv2](https://img.shields.io/badge/License-FSL--1.1--ALv2-blue.svg)](LICENSE.md)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE.md)
 [![Release](https://github.com/archgate/cli/actions/workflows/release.yml/badge.svg)](https://github.com/archgate/cli/actions/workflows/release.yml)
 [![Docs](https://img.shields.io/badge/docs-cli.archgate.dev-blue)](https://cli.archgate.dev)
 
@@ -131,4 +131,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and workflow.
 
 ## License
 
-[FSL-1.1-ALv2](LICENSE.md) — free to use, cannot be used to build a competing product.
+[Apache-2.0](LICENSE.md)
