@@ -1,7 +1,7 @@
 /**
  * plugin-install.ts — Download and install the archgate plugin for supported editors.
  *
- * - Claude Code: generates the marketplace URL (plugin installed via Claude Code slash commands)
+ * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
  * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
  */
 
@@ -14,7 +14,7 @@ import type { StoredCredentials } from "./auth";
 const PLUGINS_API = "https://plugins.archgate.dev";
 
 // ---------------------------------------------------------------------------
-// Claude Code — marketplace URL generation
+// Claude Code — CLI auto-install + manual fallback
 // ---------------------------------------------------------------------------
 
 /**
@@ -22,6 +22,49 @@ const PLUGINS_API = "https://plugins.archgate.dev";
  */
 export function buildMarketplaceUrl(credentials: StoredCredentials): string {
   return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate.git`;
+}
+
+/**
+ * Check whether the `claude` CLI is available on the system PATH.
+ */
+export async function isClaudeCliAvailable(): Promise<boolean> {
+  const result = await $`claude --version`.nothrow().quiet();
+  return result.exitCode === 0;
+}
+
+/**
+ * Install the archgate plugin via the `claude` CLI.
+ *
+ * Runs:
+ *   claude plugin marketplace add <authenticated-url>
+ *   claude plugin install archgate@archgate
+ *
+ * Throws on failure so the caller can fall back to manual instructions.
+ */
+export async function installClaudePlugin(
+  credentials: StoredCredentials
+): Promise<void> {
+  const url = buildMarketplaceUrl(credentials);
+
+  logDebug("Adding archgate marketplace to claude CLI");
+  const addResult = await $`claude plugin marketplace add ${url}`
+    .nothrow()
+    .quiet();
+  if (addResult.exitCode !== 0) {
+    throw new Error(
+      `claude plugin marketplace add failed (exit ${addResult.exitCode})`
+    );
+  }
+
+  logDebug("Installing archgate plugin via claude CLI");
+  const installResult = await $`claude plugin install archgate@archgate`
+    .nothrow()
+    .quiet();
+  if (installResult.exitCode !== 0) {
+    throw new Error(
+      `claude plugin install failed (exit ${installResult.exitCode})`
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

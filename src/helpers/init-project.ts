@@ -15,8 +15,10 @@ export interface InitOptions {
 
 export interface PluginResult {
   installed: boolean;
-  /** For claude: marketplace URL; for cursor: list of extracted files */
+  /** For claude manual: marketplace URL; for cursor: file count summary */
   detail?: string;
+  /** When true, plugin was auto-installed via editor CLI (no manual steps needed). */
+  autoInstalled?: boolean;
 }
 
 export interface InitResult {
@@ -123,12 +125,24 @@ async function tryInstallPlugin(
     const files = await installCursorPlugin(projectRoot, credentials.token);
     return {
       installed: true,
+      autoInstalled: true,
       detail: `Extracted ${files.length} files to .cursor/`,
     };
   }
 
-  // Claude Code — generate marketplace URL for the user to paste
-  const { buildMarketplaceUrl } = await import("./plugin-install");
+  // Claude Code — try auto-install via `claude` CLI, fall back to manual URL
+  const { isClaudeCliAvailable, installClaudePlugin, buildMarketplaceUrl } =
+    await import("./plugin-install");
+
+  if (await isClaudeCliAvailable()) {
+    try {
+      await installClaudePlugin(credentials);
+      return { installed: true, autoInstalled: true };
+    } catch {
+      // Fall through to manual instructions
+    }
+  }
+
   const url = buildMarketplaceUrl(credentials);
   return { installed: true, detail: url };
 }

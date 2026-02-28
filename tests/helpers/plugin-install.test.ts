@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildMarketplaceUrl } from "../../src/helpers/plugin-install";
+import {
+  buildMarketplaceUrl,
+  isClaudeCliAvailable,
+} from "../../src/helpers/plugin-install";
 
 describe("plugin-install", () => {
   describe("buildMarketplaceUrl", () => {
@@ -22,6 +25,13 @@ describe("plugin-install", () => {
       });
       expect(url).toContain("my-handle:");
       expect(url).toContain(":ag_beta_token@");
+    });
+  });
+
+  describe("isClaudeCliAvailable", () => {
+    test("returns a boolean", async () => {
+      const result = await isClaudeCliAvailable();
+      expect(typeof result).toBe("boolean");
     });
   });
 });

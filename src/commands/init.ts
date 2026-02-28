@@ -51,16 +51,25 @@ export function registerInitCommand(program: Command) {
         // Plugin install output
         if (result.plugin?.installed) {
           console.log("");
-          if (editor === "cursor") {
-            logInfo("Archgate plugin installed for Cursor.");
-            console.log(`  ${result.plugin.detail}`);
+          if (result.plugin.autoInstalled) {
+            logInfo(
+              editor === "cursor"
+                ? "Archgate plugin installed for Cursor."
+                : "Archgate plugin installed for Claude Code."
+            );
+            if (result.plugin.detail) {
+              console.log(`  ${result.plugin.detail}`);
+            }
           } else {
-            logInfo("To install the archgate plugin in Claude Code, run:");
-            console.log(
-              `  ${styleText("bold", "/plugin marketplace add")} ${result.plugin.detail}`
+            // Claude Code — claude CLI not found, show manual commands
+            logWarn(
+              "Claude CLI not found. To install the plugin manually, run:"
             );
             console.log(
-              `  ${styleText("bold", "/plugin install")} archgate-governance@archgate`
+              `  ${styleText("bold", "claude plugin marketplace add")} ${result.plugin.detail}`
+            );
+            console.log(
+              `  ${styleText("bold", "claude plugin install")} archgate@archgate`
             );
           }
         } else if (installPlugin) {
