@@ -1,3 +1,10 @@
+## [0.5.0](https://github.com/archgate/cli/compare/v0.4.0...v0.5.0) (2026-02-28)
+
+### Features
+
+* add Windows (x64) build and CI smoke test ([#20](https://github.com/archgate/cli/issues/20)) ([c59eec4](https://github.com/archgate/cli/commit/c59eec49d10a3f10fa5bd76a122e09ac6e31da38))
+* **login:** add github auth and plugin install for init ([#21](https://github.com/archgate/cli/issues/21)) ([ed03063](https://github.com/archgate/cli/commit/ed030636093d142504005c152907c6c22fa8ba9a))
+
 ## [0.4.0](https://github.com/archgate/cli/compare/v0.3.0...v0.4.0) (2026-02-26)
 
 ### Features
