@@ -15,6 +15,10 @@ The document is a Markdown file with YAML frontmatter stored in `.archgate/adrs/
 
 Both humans and AI agents consume this document. When an AI coding agent is about to write code, it reads the relevant ADRs to understand the constraints before generating anything.
 
+:::tip[Automate this with editor plugins]
+With the [Claude Code](/guides/claude-code-plugin/) or [Cursor](/guides/cursor-integration/) plugin, your AI agent reads the applicable ADRs automatically before every coding task -- no manual copy-pasting into prompts. [Sign up for beta access](https://plugins.archgate.dev).
+:::
+
 ### ADR as Rules
 
 The rules file is a companion `.rules.ts` file that exports automated checks via `defineRules()`. When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file against your codebase, and reports any violations with file paths and line numbers.
