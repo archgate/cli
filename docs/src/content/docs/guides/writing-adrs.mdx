@@ -304,3 +304,7 @@ The `--id` and `--body` flags are required. All other frontmatter fields (`--tit
 6. **Write rules for decisions that can be checked automatically.** If a rule can catch a violation before code review, set `rules: true` and write a companion `.rules.ts` file. See the [Writing Rules](/guides/writing-rules/) guide.
 
 7. **Use domain prefixes to organize.** The domain field (`backend`, `frontend`, `data`, `architecture`, `general`) determines the ID prefix and helps filter ADRs by area.
+
+:::tip[Let AI agents write ADRs for you]
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include an ADR Author skill that creates and updates ADRs following your project's conventions. The Quality Manager skill also proposes new ADRs when it detects recurring patterns. [Sign up for beta access](https://plugins.archgate.dev).
+:::

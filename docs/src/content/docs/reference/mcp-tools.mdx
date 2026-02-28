@@ -220,3 +220,7 @@ Read the full content of an ADR by its ID. Returns the complete markdown includi
 Requesting `adr://ARCH-001` returns the full markdown content of the ARCH-001 ADR file with MIME type `text/markdown`.
 
 If the requested ADR is not found, the resource returns a plain text message: `ADR ARCH-001 not found`.
+
+:::tip[Skip manual MCP calls with editor plugins]
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) call these MCP tools automatically as part of a structured governance workflow. Your agent reads ADRs, validates compliance, and captures learnings without you invoking any tools manually. [Sign up for beta access](https://plugins.archgate.dev).
+:::

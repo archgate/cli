@@ -117,3 +117,7 @@ A typical AI agent session using the MCP server follows this pattern:
 5. **Agent calls `check`** with `staged: true` to validate compliance. If violations are found, the response includes file paths and line numbers so the agent can fix them.
 
 6. **Agent iterates** until `check` reports zero violations.
+
+:::tip[Automate this entire workflow]
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) automate this flow end-to-end. The agent reads ADRs, writes compliant code, runs checks, validates with the architect skill, and captures learnings -- all without manual MCP tool calls. [Sign up for beta access](https://plugins.archgate.dev).
+:::

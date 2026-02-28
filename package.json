@@ -21,8 +21,11 @@
   },
   "keywords": [
     "archgate",
-    "cli",
-    "framework"
+    "adr",
+    "architecture-decision-records",
+    "governance",
+    "linter",
+    "cli"
   ],
   "bugs": {
     "url": "https://github.com/archgate/cli/issues"
