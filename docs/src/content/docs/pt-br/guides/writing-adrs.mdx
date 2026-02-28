@@ -1,11 +1,11 @@
 ---
 title: Escrevendo ADRs
-description: Um guia completo para escrever Registros de Decisao Arquitetural eficazes.
+description: Um guia completo para escrever Registros de Decisão Arquitetural eficazes.
 ---
 
 ## Criando um ADR
 
-Use `archgate adr create` para gerar um novo ADR com o template padrao. O comando suporta modos interativo e nao-interativo.
+Use `archgate adr create` para gerar um novo ADR com o template padrão. O comando suporta modos interativo e não-interativo.
 
 ### Modo interativo
 
@@ -15,15 +15,15 @@ Execute o comando sem argumentos para receber prompts guiados:
 archgate adr create
 ```
 
-Voce sera solicitado a fornecer:
+Você será solicitado a fornecer:
 
 1. **Domain** -- um entre `backend`, `frontend`, `data`, `architecture` ou `general`
-2. **Title** -- um nome curto e descritivo para a decisao
-3. **File patterns** -- globs opcionais separados por virgula que delimitam o escopo da verificacao de regras (ex.: `src/commands/**/*.ts`)
+2. **Title** -- um nome curto e descritivo para a decisão
+3. **File patterns** -- globs opcionais separados por vírgula que delimitam o escopo da verificação de regras (ex.: `src/commands/**/*.ts`)
 
-O CLI atribui um ID sequencial baseado no prefixo do dominio (`ARCH-001`, `FE-002`, `BE-003`, etc.) e grava o arquivo em `.archgate/adrs/`.
+O CLI atribui um ID sequencial baseado no prefixo do domínio (`ARCH-001`, `FE-002`, `BE-003`, etc.) e grava o arquivo em `.archgate/adrs/`.
 
-### Modo nao-interativo
+### Modo não-interativo
 
 Passe `--title` e `--domain` para pular os prompts:
 
@@ -31,20 +31,20 @@ Passe `--title` e `--domain` para pular os prompts:
 archgate adr create --title "API Response Format" --domain backend --files "src/api/**/*.ts"
 ```
 
-Flags disponiveis:
+Flags disponíveis:
 
-| Flag              | Descricao                                                      |
+| Flag              | Descrição                                                      |
 | ----------------- | -------------------------------------------------------------- |
-| `--title <title>` | Titulo do ADR (obrigatorio no modo nao-interativo)             |
-| `--domain <name>` | Dominio: backend, frontend, data, architecture, general        |
-| `--files <globs>` | Padroes de arquivo separados por virgula para escopo de regras |
+| `--title <title>` | Título do ADR (obrigatório no modo não-interativo)             |
+| `--domain <name>` | Domínio: backend, frontend, data, architecture, general        |
+| `--files <globs>` | Padrões de arquivo separados por vírgula para escopo de regras |
 | `--rules`         | Define `rules: true` no frontmatter                            |
 | `--body <md>`     | Corpo completo do ADR em markdown (pula o template)            |
 | `--json`          | Exibe o resultado como JSON                                    |
 
 ## O template gerado
 
-Quando voce cria um ADR sem `--body`, o CLI gera um template com todas as secoes padrao:
+Quando você cria um ADR sem `--body`, o CLI gera um template com todas as seções padrão:
 
 ```markdown
 ---
@@ -98,17 +98,17 @@ Describe how this decision will be enforced.
 -
 ```
 
-## Orientacoes por secao
+## Orientações por seção
 
 ### Context
 
-Explique por que essa decisao foi necessaria. Qual problema a motivou? Quais alternativas foram consideradas e por que foram descartadas?
+Explique por que essa decisão foi necessária. Qual problema a motivou? Quais alternativas foram consideradas e por que foram descartadas?
 
-Boas secoes de contexto incluem:
+Boas seções de contexto incluem:
 
-- O problema ou ponto de dor que motivou a decisao
-- Alternativas avaliadas, com uma breve analise de trade-offs
-- Quaisquer restricoes que limitaram as opcoes (tamanho da equipe, runtime, compatibilidade)
+- O problema ou ponto de dor que motivou a decisão
+- Alternativas avaliadas, com uma breve análise de trade-offs
+- Quaisquer restrições que limitaram as opções (tamanho da equipe, runtime, compatibilidade)
 
 ```markdown
 ## Context
@@ -129,9 +129,9 @@ graph opaque.
 
 ### Decision
 
-Declare o que foi decidido. Seja especifico e concreto -- esta secao nao deve deixar ambiguidade sobre o que os desenvolvedores devem fazer.
+Declare o que foi decidido. Seja específico e concreto -- esta seção não deve deixar ambiguidade sobre o que os desenvolvedores devem fazer.
 
-Inclua restricoes numeradas quando a decisao tem multiplas facetas:
+Inclua restrições numeradas quando a decisão tem múltiplas facetas:
 
 ```markdown
 ## Decision
@@ -149,7 +149,7 @@ function.
 
 ### Do's and Don'ts
 
-Esta e a secao que desenvolvedores e agentes de IA consultam com mais frequencia. Escreva exemplos concretos de padroes corretos e incorretos. Use codigo real sempre que possivel.
+Esta é a seção que desenvolvedores e agentes de IA consultam com mais frequência. Escreva exemplos concretos de padrões corretos e incorretos. Use código real sempre que possível.
 
 ```markdown
 ## Do's and Don'ts
@@ -169,11 +169,11 @@ Esta e a secao que desenvolvedores e agentes de IA consultam com mais frequencia
 
 ### Consequences
 
-Divida as consequencias em tres categorias:
+Divida as consequências em três categorias:
 
-- **Positive** -- beneficios que a equipe ganha com esta decisao
-- **Negative** -- trade-offs que a equipe aceita (toda decisao tem)
-- **Risks** -- o que pode dar errado, e como voce planeja mitigar
+- **Positive** -- benefícios que a equipe ganha com esta decisão
+- **Negative** -- trade-offs que a equipe aceita (toda decisão tem)
+- **Risks** -- o que pode dar errado, e como você planeja mitigar
 
 ```markdown
 ## Consequences
@@ -195,10 +195,10 @@ Divida as consequencias em tres categorias:
 
 ### Compliance and Enforcement
 
-Descreva como esta decisao e aplicada. Existem dois mecanismos de aplicacao:
+Descreva como esta decisão é aplicada. Existem dois mecanismos de aplicação:
 
 1. **Regras automatizadas** -- arquivos `.rules.ts` complementares que rodam durante `archgate check`
-2. **Aplicacao manual** -- o que revisores de codigo devem verificar
+2. **Aplicação manual** -- o que revisores de código devem verificar
 
 ```markdown
 ## Compliance and Enforcement
@@ -218,7 +218,7 @@ Code reviewers MUST verify:
 
 ### References
 
-Vincule ADRs relacionados, documentacao externa ou discussoes relevantes:
+Vincule ADRs relacionados, documentação externa ou discussões relevantes:
 
 ```markdown
 ## References
@@ -230,7 +230,7 @@ Vincule ADRs relacionados, documentacao externa ou discussoes relevantes:
 
 ## Delimitando regras com `files`
 
-O campo `files` no frontmatter e um array de padroes glob. Quando definido, `archgate check` passa apenas os arquivos correspondentes para o `ctx.scopedFiles` da regra. Isso mantem as regras focadas no codigo que elas governam.
+O campo `files` no frontmatter é um array de padrões glob. Quando definido, `archgate check` passa apenas os arquivos correspondentes para o `ctx.scopedFiles` da regra. Isso mantém as regras focadas no código que elas governam.
 
 ```yaml
 ---
@@ -242,21 +242,21 @@ files: ["src/commands/**/*.ts"]
 ---
 ```
 
-Se `files` for omitido, `ctx.scopedFiles` inclui todos os arquivos do projeto. Isso e apropriado para regras que abrangem todo o projeto, como politicas de dependencias.
+Se `files` for omitido, `ctx.scopedFiles` inclui todos os arquivos do projeto. Isso é apropriado para regras que abrangem todo o projeto, como políticas de dependências.
 
-Padroes comuns:
+Padrões comuns:
 
-| Padrao                 | Corresponde a                                |
+| Padrão                 | Corresponde a                                |
 | ---------------------- | -------------------------------------------- |
 | `src/commands/**/*.ts` | Todos os arquivos TypeScript em commands     |
-| `src/**/*.ts`          | Todos os arquivos TypeScript do codigo-fonte |
+| `src/**/*.ts`          | Todos os arquivos TypeScript do código-fonte |
 | `package.json`         | Apenas o package.json raiz                   |
 | `src/api/**/*.ts`      | Arquivos da camada de API                    |
 | `tests/**/*.test.ts`   | Arquivos de teste                            |
 
 ## Quando definir `rules: true` vs `rules: false`
 
-Defina `rules: true` quando voce tiver um arquivo `.rules.ts` complementar com verificacoes automatizadas. O arquivo deve ter o mesmo nome do arquivo markdown do ADR, mas com a extensao `.rules.ts`:
+Defina `rules: true` quando você tiver um arquivo `.rules.ts` complementar com verificações automatizadas. O arquivo deve ter o mesmo nome do arquivo markdown do ADR, mas com a extensão `.rules.ts`:
 
 ```
 .archgate/adrs/
@@ -267,7 +267,7 @@ Defina `rules: true` quando voce tiver um arquivo `.rules.ts` complementar com v
   GEN-001-code-review-process.md         # rules: false (no automated checks)
 ```
 
-Defina `rules: false` para decisoes que sao aplicadas apenas por revisao de codigo -- decisoes de processo, acordos de equipe ou diretrizes dificeis de verificar programaticamente.
+Defina `rules: false` para decisões que são aplicadas apenas por revisão de código -- decisões de processo, acordos de equipe ou diretrizes difíceis de verificar programaticamente.
 
 ## Atualizando ADRs
 
@@ -277,34 +277,34 @@ Use `archgate adr update` para modificar um ADR existente:
 archgate adr update --id ARCH-001 --body "## Context\n\nUpdated context..." --title "New Title"
 ```
 
-As flags `--id` e `--body` sao obrigatorias. Todos os outros campos do frontmatter (`--title`, `--domain`, `--files`, `--rules`) sao opcionais e preservam seus valores existentes quando omitidos.
+As flags `--id` e `--body` são obrigatórias. Todos os outros campos do frontmatter (`--title`, `--domain`, `--files`, `--rules`) são opcionais e preservam seus valores existentes quando omitidos.
 
-| Flag              | Descricao                                                    |
+| Flag              | Descrição                                                    |
 | ----------------- | ------------------------------------------------------------ |
-| `--id <id>`       | ID do ADR a ser atualizado (obrigatorio)                     |
-| `--body <md>`     | Corpo markdown de substituicao completa (obrigatorio)        |
-| `--title <title>` | Novo titulo (preserva o existente se omitido)                |
-| `--domain <name>` | Novo dominio (preserva o existente se omitido)               |
-| `--files <globs>` | Novos padroes de arquivo (preserva os existentes se omitido) |
+| `--id <id>`       | ID do ADR a ser atualizado (obrigatório)                     |
+| `--body <md>`     | Corpo markdown de substituição completa (obrigatório)        |
+| `--title <title>` | Novo título (preserva o existente se omitido)                |
+| `--domain <name>` | Novo domínio (preserva o existente se omitido)               |
+| `--files <globs>` | Novos padrões de arquivo (preserva os existentes se omitido) |
 | `--rules`         | Define `rules: true`                                         |
 | `--json`          | Exibe o resultado como JSON                                  |
 
 ## Dicas para ADRs eficazes
 
-1. **Mantenha cada ADR focado em uma unica decisao.** Se voce perceber que esta escrevendo sobre dois assuntos nao relacionados, divida-os em ADRs separados.
+1. **Mantenha cada ADR focado em uma única decisão.** Se você perceber que está escrevendo sobre dois assuntos não relacionados, divida-os em ADRs separados.
 
-2. **Seja especifico nos Do's and Don'ts.** Diretrizes vagas como "escreva codigo limpo" nao sao acionaveis. Mostre padroes de codigo concretos.
+2. **Seja específico nos Do's and Don'ts.** Diretrizes vagas como "escreva código limpo" não são acionáveis. Mostre padrões de código concretos.
 
-3. **Inclua exemplos de codigo reais.** A secao Do's and Don'ts e onde desenvolvedores e agentes de IA olham primeiro. Exemplos de codigo anotados tornam a decisao inequivoca.
+3. **Inclua exemplos de código reais.** A seção Do's and Don'ts é onde desenvolvedores e agentes de IA olham primeiro. Exemplos de código anotados tornam a decisão inequívoca.
 
-4. **Documente as alternativas que voce rejeitou.** Futuros colaboradores perguntarao "por que nao usamos X?" A secao Context deve responder a essa pergunta.
+4. **Documente as alternativas que você rejeitou.** Futuros colaboradores perguntarão "por que não usamos X?" A seção Context deve responder a essa pergunta.
 
-5. **Declare os trade-offs honestamente.** Toda decisao tem consequencias negativas. Documenta-las gera confianca e ajuda a equipe a entender o que foi sacrificado.
+5. **Declare os trade-offs honestamente.** Toda decisão tem consequências negativas. Documentá-las gera confiança e ajuda a equipe a entender o que foi sacrificado.
 
-6. **Escreva regras para decisoes que podem ser verificadas automaticamente.** Se uma regra consegue detectar uma violacao antes da revisao de codigo, defina `rules: true` e escreva um arquivo `.rules.ts` complementar. Veja o guia [Escrevendo Regras](/pt-br/guides/writing-rules/).
+6. **Escreva regras para decisões que podem ser verificadas automaticamente.** Se uma regra consegue detectar uma violação antes da revisão de código, defina `rules: true` e escreva um arquivo `.rules.ts` complementar. Veja o guia [Escrevendo Regras](/pt-br/guides/writing-rules/).
 
-7. **Use prefixos de dominio para organizar.** O campo domain (`backend`, `frontend`, `data`, `architecture`, `general`) determina o prefixo do ID e ajuda a filtrar ADRs por area.
+7. **Use prefixos de domínio para organizar.** O campo domain (`backend`, `frontend`, `data`, `architecture`, `general`) determina o prefixo do ID e ajuda a filtrar ADRs por área.
 
-:::tip[Deixe agentes de IA escreverem ADRs para voce]
-Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) incluem uma skill de ADR Author que cria e atualiza ADRs seguindo as convencoes do seu projeto. A skill Quality Manager tambem propoe novos ADRs quando detecta padroes recorrentes. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
+:::tip[Deixe agentes de IA escreverem ADRs para você]
+Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) incluem uma skill de ADR Author que cria e atualiza ADRs seguindo as convenções do seu projeto. A skill Quality Manager também propõe novos ADRs quando detecta padrões recorrentes. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
 :::

@@ -1,13 +1,13 @@
 ---
-title: Padroes Comuns de Regras
-description: Padroes de regras prontos para uso em necessidades comuns de governanca.
+title: Padrões Comuns de Regras
+description: Padrões de regras prontos para uso em necessidades comuns de governança.
 ---
 
-Esta pagina fornece exemplos completos de regras, prontos para copiar e colar, para cenarios comuns de governanca. Cada padrao inclui o codigo completo da regra, uma explicacao de como funciona e orientacoes sobre quando utiliza-lo.
+Esta página fornece exemplos completos de regras, prontos para copiar e colar, para cenários comuns de governança. Cada padrão inclui o código completo da regra, uma explicação de como funciona e orientações sobre quando utilizá-lo.
 
-## Padrao 1: Lista de Dependencias Permitidas
+## Padrão 1: Lista de Dependências Permitidas
 
-**Quando usar:** Restringir dependencias de producao a uma lista curada para evitar inchacos de dependencias e riscos na cadeia de suprimentos.
+**Quando usar:** Restringir dependências de produção a uma lista curada para evitar inchaços de dependências e riscos na cadeia de suprimentos.
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -45,13 +45,13 @@ export default defineRules({
 });
 ```
 
-**Como funciona:** Le o `package.json`, itera sobre as `dependencies` de producao e reporta uma violacao para qualquer pacote que nao esteja no array `APPROVED_DEPS`. Dependencias em `devDependencies` nao sao verificadas. A mensagem de correcao orienta o desenvolvedor a obter a aprovacao da dependencia ou reclassifica-la.
+**Como funciona:** Lê o `package.json`, itera sobre as `dependencies` de produção e reporta uma violação para qualquer pacote que não esteja no array `APPROVED_DEPS`. Dependências em `devDependencies` não são verificadas. A mensagem de correção orienta o desenvolvedor a obter a aprovação da dependência ou reclassificá-la.
 
 ---
 
-## Padrao 2: Padrao de Exportacao Obrigatoria
+## Padrão 2: Padrão de Exportação Obrigatória
 
-**Quando usar:** Garantir que arquivos em um diretorio especifico exportem uma assinatura de funcao obrigatoria, como o padrao `register*Command` para arquivos de comandos CLI.
+**Quando usar:** Garantir que arquivos em um diretório específico exportem uma assinatura de função obrigatória, como o padrão `register*Command` para arquivos de comandos CLI.
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -76,9 +76,9 @@ export default defineRules({
 });
 ```
 
-**Como funciona:** Filtra arquivos `index.ts` (barrel files), e entao verifica cada arquivo no escopo em busca de uma funcao exportada que corresponda ao padrao de nomenclatura `register*Command`. A regex procura por `export function register` seguido de quaisquer caracteres alfanumericos e `Command`. Arquivos que nao correspondem recebem uma violacao.
+**Como funciona:** Filtra arquivos `index.ts` (barrel files), e então verifica cada arquivo no escopo em busca de uma função exportada que corresponda ao padrão de nomenclatura `register*Command`. A regex procura por `export function register` seguido de quaisquer caracteres alfanuméricos e `Command`. Arquivos que não correspondem recebem uma violação.
 
-Para adaptar este padrao, altere a regex para corresponder a convencao de exportacao exigida pelo seu projeto. Por exemplo, para exigir uma exportacao default de um componente React:
+Para adaptar este padrão, altere a regex para corresponder à convenção de exportação exigida pelo seu projeto. Por exemplo, para exigir uma exportação default de um componente React:
 
 ```typescript
 if (!/export\s+default\s+function\s+\w+/.test(content)) {
@@ -86,9 +86,9 @@ if (!/export\s+default\s+function\s+\w+/.test(content)) {
 
 ---
 
-## Padrao 3: Importacao Banida
+## Padrão 3: Importação Banida
 
-**Quando usar:** Impedir o uso de uma biblioteca ou modulo especifico em toda a base de codigo. Casos de uso comuns incluem banir bibliotecas pesadas como `lodash` ou `moment` em favor de alternativas nativas, ou impedir importacoes de modulos internos que estao sendo descontinuados.
+**Quando usar:** Impedir o uso de uma biblioteca ou módulo específico em toda a base de código. Casos de uso comuns incluem banir bibliotecas pesadas como `lodash` ou `moment` em favor de alternativas nativas, ou impedir importações de módulos internos que estão sendo descontinuados.
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -131,15 +131,15 @@ export default defineRules({
 });
 ```
 
-**Como funciona:** Define uma lista de importacoes banidas com o padrao regex para detecta-las, o nome da biblioteca para a mensagem de erro e a alternativa recomendada. Usa `ctx.grepFiles` para escanear todos os arquivos TypeScript em busca de cada padrao banido e reporta uma violacao para cada correspondencia.
+**Como funciona:** Define uma lista de importações banidas com o padrão regex para detectá-las, o nome da biblioteca para a mensagem de erro e a alternativa recomendada. Usa `ctx.grepFiles` para escanear todos os arquivos TypeScript em busca de cada padrão banido e reporta uma violação para cada correspondência.
 
-Para adicionar mais importacoes banidas, adicione entradas ao array `BANNED_IMPORTS`. O padrao deve corresponder a parte `from "..."` da instrucao de importacao.
+Para adicionar mais importações banidas, adicione entradas ao array `BANNED_IMPORTS`. O padrão deve corresponder à parte `from "..."` da instrução de importação.
 
 ---
 
-## Padrao 4: Convencao de Nomenclatura de Arquivos
+## Padrão 4: Convenção de Nomenclatura de Arquivos
 
-**Quando usar:** Impor nomenclatura consistente de arquivos em um diretorio, como exigir kebab-case para todos os arquivos fonte.
+**Quando usar:** Impor nomenclatura consistente de arquivos em um diretório, como exigir kebab-case para todos os arquivos fonte.
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -170,9 +170,9 @@ export default defineRules({
 });
 ```
 
-**Como funciona:** Extrai o basename de cada arquivo no escopo e o testa contra uma regex de kebab-case. A regex exige letras minusculas e digitos separados por hifens, com uma extensao de arquivo valida. Arquivos de teste e declaracoes de tipo sao excluidos. A sugestao de correcao converte automaticamente camelCase para kebab-case.
+**Como funciona:** Extrai o basename de cada arquivo no escopo e o testa contra uma regex de kebab-case. A regex exige letras minúsculas e dígitos separados por hífens, com uma extensão de arquivo válida. Arquivos de teste e declarações de tipo são excluídos. A sugestão de correção converte automaticamente camelCase para kebab-case.
 
-Para alterar a convencao de nomenclatura, substitua a regex. Por exemplo, para camelCase:
+Para alterar a convenção de nomenclatura, substitua a regex. Por exemplo, para camelCase:
 
 ```typescript
 const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
@@ -180,9 +180,9 @@ const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
 
 ---
 
-## Padrao 5: Sem Comentarios TODO em Producao
+## Padrão 5: Sem Comentários TODO em Produção
 
-**Quando usar:** Sinalizar comentarios TODO, FIXME, HACK e XXX para que sejam resolvidos antes do merge. Usa severidade `warning` para nao bloquear o CI, mas torna os comentarios visiveis na saida da verificacao.
+**Quando usar:** Sinalizar comentários TODO, FIXME, HACK e XXX para que sejam resolvidos antes do merge. Usa severidade `warning` para não bloquear o CI, mas torna os comentários visíveis na saída da verificação.
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -208,15 +208,15 @@ export default defineRules({
 });
 ```
 
-**Como funciona:** Usa `ctx.grepFiles` para escanear todos os arquivos TypeScript em `src/` em busca de comentarios que comecem com `TODO:`, `FIXME:`, `HACK:` ou `XXX:` (sem distincao de maiusculas/minusculas). Cada correspondencia e reportada como um aviso com o texto original do comentario. Como a severidade e `"warning"`, a verificacao termina com codigo 0 mesmo quando correspondencias sao encontradas -- ela exibe os comentarios sem bloquear merges.
+**Como funciona:** Usa `ctx.grepFiles` para escanear todos os arquivos TypeScript em `src/` em busca de comentários que comecem com `TODO:`, `FIXME:`, `HACK:` ou `XXX:` (sem distinção de maiúsculas/minúsculas). Cada correspondência é reportada como um aviso com o texto original do comentário. Como a severidade é `"warning"`, a verificação termina com código 0 mesmo quando correspondências são encontradas -- ela exibe os comentários sem bloquear merges.
 
 Para tornar isso um bloqueio definitivo, altere a severidade para `"error"` e use `ctx.report.violation()` em vez de `ctx.report.warning()`.
 
 ---
 
-## Padrao 6: Cobertura de Arquivos de Teste
+## Padrão 6: Cobertura de Arquivos de Teste
 
-**Quando usar:** Garantir que todo arquivo fonte tenha um arquivo de teste correspondente, impedindo que codigo sem testes seja mergeado.
+**Quando usar:** Garantir que todo arquivo fonte tenha um arquivo de teste correspondente, impedindo que código sem testes seja mergeado.
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -246,9 +246,9 @@ export default defineRules({
 });
 ```
 
-**Como funciona:** Para cada arquivo fonte no escopo, converte o caminho de `src/` para `tests/` e adiciona `.test.ts`. Em seguida, usa `ctx.glob` para verificar se o arquivo de teste existe. Caso nao exista, reporta um aviso com uma correcao sugerindo o caminho esperado do arquivo de teste.
+**Como funciona:** Para cada arquivo fonte no escopo, converte o caminho de `src/` para `tests/` e adiciona `.test.ts`. Em seguida, usa `ctx.glob` para verificar se o arquivo de teste existe. Caso não exista, reporta um aviso com uma correção sugerindo o caminho esperado do arquivo de teste.
 
-Isso pressupoe uma estrutura de diretorio de testes que espelha `src/`:
+Isso pressupõe uma estrutura de diretório de testes que espelha `src/`:
 
 ```
 src/
@@ -261,13 +261,13 @@ tests/
     paths.test.ts
 ```
 
-Para adaptar em projetos que colocam testes ao lado dos arquivos fonte, altere a transformacao do caminho:
+Para adaptar em projetos que colocam testes ao lado dos arquivos fonte, altere a transformação do caminho:
 
 ```typescript
 const testPath = rel.replace(/\.ts$/, ".test.ts");
 // src/helpers/log.ts -> src/helpers/log.test.ts
 ```
 
-:::tip[Deixe agentes de IA escreverem regras para voce]
-Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) incluem uma skill de Quality Manager que identifica padroes recorrentes na sua base de codigo e propoe novas regras para aplica-los. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
+:::tip[Deixe agentes de IA escreverem regras para você]
+Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) incluem uma skill de Quality Manager que identifica padrões recorrentes na sua base de código e propõe novas regras para aplicá-los. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
 :::

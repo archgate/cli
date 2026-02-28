@@ -1,13 +1,13 @@
 ---
-title: Integracao com CI
-description: Adicione verificacoes do Archgate ao seu pipeline de CI/CD.
+title: Integração com CI
+description: Adicione verificações do Archgate ao seu pipeline de CI/CD.
 ---
 
-As verificacoes do Archgate funcionam em qualquer sistema de CI que respeite codigos de saida. Adicione um unico passo ao seu pipeline e as violacoes bloqueiarao merges automaticamente.
+As verificações do Archgate funcionam em qualquer sistema de CI que respeite códigos de saída. Adicione um único passo ao seu pipeline e as violações bloquearão merges automaticamente.
 
 ## GitHub Actions
 
-A configuracao mais simples e um job dedicado que instala o Archgate e executa `archgate check`:
+A configuração mais simples é um job dedicado que instala o Archgate e executa `archgate check`:
 
 ```yaml
 name: ADR Compliance
@@ -22,27 +22,27 @@ jobs:
       - run: archgate check
 ```
 
-Isso instala o CLI globalmente e executa todas as regras de ADR. Se qualquer regra reportar uma violacao com severidade `error`, o passo termina com codigo 1 e o job falha.
+Isso instala o CLI globalmente e executa todas as regras de ADR. Se qualquer regra reportar uma violação com severidade `error`, o passo termina com código 1 e o job falha.
 
-## Anotacoes do GitHub Actions
+## Anotações do GitHub Actions
 
-Use `--ci` para exibir violacoes como anotacoes de workflow do GitHub Actions. Elas aparecem inline na aba "Files changed" do pull request, apontando diretamente para o arquivo e a linha com o problema.
+Use `--ci` para exibir violações como anotações de workflow do GitHub Actions. Elas aparecem inline na aba "Files changed" do pull request, apontando diretamente para o arquivo e a linha com o problema.
 
 ```yaml
 - run: archgate check --ci
 ```
 
-A flag `--ci` produz anotacoes `::error` e `::warning` no formato esperado pelo GitHub Actions. Cada anotacao inclui o ID do ADR, o ID da regra, o caminho do arquivo e o numero da linha.
+A flag `--ci` produz anotações `::error` e `::warning` no formato esperado pelo GitHub Actions. Cada anotação inclui o ID do ADR, o ID da regra, o caminho do arquivo e o número da linha.
 
-## Saida legivel por maquina
+## Saída legível por máquina
 
-Use `--json` para saida estruturada que outras ferramentas podem processar:
+Use `--json` para saída estruturada que outras ferramentas podem processar:
 
 ```yaml
 - run: archgate check --json > results.json
 ```
 
-A saida JSON inclui:
+A saída JSON inclui:
 
 ```json
 {
@@ -77,39 +77,39 @@ A saida JSON inclui:
 }
 ```
 
-## Codigos de saida
+## Códigos de saída
 
-| Codigo | Significado                    | Comportamento no CI |
+| Código | Significado                    | Comportamento no CI |
 | ------ | ------------------------------ | ------------------- |
-| 0      | Todas as verificacoes passaram | Job bem-sucedido    |
-| 1      | Violacoes encontradas          | Job falha           |
+| 0      | Todas as verificações passaram | Job bem-sucedido    |
+| 1      | Violações encontradas          | Job falha           |
 | 2      | Erro interno                   | Job falha           |
 
-Avisos (severidade `warning`) sao registrados, mas nao afetam o codigo de saida. Apenas violacoes com severidade `error` causam o codigo de saida 1.
+Avisos (severidade `warning`) são registrados, mas não afetam o código de saída. Apenas violações com severidade `error` causam o código de saída 1.
 
 ## Reduzindo o escopo
 
 ### Verificar apenas arquivos staged
 
-Use `--staged` para limitar a verificacao aos arquivos staged no git. Isso e util em hooks de pre-commit ou quando voce deseja validar apenas o que esta prestes a ser commitado:
+Use `--staged` para limitar a verificação aos arquivos staged no git. Isso é útil em hooks de pre-commit ou quando você deseja validar apenas o que está prestes a ser commitado:
 
 ```yaml
 - run: archgate check --staged
 ```
 
-### Verificar um ADR especifico
+### Verificar um ADR específico
 
-Use `--adr <id>` para executar regras de um unico ADR:
+Use `--adr <id>` para executar regras de um único ADR:
 
 ```yaml
 - run: archgate check --adr ARCH-006
 ```
 
-Isso e util quando um PR altera apenas arquivos governados por um ADR e voce deseja feedback mais rapido.
+Isso é útil quando um PR altera apenas arquivos governados por um ADR e você deseja feedback mais rápido.
 
 ## Adicionando a um pipeline existente
 
-Se voce ja tem uma configuracao de CI, adicione o Archgate como um unico passo apos o checkout:
+Se você já tem uma configuração de CI, adicione o Archgate como um único passo após o checkout:
 
 ```yaml
 # Existing pipeline
@@ -126,11 +126,11 @@ steps:
   - run: archgate check --ci
 ```
 
-Nenhuma dependencia adicional ou arquivo de configuracao e necessario alem do diretorio `.archgate/` que ja esta no seu repositorio.
+Nenhuma dependência adicional ou arquivo de configuração é necessário além do diretório `.archgate/` que já está no seu repositório.
 
-## Cache da instalacao
+## Cache da instalação
 
-Faca cache do diretorio `~/.archgate` para acelerar instalacoes repetidas:
+Faça cache do diretório `~/.archgate` para acelerar instalações repetidas:
 
 ```yaml
 jobs:
@@ -161,7 +161,7 @@ adr-compliance:
 
 ## CI baseado em Bun
 
-Se seu CI ja usa Bun, instale o Archgate com `bun` ao inves de `npm`:
+Se seu CI já usa Bun, instale o Archgate com `bun` ao invés de `npm`:
 
 ```yaml
 jobs:
@@ -176,33 +176,33 @@ jobs:
 
 ## Outros sistemas de CI
 
-O Archgate funciona com qualquer sistema de CI que consiga executar comandos shell. O padrao e sempre o mesmo:
+O Archgate funciona com qualquer sistema de CI que consiga executar comandos shell. O padrão é sempre o mesmo:
 
 1. Instalar: `npm install -g archgate` (ou `bun install -g archgate`)
 2. Executar: `archgate check`
-3. Verificar o codigo de saida (0 = aprovado, 1 = violacoes, 2 = erro)
+3. Verificar o código de saída (0 = aprovado, 1 = violações, 2 = erro)
 
-Para sistemas que suportam anotacoes (Azure DevOps, Buildkite, etc.), use `--json` para processar a saida e emitir anotacoes no formato esperado pelo seu CI.
+Para sistemas que suportam anotações (Azure DevOps, Buildkite, etc.), use `--json` para processar a saída e emitir anotações no formato esperado pelo seu CI.
 
 ## Hooks de pre-commit
 
-Voce tambem pode executar o Archgate como um hook de pre-commit local. Adicione isso a `.git/hooks/pre-commit` (ou use um gerenciador de hooks como Husky ou Lefthook):
+Você também pode executar o Archgate como um hook de pre-commit local. Adicione isso a `.git/hooks/pre-commit` (ou use um gerenciador de hooks como Husky ou Lefthook):
 
 ```bash
 #!/bin/sh
 archgate check --staged
 ```
 
-A flag `--staged` garante que apenas os arquivos prestes a serem commitados sejam verificados, mantendo o hook rapido.
+A flag `--staged` garante que apenas os arquivos prestes a serem commitados sejam verificados, mantendo o hook rápido.
 
-## Saida detalhada
+## Saída detalhada
 
-Use `--verbose` para ver as regras aprovadas e informacoes de tempo junto com as falhas. Isso e util para debugar verificacoes lentas ou confirmar que as regras estao rodando como esperado:
+Use `--verbose` para ver as regras aprovadas e informações de tempo junto com as falhas. Isso é útil para debugar verificações lentas ou confirmar que as regras estão rodando como esperado:
 
 ```yaml
 - run: archgate check --verbose
 ```
 
-:::tip[Adicione governanca de IA ao seu fluxo de trabalho]
-O CI detecta violacoes no momento do merge. Plugins de editor detectam no momento da codificacao. Com o plugin [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/cursor-integration/), seu agente de IA le os ADRs antes de escrever codigo e valida a conformidade antes mesmo de voce commitar. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
+:::tip[Adicione governança de IA ao seu fluxo de trabalho]
+O CI detecta violações no momento do merge. Plugins de editor detectam no momento da codificação. Com o plugin [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/cursor-integration/), seu agente de IA lê os ADRs antes de escrever código e valida a conformidade antes mesmo de você commitar. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
 :::

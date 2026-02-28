@@ -1,28 +1,28 @@
 ---
-title: Inicio Rapido
+title: Início Rápido
 description: Comece a usar o Archgate em menos de 5 minutos.
 ---
 
 ## 1. Instalar o Archgate
 
-Se voce ainda nao instalou a CLI, instale-a globalmente via npm:
+Se você ainda não instalou a CLI, instale-a globalmente via npm:
 
 ```bash
 npm install -g archgate
 ```
 
-Veja a pagina de [Instalacao](/getting-started/installation/) para detalhes de plataforma e solucao de problemas.
+Veja a página de [Instalação](/getting-started/installation/) para detalhes de plataforma e solução de problemas.
 
 ## 2. Inicializar seu projeto
 
-Navegue ate a raiz do seu projeto e execute o comando `init`:
+Navegue até a raiz do seu projeto e execute o comando `init`:
 
 ```bash
 cd my-project
 archgate init
 ```
 
-Isso cria o diretorio `.archgate/` com a seguinte estrutura:
+Isso cria o diretório `.archgate/` com a seguinte estrutura:
 
 ```
 .archgate/
@@ -33,11 +33,11 @@ Isso cria o diretorio `.archgate/` com a seguinte estrutura:
     archgate.config.ts           # Archgate configuration
 ```
 
-Os arquivos gerados fornecem um exemplo funcional para voce construir a partir dele.
+Os arquivos gerados fornecem um exemplo funcional para você construir a partir dele.
 
 ## 3. Editar o ADR de exemplo
 
-Abra `.archgate/adrs/ARCH-001-example.md`. Todo ADR comeca com um frontmatter YAML que define sua identidade:
+Abra `.archgate/adrs/ARCH-001-example.md`. Todo ADR começa com um frontmatter YAML que define sua identidade:
 
 ```yaml
 ---
@@ -49,17 +49,17 @@ files: ["src/**/*.ts"]
 ---
 ```
 
-- **id** — Identificador unico. A convencao e `ARCH-NNN`, mas qualquer string funciona.
-- **title** — Nome legivel para a decisao.
+- **id** — Identificador único. A convenção é `ARCH-NNN`, mas qualquer string funciona.
+- **title** — Nome legível para a decisão.
 - **domain** — Agrupa ADRs relacionados (`architecture`, `backend`, `frontend`, `data` ou `general`).
-- **rules** — Defina como `true` se este ADR possui um arquivo complementar `.rules.ts` com verificacoes automatizadas.
-- **files** — Padroes glob opcionais que definem o escopo de quais arquivos as regras se aplicam.
+- **rules** — Defina como `true` se este ADR possui um arquivo complementar `.rules.ts` com verificações automatizadas.
+- **files** — Padrões glob opcionais que definem o escopo de quais arquivos as regras se aplicam.
 
-Abaixo do frontmatter, escreva a decisao em markdown. O Archgate nao impoe uma estrutura especifica de secoes, mas as secoes recomendadas sao: Context, Decision, Do's and Don'ts, Consequences, Compliance e References.
+Abaixo do frontmatter, escreva a decisão em markdown. O Archgate não impõe uma estrutura específica de seções, mas as seções recomendadas são: Context, Decision, Do's and Don'ts, Consequences, Compliance e References.
 
 ## 4. Adicionar um arquivo de regras complementar
 
-Crie um arquivo `.rules.ts` ao lado do seu ADR com o mesmo prefixo de nome. As regras sao escritas em TypeScript usando a funcao `defineRules`:
+Crie um arquivo `.rules.ts` ao lado do seu ADR com o mesmo prefixo de nome. As regras são escritas em TypeScript usando a função `defineRules`:
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -84,29 +84,29 @@ export default defineRules({
 });
 ```
 
-Cada regra possui uma chave unica, uma descricao e uma funcao assincrona `check`. Dentro de `check`, voce tem acesso a:
+Cada regra possui uma chave única, uma descrição e uma função assíncrona `check`. Dentro de `check`, você tem acesso a:
 
-- **`ctx.scopedFiles`** — Arquivos que correspondem aos padroes glob do campo `files` do ADR.
-- **`ctx.grep(file, pattern)`** — Pesquisa um arquivo por correspondencias de regex, retornando caminhos de arquivos e numeros de linha.
-- **`ctx.report.violation()`** — Reporta uma violacao com mensagem, caminho do arquivo, numero da linha e sugestao opcional de correcao.
+- **`ctx.scopedFiles`** — Arquivos que correspondem aos padrões glob do campo `files` do ADR.
+- **`ctx.grep(file, pattern)`** — Pesquisa um arquivo por correspondências de regex, retornando caminhos de arquivos e números de linha.
+- **`ctx.report.violation()`** — Reporta uma violação com mensagem, caminho do arquivo, número da linha e sugestão opcional de correção.
 
-## 5. Executar verificacoes
+## 5. Executar verificações
 
-Execute o verificador de conformidade contra sua base de codigo:
+Execute o verificador de conformidade contra sua base de código:
 
 ```bash
 archgate check
 ```
 
-O Archgate carrega cada ADR com `rules: true`, executa seu arquivo de regras complementar e imprime os resultados. O codigo de saida indica o resultado:
+O Archgate carrega cada ADR com `rules: true`, executa seu arquivo de regras complementar e imprime os resultados. O código de saída indica o resultado:
 
-| Codigo de saida | Significado                                            |
+| Código de saída | Significado                                            |
 | --------------- | ------------------------------------------------------ |
-| 0               | Todas as regras passaram. Nenhuma violacao encontrada. |
-| 1               | Uma ou mais violacoes detectadas.                      |
+| 0               | Todas as regras passaram. Nenhuma violação encontrada. |
+| 1               | Uma ou mais violações detectadas.                      |
 | 2               | Erro interno (ex.: ADR ou regra malformada).           |
 
-Para verificar apenas arquivos staged (util em pre-commit hooks ou CI):
+Para verificar apenas arquivos staged (útil em pre-commit hooks ou CI):
 
 ```bash
 archgate check --staged
@@ -114,26 +114,26 @@ archgate check --staged
 
 ## E agora?
 
-Agora que voce tem uma configuracao funcionando, aprofunde-se:
+Agora que você tem uma configuração funcionando, aprofunde-se:
 
 **Entenda os conceitos:**
 
-- [ADRs](/concepts/adrs/) — O que sao Architecture Decision Records e como o Archgate os utiliza.
-- [Regras](/concepts/rules/) — Como arquivos complementares `.rules.ts` transformam decisoes em verificacoes automatizadas.
-- [Dominios](/concepts/domains/) — Como dominios agrupam ADRs relacionados e definem o escopo de correspondencia de arquivos.
+- [ADRs](/concepts/adrs/) — O que são Architecture Decision Records e como o Archgate os utiliza.
+- [Regras](/concepts/rules/) — Como arquivos complementares `.rules.ts` transformam decisões em verificações automatizadas.
+- [Domínios](/concepts/domains/) — Como domínios agrupam ADRs relacionados e definem o escopo de correspondência de arquivos.
 
 **Escreva os seus:**
 
-- [Escrevendo ADRs](/guides/writing-adrs/) — Aprenda o formato completo de ADR e as melhores praticas para escrever decisoes eficazes.
-- [Escrevendo Regras](/guides/writing-rules/) — Explore a API de regras, padroes avancados e como testar suas regras.
-- [Padroes Comuns de Regras](/examples/common-rule-patterns/) — Padroes prontos para copiar e colar para verificacoes de dependencias, convencoes de nomenclatura e mais.
+- [Escrevendo ADRs](/guides/writing-adrs/) — Aprenda o formato completo de ADR e as melhores práticas para escrever decisões eficazes.
+- [Escrevendo Regras](/guides/writing-rules/) — Explore a API de regras, padrões avançados e como testar suas regras.
+- [Padrões Comuns de Regras](/examples/common-rule-patterns/) — Padrões prontos para copiar e colar para verificações de dependências, convenções de nomenclatura e mais.
 
 **Integre ao seu fluxo de trabalho:**
 
-- [Integracao com CI](/guides/ci-integration/) — Conecte `archgate check` ao GitHub Actions, GitLab CI ou qualquer pipeline.
-- [Pre-commit Hooks](/guides/pre-commit-hooks/) — Execute verificacoes localmente antes de cada commit.
-- [Plugin Claude Code](/guides/claude-code-plugin/) — De aos agentes de IA um fluxo completo de governanca com habilidades baseadas em papeis.
-- [Integracao com Cursor](/guides/cursor-integration/) — Use o Archgate com o Cursor IDE para desenvolvimento assistido por IA.
+- [Integração com CI](/guides/ci-integration/) — Conecte `archgate check` ao GitHub Actions, GitLab CI ou qualquer pipeline.
+- [Pre-commit Hooks](/guides/pre-commit-hooks/) — Execute verificações localmente antes de cada commit.
+- [Plugin Claude Code](/guides/claude-code-plugin/) — Dê aos agentes de IA um fluxo completo de governança com habilidades baseadas em papéis.
+- [Integração com Cursor](/guides/cursor-integration/) — Use o Archgate com o Cursor IDE para desenvolvimento assistido por IA.
 
 :::tip[Plugins para editores (beta)]
 Quer agentes de IA que leiam automaticamente seus ADRs antes de programar? Cadastre-se para o beta dos plugins para editores em [plugins.archgate.dev](https://plugins.archgate.dev), depois execute `archgate login` e `archgate init --install-plugin`.

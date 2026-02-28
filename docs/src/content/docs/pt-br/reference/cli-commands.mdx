@@ -1,15 +1,15 @@
 ---
 title: Comandos da CLI
-description: Referencia completa de todos os comandos da CLI do Archgate.
+description: Referência completa de todos os comandos da CLI do Archgate.
 ---
 
-## Opcoes globais
+## Opções globais
 
-Estas opcoes estao disponiveis em todos os comandos:
+Estas opções estão disponíveis em todos os comandos:
 
-| Opcao             | Descricao                          |
+| Opção             | Descrição                          |
 | ----------------- | ---------------------------------- |
-| `--version`, `-V` | Exibe a versao do Archgate         |
+| `--version`, `-V` | Exibe a versão do Archgate         |
 | `--help`, `-h`    | Mostra ajuda para qualquer comando |
 
 ```bash
@@ -27,20 +27,20 @@ Autentique-se com o GitHub para acessar os plugins de editor do Archgate.
 archgate login
 ```
 
-Inicia um GitHub Device Flow (OAuth). A CLI exibe um codigo de uso unico e uma URL. Abra a URL no seu navegador, insira o codigo e autorize o Archgate GitHub OAuth App. Apos a autorizacao, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena ambos em `~/.archgate/credentials`.
+Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena ambos em `~/.archgate/credentials`.
 
-As credenciais sao necessarias para instalar plugins de editor via `archgate init --install-plugin`. A CLI em si (check, init, mcp, etc.) funciona sem login.
+As credenciais são necessárias para instalar plugins de editor via `archgate init --install-plugin`. A CLI em si (check, init, mcp, etc.) funciona sem login.
 
 :::tip[Plugin em beta]
-Os plugins de editor estao atualmente em beta. Cadastre-se em [plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso.
+Os plugins de editor estão atualmente em beta. Cadastre-se em [plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso.
 :::
 
 ### Subcomandos
 
-| Subcomando               | Descricao                              |
+| Subcomando               | Descrição                              |
 | ------------------------ | -------------------------------------- |
-| `archgate login`         | Autenticar (pula se ja estiver logado) |
-| `archgate login status`  | Mostrar o status atual de autenticacao |
+| `archgate login`         | Autenticar (pula se já estiver logado) |
+| `archgate login status`  | Mostrar o status atual de autenticação |
 | `archgate login logout`  | Remover credenciais armazenadas        |
 | `archgate login refresh` | Reautenticar e solicitar um novo token |
 
@@ -92,30 +92,30 @@ archgate login refresh
 
 ## archgate init
 
-Inicializa a governanca do Archgate no projeto atual.
+Inicializa a governança do Archgate no projeto atual.
 
 ```bash
 archgate init [options]
 ```
 
-Cria o diretorio `.archgate/` com um ADR de exemplo, arquivo de regras complementar e configuracao do linter. Opcionalmente configura a integracao com o editor para fluxos de trabalho com agentes de IA e instala o plugin de editor do Archgate.
+Cria o diretório `.archgate/` com um ADR de exemplo, arquivo de regras complementar e configuração do linter. Opcionalmente configura a integração com o editor para fluxos de trabalho com agentes de IA e instala o plugin de editor do Archgate.
 
-### Opcoes
+### Opções
 
-| Opcao               | Padrao   | Descricao                                                                |
+| Opção               | Padrão   | Descrição                                                                |
 | ------------------- | -------- | ------------------------------------------------------------------------ |
-| `--editor <editor>` | `claude` | Integracao de editor a configurar (`claude`, `cursor`)                   |
-| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` previo) |
+| `--editor <editor>` | `claude` | Integração de editor a configurar (`claude`, `cursor`)                   |
+| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` prévio) |
 
-Quando `--install-plugin` e passado, a CLI instala o plugin do Archgate para o editor selecionado. Se a flag for omitida, a CLI faz deteccao automatica: instala o plugin quando existem credenciais validas (de um `archgate login` anterior) e pula caso contrario.
+Quando `--install-plugin` é passado, a CLI instala o plugin do Archgate para o editor selecionado. Se a flag for omitida, a CLI faz detecção automática: instala o plugin quando existem credenciais válidas (de um `archgate login` anterior) e pula caso contrário.
 
-### Comportamento de instalacao do plugin
+### Comportamento de instalação do plugin
 
-**Claude Code:** Se a CLI `claude` estiver no seu PATH, o plugin e instalado automaticamente via `claude plugin marketplace add` e `claude plugin install`. Se a CLI `claude` nao for encontrada, o comando exibe os comandos de instalacao manual.
+**Claude Code:** Se a CLI `claude` estiver no seu PATH, o plugin é instalado automaticamente via `claude plugin marketplace add` e `claude plugin install`. Se a CLI `claude` não for encontrada, o comando exibe os comandos de instalação manual.
 
-**Cursor:** O pacote do plugin e baixado de `plugins.archgate.dev` e extraido no diretorio `.cursor/`.
+**Cursor:** O pacote do plugin é baixado de `plugins.archgate.dev` e extraído no diretório `.cursor/`.
 
-### Saida
+### Saída
 
 ```
 Initialized Archgate governance in /path/to/project
@@ -126,7 +126,7 @@ Initialized Archgate governance in /path/to/project
 Archgate plugin installed for Claude Code.
 ```
 
-Quando `--editor cursor` e usado, a saida mostra `.cursor/` em vez de `.claude/`.
+Quando `--editor cursor` é usado, a saída mostra `.cursor/` em vez de `.claude/`.
 
 ### Estrutura gerada
 
@@ -143,30 +143,30 @@ Quando `--editor cursor` e usado, a saida mostra `.cursor/` em vez de `.claude/`
 
 ## archgate check
 
-Executa todas as verificacoes automatizadas de conformidade com ADRs no codebase.
+Executa todas as verificações automatizadas de conformidade com ADRs no codebase.
 
 ```bash
 archgate check [options]
 ```
 
-Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts` complementar e reporta violacoes com caminhos de arquivo e numeros de linha.
+Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts` complementar e reporta violações com caminhos de arquivo e números de linha.
 
-### Opcoes
+### Opções
 
-| Opcao        | Descricao                                                              |
+| Opção        | Descrição                                                              |
 | ------------ | ---------------------------------------------------------------------- |
-| `--staged`   | Verificar apenas arquivos no git stage (util para hooks de pre-commit) |
-| `--json`     | Saida JSON legivel por maquina                                         |
-| `--ci`       | Formato de anotacao do GitHub Actions                                  |
-| `--adr <id>` | Verificar apenas regras de um ADR especifico                           |
-| `--verbose`  | Mostrar regras aprovadas e informacoes de tempo                        |
+| `--staged`   | Verificar apenas arquivos no git stage (útil para hooks de pre-commit) |
+| `--json`     | Saída JSON legível por máquina                                         |
+| `--ci`       | Formato de anotação do GitHub Actions                                  |
+| `--adr <id>` | Verificar apenas regras de um ADR específico                           |
+| `--verbose`  | Mostrar regras aprovadas e informações de tempo                        |
 
-### Codigos de saida
+### Códigos de saída
 
-| Codigo | Significado                                            |
+| Código | Significado                                            |
 | ------ | ------------------------------------------------------ |
-| 0      | Todas as regras passaram. Nenhuma violacao encontrada. |
-| 1      | Uma ou mais violacoes detectadas.                      |
+| 0      | Todas as regras passaram. Nenhuma violação encontrada. |
+| 1      | Uma ou mais violações detectadas.                      |
 | 2      | Erro interno (ex.: ADR ou regra malformada).           |
 
 ### Exemplos
@@ -183,27 +183,27 @@ Verificar apenas arquivos no stage antes de commitar:
 archgate check --staged
 ```
 
-Verificar um unico ADR:
+Verificar um único ADR:
 
 ```bash
 archgate check --adr ARCH-001
 ```
 
-Obter saida JSON para integracao com CI:
+Obter saída JSON para integração com CI:
 
 ```bash
 archgate check --json
 ```
 
-Obter anotacoes do GitHub Actions:
+Obter anotações do GitHub Actions:
 
 ```bash
 archgate check --ci
 ```
 
-### Formato da saida JSON
+### Formato da saída JSON
 
-Quando `--json` e usado, a saida e um unico objeto JSON:
+Quando `--json` é usado, a saída é um único objeto JSON:
 
 ```json
 {
@@ -248,20 +248,20 @@ Cria um novo ADR interativamente ou via flags.
 archgate adr create [options]
 ```
 
-Quando executado sem `--title` e `--domain`, o comando solicita interativamente o dominio, titulo e padroes de arquivo opcionais. Quando ambos `--title` e `--domain` sao fornecidos, ele executa de forma nao interativa.
+Quando executado sem `--title` e `--domain`, o comando solicita interativamente o domínio, título e padrões de arquivo opcionais. Quando ambos `--title` e `--domain` são fornecidos, ele executa de forma não interativa.
 
-O ID do ADR e gerado automaticamente com o prefixo do dominio e o proximo numero de sequencia disponivel (ex.: `ARCH-002`, `BE-001`).
+O ID do ADR é gerado automaticamente com o prefixo do domínio e o próximo número de sequência disponível (ex.: `ARCH-002`, `BE-001`).
 
-### Opcoes
+### Opções
 
-| Opcao                | Descricao                                                                 |
+| Opção                | Descrição                                                                 |
 | -------------------- | ------------------------------------------------------------------------- |
-| `--title <title>`    | Titulo do ADR (pula o prompt interativo)                                  |
-| `--domain <domain>`  | Dominio do ADR (`backend`, `frontend`, `data`, `architecture`, `general`) |
-| `--files <patterns>` | Padroes de arquivo, separados por virgula                                 |
+| `--title <title>`    | Título do ADR (pula o prompt interativo)                                  |
+| `--domain <domain>`  | Domínio do ADR (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | Padrões de arquivo, separados por vírgula                                 |
 | `--body <markdown>`  | Corpo completo do ADR em markdown (pula o template)                       |
 | `--rules`            | Define `rules: true` no frontmatter                                       |
-| `--json`             | Saida como JSON                                                           |
+| `--json`             | Saída como JSON                                                           |
 
 ### Exemplos
 
@@ -271,7 +271,7 @@ Modo interativo:
 archgate adr create
 ```
 
-Modo nao interativo:
+Modo não interativo:
 
 ```bash
 archgate adr create \
@@ -291,12 +291,12 @@ Lista todos os ADRs do projeto.
 archgate adr list [options]
 ```
 
-### Opcoes
+### Opções
 
-| Opcao               | Descricao           |
+| Opção               | Descrição           |
 | ------------------- | ------------------- |
-| `--json`            | Saida como JSON     |
-| `--domain <domain>` | Filtrar por dominio |
+| `--json`            | Saída como JSON     |
+| `--domain <domain>` | Filtrar por domínio |
 
 ### Exemplos
 
@@ -320,7 +320,7 @@ Listar ADRs como JSON:
 archgate adr list --json
 ```
 
-Filtrar por dominio:
+Filtrar por domínio:
 
 ```bash
 archgate adr list --domain backend
@@ -330,17 +330,17 @@ archgate adr list --domain backend
 
 ## archgate adr show
 
-Exibe um ADR especifico pelo ID.
+Exibe um ADR específico pelo ID.
 
 ```bash
 archgate adr show <id>
 ```
 
-Imprime o conteudo completo do ADR (frontmatter e corpo) na saida padrao.
+Imprime o conteúdo completo do ADR (frontmatter e corpo) na saída padrão.
 
 ### Argumentos
 
-| Argumento | Descricao                             |
+| Argumento | Descrição                             |
 | --------- | ------------------------------------- |
 | `<id>`    | ID do ADR (ex.: `ARCH-001`, `BE-003`) |
 
@@ -360,19 +360,19 @@ Atualiza um ADR existente pelo ID.
 archgate adr update --id <id> --body <markdown> [options]
 ```
 
-Substitui o corpo do ADR pelo markdown fornecido. Campos do frontmatter (`--title`, `--domain`, `--files`, `--rules`) sao atualizados apenas quando passados explicitamente; caso contrario, os valores existentes sao preservados.
+Substitui o corpo do ADR pelo markdown fornecido. Campos do frontmatter (`--title`, `--domain`, `--files`, `--rules`) são atualizados apenas quando passados explicitamente; caso contrário, os valores existentes são preservados.
 
-### Opcoes
+### Opções
 
-| Opcao                | Obrigatorio | Descricao                                                                       |
+| Opção                | Obrigatório | Descrição                                                                       |
 | -------------------- | ----------- | ------------------------------------------------------------------------------- |
 | `--id <id>`          | Sim         | ID do ADR a atualizar (ex.: `ARCH-001`)                                         |
 | `--body <markdown>`  | Sim         | Corpo completo do ADR em markdown (substitui o existente)                       |
-| `--title <title>`    | Nao         | Novo titulo do ADR (preserva o existente se omitido)                            |
-| `--domain <domain>`  | Nao         | Novo dominio (`backend`, `frontend`, `data`, `architecture`, `general`)         |
-| `--files <patterns>` | Nao         | Novos padroes de arquivo, separados por virgula (preserva existente se omitido) |
-| `--rules`            | Nao         | Define `rules: true` no frontmatter                                             |
-| `--json`             | Nao         | Saida como JSON                                                                 |
+| `--title <title>`    | Não         | Novo título do ADR (preserva o existente se omitido)                            |
+| `--domain <domain>`  | Não         | Novo domínio (`backend`, `frontend`, `data`, `architecture`, `general`)         |
+| `--files <patterns>` | Não         | Novos padrões de arquivo, separados por vírgula (preserva existente se omitido) |
+| `--rules`            | Não         | Define `rules: true` no frontmatter                                             |
+| `--json`             | Não         | Saída como JSON                                                                 |
 
 ### Exemplo
 
@@ -387,19 +387,19 @@ archgate adr update \
 
 ## archgate mcp
 
-Inicia o servidor MCP para integracao com agentes de IA.
+Inicia o servidor MCP para integração com agentes de IA.
 
 ```bash
 archgate mcp
 ```
 
-Executa um servidor MCP usando transporte stdio. O servidor expoe ferramentas para verificar conformidade com ADRs, listar ADRs e obter contexto de revisao. Consulte a referencia de [Ferramentas MCP](/pt-br/reference/mcp-tools/) para a lista completa de ferramentas e recursos disponiveis.
+Executa um servidor MCP usando transporte stdio. O servidor expõe ferramentas para verificar conformidade com ADRs, listar ADRs e obter contexto de revisão. Consulte a referência de [Ferramentas MCP](/pt-br/reference/mcp-tools/) para a lista completa de ferramentas e recursos disponíveis.
 
-O servidor inicia mesmo quando nenhum diretorio `.archgate/` e encontrado. Nesse caso, as ferramentas retornam orientacoes direcionando o agente a inicializar a governanca primeiro.
+O servidor inicia mesmo quando nenhum diretório `.archgate/` é encontrado. Nesse caso, as ferramentas retornam orientações direcionando o agente a inicializar a governança primeiro.
 
-### Configuracao
+### Configuração
 
-Adicione a configuracao MCP do seu projeto (`.mcp.json` na raiz do projeto):
+Adicione a configuração MCP do seu projeto (`.mcp.json` na raiz do projeto):
 
 ```json
 {
@@ -412,19 +412,19 @@ Adicione a configuracao MCP do seu projeto (`.mcp.json` na raiz do projeto):
 }
 ```
 
-Executar `archgate init` cria essa configuracao automaticamente para o seu editor.
+Executar `archgate init` cria essa configuração automaticamente para o seu editor.
 
 ---
 
 ## archgate upgrade
 
-Atualiza o Archgate para a versao mais recente via npm.
+Atualiza o Archgate para a versão mais recente via npm.
 
 ```bash
 archgate upgrade
 ```
 
-Verifica o registro npm para a versao mais recente publicada. Se uma versao mais nova estiver disponivel, executa `npm install -g archgate@latest` para atualizar. Se ja estiver atualizado, exibe uma mensagem e encerra.
+Verifica o registro npm para a versão mais recente publicada. Se uma versão mais nova estiver disponível, executa `npm install -g archgate@latest` para atualizar. Se já estiver atualizado, exibe uma mensagem e encerra.
 
 ### Exemplo
 
@@ -442,13 +442,13 @@ Archgate upgraded to 0.4.0 successfully.
 
 ## archgate clean
 
-Remove o diretorio de cache da CLI.
+Remove o diretório de cache da CLI.
 
 ```bash
 archgate clean
 ```
 
-Remove `~/.archgate/`, que armazena dados em cache como timestamps de verificacao de atualizacao. Seguro para executar a qualquer momento -- o diretorio e recriado automaticamente quando necessario.
+Remove `~/.archgate/`, que armazena dados em cache como timestamps de verificação de atualização. Seguro para executar a qualquer momento -- o diretório é recriado automaticamente quando necessário.
 
 ### Exemplo
 

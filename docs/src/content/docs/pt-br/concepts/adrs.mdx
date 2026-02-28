@@ -1,97 +1,97 @@
 ---
-title: Registros de Decisao Arquitetural
-description: Entenda como o Archgate usa ADRs como documentos e regras executaveis.
+title: Registros de Decisão Arquitetural
+description: Entenda como o Archgate usa ADRs como documentos e regras executáveis.
 ---
 
-Um Architecture Decision Record (ADR) e um documento curto que captura uma unica decisao arquitetural junto com seu contexto e consequencias. ADRs respondem a pergunta: _por que_ essa decisao foi tomada, e _quais_ sao seus trade-offs?
+Um Architecture Decision Record (ADR) é um documento curto que captura uma única decisão arquitetural junto com seu contexto e consequências. ADRs respondem à pergunta: _por que_ essa decisão foi tomada, e _quais_ são seus trade-offs?
 
-O Archgate expande o conceito de ADR dando a cada decisao duas expressoes: um **documento** que humanos e agentes de IA leem, e um **arquivo de regras** opcional que maquinas executam.
+O Archgate expande o conceito de ADR dando a cada decisão duas expressões: um **documento** que humanos e agentes de IA leem, e um **arquivo de regras** opcional que máquinas executam.
 
-## Duas Expressoes de um ADR
+## Duas Expressões de um ADR
 
 ### ADR como Documento
 
-O documento e um arquivo Markdown com frontmatter YAML armazenado em `.archgate/adrs/`. Ele descreve a decisao em linguagem simples: qual problema resolve, quais alternativas foram consideradas, o que a equipe decidiu, e quais consequencias seguem.
+O documento é um arquivo Markdown com frontmatter YAML armazenado em `.archgate/adrs/`. Ele descreve a decisão em linguagem simples: qual problema resolve, quais alternativas foram consideradas, o que a equipe decidiu, e quais consequências seguem.
 
-Tanto humanos quanto agentes de IA consomem esse documento. Quando um agente de IA de codificacao esta prestes a escrever codigo, ele le os ADRs relevantes para entender as restricoes antes de gerar qualquer coisa.
+Tanto humanos quanto agentes de IA consomem esse documento. Quando um agente de IA de codificação está prestes a escrever código, ele lê os ADRs relevantes para entender as restrições antes de gerar qualquer coisa.
 
 :::tip[Automatize isso com plugins de editor]
-Com o plugin do [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/cursor-integration/), seu agente de IA le os ADRs aplicaveis automaticamente antes de cada tarefa de codificacao -- sem necessidade de copiar e colar manualmente nos prompts. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
+Com o plugin do [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/cursor-integration/), seu agente de IA lê os ADRs aplicáveis automaticamente antes de cada tarefa de codificação -- sem necessidade de copiar e colar manualmente nos prompts. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
 :::
 
 ### ADR como Regras
 
-O arquivo de regras e um arquivo `.rules.ts` complementar que exporta verificacoes automatizadas via `defineRules()`. Quando voce executa `archgate check`, a CLI carrega cada ADR que tem `rules: true` em seu frontmatter, executa o arquivo de regras complementar contra seu codebase, e reporta quaisquer violacoes com caminhos de arquivo e numeros de linha.
+O arquivo de regras é um arquivo `.rules.ts` complementar que exporta verificações automatizadas via `defineRules()`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true` em seu frontmatter, executa o arquivo de regras complementar contra seu codebase, e reporta quaisquer violações com caminhos de arquivo e números de linha.
 
-Nem todo ADR precisa de regras. Algumas decisoes sao melhor aplicadas apenas por revisao de codigo. Defina `rules: false` quando nenhuma verificacao automatizada for pratica.
+Nem todo ADR precisa de regras. Algumas decisões são melhor aplicadas apenas por revisão de código. Defina `rules: false` quando nenhuma verificação automatizada for prática.
 
-## Convencao de Nomenclatura de Arquivos
+## Convenção de Nomenclatura de Arquivos
 
-Os arquivos de ADR seguem uma convencao de nomenclatura estrita que codifica o prefixo do dominio, numero de sequencia e um slug legivel:
+Os arquivos de ADR seguem uma convenção de nomenclatura estrita que codifica o prefixo do domínio, número de sequência e um slug legível:
 
 ```
 {PREFIX}-{NNN}-{slug}.md            # The document
 {PREFIX}-{NNN}-{slug}.rules.ts      # The companion rules file (optional)
 ```
 
-Por exemplo, um ADR do dominio de arquitetura sobre estrutura de comandos produziria:
+Por exemplo, um ADR do domínio de arquitetura sobre estrutura de comandos produziria:
 
 ```
 ARCH-001-command-structure.md
 ARCH-001-command-structure.rules.ts
 ```
 
-O prefixo vem do dominio do ADR (veja [Dominios](/concepts/domains/)). O numero de sequencia e preenchido com zeros ate tres digitos e auto-incrementado por `archgate adr create`.
+O prefixo vem do domínio do ADR (veja [Domínios](/concepts/domains/)). O número de sequência é preenchido com zeros até três dígitos e auto-incrementado por `archgate adr create`.
 
 ## Frontmatter YAML
 
-Todo documento ADR comeca com um bloco de frontmatter YAML entre delimitadores `---`. O frontmatter e o metadado legivel por maquina que o Archgate usa para carregar, filtrar e definir o escopo das regras.
+Todo documento ADR começa com um bloco de frontmatter YAML entre delimitadores `---`. O frontmatter é o metadado legível por máquina que o Archgate usa para carregar, filtrar e definir o escopo das regras.
 
-| Campo    | Tipo         | Obrigatorio | Descricao                                                       |
+| Campo    | Tipo         | Obrigatório | Descrição                                                       |
 | -------- | ------------ | ----------- | --------------------------------------------------------------- |
-| `id`     | string       | Sim         | Identificador unico como `ARCH-001` ou `BE-003`                 |
-| `title`  | string       | Sim         | Titulo legivel da decisao                                       |
+| `id`     | string       | Sim         | Identificador único como `ARCH-001` ou `BE-003`                 |
+| `title`  | string       | Sim         | Título legível da decisão                                       |
 | `domain` | enum         | Sim         | Um de: `backend`, `frontend`, `data`, `architecture`, `general` |
 | `rules`  | boolean      | Sim         | Se este ADR tem um arquivo `.rules.ts` complementar             |
-| `files`  | string array | Nao         | Padroes glob que definem quais arquivos as regras verificam     |
+| `files`  | string array | Não         | Padrões glob que definem quais arquivos as regras verificam     |
 
-O campo `files` e opcional. Quando presente, restringe a execucao das regras apenas aos arquivos que correspondem aos globs fornecidos. Quando ausente, as regras sao executadas contra todos os arquivos do projeto. Por exemplo, `files: ["src/commands/**/*.ts"]` limita as verificacoes apenas aos arquivos de comando.
+O campo `files` é opcional. Quando presente, restringe a execução das regras apenas aos arquivos que correspondem aos globs fornecidos. Quando ausente, as regras são executadas contra todos os arquivos do projeto. Por exemplo, `files: ["src/commands/**/*.ts"]` limita as verificações apenas aos arquivos de comando.
 
-## Secoes do Corpo do ADR
+## Seções do Corpo do ADR
 
-Apos o frontmatter, o corpo do ADR segue uma estrutura de secoes padrao:
+Após o frontmatter, o corpo do ADR segue uma estrutura de seções padrão:
 
 ### Context
 
-Descreve o problema ou situacao que motivou a decisao. Inclua alternativas que foram consideradas e por que foram rejeitadas.
+Descreve o problema ou situação que motivou a decisão. Inclua alternativas que foram consideradas e por que foram rejeitadas.
 
 ### Decision
 
-Declara a decisao em si e suas restricoes principais. Esta e a secao que os agentes de IA mais observam ao decidir como escrever codigo.
+Declara a decisão em si e suas restrições principais. Esta é a seção que os agentes de IA mais observam ao decidir como escrever código.
 
 ### Do's and Don'ts
 
-Orientacao concreta e acionavel dividida em duas subsecoes. Funcionam como uma lista de verificacao rapida para desenvolvedores e agentes de IA.
+Orientação concreta e acionável dividida em duas subseções. Funcionam como uma lista de verificação rápida para desenvolvedores e agentes de IA.
 
 ### Consequences
 
-Dividida em tres subsecoes:
+Dividida em três subseções:
 
-- **Positive** -- beneficios que a decisao proporciona
+- **Positive** -- benefícios que a decisão proporciona
 - **Negative** -- trade-offs aceitos
-- **Risks** -- coisas que podem dar errado e como mitiga-las
+- **Risks** -- coisas que podem dar errado e como mitigá-las
 
 ### Compliance and Enforcement
 
-Descreve como a decisao e aplicada, tanto por regras automatizadas (com IDs de regra e severidades) quanto por checklists de revisao manual.
+Descreve como a decisão é aplicada, tanto por regras automatizadas (com IDs de regra e severidades) quanto por checklists de revisão manual.
 
 ### References
 
-Links para ADRs relacionados, documentacao externa ou documentos de design.
+Links para ADRs relacionados, documentação externa ou documentos de design.
 
 ## Exemplo Completo
 
-Abaixo esta um ADR completo com frontmatter e todas as secoes preenchidas.
+Abaixo está um ADR completo com frontmatter e todas as seções preenchidas.
 
 ```markdown
 ---

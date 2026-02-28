@@ -3,7 +3,7 @@ title: Esquema de ADR
 description: Esquema de frontmatter YAML e estrutura markdown para ADRs do Archgate.
 ---
 
-Todo ADR do Archgate e um arquivo Markdown armazenado em `.archgate/adrs/` com frontmatter YAML que define a identidade e o escopo da decisao. Esta pagina documenta o esquema do frontmatter, a estrutura das secoes markdown e o comportamento de validacao.
+Todo ADR do Archgate é um arquivo Markdown armazenado em `.archgate/adrs/` com frontmatter YAML que define a identidade e o escopo da decisão. Esta página documenta o esquema do frontmatter, a estrutura das seções markdown e o comportamento de validação.
 
 ## Esquema do Frontmatter
 
@@ -21,41 +21,41 @@ files: ["src/commands/**/*.ts"]
 
 ### Campos
 
-| Campo    | Tipo       | Obrigatorio | Descricao                                                                              |
+| Campo    | Tipo       | Obrigatório | Descrição                                                                              |
 | -------- | ---------- | ----------- | -------------------------------------------------------------------------------------- |
-| `id`     | `string`   | Sim         | Identificador unico. Nao pode ser vazio. Convencao: `PREFIX-NNN` (ex.: `ARCH-001`).    |
-| `title`  | `string`   | Sim         | Titulo legivel da decisao. Nao pode ser vazio.                                         |
-| `domain` | `enum`     | Sim         | Categoria de dominio. Um de: `backend`, `frontend`, `data`, `architecture`, `general`. |
-| `rules`  | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificacoes automatizadas. |
-| `files`  | `string[]` | Nao         | Padroes glob que definem o escopo de quais arquivos as regras se aplicam.              |
+| `id`     | `string`   | Sim         | Identificador único. Não pode ser vazio. Convenção: `PREFIX-NNN` (ex.: `ARCH-001`).    |
+| `title`  | `string`   | Sim         | Título legível da decisão. Não pode ser vazio.                                         |
+| `domain` | `enum`     | Sim         | Categoria de domínio. Um de: `backend`, `frontend`, `data`, `architecture`, `general`. |
+| `rules`  | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificações automatizadas. |
+| `files`  | `string[]` | Não         | Padrões glob que definem o escopo de quais arquivos as regras se aplicam.              |
 
 ### id
 
-O identificador do ADR. Por convencao, usa o prefixo do dominio seguido de um numero de sequencia com preenchimento de zeros (ex.: `ARCH-001`, `BE-003`). O comando `archgate adr create` gera IDs automaticamente.
+O identificador do ADR. Por convenção, usa o prefixo do domínio seguido de um número de sequência com preenchimento de zeros (ex.: `ARCH-001`, `BE-003`). O comando `archgate adr create` gera IDs automaticamente.
 
-Qualquer string nao vazia e valida, mas seguir a convencao de prefixo mantem os ADRs organizados e ordenaveis.
+Qualquer string não vazia é válida, mas seguir a convenção de prefixo mantém os ADRs organizados e ordenáveis.
 
 ### title
 
-Um nome curto e descritivo para a decisao arquitetural. Exibido na saida de `archgate adr list` e usado como cabecalho quando agentes de IA referenciam o ADR.
+Um nome curto e descritivo para a decisão arquitetural. Exibido na saída de `archgate adr list` e usado como cabeçalho quando agentes de IA referenciam o ADR.
 
 ### domain
 
-Agrupa ADRs relacionados. O dominio tambem determina o prefixo do ID usado por `archgate adr create`.
+Agrupa ADRs relacionados. O domínio também determina o prefixo do ID usado por `archgate adr create`.
 
 ### rules
 
-Defina como `true` quando este ADR tem um arquivo `.rules.ts` complementar. Quando `archgate check` e executado, ele pula ADRs onde `rules` e `false`.
+Defina como `true` quando este ADR tem um arquivo `.rules.ts` complementar. Quando `archgate check` é executado, ele pula ADRs onde `rules` é `false`.
 
 ### files
 
-Um array opcional de padroes glob que definem o escopo de cobertura de arquivos da regra. Quando presente, `ctx.scopedFiles` no arquivo de regras contem apenas arquivos que correspondem a esses padroes. Quando ausente, todos os arquivos do projeto estao no escopo.
+Um array opcional de padrões glob que definem o escopo de cobertura de arquivos da regra. Quando presente, `ctx.scopedFiles` no arquivo de regras contém apenas arquivos que correspondem a esses padrões. Quando ausente, todos os arquivos do projeto estão no escopo.
 
 ```yaml
 files: ["src/commands/**/*.ts"]
 ```
 
-Multiplos padroes podem ser especificados:
+Múltiplos padrões podem ser especificados:
 
 ```yaml
 files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
@@ -63,11 +63,11 @@ files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 
 ---
 
-## Prefixos de Dominio
+## Prefixos de Domínio
 
-Cada dominio mapeia para um prefixo usado na convencao de ID do ADR.
+Cada domínio mapeia para um prefixo usado na convenção de ID do ADR.
 
-| Dominio        | Prefixo | ID de Exemplo |
+| Domínio        | Prefixo | ID de Exemplo |
 | -------------- | ------- | ------------- |
 | `backend`      | `BE`    | `BE-001`      |
 | `frontend`     | `FE`    | `FE-001`      |
@@ -79,9 +79,9 @@ O comando `archgate adr create` usa esse mapeamento para gerar IDs automaticamen
 
 ---
 
-## Convencao de Nomenclatura de Arquivos
+## Convenção de Nomenclatura de Arquivos
 
-Os arquivos de ADR seguem uma convencao de nomenclatura que codifica o ID e um slug legivel:
+Os arquivos de ADR seguem uma convenção de nomenclatura que codifica o ID e um slug legível:
 
 ```
 {ID}-{slug}.md              # The document
@@ -95,17 +95,17 @@ ARCH-001-command-structure.md
 ARCH-001-command-structure.rules.ts
 ```
 
-O slug e uma versao kebab-case do titulo, gerada automaticamente por `archgate adr create`.
+O slug é uma versão kebab-case do título, gerada automaticamente por `archgate adr create`.
 
 ---
 
-## Secoes Markdown
+## Seções Markdown
 
-Apos o frontmatter, o corpo do ADR segue uma estrutura de secoes padrao. Embora o Archgate nao imponha secoes especificas, a estrutura a seguir e recomendada para consistencia.
+Após o frontmatter, o corpo do ADR segue uma estrutura de seções padrão. Embora o Archgate não imponha seções específicas, a estrutura a seguir é recomendada para consistência.
 
 ### Context
 
-Descreve o problema ou situacao que motivou a decisao. Inclua alternativas que foram consideradas e por que foram rejeitadas.
+Descreve o problema ou situação que motivou a decisão. Inclua alternativas que foram consideradas e por que foram rejeitadas.
 
 ```markdown
 ## Context
@@ -124,7 +124,7 @@ custom formatting.
 
 ### Decision
 
-Declara a decisao em si e suas principais restricoes. Esta e a secao principal que os agentes de IA leem antes de escrever codigo.
+Declara a decisão em si e suas principais restrições. Esta é a seção principal que os agentes de IA leem antes de escrever código.
 
 ```markdown
 ## Decision
@@ -135,7 +135,7 @@ output. Commands MUST NOT call `console.error()` directly.
 
 ### Do's and Don'ts
 
-Orientacao concreta e acionavel dividida em duas subsecoes. Funciona como um checklist de referencia rapida para desenvolvedores e agentes de IA.
+Orientação concreta e acionável dividida em duas subseções. Funciona como um checklist de referência rápida para desenvolvedores e agentes de IA.
 
 ```markdown
 ## Do's and Don'ts
@@ -155,7 +155,7 @@ Orientacao concreta e acionavel dividida em duas subsecoes. Funciona como um che
 
 ### Consequences
 
-Dividida em tres subsecoes que documentam os tradeoffs.
+Dividida em três subseções que documentam os tradeoffs.
 
 ```markdown
 ## Consequences
@@ -178,7 +178,7 @@ Dividida em tres subsecoes que documentam os tradeoffs.
 
 ### Compliance and Enforcement
 
-Descreve como a decisao e aplicada por meio de regras automatizadas e revisao manual.
+Descreve como a decisão é aplicada por meio de regras automatizadas e revisão manual.
 
 ```markdown
 ## Compliance and Enforcement
@@ -198,7 +198,7 @@ Code reviewers MUST verify:
 
 ### References
 
-Links para ADRs relacionados, documentacao externa ou documentos de design.
+Links para ADRs relacionados, documentação externa ou documentos de design.
 
 ```markdown
 ## References
@@ -211,14 +211,14 @@ Links para ADRs relacionados, documentacao externa ou documentos de design.
 
 ## Arquivo de Regras Complementar
 
-Quando `rules: true`, o Archgate procura um arquivo complementar com o mesmo nome mas extensao `.rules.ts`.
+Quando `rules: true`, o Archgate procura um arquivo complementar com o mesmo nome mas extensão `.rules.ts`.
 
 ```
 ARCH-002-error-handling.md          # rules: true in frontmatter
 ARCH-002-error-handling.rules.ts    # companion rules file
 ```
 
-O arquivo de regras deve exportar um `RuleSet` padrao criado via `defineRules()`:
+O arquivo de regras deve exportar um `RuleSet` padrão criado via `defineRules()`:
 
 ```typescript
 import { defineRules } from "archgate/rules";
@@ -243,26 +243,26 @@ export default defineRules({
 });
 ```
 
-Consulte a [API de Regras](/pt-br/reference/rule-api/) para a referencia completa da API TypeScript.
+Consulte a [API de Regras](/pt-br/reference/rule-api/) para a referência completa da API TypeScript.
 
 ---
 
-## Validacao
+## Validação
 
-O frontmatter YAML e validado no momento do parse usando um esquema Zod. Frontmatter invalido causa um erro de parse com uma mensagem descritiva.
+O frontmatter YAML é validado no momento do parse usando um esquema Zod. Frontmatter inválido causa um erro de parse com uma mensagem descritiva.
 
-### Campos obrigatorios
+### Campos obrigatórios
 
-Se um campo obrigatorio estiver ausente, o ADR falha no parse:
+Se um campo obrigatório estiver ausente, o ADR falha no parse:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: Required
 ```
 
-### Valores de enum invalidos
+### Valores de enum inválidos
 
-Se `domain` nao for um dos valores validos:
+Se `domain` não for um dos valores válidos:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
@@ -278,4 +278,4 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - rules: Expected boolean, received string
 ```
 
-ADRs que falham na validacao sao ignorados por `archgate check` e reportados como erros.
+ADRs que falham na validação são ignorados por `archgate check` e reportados como erros.

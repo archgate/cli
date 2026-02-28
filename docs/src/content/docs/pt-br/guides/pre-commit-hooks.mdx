@@ -1,17 +1,17 @@
 ---
 title: Hooks de Pre-commit
-description: Execute verificacoes do Archgate automaticamente antes de cada commit.
+description: Execute verificações do Archgate automaticamente antes de cada commit.
 ---
 
-## Visao geral
+## Visão geral
 
-O comando `archgate check --staged` verifica apenas os arquivos staged no git em relacao as suas regras de ADR. Como ele ignora arquivos nao-staged e nao-rastreados, ele executa rapido o suficiente para ser usado como hook de pre-commit sem desacelerar seu fluxo de trabalho.
+O comando `archgate check --staged` verifica apenas os arquivos staged no git em relação às suas regras de ADR. Como ele ignora arquivos não-staged e não-rastreados, ele executa rápido o suficiente para ser usado como hook de pre-commit sem desacelerar seu fluxo de trabalho.
 
-Quando uma verificacao falha, o commit e bloqueado. As violacoes sao impressas em stderr com caminhos de arquivo e numeros de linha para que voce possa localiza-las e corrigi-las imediatamente.
+Quando uma verificação falha, o commit é bloqueado. As violações são impressas em stderr com caminhos de arquivo e números de linha para que você possa localizá-las e corrigi-las imediatamente.
 
 ## Lefthook
 
-[Lefthook](https://github.com/evilmartians/lefthook) e um gerenciador de hooks git rapido e multiplataforma. Adicione o seguinte ao seu `lefthook.yml`:
+[Lefthook](https://github.com/evilmartians/lefthook) é um gerenciador de hooks git rápido e multiplataforma. Adicione o seguinte ao seu `lefthook.yml`:
 
 ```yaml
 # lefthook.yml
@@ -29,53 +29,53 @@ lefthook install
 
 ## Husky
 
-[Husky](https://typicode.github.io/husky/) e uma ferramenta popular de hooks git para projetos Node.js. Adicione a verificacao ao seu hook de pre-commit:
+[Husky](https://typicode.github.io/husky/) é uma ferramenta popular de hooks git para projetos Node.js. Adicione a verificação ao seu hook de pre-commit:
 
 ```bash
 # .husky/pre-commit
 archgate check --staged
 ```
 
-Certifique-se de que o arquivo do hook e executavel:
+Certifique-se de que o arquivo do hook é executável:
 
 ```bash
 chmod +x .husky/pre-commit
 ```
 
-## O que acontece quando as verificacoes falham
+## O que acontece quando as verificações falham
 
-Quando `archgate check --staged` encontra violacoes, ele termina com codigo 1. Isso bloqueia o commit. A saida inclui:
+Quando `archgate check --staged` encontra violações, ele termina com código 1. Isso bloqueia o commit. A saída inclui:
 
 - O ID do ADR e o nome da regra que foi violada
-- O caminho do arquivo onde a violacao foi encontrada
-- O numero da linha (quando disponivel)
-- Uma descricao do que a regra espera
+- O caminho do arquivo onde a violação foi encontrada
+- O número da linha (quando disponível)
+- Uma descrição do que a regra espera
 
-Corrija as violacoes, re-stage os arquivos com `git add` e faca o commit novamente.
+Corrija as violações, re-stage os arquivos com `git add` e faça o commit novamente.
 
 ## Performance
 
-A flag `--staged` restringe as verificacoes apenas aos arquivos na area de staging do git. Isso significa:
+A flag `--staged` restringe as verificações apenas aos arquivos na área de staging do git. Isso significa:
 
-- Um projeto com centenas de arquivos fonte mas apenas tres arquivos staged verificara apenas esses tres arquivos.
-- Regras que nao correspondem a nenhum arquivo staged sao ignoradas completamente.
-- Verificacoes tipicas de pre-commit completam em menos de um segundo.
+- Um projeto com centenas de arquivos fonte mas apenas três arquivos staged verificará apenas esses três arquivos.
+- Regras que não correspondem a nenhum arquivo staged são ignoradas completamente.
+- Verificações típicas de pre-commit completam em menos de um segundo.
 
-Sem `--staged`, `archgate check` escaneia todos os arquivos correspondentes ao padrao glob `files` de cada ADR, o que e util para CI mas mais lento para uso interativo.
+Sem `--staged`, `archgate check` escaneia todos os arquivos correspondentes ao padrão glob `files` de cada ADR, o que é útil para CI mas mais lento para uso interativo.
 
-## Flags uteis
+## Flags úteis
 
 | Flag         | Finalidade                                                                                                                                   |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`   | Verifica apenas arquivos staged no git (obrigatorio para pre-commit)                                                                         |
-| `--verbose`  | Mostra regras aprovadas e informacoes de tempo -- util para debugar por que uma verificacao esta lenta ou quais regras estao sendo avaliadas |
-| `--json`     | Exibe resultados como JSON -- util para encaminhar a outras ferramentas ou scripts de relatorio personalizados                               |
-| `--adr <id>` | Verifica apenas regras de um ADR especifico -- util para isolar uma unica regra durante o debug                                              |
-| `--ci`       | Exibe anotacoes do GitHub Actions -- use em workflows de CI ao inves de hooks de pre-commit                                                  |
+| `--staged`   | Verifica apenas arquivos staged no git (obrigatório para pre-commit)                                                                         |
+| `--verbose`  | Mostra regras aprovadas e informações de tempo -- útil para debugar por que uma verificação está lenta ou quais regras estão sendo avaliadas |
+| `--json`     | Exibe resultados como JSON -- útil para encaminhar a outras ferramentas ou scripts de relatório personalizados                               |
+| `--adr <id>` | Verifica apenas regras de um ADR específico -- útil para isolar uma única regra durante o debug                                              |
+| `--ci`       | Exibe anotações do GitHub Actions -- use em workflows de CI ao invés de hooks de pre-commit                                                  |
 
 ## Combinando com outros hooks
 
-Hooks de pre-commit podem executar multiplos comandos. Por exemplo, com Lefthook:
+Hooks de pre-commit podem executar múltiplos comandos. Por exemplo, com Lefthook:
 
 ```yaml
 # lefthook.yml
@@ -89,4 +89,4 @@ pre-commit:
       run: archgate check --staged
 ```
 
-Cada comando executa independentemente. Se qualquer comando terminar com codigo diferente de zero, o commit e bloqueado.
+Cada comando executa independentemente. Se qualquer comando terminar com código diferente de zero, o commit é bloqueado.

@@ -1,5 +1,5 @@
 ---
-title: Instalacao
+title: Instalação
 description: Instale a CLI do Archgate no macOS, Linux ou Windows.
 ---
 
@@ -21,11 +21,11 @@ yarn global add archgate
 pnpm add -g archgate
 ```
 
-Isso instala um wrapper leve que delega para um binario especifico da plataforma. A CLI em si e um binario standalone compilado com Bun — o Node.js e necessario apenas para o wrapper do npm/yarn/pnpm.
+Isso instala um wrapper leve que delega para um binário específico da plataforma. A CLI em si é um binário standalone compilado com Bun — o Node.js é necessário apenas para o wrapper do npm/yarn/pnpm.
 
-## Instalar como dependencia de desenvolvimento
+## Instalar como dependência de desenvolvimento
 
-Voce tambem pode adicionar o Archgate como dependencia de desenvolvimento no seu projeto e executa-lo atraves do script runner do seu gerenciador de pacotes. Isso e util para fixar uma versao especifica por projeto ou executar verificacoes no CI sem uma instalacao global.
+Você também pode adicionar o Archgate como dependência de desenvolvimento no seu projeto e executá-lo através do script runner do seu gerenciador de pacotes. Isso é útil para fixar uma versão específica por projeto ou executar verificações no CI sem uma instalação global.
 
 ```bash
 # npm
@@ -71,7 +71,7 @@ pnpm check:adrs
 
 ## Suporte a plataformas
 
-O Archgate disponibiliza binarios pre-compilados para as seguintes plataformas:
+O Archgate disponibiliza binários pré-compilados para as seguintes plataformas:
 
 | Plataforma | Arquitetura | Pacote                  |
 | ---------- | ----------- | ----------------------- |
@@ -79,21 +79,21 @@ O Archgate disponibiliza binarios pre-compilados para as seguintes plataformas:
 | Linux      | x86_64      | `archgate-linux-x64`    |
 | Windows    | x86_64      | `archgate-win32-x64`    |
 
-O binario correto e instalado automaticamente como `optionalDependency` quando voce instala o `archgate`.
+O binário correto é instalado automaticamente como `optionalDependency` quando você instala o `archgate`.
 
-## Verificar a instalacao
+## Verificar a instalação
 
 ```bash
 archgate --version
 ```
 
-Voce devera ver a versao instalada impressa no stdout.
+Você deverá ver a versão instalada impressa no stdout.
 
-## Usuarios do Proto toolchain
+## Usuários do Proto toolchain
 
-Se voce gerencia o Node.js com o [proto](https://moonrepo.dev/proto) (gerenciador de toolchain do moonrepo), binarios npm instalados globalmente requerem um passo adicional de configuracao.
+Se você gerencia o Node.js com o [proto](https://moonrepo.dev/proto) (gerenciador de toolchain do moonrepo), binários npm instalados globalmente requerem um passo adicional de configuração.
 
-Adicione a sua configuracao do proto:
+Adicione à sua configuração do proto:
 
 ```toml
 # ~/.proto/config.toml
@@ -101,18 +101,18 @@ Adicione a sua configuracao do proto:
 shared-globals-dir = true
 ```
 
-Depois adicione o diretorio de globais ao perfil do seu shell (`.bashrc`, `.zshrc` ou equivalente):
+Depois adicione o diretório de globais ao perfil do seu shell (`.bashrc`, `.zshrc` ou equivalente):
 
 ```bash
 export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
 ```
 
-Reinicie seu shell e execute `npm install -g archgate` novamente. O comando `archgate` agora devera estar disponivel globalmente.
+Reinicie seu shell e execute `npm install -g archgate` novamente. O comando `archgate` agora deverá estar disponível globalmente.
 
-## Proximos passos
+## Próximos passos
 
-Apos a instalacao, execute `archgate init` no seu projeto para configurar a governanca. Veja o guia de [Inicio Rapido](/getting-started/quick-start/) para um passo a passo.
+Após a instalação, execute `archgate init` no seu projeto para configurar a governança. Veja o guia de [Início Rápido](/getting-started/quick-start/) para um passo a passo.
 
 :::tip[Plugins para editores (beta)]
-Quer que seu agente de IA leia ADRs antes de programar e valide depois? Os plugins para editores do [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) adicionam um fluxo completo de governanca sobre a CLI. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
+Quer que seu agente de IA leia ADRs antes de programar e valide depois? Os plugins para editores do [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) adicionam um fluxo completo de governança sobre a CLI. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
 :::

@@ -1,24 +1,24 @@
 ---
 title: Ferramentas MCP
-description: Referencia de todas as ferramentas e recursos MCP expostos pelo servidor Archgate.
+description: Referência de todas as ferramentas e recursos MCP expostos pelo servidor Archgate.
 ---
 
-O servidor MCP do Archgate expoe ferramentas e recursos que agentes de IA utilizam para ler ADRs, validar codigo contra regras e acessar o contexto de revisao. Inicie o servidor com `archgate mcp`.
+O servidor MCP do Archgate expõe ferramentas e recursos que agentes de IA utilizam para ler ADRs, validar código contra regras e acessar o contexto de revisão. Inicie o servidor com `archgate mcp`.
 
 ## Ferramentas
 
 ### check
 
-Executa verificacoes de conformidade com ADRs no codebase.
+Executa verificações de conformidade com ADRs no codebase.
 
-**Parametros:**
+**Parâmetros:**
 
-| Nome     | Tipo    | Obrigatorio | Descricao                                 |
+| Nome     | Tipo    | Obrigatório | Descrição                                 |
 | -------- | ------- | ----------- | ----------------------------------------- |
-| `adrId`  | string  | Nao         | Verificar apenas um ADR especifico por ID |
-| `staged` | boolean | Nao         | Verificar apenas arquivos no git stage    |
+| `adrId`  | string  | Não         | Verificar apenas um ADR específico por ID |
+| `staged` | boolean | Não         | Verificar apenas arquivos no git stage    |
 
-**Retorna** um objeto JSON com os resultados da verificacao:
+**Retorna** um objeto JSON com os resultados da verificação:
 
 ```json
 {
@@ -53,9 +53,9 @@ Executa verificacoes de conformidade com ADRs no codebase.
 }
 ```
 
-Quando nenhuma regra e encontrada, retorna `{ "pass": true, "total": 0, "results": [], "message": "No rules to check" }`.
+Quando nenhuma regra é encontrada, retorna `{ "pass": true, "total": 0, "results": [], "message": "No rules to check" }`.
 
-As violacoes sao limitadas a 20 por regra para manter as respostas concisas. Quando uma regra tem mais violacoes do que o limite, `totalViolations` reflete a contagem real enquanto `shownViolations` e o array `violations` incluem apenas as 20 primeiras. O campo `truncated` no nivel superior e definido como `true` quando alguma regra foi limitada.
+As violações são limitadas a 20 por regra para manter as respostas concisas. Quando uma regra tem mais violações do que o limite, `totalViolations` reflete a contagem real enquanto `shownViolations` e o array `violations` incluem apenas as 20 primeiras. O campo `truncated` no nível superior é definido como `true` quando alguma regra foi limitada.
 
 ---
 
@@ -63,11 +63,11 @@ As violacoes sao limitadas a 20 por regra para manter as respostas concisas. Qua
 
 Lista todos os ADRs do projeto com seus metadados.
 
-**Parametros:**
+**Parâmetros:**
 
-| Nome     | Tipo   | Obrigatorio | Descricao                                                                      |
+| Nome     | Tipo   | Obrigatório | Descrição                                                                      |
 | -------- | ------ | ----------- | ------------------------------------------------------------------------------ |
-| `domain` | string | Nao         | Filtrar por dominio (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `domain` | string | Não         | Filtrar por domínio (`backend`, `frontend`, `data`, `architecture`, `general`) |
 
 **Retorna** um array JSON de objetos ADR:
 
@@ -92,17 +92,17 @@ Lista todos os ADRs do projeto com seus metadados.
 
 ### review_context
 
-Obtem arquivos alterados agrupados por dominio com resumos dos ADRs aplicaveis. Esta e a ferramenta principal que os agentes usam antes de escrever codigo -- ela fornece uma visao condensada de todas as decisoes e restricoes de ADR relevantes sem precisar ler cada arquivo de ADR individualmente.
+Obtém arquivos alterados agrupados por domínio com resumos dos ADRs aplicáveis. Esta é a ferramenta principal que os agentes usam antes de escrever código -- ela fornece uma visão condensada de todas as decisões e restrições de ADR relevantes sem precisar ler cada arquivo de ADR individualmente.
 
-**Parametros:**
+**Parâmetros:**
 
-| Nome        | Tipo    | Obrigatorio | Descricao                                                                                    |
+| Nome        | Tipo    | Obrigatório | Descrição                                                                                    |
 | ----------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
-| `staged`    | boolean | Nao         | Quando `true`, inclui apenas arquivos no git stage. Padrao: `false` (todos os alterados).    |
-| `runChecks` | boolean | Nao         | Quando `true`, executa verificacoes de conformidade e inclui os resultados. Padrao: `false`. |
-| `domain`    | string  | Nao         | Filtrar por um unico dominio (`backend`, `frontend`, `data`, `architecture`, `general`).     |
+| `staged`    | boolean | Não         | Quando `true`, inclui apenas arquivos no git stage. Padrão: `false` (todos os alterados).    |
+| `runChecks` | boolean | Não         | Quando `true`, executa verificações de conformidade e inclui os resultados. Padrão: `false`. |
+| `domain`    | string  | Não         | Filtrar por um único domínio (`backend`, `frontend`, `data`, `architecture`, `general`).     |
 
-**Retorna** um objeto JSON com resumos agrupados por dominio:
+**Retorna** um objeto JSON com resumos agrupados por domínio:
 
 ```json
 {
@@ -129,23 +129,23 @@ Obtem arquivos alterados agrupados por dominio com resumos dos ADRs aplicaveis. 
 }
 ```
 
-Cada grupo de dominio inclui os arquivos alterados que correspondem aos seus ADRs, e resumos condensados dos ADRs com apenas as secoes **Decision** e **Do's and Don'ts**.
+Cada grupo de domínio inclui os arquivos alterados que correspondem aos seus ADRs, e resumos condensados dos ADRs com apenas as seções **Decision** e **Do's and Don'ts**.
 
-Quando `runChecks` e `true`, `checkSummary` contem os resultados completos da verificacao (mesmo formato da resposta da ferramenta `check`). Quando `false` ou omitido, `checkSummary` e `null`.
+Quando `runChecks` é `true`, `checkSummary` contém os resultados completos da verificação (mesmo formato da resposta da ferramenta `check`). Quando `false` ou omitido, `checkSummary` é `null`.
 
 ---
 
 ### claude_code_session_context
 
-Le a transcricao da sessao atual do Claude Code para o projeto. Util para recuperar contexto da sessao que pode ter sido compactado da conversa.
+Lê a transcrição da sessão atual do Claude Code para o projeto. Útil para recuperar contexto da sessão que pode ter sido compactado da conversa.
 
-**Parametros:**
+**Parâmetros:**
 
-| Nome         | Tipo   | Obrigatorio | Padrao | Descricao                                                                           |
+| Nome         | Tipo   | Obrigatório | Padrão | Descrição                                                                           |
 | ------------ | ------ | ----------- | ------ | ----------------------------------------------------------------------------------- |
-| `maxEntries` | number | Nao         | 200    | Numero maximo de entradas relevantes a retornar. Retorna as entradas mais recentes. |
+| `maxEntries` | number | Não         | 200    | Número máximo de entradas relevantes a retornar. Retorna as entradas mais recentes. |
 
-**Retorna** um objeto JSON com metadados da sessao e transcricao filtrada:
+**Retorna** um objeto JSON com metadados da sessão e transcrição filtrada:
 
 ```json
 {
@@ -167,22 +167,22 @@ Le a transcricao da sessao atual do Claude Code para o projeto. Util para recupe
 }
 ```
 
-Apenas tipos de mensagem `user` e `assistant` sao incluidos. As previas de conteudo sao truncadas para 500 caracteres para mensagens de usuario e 300 caracteres por bloco de conteudo para mensagens do assistente.
+Apenas tipos de mensagem `user` e `assistant` são incluídos. As prévias de conteúdo são truncadas para 500 caracteres para mensagens de usuário e 300 caracteres por bloco de conteúdo para mensagens do assistente.
 
 ---
 
 ### cursor_session_context
 
-Le as transcricoes de sessao do agente Cursor para o projeto. Funciona da mesma forma que `claude_code_session_context`, mas le do diretorio `agent-transcripts` do Cursor.
+Lê as transcrições de sessão do agente Cursor para o projeto. Funciona da mesma forma que `claude_code_session_context`, mas lê do diretório `agent-transcripts` do Cursor.
 
-**Parametros:**
+**Parâmetros:**
 
-| Nome         | Tipo   | Obrigatorio | Padrao | Descricao                                                                 |
+| Nome         | Tipo   | Obrigatório | Padrão | Descrição                                                                 |
 | ------------ | ------ | ----------- | ------ | ------------------------------------------------------------------------- |
-| `maxEntries` | number | Nao         | 200    | Numero maximo de entradas relevantes a retornar.                          |
-| `sessionId`  | string | Nao         | --     | UUID de sessao especifico para ler. Se omitido, le a sessao mais recente. |
+| `maxEntries` | number | Não         | 200    | Número máximo de entradas relevantes a retornar.                          |
+| `sessionId`  | string | Não         | --     | UUID de sessão específico para ler. Se omitido, lê a sessão mais recente. |
 
-**Retorna** um objeto JSON com metadados da sessao e transcricao filtrada:
+**Retorna** um objeto JSON com metadados da sessão e transcrição filtrada:
 
 ```json
 {
@@ -203,7 +203,7 @@ Le as transcricoes de sessao do agente Cursor para o projeto. Funciona da mesma 
 }
 ```
 
-Se o `sessionId` especificado nao for encontrado, a resposta inclui uma lista de IDs de sessao disponiveis.
+Se o `sessionId` especificado não for encontrado, a resposta inclui uma lista de IDs de sessão disponíveis.
 
 ---
 
@@ -211,16 +211,16 @@ Se o `sessionId` especificado nao for encontrado, a resposta inclui uma lista de
 
 ### adr://\{id\}
 
-Le o conteudo completo de um ADR pelo seu ID. Retorna o markdown completo incluindo frontmatter YAML e corpo.
+Lê o conteúdo completo de um ADR pelo seu ID. Retorna o markdown completo incluindo frontmatter YAML e corpo.
 
-**Formato da URI:** `adr://\{id\}` onde `\{id\}` e o identificador do ADR (ex.: `ARCH-001`, `BE-003`).
+**Formato da URI:** `adr://\{id\}` onde `\{id\}` é o identificador do ADR (ex.: `ARCH-001`, `BE-003`).
 
 **Exemplo:**
 
-Solicitar `adr://ARCH-001` retorna o conteudo markdown completo do arquivo ADR ARCH-001 com tipo MIME `text/markdown`.
+Solicitar `adr://ARCH-001` retorna o conteúdo markdown completo do arquivo ADR ARCH-001 com tipo MIME `text/markdown`.
 
-Se o ADR solicitado nao for encontrado, o recurso retorna uma mensagem em texto simples: `ADR ARCH-001 not found`.
+Se o ADR solicitado não for encontrado, o recurso retorna uma mensagem em texto simples: `ADR ARCH-001 not found`.
 
 :::tip[Pule chamadas MCP manuais com plugins de editor]
-Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) chamam essas ferramentas MCP automaticamente como parte de um fluxo de trabalho estruturado de governanca. Seu agente le ADRs, valida conformidade e captura aprendizados sem voce invocar nenhuma ferramenta manualmente. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
+Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) chamam essas ferramentas MCP automaticamente como parte de um fluxo de trabalho estruturado de governança. Seu agente lê ADRs, valida conformidade e captura aprendizados sem você invocar nenhuma ferramenta manualmente. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
 :::
