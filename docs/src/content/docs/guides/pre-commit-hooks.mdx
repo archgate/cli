@@ -1,0 +1,92 @@
+---
+title: Pre-commit Hooks
+description: Run Archgate checks automatically before every commit.
+---
+
+## Overview
+
+The `archgate check --staged` command checks only git-staged files against your ADR rules. Because it skips unstaged and untracked files, it runs fast enough to use as a pre-commit hook without slowing down your workflow.
+
+When a check fails, the commit is blocked. Violations are printed to stderr with file paths and line numbers so you can locate and fix them immediately.
+
+## Lefthook
+
+[Lefthook](https://github.com/evilmartians/lefthook) is a fast, cross-platform git hooks manager. Add the following to your `lefthook.yml`:
+
+```yaml
+# lefthook.yml
+pre-commit:
+  commands:
+    adr-check:
+      run: archgate check --staged
+```
+
+Install the hook with:
+
+```bash
+lefthook install
+```
+
+## Husky
+
+[Husky](https://typicode.github.io/husky/) is a popular git hooks tool for Node.js projects. Add the check to your pre-commit hook:
+
+```bash
+# .husky/pre-commit
+archgate check --staged
+```
+
+Make sure the hook file is executable:
+
+```bash
+chmod +x .husky/pre-commit
+```
+
+## What happens when checks fail
+
+When `archgate check --staged` finds violations, it exits with code 1. This blocks the commit. The output includes:
+
+- The ADR ID and rule name that was violated
+- The file path where the violation was found
+- The line number (when available)
+- A description of what the rule expects
+
+Fix the violations, re-stage the files with `git add`, and commit again.
+
+## Performance
+
+The `--staged` flag restricts checks to only the files in the git staging area. This means:
+
+- A project with hundreds of source files but only three staged files will only check those three files.
+- Rules that do not match any staged files are skipped entirely.
+- Typical pre-commit checks complete in under a second.
+
+Without `--staged`, `archgate check` scans all files matched by each ADR's `files` glob pattern, which is useful for CI but slower for interactive use.
+
+## Useful flags
+
+| Flag         | Purpose                                                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`   | Only check git-staged files (required for pre-commit)                                                                      |
+| `--verbose`  | Show passing rules and timing information -- helpful when debugging why a check is slow or which rules are being evaluated |
+| `--json`     | Output results as JSON -- useful for piping to other tools or custom reporting scripts                                     |
+| `--adr <id>` | Only check rules from a specific ADR -- useful for isolating a single rule during debugging                                |
+| `--ci`       | Output GitHub Actions annotations -- use this in CI workflows instead of pre-commit hooks                                  |
+
+## Combining with other hooks
+
+Pre-commit hooks can run multiple commands. For example, with Lefthook:
+
+```yaml
+# lefthook.yml
+pre-commit:
+  commands:
+    lint:
+      run: npm run lint
+    typecheck:
+      run: npm run typecheck
+    adr-check:
+      run: archgate check --staged
+```
+
+Each command runs independently. If any command exits with a non-zero code, the commit is blocked.

@@ -1,0 +1,121 @@
+---
+title: Quick Start
+description: Get up and running with Archgate in under 5 minutes.
+---
+
+## 1. Install Archgate
+
+If you have not installed the CLI yet, install it globally via npm:
+
+```bash
+npm install -g archgate
+```
+
+See the [Installation](/getting-started/installation/) page for platform details and troubleshooting.
+
+## 2. Initialize your project
+
+Navigate to your project root and run the `init` command:
+
+```bash
+cd my-project
+archgate init
+```
+
+This creates the `.archgate/` directory with the following structure:
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```
+
+The generated files give you a working example to build on.
+
+## 3. Edit the example ADR
+
+Open `.archgate/adrs/ARCH-001-example.md`. Every ADR starts with YAML frontmatter that defines its identity:
+
+```yaml
+---
+id: ARCH-001
+title: Example Decision
+domain: architecture
+rules: true
+files: ["src/**/*.ts"]
+---
+```
+
+- **id** — Unique identifier. Convention is `ARCH-NNN` but any string works.
+- **title** — Human-readable name for the decision.
+- **domain** — Groups related ADRs together (e.g., `architecture`, `security`, `testing`).
+- **rules** — Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
+- **files** — Optional glob patterns that scope which files the rules apply to.
+
+Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
+
+## 4. Add a companion rules file
+
+Create a `.rules.ts` file next to your ADR with the same name prefix. Rules are written in TypeScript using the `defineRules` function:
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "no-console-error": {
+    description: "Use logError() instead of console.error()",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const matches = await ctx.grep(file, /console\.error\(/);
+        for (const match of matches) {
+          ctx.report.violation({
+            message: "Use logError() instead of console.error()",
+            file: match.file,
+            line: match.line,
+            fix: "Import logError from your helpers and use it instead",
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+Each rule has a unique key, a description, and an async `check` function. Inside `check`, you have access to:
+
+- **`ctx.scopedFiles`** — Files matching the ADR's `files` glob patterns.
+- **`ctx.grep(file, pattern)`** — Search a file for regex matches, returning file paths and line numbers.
+- **`ctx.report.violation()`** — Report a violation with a message, file path, line number, and optional fix suggestion.
+
+## 5. Run checks
+
+Run the compliance checker against your codebase:
+
+```bash
+archgate check
+```
+
+Archgate loads every ADR with `rules: true`, executes its companion rules file, and prints results. The exit code tells you the outcome:
+
+| Exit code | Meaning                                       |
+| --------- | --------------------------------------------- |
+| 0         | All rules pass. No violations found.          |
+| 1         | One or more violations detected.              |
+| 2         | Internal error (e.g., malformed ADR or rule). |
+
+To check only staged files (useful in pre-commit hooks or CI):
+
+```bash
+archgate check --staged
+```
+
+## What's next?
+
+Now that you have a working setup, dive deeper:
+
+- [Writing ADRs](/guides/writing-adrs/) — Learn the full ADR format and best practices for writing effective decisions.
+- [Writing Rules](/guides/writing-rules/) — Explore the rule API, advanced patterns, and how to test your rules.
+- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
