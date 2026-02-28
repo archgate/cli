@@ -290,6 +290,8 @@ Once installed, run `archgate:onboard` in Claude Code to initialize governance f
 
 The Cursor plugin bundle is downloaded from [plugins.archgate.dev](https://plugins.archgate.dev) and extracted into `.cursor/` automatically.
 
+Once installed, run the `ag-onboard` skill in Cursor to initialize governance for your project.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and workflow.
