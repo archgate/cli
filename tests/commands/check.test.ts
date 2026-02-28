@@ -6,7 +6,7 @@ import { loadRuleAdrs } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import { getExitCode } from "../../src/engine/reporter";
 
-// Absolute path to the real defineRules module
+// Absolute path to the real defineRules module (forward slashes for import specifiers)
 const RULES_MODULE_PATH = join(
   import.meta.dir,
   "..",
@@ -14,7 +14,7 @@ const RULES_MODULE_PATH = join(
   "src",
   "formats",
   "rules.ts"
-);
+).replaceAll("\\", "/");
 
 describe("check command integration", () => {
   let tempDir: string;
