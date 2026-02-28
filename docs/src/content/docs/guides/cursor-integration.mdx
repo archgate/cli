@@ -13,6 +13,27 @@ archgate init --editor cursor
 
 This creates the following files inside your project:
 
+### With plugin (beta)
+
+:::note[Beta access required]
+The Cursor plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access.
+:::
+
+If you have logged in via `archgate login`, the init command also downloads and installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow -- the same capabilities available in the Claude Code plugin.
+
+To explicitly install the plugin:
+
+```bash
+archgate login              # one-time setup
+archgate init --editor cursor --install-plugin
+```
+
+### Without plugin (free)
+
+Without the plugin, `archgate init --editor cursor` still configures the MCP server connection and a basic governance rule. The AI agent can access your ADRs and run checks, but does not get the role-based skills (architect, quality-manager, etc.).
+
+### Generated files
+
 | File                                    | Purpose                                                        |
 | --------------------------------------- | -------------------------------------------------------------- |
 | `.cursor/mcp.json`                      | MCP server connection so Cursor's AI agent can access ADRs     |
