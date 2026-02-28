@@ -12,7 +12,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Version References
 
-- **Minimum version** (`>=1.2.21`): Enforced in `src/cli.ts`, documented in CLAUDE.md "Technology Stack" and `plans/03-technical-plan.md`. This is the user-facing requirement.
+- **Minimum version** (`>=1.2.21`): Enforced in `src/cli.ts`, documented in CLAUDE.md "Technology Stack". This is the user-facing requirement.
 - **Pinned version** (`1.3.8`): Set in `.prototools`, referenced in ADR risk sections (ARCH-005, ARCH-006) and CLAUDE.md "Toolchain" section. This is the dev toolchain version.
 - These are intentionally different. When upgrading the pinned version, update `.prototools` + ADR risk sections + CLAUDE.md toolchain. Do NOT change the minimum unless a new Bun API is required.
 
