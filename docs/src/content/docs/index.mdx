@@ -1,0 +1,63 @@
+---
+title: Archgate
+description: Enforce Architecture Decision Records as executable rules — for both humans and AI agents.
+template: splash
+hero:
+  tagline: Write an ADR once. Enforce it everywhere. Feed it to AI agents automatically.
+  actions:
+    - text: Get Started
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/archgate/cli
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## How it works
+
+Archgate has two layers that work together:
+
+1. **ADRs as documents** — Markdown files with YAML frontmatter that describe architectural decisions in plain language. Humans read them. AI agents read them. Everyone stays aligned.
+
+2. **ADRs as rules** — Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
+
+```
+.archgate/
+  adrs/
+    ARCH-001-command-structure.md        # The decision (human + AI readable)
+    ARCH-001-command-structure.rules.ts  # The checks (machine executable)
+    ARCH-002-error-handling.md
+    ARCH-002-error-handling.rules.ts
+  lint/
+    archgate.config.ts                   # Archgate configuration
+```
+
+When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file, and reports any violations. Exit code 0 means your code complies. Exit code 1 means it does not.
+
+## Key Features
+
+<CardGrid>
+  <Card title="Executable Rules" icon="seti:typescript">
+    Write rules in TypeScript. Archgate runs them against your codebase and
+    reports violations with file paths and line numbers. Rules live next to the
+    decisions they enforce.
+  </Card>
+  <Card title="CI Integration" icon="seti:pipeline">
+    Wire `archgate check` into your pipeline. Exit code 1 blocks merges when
+    rules are violated. Works with GitHub Actions, GitLab CI, or any CI system
+    that respects exit codes.
+  </Card>
+  <Card title="AI-Aware Governance" icon="star">
+    The MCP server gives AI agents live access to your ADRs. They read decisions
+    before writing code and validate after. No copy-pasting rules into prompts.
+  </Card>
+  <Card title="Self-Governance" icon="approve-check-circle">
+    Archgate governs its own development. The same tool that checks your code
+    checks ours. Six ADRs enforce command structure, error handling, output
+    formatting, testing, and more.
+  </Card>
+</CardGrid>
