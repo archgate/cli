@@ -28,6 +28,8 @@ jobs:
 
       - name: Setup toolchain
         uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
