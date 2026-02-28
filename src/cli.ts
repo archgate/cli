@@ -21,8 +21,8 @@ if (typeof Bun === "undefined")
 if (!semver.satisfies(Bun.version, ">=1.2.21"))
   throw new Error("You need to update Bun to version 1.2.21 or higher");
 
-if (!["darwin", "linux"].includes(process.platform))
-  throw new Error("Archgate only supports macOS and Linux");
+if (!["darwin", "linux", "win32"].includes(process.platform))
+  throw new Error("Archgate only supports macOS, Linux, and Windows");
 
 createPathIfNotExists(paths.cacheFolder);
 
