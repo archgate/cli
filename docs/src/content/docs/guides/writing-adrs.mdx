@@ -1,0 +1,306 @@
+---
+title: Writing ADRs
+description: A complete guide to writing effective Architecture Decision Records.
+---
+
+## Creating an ADR
+
+Use `archgate adr create` to generate a new ADR with the standard template. The command supports both interactive and non-interactive modes.
+
+### Interactive mode
+
+Run the command with no arguments to get guided prompts:
+
+```bash
+archgate adr create
+```
+
+You will be prompted for:
+
+1. **Domain** -- one of `backend`, `frontend`, `data`, `architecture`, or `general`
+2. **Title** -- a short, descriptive name for the decision
+3. **File patterns** -- optional comma-separated globs that scope rule checking (e.g., `src/commands/**/*.ts`)
+
+The CLI assigns a sequential ID based on the domain prefix (`ARCH-001`, `FE-002`, `BE-003`, etc.) and writes the file to `.archgate/adrs/`.
+
+### Non-interactive mode
+
+Pass `--title` and `--domain` to skip prompts:
+
+```bash
+archgate adr create --title "API Response Format" --domain backend --files "src/api/**/*.ts"
+```
+
+Available flags:
+
+| Flag              | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `--title <title>` | ADR title (required for non-interactive mode)          |
+| `--domain <name>` | Domain: backend, frontend, data, architecture, general |
+| `--files <globs>` | Comma-separated file patterns for rule scoping         |
+| `--rules`         | Set `rules: true` in frontmatter                       |
+| `--body <md>`     | Full ADR body markdown (skip template)                 |
+| `--json`          | Output the result as JSON                              |
+
+## The generated template
+
+When you create an ADR without `--body`, the CLI generates a template with all standard sections:
+
+```markdown
+---
+id: BE-001
+title: API Response Format
+domain: backend
+rules: false
+files: ["src/api/**/*.ts"]
+---
+
+# API Response Format
+
+## Context
+
+Describe the context and problem statement.
+
+## Decision
+
+Describe the decision that was made.
+
+## Do's and Don'ts
+
+### Do
+
+-
+
+### Don't
+
+-
+
+## Consequences
+
+### Positive
+
+-
+
+### Negative
+
+-
+
+### Risks
+
+-
+
+## Compliance and Enforcement
+
+Describe how this decision will be enforced.
+
+## References
+
+-
+```
+
+## Section-by-section writing guidance
+
+### Context
+
+Explain why this decision was needed. What problem prompted it? What alternatives were considered and why were they rejected?
+
+Good context sections include:
+
+- The problem or pain point that triggered the decision
+- Alternatives that were evaluated, with brief trade-off analysis
+- Any constraints that narrowed the options (team size, runtime, compatibility)
+
+```markdown
+## Context
+
+The CLI needs a consistent pattern for defining and registering commands. As the
+command surface grows (init, check, adr, mcp, upgrade, clean), the registration
+mechanism must scale without introducing hidden coupling or making the dependency
+graph opaque.
+
+**Alternatives considered:**
+
+- **Auto-discovery via `executableDir()`** -- Commander.js supports automatic
+  command discovery by scanning a directory. This hides the dependency graph and
+  makes dead command detection impossible.
+- **Single-file command map** -- Simple but creates a monolithic file that grows
+  with every command.
+```
+
+### Decision
+
+State what was decided. Be specific and concrete -- this section should leave no ambiguity about what developers must do.
+
+Include numbered constraints when the decision has multiple facets:
+
+```markdown
+## Decision
+
+Commands live in src/commands/ and export a register\*Command(program) function.
+The main entry point (src/cli.ts) explicitly imports and calls each register
+function.
+
+**Key constraints:**
+
+1. **One command per file** -- Each .ts file defines exactly one command
+2. **Explicit registration** -- Every command must be manually imported in src/cli.ts
+3. **Thin commands** -- Command files handle I/O only; no business logic
+```
+
+### Do's and Don'ts
+
+This is the section developers and AI agents reference most frequently. Write concrete examples of correct and incorrect patterns. Use real code when possible.
+
+```markdown
+## Do's and Don'ts
+
+### Do
+
+- Export a register\*Command function from each command module
+- Keep commands thin: parse args, call helpers/engine, format output
+- Use src/commands/<name>.ts for top-level commands
+
+### Don't
+
+- Don't put business logic in command files -- move it to src/engine/ or src/helpers/
+- Don't use executableDir() for command discovery
+- Don't call .parse() in command files -- the entry point handles parsing
+```
+
+### Consequences
+
+Break consequences into three categories:
+
+- **Positive** -- benefits the team gains from this decision
+- **Negative** -- trade-offs the team accepts (every decision has them)
+- **Risks** -- what could go wrong, and how you plan to mitigate it
+
+```markdown
+## Consequences
+
+### Positive
+
+- In-process execution enables testing without spawning subprocesses
+- Explicit imports make all commands visible at a glance in src/cli.ts
+
+### Negative
+
+- Manual import bookkeeping -- each new command requires adding an import
+
+### Risks
+
+- Stale imports when commands are removed. Mitigation: TypeScript catches
+  missing modules at compile time.
+```
+
+### Compliance and Enforcement
+
+Describe how this decision is enforced. There are two enforcement mechanisms:
+
+1. **Automated rules** -- companion `.rules.ts` files that run during `archgate check`
+2. **Manual enforcement** -- what code reviewers should verify
+
+```markdown
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** ARCH-001/register-function-export: Scans all command files
+  and verifies each exports a register\*Command function. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. New commands are imported and registered in src/cli.ts
+2. Command files delegate to engine/helpers for business logic
+```
+
+### References
+
+Link to related ADRs, external documentation, or relevant discussions:
+
+```markdown
+## References
+
+- [Commander.js documentation](https://github.com/tj/commander.js)
+- [ARCH-004 -- No Barrel Files](./ARCH-004-no-barrel-files.md)
+- [ARCH-002 -- Error Handling](./ARCH-002-error-handling.md)
+```
+
+## Scoping rules with `files`
+
+The `files` field in the frontmatter is an array of glob patterns. When set, `archgate check` only passes matching files to the rule's `ctx.scopedFiles`. This keeps rules focused on the code they govern.
+
+```yaml
+---
+id: ARCH-001
+title: Command Structure
+domain: architecture
+rules: true
+files: ["src/commands/**/*.ts"]
+---
+```
+
+If `files` is omitted, `ctx.scopedFiles` includes all project files. This is appropriate for project-wide rules like dependency policies.
+
+Common patterns:
+
+| Pattern                | Matches                          |
+| ---------------------- | -------------------------------- |
+| `src/commands/**/*.ts` | All TypeScript files in commands |
+| `src/**/*.ts`          | All TypeScript source files      |
+| `package.json`         | Only the root package.json       |
+| `src/api/**/*.ts`      | API layer files                  |
+| `tests/**/*.test.ts`   | Test files                       |
+
+## When to set `rules: true` vs `rules: false`
+
+Set `rules: true` when you have a companion `.rules.ts` file with automated checks. The file must be named identically to the ADR markdown file but with a `.rules.ts` extension:
+
+```
+.archgate/adrs/
+  ARCH-001-command-structure.md          # rules: true
+  ARCH-001-command-structure.rules.ts    # companion rules file
+  ARCH-002-error-handling.md             # rules: true
+  ARCH-002-error-handling.rules.ts       # companion rules file
+  GEN-001-code-review-process.md         # rules: false (no automated checks)
+```
+
+Set `rules: false` for decisions that are enforced through code review alone -- process decisions, team agreements, or guidelines that are difficult to check programmatically.
+
+## Updating ADRs
+
+Use `archgate adr update` to modify an existing ADR:
+
+```bash
+archgate adr update --id ARCH-001 --body "## Context\n\nUpdated context..." --title "New Title"
+```
+
+The `--id` and `--body` flags are required. All other frontmatter fields (`--title`, `--domain`, `--files`, `--rules`) are optional and preserve their existing values when omitted.
+
+| Flag              | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `--id <id>`       | ADR ID to update (required)                       |
+| `--body <md>`     | Full replacement body markdown (required)         |
+| `--title <title>` | New title (preserves existing if omitted)         |
+| `--domain <name>` | New domain (preserves existing if omitted)        |
+| `--files <globs>` | New file patterns (preserves existing if omitted) |
+| `--rules`         | Set `rules: true`                                 |
+| `--json`          | Output the result as JSON                         |
+
+## Tips for effective ADRs
+
+1. **Keep each ADR focused on a single decision.** If you find yourself writing about two unrelated topics, split them into separate ADRs.
+
+2. **Be specific in Do's and Don'ts.** Vague guidelines like "write clean code" are not actionable. Show concrete code patterns.
+
+3. **Include real code examples.** The Do's and Don'ts section is where developers and AI agents look first. Annotated code examples make the decision unambiguous.
+
+4. **Document alternatives you rejected.** Future contributors will ask "why didn't we use X?" The Context section should answer that question.
+
+5. **State trade-offs honestly.** Every decision has negative consequences. Documenting them builds trust and helps the team understand what was traded away.
+
+6. **Write rules for decisions that can be checked automatically.** If a rule can catch a violation before code review, set `rules: true` and write a companion `.rules.ts` file. See the [Writing Rules](/guides/writing-rules/) guide.
+
+7. **Use domain prefixes to organize.** The domain field (`backend`, `frontend`, `data`, `architecture`, `general`) determines the ID prefix and helps filter ADRs by area.

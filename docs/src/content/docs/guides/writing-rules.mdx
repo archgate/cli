@@ -1,0 +1,447 @@
+---
+title: Writing Rules
+description: Learn to write automated rules that enforce your ADR decisions.
+---
+
+Rules are TypeScript functions that check your codebase for ADR compliance. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
+
+```
+.archgate/adrs/
+  ARCH-001-command-structure.md          # The decision
+  ARCH-001-command-structure.rules.ts    # The automated checks
+```
+
+## Basic setup
+
+Every rules file exports a default `defineRules()` call. Each key becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "my-rule-id": {
+    description: "What this rule checks",
+    async check(ctx) {
+      // Your check logic here
+    },
+  },
+});
+```
+
+A single rules file can define multiple rules:
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "first-rule": {
+    description: "Checks one thing",
+    async check(ctx) {
+      // ...
+    },
+  },
+  "second-rule": {
+    description: "Checks another thing",
+    async check(ctx) {
+      // ...
+    },
+  },
+});
+```
+
+## The Context API
+
+The `ctx` object passed to every `check` function provides file reading, searching, and reporting capabilities. Here is a detailed reference with examples.
+
+### ctx.scopedFiles
+
+An array of file paths matching the ADR's `files` glob from its frontmatter. If the ADR has no `files` field, this includes all project files.
+
+```typescript
+for (const file of ctx.scopedFiles) {
+  const content = await ctx.readFile(file);
+  // Check content...
+}
+```
+
+Use `ctx.scopedFiles` when your rule should only apply to files the ADR governs. For example, a command structure rule scoped to `src/commands/**/*.ts` will only receive command files.
+
+### ctx.changedFiles
+
+An array of file paths that have been modified (git staged or changed). Useful for incremental checking -- only validate files that were actually touched.
+
+```typescript
+const filesToCheck = ctx.scopedFiles.filter((f) =>
+  ctx.changedFiles.includes(f)
+);
+for (const file of filesToCheck) {
+  // Only check changed files
+}
+```
+
+### ctx.readFile(path)
+
+Read a file's content as a string. The path is relative to the project root.
+
+```typescript
+const content = await ctx.readFile("src/cli.ts");
+```
+
+### ctx.readJSON(path)
+
+Read and parse a JSON file. Returns `unknown` -- cast it to the expected shape.
+
+```typescript
+const pkg = (await ctx.readJSON("package.json")) as {
+  dependencies?: Record<string, string>;
+};
+```
+
+### ctx.grep(file, pattern)
+
+Search a single file with a regular expression. Returns an array of `GrepMatch` objects, each with `file`, `line`, `column`, and `content` properties.
+
+```typescript
+const matches = await ctx.grep(file, /console\.error\(/);
+for (const match of matches) {
+  ctx.report.violation({
+    message: "Use logError() instead of console.error()",
+    file: match.file,
+    line: match.line,
+  });
+}
+```
+
+### ctx.grepFiles(pattern, fileGlob)
+
+Search across multiple files matching a glob pattern. Returns a flat array of `GrepMatch` objects from all matching files.
+
+```typescript
+const matches = await ctx.grepFiles(/TODO:/, "src/**/*.ts");
+for (const match of matches) {
+  ctx.report.warning({
+    message: "TODO comment found",
+    file: match.file,
+    line: match.line,
+  });
+}
+```
+
+### ctx.glob(pattern)
+
+Find files by glob pattern. Returns an array of file paths relative to the project root.
+
+```typescript
+const testFiles = await ctx.glob("tests/**/*.test.ts");
+```
+
+### ctx.report
+
+The reporting interface with three severity methods:
+
+- `ctx.report.violation(detail)` -- error severity (exit code 1, blocks CI)
+- `ctx.report.warning(detail)` -- warning severity (logged but does not block)
+- `ctx.report.info(detail)` -- informational (logged for visibility)
+
+Each method accepts an object with:
+
+| Field     | Type     | Required | Description                            |
+| --------- | -------- | -------- | -------------------------------------- |
+| `message` | `string` | Yes      | What the violation is                  |
+| `file`    | `string` | No       | Path to the offending file             |
+| `line`    | `number` | No       | Line number of the violation           |
+| `fix`     | `string` | No       | Suggested fix (shown to the developer) |
+
+```typescript
+ctx.report.violation({
+  message: "Command file must export a register*Command function",
+  file: "src/commands/check.ts",
+  line: 5,
+  fix: "Add: export function registerCheckCommand(program: Command) { ... }",
+});
+```
+
+### ctx.projectRoot
+
+The absolute path to the project root directory. Useful when you need to construct absolute paths.
+
+## Complete worked examples
+
+### Example 1: Dependency allowlist
+
+Check that all production dependencies are on an approved list. This is the rule Archgate uses for its own ARCH-006 dependency policy.
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default defineRules({
+  "no-unapproved-deps": {
+    description: "Production dependencies must be on the approved list",
+    async check(ctx) {
+      let pkg: { dependencies?: Record<string, string> };
+      try {
+        pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+      } catch {
+        return;
+      }
+
+      const deps = Object.keys(pkg.dependencies ?? {});
+      for (const dep of deps) {
+        if (!APPROVED_DEPS.includes(dep)) {
+          ctx.report.violation({
+            message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+            file: "package.json",
+            fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+### Example 2: Required export pattern
+
+Verify that every command file exports a `register*Command` function. This is the rule Archgate uses for its own ARCH-001 command structure.
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "register-function-export": {
+    description: "Command files must export a register*Command function",
+    async check(ctx) {
+      const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+      const checks = files.map(async (file) => {
+        const content = await ctx.readFile(file);
+        if (!/export\s+function\s+register\w+Command/.test(content)) {
+          ctx.report.violation({
+            message: "Command file must export a register*Command function",
+            file,
+          });
+        }
+      });
+      await Promise.all(checks);
+    },
+  },
+});
+```
+
+### Example 3: Banned import pattern
+
+Prevent importing a specific library when native alternatives exist.
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "no-lodash": {
+    description: "Do not use lodash -- use native array methods instead",
+    async check(ctx) {
+      const matches = await ctx.grepFiles(
+        /import\s+.*from\s+['"]lodash/,
+        "src/**/*.ts"
+      );
+      for (const match of matches) {
+        ctx.report.violation({
+          message: "Do not import lodash. Use native array methods instead.",
+          file: match.file,
+          line: match.line,
+          fix: "Replace lodash usage with native Array.prototype methods",
+        });
+      }
+    },
+  },
+});
+```
+
+### Example 4: File naming convention
+
+Enforce kebab-case naming for source files.
+
+```typescript
+import { defineRules } from "archgate/rules";
+import { basename } from "node:path";
+
+export default defineRules({
+  "kebab-case-files": {
+    description: "Source files must use kebab-case naming",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const name = basename(file).replace(/\.(ts|tsx|js|jsx)$/, "");
+        if (name !== name.toLowerCase() || name.includes("_")) {
+          ctx.report.violation({
+            message: `File name "${basename(file)}" must be kebab-case (lowercase with hyphens)`,
+            file,
+            fix: `Rename to ${name.toLowerCase().replace(/_/g, "-")}`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+### Example 5: Maximum file length
+
+Warn when files exceed a line count threshold.
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+const MAX_LINES = 300;
+
+export default defineRules({
+  "max-file-length": {
+    description: `Source files should not exceed ${MAX_LINES} lines`,
+    async check(ctx) {
+      const checks = ctx.scopedFiles.map(async (file) => {
+        const content = await ctx.readFile(file);
+        const lineCount = content.split("\n").length;
+        if (lineCount > MAX_LINES) {
+          ctx.report.warning({
+            message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+            file,
+            fix: "Extract related functions into separate modules",
+          });
+        }
+      });
+      await Promise.all(checks);
+    },
+  },
+});
+```
+
+### Example 6: Required test coverage
+
+Verify that every source file has a corresponding test file.
+
+```typescript
+import { defineRules } from "archgate/rules";
+import { basename } from "node:path";
+
+export default defineRules({
+  "test-file-exists": {
+    description: "Every source module must have a corresponding test file",
+    async check(ctx) {
+      const testFiles = await ctx.glob("tests/**/*.test.ts");
+      const testBaseNames = new Set(
+        testFiles.map((f) => basename(f).replace(".test.ts", ""))
+      );
+
+      for (const file of ctx.scopedFiles) {
+        const name = basename(file).replace(/\.ts$/, "");
+        if (!testBaseNames.has(name)) {
+          ctx.report.warning({
+            message: `No test file found for ${basename(file)}`,
+            file,
+            fix: `Create tests/${name}.test.ts`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+## Severity levels
+
+Each rule can set a default severity in its configuration. The severity determines how violations are treated:
+
+| Severity  | Exit code | Behavior                             |
+| --------- | --------- | ------------------------------------ |
+| `error`   | 1         | Blocks CI, must be fixed             |
+| `warning` | 0         | Logged but does not block            |
+| `info`    | 0         | Informational, logged for visibility |
+
+Set the severity in the rule definition:
+
+```typescript
+export default defineRules({
+  "my-rule": {
+    description: "...",
+    severity: "warning",
+    async check(ctx) {
+      // Violations from this rule are warnings, not errors
+      ctx.report.violation({ message: "..." });
+    },
+  },
+});
+```
+
+If `severity` is omitted, it defaults to `error`.
+
+You can also report at different severities within the same rule using `ctx.report.violation()`, `ctx.report.warning()`, and `ctx.report.info()` directly.
+
+## Rule timeout
+
+Each rule has a 30-second execution timeout. If a rule exceeds this limit, it is treated as an error. This prevents runaway checks from blocking the pipeline.
+
+Keep rules fast by:
+
+- Using `ctx.grepFiles()` instead of reading every file manually
+- Using `Promise.all()` to check files in parallel
+- Scoping rules with the `files` frontmatter field to limit the number of files processed
+
+## The `fix` field
+
+The `fix` field is an optional string shown to the developer alongside the violation message. It describes what action to take to resolve the issue. Fixes are not auto-applied -- they are guidance.
+
+```typescript
+ctx.report.violation({
+  message: `Unapproved dependency: "chalk"`,
+  file: "package.json",
+  fix: "Use styleText() from node:util instead of chalk",
+});
+```
+
+When displayed, the fix appears below the violation message:
+
+```
+ARCH-006/no-unapproved-deps
+  package.json
+    Unapproved dependency: "chalk"
+    Fix: Use styleText() from node:util instead of chalk
+```
+
+## Tips for writing rules
+
+1. **Use `Promise.all()` for parallel file checks.** When checking multiple files independently, process them in parallel instead of sequentially.
+
+   ```typescript
+   // Good: parallel
+   const checks = files.map(async (file) => {
+     const content = await ctx.readFile(file);
+     // ...
+   });
+   await Promise.all(checks);
+
+   // Avoid: sequential
+   for (const file of files) {
+     const content = await ctx.readFile(file);
+     // ...
+   }
+   ```
+
+2. **Use `ctx.changedFiles` for incremental checking.** When running `archgate check --staged`, `ctx.changedFiles` contains only the git-staged files. Filter `ctx.scopedFiles` against it to check only what changed.
+
+3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
+
+4. **Use `ctx.grepFiles()` over manual iteration.** When searching for a pattern across many files, `ctx.grepFiles()` is more efficient than reading each file and running a regex.
+
+5. **Provide actionable `fix` messages.** A fix like "Don't do this" is not helpful. Tell the developer exactly what to do instead.
+
+6. **Filter out non-applicable files early.** If your rule only applies to certain files within the scope, filter `ctx.scopedFiles` before processing:
+
+   ```typescript
+   const commandFiles = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+   ```
+
+7. **Handle missing files gracefully.** If your rule reads a specific file like `package.json`, wrap the read in a try/catch and return early if the file does not exist.

@@ -1,0 +1,355 @@
+---
+title: CLI Commands
+description: Complete reference for all Archgate CLI commands.
+---
+
+## archgate init
+
+Initialize Archgate governance in the current project.
+
+```bash
+archgate init [--editor <editor>]
+```
+
+Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows.
+
+### Options
+
+| Option              | Default  | Description                                          |
+| ------------------- | -------- | ---------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`) |
+
+### Output
+
+```
+Initialized Archgate governance in /path/to/project
+  adrs/          - architecture decision records
+  lint/          - linter-specific rules
+  .claude/       - Claude Code settings configured
+```
+
+When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
+
+### Generated structure
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```
+
+---
+
+## archgate check
+
+Run all automated ADR compliance checks against the codebase.
+
+```bash
+archgate check [options]
+```
+
+Loads every ADR with `rules: true` in its frontmatter, executes the companion `.rules.ts` file, and reports violations with file paths and line numbers.
+
+### Options
+
+| Option       | Description                                               |
+| ------------ | --------------------------------------------------------- |
+| `--staged`   | Only check git-staged files (useful for pre-commit hooks) |
+| `--json`     | Machine-readable JSON output                              |
+| `--ci`       | GitHub Actions annotation format                          |
+| `--adr <id>` | Only check rules from a specific ADR                      |
+| `--verbose`  | Show passing rules and timing info                        |
+
+### Exit codes
+
+| Code | Meaning                                       |
+| ---- | --------------------------------------------- |
+| 0    | All rules pass. No violations found.          |
+| 1    | One or more violations detected.              |
+| 2    | Internal error (e.g., malformed ADR or rule). |
+
+### Examples
+
+Check the entire project:
+
+```bash
+archgate check
+```
+
+Check only staged files before committing:
+
+```bash
+archgate check --staged
+```
+
+Check a single ADR:
+
+```bash
+archgate check --adr ARCH-001
+```
+
+Get JSON output for CI integration:
+
+```bash
+archgate check --json
+```
+
+Get GitHub Actions annotations:
+
+```bash
+archgate check --ci
+```
+
+### JSON output format
+
+When `--json` is used, the output is a single JSON object:
+
+```json
+{
+  "pass": false,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "results": [
+    {
+      "adrId": "ARCH-001",
+      "ruleId": "register-function-export",
+      "violations": [
+        {
+          "message": "Command file must export a register*Command function",
+          "file": "src/commands/broken.ts",
+          "severity": "error"
+        }
+      ]
+    }
+  ],
+  "durationMs": 42
+}
+```
+
+---
+
+## archgate adr create
+
+Create a new ADR interactively or via flags.
+
+```bash
+archgate adr create [options]
+```
+
+When run without `--title` and `--domain`, the command prompts interactively for the domain, title, and optional file patterns. When both `--title` and `--domain` are provided, it runs non-interactively.
+
+The ADR ID is auto-generated with the domain prefix and the next available sequence number (e.g., `ARCH-002`, `BE-001`).
+
+### Options
+
+| Option               | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| `--title <title>`    | ADR title (skip interactive prompt)                                   |
+| `--domain <domain>`  | ADR domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | File patterns, comma-separated                                        |
+| `--body <markdown>`  | Full ADR body markdown (skip template)                                |
+| `--rules`            | Set `rules: true` in frontmatter                                      |
+| `--json`             | Output as JSON                                                        |
+
+### Examples
+
+Interactive mode:
+
+```bash
+archgate adr create
+```
+
+Non-interactive mode:
+
+```bash
+archgate adr create \
+  --title "API Response Envelope" \
+  --domain backend \
+  --files "src/api/**/*.ts" \
+  --rules
+```
+
+---
+
+## archgate adr list
+
+List all ADRs in the project.
+
+```bash
+archgate adr list [options]
+```
+
+### Options
+
+| Option              | Description      |
+| ------------------- | ---------------- |
+| `--json`            | Output as JSON   |
+| `--domain <domain>` | Filter by domain |
+
+### Examples
+
+List all ADRs in table format:
+
+```bash
+archgate adr list
+```
+
+```
+ID          Domain        Rules  Title
+────────────────────────────────────────────────────────
+ARCH-001    architecture  true   Command Structure
+ARCH-002    architecture  true   Error Handling
+BE-001      backend       true   API Response Envelope
+```
+
+List ADRs as JSON:
+
+```bash
+archgate adr list --json
+```
+
+Filter by domain:
+
+```bash
+archgate adr list --domain backend
+```
+
+---
+
+## archgate adr show
+
+Print a specific ADR by ID.
+
+```bash
+archgate adr show <id>
+```
+
+Prints the full ADR content (frontmatter and body) to stdout.
+
+### Arguments
+
+| Argument | Description                         |
+| -------- | ----------------------------------- |
+| `<id>`   | ADR ID (e.g., `ARCH-001`, `BE-003`) |
+
+### Example
+
+```bash
+archgate adr show ARCH-001
+```
+
+---
+
+## archgate adr update
+
+Update an existing ADR by ID.
+
+```bash
+archgate adr update --id <id> --body <markdown> [options]
+```
+
+Replaces the ADR body with the provided markdown. Frontmatter fields (`--title`, `--domain`, `--files`, `--rules`) are updated only when explicitly passed; otherwise the existing values are preserved.
+
+### Options
+
+| Option               | Required | Description                                                           |
+| -------------------- | -------- | --------------------------------------------------------------------- |
+| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                   |
+| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                    |
+| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                         |
+| `--domain <domain>`  | No       | New domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)    |
+| `--rules`            | No       | Set `rules: true` in frontmatter                                      |
+| `--json`             | No       | Output as JSON                                                        |
+
+### Example
+
+```bash
+archgate adr update \
+  --id ARCH-001 \
+  --title "Updated Command Structure" \
+  --body "## Context\n\nUpdated context..."
+```
+
+---
+
+## archgate mcp
+
+Start the MCP server for AI agent integration.
+
+```bash
+archgate mcp
+```
+
+Launches an MCP server using stdio transport. The server exposes tools for checking ADR compliance, listing ADRs, and retrieving review context. See the [MCP Tools](/reference/mcp-tools/) reference for the full list of available tools and resources.
+
+The server starts even when no `.archgate/` directory is found. In that case, tools return guidance directing the agent to initialize governance first.
+
+### Configuration
+
+Add to your Claude Code MCP configuration (`.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "archgate": {
+      "command": "archgate",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+---
+
+## archgate upgrade
+
+Upgrade Archgate to the latest version via npm.
+
+```bash
+archgate upgrade
+```
+
+Checks the npm registry for the latest published version. If a newer version is available, runs `npm install -g archgate@latest` to upgrade. If already up-to-date, prints a message and exits.
+
+### Example
+
+```bash
+archgate upgrade
+```
+
+```
+Checking for latest Archgate release...
+Upgrading 0.3.0 -> 0.4.0...
+Archgate upgraded to 0.4.0 successfully.
+```
+
+---
+
+## archgate clean
+
+Remove the CLI cache directory.
+
+```bash
+archgate clean
+```
+
+Removes `~/.archgate/`, which stores cached data such as update check timestamps. Safe to run at any time -- the directory is recreated automatically when needed.
+
+### Example
+
+```bash
+archgate clean
+```
+
+```
+/home/user/.archgate cleaned up
+```
