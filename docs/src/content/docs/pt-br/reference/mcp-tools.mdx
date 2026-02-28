@@ -1,0 +1,226 @@
+---
+title: Ferramentas MCP
+description: Referencia de todas as ferramentas e recursos MCP expostos pelo servidor Archgate.
+---
+
+O servidor MCP do Archgate expoe ferramentas e recursos que agentes de IA utilizam para ler ADRs, validar codigo contra regras e acessar o contexto de revisao. Inicie o servidor com `archgate mcp`.
+
+## Ferramentas
+
+### check
+
+Executa verificacoes de conformidade com ADRs no codebase.
+
+**Parametros:**
+
+| Nome     | Tipo    | Obrigatorio | Descricao                                 |
+| -------- | ------- | ----------- | ----------------------------------------- |
+| `adrId`  | string  | Nao         | Verificar apenas um ADR especifico por ID |
+| `staged` | boolean | Nao         | Verificar apenas arquivos no git stage    |
+
+**Retorna** um objeto JSON com os resultados da verificacao:
+
+```json
+{
+  "pass": false,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-001",
+      "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Command file must export a register*Command function",
+          "file": "src/commands/broken.ts",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 12
+    }
+  ],
+  "durationMs": 42
+}
+```
+
+Quando nenhuma regra e encontrada, retorna `{ "pass": true, "total": 0, "results": [], "message": "No rules to check" }`.
+
+As violacoes sao limitadas a 20 por regra para manter as respostas concisas. Quando uma regra tem mais violacoes do que o limite, `totalViolations` reflete a contagem real enquanto `shownViolations` e o array `violations` incluem apenas as 20 primeiras. O campo `truncated` no nivel superior e definido como `true` quando alguma regra foi limitada.
+
+---
+
+### list_adrs
+
+Lista todos os ADRs do projeto com seus metadados.
+
+**Parametros:**
+
+| Nome     | Tipo   | Obrigatorio | Descricao                                                                      |
+| -------- | ------ | ----------- | ------------------------------------------------------------------------------ |
+| `domain` | string | Nao         | Filtrar por dominio (`backend`, `frontend`, `data`, `architecture`, `general`) |
+
+**Retorna** um array JSON de objetos ADR:
+
+```json
+[
+  {
+    "id": "ARCH-001",
+    "title": "Command Structure",
+    "domain": "architecture",
+    "rules": true
+  },
+  {
+    "id": "BE-001",
+    "title": "API Response Envelope",
+    "domain": "backend",
+    "rules": true
+  }
+]
+```
+
+---
+
+### review_context
+
+Obtem arquivos alterados agrupados por dominio com resumos dos ADRs aplicaveis. Esta e a ferramenta principal que os agentes usam antes de escrever codigo -- ela fornece uma visao condensada de todas as decisoes e restricoes de ADR relevantes sem precisar ler cada arquivo de ADR individualmente.
+
+**Parametros:**
+
+| Nome        | Tipo    | Obrigatorio | Descricao                                                                                    |
+| ----------- | ------- | ----------- | -------------------------------------------------------------------------------------------- |
+| `staged`    | boolean | Nao         | Quando `true`, inclui apenas arquivos no git stage. Padrao: `false` (todos os alterados).    |
+| `runChecks` | boolean | Nao         | Quando `true`, executa verificacoes de conformidade e inclui os resultados. Padrao: `false`. |
+| `domain`    | string  | Nao         | Filtrar por um unico dominio (`backend`, `frontend`, `data`, `architecture`, `general`).     |
+
+**Retorna** um objeto JSON com resumos agrupados por dominio:
+
+```json
+{
+  "allChangedFiles": ["src/commands/init.ts", "src/helpers/log.ts"],
+  "truncatedFiles": false,
+  "domains": [
+    {
+      "domain": "architecture",
+      "changedFiles": ["src/commands/init.ts", "src/helpers/log.ts"],
+      "adrs": [
+        {
+          "id": "ARCH-001",
+          "title": "Command Structure",
+          "domain": "architecture",
+          "files": ["src/commands/**/*.ts"],
+          "rules": true,
+          "decision": "Commands export register*Command(program)...",
+          "dosAndDonts": "### Do's\n- Export a register function..."
+        }
+      ]
+    }
+  ],
+  "checkSummary": null
+}
+```
+
+Cada grupo de dominio inclui os arquivos alterados que correspondem aos seus ADRs, e resumos condensados dos ADRs com apenas as secoes **Decision** e **Do's and Don'ts**.
+
+Quando `runChecks` e `true`, `checkSummary` contem os resultados completos da verificacao (mesmo formato da resposta da ferramenta `check`). Quando `false` ou omitido, `checkSummary` e `null`.
+
+---
+
+### claude_code_session_context
+
+Le a transcricao da sessao atual do Claude Code para o projeto. Util para recuperar contexto da sessao que pode ter sido compactado da conversa.
+
+**Parametros:**
+
+| Nome         | Tipo   | Obrigatorio | Padrao | Descricao                                                                           |
+| ------------ | ------ | ----------- | ------ | ----------------------------------------------------------------------------------- |
+| `maxEntries` | number | Nao         | 200    | Numero maximo de entradas relevantes a retornar. Retorna as entradas mais recentes. |
+
+**Retorna** um objeto JSON com metadados da sessao e transcricao filtrada:
+
+```json
+{
+  "sessionFile": "abc123.jsonl",
+  "totalEntries": 450,
+  "relevantEntries": 180,
+  "transcript": [
+    {
+      "type": "user",
+      "role": "user",
+      "contentPreview": "Add a dark mode toggle..."
+    },
+    {
+      "type": "assistant",
+      "role": "assistant",
+      "contentPreview": "[tool_use: edit_file] | Updated styles..."
+    }
+  ]
+}
+```
+
+Apenas tipos de mensagem `user` e `assistant` sao incluidos. As previas de conteudo sao truncadas para 500 caracteres para mensagens de usuario e 300 caracteres por bloco de conteudo para mensagens do assistente.
+
+---
+
+### cursor_session_context
+
+Le as transcricoes de sessao do agente Cursor para o projeto. Funciona da mesma forma que `claude_code_session_context`, mas le do diretorio `agent-transcripts` do Cursor.
+
+**Parametros:**
+
+| Nome         | Tipo   | Obrigatorio | Padrao | Descricao                                                                 |
+| ------------ | ------ | ----------- | ------ | ------------------------------------------------------------------------- |
+| `maxEntries` | number | Nao         | 200    | Numero maximo de entradas relevantes a retornar.                          |
+| `sessionId`  | string | Nao         | --     | UUID de sessao especifico para ler. Se omitido, le a sessao mais recente. |
+
+**Retorna** um objeto JSON com metadados da sessao e transcricao filtrada:
+
+```json
+{
+  "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "sessionFile": "a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl",
+  "totalEntries": 320,
+  "relevantEntries": 140,
+  "transcript": [
+    {
+      "role": "user",
+      "contentPreview": "Fix the build error..."
+    },
+    {
+      "role": "assistant",
+      "contentPreview": "The error is caused by..."
+    }
+  ]
+}
+```
+
+Se o `sessionId` especificado nao for encontrado, a resposta inclui uma lista de IDs de sessao disponiveis.
+
+---
+
+## Recursos
+
+### adr://\{id\}
+
+Le o conteudo completo de um ADR pelo seu ID. Retorna o markdown completo incluindo frontmatter YAML e corpo.
+
+**Formato da URI:** `adr://\{id\}` onde `\{id\}` e o identificador do ADR (ex.: `ARCH-001`, `BE-003`).
+
+**Exemplo:**
+
+Solicitar `adr://ARCH-001` retorna o conteudo markdown completo do arquivo ADR ARCH-001 com tipo MIME `text/markdown`.
+
+Se o ADR solicitado nao for encontrado, o recurso retorna uma mensagem em texto simples: `ADR ARCH-001 not found`.
+
+:::tip[Pule chamadas MCP manuais com plugins de editor]
+Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) chamam essas ferramentas MCP automaticamente como parte de um fluxo de trabalho estruturado de governanca. Seu agente le ADRs, valida conformidade e captura aprendizados sem voce invocar nenhuma ferramenta manualmente. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
+:::

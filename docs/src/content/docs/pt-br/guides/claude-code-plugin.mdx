@@ -1,0 +1,129 @@
+---
+title: Plugin para Claude Code
+description: De aos agentes de IA um fluxo de governanca completo com o plugin Archgate para Claude Code.
+---
+
+O plugin Archgate para Claude Code oferece aos agentes de IA que trabalham no [Claude Code](https://claude.ai/code) um fluxo de governanca estruturado. Em vez de depender de instrucoes em prompts que se deterioram com o tempo, os agentes leem seus ADRs diretamente pelo servidor MCP e validam o proprio codigo contra suas regras.
+
+## O que o plugin oferece
+
+O plugin adiciona skills baseadas em papeis ao Claude Code. Cada skill encapsula uma parte especifica do fluxo de governanca, garantindo que os agentes sigam o mesmo processo todas as vezes -- ler as decisoes antes de codificar, validar depois e capturar novos padroes para a equipe.
+
+### Skills incluidas
+
+| Skill                      | Proposito                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `archgate:developer`       | Agente de desenvolvimento geral que le ADRs antes de codificar e valida depois             |
+| `archgate:architect`       | Valida alteracoes de codigo contra todos os ADRs do projeto para conformidade estrutural   |
+| `archgate:quality-manager` | Revisa a cobertura de regras e propoe novos ADRs quando padroes emergem                    |
+| `archgate:adr-author`      | Cria e edita ADRs seguindo as convencoes do projeto                                        |
+| `archgate:onboard`         | Configuracao unica: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+
+## Instalacao
+
+:::note[Acesso beta necessario]
+O plugin para Claude Code esta atualmente em beta. [Cadastre-se em plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso antes de seguir os passos abaixo.
+:::
+
+### 1. Faca login com o GitHub
+
+Autentique-se com sua conta do GitHub para obter um token do plugin:
+
+```bash
+archgate login
+```
+
+Isso inicia um GitHub Device Flow. O CLI exibe um codigo unico e uma URL -- abra a URL no seu navegador, insira o codigo e autorize. Ao concluir, as credenciais sao armazenadas em `~/.archgate/credentials`.
+
+### 2. Inicialize seu projeto com o plugin
+
+Execute `archgate init` no seu projeto. Se voce ja estiver logado, o plugin e instalado automaticamente:
+
+```bash
+archgate init
+```
+
+Para solicitar explicitamente a instalacao do plugin:
+
+```bash
+archgate init --install-plugin
+```
+
+Se o CLI `claude` estiver no seu PATH, o plugin e instalado automaticamente via:
+
+1. `claude plugin marketplace add` (registra o marketplace do Archgate)
+2. `claude plugin install archgate@archgate` (instala o plugin)
+
+Se o CLI `claude` nao for encontrado, o comando exibe os comandos manuais para voce executar.
+
+## Configuracao inicial com onboard
+
+Apos a instalacao, execute a skill `archgate:onboard` no seu projeto uma vez. Essa skill:
+
+1. Explora a estrutura do seu codebase (diretorios, arquivos-chave, configuracao de pacotes)
+2. Entrevista voce sobre as convencoes, restricoes e decisoes arquiteturais da sua equipe
+3. Cria um conjunto inicial de ADRs com base nas suas respostas
+4. Configura o diretorio `.archgate/` com suas primeiras regras
+
+A skill de onboard foi projetada para ser executada uma vez por projeto. Apos o onboarding, as outras skills cuidam do desenvolvimento no dia a dia.
+
+## Como funciona na pratica
+
+O plugin segue um fluxo estruturado para cada tarefa de codificacao:
+
+### 1. Ler os ADRs aplicaveis
+
+Quando o desenvolvedor atribui uma tarefa de codificacao, o agente le todos os ADRs que se aplicam aos arquivos sendo alterados. O servidor MCP fornece um resumo condensado com as secoes **Decision** e **Do's and Don'ts** de cada ADR relevante.
+
+O agente nao escreve codigo ate ter lido os ADRs aplicaveis. Isso e garantido pela skill `archgate:developer`.
+
+### 2. Escrever codigo seguindo as restricoes dos ADRs
+
+O agente escreve codigo que cumpre as restricoes dos ADRs. As secoes Do's and Don'ts servem como guardrails concretos -- o agente as consulta enquanto codifica.
+
+### 3. Validar as alteracoes
+
+Apos escrever o codigo, o agente executa `archgate check` para rodar as regras automatizadas contra as alteracoes. Qualquer violacao e corrigida antes de prosseguir.
+
+### 4. Revisao do arquiteto
+
+O agente invoca `archgate:architect` para validar a conformidade estrutural com os ADRs alem do que as regras automatizadas capturam. A skill de arquiteto revisa o contexto completo das alteracoes contra todos os ADRs aplicaveis.
+
+### 5. Capturar aprendizados
+
+O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padroes que valem ser capturados. O quality manager pode propor novos ADRs ou atualizacoes em existentes quando convencoes recorrentes surgem.
+
+## Recusa orientada por ADRs
+
+Quando o agente encontra uma tarefa que exigiria violar um ADR, ele recusa e explica qual ADR seria violado. Em seguida, sugere como alcancar o mesmo objetivo mantendo a conformidade.
+
+Por exemplo, se um desenvolvedor pedir ao agente para adicionar `chalk` como dependencia em um projeto governado pelo ARCH-006 (politica de dependencias), o agente ira:
+
+1. Recusar, citando o ARCH-006 e a lista de dependencias aprovadas
+2. Sugerir o uso de `styleText()` do `node:util` como alternativa
+3. Oferecer-se para implementar a tarefa usando a alternativa em conformidade
+
+Esse comportamento e consistente independentemente de como o desenvolvedor formula a solicitacao. ADRs sao tratados como restricoes obrigatorias, nao sugestoes.
+
+## Integracao com o servidor MCP
+
+O plugin se comunica com os ADRs do seu projeto por meio do servidor MCP do Archgate. O servidor fornece:
+
+- **Conteudo de ADRs** -- texto completo de qualquer ADR, acessivel por ID
+- **Contexto de revisao** -- resumos condensados de todos os ADRs aplicaveis a um conjunto de arquivos alterados
+- **Verificacao de regras** -- execucao de regras automatizadas com relatorio de violacoes
+- **Listagem de ADRs** -- inventario de todos os ADRs do projeto com metadados
+
+O servidor MCP roda localmente e le diretamente do seu diretorio `.archgate/adrs/`. Nenhum dado sai da sua maquina.
+
+## Quando usar cada skill
+
+| Cenario                                                 | Skill a usar               |
+| ------------------------------------------------------- | -------------------------- |
+| Iniciando um novo projeto com Archgate                  | `archgate:onboard`         |
+| Tarefas de codificacao do dia a dia                     | `archgate:developer`       |
+| Revisando um PR para conformidade com ADRs              | `archgate:architect`       |
+| Percebendo um padrao recorrente que vale ser codificado | `archgate:quality-manager` |
+| Criando ou editando um ADR                              | `archgate:adr-author`      |
+
+A skill `archgate:developer` orquestra as outras automaticamente -- ela invoca `archgate:architect` e `archgate:quality-manager` como parte do seu fluxo. Na maioria das vezes, voce so precisa interagir diretamente com a skill de developer.

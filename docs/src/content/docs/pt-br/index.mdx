@@ -1,0 +1,123 @@
+---
+title: Archgate
+description: Aplique Architecture Decision Records como regras executaveis — para humanos e agentes de IA.
+template: splash
+hero:
+  tagline: Escreva um ADR uma vez. Aplique em todo lugar. Alimente agentes de IA automaticamente.
+  actions:
+    - text: Primeiros Passos
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: Ver no GitHub
+      link: https://github.com/archgate/cli
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+
+## Como funciona
+
+O Archgate possui duas camadas que trabalham juntas:
+
+1. **ADRs como documentos** — Arquivos Markdown com frontmatter YAML que descrevem decisoes arquiteturais em linguagem natural. Humanos os leem. Agentes de IA os leem. Todos ficam alinhados.
+
+2. **ADRs como regras** — Arquivos complementares `.rules.ts` com verificacoes automatizadas escritas em TypeScript. Eles sao executados contra sua base de codigo e reportam violacoes com caminhos de arquivos e numeros de linha.
+
+```
+.archgate/
+  adrs/
+    ARCH-001-command-structure.md        # The decision (human + AI readable)
+    ARCH-001-command-structure.rules.ts  # The checks (machine executable)
+    ARCH-002-error-handling.md
+    ARCH-002-error-handling.rules.ts
+  lint/
+    archgate.config.ts                   # Archgate configuration
+```
+
+Quando voce executa `archgate check`, a CLI carrega cada ADR que possui `rules: true` em seu frontmatter, executa o arquivo de regras complementar e reporta quaisquer violacoes. Codigo de saida 0 significa que seu codigo esta em conformidade. Codigo de saida 1 significa que nao esta.
+
+## Funcionalidades Principais
+
+<CardGrid>
+  <Card title="Regras Executaveis" icon="seti:typescript">
+    Escreva regras em TypeScript. O Archgate as executa contra sua base de
+    codigo e reporta violacoes com caminhos de arquivos e numeros de linha. As
+    regras ficam ao lado das decisoes que elas aplicam.
+  </Card>
+  <Card title="Integracao com CI" icon="seti:pipeline">
+    Conecte `archgate check` ao seu pipeline. Codigo de saida 1 bloqueia merges
+    quando regras sao violadas. Funciona com GitHub Actions, GitLab CI ou
+    qualquer sistema de CI que respeite codigos de saida.
+  </Card>
+  <Card title="Governanca com IA" icon="star">
+    O servidor MCP da aos agentes de IA acesso em tempo real aos seus ADRs. Eles
+    leem as decisoes antes de escrever codigo e validam depois. Sem copiar e
+    colar regras nos prompts.
+  </Card>
+  <Card title="Auto-Governanca" icon="approve-check-circle">
+    O Archgate governa seu proprio desenvolvimento. A mesma ferramenta que
+    verifica seu codigo verifica o nosso. Seis ADRs aplicam estrutura de
+    comandos, tratamento de erros, formatacao de saida, testes e mais.
+  </Card>
+</CardGrid>
+
+## Plugins para editores
+
+A CLI do Archgate funciona de forma independente, mas os **plugins para editores** habilitam um fluxo completo de governanca com IA. Os plugins dao aos agentes de IA habilidades baseadas em papeis para que leiam seus ADRs antes de programar, validem depois e capturem novos padroes para sua equipe -- automaticamente.
+
+<CardGrid>
+  <Card title="Claude Code" icon="star">
+    O plugin para Claude Code adiciona cinco habilidades: developer, architect,
+    quality-manager, adr-author e onboard. Os agentes seguem um ciclo
+    estruturado de leitura-validacao-captura em cada tarefa.
+  </Card>
+  <Card title="Cursor" icon="pencil">
+    O plugin para Cursor fornece regras e habilidades pre-configuradas para
+    agentes, dando ao agente de IA do Cursor o mesmo fluxo de governanca do
+    Claude Code.
+  </Card>
+</CardGrid>
+
+:::tip[Acesso beta]
+Os plugins para editores estao atualmente em beta. Cadastre-se em [plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso, depois instale com `archgate login` e `archgate init --install-plugin`.
+:::
+
+<CardGrid>
+  <LinkCard
+    title="Guia do plugin Claude Code"
+    href="/guides/claude-code-plugin/"
+    description="Guia completo de configuracao e uso do plugin Claude Code."
+  />
+  <LinkCard
+    title="Guia de integracao com Cursor"
+    href="/guides/cursor-integration/"
+    description="Configure o Archgate com o Cursor IDE."
+  />
+</CardGrid>
+
+## Saiba mais
+
+<CardGrid>
+  <LinkCard
+    title="O que sao ADRs?"
+    href="/concepts/adrs/"
+    description="Entenda os Architecture Decision Records e como o Archgate os utiliza."
+  />
+  <LinkCard
+    title="Escrevendo Regras"
+    href="/guides/writing-rules/"
+    description="Escreva regras em TypeScript que aplicam suas decisoes automaticamente."
+  />
+  <LinkCard
+    title="Integracao com CI"
+    href="/guides/ci-integration/"
+    description="Bloqueie merges quando regras forem violadas no GitHub Actions, GitLab CI ou qualquer pipeline."
+  />
+  <LinkCard
+    title="Comandos da CLI"
+    href="/reference/cli-commands/"
+    description="Referencia completa de todos os comandos e opcoes da CLI do Archgate."
+  />
+</CardGrid>

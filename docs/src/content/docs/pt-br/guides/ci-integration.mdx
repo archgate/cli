@@ -1,0 +1,208 @@
+---
+title: Integracao com CI
+description: Adicione verificacoes do Archgate ao seu pipeline de CI/CD.
+---
+
+As verificacoes do Archgate funcionam em qualquer sistema de CI que respeite codigos de saida. Adicione um unico passo ao seu pipeline e as violacoes bloqueiarao merges automaticamente.
+
+## GitHub Actions
+
+A configuracao mais simples e um job dedicado que instala o Archgate e executa `archgate check`:
+
+```yaml
+name: ADR Compliance
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g archgate
+      - run: archgate check
+```
+
+Isso instala o CLI globalmente e executa todas as regras de ADR. Se qualquer regra reportar uma violacao com severidade `error`, o passo termina com codigo 1 e o job falha.
+
+## Anotacoes do GitHub Actions
+
+Use `--ci` para exibir violacoes como anotacoes de workflow do GitHub Actions. Elas aparecem inline na aba "Files changed" do pull request, apontando diretamente para o arquivo e a linha com o problema.
+
+```yaml
+- run: archgate check --ci
+```
+
+A flag `--ci` produz anotacoes `::error` e `::warning` no formato esperado pelo GitHub Actions. Cada anotacao inclui o ID do ADR, o ID da regra, o caminho do arquivo e o numero da linha.
+
+## Saida legivel por maquina
+
+Use `--json` para saida estruturada que outras ferramentas podem processar:
+
+```yaml
+- run: archgate check --json > results.json
+```
+
+A saida JSON inclui:
+
+```json
+{
+  "pass": false,
+  "total": 6,
+  "passed": 5,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-006",
+      "ruleId": "no-unapproved-deps",
+      "description": "Production dependencies must be on the approved list",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Unapproved production dependency: \"chalk\"",
+          "file": "package.json",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 18
+    }
+  ],
+  "durationMs": 142
+}
+```
+
+## Codigos de saida
+
+| Codigo | Significado                    | Comportamento no CI |
+| ------ | ------------------------------ | ------------------- |
+| 0      | Todas as verificacoes passaram | Job bem-sucedido    |
+| 1      | Violacoes encontradas          | Job falha           |
+| 2      | Erro interno                   | Job falha           |
+
+Avisos (severidade `warning`) sao registrados, mas nao afetam o codigo de saida. Apenas violacoes com severidade `error` causam o codigo de saida 1.
+
+## Reduzindo o escopo
+
+### Verificar apenas arquivos staged
+
+Use `--staged` para limitar a verificacao aos arquivos staged no git. Isso e util em hooks de pre-commit ou quando voce deseja validar apenas o que esta prestes a ser commitado:
+
+```yaml
+- run: archgate check --staged
+```
+
+### Verificar um ADR especifico
+
+Use `--adr <id>` para executar regras de um unico ADR:
+
+```yaml
+- run: archgate check --adr ARCH-006
+```
+
+Isso e util quando um PR altera apenas arquivos governados por um ADR e voce deseja feedback mais rapido.
+
+## Adicionando a um pipeline existente
+
+Se voce ja tem uma configuracao de CI, adicione o Archgate como um unico passo apos o checkout:
+
+```yaml
+# Existing pipeline
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: "22"
+  - run: npm ci
+  - run: npm test
+
+  # Add Archgate check
+  - run: npm install -g archgate
+  - run: archgate check --ci
+```
+
+Nenhuma dependencia adicional ou arquivo de configuracao e necessario alem do diretorio `.archgate/` que ja esta no seu repositorio.
+
+## Cache da instalacao
+
+Faca cache do diretorio `~/.archgate` para acelerar instalacoes repetidas:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Archgate
+        uses: actions/cache@v4
+        with:
+          path: ~/.archgate
+          key: archgate-${{ runner.os }}
+
+      - run: npm install -g archgate
+      - run: archgate check --ci
+```
+
+## GitLab CI
+
+```yaml
+adr-compliance:
+  image: node:22
+  script:
+    - npm install -g archgate
+    - archgate check
+```
+
+## CI baseado em Bun
+
+Se seu CI ja usa Bun, instale o Archgate com `bun` ao inves de `npm`:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install -g archgate
+      - run: archgate check --ci
+```
+
+## Outros sistemas de CI
+
+O Archgate funciona com qualquer sistema de CI que consiga executar comandos shell. O padrao e sempre o mesmo:
+
+1. Instalar: `npm install -g archgate` (ou `bun install -g archgate`)
+2. Executar: `archgate check`
+3. Verificar o codigo de saida (0 = aprovado, 1 = violacoes, 2 = erro)
+
+Para sistemas que suportam anotacoes (Azure DevOps, Buildkite, etc.), use `--json` para processar a saida e emitir anotacoes no formato esperado pelo seu CI.
+
+## Hooks de pre-commit
+
+Voce tambem pode executar o Archgate como um hook de pre-commit local. Adicione isso a `.git/hooks/pre-commit` (ou use um gerenciador de hooks como Husky ou Lefthook):
+
+```bash
+#!/bin/sh
+archgate check --staged
+```
+
+A flag `--staged` garante que apenas os arquivos prestes a serem commitados sejam verificados, mantendo o hook rapido.
+
+## Saida detalhada
+
+Use `--verbose` para ver as regras aprovadas e informacoes de tempo junto com as falhas. Isso e util para debugar verificacoes lentas ou confirmar que as regras estao rodando como esperado:
+
+```yaml
+- run: archgate check --verbose
+```
+
+:::tip[Adicione governanca de IA ao seu fluxo de trabalho]
+O CI detecta violacoes no momento do merge. Plugins de editor detectam no momento da codificacao. Com o plugin [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/cursor-integration/), seu agente de IA le os ADRs antes de escrever codigo e valida a conformidade antes mesmo de voce commitar. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
+:::

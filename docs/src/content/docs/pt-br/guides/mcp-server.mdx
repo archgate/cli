@@ -1,0 +1,123 @@
+---
+title: Servidor MCP
+description: Use o servidor MCP do Archgate para integracao com agentes de IA.
+---
+
+O servidor MCP do Archgate expoe os ADRs e verificacoes de conformidade do seu projeto para agentes de IA por meio do [Model Context Protocol](https://modelcontextprotocol.io/). Qualquer cliente compativel com MCP -- Claude Code, Cursor ou ferramentas customizadas -- pode se conectar a ele.
+
+## Iniciando o servidor
+
+O servidor usa transporte stdio. Inicie-o com:
+
+```bash
+archgate mcp
+```
+
+Normalmente voce nao executa esse comando manualmente. Em vez disso, configure sua ferramenta de IA para inicia-lo automaticamente (veja abaixo).
+
+## Configurando no Claude Code
+
+Adicione o seguinte ao arquivo `.mcp.json` do seu projeto (crie-o se nao existir):
+
+```json
+{
+  "mcpServers": {
+    "archgate": {
+      "command": "archgate",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+O Claude Code le esse arquivo na inicializacao e se conecta ao servidor MCP do Archgate automaticamente. Voce tambem pode executar `archgate init` (que usa `--editor claude` por padrao) para gerar essa configuracao junto com o diretorio `.archgate/` completo.
+
+## Configurando no Cursor
+
+Execute `archgate init --editor cursor` para gerar `.cursor/mcp.json` com a mesma configuracao de servidor. Consulte o guia de [Integracao com Cursor](/guides/cursor-integration/) para mais detalhes.
+
+## Ferramentas MCP disponiveis
+
+O servidor registra cinco ferramentas que agentes de IA podem chamar.
+
+### `check`
+
+Executa verificacoes de conformidade com ADRs no codebase.
+
+| Parametro | Tipo       | Descricao                                 |
+| --------- | ---------- | ----------------------------------------- |
+| `adrId`   | `string?`  | Verificar apenas um ADR especifico por ID |
+| `staged`  | `boolean?` | Verificar apenas arquivos staged no git   |
+
+Retorna um resumo JSON com status de aprovacao/reprovacao, contagem de violacoes e resultados detalhados incluindo caminhos de arquivo e numeros de linha.
+
+### `list_adrs`
+
+Lista todos os ADRs do projeto com metadados.
+
+| Parametro | Tipo      | Descricao                                                                      |
+| --------- | --------- | ------------------------------------------------------------------------------ |
+| `domain`  | `string?` | Filtrar por dominio (`backend`, `frontend`, `data`, `architecture`, `general`) |
+
+Retorna um array de objetos com os campos `id`, `title`, `domain` e `rules` para cada ADR.
+
+### `review_context`
+
+Obtem arquivos alterados agrupados por dominio com resumos dos ADRs aplicaveis. Este e o ponto de partida recomendado para um agente iniciando uma tarefa -- ele combina deteccao de alteracoes em arquivos, agrupamento por dominio e sumarizacao de ADRs em uma unica chamada.
+
+| Parametro   | Tipo       | Descricao                                                                              |
+| ----------- | ---------- | -------------------------------------------------------------------------------------- |
+| `staged`    | `boolean?` | Quando true, inclui apenas arquivos staged no git. Padrao: todos os arquivos alterados |
+| `runChecks` | `boolean?` | Quando true, executa verificacoes de conformidade e inclui os resultados               |
+| `domain`    | `string?`  | Filtra os resultados para um unico dominio                                             |
+
+Retorna resumos contendo apenas as secoes Decision e Do's/Don'ts de cada ADR aplicavel, mantendo a resposta concisa.
+
+### `claude_code_session_context`
+
+Le a transcricao da sessao atual do Claude Code para o projeto. Retorna entradas filtradas (mensagens do usuario e do assistente) do arquivo JSONL da sessao mais recente.
+
+| Parametro    | Tipo      | Descricao                                                                    |
+| ------------ | --------- | ---------------------------------------------------------------------------- |
+| `maxEntries` | `number?` | Numero maximo de entradas relevantes a retornar (padrao: 200, mais recentes) |
+
+### `cursor_session_context`
+
+Le transcricoes de sessao do agente Cursor para o projeto. Retorna entradas filtradas dos arquivos JSONL de agent-transcripts do Cursor.
+
+| Parametro    | Tipo      | Descricao                                                                    |
+| ------------ | --------- | ---------------------------------------------------------------------------- |
+| `maxEntries` | `number?` | Numero maximo de entradas relevantes a retornar (padrao: 200, mais recentes) |
+| `sessionId`  | `string?` | UUID de sessao especifico para ler. Se omitido, le a sessao mais recente     |
+
+## Recursos MCP disponiveis
+
+### `adr://\{id\}`
+
+Le o conteudo completo de um ADR por ID. Substitua o placeholder `id` pelo identificador do ADR (por exemplo, `adr://ARCH-001`).
+
+Retorna o ADR completo em markdown incluindo frontmatter, justificativa, decisao, do's and don'ts, consequencias, conformidade e secoes de referencias.
+
+## Comportamento sem projeto
+
+Se o servidor MCP iniciar em um diretorio sem um diretorio `.archgate/`, todas as ferramentas permanecem disponiveis mas retornam orientacoes instruindo o agente a executar `archgate init` para inicializar a governanca. O servidor nao trava nem se recusa a iniciar -- ele fornece feedback acionavel para que o agente possa configurar o projeto.
+
+## Exemplo de fluxo de uso
+
+Uma sessao tipica de agente de IA usando o servidor MCP segue este padrao:
+
+1. **O agente chama `review_context`** com `runChecks: false` para obter um resumo condensado de todos os ADRs que se aplicam ao conjunto atual de arquivos alterados.
+
+2. **O agente le os resumos** e identifica quais restricoes arquiteturais se aplicam a sua tarefa.
+
+3. **O agente le um ADR completo** via `adr://ARCH-002` (por exemplo) quando precisa da justificativa completa ou exemplos de implementacao alem do resumo condensado.
+
+4. **O agente escreve codigo** seguindo as restricoes dos ADRs aplicaveis.
+
+5. **O agente chama `check`** com `staged: true` para validar a conformidade. Se violacoes forem encontradas, a resposta inclui caminhos de arquivo e numeros de linha para que o agente possa corrigi-las.
+
+6. **O agente itera** ate que `check` reporte zero violacoes.
+
+:::tip[Automatize todo esse fluxo]
+Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) automatizam esse fluxo de ponta a ponta. O agente le ADRs, escreve codigo em conformidade, executa verificacoes, valida com a skill de arquiteto e captura aprendizados -- tudo sem chamadas manuais de ferramentas MCP. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
+:::

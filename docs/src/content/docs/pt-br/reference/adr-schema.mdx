@@ -1,0 +1,281 @@
+---
+title: Esquema de ADR
+description: Esquema de frontmatter YAML e estrutura markdown para ADRs do Archgate.
+---
+
+Todo ADR do Archgate e um arquivo Markdown armazenado em `.archgate/adrs/` com frontmatter YAML que define a identidade e o escopo da decisao. Esta pagina documenta o esquema do frontmatter, a estrutura das secoes markdown e o comportamento de validacao.
+
+## Esquema do Frontmatter
+
+O bloco de frontmatter YAML fica entre delimitadores `---` no topo do arquivo.
+
+```yaml
+---
+id: ARCH-001
+title: Command Structure
+domain: architecture
+rules: true
+files: ["src/commands/**/*.ts"]
+---
+```
+
+### Campos
+
+| Campo    | Tipo       | Obrigatorio | Descricao                                                                              |
+| -------- | ---------- | ----------- | -------------------------------------------------------------------------------------- |
+| `id`     | `string`   | Sim         | Identificador unico. Nao pode ser vazio. Convencao: `PREFIX-NNN` (ex.: `ARCH-001`).    |
+| `title`  | `string`   | Sim         | Titulo legivel da decisao. Nao pode ser vazio.                                         |
+| `domain` | `enum`     | Sim         | Categoria de dominio. Um de: `backend`, `frontend`, `data`, `architecture`, `general`. |
+| `rules`  | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificacoes automatizadas. |
+| `files`  | `string[]` | Nao         | Padroes glob que definem o escopo de quais arquivos as regras se aplicam.              |
+
+### id
+
+O identificador do ADR. Por convencao, usa o prefixo do dominio seguido de um numero de sequencia com preenchimento de zeros (ex.: `ARCH-001`, `BE-003`). O comando `archgate adr create` gera IDs automaticamente.
+
+Qualquer string nao vazia e valida, mas seguir a convencao de prefixo mantem os ADRs organizados e ordenaveis.
+
+### title
+
+Um nome curto e descritivo para a decisao arquitetural. Exibido na saida de `archgate adr list` e usado como cabecalho quando agentes de IA referenciam o ADR.
+
+### domain
+
+Agrupa ADRs relacionados. O dominio tambem determina o prefixo do ID usado por `archgate adr create`.
+
+### rules
+
+Defina como `true` quando este ADR tem um arquivo `.rules.ts` complementar. Quando `archgate check` e executado, ele pula ADRs onde `rules` e `false`.
+
+### files
+
+Um array opcional de padroes glob que definem o escopo de cobertura de arquivos da regra. Quando presente, `ctx.scopedFiles` no arquivo de regras contem apenas arquivos que correspondem a esses padroes. Quando ausente, todos os arquivos do projeto estao no escopo.
+
+```yaml
+files: ["src/commands/**/*.ts"]
+```
+
+Multiplos padroes podem ser especificados:
+
+```yaml
+files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
+```
+
+---
+
+## Prefixos de Dominio
+
+Cada dominio mapeia para um prefixo usado na convencao de ID do ADR.
+
+| Dominio        | Prefixo | ID de Exemplo |
+| -------------- | ------- | ------------- |
+| `backend`      | `BE`    | `BE-001`      |
+| `frontend`     | `FE`    | `FE-001`      |
+| `data`         | `DATA`  | `DATA-001`    |
+| `architecture` | `ARCH`  | `ARCH-001`    |
+| `general`      | `GEN`   | `GEN-001`     |
+
+O comando `archgate adr create` usa esse mapeamento para gerar IDs automaticamente.
+
+---
+
+## Convencao de Nomenclatura de Arquivos
+
+Os arquivos de ADR seguem uma convencao de nomenclatura que codifica o ID e um slug legivel:
+
+```
+{ID}-{slug}.md              # The document
+{ID}-{slug}.rules.ts        # The companion rules file (optional)
+```
+
+Por exemplo:
+
+```
+ARCH-001-command-structure.md
+ARCH-001-command-structure.rules.ts
+```
+
+O slug e uma versao kebab-case do titulo, gerada automaticamente por `archgate adr create`.
+
+---
+
+## Secoes Markdown
+
+Apos o frontmatter, o corpo do ADR segue uma estrutura de secoes padrao. Embora o Archgate nao imponha secoes especificas, a estrutura a seguir e recomendada para consistencia.
+
+### Context
+
+Descreve o problema ou situacao que motivou a decisao. Inclua alternativas que foram consideradas e por que foram rejeitadas.
+
+```markdown
+## Context
+
+The CLI returns errors in inconsistent formats. Some commands print raw
+stack traces, others print nothing, and a few use `console.error()` with
+custom formatting.
+
+**Alternatives considered:**
+
+- **No standard** -- Let each command handle errors its own way. Simple
+  but leads to an inconsistent user experience.
+- **Try/catch wrapper** -- A global try/catch at the CLI entry point.
+  Loses context about which command failed.
+```
+
+### Decision
+
+Declara a decisao em si e suas principais restricoes. Esta e a secao principal que os agentes de IA leem antes de escrever codigo.
+
+```markdown
+## Decision
+
+All commands MUST use `logError()` from `src/helpers/log.ts` for error
+output. Commands MUST NOT call `console.error()` directly.
+```
+
+### Do's and Don'ts
+
+Orientacao concreta e acionavel dividida em duas subsecoes. Funciona como um checklist de referencia rapida para desenvolvedores e agentes de IA.
+
+```markdown
+## Do's and Don'ts
+
+### Do
+
+- Use `logError(message, detail?)` for all error output
+- Include a suggested fix in the detail parameter when possible
+- Exit with code 1 for user errors, code 2 for internal errors
+
+### Don't
+
+- Don't call `console.error()` directly in command files
+- Don't print stack traces to users
+- Don't exit without printing an error message first
+```
+
+### Consequences
+
+Dividida em tres subsecoes que documentam os tradeoffs.
+
+```markdown
+## Consequences
+
+### Positive
+
+- Consistent error formatting across all commands
+- Machine-parseable error output when combined with `--json`
+
+### Negative
+
+- Requires importing `logError` in every command file
+- Cannot use built-in error formatting from libraries
+
+### Risks
+
+- New contributors may use `console.error()` by habit. Mitigated by the
+  automated rule that scans for direct `console.error()` calls.
+```
+
+### Compliance and Enforcement
+
+Descreve como a decisao e aplicada por meio de regras automatizadas e revisao manual.
+
+```markdown
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** ARCH-002/no-console-error: Scans command files for
+  `console.error()` calls. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. Error messages are actionable and include context
+2. Exit codes match the error type (1 for user, 2 for internal)
+```
+
+### References
+
+Links para ADRs relacionados, documentacao externa ou documentos de design.
+
+```markdown
+## References
+
+- [ARCH-001 -- Command Structure](./ARCH-001-command-structure.md)
+- [Node.js process.exit documentation](https://nodejs.org/api/process.html#processexitcode)
+```
+
+---
+
+## Arquivo de Regras Complementar
+
+Quando `rules: true`, o Archgate procura um arquivo complementar com o mesmo nome mas extensao `.rules.ts`.
+
+```
+ARCH-002-error-handling.md          # rules: true in frontmatter
+ARCH-002-error-handling.rules.ts    # companion rules file
+```
+
+O arquivo de regras deve exportar um `RuleSet` padrao criado via `defineRules()`:
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "no-console-error": {
+    description: "Use logError() instead of console.error()",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const matches = await ctx.grep(file, /console\.error\(/);
+        for (const match of matches) {
+          ctx.report.violation({
+            message: "Use logError() instead of console.error()",
+            file: match.file,
+            line: match.line,
+            fix: "Import logError from src/helpers/log and use it instead",
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+Consulte a [API de Regras](/pt-br/reference/rule-api/) para a referencia completa da API TypeScript.
+
+---
+
+## Validacao
+
+O frontmatter YAML e validado no momento do parse usando um esquema Zod. Frontmatter invalido causa um erro de parse com uma mensagem descritiva.
+
+### Campos obrigatorios
+
+Se um campo obrigatorio estiver ausente, o ADR falha no parse:
+
+```
+Invalid ADR frontmatter in ARCH-001-example.md:
+  - domain: Required
+```
+
+### Valores de enum invalidos
+
+Se `domain` nao for um dos valores validos:
+
+```
+Invalid ADR frontmatter in ARCH-001-example.md:
+  - domain: Invalid enum value. Expected 'backend' | 'frontend' | 'data' | 'architecture' | 'general', received 'security'
+```
+
+### Incompatibilidade de tipos
+
+Se `rules` for uma string em vez de um booleano:
+
+```
+Invalid ADR frontmatter in ARCH-001-example.md:
+  - rules: Expected boolean, received string
+```
+
+ADRs que falham na validacao sao ignorados por `archgate check` e reportados como erros.
