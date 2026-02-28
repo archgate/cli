@@ -9,6 +9,14 @@ export type EditorTarget = "claude" | "cursor";
 
 export interface InitOptions {
   editor?: EditorTarget;
+  /** When true, attempt to install the archgate plugin using stored credentials. */
+  installPlugin?: boolean;
+}
+
+export interface PluginResult {
+  installed: boolean;
+  /** For claude: marketplace URL; for cursor: list of extracted files */
+  detail?: string;
 }
 
 export interface InitResult {
@@ -16,6 +24,7 @@ export interface InitResult {
   adrsDir: string;
   lintDir: string;
   editorSettingsPath: string;
+  plugin?: PluginResult;
 }
 
 /**
@@ -80,10 +89,46 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
       ? await configureCursorSettings(projectRoot)
       : await configureClaudeSettings(projectRoot);
 
+  // Plugin installation (optional — requires stored credentials)
+  let plugin: PluginResult | undefined;
+  if (options?.installPlugin) {
+    plugin = await tryInstallPlugin(projectRoot, editor);
+  }
+
   return {
     projectRoot,
     adrsDir: paths.adrsDir,
     lintDir: paths.lintDir,
     editorSettingsPath,
+    plugin,
   };
+}
+
+/**
+ * Attempt to install the archgate plugin using stored credentials.
+ * Returns null-safe result — never throws.
+ */
+async function tryInstallPlugin(
+  projectRoot: string,
+  editor: EditorTarget
+): Promise<PluginResult> {
+  const { loadCredentials } = await import("./auth");
+  const credentials = await loadCredentials();
+  if (!credentials) {
+    return { installed: false };
+  }
+
+  if (editor === "cursor") {
+    const { installCursorPlugin } = await import("./plugin-install");
+    const files = await installCursorPlugin(projectRoot, credentials.token);
+    return {
+      installed: true,
+      detail: `Extracted ${files.length} files to .cursor/`,
+    };
+  }
+
+  // Claude Code — generate marketplace URL for the user to paste
+  const { buildMarketplaceUrl } = await import("./plugin-install");
+  const url = buildMarketplaceUrl(credentials);
+  return { installed: true, detail: url };
 }
