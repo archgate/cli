@@ -5,6 +5,7 @@
  * plus local storage of the archgate plugin token in ~/.archgate/credentials.
  */
 
+import { unlinkSync } from "node:fs";
 import { internalPath, createPathIfNotExists } from "./paths";
 import { logDebug } from "./log";
 
@@ -256,9 +257,7 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
  * Remove stored credentials (logout).
  */
 export async function clearCredentials(): Promise<void> {
-  const file = Bun.file(credentialsPath());
-  if (await file.exists()) {
-    const { unlinkSync } = await import("node:fs");
+  if (await Bun.file(credentialsPath()).exists()) {
     unlinkSync(credentialsPath());
     logDebug("Credentials removed");
   }

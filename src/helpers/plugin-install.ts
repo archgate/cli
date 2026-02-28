@@ -6,6 +6,7 @@
  */
 
 import { join } from "node:path";
+import { mkdirSync, unlinkSync } from "node:fs";
 import { $ } from "bun";
 import { logDebug } from "./log";
 import type { StoredCredentials } from "./auth";
@@ -71,7 +72,7 @@ export async function installCursorPlugin(
 
 /**
  * Extract a .tar.gz buffer to a destination directory.
- * Uses Bun's shell to run tar (available on macOS and Linux).
+ * Uses system tar (available on macOS, Linux, and Windows 10+).
  */
 async function extractTarGz(
   data: Uint8Array,
@@ -82,10 +83,9 @@ async function extractTarGz(
   await Bun.write(tmpArchive, data);
 
   try {
-    // Ensure destination exists
-    await $`mkdir -p ${destDir}`.quiet();
+    mkdirSync(destDir, { recursive: true });
 
-    // Extract using tar
+    // Extract using tar (available on macOS, Linux, and Windows 10+)
     const result = await $`tar -xzf ${tmpArchive} -C ${destDir}`.nothrow();
 
     if (result.exitCode !== 0) {
@@ -103,7 +103,10 @@ async function extractTarGz(
 
     return files;
   } finally {
-    // Clean up temp archive
-    await $`rm -f ${tmpArchive}`.nothrow().quiet();
+    try {
+      unlinkSync(tmpArchive);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
