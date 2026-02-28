@@ -38,10 +38,31 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 ## Installation
 
 ```bash
+# npm
 npm install -g archgate
+
+# Bun
+bun install -g archgate
+
+# Yarn
+yarn global add archgate
+
+# pnpm
+pnpm add -g archgate
 ```
 
-**Requirements:** macOS (arm64), Linux (x86_64), or Windows (x86_64). Node.js is only needed to run the wrapper — the CLI itself is a standalone binary.
+You can also install Archgate as a dev dependency and run it through your package manager:
+
+```bash
+# Install as dev dependency
+npm install -D archgate    # or: bun add -d archgate
+
+# Run via package manager
+npx archgate check         # npm / Yarn / pnpm
+bun run archgate check     # Bun
+```
+
+**Requirements:** macOS (arm64), Linux (x86_64), or Windows (x86_64). Node.js is only needed to run the npm/yarn/pnpm wrapper — the CLI itself is a standalone binary.
 
 > **Using [proto](https://moonrepo.dev/proto)?** Add the following to `~/.proto/config.toml` and your shell profile so globals persist across Node.js version switches:
 >
@@ -59,8 +80,8 @@ npm install -g archgate
 ## Quick start
 
 ```bash
-# 1. Install
-npm install -g archgate
+# 1. Install (pick your package manager)
+npm install -g archgate    # or: bun install -g archgate
 
 # 2. Initialize governance in your project
 cd my-project

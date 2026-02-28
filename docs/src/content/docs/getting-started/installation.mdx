@@ -3,15 +3,71 @@ title: Installation
 description: Install Archgate CLI on macOS, Linux, or Windows.
 ---
 
-## Install via npm
+## Install globally
 
-The recommended way to install Archgate is via npm:
+Install Archgate globally using your preferred package manager:
 
 ```bash
+# npm
 npm install -g archgate
+
+# Bun
+bun install -g archgate
+
+# Yarn
+yarn global add archgate
+
+# pnpm
+pnpm add -g archgate
 ```
 
-This installs a lightweight npm wrapper that delegates to a platform-specific binary. Node.js is only needed for the npm wrapper itself — the CLI is a standalone binary compiled with Bun.
+This installs a lightweight wrapper that delegates to a platform-specific binary. The CLI itself is a standalone binary compiled with Bun — Node.js is only needed for the npm/yarn/pnpm wrapper.
+
+## Install as a dev dependency
+
+You can also add Archgate as a dev dependency in your project and run it through your package manager's script runner. This is useful for pinning a specific version per project or running checks in CI without a global install.
+
+```bash
+# npm
+npm install -D archgate
+
+# Bun
+bun add -d archgate
+
+# Yarn
+yarn add -D archgate
+
+# pnpm
+pnpm add -D archgate
+```
+
+Then run Archgate via your package manager:
+
+```bash
+# npm / Yarn / pnpm
+npx archgate check
+
+# Bun
+bun run archgate check
+```
+
+Or add a script to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "check:adrs": "archgate check"
+  }
+}
+```
+
+```bash
+# Works with any package manager
+npm run check:adrs
+bun run check:adrs
+yarn check:adrs
+pnpm check:adrs
+```
 
 ## Platform support
 
@@ -23,7 +79,7 @@ Archgate ships pre-built binaries for the following platforms:
 | Linux    | x86_64       | `archgate-linux-x64`    |
 | Windows  | x86_64       | `archgate-win32-x64`    |
 
-The correct binary is installed automatically as an `optionalDependency` when you run `npm install -g archgate`.
+The correct binary is installed automatically as an `optionalDependency` when you install `archgate`.
 
 ## Verify installation
 
