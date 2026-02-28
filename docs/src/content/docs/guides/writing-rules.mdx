@@ -445,3 +445,9 @@ ARCH-006/no-unapproved-deps
    ```
 
 7. **Handle missing files gracefully.** If your rule reads a specific file like `package.json`, wrap the read in a try/catch and return early if the file does not exist.
+
+## Next steps
+
+- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns for dependency checks, naming conventions, import restrictions, and more.
+- [Rule API Reference](/reference/rule-api/) — Full reference for all rule API types and functions.
+- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into your pipeline to enforce rules on every PR.

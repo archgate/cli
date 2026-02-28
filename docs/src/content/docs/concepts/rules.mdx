@@ -160,3 +160,7 @@ Rules execute with the following guarantees:
 - **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
 - **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
 - **Changed files for staged mode** -- When running `archgate check --staged`, `ctx.changedFiles` contains only the files staged in git, letting rules skip unchanged files for faster feedback.
+
+:::tip[Run checks automatically with editor plugins]
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) run `archgate check` automatically after every code change. The agent reads the applicable ADRs, writes compliant code, and validates -- no manual check commands needed. [Sign up for beta access](https://plugins.archgate.dev).
+:::
