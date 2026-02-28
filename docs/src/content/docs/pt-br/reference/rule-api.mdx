@@ -1,0 +1,300 @@
+---
+title: API de Regras
+description: Referência da API TypeScript para escrever regras do Archgate.
+---
+
+As regras do Archgate são arquivos TypeScript que exportam verificações automatizadas via `defineRules()`. Cada regra recebe um `RuleContext` com utilitários para buscar arquivos, ler conteúdo e reportar violações.
+
+## defineRules
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "my-rule-id": {
+    description: "Human-readable description of what this rule checks",
+    severity: "error", // optional, defaults to "error"
+    async check(ctx) {
+      // Rule logic here
+    },
+  },
+});
+```
+
+A função `defineRules` recebe um registro de configurações de regras indexadas por ID de regra. As chaves se tornam os IDs das regras que aparecem na saída de verificação e nos relatórios de violação. A função retorna um objeto `RuleSet`.
+
+```typescript
+function defineRules(rules: Record<string, RuleConfig>): RuleSet;
+```
+
+---
+
+## RuleConfig
+
+Cada regra no registro deve estar em conformidade com a interface `RuleConfig`.
+
+```typescript
+interface RuleConfig {
+  description: string;
+  severity?: Severity;
+  check: (ctx: RuleContext) => Promise<void>;
+}
+```
+
+| Campo         | Tipo                                  | Obrigatório | Descrição                                           |
+| ------------- | ------------------------------------- | ----------- | --------------------------------------------------- |
+| `description` | `string`                              | Sim         | Descrição legível exibida na saída de verificação   |
+| `severity`    | `Severity`                            | Não         | Severidade padrão para violações. Padrão: `"error"` |
+| `check`       | `(ctx: RuleContext) => Promise<void>` | Sim         | Função assíncrona contendo a lógica da regra        |
+
+---
+
+## RuleContext
+
+A função `check` recebe um objeto `RuleContext` com o estado do projeto e métodos utilitários.
+
+```typescript
+interface RuleContext {
+  projectRoot: string;
+  scopedFiles: string[];
+  changedFiles: string[];
+  glob(pattern: string): Promise<string[]>;
+  grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
+  grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
+  readFile(path: string): Promise<string>;
+  readJSON(path: string): Promise<unknown>;
+  report: RuleReport;
+}
+```
+
+### Propriedades
+
+#### projectRoot
+
+```typescript
+projectRoot: string;
+```
+
+Caminho absoluto para o diretório raiz do projeto (onde `.archgate/` está localizado).
+
+#### scopedFiles
+
+```typescript
+scopedFiles: string[];
+```
+
+Arquivos que correspondem aos padrões glob de `files` do frontmatter do ADR. Se o ADR não tiver o campo `files`, contém todos os arquivos do projeto. Use esta lista como a lista principal de arquivos para suas verificações de regra.
+
+#### changedFiles
+
+```typescript
+changedFiles: string[];
+```
+
+Arquivos que foram modificados de acordo com o git. Quando `--staged` é usado, contém apenas arquivos no stage. Quando executado sem `--staged`, contém todos os arquivos alterados (staged e unstaged). Vazio quando nenhuma alteração git é detectada.
+
+#### report
+
+```typescript
+report: RuleReport;
+```
+
+A interface de relatório para registrar violações, avisos e mensagens informativas. Veja [RuleReport](#rulereport) abaixo.
+
+### Métodos
+
+#### glob
+
+```typescript
+glob(pattern: string): Promise<string[]>;
+```
+
+Encontra arquivos correspondentes a um padrão glob relativo à raiz do projeto. Retorna um array de caminhos absolutos de arquivo.
+
+```typescript
+const testFiles = await ctx.glob("tests/**/*.test.ts");
+```
+
+#### grep
+
+```typescript
+grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
+```
+
+Busca em um único arquivo por linhas correspondentes a uma expressão regular. Retorna um array de objetos `GrepMatch` com caminho do arquivo, número da linha, coluna e conteúdo correspondente.
+
+```typescript
+const matches = await ctx.grep(file, /console\.error\(/);
+```
+
+#### grepFiles
+
+```typescript
+grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
+```
+
+Busca em múltiplos arquivos correspondentes a um padrão glob por linhas que correspondam a uma expressão regular. Combina `glob` e `grep` em uma única chamada.
+
+```typescript
+const matches = await ctx.grepFiles(/TODO:/i, "src/**/*.ts");
+```
+
+#### readFile
+
+```typescript
+readFile(path: string): Promise<string>;
+```
+
+Lê o conteúdo de um arquivo como string. O caminho é relativo à raiz do projeto.
+
+```typescript
+const content = await ctx.readFile("src/config.ts");
+```
+
+#### readJSON
+
+```typescript
+readJSON(path: string): Promise<unknown>;
+```
+
+Lê e faz o parse de um arquivo JSON. O caminho é relativo à raiz do projeto. Retorna o valor parseado como `unknown` -- faça o cast para o tipo esperado na sua regra.
+
+```typescript
+const pkg = (await ctx.readJSON("package.json")) as {
+  dependencies?: Record<string, string>;
+};
+```
+
+---
+
+## RuleReport
+
+A interface de relatório para registrar resultados de verificação. Cada método aceita um objeto de detalhe descrevendo o problema.
+
+```typescript
+interface RuleReport {
+  violation(detail: ReportDetail): void;
+  warning(detail: ReportDetail): void;
+  info(detail: ReportDetail): void;
+}
+```
+
+#### violation
+
+```typescript
+report.violation(detail: ReportDetail): void;
+```
+
+Reporta uma violação de regra. Violações fazem a verificação falhar com código de saída 1. Use para restrições rígidas que não devem ser mergeadas.
+
+#### warning
+
+```typescript
+report.warning(detail: ReportDetail): void;
+```
+
+Reporta um aviso. Avisos aparecem na saída de verificação mas não fazem a verificação falhar. Use para orientações não bloqueantes.
+
+#### info
+
+```typescript
+report.info(detail: ReportDetail): void;
+```
+
+Reporta uma mensagem informativa. Não afeta o código de saída da verificação. Use para sugestões ou notas.
+
+### ReportDetail
+
+O objeto de detalhe passado para `violation`, `warning` e `info`.
+
+```typescript
+interface ReportDetail {
+  message: string;
+  file?: string;
+  line?: number;
+  fix?: string;
+}
+```
+
+| Campo     | Tipo     | Obrigatório | Descrição                                         |
+| --------- | -------- | ----------- | ------------------------------------------------- |
+| `message` | `string` | Sim         | Descrição legível do problema                     |
+| `file`    | `string` | Não         | Caminho do arquivo onde o problema foi encontrado |
+| `line`    | `number` | Não         | Número da linha no arquivo                        |
+| `fix`     | `string` | Não         | Sugestão de correção ou ação de remediação        |
+
+---
+
+## GrepMatch
+
+Retornado por `ctx.grep()` e `ctx.grepFiles()`.
+
+```typescript
+interface GrepMatch {
+  file: string;
+  line: number;
+  column: number;
+  content: string;
+}
+```
+
+| Campo     | Tipo     | Descrição                                    |
+| --------- | -------- | -------------------------------------------- |
+| `file`    | `string` | Caminho absoluto do arquivo correspondente   |
+| `line`    | `number` | Número da linha da correspondência (base 1)  |
+| `column`  | `number` | Número da coluna da correspondência (base 1) |
+| `content` | `string` | Conteúdo completo da linha correspondente    |
+
+---
+
+## Severity
+
+```typescript
+type Severity = "error" | "warning" | "info";
+```
+
+| Valor       | Impacto no código de saída | Descrição                         |
+| ----------- | -------------------------- | --------------------------------- |
+| `"error"`   | Causa saída 1              | Restrição rígida, bloqueia merges |
+| `"warning"` | Sem impacto                | Orientação não bloqueante         |
+| `"info"`    | Sem impacto                | Informativo, apenas sugestões     |
+
+---
+
+## ViolationDetail
+
+A representação interna de um problema reportado, usada na saída de verificação e nos resultados JSON.
+
+```typescript
+interface ViolationDetail {
+  ruleId: string;
+  adrId: string;
+  message: string;
+  file?: string;
+  line?: number;
+  fix?: string;
+  severity: Severity;
+}
+```
+
+| Campo      | Tipo       | Descrição                                         |
+| ---------- | ---------- | ------------------------------------------------- |
+| `ruleId`   | `string`   | ID da regra da chave de `defineRules`             |
+| `adrId`    | `string`   | ID do ADR do frontmatter                          |
+| `message`  | `string`   | Descrição legível                                 |
+| `file`     | `string?`  | Caminho do arquivo onde o problema foi encontrado |
+| `line`     | `number?`  | Número da linha no arquivo                        |
+| `fix`      | `string?`  | Sugestão de correção                              |
+| `severity` | `Severity` | Severidade efetiva desta violação                 |
+
+---
+
+## RuleSet
+
+O tipo de retorno de `defineRules`. Você não constrói isso diretamente.
+
+```typescript
+type RuleSet = {
+  rules: Record<string, RuleConfig>;
+};
+```

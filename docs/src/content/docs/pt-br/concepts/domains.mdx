@@ -1,0 +1,96 @@
+---
+title: Domínios
+description: Categorize ADRs por domínio para uma governança organizada.
+---
+
+Domínios são categorias que agrupam ADRs relacionados. Cada ADR pertence a exatamente um domínio, e o domínio determina o prefixo usado no identificador do ADR.
+
+## Domínios Integrados
+
+O Archgate vem com cinco domínios integrados. Cada um tem um prefixo curto que aparece no início de cada ID de ADR naquele domínio.
+
+| Domínio        | Prefixo | Uso para                                                           |
+| -------------- | ------- | ------------------------------------------------------------------ |
+| `backend`      | `BE`    | Lógica server-side, APIs, bancos de dados, serviços                |
+| `frontend`     | `FE`    | Componentes de UI, lógica client-side, padrões de estilo           |
+| `data`         | `DATA`  | Modelos de dados, schemas, pipelines, estratégias de armazenamento |
+| `architecture` | `ARCH`  | Decisões arquiteturais transversais                                |
+| `general`      | `GEN`   | Convenções gerais do projeto e workflows                           |
+
+Por exemplo, o terceiro ADR de backend teria o ID `BE-003`, e o primeiro ADR de frontend seria `FE-001`.
+
+## Como os Domínios São Usados
+
+### Identificação de ADR
+
+O prefixo do domínio é incorporado ao campo `id` de cada ADR. Quando você executa `archgate adr create` e seleciona um domínio, a CLI determina automaticamente o próximo número de sequência disponível para o prefixo daquele domínio. Um domínio de arquitetura com dois ADRs existentes (`ARCH-001`, `ARCH-002`) atribuiria `ARCH-003` ao próximo.
+
+O nome do arquivo espelha o ID:
+
+```
+ARCH-003-dependency-policy.md
+ARCH-003-dependency-policy.rules.ts
+```
+
+### Filtragem
+
+O comando `archgate adr list` suporta a flag `--domain` para mostrar apenas ADRs de um domínio específico:
+
+```bash
+archgate adr list --domain backend
+archgate adr list --domain architecture
+```
+
+Isso é útil em projetos grandes onde dezenas de ADRs abrangem múltiplas preocupações. Filtrar por domínio permite que você foque nas decisões relevantes para seu trabalho atual.
+
+### Contexto para Agentes de IA
+
+A ferramenta `review_context` do servidor MCP agrupa arquivos alterados por domínio ao fornecer contexto para agentes de IA. Quando um agente está prestes a escrever código, ele recebe apenas os resumos de ADR relevantes para os domínios que suas alterações afetam, em vez do conjunto completo de todos os ADRs. Esse escopo reduz o ruído e ajuda os agentes a focar nas restrições que realmente se aplicam.
+
+### Validação com Escopo
+
+Embora os domínios em si não restrinjam quais arquivos uma regra pode verificar (esse é o trabalho do glob `files` no frontmatter do ADR), os domínios fornecem um agrupamento lógico que ajuda as equipes a organizar sua governança. Uma equipe de backend pode revisar todos os ADRs `BE-*` para entender suas restrições, enquanto a equipe de frontend foca nos `FE-*`.
+
+## Quando Usar Qual Domínio
+
+### backend
+
+Use para decisões sobre código server-side: padrões de design de API, convenções de acesso a banco de dados, fluxos de autenticação, comunicação entre serviços, tratamento de filas e padrões de jobs em background.
+
+**Exemplos de ADRs:** Formato de envelope de resposta de API, estratégia de migração de banco de dados, taxonomia de códigos de erro.
+
+### frontend
+
+Use para decisões sobre código client-side: estrutura de componentes, padrões de gerenciamento de estado, abordagens de estilização, requisitos de acessibilidade e escolhas de ferramentas de build.
+
+**Exemplos de ADRs:** Estrutura de arquivo de componente, metodologia CSS, padrão de validação de formulário.
+
+### data
+
+Use para decisões sobre dados: design de schema, convenções de pipeline de dados, escolhas de engine de armazenamento, formatos de serialização e estratégias de validação de dados.
+
+**Exemplos de ADRs:** Versionamento de schema de eventos, convenções de nomenclatura de banco de dados, política de retenção de dados.
+
+### architecture
+
+Use para decisões transversais que abrangem múltiplos domínios ou afetam a estrutura geral do projeto. São decisões que equipes de backend, frontend e dados precisam seguir.
+
+**Exemplos de ADRs:** Estrutura de comandos, convenções de tratamento de erros, política de gerenciamento de dependências, padrões de teste.
+
+### general
+
+Use para convenções de projeto que não se encaixam perfeitamente em um domínio técnico: processos de revisão de código, formatos de mensagem de commit, padrões de documentação e práticas de onboarding.
+
+**Exemplos de ADRs:** Formato de mensagem de commit, template de descrição de PR, requisitos de documentação.
+
+## Escolhendo o Domínio Certo
+
+Ao decidir a qual domínio um ADR pertence, considere quem precisa segui-lo:
+
+- Se apenas desenvolvedores de backend precisam segui-lo, use `backend`.
+- Se apenas desenvolvedores de frontend precisam segui-lo, use `frontend`.
+- Se diz respeito especificamente a modelagem de dados ou pipelines, use `data`.
+- Se se aplica a múltiplos domínios técnicos, use `architecture`.
+- Se é um processo ou convenção em vez de uma decisão técnica, use `general`.
+
+Em caso de dúvida entre `architecture` e um domínio específico, prefira o domínio mais específico. Reserve `architecture` para decisões que genuinamente cruzam fronteiras.

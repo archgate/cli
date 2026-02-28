@@ -1,0 +1,180 @@
+---
+title: Registros de Decisão Arquitetural
+description: Entenda como o Archgate usa ADRs como documentos e regras executáveis.
+---
+
+Um Architecture Decision Record (ADR) é um documento curto que captura uma única decisão arquitetural junto com seu contexto e consequências. ADRs respondem à pergunta: _por que_ essa decisão foi tomada, e _quais_ são seus trade-offs?
+
+O Archgate expande o conceito de ADR dando a cada decisão duas expressões: um **documento** que humanos e agentes de IA leem, e um **arquivo de regras** opcional que máquinas executam.
+
+## Duas Expressões de um ADR
+
+### ADR como Documento
+
+O documento é um arquivo Markdown com frontmatter YAML armazenado em `.archgate/adrs/`. Ele descreve a decisão em linguagem simples: qual problema resolve, quais alternativas foram consideradas, o que a equipe decidiu, e quais consequências seguem.
+
+Tanto humanos quanto agentes de IA consomem esse documento. Quando um agente de IA de codificação está prestes a escrever código, ele lê os ADRs relevantes para entender as restrições antes de gerar qualquer coisa.
+
+:::tip[Automatize isso com plugins de editor]
+Com o plugin do [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/cursor-integration/), seu agente de IA lê os ADRs aplicáveis automaticamente antes de cada tarefa de codificação -- sem necessidade de copiar e colar manualmente nos prompts. [Inscreva-se para acesso beta](https://plugins.archgate.dev).
+:::
+
+### ADR como Regras
+
+O arquivo de regras é um arquivo `.rules.ts` complementar que exporta verificações automatizadas via `defineRules()`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true` em seu frontmatter, executa o arquivo de regras complementar contra seu codebase, e reporta quaisquer violações com caminhos de arquivo e números de linha.
+
+Nem todo ADR precisa de regras. Algumas decisões são melhor aplicadas apenas por revisão de código. Defina `rules: false` quando nenhuma verificação automatizada for prática.
+
+## Convenção de Nomenclatura de Arquivos
+
+Os arquivos de ADR seguem uma convenção de nomenclatura estrita que codifica o prefixo do domínio, número de sequência e um slug legível:
+
+```
+{PREFIX}-{NNN}-{slug}.md            # The document
+{PREFIX}-{NNN}-{slug}.rules.ts      # The companion rules file (optional)
+```
+
+Por exemplo, um ADR do domínio de arquitetura sobre estrutura de comandos produziria:
+
+```
+ARCH-001-command-structure.md
+ARCH-001-command-structure.rules.ts
+```
+
+O prefixo vem do domínio do ADR (veja [Domínios](/concepts/domains/)). O número de sequência é preenchido com zeros até três dígitos e auto-incrementado por `archgate adr create`.
+
+## Frontmatter YAML
+
+Todo documento ADR começa com um bloco de frontmatter YAML entre delimitadores `---`. O frontmatter é o metadado legível por máquina que o Archgate usa para carregar, filtrar e definir o escopo das regras.
+
+| Campo    | Tipo         | Obrigatório | Descrição                                                       |
+| -------- | ------------ | ----------- | --------------------------------------------------------------- |
+| `id`     | string       | Sim         | Identificador único como `ARCH-001` ou `BE-003`                 |
+| `title`  | string       | Sim         | Título legível da decisão                                       |
+| `domain` | enum         | Sim         | Um de: `backend`, `frontend`, `data`, `architecture`, `general` |
+| `rules`  | boolean      | Sim         | Se este ADR tem um arquivo `.rules.ts` complementar             |
+| `files`  | string array | Não         | Padrões glob que definem quais arquivos as regras verificam     |
+
+O campo `files` é opcional. Quando presente, restringe a execução das regras apenas aos arquivos que correspondem aos globs fornecidos. Quando ausente, as regras são executadas contra todos os arquivos do projeto. Por exemplo, `files: ["src/commands/**/*.ts"]` limita as verificações apenas aos arquivos de comando.
+
+## Seções do Corpo do ADR
+
+Após o frontmatter, o corpo do ADR segue uma estrutura de seções padrão:
+
+### Context
+
+Descreve o problema ou situação que motivou a decisão. Inclua alternativas que foram consideradas e por que foram rejeitadas.
+
+### Decision
+
+Declara a decisão em si e suas restrições principais. Esta é a seção que os agentes de IA mais observam ao decidir como escrever código.
+
+### Do's and Don'ts
+
+Orientação concreta e acionável dividida em duas subseções. Funcionam como uma lista de verificação rápida para desenvolvedores e agentes de IA.
+
+### Consequences
+
+Dividida em três subseções:
+
+- **Positive** -- benefícios que a decisão proporciona
+- **Negative** -- trade-offs aceitos
+- **Risks** -- coisas que podem dar errado e como mitigá-las
+
+### Compliance and Enforcement
+
+Descreve como a decisão é aplicada, tanto por regras automatizadas (com IDs de regra e severidades) quanto por checklists de revisão manual.
+
+### References
+
+Links para ADRs relacionados, documentação externa ou documentos de design.
+
+## Exemplo Completo
+
+Abaixo está um ADR completo com frontmatter e todas as seções preenchidas.
+
+```markdown
+---
+id: BE-001
+title: API Response Envelope
+domain: backend
+rules: true
+files: ["src/api/**/*.ts"]
+---
+
+## Context
+
+The API returns data in inconsistent shapes across endpoints. Some endpoints
+wrap responses in `{ data, error }`, others return raw arrays, and error
+responses vary between plain strings and structured objects.
+
+**Alternatives considered:**
+
+- **No envelope** -- Return raw data and rely on HTTP status codes alone.
+  Simple, but clients cannot distinguish between "the endpoint returned an
+  empty array" and "the endpoint errored."
+- **GraphQL-style errors array** -- Use `{ data, errors: [] }`. Flexible
+  but adds complexity for simple REST endpoints.
+
+The chosen envelope balances consistency with simplicity.
+
+## Decision
+
+All API endpoints MUST return responses in a standard envelope:
+
+- Success: `{ data: T }`
+- Error: `{ error: { code: string, message: string } }`
+
+HTTP status codes remain the primary success/failure signal. The envelope
+provides a predictable structure for clients to parse.
+
+## Do's and Don'ts
+
+### Do
+
+- Wrap all API responses in the `{ data }` or `{ error }` envelope
+- Use specific error codes (e.g., `VALIDATION_FAILED`, `NOT_FOUND`)
+- Include the HTTP status code that matches the error semantics
+
+### Don't
+
+- Don't return raw arrays or primitives from API endpoints
+- Don't nest envelopes (no `{ data: { data: ... } }`)
+- Don't put stack traces in the error message field
+
+## Consequences
+
+### Positive
+
+- Clients can parse every response with the same logic
+- Error responses always have a machine-readable code for programmatic handling
+
+### Negative
+
+- Adds a small amount of boilerplate to every endpoint handler
+- Slightly larger payloads due to the wrapper object
+
+### Risks
+
+- Developers may forget the envelope on new endpoints. Mitigated by
+  the automated rule that scans for non-conforming return statements.
+
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** BE-001/response-envelope: Scans API handler files for
+  return statements and verifies they use the envelope helper. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. New API endpoints use the response envelope
+2. Error responses include a specific error code, not a generic message
+
+## References
+
+- [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
+- [ARCH-002 -- Error Handling](./ARCH-002-error-handling.md)
+```

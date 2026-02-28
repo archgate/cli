@@ -6,6 +6,11 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Archgate",
+      defaultLocale: "root",
+      locales: {
+        root: { label: "English", lang: "en" },
+        "pt-br": { label: "Português (Brasil)", lang: "pt-BR" },
+      },
       description:
         "Enforce Architecture Decision Records as executable rules — for both humans and AI agents.",
       social: [
