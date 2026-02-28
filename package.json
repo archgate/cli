@@ -48,7 +48,10 @@
     "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
     "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check && bun run build:check",
     "commit": "cz",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0"
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
+    "docs:dev": "cd docs && bunx --bun astro dev",
+    "docs:build": "cd docs && bunx --bun astro build",
+    "docs:preview": "cd docs && bunx --bun astro preview"
   },
   "type": "module",
   "devDependencies": {

@@ -12,3 +12,5 @@ dist
 .simple-release.js
 bunfig.toml
 bun.lock
+docs
+plans

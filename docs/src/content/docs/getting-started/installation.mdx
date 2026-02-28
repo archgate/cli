@@ -1,0 +1,54 @@
+---
+title: Installation
+description: Install Archgate CLI on macOS, Linux, or Windows.
+---
+
+## Install via npm
+
+The recommended way to install Archgate is via npm:
+
+```bash
+npm install -g archgate
+```
+
+This installs a lightweight npm wrapper that delegates to a platform-specific binary. Node.js is only needed for the npm wrapper itself — the CLI is a standalone binary compiled with Bun.
+
+## Platform support
+
+Archgate ships pre-built binaries for the following platforms:
+
+| Platform | Architecture | Package                 |
+| -------- | ------------ | ----------------------- |
+| macOS    | arm64        | `archgate-darwin-arm64` |
+| Linux    | x86_64       | `archgate-linux-x64`    |
+| Windows  | x86_64       | `archgate-win32-x64`    |
+
+The correct binary is installed automatically as an `optionalDependency` when you run `npm install -g archgate`.
+
+## Verify installation
+
+```bash
+archgate --version
+```
+
+You should see the installed version printed to stdout.
+
+## Proto toolchain users
+
+If you manage Node.js with [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), globally installed npm binaries require an additional setup step.
+
+Add to your proto configuration:
+
+```toml
+# ~/.proto/config.toml
+[tools.npm]
+shared-globals-dir = true
+```
+
+Then add the globals directory to your shell profile (`.bashrc`, `.zshrc`, or equivalent):
+
+```bash
+export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
+```
+
+Restart your shell, then run `npm install -g archgate` again. The `archgate` command should now be available globally.

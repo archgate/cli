@@ -4,3 +4,4 @@ coverage
 bun.lock
 CHANGELOG.md
 packages/*/bin/
+docs/.astro

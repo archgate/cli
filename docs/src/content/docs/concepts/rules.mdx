@@ -1,0 +1,162 @@
+---
+title: Rules
+description: How Archgate's rule system turns ADR decisions into automated checks.
+---
+
+Rules are the executable side of an ADR. They live in companion `.rules.ts` files alongside the ADR document and export automated checks via the `defineRules()` function. When you run `archgate check`, the CLI loads each ADR that has `rules: true`, imports its companion rules file, and executes every check against your codebase.
+
+## Defining Rules
+
+A rules file is a TypeScript module that default-exports the result of `defineRules()`. Import the function from the `archgate/rules` package:
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "rule-key": {
+    description: "What this rule checks",
+    severity: "error",
+    async check(ctx) {
+      // Inspect files and report violations
+    },
+  },
+});
+```
+
+Each key in the object passed to `defineRules()` becomes the rule ID. The full rule identifier shown in check output combines the ADR ID and the rule key, for example `ARCH-004/no-barrel-files`.
+
+## Rule Structure
+
+Every rule has three parts:
+
+| Property      | Type     | Required | Description                                   |
+| ------------- | -------- | -------- | --------------------------------------------- |
+| `description` | string   | Yes      | A short summary of what the rule checks       |
+| `severity`    | string   | No       | `"error"` (default), `"warning"`, or `"info"` |
+| `check`       | function | Yes      | Async function receiving a `RuleContext`      |
+
+### Severity Levels
+
+Severity determines what happens when a rule finds a problem:
+
+| Severity  | Exit Code | Effect                                    |
+| --------- | --------- | ----------------------------------------- |
+| `error`   | 1         | Violation is reported and the check fails |
+| `warning` | 0         | Warning is logged but the check passes    |
+| `info`    | 0         | Informational message, check passes       |
+
+When `archgate check` runs, exit code 1 means at least one `error`-severity violation was found. Exit code 0 means no errors (warnings and info messages are logged but do not block).
+
+## The RuleContext
+
+The `check` function receives a `RuleContext` object that provides everything a rule needs to inspect the codebase and report findings.
+
+### Project Information
+
+| Property           | Type       | Description                                                                      |
+| ------------------ | ---------- | -------------------------------------------------------------------------------- |
+| `ctx.projectRoot`  | `string`   | Absolute path to the project root directory                                      |
+| `ctx.scopedFiles`  | `string[]` | Files matching the ADR's `files` globs, or all project files if no globs are set |
+| `ctx.changedFiles` | `string[]` | Files changed in git (populated when running with `--staged`)                    |
+
+### File Operations
+
+| Method               | Returns             | Description                        |
+| -------------------- | ------------------- | ---------------------------------- |
+| `ctx.glob(pattern)`  | `Promise<string[]>` | Find files matching a glob pattern |
+| `ctx.readFile(path)` | `Promise<string>`   | Read a file's content as a string  |
+| `ctx.readJSON(path)` | `Promise<unknown>`  | Read and parse a JSON file         |
+
+### Search Operations
+
+| Method                             | Returns                | Description                                  |
+| ---------------------------------- | ---------------------- | -------------------------------------------- |
+| `ctx.grep(file, pattern)`          | `Promise<GrepMatch[]>` | Search a single file with a regex pattern    |
+| `ctx.grepFiles(pattern, fileGlob)` | `Promise<GrepMatch[]>` | Search across multiple files matching a glob |
+
+Both `grep` and `grepFiles` return an array of `GrepMatch` objects:
+
+```typescript
+interface GrepMatch {
+  file: string; // Relative path from project root
+  line: number; // 1-based line number
+  column: number; // 1-based column number
+  content: string; // The full line content
+}
+```
+
+### Reporting
+
+The `ctx.report` object provides three methods for reporting findings:
+
+```typescript
+ctx.report.violation({ message, file?, line?, fix? });
+ctx.report.warning({ message, file?, line?, fix? });
+ctx.report.info({ message, file?, line?, fix? });
+```
+
+Each method accepts an object with:
+
+| Property  | Type   | Required | Description                          |
+| --------- | ------ | -------- | ------------------------------------ |
+| `message` | string | Yes      | What the problem is                  |
+| `file`    | string | No       | Relative path to the offending file  |
+| `line`    | number | No       | Line number where the problem occurs |
+| `fix`     | string | No       | Suggested fix for the violation      |
+
+Use `ctx.report.violation()` for problems that must block merges. Use `ctx.report.warning()` for issues worth flagging but not blocking. Use `ctx.report.info()` for purely informational output.
+
+## Rule Timeout
+
+Each rule has a 30-second execution timeout. If a rule's `check` function does not complete within 30 seconds, it is terminated and reported as an error. This prevents runaway rules from blocking the pipeline indefinitely.
+
+## Complete Example
+
+Here is a complete rules file that checks for a banned import pattern. It enforces that no source file imports directly from `node:fs` (the project requires using a wrapper instead).
+
+```typescript
+import { defineRules } from "archgate/rules";
+
+export default defineRules({
+  "no-direct-fs-import": {
+    description:
+      "Source files must not import directly from node:fs; use the fs wrapper",
+    severity: "error",
+    async check(ctx) {
+      const sourceFiles = ctx.scopedFiles.filter(
+        (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
+      );
+
+      for (const file of sourceFiles) {
+        const matches = await ctx.grep(file, /from ["']node:fs["']/);
+
+        for (const match of matches) {
+          ctx.report.violation({
+            message: `Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.`,
+            file: match.file,
+            line: match.line,
+            fix: 'Replace the import with: import { readFile, writeFile } from "../helpers/fs"',
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+When this rule runs against a file containing `import { readFileSync } from "node:fs"`, the output looks like:
+
+```
+ARCH-007/no-direct-fs-import  ERROR
+  src/services/config.ts:3 — Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
+  Fix: Replace the import with: import { readFile, writeFile } from "../helpers/fs"
+```
+
+## Execution Model
+
+Rules execute with the following guarantees:
+
+- **Parallel across ADRs** -- Rules from different ADRs run concurrently for faster execution.
+- **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
+- **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
+- **Changed files for staged mode** -- When running `archgate check --staged`, `ctx.changedFiles` contains only the files staged in git, letting rules skip unchanged files for faster feedback.
