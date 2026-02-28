@@ -3,6 +3,8 @@ title: Cursor Integration
 description: Use Archgate with Cursor IDE for AI-assisted development with governance.
 ---
 
+Archgate integrates with [Cursor](https://cursor.com) to give AI agents a structured governance workflow. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+
 ## Setup
 
 Run `archgate init` with the `--editor cursor` flag to configure Cursor integration in your project:
@@ -11,15 +13,13 @@ Run `archgate init` with the `--editor cursor` flag to configure Cursor integrat
 archgate init --editor cursor
 ```
 
-This creates the following files inside your project:
-
 ### With plugin (beta)
 
 :::note[Beta access required]
 The Cursor plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access.
 :::
 
-If you have logged in via `archgate login`, the init command also downloads and installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow -- the same capabilities available in the Claude Code plugin.
+If you have logged in via `archgate login`, the init command also downloads and installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow.
 
 To explicitly install the plugin:
 
@@ -28,9 +28,11 @@ archgate login              # one-time setup
 archgate init --editor cursor --install-plugin
 ```
 
+The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory. It includes agent rules, skill definitions, and MCP configuration.
+
 ### Without plugin (free)
 
-Without the plugin, `archgate init --editor cursor` still configures the MCP server connection and a basic governance rule. The AI agent can access your ADRs and run checks, but does not get the role-based skills (architect, quality-manager, etc.).
+Without the plugin, `archgate init --editor cursor` still configures the MCP server connection and a basic governance rule. The AI agent can access your ADRs and run checks, but does not get the role-based skills described below.
 
 ### Generated files
 
@@ -41,7 +43,86 @@ Without the plugin, `archgate init --editor cursor` still configures the MCP ser
 
 If `.cursor/mcp.json` already exists, Archgate merges its configuration additively -- existing MCP server entries are preserved.
 
-## What it configures
+## What the plugin provides
+
+The plugin adds role-based skills to Cursor. Each skill is invoked as a slash command with the `/ag-` prefix. Skills encapsulate specific parts of the governance workflow so the agent follows the same process every time.
+
+### Skills included
+
+| Slash command         | Skill           | Purpose                                                                               |
+| --------------------- | --------------- | ------------------------------------------------------------------------------------- |
+| `/ag-developer`       | Developer       | General development agent that reads ADRs before coding and validates after           |
+| `/ag-architect`       | Architect       | Validates code changes against all project ADRs for structural compliance             |
+| `/ag-quality-manager` | Quality Manager | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `/ag-adr-author`      | ADR Author      | Creates and edits ADRs following project conventions                                  |
+| `/ag-onboard`         | Onboard         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+
+These are the same skills available in the Claude Code plugin (`archgate:developer`, `archgate:architect`, etc.), adapted for Cursor's slash command interface.
+
+## Initial setup with onboard
+
+After installing the plugin, run `/ag-onboard` in your project once. This skill:
+
+1. Explores your codebase structure (directories, key files, package configuration)
+2. Interviews you about your team's conventions, constraints, and architectural decisions
+3. Creates an initial set of ADRs based on your responses
+4. Sets up the `.archgate/` directory with your first rules
+
+The onboard skill is designed to run once per project. After onboarding, the other skills handle day-to-day development.
+
+## How it works in practice
+
+### With the plugin
+
+The `/ag-developer` skill follows a structured workflow for every coding task:
+
+1. **Read applicable ADRs** -- The agent calls `review_context` to see which ADRs apply to the files being changed. It does not write code until it has read the applicable ADRs.
+
+2. **Write code following ADR constraints** -- The agent implements changes following the Do's and Don'ts from the applicable ADRs.
+
+3. **Run compliance checks** -- The agent runs `archgate check` to execute automated rules. Any violations are fixed before proceeding.
+
+4. **Architect review** -- The agent invokes `/ag-architect` to validate structural ADR compliance beyond what automated rules catch.
+
+5. **Capture learnings** -- The agent invokes `/ag-quality-manager` to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
+
+### Without the plugin
+
+The agent connects to the Archgate MCP server and follows four manual steps:
+
+1. **Review context** -- Call `review_context` to see which ADRs apply to the files being changed.
+
+2. **Read individual ADRs** -- For full context on a specific decision, read the `adr://` resource (for example, `adr://ARCH-001`).
+
+3. **Write code** -- Implement changes following the constraints from the applicable ADRs.
+
+4. **Run compliance checks** -- Call `check` (optionally with `staged: true`) to validate that the code complies with all ADR rules.
+
+## ADR-driven refusal
+
+When the agent encounters a task that would require violating an ADR, it refuses and explains which ADR would be violated. It then suggests how to achieve the same goal while staying compliant.
+
+For example, if a developer asks the agent to add `chalk` as a dependency in a project governed by a dependency policy ADR, the agent will:
+
+1. Refuse, citing the ADR and the approved dependency list
+2. Suggest using the approved alternative instead
+3. Offer to implement the task using the compliant approach
+
+This behavior is consistent regardless of how the developer phrases the request. ADRs are treated as mandatory constraints, not suggestions.
+
+## When to use each skill
+
+| Scenario                                     | Slash command         |
+| -------------------------------------------- | --------------------- |
+| Starting a new project with Archgate         | `/ag-onboard`         |
+| Day-to-day coding tasks                      | `/ag-developer`       |
+| Reviewing a PR for ADR compliance            | `/ag-architect`       |
+| Noticing a recurring pattern worth codifying | `/ag-quality-manager` |
+| Creating or editing an ADR                   | `/ag-adr-author`      |
+
+The `/ag-developer` skill orchestrates the others automatically -- it invokes `/ag-architect` and `/ag-quality-manager` as part of its workflow. Most of the time, you only need to use `/ag-developer` directly.
+
+## MCP server configuration
 
 The generated `.cursor/mcp.json` registers the Archgate MCP server:
 
@@ -58,21 +139,18 @@ The generated `.cursor/mcp.json` registers the Archgate MCP server:
 
 The governance rule in `.cursor/rules/archgate-governance.mdc` uses `alwaysApply: true`, which means the Cursor agent always has governance context available without manual activation.
 
-## How it works
+The MCP server provides:
 
-Once configured, Cursor's AI agent connects to the Archgate MCP server and gains access to your project's ADRs. The workflow follows four steps:
+- **ADR content** -- full text of any ADR, accessible by ID via `adr://` resources
+- **Review context** -- condensed briefings of all ADRs applicable to a set of changed files
+- **Rule checking** -- execution of automated rules with violation reporting
+- **ADR listing** -- inventory of all ADRs in the project with metadata
 
-1. **Review context** -- The agent calls `review_context` to see which ADRs apply to the files being changed. This returns changed files grouped by domain with condensed ADR briefings (Decision and Do's/Don'ts sections only).
-
-2. **Read individual ADRs** -- For full context on a specific decision, the agent reads the `adr://` resource (for example, `adr://ARCH-001`) to get the complete ADR content including rationale, consequences, and compliance sections.
-
-3. **Write code** -- The agent implements changes following the constraints from the applicable ADRs.
-
-4. **Run compliance checks** -- The agent calls `check` (optionally with `staged: true` for pre-commit scenarios) to validate that the code complies with all ADR rules. Violations include file paths and line numbers.
+The MCP server runs locally and reads directly from your `.archgate/adrs/` directory. No data leaves your machine.
 
 ## Session transcript access
 
-The `cursor_session_context` MCP tool reads Cursor agent session transcripts from disk. This allows Archgate-aware plugins and skills to access the history of the current Cursor agent conversation, which is useful for recovering context that may have been compacted or truncated.
+The `cursor_session_context` MCP tool reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
 
 The tool accepts two optional parameters:
 
@@ -81,8 +159,9 @@ The tool accepts two optional parameters:
 
 ## Tips for effective usage
 
-- **Run `check` before committing.** Use `staged: true` to scope checks to only the files being committed.
-- **Use `review_context` at the start of a task.** It is more efficient than calling `list_adrs` and reading each ADR individually.
-- **Read full ADRs when the briefing is not enough.** The `adr://` resource provides the complete document including rationale and examples.
+- **Use `/ag-developer` for coding tasks.** It orchestrates the full read-validate-capture workflow automatically.
+- **Run `/ag-onboard` once per project.** It sets up your initial ADRs based on your actual codebase and conventions.
+- **Use `/ag-architect` for PR reviews.** It validates structural compliance beyond what automated rules catch.
+- **Use `/ag-quality-manager` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
 - **Commit the `.cursor/` directory.** This ensures every team member gets the same governance configuration when they clone the repository.
 - **Keep ADR rules files up to date.** The agent enforces what the rules check for -- if a rule is missing, the violation will not be caught.
