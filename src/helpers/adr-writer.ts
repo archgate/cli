@@ -1,5 +1,5 @@
 import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import {
   DOMAIN_PREFIXES,
   type AdrDomain,
@@ -163,7 +163,7 @@ export async function updateAdrFile(
     rules,
   });
 
-  const fileName = existing.filePath.split("/").pop()!;
+  const fileName = basename(existing.filePath);
   await Bun.write(existing.filePath, content);
 
   return { id: opts.id, fileName, filePath: existing.filePath };

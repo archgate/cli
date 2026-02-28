@@ -9,6 +9,10 @@ export function installGit() {
   console.log("Git is not installed. Installing...");
   if (process.platform === "darwin") return $`brew install git`;
   if (process.platform === "linux") return $`sudo apt-get install -y git`;
+  if (process.platform === "win32")
+    throw new Error(
+      "Git is not installed. Install it from https://git-scm.com/download/win and make sure it is on your PATH."
+    );
   throw new Error("Unsupported platform");
 }
 

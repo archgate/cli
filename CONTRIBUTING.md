@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Archgate CLI! We welcome all kinds of contributions.
 
-> **Note:** Development is only supported on macOS, Linux, or Windows via WSL2. Native Windows development is not supported.
+> **Note:** Development is supported on macOS, Linux, and Windows.
 
 ## 🚀 Quick Start
 

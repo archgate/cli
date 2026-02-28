@@ -23,6 +23,7 @@
       "optionalDependencies": {
         "archgate-darwin-arm64": ">=0.1.1",
         "archgate-linux-x64": ">=0.1.1",
+        "archgate-win32-x64": ">=0.1.1",
       },
       "peerDependencies": {
         "typescript": "^5",

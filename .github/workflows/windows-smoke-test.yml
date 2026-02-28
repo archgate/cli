@@ -1,0 +1,60 @@
+name: Windows Smoke Test
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - main
+
+concurrency:
+  group: windows-smoke-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  smoke-test:
+    name: Windows Smoke Test
+    runs-on: windows-latest
+    timeout-minutes: 15
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Tests
+        run: bun test --timeout 60000
+
+      - name: Build Windows binary
+        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
+
+      - name: Smoke test binary
+        shell: pwsh
+        run: |
+          $binary = "dist/archgate-smoke-test.exe"
+          if (-not (Test-Path $binary)) {
+            Write-Error "Binary not found at $binary"
+            exit 1
+          }
+          $output = & $binary --version 2>&1
+          Write-Host "archgate version: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }

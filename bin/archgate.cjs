@@ -9,16 +9,18 @@ function getPlatformPackageName() {
   const { platform, arch } = process;
   if (platform === "darwin" && arch === "arm64") return "archgate-darwin-arm64";
   if (platform === "linux" && arch === "x64") return "archgate-linux-x64";
+  if (platform === "win32" && arch === "x64") return "archgate-win32-x64";
   throw new Error(
-    `Unsupported platform: ${platform}/${arch}\narchgate supports darwin/arm64 and linux/x64 only.`
+    `Unsupported platform: ${platform}/${arch}\narchgate supports darwin/arm64, linux/x64, and win32/x64.`
   );
 }
 
 function getBinaryPath() {
   const pkgName = getPlatformPackageName();
+  const binaryName = process.platform === "win32" ? "archgate.exe" : "archgate";
   try {
     const pkgDir = path.dirname(require.resolve(`${pkgName}/package.json`));
-    const binaryPath = path.join(pkgDir, "bin", "archgate");
+    const binaryPath = path.join(pkgDir, "bin", binaryName);
     if (fs.existsSync(binaryPath)) return binaryPath;
   } catch {
     /* platform package not installed */
