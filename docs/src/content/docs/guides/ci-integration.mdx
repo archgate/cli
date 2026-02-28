@@ -54,13 +54,23 @@ The JSON output includes:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "truncated": false,
   "results": [
     {
-      "ruleId": "no-unapproved-deps",
       "adrId": "ARCH-006",
-      "message": "Unapproved production dependency: \"chalk\"",
-      "file": "package.json",
-      "severity": "error"
+      "ruleId": "no-unapproved-deps",
+      "description": "Production dependencies must be on the approved list",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Unapproved production dependency: \"chalk\"",
+          "file": "package.json",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 18
     }
   ],
   "durationMs": 142

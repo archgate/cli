@@ -199,17 +199,23 @@ When `--json` is used, the output is a single JSON object:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "truncated": false,
   "results": [
     {
       "adrId": "ARCH-001",
       "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
       "violations": [
         {
           "message": "Command file must export a register*Command function",
           "file": "src/commands/broken.ts",
           "severity": "error"
         }
-      ]
+      ],
+      "durationMs": 12
     }
   ],
   "durationMs": 42
@@ -377,7 +383,7 @@ The server starts even when no `.archgate/` directory is found. In that case, to
 
 ### Configuration
 
-Add to your Claude Code MCP configuration (`.claude/settings.json`):
+Add to your project's MCP configuration (`.mcp.json` at the project root):
 
 ```json
 {
@@ -389,6 +395,8 @@ Add to your Claude Code MCP configuration (`.claude/settings.json`):
   }
 }
 ```
+
+Running `archgate init` creates this configuration automatically for your editor.
 
 ---
 

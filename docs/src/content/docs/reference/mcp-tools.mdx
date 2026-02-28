@@ -30,17 +30,23 @@ Run ADR compliance checks against the codebase.
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "truncated": false,
   "results": [
     {
       "adrId": "ARCH-001",
       "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
       "violations": [
         {
           "message": "Command file must export a register*Command function",
           "file": "src/commands/broken.ts",
           "severity": "error"
         }
-      ]
+      ],
+      "durationMs": 12
     }
   ],
   "durationMs": 42
@@ -49,7 +55,7 @@ Run ADR compliance checks against the codebase.
 
 When no rules are found, returns `{ "pass": true, "total": 0, "results": [] }`.
 
-Violations are capped at 20 per rule to keep responses concise.
+Violations are capped at 20 per rule to keep responses concise. When a rule has more violations than the cap, `totalViolations` reflects the true count while `shownViolations` and the `violations` array only include the first 20. The top-level `truncated` field is set to `true` when any rule was capped.
 
 ---
 
@@ -96,9 +102,36 @@ Get changed files grouped by domain with applicable ADR briefings. This is the p
 | `runChecks` | boolean | No       | When `true`, run compliance checks and include results. Default: `false`.             |
 | `domain`    | string  | No       | Filter to a single domain (`backend`, `frontend`, `data`, `architecture`, `general`). |
 
-**Returns** a JSON object with domain-grouped briefings. Each briefing includes the **Decision** and **Do's and Don'ts** sections extracted from the applicable ADR, along with the list of changed files in that domain.
+**Returns** a JSON object with domain-grouped briefings:
 
-When `runChecks` is `true`, the response also includes the check results for each domain.
+```json
+{
+  "allChangedFiles": ["src/commands/init.ts", "src/helpers/log.ts"],
+  "truncatedFiles": false,
+  "domains": [
+    {
+      "domain": "architecture",
+      "changedFiles": ["src/commands/init.ts", "src/helpers/log.ts"],
+      "adrs": [
+        {
+          "id": "ARCH-001",
+          "title": "Command Structure",
+          "domain": "architecture",
+          "files": ["src/commands/**/*.ts"],
+          "rules": true,
+          "decision": "Commands export register*Command(program)...",
+          "dosAndDonts": "### Do's\n- Export a register function..."
+        }
+      ]
+    }
+  ],
+  "checkSummary": null
+}
+```
+
+Each domain group includes the changed files that match its ADRs, and condensed ADR briefings with only the **Decision** and **Do's and Don'ts** sections.
+
+When `runChecks` is `true`, `checkSummary` contains the full check results (same format as the `check` tool response). When `false` or omitted, `checkSummary` is `null`.
 
 ---
 
