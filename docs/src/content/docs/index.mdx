@@ -15,7 +15,7 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid } from "@astrojs/starlight/components";
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 
 ## How it works
 
@@ -60,4 +60,62 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
     checks ours. Six ADRs enforce command structure, error handling, output
     formatting, testing, and more.
   </Card>
+</CardGrid>
+
+## Editor plugins
+
+The Archgate CLI works standalone, but **editor plugins** unlock a full AI governance workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
+
+<CardGrid>
+  <Card title="Claude Code" icon="star">
+    The Claude Code plugin adds five skills: developer, architect,
+    quality-manager, adr-author, and onboard. Agents follow a structured
+    read-validate-capture loop on every task.
+  </Card>
+  <Card title="Cursor" icon="pencil">
+    The Cursor plugin provides pre-built agent rules and skills that give
+    Cursor's AI agent the same governance workflow as Claude Code.
+  </Card>
+</CardGrid>
+
+:::tip[Beta access]
+Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://plugins.archgate.dev) to get access, then install with `archgate login` and `archgate init --install-plugin`.
+:::
+
+<CardGrid>
+  <LinkCard
+    title="Claude Code plugin guide"
+    href="/guides/claude-code-plugin/"
+    description="Full setup and usage guide for the Claude Code plugin."
+  />
+  <LinkCard
+    title="Cursor integration guide"
+    href="/guides/cursor-integration/"
+    description="Set up Archgate with Cursor IDE."
+  />
+</CardGrid>
+
+## Learn more
+
+<CardGrid>
+  <LinkCard
+    title="What are ADRs?"
+    href="/concepts/adrs/"
+    description="Understand Architecture Decision Records and how Archgate uses them."
+  />
+  <LinkCard
+    title="Writing Rules"
+    href="/guides/writing-rules/"
+    description="Write TypeScript rules that enforce your decisions automatically."
+  />
+  <LinkCard
+    title="CI Integration"
+    href="/guides/ci-integration/"
+    description="Block merges when rules are violated in GitHub Actions, GitLab CI, or any pipeline."
+  />
+  <LinkCard
+    title="CLI Commands"
+    href="/reference/cli-commands/"
+    description="Complete reference for all Archgate CLI commands and options."
+  />
 </CardGrid>

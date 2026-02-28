@@ -54,13 +54,23 @@ The JSON output includes:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "truncated": false,
   "results": [
     {
-      "ruleId": "no-unapproved-deps",
       "adrId": "ARCH-006",
-      "message": "Unapproved production dependency: \"chalk\"",
-      "file": "package.json",
-      "severity": "error"
+      "ruleId": "no-unapproved-deps",
+      "description": "Production dependencies must be on the approved list",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Unapproved production dependency: \"chalk\"",
+          "file": "package.json",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 18
     }
   ],
   "durationMs": 142
@@ -149,11 +159,26 @@ adr-compliance:
     - archgate check
 ```
 
+## Bun-based CI
+
+If your CI already uses Bun, install Archgate with `bun` instead of `npm`:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install -g archgate
+      - run: archgate check --ci
+```
+
 ## Other CI systems
 
 Archgate works with any CI system that can run shell commands. The pattern is always the same:
 
-1. Install: `npm install -g archgate`
+1. Install: `npm install -g archgate` (or `bun install -g archgate`)
 2. Run: `archgate check`
 3. Check the exit code (0 = pass, 1 = violations, 2 = error)
 
@@ -177,3 +202,7 @@ Use `--verbose` to see passing rules and timing information alongside failures. 
 ```yaml
 - run: archgate check --verbose
 ```
+
+:::tip[Add AI governance to your workflow]
+CI catches violations at merge time. Editor plugins catch them at coding time. With the [Claude Code](/guides/claude-code-plugin/) or [Cursor](/guides/cursor-integration/) plugin, your AI agent reads ADRs before writing code and validates compliance before you even commit. [Sign up for beta access](https://plugins.archgate.dev).
+:::
