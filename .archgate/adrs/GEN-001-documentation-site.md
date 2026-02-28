@@ -215,6 +215,7 @@ No automated rules are defined for this ADR (`rules: false`). Future opportuniti
 
 - A rule verifying that every MDX file in `docs/src/content/docs/` has a corresponding sidebar entry in `astro.config.mjs`
 - A rule checking that `docs/package.json` does not contain CLI source dependencies
+- i18n page parity checks are enforced by [GEN-002](./GEN-002-docs-i18n.md)
 
 ### Manual Enforcement
 
@@ -241,4 +242,5 @@ The `deploy-docs.yml` GitHub Actions workflow handles deployment:
 - [Astro documentation](https://docs.astro.build) — Framework reference
 - [Starlight documentation](https://starlight.astro.build) — Documentation integration reference
 - [ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md) — Bun-first toolchain philosophy that extends to the docs build
+- [GEN-002 — Documentation Internationalization](./GEN-002-docs-i18n.md) — i18n governance and 1:1 page parity rules
 - [deploy-docs.yml](../../.github/workflows/deploy-docs.yml) — GitHub Actions deployment workflow
