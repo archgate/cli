@@ -53,7 +53,7 @@ Run ADR compliance checks against the codebase.
 }
 ```
 
-When no rules are found, returns `{ "pass": true, "total": 0, "results": [] }`.
+When no rules are found, returns `{ "pass": true, "total": 0, "results": [], "message": "No rules to check" }`.
 
 Violations are capped at 20 per rule to keep responses concise. When a rule has more violations than the cap, `totalViolations` reflects the true count while `shownViolations` and the `violations` array only include the first 20. The top-level `truncated` field is set to `true` when any rule was capped.
 

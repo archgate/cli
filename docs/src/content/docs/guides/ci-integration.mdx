@@ -159,11 +159,26 @@ adr-compliance:
     - archgate check
 ```
 
+## Bun-based CI
+
+If your CI already uses Bun, install Archgate with `bun` instead of `npm`:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install -g archgate
+      - run: archgate check --ci
+```
+
 ## Other CI systems
 
 Archgate works with any CI system that can run shell commands. The pattern is always the same:
 
-1. Install: `npm install -g archgate`
+1. Install: `npm install -g archgate` (or `bun install -g archgate`)
 2. Run: `archgate check`
 3. Check the exit code (0 = pass, 1 = violations, 2 = error)
 
