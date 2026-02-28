@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { loadRuleAdrs } from "../../src/engine/loader";
 
-// Absolute path to the real defineRules module
+// Absolute path to the real defineRules module (forward slashes for import specifiers)
 const RULES_MODULE_PATH = join(
   import.meta.dir,
   "..",
@@ -18,7 +18,7 @@ const RULES_MODULE_PATH = join(
   "src",
   "formats",
   "rules.ts"
-);
+).replaceAll("\\", "/");
 
 describe("loadRuleAdrs", () => {
   let tempDir: string;

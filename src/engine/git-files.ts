@@ -29,8 +29,9 @@ export async function resolveScopedFiles(
     const glob = new Bun.Glob(pattern);
     // oxlint-disable-next-line no-await-in-loop -- async iterator
     for await (const file of glob.scan({ cwd: projectRoot, dot: false })) {
-      if (trackedFiles && !trackedFiles.has(file)) continue;
-      if (!allFiles.includes(file)) allFiles.push(file);
+      const normalized = file.replaceAll("\\", "/");
+      if (trackedFiles && !trackedFiles.has(normalized)) continue;
+      if (!allFiles.includes(normalized)) allFiles.push(normalized);
     }
   }
   return allFiles.sort();

@@ -41,7 +41,7 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 npm install -g archgate
 ```
 
-**Requirements:** macOS (arm64) or Linux (x86_64). Node.js is only needed to run the wrapper — the CLI itself is a standalone binary.
+**Requirements:** macOS (arm64), Linux (x86_64), or Windows (x86_64). Node.js is only needed to run the wrapper — the CLI itself is a standalone binary.
 
 > **Using [proto](https://moonrepo.dev/proto)?** Add the following to `~/.proto/config.toml` and your shell profile so globals persist across Node.js version switches:
 >

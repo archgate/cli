@@ -58,7 +58,7 @@ function createRuleContext(
       const g = new Bun.Glob(pattern);
       const results: string[] = [];
       for await (const file of g.scan({ cwd: projectRoot, dot: false })) {
-        results.push(file);
+        results.push(file.replaceAll("\\", "/"));
       }
       return results.sort();
     },
@@ -73,7 +73,7 @@ function createRuleContext(
         const match = lines[i].match(pattern);
         if (match) {
           matches.push({
-            file: relative(projectRoot, absPath),
+            file: relative(projectRoot, absPath).replaceAll("\\", "/"),
             line: i + 1,
             column: (match.index ?? 0) + 1,
             content: lines[i],
@@ -89,6 +89,7 @@ function createRuleContext(
       const allMatches: GrepMatch[] = [];
 
       for await (const file of g.scan({ cwd: projectRoot, dot: false })) {
+        const normalized = file.replaceAll("\\", "/");
         const absPath = join(projectRoot, file);
         try {
           const content = await Bun.file(absPath).text();
@@ -98,7 +99,7 @@ function createRuleContext(
             const match = lines[i].match(pattern);
             if (match) {
               allMatches.push({
-                file,
+                file: normalized,
                 line: i + 1,
                 column: (match.index ?? 0) + 1,
                 content: lines[i],

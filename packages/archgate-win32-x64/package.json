@@ -1,0 +1,19 @@
+{
+  "name": "archgate-win32-x64",
+  "version": "0.0.0",
+  "description": "windows x64 binary for archgate",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/archgate.exe"
+  ],
+  "license": "FSL-1.1-ALv2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archgate/cli.git"
+  }
+}
