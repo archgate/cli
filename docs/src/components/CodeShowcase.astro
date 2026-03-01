@@ -59,7 +59,7 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
 ]);`;
 ---
 
-<section class="showcase">
+<section class="showcase not-content">
   <div class="showcase-header">
     <h2>{heading}</h2>
     <p>{subtext}</p>
@@ -125,10 +125,49 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
 </section>
 
 <style>
-  /* ── Layout ──────────────────────────────────────────────────── */
+  /*
+   * ── Theme tokens ────────────────────────────────────────────
+   * Dark = archgate.dev marketing site palette.
+   * Light = complementary light scheme for readability.
+   * Starlight sets [data-theme] on <html>.
+   */
   .showcase {
+    /* Dark defaults (also used when data-theme is absent / "dark") */
+    --sc-bg:       #0f0f0f;
+    --sc-chrome:   #1a1a1a;
+    --sc-border:   #333;
+    --sc-dots:     #555;
+    --sc-filename: #555;
+    --sc-code-fg:  #999;
+    --sc-sub:      #999;
+    --sc-em:       #e8e8e8;
+    --sc-dim:      #555;
+    --sc-key:      #00c8d7;
+    --sc-kw:       #6366f1;
+    --sc-str:      #4ade80;
+    --sc-red:      #f87171;
+
     margin: 2.5rem 0 3rem;
   }
+
+  /* ── Light mode overrides ──────────────────────────────────── */
+  :global([data-theme="light"]) .showcase {
+    --sc-bg:       #f8f9fa;
+    --sc-chrome:   #eef0f2;
+    --sc-border:   #d0d5db;
+    --sc-dots:     #c0c5cb;
+    --sc-filename: #6b7280;
+    --sc-code-fg:  #374151;
+    --sc-sub:      #6b7280;
+    --sc-em:       #111827;
+    --sc-dim:      #9ca3af;
+    --sc-key:      #0e7490;
+    --sc-kw:       #4f46e5;
+    --sc-str:      #16a34a;
+    --sc-red:      #dc2626;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────────── */
   .showcase-header {
     text-align: center;
     margin-bottom: 2rem;
@@ -138,9 +177,10 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     font-weight: 700;
     letter-spacing: -0.02em;
     margin: 0 0 0.5rem;
+    color: var(--sc-em);
   }
   .showcase-header p {
-    color: #999;
+    color: var(--sc-sub);
     font-size: 1.05rem;
     max-width: 32rem;
     margin: 0 auto;
@@ -168,16 +208,17 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
   /* ── Panel chrome ────────────────────────────────────────────── */
   .panel {
     border-radius: 0.75rem;
-    border: 1px solid #333;
+    border: 1px solid var(--sc-border);
     overflow: hidden;
+    background: var(--sc-bg);
   }
   .chrome {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.65rem 1rem;
-    background: #1a1a1a;
-    border-bottom: 1px solid #333;
+    background: var(--sc-chrome);
+    border-bottom: 1px solid var(--sc-border);
   }
   .dots {
     display: flex;
@@ -187,10 +228,10 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     width: 0.7rem;
     height: 0.7rem;
     border-radius: 50%;
-    background: #555;
+    background: var(--sc-dots);
   }
   .filename {
-    color: #555;
+    color: var(--sc-filename);
     font-size: 0.75rem;
     font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
     margin-left: 0.35rem;
@@ -203,7 +244,7 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
    */
   .code-body {
     padding: 1rem 1.25rem;
-    background: #0f0f0f;
+    background: var(--sc-bg);
   }
   @media (min-width: 860px) {
     .code-body {
@@ -220,7 +261,7 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     padding: 0 !important;
   }
   .code-body :global(code) {
-    color: #999;
+    color: var(--sc-code-fg);
     font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
     background: transparent !important;
   }
@@ -230,28 +271,28 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
     font-size: 0.85rem;
     line-height: 1.5;
-    color: #999;
+    color: var(--sc-code-fg);
   }
   .terminal-body :global(.term-line) { white-space: pre; }
   .terminal-body :global(.mt-xs) { margin-top: 0.125rem; }
   .terminal-body :global(.mt-sm) { margin-top: 0.25rem; }
   .terminal-body :global(.mt-lg) { margin-top: 0.75rem; }
 
-  /* ── Syntax colors (matching archgate.dev) ────────────────── */
+  /* ── Syntax colors ─────────────────────────────────────────── */
   .code-body :global(.hl-key),
-  .terminal-body :global(.hl-key)   { color: #00c8d7; }  /* cyan – YAML keys, ctx */
-  .code-body :global(.hl-kw)       { color: #6366f1; }   /* indigo – keywords */
-  .code-body :global(.hl-str)      { color: #4ade80; }   /* green – strings */
+  .terminal-body :global(.hl-key)   { color: var(--sc-key); }
+  .code-body :global(.hl-kw)       { color: var(--sc-kw); }
+  .code-body :global(.hl-str)      { color: var(--sc-str); }
   .code-body :global(.hl-green),
-  .terminal-body :global(.hl-green) { color: #4ade80; }
+  .terminal-body :global(.hl-green) { color: var(--sc-str); }
   .code-body :global(.hl-red),
-  .terminal-body :global(.hl-red)   { color: #f87171; }  /* red – errors */
-  .code-body :global(.hl-em)       { color: #e8e8e8; }   /* white – emphasis */
-  .code-body :global(.hl-heading)  { color: #e8e8e8; font-weight: 500; }
+  .terminal-body :global(.hl-red)   { color: var(--sc-red); }
+  .code-body :global(.hl-em)       { color: var(--sc-em); }
+  .code-body :global(.hl-heading)  { color: var(--sc-em); font-weight: 500; }
   .code-body :global(.hl-txt),
-  .terminal-body :global(.hl-txt)   { color: #999; }     /* default text */
+  .terminal-body :global(.hl-txt)   { color: var(--sc-code-fg); }
   .code-body :global(.hl-sep),
-  .terminal-body :global(.hl-sep)   { color: #555; }     /* separators */
+  .terminal-body :global(.hl-sep)   { color: var(--sc-dim); }
   .code-body :global(.hl-dim),
-  .terminal-body :global(.hl-dim)   { color: #555; }     /* dimmed */
+  .terminal-body :global(.hl-dim)   { color: var(--sc-dim); }
 </style>
