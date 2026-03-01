@@ -1,3 +1,10 @@
+## [0.7.0](https://github.com/archgate/cli/compare/v0.6.0...v0.7.0) (2026-03-01)
+
+### Features
+
+* **docs:** add Brazilian Portuguese i18n and GEN-002 ADR ([#30](https://github.com/archgate/cli/issues/30)) ([e053488](https://github.com/archgate/cli/commit/e053488e00ba21299ef0e23b19962bcfa6ddc928))
+* **docs:** add Cloudflare Web Analytics ([#33](https://github.com/archgate/cli/issues/33)) ([529e928](https://github.com/archgate/cli/commit/529e92831004f4d8e5ee4a015964ef405553e91c))
+
 ## [0.6.0](https://github.com/archgate/cli/compare/v0.5.0...v0.6.0) (2026-02-28)
 
 ### Features
