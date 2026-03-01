@@ -1,0 +1,298 @@
+---
+/**
+ * "ADRs that enforce themselves" — visual showcase ported from archgate.dev.
+ * Shows the ADR → Rules → Terminal output flow in three panels.
+ *
+ * Props:
+ *   heading  – section heading (translated per locale)
+ *   subtext  – description below the heading
+ */
+interface Props {
+  heading: string;
+  subtext: string;
+}
+
+const { heading, subtext } = Astro.props;
+
+const adrCode = `<span class="hl-sep">---</span>
+<span class="hl-key">id:</span> ARCH-003
+<span class="hl-key">title:</span> API Route Conventions
+<span class="hl-key">domain:</span> backend
+<span class="hl-key">rules:</span> true
+<span class="hl-key">files:</span>
+  <span class="hl-txt">- "src/api/**/*.ts"</span>
+<span class="hl-sep">---</span>
+
+<span class="hl-heading">## Decision</span>
+
+All API route handlers <span class="hl-em">must</span> use the
+<span class="hl-kw">createRoute()</span> factory function.
+Direct <span class="hl-kw">export default</span> is prohibited.
+
+<span class="hl-heading">## Do's and Don'ts</span>
+
+<span class="hl-green">DO:</span>  Use <span class="hl-kw">createRoute({ handler })</span>
+<span class="hl-red">DON'T:</span> Use <span class="hl-kw">export default function</span>`;
+
+const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class="hl-kw">from</span> <span class="hl-str">"archgate/rules"</span>;
+
+<span class="hl-kw">export default</span> defineRules((<span class="hl-key">ctx</span>) =&gt; [
+  {
+    <span class="hl-key">name:</span> <span class="hl-str">"require-createRoute"</span>,
+    <span class="hl-key">severity:</span> <span class="hl-str">"error"</span>,
+    <span class="hl-kw">async</span> run() {
+      <span class="hl-kw">const</span> files = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.glob(<span class="hl-str">"src/api/**/*.ts"</span>);
+
+      <span class="hl-kw">for</span> (<span class="hl-kw">const</span> file <span class="hl-kw">of</span> files) {
+        <span class="hl-kw">const</span> hits = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.grep(
+          file, <span class="hl-str">/export\\s+default\\s+function/</span>
+        );
+        <span class="hl-kw">for</span> (<span class="hl-kw">const</span> hit <span class="hl-kw">of</span> hits) {
+          <span class="hl-key">ctx</span>.report({
+            file, line: hit.line,
+            message: <span class="hl-str">"Use createRoute() factory"</span>,
+          });
+        }
+      }
+    },
+  },
+]);`;
+---
+
+<section class="showcase not-content">
+  <div class="showcase-header">
+    <h2>{heading}</h2>
+    <p>{subtext}</p>
+  </div>
+
+  <!-- Code panels: ADR + Rules side-by-side -->
+  <div class="panels">
+    <!-- ADR Panel -->
+    <div class="panel">
+      <div class="chrome">
+        <div class="dots" aria-hidden="true">
+          <span /><span /><span />
+        </div>
+        <span class="filename">ARCH-003-api-routes.md</span>
+      </div>
+      <div class="code-body">
+        <pre><code set:html={adrCode} /></pre>
+      </div>
+    </div>
+
+    <!-- Rules Panel -->
+    <div class="panel">
+      <div class="chrome">
+        <div class="dots" aria-hidden="true">
+          <span /><span /><span />
+        </div>
+        <span class="filename">ARCH-003-api-routes.rules.ts</span>
+      </div>
+      <div class="code-body">
+        <pre><code set:html={rulesCode} /></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal output -->
+  <div class="panel terminal">
+    <div class="chrome">
+      <div class="dots" aria-hidden="true">
+        <span /><span /><span />
+      </div>
+      <span class="filename">Terminal</span>
+    </div>
+    <div class="code-body terminal-body">
+      <div class="term-line">
+        <span class="hl-dim">$</span> archgate check
+      </div>
+      <div class="term-line mt-lg">
+        <span class="hl-key">ARCH-003</span> API Route Conventions
+      </div>
+      <div class="term-line mt-sm">
+        <span class="hl-red">error</span>
+        <span class="hl-txt"> require-createRoute: Use createRoute() factory</span>
+      </div>
+      <div class="term-line mt-xs hl-dim" style="font-size: 0.75rem;">
+        src/api/users/list.ts:14
+      </div>
+      <div class="term-line mt-lg">
+        <span class="hl-red">1 violation</span>
+        <span class="hl-dim"> found across 1 ADR</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /*
+   * ── Theme tokens ────────────────────────────────────────────
+   * Dark = archgate.dev marketing site palette.
+   * Light = complementary light scheme for readability.
+   * Starlight sets [data-theme] on <html>.
+   */
+  .showcase {
+    /* Dark defaults (also used when data-theme is absent / "dark") */
+    --sc-bg:       #0f0f0f;
+    --sc-chrome:   #1a1a1a;
+    --sc-border:   #333;
+    --sc-dots:     #555;
+    --sc-filename: #555;
+    --sc-code-fg:  #999;
+    --sc-sub:      #999;
+    --sc-em:       #e8e8e8;
+    --sc-dim:      #555;
+    --sc-key:      #00c8d7;
+    --sc-kw:       #6366f1;
+    --sc-str:      #4ade80;
+    --sc-red:      #f87171;
+
+    margin: 2.5rem 0 3rem;
+  }
+
+  /* ── Light mode overrides ──────────────────────────────────── */
+  :global([data-theme="light"]) .showcase {
+    --sc-bg:       #f8f9fa;
+    --sc-chrome:   #eef0f2;
+    --sc-border:   #d0d5db;
+    --sc-dots:     #c0c5cb;
+    --sc-filename: #6b7280;
+    --sc-code-fg:  #374151;
+    --sc-sub:      #6b7280;
+    --sc-em:       #111827;
+    --sc-dim:      #9ca3af;
+    --sc-key:      #0e7490;
+    --sc-kw:       #4f46e5;
+    --sc-str:      #16a34a;
+    --sc-red:      #dc2626;
+  }
+
+  /* ── Layout ──────────────────────────────────────────────────── */
+  .showcase-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .showcase-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+    color: var(--sc-em);
+  }
+  .showcase-header p {
+    color: var(--sc-sub);
+    font-size: 1.05rem;
+    max-width: 32rem;
+    margin: 0 auto;
+  }
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 860px) {
+    .panels {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+  }
+  .terminal {
+    margin-top: 1rem;
+  }
+  @media (min-width: 860px) {
+    .terminal {
+      margin-top: 1.25rem;
+    }
+  }
+
+  /* ── Panel chrome ────────────────────────────────────────────── */
+  .panel {
+    border-radius: 0.75rem;
+    border: 1px solid var(--sc-border);
+    overflow: hidden;
+    background: var(--sc-bg);
+  }
+  .chrome {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    background: var(--sc-chrome);
+    border-bottom: 1px solid var(--sc-border);
+  }
+  .dots {
+    display: flex;
+    gap: 0.375rem;
+  }
+  .dots span {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: var(--sc-dots);
+  }
+  .filename {
+    color: var(--sc-filename);
+    font-size: 0.75rem;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    margin-left: 0.35rem;
+  }
+
+  /*
+   * ── Code body & syntax colors ───────────────────────────────
+   * The hl-* spans are injected via set:html and do NOT receive
+   * Astro's scoping class. Use :global() so selectors match them.
+   */
+  .code-body {
+    padding: 1rem 1.25rem;
+    background: var(--sc-bg);
+  }
+  @media (min-width: 860px) {
+    .code-body {
+      padding: 1.25rem 1.35rem;
+    }
+  }
+  .code-body :global(pre) {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    overflow-x: auto;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  .code-body :global(code) {
+    color: var(--sc-code-fg);
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    background: transparent !important;
+  }
+
+  /* ── Terminal body ───────────────────────────────────────────── */
+  .terminal-body {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--sc-code-fg);
+  }
+  .terminal-body :global(.term-line) { white-space: pre; }
+  .terminal-body :global(.mt-xs) { margin-top: 0.125rem; }
+  .terminal-body :global(.mt-sm) { margin-top: 0.25rem; }
+  .terminal-body :global(.mt-lg) { margin-top: 0.75rem; }
+
+  /* ── Syntax colors ─────────────────────────────────────────── */
+  .code-body :global(.hl-key),
+  .terminal-body :global(.hl-key)   { color: var(--sc-key); }
+  .code-body :global(.hl-kw)       { color: var(--sc-kw); }
+  .code-body :global(.hl-str)      { color: var(--sc-str); }
+  .code-body :global(.hl-green),
+  .terminal-body :global(.hl-green) { color: var(--sc-str); }
+  .code-body :global(.hl-red),
+  .terminal-body :global(.hl-red)   { color: var(--sc-red); }
+  .code-body :global(.hl-em)       { color: var(--sc-em); }
+  .code-body :global(.hl-heading)  { color: var(--sc-em); font-weight: 500; }
+  .code-body :global(.hl-txt),
+  .terminal-body :global(.hl-txt)   { color: var(--sc-code-fg); }
+  .code-body :global(.hl-sep),
+  .terminal-body :global(.hl-sep)   { color: var(--sc-dim); }
+  .code-body :global(.hl-dim),
+  .terminal-body :global(.hl-dim)   { color: var(--sc-dim); }
+</style>

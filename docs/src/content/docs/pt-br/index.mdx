@@ -16,6 +16,7 @@ hero:
 ---
 
 import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import CodeShowcase from "../../../components/CodeShowcase.astro";
 
 ## Como funciona
 
@@ -25,16 +26,10 @@ O Archgate possui duas camadas que trabalham juntas:
 
 2. **ADRs como regras** — Arquivos complementares `.rules.ts` com verificações automatizadas escritas em TypeScript. Eles são executados contra sua base de código e reportam violações com caminhos de arquivos e números de linha.
 
-```
-.archgate/
-  adrs/
-    ARCH-001-command-structure.md        # The decision (human + AI readable)
-    ARCH-001-command-structure.rules.ts  # The checks (machine executable)
-    ARCH-002-error-handling.md
-    ARCH-002-error-handling.rules.ts
-  lint/
-    archgate.config.ts                   # Archgate configuration
-```
+<CodeShowcase
+  heading="ADRs que se aplicam sozinhos"
+  subtext="Escreva uma decisão em Markdown. Adicione regras em TypeScript. A CLI verifica a conformidade automaticamente."
+/>
 
 Quando você executa `archgate check`, a CLI carrega cada ADR que possui `rules: true` em seu frontmatter, executa o arquivo de regras complementar e reporta quaisquer violações. Código de saída 0 significa que seu código está em conformidade. Código de saída 1 significa que não está.
 
