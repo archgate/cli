@@ -1,0 +1,247 @@
+---
+/**
+ * "ADRs that enforce themselves" — visual showcase ported from archgate.dev.
+ * Shows the ADR → Rules → Terminal output flow in three panels.
+ *
+ * Props:
+ *   heading  – section heading (translated per locale)
+ *   subtext  – description below the heading
+ */
+interface Props {
+  heading: string;
+  subtext: string;
+}
+
+const { heading, subtext } = Astro.props;
+
+const adrCode = `<span class="hl-sep">---</span>
+<span class="hl-key">id:</span> ARCH-003
+<span class="hl-key">title:</span> API Route Conventions
+<span class="hl-key">domain:</span> backend
+<span class="hl-key">rules:</span> true
+<span class="hl-key">files:</span>
+  <span class="hl-txt">- "src/api/**/*.ts"</span>
+<span class="hl-sep">---</span>
+
+<span class="hl-heading">## Decision</span>
+
+All API route handlers <span class="hl-em">must</span> use the
+<span class="hl-kw">createRoute()</span> factory function.
+Direct <span class="hl-kw">export default</span> is prohibited.
+
+<span class="hl-heading">## Do's and Don'ts</span>
+
+<span class="hl-green">DO:</span>  Use <span class="hl-kw">createRoute({ handler })</span>
+<span class="hl-red">DON'T:</span> Use <span class="hl-kw">export default function</span>`;
+
+const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class="hl-kw">from</span> <span class="hl-str">"archgate/rules"</span>;
+
+<span class="hl-kw">export default</span> defineRules((<span class="hl-key">ctx</span>) =&gt; [
+  {
+    <span class="hl-key">name:</span> <span class="hl-str">"require-createRoute"</span>,
+    <span class="hl-key">severity:</span> <span class="hl-str">"error"</span>,
+    <span class="hl-kw">async</span> run() {
+      <span class="hl-kw">const</span> files = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.glob(<span class="hl-str">"src/api/**/*.ts"</span>);
+
+      <span class="hl-kw">for</span> (<span class="hl-kw">const</span> file <span class="hl-kw">of</span> files) {
+        <span class="hl-kw">const</span> hits = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.grep(
+          file, <span class="hl-str">/export\\s+default\\s+function/</span>
+        );
+        <span class="hl-kw">for</span> (<span class="hl-kw">const</span> hit <span class="hl-kw">of</span> hits) {
+          <span class="hl-key">ctx</span>.report({
+            file, line: hit.line,
+            message: <span class="hl-str">"Use createRoute() factory"</span>,
+          });
+        }
+      }
+    },
+  },
+]);`;
+---
+
+<section class="showcase">
+  <div class="showcase-header">
+    <h2>{heading}</h2>
+    <p>{subtext}</p>
+  </div>
+
+  <!-- Code panels: ADR + Rules side-by-side -->
+  <div class="panels">
+    <!-- ADR Panel -->
+    <div class="panel">
+      <div class="chrome">
+        <div class="dots" aria-hidden="true">
+          <span /><span /><span />
+        </div>
+        <span class="filename">ARCH-003-api-routes.md</span>
+      </div>
+      <div class="code-body">
+        <pre><code set:html={adrCode} /></pre>
+      </div>
+    </div>
+
+    <!-- Rules Panel -->
+    <div class="panel">
+      <div class="chrome">
+        <div class="dots" aria-hidden="true">
+          <span /><span /><span />
+        </div>
+        <span class="filename">ARCH-003-api-routes.rules.ts</span>
+      </div>
+      <div class="code-body">
+        <pre><code set:html={rulesCode} /></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Terminal output -->
+  <div class="panel terminal">
+    <div class="chrome">
+      <div class="dots" aria-hidden="true">
+        <span /><span /><span />
+      </div>
+      <span class="filename">Terminal</span>
+    </div>
+    <div class="code-body terminal-body">
+      <div class="term-line">
+        <span class="hl-dim">$</span> archgate check
+      </div>
+      <div class="term-line mt-lg">
+        <span class="hl-key">ARCH-003</span> API Route Conventions
+      </div>
+      <div class="term-line mt-sm">
+        <span class="hl-red">error</span>
+        <span class="hl-txt"> require-createRoute: Use createRoute() factory</span>
+      </div>
+      <div class="term-line mt-xs hl-dim" style="font-size: 0.75rem;">
+        src/api/users/list.ts:14
+      </div>
+      <div class="term-line mt-lg">
+        <span class="hl-red">1 violation</span>
+        <span class="hl-dim"> found across 1 ADR</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ── Layout ──────────────────────────────────────────────────── */
+  .showcase {
+    margin: 2.5rem 0 3rem;
+  }
+  .showcase-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .showcase-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+  }
+  .showcase-header p {
+    color: #999;
+    font-size: 1.05rem;
+    max-width: 32rem;
+    margin: 0 auto;
+  }
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  @media (min-width: 860px) {
+    .panels {
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+  }
+  .terminal {
+    margin-top: 1rem;
+  }
+  @media (min-width: 860px) {
+    .terminal {
+      margin-top: 1.25rem;
+    }
+  }
+
+  /* ── Panel chrome ────────────────────────────────────────────── */
+  .panel {
+    border-radius: 0.75rem;
+    border: 1px solid #333;
+    overflow: hidden;
+  }
+  .chrome {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    background: #1a1a1a;
+    border-bottom: 1px solid #333;
+  }
+  .dots {
+    display: flex;
+    gap: 0.375rem;
+  }
+  .dots span {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: #555;
+  }
+  .filename {
+    color: #555;
+    font-size: 0.75rem;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    margin-left: 0.35rem;
+  }
+
+  /* ── Code body ───────────────────────────────────────────────── */
+  .code-body {
+    padding: 1rem 1.25rem;
+    background: #0f0f0f;
+  }
+  @media (min-width: 860px) {
+    .code-body {
+      padding: 1.25rem 1.35rem;
+    }
+  }
+  .code-body pre {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    overflow-x: auto;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  .code-body code {
+    color: #999;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    background: transparent !important;
+  }
+
+  /* ── Terminal body ───────────────────────────────────────────── */
+  .terminal-body {
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #999;
+  }
+  .term-line { white-space: pre; }
+  .mt-xs { margin-top: 0.125rem; }
+  .mt-sm { margin-top: 0.25rem; }
+  .mt-lg { margin-top: 0.75rem; }
+
+  /* ── Syntax colors (matching archgate.dev) ────────────────── */
+  .hl-key  { color: #00c8d7; }          /* cyan – YAML keys, ctx */
+  .hl-kw   { color: #6366f1; }          /* indigo – keywords */
+  .hl-str  { color: #4ade80; }          /* green – strings */
+  .hl-green { color: #4ade80; }
+  .hl-red  { color: #f87171; }          /* red – errors */
+  .hl-em   { color: #e8e8e8; }          /* white – emphasis */
+  .hl-heading { color: #e8e8e8; font-weight: 500; }
+  .hl-txt  { color: #999; }             /* default text */
+  .hl-sep  { color: #555; }             /* separators */
+  .hl-dim  { color: #555; }             /* dimmed */
+</style>
