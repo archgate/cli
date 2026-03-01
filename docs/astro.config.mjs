@@ -23,6 +23,16 @@ export default defineConfig({
       editLink: {
         baseUrl: "https://github.com/archgate/cli/edit/main/docs/",
       },
+      head: [
+        {
+          tag: "script",
+          attrs: {
+            defer: true,
+            src: "https://static.cloudflareinsights.com/beacon.min.js",
+            "data-cf-beacon": '{"token": "cee359c05ecc496aabc4f40f05302a03"}',
+          },
+        },
+      ],
       sidebar: [
         {
           label: "Getting Started",
