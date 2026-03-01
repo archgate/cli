@@ -196,7 +196,11 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     margin-left: 0.35rem;
   }
 
-  /* ── Code body ───────────────────────────────────────────────── */
+  /*
+   * ── Code body & syntax colors ───────────────────────────────
+   * The hl-* spans are injected via set:html and do NOT receive
+   * Astro's scoping class. Use :global() so selectors match them.
+   */
   .code-body {
     padding: 1rem 1.25rem;
     background: #0f0f0f;
@@ -206,7 +210,7 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
       padding: 1.25rem 1.35rem;
     }
   }
-  .code-body pre {
+  .code-body :global(pre) {
     margin: 0;
     font-size: 0.82rem;
     line-height: 1.65;
@@ -215,7 +219,7 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     border: none !important;
     padding: 0 !important;
   }
-  .code-body code {
+  .code-body :global(code) {
     color: #999;
     font-family: "SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
     background: transparent !important;
@@ -228,20 +232,26 @@ const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class
     line-height: 1.5;
     color: #999;
   }
-  .term-line { white-space: pre; }
-  .mt-xs { margin-top: 0.125rem; }
-  .mt-sm { margin-top: 0.25rem; }
-  .mt-lg { margin-top: 0.75rem; }
+  .terminal-body :global(.term-line) { white-space: pre; }
+  .terminal-body :global(.mt-xs) { margin-top: 0.125rem; }
+  .terminal-body :global(.mt-sm) { margin-top: 0.25rem; }
+  .terminal-body :global(.mt-lg) { margin-top: 0.75rem; }
 
   /* ── Syntax colors (matching archgate.dev) ────────────────── */
-  .hl-key  { color: #00c8d7; }          /* cyan – YAML keys, ctx */
-  .hl-kw   { color: #6366f1; }          /* indigo – keywords */
-  .hl-str  { color: #4ade80; }          /* green – strings */
-  .hl-green { color: #4ade80; }
-  .hl-red  { color: #f87171; }          /* red – errors */
-  .hl-em   { color: #e8e8e8; }          /* white – emphasis */
-  .hl-heading { color: #e8e8e8; font-weight: 500; }
-  .hl-txt  { color: #999; }             /* default text */
-  .hl-sep  { color: #555; }             /* separators */
-  .hl-dim  { color: #555; }             /* dimmed */
+  .code-body :global(.hl-key),
+  .terminal-body :global(.hl-key)   { color: #00c8d7; }  /* cyan – YAML keys, ctx */
+  .code-body :global(.hl-kw)       { color: #6366f1; }   /* indigo – keywords */
+  .code-body :global(.hl-str)      { color: #4ade80; }   /* green – strings */
+  .code-body :global(.hl-green),
+  .terminal-body :global(.hl-green) { color: #4ade80; }
+  .code-body :global(.hl-red),
+  .terminal-body :global(.hl-red)   { color: #f87171; }  /* red – errors */
+  .code-body :global(.hl-em)       { color: #e8e8e8; }   /* white – emphasis */
+  .code-body :global(.hl-heading)  { color: #e8e8e8; font-weight: 500; }
+  .code-body :global(.hl-txt),
+  .terminal-body :global(.hl-txt)   { color: #999; }     /* default text */
+  .code-body :global(.hl-sep),
+  .terminal-body :global(.hl-sep)   { color: #555; }     /* separators */
+  .code-body :global(.hl-dim),
+  .terminal-body :global(.hl-dim)   { color: #555; }     /* dimmed */
 </style>
