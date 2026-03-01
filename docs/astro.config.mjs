@@ -13,6 +13,65 @@ export default defineConfig({
       },
       description:
         "Enforce Architecture Decision Records as executable rules — for both humans and AI agents.",
+      customCss: ["./src/styles/custom.css"],
+      expressiveCode: {
+        // Disable Starlight's automatic UI color overrides so our
+        // hand-picked colors from archgate.dev take full effect.
+        useStarlightUiThemeColors: false,
+        styleOverrides: {
+          // ── Frame chrome — matches archgate.dev marketing site ───
+          borderRadius: "0.75rem",
+          borderColor: "#333",
+          borderWidth: "1px",
+
+          // ── Code area ───────────────────────────────────────────
+          codeBackground: "#0f0f0f",
+          codeFontFamily:
+            '"SF Mono", "Cascadia Code", "Fira Code", Consolas, monospace',
+          codeFontSize: "0.85rem",
+          codeLineHeight: "1.7",
+          codePaddingBlock: "1.25rem",
+          codePaddingInline: "1.35rem",
+
+          // ── Scrollbar ───────────────────────────────────────────
+          scrollbarThumbColor: "#333",
+          scrollbarThumbHoverColor: "#555",
+
+          // ── Frame-specific overrides ────────────────────────────
+          frames: {
+            // Editor tabs (file names)
+            editorTabBarBackground: "#1a1a1a",
+            editorTabBarBorderColor: "transparent",
+            editorTabBarBorderBottomColor: "#333",
+            editorActiveTabBackground: "#1a1a1a",
+            editorActiveTabForeground: "#999",
+            editorActiveTabBorderColor: "transparent",
+            editorActiveTabIndicatorTopColor: "transparent",
+            editorActiveTabIndicatorBottomColor: "transparent",
+            editorBackground: "#0f0f0f",
+
+            // Terminal title bar
+            terminalTitlebarBackground: "#1a1a1a",
+            terminalTitlebarForeground: "#555",
+            terminalTitlebarBorderBottomColor: "#333",
+            terminalTitlebarDotsForeground: "#555",
+            terminalTitlebarDotsOpacity: "0.8",
+            terminalBackground: "#0f0f0f",
+
+            // Buttons (copy, etc.)
+            inlineButtonBackground: "#333",
+            inlineButtonForeground: "#999",
+            inlineButtonBorder: "#555",
+
+            // No shadow — flat design like the website
+            frameBoxShadowCssValue: "none",
+
+            // Tooltip
+            tooltipSuccessBackground: "#4ade80",
+            tooltipSuccessForeground: "#0f0f0f",
+          },
+        },
+      },
       social: [
         {
           icon: "github",
