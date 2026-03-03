@@ -128,6 +128,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           registry-url: "https://registry.npmjs.org"
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
       - name: Release
         uses: TrigenSoftware/simple-release-action@v1
         with:
