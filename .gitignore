@@ -20,6 +20,9 @@ coverage
 # OS files
 .DS_Store
 
+# Local MCP config
+.mcp.json
+
 # Proto / Moon
 .moon/cache
 .moon/docker
