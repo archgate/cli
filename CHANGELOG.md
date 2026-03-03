@@ -1,3 +1,9 @@
+## [0.8.2](https://github.com/archgate/cli/compare/v0.8.1...v0.8.2) (2026-03-03)
+
+### Bug Fixes
+
+* **ci:** upgrade npm to v11 for OIDC trusted publishing ([#41](https://github.com/archgate/cli/issues/41)) ([3a3e490](https://github.com/archgate/cli/commit/3a3e49049af949e260de32aaf56cf3699473b88a))
+
 ## [0.8.1](https://github.com/archgate/cli/compare/v0.8.0...v0.8.1) (2026-03-03)
 
 ### Bug Fixes
