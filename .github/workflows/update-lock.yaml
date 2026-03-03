@@ -7,7 +7,7 @@ on:
       - "package.json"
       - ".github/workflows/update-lock.yaml"
 concurrency:
-  group: pr-lock-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   update-lock:
