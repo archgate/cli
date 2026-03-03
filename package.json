@@ -1,6 +1,6 @@
 {
   "name": "archgate",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "readme": "README.md",
   "license": "Apache-2.0",
