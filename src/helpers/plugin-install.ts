@@ -2,6 +2,8 @@
  * plugin-install.ts — Download and install the archgate plugin for supported editors.
  *
  * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
+ * - VS Code:     configures .vscode/settings.json with marketplace URL (git-based plugin)
+ * - Copilot CLI:  auto-installs via `copilot` CLI, or prints manual commands as fallback
  * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
  */
 
@@ -112,6 +114,66 @@ export async function installCursorPlugin(
 
   return extractedFiles;
 }
+
+// ---------------------------------------------------------------------------
+// VS Code — configure marketplace URL in .vscode/settings.json
+// ---------------------------------------------------------------------------
+
+/**
+ * Install the archgate plugin for VS Code by configuring the marketplace URL.
+ *
+ * VS Code agent plugins are installed from git-based marketplaces. This adds the
+ * authenticated marketplace URL to `.vscode/settings.json` so VS Code can discover
+ * and install the plugin automatically.
+ */
+export async function installVscodePlugin(
+  projectRoot: string,
+  credentials: StoredCredentials
+): Promise<string> {
+  const { configureVscodeSettings } = await import("./vscode-settings");
+  const url = buildMarketplaceUrl(credentials);
+  return configureVscodeSettings(projectRoot, url);
+}
+
+// ---------------------------------------------------------------------------
+// Copilot CLI — CLI auto-install + manual fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether the `copilot` CLI is available on the system PATH.
+ */
+export async function isCopilotCliAvailable(): Promise<boolean> {
+  const result = await $`copilot --version`.nothrow().quiet();
+  return result.exitCode === 0;
+}
+
+/**
+ * Install the archgate plugin via the `copilot` CLI.
+ *
+ * Runs:
+ *   copilot plugin install <authenticated-git-url>
+ *
+ * Throws on failure so the caller can fall back to manual instructions.
+ */
+export async function installCopilotPlugin(
+  credentials: StoredCredentials
+): Promise<void> {
+  const url = buildMarketplaceUrl(credentials);
+
+  logDebug("Installing archgate plugin via copilot CLI");
+  const installResult = await $`copilot plugin install ${url}`
+    .nothrow()
+    .quiet();
+  if (installResult.exitCode !== 0) {
+    throw new Error(
+      `copilot plugin install failed (exit ${installResult.exitCode})`
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared — tar extraction helper
+// ---------------------------------------------------------------------------
 
 /**
  * Extract a .tar.gz buffer to a destination directory.

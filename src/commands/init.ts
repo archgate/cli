@@ -5,7 +5,21 @@ import { initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { loadCredentials } from "../helpers/auth";
 
-const VALID_EDITORS = ["claude", "cursor"] as const;
+const VALID_EDITORS = ["claude", "cursor", "vscode", "copilot"] as const;
+
+const EDITOR_LABELS: Record<EditorTarget, string> = {
+  claude: "Claude Code",
+  cursor: "Cursor",
+  vscode: "VS Code",
+  copilot: "Copilot CLI",
+};
+
+const EDITOR_DIRS: Record<EditorTarget, string> = {
+  claude: ".claude/",
+  cursor: ".cursor/",
+  vscode: ".vscode/",
+  copilot: ".github/copilot/",
+};
 
 export function registerInitCommand(program: Command) {
   program
@@ -13,7 +27,7 @@ export function registerInitCommand(program: Command) {
     .description("Initialize Archgate governance in the current project")
     .option(
       "--editor <editor>",
-      "editor integration to configure (claude, cursor)",
+      "editor integration to configure (claude, cursor, vscode, copilot)",
       "claude"
     )
     .option(
@@ -39,38 +53,26 @@ export function registerInitCommand(program: Command) {
           installPlugin,
         });
 
+        const editorTarget = editor as EditorTarget;
+        const label = EDITOR_LABELS[editorTarget];
+        const dir = EDITOR_DIRS[editorTarget];
+
         console.log(`Initialized Archgate governance in ${result.projectRoot}`);
         console.log(`  adrs/          - architecture decision records`);
         console.log(`  lint/          - linter-specific rules`);
-        if (editor === "cursor") {
-          console.log(`  .cursor/       - Cursor settings configured`);
-        } else {
-          console.log(`  .claude/       - Claude Code settings configured`);
-        }
+        console.log(`  ${dir.padEnd(13)}- ${label} settings configured`);
 
         // Plugin install output
         if (result.plugin?.installed) {
           console.log("");
           if (result.plugin.autoInstalled) {
-            logInfo(
-              editor === "cursor"
-                ? "Archgate plugin installed for Cursor."
-                : "Archgate plugin installed for Claude Code."
-            );
+            logInfo(`Archgate plugin installed for ${label}.`);
             if (result.plugin.detail) {
               console.log(`  ${result.plugin.detail}`);
             }
           } else {
-            // Claude Code — claude CLI not found, show manual commands
-            logWarn(
-              "Claude CLI not found. To install the plugin manually, run:"
-            );
-            console.log(
-              `  ${styleText("bold", "claude plugin marketplace add")} ${result.plugin.detail}`
-            );
-            console.log(
-              `  ${styleText("bold", "claude plugin install")} archgate@archgate`
-            );
+            // CLI not found for this editor — show manual commands
+            printManualInstructions(editorTarget, result.plugin.detail);
           }
         } else if (installPlugin) {
           // User wanted plugin but no credentials
@@ -84,4 +86,28 @@ export function registerInitCommand(program: Command) {
         process.exit(1);
       }
     });
+}
+
+/**
+ * Print manual plugin installation instructions when the editor CLI is not available.
+ */
+function printManualInstructions(editor: EditorTarget, detail?: string): void {
+  switch (editor) {
+    case "claude":
+      logWarn("Claude CLI not found. To install the plugin manually, run:");
+      console.log(
+        `  ${styleText("bold", "claude plugin marketplace add")} ${detail}`
+      );
+      console.log(
+        `  ${styleText("bold", "claude plugin install")} archgate@archgate`
+      );
+      break;
+    case "copilot":
+      logWarn("Copilot CLI not found. To install the plugin manually, run:");
+      console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
+      break;
+    default:
+      // vscode and cursor auto-install always — should not reach here
+      break;
+  }
 }
