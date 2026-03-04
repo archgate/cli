@@ -88,7 +88,10 @@ async function run(
 }
 
 // Usage
-const { exitCode, stdout } = await run(["git", "diff", "--cached", "--name-only"], { cwd: projectRoot });
+const { exitCode, stdout } = await run(
+  ["git", "diff", "--cached", "--name-only"],
+  { cwd: projectRoot }
+);
 const files = stdout.trim().split("\n").filter(Boolean);
 ```
 
