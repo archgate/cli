@@ -7,7 +7,7 @@ The Archgate VS Code plugin gives AI agents working in [VS Code](https://code.vi
 
 ## How it works
 
-VS Code supports **agent plugins** installed from git-based marketplaces. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate.git`. When you add this marketplace to your VS Code settings, VS Code discovers and installs the plugin automatically.
+VS Code supports **agent plugins** installed from git-based marketplaces. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate.git`. When you add this marketplace to your VS Code user settings, VS Code discovers and installs the plugin automatically.
 
 The plugin uses the same format as Claude Code plugins (`.claude-plugin/plugin.json`), which VS Code's agent plugin system recognizes natively.
 
@@ -38,8 +38,16 @@ archgate init --editor vscode
 If you are already logged in, this command:
 
 1. Creates the `.archgate/` governance directory (ADRs, lint rules)
-2. Configures `.vscode/settings.json` with the authenticated marketplace URL
-3. Registers the Archgate MCP server in `.vscode/settings.json`
+2. Creates `.vscode/mcp.json` with the Archgate MCP server configuration
+3. Adds the authenticated marketplace URL to your VS Code **user settings**
+
+The `chat.plugins.marketplaces` setting is application-scoped in VS Code, so it cannot be set per-workspace. The CLI automatically writes it to your user-level `settings.json`:
+
+| Platform | User settings path                                      |
+| -------- | ------------------------------------------------------- |
+| Windows  | `%APPDATA%\Code\User\settings.json`                     |
+| macOS    | `~/Library/Application Support/Code/User/settings.json` |
+| Linux    | `~/.config/Code/User/settings.json`                     |
 
 To explicitly request plugin installation:
 
@@ -47,27 +55,43 @@ To explicitly request plugin installation:
 archgate init --editor vscode --install-plugin
 ```
 
-### Generated settings
+### Generated files
 
-The command adds the following to `.vscode/settings.json` (existing settings are preserved):
+The command creates or updates the following files:
+
+| File                 | Scope     | Purpose                                                  |
+| -------------------- | --------- | -------------------------------------------------------- |
+| `.vscode/mcp.json`   | Workspace | MCP server configuration so VS Code can access your ADRs |
+| User `settings.json` | User      | `chat.plugins.marketplaces` with the authenticated URL   |
+
+If `.vscode/mcp.json` already exists, Archgate merges its configuration additively -- existing server entries are preserved. The user settings file is also merged additively -- existing settings are never overwritten.
+
+The workspace MCP configuration (`.vscode/mcp.json`):
 
 ```json
 {
-  "chat.plugins.marketplaces": [
-    "https://<github-user>:<token>@plugins.archgate.dev/archgate.git"
-  ],
-  "mcp": {
-    "servers": {
-      "archgate": {
-        "command": "archgate",
-        "args": ["mcp"]
-      }
+  "servers": {
+    "archgate": {
+      "command": "archgate",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-If `.vscode/settings.json` already exists, Archgate merges its settings additively -- existing entries are preserved.
+The user-level marketplace setting (added to your `settings.json`):
+
+```json
+{
+  "chat.plugins.marketplaces": [
+    "https://<github-user>:<token>@plugins.archgate.dev/archgate.git"
+  ]
+}
+```
+
+### Manual setup
+
+If you prefer not to let the CLI modify your user settings, you can add the marketplace URL manually. Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
 
 ## What the plugin provides
 
@@ -131,6 +155,7 @@ The MCP server runs locally and reads directly from your `.archgate/adrs/` direc
 
 ## Tips
 
-- **Commit `.vscode/settings.json`** to share the marketplace and MCP configuration with your team.
+- **Commit `.vscode/mcp.json`** to share the MCP configuration with your team.
+- **Each developer runs `archgate init --editor vscode`** after `archgate login` to configure their user-level marketplace URL.
 - **Run onboard once per project** to generate your initial ADRs from your actual codebase.
 - **Keep ADR rule files up to date** -- the agent enforces what the rules check for.
