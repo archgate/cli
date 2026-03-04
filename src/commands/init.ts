@@ -107,7 +107,7 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
       break;
     default:
-      // cursor auto-installs always — should not reach here
+      // vscode and cursor auto-install always — should not reach here
       break;
   }
 }

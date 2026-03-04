@@ -116,13 +116,15 @@ async function configureEditorSettings(
     case "cursor":
       return configureCursorSettings(projectRoot);
     case "vscode": {
-      // VS Code: marketplace URL to user settings if logged in
+      // VS Code needs the marketplace URL for settings — use a placeholder
+      // that gets replaced during plugin install if credentials exist.
       const { loadCredentials } = await import("./auth");
       const creds = await loadCredentials();
-      const marketplaceUrl = creds
-        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl(creds)
-        : undefined;
-      return configureVscodeSettings(projectRoot, marketplaceUrl);
+      const { buildMarketplaceUrl } = await import("./plugin-install");
+      const url = creds
+        ? buildMarketplaceUrl(creds)
+        : "https://plugins.archgate.dev/archgate.git";
+      return configureVscodeSettings(projectRoot, url);
     }
     case "copilot":
       return configureCopilotSettings(projectRoot);
@@ -156,12 +158,12 @@ async function tryInstallPlugin(
   }
 
   if (editor === "vscode") {
-    // VS Code marketplace URL is already added to user settings by configureEditorSettings.
-    // The --install-plugin flag is a no-op for VS Code since init handles everything.
+    const { installVscodePlugin } = await import("./plugin-install");
+    await installVscodePlugin(projectRoot, credentials);
     return {
       installed: true,
       autoInstalled: true,
-      detail: "Marketplace URL added to VS Code user settings",
+      detail: "Configured marketplace URL in .vscode/settings.json",
     };
   }
 
