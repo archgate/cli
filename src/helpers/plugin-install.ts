@@ -2,7 +2,7 @@
  * plugin-install.ts — Download and install the archgate plugin for supported editors.
  *
  * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
- * - VS Code:     configures .vscode/settings.json with marketplace URL (git-based plugin)
+ * - VS Code:     marketplace URL for manual user-settings configuration (application-scoped)
  * - Copilot CLI:  auto-installs via `copilot` CLI, or prints manual commands as fallback
  * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
  */
@@ -135,26 +135,6 @@ export async function installCursorPlugin(
   );
 
   return extractedFiles;
-}
-
-// ---------------------------------------------------------------------------
-// VS Code — configure marketplace URL in .vscode/settings.json
-// ---------------------------------------------------------------------------
-
-/**
- * Install the archgate plugin for VS Code by configuring the marketplace URL.
- *
- * VS Code agent plugins are installed from git-based marketplaces. This adds the
- * authenticated marketplace URL to `.vscode/settings.json` so VS Code can discover
- * and install the plugin automatically.
- */
-export async function installVscodePlugin(
-  projectRoot: string,
-  credentials: StoredCredentials
-): Promise<string> {
-  const { configureVscodeSettings } = await import("./vscode-settings");
-  const url = buildMarketplaceUrl(credentials);
-  return configureVscodeSettings(projectRoot, url);
 }
 
 // ---------------------------------------------------------------------------
