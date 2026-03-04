@@ -21,12 +21,25 @@ export function installGit() {
  */
 export async function getChangedFiles(projectRoot: string): Promise<string[]> {
   try {
-    const result =
-      await $`git diff --name-only && git diff --cached --name-only`
-        .cwd(projectRoot)
-        .quiet()
-        .text();
-    const files = result.trim().split("\n").filter(Boolean);
+    const spawnOpts = {
+      cwd: projectRoot,
+      stdout: "pipe" as const,
+      stderr: "pipe" as const,
+    };
+    const unstaged = Bun.spawn(["git", "diff", "--name-only"], spawnOpts);
+    const staged = Bun.spawn(
+      ["git", "diff", "--cached", "--name-only"],
+      spawnOpts
+    );
+    const [unstagedText, stagedText] = await Promise.all([
+      new Response(unstaged.stdout).text(),
+      new Response(staged.stdout).text(),
+    ]);
+    await Promise.all([unstaged.exited, staged.exited]);
+    const files = [
+      ...unstagedText.trim().split("\n"),
+      ...stagedText.trim().split("\n"),
+    ].filter(Boolean);
     return [...new Set(files)];
   } catch {
     return [];

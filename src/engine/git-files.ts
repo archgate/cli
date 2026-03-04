@@ -1,15 +1,35 @@
 /** Git file-listing utilities for ADR scope resolution and change detection. */
 
+/**
+ * Run a git command using Bun.spawn (cross-platform, no shell).
+ * Bun.$ hangs on Windows due to pipe handling issues — this is the safe alternative.
+ */
+async function runGit(
+  args: string[],
+  cwd: string
+): Promise<string> {
+  const proc = Bun.spawn(["git", ...args], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const text = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`git ${args[0]} exited with code ${exitCode}`);
+  }
+  return text;
+}
+
 /** Get all git-tracked (non-ignored) files in the project. */
 export async function getGitTrackedFiles(
   projectRoot: string
 ): Promise<Set<string> | null> {
   try {
-    const result =
-      await Bun.$`git ls-files --cached --others --exclude-standard`
-        .cwd(projectRoot)
-        .quiet()
-        .text();
+    const result = await runGit(
+      ["ls-files", "--cached", "--others", "--exclude-standard"],
+      projectRoot
+    );
     return new Set(result.trim().split("\n").filter(Boolean));
   } catch {
     return null;
@@ -40,10 +60,10 @@ export async function resolveScopedFiles(
 /** Get changed files from git staging area. */
 export async function getStagedFiles(projectRoot: string): Promise<string[]> {
   try {
-    const result = await Bun.$`git diff --cached --name-only`
-      .cwd(projectRoot)
-      .quiet()
-      .text();
+    const result = await runGit(
+      ["diff", "--cached", "--name-only"],
+      projectRoot
+    );
     return result.trim().split("\n").filter(Boolean);
   } catch {
     return [];
@@ -53,14 +73,11 @@ export async function getStagedFiles(projectRoot: string): Promise<string[]> {
 /** Get all changed files (staged + unstaged). */
 export async function getChangedFiles(projectRoot: string): Promise<string[]> {
   try {
-    const staged = await Bun.$`git diff --cached --name-only`
-      .cwd(projectRoot)
-      .quiet()
-      .text();
-    const unstaged = await Bun.$`git diff --name-only`
-      .cwd(projectRoot)
-      .quiet()
-      .text();
+    const staged = await runGit(
+      ["diff", "--cached", "--name-only"],
+      projectRoot
+    );
+    const unstaged = await runGit(["diff", "--name-only"], projectRoot);
     const all = new Set([
       ...staged.trim().split("\n").filter(Boolean),
       ...unstaged.trim().split("\n").filter(Boolean),

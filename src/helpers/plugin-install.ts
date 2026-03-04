@@ -7,11 +7,28 @@
 
 import { join } from "node:path";
 import { mkdirSync, unlinkSync } from "node:fs";
-import { $ } from "bun";
 import { logDebug } from "./log";
 import type { StoredCredentials } from "./auth";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
+
+/**
+ * Run a command using Bun.spawn (cross-platform, no shell).
+ * Returns { exitCode, stdout }.
+ */
+async function run(
+  cmd: string[],
+  opts?: { cwd?: string }
+): Promise<{ exitCode: number; stdout: string }> {
+  const proc = Bun.spawn(cmd, {
+    cwd: opts?.cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  return { exitCode, stdout };
+}
 
 // ---------------------------------------------------------------------------
 // Claude Code — CLI auto-install + manual fallback
@@ -28,8 +45,12 @@ export function buildMarketplaceUrl(credentials: StoredCredentials): string {
  * Check whether the `claude` CLI is available on the system PATH.
  */
 export async function isClaudeCliAvailable(): Promise<boolean> {
-  const result = await $`claude --version`.nothrow().quiet();
-  return result.exitCode === 0;
+  try {
+    const { exitCode } = await run(["claude", "--version"]);
+    return exitCode === 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -47,9 +68,7 @@ export async function installClaudePlugin(
   const url = buildMarketplaceUrl(credentials);
 
   logDebug("Adding archgate marketplace to claude CLI");
-  const addResult = await $`claude plugin marketplace add ${url}`
-    .nothrow()
-    .quiet();
+  const addResult = await run(["claude", "plugin", "marketplace", "add", url]);
   if (addResult.exitCode !== 0) {
     throw new Error(
       `claude plugin marketplace add failed (exit ${addResult.exitCode})`
@@ -57,9 +76,12 @@ export async function installClaudePlugin(
   }
 
   logDebug("Installing archgate plugin via claude CLI");
-  const installResult = await $`claude plugin install archgate@archgate`
-    .nothrow()
-    .quiet();
+  const installResult = await run([
+    "claude",
+    "plugin",
+    "install",
+    "archgate@archgate",
+  ]);
   if (installResult.exitCode !== 0) {
     throw new Error(
       `claude plugin install failed (exit ${installResult.exitCode})`
@@ -129,7 +151,7 @@ async function extractTarGz(
     mkdirSync(destDir, { recursive: true });
 
     // Extract using tar (available on macOS, Linux, and Windows 10+)
-    const result = await $`tar -xzf ${tmpArchive} -C ${destDir}`.nothrow();
+    const result = await run(["tar", "-xzf", tmpArchive, "-C", destDir]);
 
     if (result.exitCode !== 0) {
       throw new Error(
@@ -138,8 +160,8 @@ async function extractTarGz(
     }
 
     // List extracted files for reporting
-    const listResult = await $`tar -tzf ${tmpArchive}`.nothrow().text();
-    const files = listResult
+    const listResult = await run(["tar", "-tzf", tmpArchive]);
+    const files = listResult.stdout
       .split("\n")
       .map((f) => f.trim())
       .filter(Boolean);
