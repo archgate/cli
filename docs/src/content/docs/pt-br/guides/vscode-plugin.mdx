@@ -1,0 +1,136 @@
+---
+title: Plugin para VS Code
+description: Instale o plugin Archgate no VS Code para desenvolvimento assistido por IA com governança.
+---
+
+O plugin Archgate para VS Code oferece aos agentes de IA que trabalham no [VS Code](https://code.visualstudio.com/) um fluxo de governança estruturado. Os agentes leem seus ADRs antes de escrever código, validam depois e capturam novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/pt-br/guides/claude-code-plugin/).
+
+## Como funciona
+
+O VS Code suporta **plugins de agente** instalados a partir de marketplaces baseados em git. O plugin Archgate é servido a partir de um repositório git em `plugins.archgate.dev/archgate.git`. Quando você adiciona esse marketplace às suas configurações do VS Code, o VS Code descobre e instala o plugin automaticamente.
+
+O plugin usa o mesmo formato dos plugins do Claude Code (`.claude-plugin/plugin.json`), que o sistema de plugins de agente do VS Code reconhece nativamente.
+
+## Instalação
+
+:::note[Acesso beta necessário]
+O plugin para VS Code está atualmente em beta. [Cadastre-se em plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso antes de seguir os passos abaixo.
+:::
+
+### 1. Faça login com o GitHub
+
+Autentique-se com sua conta do GitHub para obter um token do plugin:
+
+```bash
+archgate login
+```
+
+Isso inicia um GitHub Device Flow. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas em `~/.archgate/credentials`.
+
+### 2. Inicialize seu projeto com o plugin
+
+Execute `archgate init` com a flag `--editor vscode`:
+
+```bash
+archgate init --editor vscode
+```
+
+Se você já estiver logado, este comando:
+
+1. Cria o diretório de governança `.archgate/` (ADRs, regras de lint)
+2. Configura `.vscode/settings.json` com a URL autenticada do marketplace
+3. Registra o servidor MCP do Archgate em `.vscode/settings.json`
+
+Para solicitar explicitamente a instalação do plugin:
+
+```bash
+archgate init --editor vscode --install-plugin
+```
+
+### Configurações geradas
+
+O comando adiciona o seguinte ao `.vscode/settings.json` (configurações existentes são preservadas):
+
+```json
+{
+  "chat.plugins.marketplaces": [
+    "https://<github-user>:<token>@plugins.archgate.dev/archgate.git"
+  ],
+  "mcp": {
+    "servers": {
+      "archgate": {
+        "command": "archgate",
+        "args": ["mcp"]
+      }
+    }
+  }
+}
+```
+
+Se `.vscode/settings.json` já existir, o Archgate mescla suas configurações de forma aditiva -- entradas existentes são preservadas.
+
+## O que o plugin oferece
+
+O plugin adiciona skills baseadas em papéis ao agente de IA do VS Code. Cada skill encapsula uma parte específica do fluxo de governança, garantindo que os agentes sigam o mesmo processo todas as vezes.
+
+### Skills incluídas
+
+| Skill                      | Propósito                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `archgate:developer`       | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois             |
+| `archgate:architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
+| `archgate:quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
+| `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
+| `archgate:onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+
+## Configuração inicial com onboard
+
+Após a instalação, execute a skill `archgate:onboard` no seu projeto uma vez. Essa skill:
+
+1. Explora a estrutura do seu codebase (diretórios, arquivos-chave, configuração de pacotes)
+2. Entrevista você sobre as convenções, restrições e decisões arquiteturais da sua equipe
+3. Cria um conjunto inicial de ADRs com base nas suas respostas
+4. Configura o diretório `.archgate/` com suas primeiras regras
+
+A skill de onboard foi projetada para ser executada uma vez por projeto. Após o onboarding, as outras skills cuidam do desenvolvimento no dia a dia.
+
+## Como funciona na prática
+
+O plugin segue um fluxo estruturado para cada tarefa de codificação:
+
+### 1. Ler os ADRs aplicáveis
+
+Quando o desenvolvedor atribui uma tarefa de codificação, o agente lê todos os ADRs que se aplicam aos arquivos sendo alterados. O servidor MCP fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
+
+### 2. Escrever código seguindo as restrições dos ADRs
+
+O agente escreve código que cumpre as restrições dos ADRs. As seções Do's and Don'ts servem como guardrails concretos.
+
+### 3. Validar as alterações
+
+Após escrever o código, o agente executa `archgate check` para rodar as regras automatizadas contra as alterações. Qualquer violação é corrigida antes de prosseguir.
+
+### 4. Revisão do arquiteto
+
+O agente invoca `archgate:architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
+
+### 5. Capturar aprendizados
+
+O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs.
+
+## Integração com o servidor MCP
+
+O plugin se comunica com os ADRs do seu projeto por meio do servidor MCP do Archgate. O servidor fornece:
+
+- **Conteúdo de ADRs** -- texto completo de qualquer ADR, acessível por ID
+- **Contexto de revisão** -- resumos condensados de todos os ADRs aplicáveis a um conjunto de arquivos alterados
+- **Verificação de regras** -- execução de regras automatizadas com relatório de violações
+- **Listagem de ADRs** -- inventário de todos os ADRs do projeto com metadados
+
+O servidor MCP roda localmente e lê diretamente do seu diretório `.archgate/adrs/`. Nenhum dado sai da sua máquina.
+
+## Dicas
+
+- **Faça commit do `.vscode/settings.json`** para compartilhar a configuração do marketplace e MCP com sua equipe.
+- **Execute o onboard uma vez por projeto** para gerar seus ADRs iniciais a partir do seu codebase real.
+- **Mantenha os arquivos de regras dos ADRs atualizados** -- o agente aplica o que as regras verificam.
