@@ -4,10 +4,7 @@
  * Run a git command using Bun.spawn (cross-platform, no shell).
  * Bun.$ hangs on Windows due to pipe handling issues — this is the safe alternative.
  */
-async function runGit(
-  args: string[],
-  cwd: string
-): Promise<string> {
+async function runGit(args: string[], cwd: string): Promise<string> {
   const proc = Bun.spawn(["git", ...args], {
     cwd,
     stdout: "pipe",
