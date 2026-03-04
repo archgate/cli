@@ -1,19 +1,25 @@
-import { $ } from "bun";
 import { logDebug } from "./log";
 
-export function installGit() {
+export async function installGit() {
   if (Bun.which("git")) {
     logDebug("Git is already installed");
     return;
   }
   console.log("Git is not installed. Installing...");
-  if (process.platform === "darwin") return $`brew install git`;
-  if (process.platform === "linux") return $`sudo apt-get install -y git`;
-  if (process.platform === "win32")
+  if (process.platform === "win32") {
     throw new Error(
       "Git is not installed. Install it from https://git-scm.com/download/win and make sure it is on your PATH."
     );
-  throw new Error("Unsupported platform");
+  }
+  const cmd =
+    process.platform === "darwin"
+      ? ["brew", "install", "git"]
+      : ["sudo", "apt-get", "install", "-y", "git"];
+  const proc = Bun.spawn(cmd, { stdout: "inherit", stderr: "inherit" });
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    throw new Error(`Failed to install git (exit code ${exitCode})`);
+  }
 }
 
 /**
@@ -21,12 +27,25 @@ export function installGit() {
  */
 export async function getChangedFiles(projectRoot: string): Promise<string[]> {
   try {
-    const result =
-      await $`git diff --name-only && git diff --cached --name-only`
-        .cwd(projectRoot)
-        .quiet()
-        .text();
-    const files = result.trim().split("\n").filter(Boolean);
+    const spawnOpts = {
+      cwd: projectRoot,
+      stdout: "pipe" as const,
+      stderr: "pipe" as const,
+    };
+    const unstaged = Bun.spawn(["git", "diff", "--name-only"], spawnOpts);
+    const staged = Bun.spawn(
+      ["git", "diff", "--cached", "--name-only"],
+      spawnOpts
+    );
+    const [unstagedText, stagedText] = await Promise.all([
+      new Response(unstaged.stdout).text(),
+      new Response(staged.stdout).text(),
+    ]);
+    await Promise.all([unstaged.exited, staged.exited]);
+    const files = [
+      ...unstagedText.trim().split("\n"),
+      ...stagedText.trim().split("\n"),
+    ].filter(Boolean);
     return [...new Set(files)];
   } catch {
     return [];

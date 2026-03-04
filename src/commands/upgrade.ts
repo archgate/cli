@@ -1,5 +1,5 @@
 import type { Command } from "@commander-js/extra-typings";
-import { $, semver } from "bun";
+import { semver } from "bun";
 import { logError } from "../helpers/log";
 
 const NPM_REGISTRY = "https://registry.npmjs.org/archgate/latest";
@@ -58,9 +58,13 @@ export function registerUpgradeCommand(program: Command) {
 
       console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
 
-      const result = await $`npm install -g archgate@latest`.nothrow();
+      const proc = Bun.spawn(["npm", "install", "-g", "archgate@latest"], {
+        stdout: "inherit",
+        stderr: "inherit",
+      });
+      const exitCode = await proc.exited;
 
-      if (result.exitCode !== 0) {
+      if (exitCode !== 0) {
         logError(
           "Failed to install the latest version via npm.",
           "Try running `npm install -g archgate@latest` manually."
