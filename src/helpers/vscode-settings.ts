@@ -48,6 +48,18 @@ export function mergeVscodeMcpConfig(
 }
 
 /**
+ * VS Code's built-in default marketplaces for `chat.plugins.marketplaces`.
+ *
+ * These are implicit defaults — VS Code uses them when the setting is absent
+ * from the user's settings.json. Once we explicitly set the key, VS Code stops
+ * using its defaults, so we must include them to avoid losing them.
+ */
+const VSCODE_DEFAULT_MARKETPLACES = [
+  "github/copilot-plugins",
+  "github/awesome-copilot",
+];
+
+/**
  * Deduplicate an array of strings while preserving order.
  */
 function dedup(arr: string[]): string[] {
@@ -57,6 +69,9 @@ function dedup(arr: string[]): string[] {
 /**
  * Add a marketplace URL to the `chat.plugins.marketplaces` array in a VS Code
  * user settings object. Preserves all other settings. Deduplicates URLs.
+ *
+ * When `chat.plugins.marketplaces` is not yet in the file, VS Code's built-in
+ * defaults are included so they are not lost when we explicitly set the key.
  */
 export function mergeMarketplaceUrl(
   existing: VscodeUserSettings,
@@ -64,16 +79,20 @@ export function mergeMarketplaceUrl(
 ): VscodeUserSettings {
   const merged: VscodeUserSettings = { ...existing };
 
+  const hasExplicitMarketplaces = "chat.plugins.marketplaces" in existing;
   const existingMarketplaces = Array.isArray(
     merged["chat.plugins.marketplaces"]
   )
     ? (merged["chat.plugins.marketplaces"] as string[])
     : [];
 
-  merged["chat.plugins.marketplaces"] = dedup([
-    ...existingMarketplaces,
-    marketplaceUrl,
-  ]);
+  // When the key is absent, seed with VS Code's built-in defaults so we don't
+  // silently override them by setting the key explicitly.
+  const base = hasExplicitMarketplaces
+    ? existingMarketplaces
+    : [...VSCODE_DEFAULT_MARKETPLACES, ...existingMarketplaces];
+
+  merged["chat.plugins.marketplaces"] = dedup([...base, marketplaceUrl]);
 
   return merged;
 }
