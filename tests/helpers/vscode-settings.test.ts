@@ -7,6 +7,7 @@ import {
   mergeVscodeMcpConfig,
   mergeMarketplaceUrl,
   configureVscodeSettings,
+  addMarketplaceToUserSettings,
 } from "../../src/helpers/vscode-settings";
 
 describe("mergeVscodeMcpConfig", () => {
@@ -211,5 +212,76 @@ describe("configureVscodeSettings", () => {
     const mcpConfigPath = await configureVscodeSettings(tempDir);
 
     expect(mcpConfigPath).toBe(join(tempDir, ".vscode", "mcp.json"));
+  });
+});
+
+describe("addMarketplaceToUserSettings", () => {
+  let tempDir: string;
+  let originalEnv: string | undefined;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-user-settings-test-"));
+    originalEnv = process.env.APPDATA;
+    process.env.APPDATA = tempDir;
+  });
+
+  afterEach(() => {
+    process.env.APPDATA = originalEnv;
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const URL = "https://user:token@plugins.archgate.dev/archgate.git";
+
+  function settingsPath() {
+    return join(tempDir, "Code", "User", "settings.json");
+  }
+
+  test("creates settings file when none exists", async () => {
+    await addMarketplaceToUserSettings(URL);
+
+    const content = JSON.parse(await Bun.file(settingsPath()).text());
+    expect(content["chat.plugins.marketplaces"]).toEqual([URL]);
+  });
+
+  test("merges JSONC settings with trailing commas without losing data", async () => {
+    const dir = join(tempDir, "Code", "User");
+    mkdirSync(dir, { recursive: true });
+
+    const original = `{
+  "security.allowedUNCHosts": ["wsl.localhost"],
+  "git.autofetch": true,
+  "chat.mcp.gallery.enabled": true,
+}`;
+    await Bun.write(settingsPath(), original);
+
+    await addMarketplaceToUserSettings(URL);
+
+    const content = JSON.parse(await Bun.file(settingsPath()).text());
+    expect(content["git.autofetch"]).toBe(true);
+    expect(content["chat.mcp.gallery.enabled"]).toBe(true);
+    expect(content["security.allowedUNCHosts"]).toEqual(["wsl.localhost"]);
+    expect(content["chat.plugins.marketplaces"]).toEqual([URL]);
+  });
+
+  test("deduplicates marketplace URLs", async () => {
+    const dir = join(tempDir, "Code", "User");
+    mkdirSync(dir, { recursive: true });
+
+    await Bun.write(
+      settingsPath(),
+      JSON.stringify(
+        { "chat.plugins.marketplaces": ["https://other.git", URL] },
+        null,
+        2
+      )
+    );
+
+    await addMarketplaceToUserSettings(URL);
+
+    const content = JSON.parse(await Bun.file(settingsPath()).text());
+    expect(content["chat.plugins.marketplaces"]).toEqual([
+      "https://other.git",
+      URL,
+    ]);
   });
 });

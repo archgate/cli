@@ -148,9 +148,10 @@ export async function configureVscodeSettings(
 /**
  * Add the marketplace URL to VS Code's user-level settings.json.
  *
- * Reads the existing file (if any), merges the URL into
- * `chat.plugins.marketplaces`, and writes back. Creates parent
- * directories if they don't exist.
+ * Reads the existing file with `Bun.JSONC.parse` (supports comments and
+ * trailing commas), merges the marketplace URL, and writes back as standard
+ * JSON. Comments in the original file are not preserved — VS Code re-reads
+ * the file without issue.
  */
 export async function addMarketplaceToUserSettings(
   marketplaceUrl: string
