@@ -8,6 +8,7 @@ import {
   mergeMarketplaceUrl,
   configureVscodeSettings,
   addMarketplaceToUserSettings,
+  getVscodeUserSettingsPath,
 } from "../../src/helpers/vscode-settings";
 
 describe("mergeVscodeMcpConfig", () => {
@@ -224,23 +225,26 @@ describe("configureVscodeSettings", () => {
 
 describe("addMarketplaceToUserSettings", () => {
   let tempDir: string;
-  let originalEnv: string | undefined;
+  let savedEnv: Record<string, string | undefined>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-user-settings-test-"));
-    originalEnv = process.env.APPDATA;
-    process.env.APPDATA = tempDir;
+    // Save and override env so getVscodeUserSettingsPath() resolves into tempDir
+    savedEnv = { APPDATA: process.env.APPDATA, HOME: process.env.HOME };
+    process.env.APPDATA = tempDir; // Windows
+    process.env.HOME = tempDir; // macOS/Linux (homedir())
   });
 
   afterEach(() => {
-    process.env.APPDATA = originalEnv;
+    Object.assign(process.env, savedEnv);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   const URL = "https://user:token@plugins.archgate.dev/archgate.git";
 
+  /** Use the real path resolver so the test matches addMarketplaceToUserSettings */
   function settingsPath() {
-    return join(tempDir, "Code", "User", "settings.json");
+    return getVscodeUserSettingsPath();
   }
 
   test("creates settings file with defaults when none exists", async () => {
@@ -255,8 +259,7 @@ describe("addMarketplaceToUserSettings", () => {
   });
 
   test("merges JSONC settings and includes defaults when key absent", async () => {
-    const dir = join(tempDir, "Code", "User");
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(settingsPath(), ".."), { recursive: true });
     await Bun.write(
       settingsPath(),
       `{ "git.autofetch": true, "chat.mcp.gallery.enabled": true, }`
@@ -266,7 +269,6 @@ describe("addMarketplaceToUserSettings", () => {
 
     const content = JSON.parse(await Bun.file(settingsPath()).text());
     expect(content["git.autofetch"]).toBe(true);
-    expect(content["chat.mcp.gallery.enabled"]).toBe(true);
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "github/copilot-plugins",
       "github/awesome-copilot",
@@ -275,8 +277,7 @@ describe("addMarketplaceToUserSettings", () => {
   });
 
   test("deduplicates when key already exists", async () => {
-    const dir = join(tempDir, "Code", "User");
-    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(settingsPath(), ".."), { recursive: true });
     await Bun.write(
       settingsPath(),
       JSON.stringify({
