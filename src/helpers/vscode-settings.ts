@@ -126,7 +126,7 @@ export async function configureVscodeSettings(
   let existing: VscodeMcpConfig = {};
   if (existsSync(mcpConfigPath)) {
     const content = await Bun.file(mcpConfigPath).text();
-    existing = JSON.parse(content) as VscodeMcpConfig;
+    existing = Bun.JSONC.parse(content) as VscodeMcpConfig;
   }
 
   const merged = mergeVscodeMcpConfig(existing, ARCHGATE_VSCODE_MCP_CONFIG);
@@ -161,7 +161,7 @@ export async function addMarketplaceToUserSettings(
   let existing: VscodeUserSettings = {};
   if (existsSync(settingsPath)) {
     const content = await Bun.file(settingsPath).text();
-    existing = JSON.parse(content) as VscodeUserSettings;
+    existing = Bun.JSONC.parse(content) as VscodeUserSettings;
   }
 
   const merged = mergeMarketplaceUrl(existing, marketplaceUrl);
