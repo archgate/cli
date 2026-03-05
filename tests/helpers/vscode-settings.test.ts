@@ -93,12 +93,16 @@ describe("mergeVscodeMcpConfig", () => {
 describe("mergeMarketplaceUrl", () => {
   const URL = "https://user:token@plugins.archgate.dev/archgate.git";
 
-  test("adds marketplace URL to empty settings", () => {
+  test("includes VS Code defaults when key is absent", () => {
     const result = mergeMarketplaceUrl({}, URL);
-    expect(result["chat.plugins.marketplaces"]).toEqual([URL]);
+    expect(result["chat.plugins.marketplaces"]).toEqual([
+      "github/copilot-plugins",
+      "github/awesome-copilot",
+      URL,
+    ]);
   });
 
-  test("appends URL with dedup", () => {
+  test("appends URL with dedup when key already exists", () => {
     const result = mergeMarketplaceUrl(
       { "chat.plugins.marketplaces": ["https://other.git", URL] },
       URL
@@ -109,21 +113,24 @@ describe("mergeMarketplaceUrl", () => {
     ]);
   });
 
+  test("does not re-add defaults when key is explicitly set", () => {
+    const result = mergeMarketplaceUrl(
+      { "chat.plugins.marketplaces": ["https://custom.git"] },
+      URL
+    );
+    expect(result["chat.plugins.marketplaces"]).toEqual([
+      "https://custom.git",
+      URL,
+    ]);
+  });
+
   test("handles non-array marketplaces gracefully", () => {
     const result = mergeMarketplaceUrl(
-      { "chat.plugins.marketplaces": "not-an-array" },
+      { "chat.plugins.marketplaces": "not-an-array", "editor.fontSize": 14 },
       URL
     );
     expect(result["chat.plugins.marketplaces"]).toEqual([URL]);
-  });
-
-  test("preserves other settings keys", () => {
-    const result = mergeMarketplaceUrl(
-      { "editor.fontSize": 14, "workbench.colorTheme": "One Dark" },
-      URL
-    );
     expect(result["editor.fontSize"]).toBe(14);
-    expect(result["workbench.colorTheme"]).toBe("One Dark");
   });
 });
 
@@ -236,44 +243,45 @@ describe("addMarketplaceToUserSettings", () => {
     return join(tempDir, "Code", "User", "settings.json");
   }
 
-  test("creates settings file when none exists", async () => {
+  test("creates settings file with defaults when none exists", async () => {
     await addMarketplaceToUserSettings(URL);
 
     const content = JSON.parse(await Bun.file(settingsPath()).text());
-    expect(content["chat.plugins.marketplaces"]).toEqual([URL]);
+    expect(content["chat.plugins.marketplaces"]).toEqual([
+      "github/copilot-plugins",
+      "github/awesome-copilot",
+      URL,
+    ]);
   });
 
-  test("merges JSONC settings with trailing commas without losing data", async () => {
+  test("merges JSONC settings and includes defaults when key absent", async () => {
     const dir = join(tempDir, "Code", "User");
     mkdirSync(dir, { recursive: true });
-
-    const original = `{
-  "security.allowedUNCHosts": ["wsl.localhost"],
-  "git.autofetch": true,
-  "chat.mcp.gallery.enabled": true,
-}`;
-    await Bun.write(settingsPath(), original);
+    await Bun.write(
+      settingsPath(),
+      `{ "git.autofetch": true, "chat.mcp.gallery.enabled": true, }`
+    );
 
     await addMarketplaceToUserSettings(URL);
 
     const content = JSON.parse(await Bun.file(settingsPath()).text());
     expect(content["git.autofetch"]).toBe(true);
     expect(content["chat.mcp.gallery.enabled"]).toBe(true);
-    expect(content["security.allowedUNCHosts"]).toEqual(["wsl.localhost"]);
-    expect(content["chat.plugins.marketplaces"]).toEqual([URL]);
+    expect(content["chat.plugins.marketplaces"]).toEqual([
+      "github/copilot-plugins",
+      "github/awesome-copilot",
+      URL,
+    ]);
   });
 
-  test("deduplicates marketplace URLs", async () => {
+  test("deduplicates when key already exists", async () => {
     const dir = join(tempDir, "Code", "User");
     mkdirSync(dir, { recursive: true });
-
     await Bun.write(
       settingsPath(),
-      JSON.stringify(
-        { "chat.plugins.marketplaces": ["https://other.git", URL] },
-        null,
-        2
-      )
+      JSON.stringify({
+        "chat.plugins.marketplaces": ["https://other.git", URL],
+      })
     );
 
     await addMarketplaceToUserSettings(URL);
