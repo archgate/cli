@@ -179,6 +179,34 @@ describe("configureVscodeSettings", () => {
     });
   });
 
+  test("parses JSONC (comments + trailing commas) in existing mcp.json", async () => {
+    const vscodeDir = join(tempDir, ".vscode");
+    mkdirSync(vscodeDir, { recursive: true });
+
+    // Write JSONC with comments and trailing comma — as VS Code produces
+    const jsoncContent = `{
+      // MCP servers
+      "servers": {
+        "my-server": { "command": "my-cmd", "args": [] },
+      }
+    }`;
+    await Bun.write(join(vscodeDir, "mcp.json"), jsoncContent);
+
+    await configureVscodeSettings(tempDir);
+
+    const content = JSON.parse(
+      await Bun.file(join(vscodeDir, "mcp.json")).text()
+    );
+    expect(content.servers["my-server"]).toEqual({
+      command: "my-cmd",
+      args: [],
+    });
+    expect(content.servers.archgate).toEqual({
+      command: "archgate",
+      args: ["mcp"],
+    });
+  });
+
   test("returns correct absolute path to mcp.json", async () => {
     const mcpConfigPath = await configureVscodeSettings(tempDir);
 
