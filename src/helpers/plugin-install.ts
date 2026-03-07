@@ -37,10 +37,19 @@ async function run(
 // ---------------------------------------------------------------------------
 
 /**
- * Build the authenticated git marketplace URL for Claude Code plugin installation.
+ * Build the authenticated git marketplace URL for Claude Code & Copilot CLI plugin installation.
+ * Claude Code and Copilot CLI both use the .claude-plugin/ manifest format.
  */
 export function buildMarketplaceUrl(credentials: StoredCredentials): string {
   return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate.git`;
+}
+
+/**
+ * Build the authenticated git marketplace URL for VS Code plugin installation.
+ * VS Code Copilot uses the .github/plugin/ manifest format, served from a separate repo.
+ */
+export function buildVscodeMarketplaceUrl(credentials: StoredCredentials): string {
+  return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate-vscode.git`;
 }
 
 /**

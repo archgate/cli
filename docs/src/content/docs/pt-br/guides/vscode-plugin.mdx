@@ -7,7 +7,7 @@ O plugin Archgate para VS Code oferece aos agentes de IA que trabalham no [VS Co
 
 ## Como funciona
 
-O VS Code suporta **plugins de agente** instalados a partir de marketplaces baseados em git. O plugin Archgate é servido a partir de um repositório git em `plugins.archgate.dev/archgate.git`. Quando você adiciona esse marketplace às suas configurações de usuário do VS Code, o VS Code descobre e instala o plugin automaticamente.
+O VS Code suporta **plugins de agente** instalados a partir de marketplaces baseados em git. O plugin Archgate é servido a partir de um repositório git em `plugins.archgate.dev/archgate-vscode.git`. Quando você adiciona esse marketplace às suas configurações de usuário do VS Code, o VS Code descobre e instala o plugin automaticamente.
 
 O plugin usa o mesmo formato dos plugins do Claude Code (`.claude-plugin/plugin.json`), que o sistema de plugins de agente do VS Code reconhece nativamente.
 
@@ -88,7 +88,7 @@ A configuração do marketplace no nível de usuário (adicionada ao seu `settin
 ```json
 {
   "chat.plugins.marketplaces": [
-    "https://<github-user>:<token>@plugins.archgate.dev/archgate.git"
+    "https://<github-user>:<token>@plugins.archgate.dev/archgate-vscode.git"
   ]
 }
 ```

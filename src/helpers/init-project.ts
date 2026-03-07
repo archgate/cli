@@ -120,7 +120,7 @@ async function configureEditorSettings(
       const { loadCredentials } = await import("./auth");
       const creds = await loadCredentials();
       const marketplaceUrl = creds
-        ? (await import("./plugin-install")).buildMarketplaceUrl(creds)
+        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl(creds)
         : undefined;
       return configureVscodeSettings(projectRoot, marketplaceUrl);
     }
