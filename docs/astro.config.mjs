@@ -122,6 +122,14 @@ export default defineConfig({
               slug: "guides/claude-code-plugin",
             },
             {
+              label: "VS Code Plugin",
+              slug: "guides/vscode-plugin",
+            },
+            {
+              label: "Copilot CLI Plugin",
+              slug: "guides/copilot-cli-plugin",
+            },
+            {
               label: "Cursor Integration",
               slug: "guides/cursor-integration",
             },
