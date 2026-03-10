@@ -4,8 +4,10 @@ import { createPathIfNotExists, projectPaths } from "./paths";
 import { generateExampleAdr } from "./adr-templates";
 import { configureClaudeSettings } from "./claude-settings";
 import { configureCursorSettings } from "./cursor-settings";
+import { configureVscodeSettings } from "./vscode-settings";
+import { configureCopilotSettings } from "./copilot-settings";
 
-export type EditorTarget = "claude" | "cursor";
+export type EditorTarget = "claude" | "cursor" | "vscode" | "copilot";
 
 export interface InitOptions {
   editor?: EditorTarget;
@@ -86,10 +88,7 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
   );
 
   const editor = options?.editor ?? "claude";
-  const editorSettingsPath =
-    editor === "cursor"
-      ? await configureCursorSettings(projectRoot)
-      : await configureClaudeSettings(projectRoot);
+  const editorSettingsPath = await configureEditorSettings(projectRoot, editor);
 
   // Plugin installation (optional — requires stored credentials)
   let plugin: PluginResult | undefined;
@@ -104,6 +103,32 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
     editorSettingsPath,
     plugin,
   };
+}
+
+/**
+ * Route editor settings configuration to the appropriate helper.
+ */
+async function configureEditorSettings(
+  projectRoot: string,
+  editor: EditorTarget
+): Promise<string> {
+  switch (editor) {
+    case "cursor":
+      return configureCursorSettings(projectRoot);
+    case "vscode": {
+      // VS Code: .vscode/mcp.json always, marketplace URL to user settings if logged in
+      const { loadCredentials } = await import("./auth");
+      const creds = await loadCredentials();
+      const marketplaceUrl = creds
+        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl(creds)
+        : undefined;
+      return configureVscodeSettings(projectRoot, marketplaceUrl);
+    }
+    case "copilot":
+      return configureCopilotSettings(projectRoot);
+    default:
+      return configureClaudeSettings(projectRoot);
+  }
 }
 
 /**
@@ -128,6 +153,33 @@ async function tryInstallPlugin(
       autoInstalled: true,
       detail: `Extracted ${files.length} files to .cursor/`,
     };
+  }
+
+  if (editor === "vscode") {
+    // VS Code marketplace URL is already added to user settings by configureEditorSettings.
+    // The --install-plugin flag is a no-op for VS Code since init handles everything.
+    return {
+      installed: true,
+      autoInstalled: true,
+      detail: "Marketplace URL added to VS Code user settings",
+    };
+  }
+
+  if (editor === "copilot") {
+    const { isCopilotCliAvailable, installCopilotPlugin, buildMarketplaceUrl } =
+      await import("./plugin-install");
+
+    if (await isCopilotCliAvailable()) {
+      try {
+        await installCopilotPlugin(credentials);
+        return { installed: true, autoInstalled: true };
+      } catch {
+        // Fall through to manual instructions
+      }
+    }
+
+    const url = buildMarketplaceUrl(credentials);
+    return { installed: true, detail: url };
   }
 
   // Claude Code — try auto-install via `claude` CLI, fall back to manual URL
