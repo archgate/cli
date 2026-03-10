@@ -1,3 +1,37 @@
+## 0.8.2 (2026-03-10)
+
+### Features
+
+* add VS Code & Copilot CLI as editor targets ([#46](https://github.com/archgate/cli/issues/46)) ([86ce264](https://github.com/archgate/cli/commit/86ce2644f819ee51d2f55b32f5784d0168a99efb))
+* add Windows (x64) build and CI smoke test ([#20](https://github.com/archgate/cli/issues/20)) ([e579520](https://github.com/archgate/cli/commit/e579520f94ec785f52390f268833be293f1866d3))
+* distribute binaries via npm platform packages ([#7](https://github.com/archgate/cli/issues/7)) ([9fc775c](https://github.com/archgate/cli/commit/9fc775c30278c0e9959326c284a9a793f55a5254))
+* **docs:** add Brazilian Portuguese i18n and GEN-002 ADR ([#30](https://github.com/archgate/cli/issues/30)) ([291f1d7](https://github.com/archgate/cli/commit/291f1d7e2d1d9e59795efe14d751d4d6aa12997b))
+* **docs:** add Cloudflare Web Analytics ([#33](https://github.com/archgate/cli/issues/33)) ([fe615a0](https://github.com/archgate/cli/commit/fe615a09a6affe09bebd5cef56087fa2fd50c07a))
+* **docs:** add Starlight documentation site ([#23](https://github.com/archgate/cli/issues/23)) ([0bf9653](https://github.com/archgate/cli/commit/0bf965397339c29dc83bf3c59f17b17e1ccbc4c1))
+* **docs:** port terminal/editor chrome from marketing site ([#34](https://github.com/archgate/cli/issues/34)) ([2457f87](https://github.com/archgate/cli/commit/2457f87579c220779fb45dd08ef0ecc89e4cf387)), closes [#1a1a1](https://github.com/archgate/cli/issues/1a1a1) [#0f0f0](https://github.com/archgate/cli/issues/0f0f0) [#f8f9](https://github.com/archgate/cli/issues/f8f9) [#eef0f2](https://github.com/archgate/cli/issues/eef0f2)
+* **init:** add Cursor editor integration with MCP and governance rules ([#15](https://github.com/archgate/cli/issues/15)) ([912405b](https://github.com/archgate/cli/commit/912405b4b6e8738a14d6893f22020b78ac56af25))
+* **login:** add github auth and plugin install for init ([#21](https://github.com/archgate/cli/issues/21)) ([e2ec02c](https://github.com/archgate/cli/commit/e2ec02c61dcb115a7b99ff2320ab1dd9b6d43893))
+* **mcp:** add cursor_session_context tool ([#17](https://github.com/archgate/cli/issues/17)) ([a82c5b6](https://github.com/archgate/cli/commit/a82c5b644ce107966ba03a4d64deee815481811b))
+
+### Bug Fixes
+
+* add .gitkeep to archgate-win32-x64 bin directory ([#36](https://github.com/archgate/cli/issues/36)) ([204a2e1](https://github.com/archgate/cli/commit/204a2e17fa4e85f0c05b394a263c581d37ffbc7b))
+* **ci:** add auto-install to deploy-docs toolchain setup ([#26](https://github.com/archgate/cli/issues/26)) ([cc5805b](https://github.com/archgate/cli/commit/cc5805b26d9300f7e94e1e521a783ae9b133ed19))
+* **ci:** add explicit permissions to workflows ([#38](https://github.com/archgate/cli/issues/38)) ([0289273](https://github.com/archgate/cli/commit/02892733fe6c54211c3cb1224cacd79cf187a4bb)), closes [#1](https://github.com/archgate/cli/issues/1) [#2](https://github.com/archgate/cli/issues/2) [#3](https://github.com/archgate/cli/issues/3)
+* **ci:** upgrade npm to v11 for OIDC trusted publishing ([#41](https://github.com/archgate/cli/issues/41)) ([13341f3](https://github.com/archgate/cli/commit/13341f3d8168f999ce073510122f12364eeaf294))
+* **ci:** use npm trusted publishing (OIDC) instead of secret tokens ([#40](https://github.com/archgate/cli/issues/40)) ([49d94ad](https://github.com/archgate/cli/commit/49d94ad38e1e069a55dbb9aaa797be74ade74b2b))
+* **ci:** use workflow-scoped concurrency groups for PR pipelines ([#37](https://github.com/archgate/cli/issues/37)) ([552da08](https://github.com/archgate/cli/commit/552da08ff8f08a376b3cf71ff17f4f418b6d17b8))
+* drop --provenance (private repo), use npm-token input for release ([fa7f042](https://github.com/archgate/cli/commit/fa7f04229a98f3b2bc9b674359a03efae8c0c93d))
+* improve packaging ([#4](https://github.com/archgate/cli/issues/4)) ([1d8245a](https://github.com/archgate/cli/commit/1d8245accfde307f4189dfc57b9865bbb3c753dd))
+* **mcp:** start server without a project and guide onboarding ([3df4ee6](https://github.com/archgate/cli/commit/3df4ee6bd50b65be867bff1acd51126b4a7de638))
+* move bundled deps to devDependencies to avoid unnecessary installs ([#19](https://github.com/archgate/cli/issues/19)) ([2a6d62f](https://github.com/archgate/cli/commit/2a6d62f9e05aed797177f6419b3ab11ba98cb220))
+* replace Bun.$ shell calls with Bun.spawn for Windows compatibility ([#43](https://github.com/archgate/cli/issues/43)) ([ca33377](https://github.com/archgate/cli/commit/ca33377a11f935dad08aa774253cd89fb2e24134))
+* **upgrade:** switch from GitHub API to npm registry for version checks and install ([96ac92a](https://github.com/archgate/cli/commit/96ac92a90edd138bb5af62d1c0deaece5c768eec))
+* use ./ prefix for npm publish to avoid GitHub shorthand resolution ([79dce8d](https://github.com/archgate/cli/commit/79dce8d3784e89bed993ea4ea9244c18fd5c2552))
+* use NPM_TOKEN for registry auth alongside --provenance ([394d2c5](https://github.com/archgate/cli/commit/394d2c5da66c78f3c3c7329ab659abb412baa304))
+* use NPM_TOKEN secret instead of OIDC for npm publish ([4704f33](https://github.com/archgate/cli/commit/4704f3305b2ab726096ba6eb1945b7ef272ea6c1))
+* use OIDC provenance for platform packages, NPM_TOKEN for main package ([b8ce61d](https://github.com/archgate/cli/commit/b8ce61d1f3c159486a00534c50fb7aa967b182d8))
+
 ## 0.8.2 (2026-03-04)
 
 ### Features
