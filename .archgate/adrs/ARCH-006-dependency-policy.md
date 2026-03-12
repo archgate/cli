@@ -30,7 +30,6 @@ Keep production dependencies minimal. Prefer Bun built-ins over external package
 | ----------------------------- | ------------------- | ------------------------------------------------------------------ |
 | `@commander-js/extra-typings` | CLI framework       | Bun has no built-in CLI argument parsing with subcommand support   |
 | `inquirer`                    | Interactive prompts | Bun has no built-in interactive prompt library                     |
-| `@modelcontextprotocol/sdk`   | MCP server          | Protocol-specific SDK; no built-in MCP support                     |
 | `zod`                         | Schema validation   | Used for ADR frontmatter validation; no built-in schema validation |
 
 **Adding a new dependency requires:**

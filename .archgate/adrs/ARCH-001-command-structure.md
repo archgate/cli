@@ -8,7 +8,7 @@ files: ["src/commands/**/*.ts"]
 
 ## Context
 
-The CLI needs a consistent pattern for defining and registering commands. As the command surface grows (init, check, adr, mcp, upgrade, clean), the registration mechanism must scale without introducing hidden coupling or making the dependency graph opaque.
+The CLI needs a consistent pattern for defining and registering commands. As the command surface grows (init, check, adr, review-context, session-context, upgrade, clean), the registration mechanism must scale without introducing hidden coupling or making the dependency graph opaque.
 
 **Alternatives considered:**
 

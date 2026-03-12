@@ -33,18 +33,19 @@ bun run commit                # conventional commit wizard
 
 Entry point: `src/cli.ts` (shebang `#!/usr/bin/env bun`). Commands registered via `register*Command(program)`.
 
-| Command         | File                     | Description                      |
-| --------------- | ------------------------ | -------------------------------- |
-| `init`          | `commands/init.ts`       | Initialize `.archgate/` skeleton |
-| `check`         | `commands/check.ts`      | Run ADR compliance checks        |
-| `adr create`    | `commands/adr/create.ts` | Create ADR interactively         |
-| `adr list`      | `commands/adr/list.ts`   | List ADRs (`--json`, `--domain`) |
-| `adr show <id>` | `commands/adr/show.ts`   | Show ADR by ID                   |
-| `adr update`    | `commands/adr/update.ts` | Update ADR by ID                 |
-| `login`         | `commands/login.ts`      | GitHub auth for editor plugins   |
-| `mcp`           | `commands/mcp.ts`        | Start MCP server                 |
-| `upgrade`       | `commands/upgrade.ts`    | Upgrade CLI via npm              |
-| `clean`         | `commands/clean.ts`      | Remove `~/.archgate/` cache      |
+| Command           | File                                | Description                                  |
+| ----------------- | ----------------------------------- | -------------------------------------------- |
+| `init`            | `commands/init.ts`                  | Initialize `.archgate/` skeleton             |
+| `check`           | `commands/check.ts`                 | Run ADR compliance checks                    |
+| `adr create`      | `commands/adr/create.ts`            | Create ADR interactively                     |
+| `adr list`        | `commands/adr/list.ts`              | List ADRs (`--json`, `--domain`)             |
+| `adr show <id>`   | `commands/adr/show.ts`              | Show ADR by ID                               |
+| `adr update`      | `commands/adr/update.ts`            | Update ADR by ID                             |
+| `login`           | `commands/login.ts`                 | GitHub auth for editor plugins               |
+| `review-context`  | `commands/review-context.ts`        | Pre-compute review context for changed files |
+| `session-context` | `commands/session-context/index.ts` | Read AI editor session transcripts           |
+| `upgrade`         | `commands/upgrade.ts`               | Upgrade CLI via npm                          |
+| `clean`           | `commands/clean.ts`                 | Remove `~/.archgate/` cache                  |
 
 ### Key Paths
 

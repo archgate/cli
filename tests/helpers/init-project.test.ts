@@ -69,12 +69,6 @@ describe("initProject", () => {
   test("configures Cursor settings when editor is cursor", async () => {
     const result = await initProject(tempDir, { editor: "cursor" });
 
-    // Cursor MCP config should exist
-    const mcpConfigPath = join(tempDir, ".cursor", "mcp.json");
-    expect(existsSync(mcpConfigPath)).toBe(true);
-    const mcpContent = JSON.parse(await Bun.file(mcpConfigPath).text());
-    expect(mcpContent.mcpServers.archgate).toBeDefined();
-
     // Cursor rule should exist
     const rulePath = join(
       tempDir,
@@ -84,13 +78,16 @@ describe("initProject", () => {
     );
     expect(existsSync(rulePath)).toBe(true);
 
+    // MCP config should NOT exist (MCP removed)
+    expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
+
     // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
       false
     );
 
-    // Result should point to cursor config
-    expect(result.editorSettingsPath).toBe(mcpConfigPath);
+    // Result should point to cursor rule file
+    expect(result.editorSettingsPath).toBe(rulePath);
   });
 
   test("skips example ADR when ADRs already exist", async () => {
@@ -117,7 +114,8 @@ describe("initProject", () => {
 
     const content = JSON.parse(await Bun.file(settingsPath).text());
     expect(content.agent).toBe("archgate:developer");
-    expect(content.enabledMcpjsonServers).toContain("archgate");
+    // MCP settings should not be present (MCP removed)
+    expect(content.enabledMcpjsonServers).toBeUndefined();
   });
 
   test("includes editorSettingsPath in result", async () => {

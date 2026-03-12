@@ -70,7 +70,7 @@ export interface CreateAdrResult {
 }
 
 /**
- * Create an ADR file on disk. Shared by CLI command and MCP tool.
+ * Create an ADR file on disk.
  */
 export async function createAdrFile(
   adrsDir: string,

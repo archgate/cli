@@ -32,7 +32,7 @@ export interface InitResult {
 }
 
 /**
- * Initialize an archgate governance directory. Shared by CLI command and MCP tool.
+ * Initialize an archgate governance directory.
  * Idempotent — safe to run multiple times. Existing files are overwritten,
  * directories are created only if missing, and editor settings are merged additively.
  */
