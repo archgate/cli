@@ -62,16 +62,8 @@ jobs:
     needs: check
     if: needs.check.outputs.workflow == 'pull-request'
     steps:
-      - name: Generate token
-        id: generate_token
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.GH_APP_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          token: ${{ steps.generate_token.outputs.token }}
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
@@ -89,7 +81,7 @@ jobs:
         uses: TrigenSoftware/simple-release-action@v1
         with:
           workflow: pull-request
-          github-token: ${{ steps.generate_token.outputs.token }}
+          github-token: ${{ github.token }}
           branch: release
   release:
     runs-on: ubuntu-latest
