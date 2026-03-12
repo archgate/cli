@@ -51,7 +51,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Don't test private implementation details — test the public API of each module
 - Don't depend on network access in unit tests
 - Don't leave temp files after test runs
-- **Don't leave external SDK instances open after tests** — instances from libraries such as `@modelcontextprotocol/sdk` hold internal references (e.g., `AjvJsonSchemaValidator` backed by `ajv`) that keep Bun's event loop alive on Linux, causing `bun test` to hang indefinitely after all tests complete even though every test passes. Always call the cleanup method in `afterEach`.
+- **Don't leave external SDK instances open after tests** — instances from external libraries may hold internal references that keep Bun's event loop alive on Linux, causing `bun test` to hang indefinitely after all tests complete even though every test passes. Always call the cleanup method in `afterEach`.
 - **Don't rely on globally-configured git identity in temp git repos** — always set `user.email` and `user.name` locally in any repo that makes commits. Omitting this works locally (where developers have global git config) but fails silently in CI, producing a cryptic `ShellPromise` error with no indication that git identity is the cause.
 - Don't skip tests without a tracking issue
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
@@ -105,33 +105,19 @@ it("returns both staged and unstaged changes", async () => {
 });
 ```
 
-### Good Example — External SDK Cleanup
+### Good Example — Temp Directory Cleanup
 
 ```typescript
-// tests/mcp/resources.test.ts
+// tests/helpers/session-context.test.ts
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerResources } from "../../src/mcp/resources";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { encodeProjectPath } from "../../src/helpers/session-context";
 
-describe("registerResources", () => {
-  let tempDir: string;
-  let server: McpServer;
-
-  // GOOD: lifecycle managed in beforeEach/afterEach, not inside test bodies
-  beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-mcp-res-test-"));
-    mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
-    server = new McpServer({ name: "test", version: "0.0.0" });
-  });
-
-  afterEach(async () => {
-    await server.close(); // GOOD: releases internal validator references
-    rmSync(tempDir, { recursive: true, force: true });
-  });
-
-  test("does not throw when registering resources", () => {
-    expect(() => registerResources(server, tempDir)).not.toThrow();
+describe("encodeProjectPath", () => {
+  test("replaces forward slashes with dashes", () => {
+    expect(encodeProjectPath("/home/user/project")).toBe("-home-user-project");
   });
 });
 ```
@@ -156,11 +142,11 @@ it("writes output", async () => {
   // No cleanup — file persists after test
 });
 
-// BAD: SDK instance created inside test body — no guaranteed cleanup path
-it("registers resources", () => {
-  const server = new McpServer({ name: "test", version: "0.0.0" });
-  // server.close() never called — event loop held open on Linux
-  expect(() => registerResources(server, tempDir)).not.toThrow();
+// BAD: external resource created inside test body — no guaranteed cleanup path
+it("processes data", () => {
+  const tempDir = mkdtempSync(join(tmpdir(), "test-"));
+  // tempDir never cleaned up — leaks files after test run
+  expect(processData(tempDir)).toBeTruthy();
 });
 
 // BAD: git commit without local identity — works locally, fails in CI
@@ -202,8 +188,8 @@ globalThis.fetch = (() =>
   - **Mitigation:** The project pins a specific Bun version via `.prototools` (currently 1.3.8). Test runner API changes are caught during controlled Bun upgrades with full test suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may not report accurate coverage for all code paths, especially for dynamically imported modules.
   - **Mitigation:** Coverage is a guideline (80% target), not a hard gate. Critical modules (engine, formats) are tested thoroughly regardless of coverage numbers.
-- **Third-party SDK event loop retention** — External SDK instances that hold internal resource references (e.g., `AjvJsonSchemaValidator` inside `@modelcontextprotocol/sdk`) keep Bun's event loop alive on Linux after all tests complete, causing `bun test` to hang indefinitely. This does not surface on macOS (event loop drains normally there), making it a Linux-CI-only failure that is hard to reproduce locally.
-  - **Mitigation:** Always manage SDK lifecycle in `beforeEach`/`afterEach` and call the cleanup method (`close()`, `destroy()`, `disconnect()`) in `afterEach`. Add `timeout-minutes` to CI jobs as a safety net — the `code-pull-request.yml` job is set to 10 minutes to cap any future regressions.
+- **Third-party SDK event loop retention** — External SDK instances that hold internal resource references may keep Bun's event loop alive on Linux after all tests complete, causing `bun test` to hang indefinitely. This does not surface on macOS (event loop drains normally there), making it a Linux-CI-only failure that is hard to reproduce locally.
+  - **Mitigation:** Always manage external resource lifecycle in `beforeEach`/`afterEach` and call the cleanup method (`close()`, `destroy()`, `disconnect()`) in `afterEach`. Add `timeout-minutes` to CI jobs as a safety net — the `code-pull-request.yml` job is set to 10 minutes to cap any future regressions.
 
 ## Compliance and Enforcement
 

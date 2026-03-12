@@ -102,7 +102,7 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 
 - **Translation drift** -- Portuguese content may fall behind after significant English rewrites.
   - **Mitigation:** The same-PR policy catches most drift at review time. The 1:1 parity rule catches structural drift (added/removed pages). Periodic manual audits can catch semantic drift within existing files.
-- **Stale technical content** -- Reference pages (CLI Commands, Rule API, MCP Tools) change frequently and translations may lag.
+- **Stale technical content** -- Reference pages (CLI Commands, Rule API) change frequently and translations may lag.
   - **Mitigation:** Reference pages contain mostly code blocks and tables with technical values that remain in English. Only surrounding prose needs translation, reducing the update surface.
 - **Incorrect translations misleading users** -- Machine-translated or poorly reviewed content may contain errors.
   - **Mitigation:** The ADR explicitly requires human review for all translations. Code blocks stay in English, eliminating the highest-risk translation errors (wrong commands, wrong API calls).

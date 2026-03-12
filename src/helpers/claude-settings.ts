@@ -7,11 +7,8 @@ import { existsSync, mkdirSync } from "node:fs";
  */
 export const ARCHGATE_CLAUDE_SETTINGS = {
   agent: "archgate:developer",
-  enableAllProjectMcpServers: true,
-  enabledMcpjsonServers: ["archgate"],
   permissions: {
     allow: [
-      "mcp__plugin_archgate_archgate__*",
       "Skill(archgate:architect)",
       "Skill(archgate:quality-manager)",
       "Skill(archgate:adr-author)",
@@ -31,8 +28,8 @@ function dedup(arr: string[]): string[] {
 /**
  * Pure, additive merge of archgate settings into existing Claude settings.
  *
- * - Scalar keys (`agent`, `enableAllProjectMcpServers`): set only if absent
- * - Array keys (`enabledMcpjsonServers`, `permissions.allow`): append with dedup
+ * - Scalar keys (`agent`): set only if absent
+ * - Array keys (`permissions.allow`): append with dedup
  * - All existing user settings are preserved (unknown keys pass through)
  */
 export function mergeClaudeSettings(
@@ -45,18 +42,6 @@ export function mergeClaudeSettings(
   if (!("agent" in merged)) {
     merged.agent = archgate.agent;
   }
-  if (!("enableAllProjectMcpServers" in merged)) {
-    merged.enableAllProjectMcpServers = archgate.enableAllProjectMcpServers;
-  }
-
-  // Array: append with dedup
-  const existingMcpServers = Array.isArray(merged.enabledMcpjsonServers)
-    ? (merged.enabledMcpjsonServers as string[])
-    : [];
-  merged.enabledMcpjsonServers = dedup([
-    ...existingMcpServers,
-    ...archgate.enabledMcpjsonServers,
-  ]);
 
   // Nested permissions object: merge allow array with dedup, preserve deny
   const existingPermissions =

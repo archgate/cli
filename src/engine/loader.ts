@@ -86,7 +86,7 @@ export async function loadRuleAdrs(
 
       try {
         // Cache-bust: Bun caches import() per-process, so append a timestamp
-        // to force re-reading from disk on every call (critical for MCP server).
+        // to force re-reading from disk on every call (critical for repeated invocations).
         // Use file:// URL to handle Windows backslash paths in import().
         const rulesUrl = `${pathToFileURL(rulesFile).href}?t=${Date.now()}`;
         // oxlint-disable-next-line no-await-in-loop -- dynamic import must be sequential

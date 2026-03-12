@@ -10,7 +10,8 @@ import { registerUpgradeCommand } from "./commands/upgrade";
 import { registerCleanCommand } from "./commands/clean";
 import { registerCheckCommand } from "./commands/check";
 import { registerLoginCommand } from "./commands/login";
-import { registerMcpCommand } from "./commands/mcp";
+import { registerReviewContextCommand } from "./commands/review-context";
+import { registerSessionContextCommand } from "./commands/session-context/index";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 import { logError } from "./helpers/log";
 
@@ -39,7 +40,8 @@ async function main() {
   registerLoginCommand(program);
   registerAdrCommand(program);
   registerCheckCommand(program);
-  registerMcpCommand(program);
+  registerReviewContextCommand(program);
+  registerSessionContextCommand(program);
   registerUpgradeCommand(program);
   registerCleanCommand(program);
 

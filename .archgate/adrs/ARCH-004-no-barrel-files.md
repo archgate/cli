@@ -42,7 +42,7 @@ A barrel file is defined as an `index.ts` file that:
 Files named `index.ts` that contain actual logic are **not** barrel files and are permitted. Examples of permitted `index.ts` files:
 
 - `src/commands/adr/index.ts` — defines `registerAdrCommand()` with command group composition logic
-- `src/mcp/tools/index.ts` — defines `registerTools()` with MCP tool registration logic
+- `src/commands/session-context/index.ts` — defines `registerSessionContextCommand()` with subcommand composition logic
 
 ## Do's and Don'ts
 

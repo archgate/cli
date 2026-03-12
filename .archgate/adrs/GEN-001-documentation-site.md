@@ -7,7 +7,7 @@ rules: false
 
 ## Context
 
-The Archgate CLI needs a public documentation site for users, contributors, and AI agents. A README and inline code comments are insufficient for a project with multiple commands, an MCP server, a rule API, and editor integrations. Without a dedicated docs site:
+The Archgate CLI needs a public documentation site for users, contributors, and AI agents. A README and inline code comments are insufficient for a project with multiple commands, a rule API, and editor integrations. Without a dedicated docs site:
 
 1. **Discoverability is poor** — New users cannot browse guides, reference pages, or examples without reading source code
 2. **Onboarding is slow** — Contributors must reverse-engineer conventions from existing code rather than reading a structured guide
@@ -16,7 +16,7 @@ The Archgate CLI needs a public documentation site for users, contributors, and 
 
 **Alternatives considered:**
 
-- **README-only documentation** — Keeping all documentation in `README.md` is simple and requires no build tooling. However, README files become unwieldy beyond 500 lines, lack navigation, and cannot provide the structured multi-page experience users expect from a CLI tool. The Archgate README would need to cover 9 CLI commands, 5 MCP tools, a full Rule API, 3 editor integrations, and multiple guides — far too much for a single file.
+- **README-only documentation** — Keeping all documentation in `README.md` is simple and requires no build tooling. However, README files become unwieldy beyond 500 lines, lack navigation, and cannot provide the structured multi-page experience users expect from a CLI tool. The Archgate README would need to cover 10+ CLI commands, a full Rule API, 3 editor integrations, and multiple guides — far too much for a single file.
 - **Docusaurus (React-based)** — A mature documentation framework with a large ecosystem. However, Docusaurus is built on React and requires Node.js, adding a heavyweight runtime and dependency tree that conflicts with the project's Bun-first philosophy. Its configuration is more complex than needed for a documentation site of this scope.
 - **VitePress (Vue-based)** — A fast, Vue-powered documentation generator. While lighter than Docusaurus, it still requires a framework runtime (Vue) and has less flexibility for custom content than Astro. Its Markdown extensions are proprietary rather than standard MDX.
 - **Starlight (Astro-based)** — An Astro integration purpose-built for documentation sites. It uses standard MDX, runs under Bun via `bunx --bun astro`, produces static HTML with zero client-side JavaScript by default, and provides built-in search (Pagefind), sidebar navigation, and dark mode. Its component-based architecture allows embedding interactive elements without framework lock-in.
@@ -116,11 +116,9 @@ docs/
           ci-integration.mdx
           claude-code-plugin.mdx
           cursor-integration.mdx
-          mcp-server.mdx
           pre-commit-hooks.mdx
         reference/
           cli-commands.mdx
-          mcp-tools.mdx
           rule-api.mdx
           adr-schema.mdx
         examples/
@@ -188,7 +186,7 @@ The resource URI format is `adr://\{id\}`.
 - **Single source of truth** — All user-facing documentation lives in one structured, navigable site rather than scattered across README, source comments, and planning docs
 - **Search built-in** — Starlight integrates Pagefind for full-text search across all documentation pages with zero configuration
 - **Consistent with CLI toolchain** — Built with Bun (`bunx --bun astro`), aligning with the project's Bun-first philosophy established in [ARCH-006](./ARCH-006-dependency-policy.md)
-- **AI-friendly structure** — AI agents can reference well-structured MDX pages for accurate code generation; the MCP server guide documents how agents interact with Archgate
+- **AI-friendly structure** — AI agents can reference well-structured MDX pages for accurate code generation and understanding of how to interact with Archgate
 - **Zero client-side JavaScript** — Astro renders static HTML by default; the docs site loads instantly without framework hydration overhead
 - **Automatic deployment** — The `deploy-docs.yml` workflow deploys on every merge to `main` that touches `docs/`, with no manual steps
 
@@ -202,7 +200,7 @@ The resource URI format is `adr://\{id\}`.
 
 - **Astro/Starlight breaking changes** — Major version upgrades to Astro or Starlight may change the Content Layer API, configuration format, or component interfaces.
   - **Mitigation:** Dependencies are pinned to major versions (`astro@^5`, `@astrojs/starlight@^0.34`). Upgrades are performed explicitly with full build verification. Astro follows semver and publishes migration guides for major releases.
-- **Documentation drift from source code** — Reference pages (CLI Commands, Rule API, MCP Tools, ADR Schema) may fall out of sync as the CLI evolves.
+- **Documentation drift from source code** — Reference pages (CLI Commands, Rule API, ADR Schema) may fall out of sync as the CLI evolves.
   - **Mitigation:** The "DO keep reference pages accurate to CLI source code" rule requires docs updates in the same PR that changes CLI APIs. Code reviewers MUST verify this during review.
 - **GitHub Pages deployment failures** — Build or deployment failures in `deploy-docs.yml` may leave stale documentation live.
   - **Mitigation:** The workflow uses `workflow_dispatch` for manual re-deployment. Build failures are visible in the Actions tab. The docs build is isolated from CLI CI, so docs failures never block CLI releases.

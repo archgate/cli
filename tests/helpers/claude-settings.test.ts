@@ -13,11 +13,8 @@ describe("mergeClaudeSettings", () => {
     const result = mergeClaudeSettings({}, ARCHGATE_CLAUDE_SETTINGS);
 
     expect(result.agent).toBe("archgate:developer");
-    expect(result.enableAllProjectMcpServers).toBe(true);
-    expect(result.enabledMcpjsonServers).toEqual(["archgate"]);
     expect(result.permissions).toEqual({
       allow: [
-        "mcp__plugin_archgate_archgate__*",
         "Skill(archgate:architect)",
         "Skill(archgate:quality-manager)",
         "Skill(archgate:adr-author)",
@@ -34,32 +31,11 @@ describe("mergeClaudeSettings", () => {
     expect(result.agent).toBe("custom-agent");
   });
 
-  test("preserves existing enableAllProjectMcpServers (does not overwrite)", () => {
-    const result = mergeClaudeSettings(
-      { enableAllProjectMcpServers: false },
-      ARCHGATE_CLAUDE_SETTINGS
-    );
-
-    expect(result.enableAllProjectMcpServers).toBe(false);
-  });
-
-  test("appends enabledMcpjsonServers with dedup", () => {
-    const result = mergeClaudeSettings(
-      { enabledMcpjsonServers: ["existing-server", "archgate"] },
-      ARCHGATE_CLAUDE_SETTINGS
-    );
-
-    expect(result.enabledMcpjsonServers).toEqual([
-      "existing-server",
-      "archgate",
-    ]);
-  });
-
   test("appends permissions.allow with dedup", () => {
     const result = mergeClaudeSettings(
       {
         permissions: {
-          allow: ["Bash(git *)", "mcp__plugin_archgate_archgate__*"],
+          allow: ["Bash(git *)", "Skill(archgate:architect)"],
         },
       },
       ARCHGATE_CLAUDE_SETTINGS
@@ -68,7 +44,6 @@ describe("mergeClaudeSettings", () => {
     const permissions = result.permissions as Record<string, unknown>;
     expect(permissions.allow).toEqual([
       "Bash(git *)",
-      "mcp__plugin_archgate_archgate__*",
       "Skill(archgate:architect)",
       "Skill(archgate:quality-manager)",
       "Skill(archgate:adr-author)",
@@ -104,15 +79,6 @@ describe("mergeClaudeSettings", () => {
     expect(result.anotherKey).toBe(42);
   });
 
-  test("handles non-array enabledMcpjsonServers gracefully", () => {
-    const result = mergeClaudeSettings(
-      { enabledMcpjsonServers: "not-an-array" },
-      ARCHGATE_CLAUDE_SETTINGS
-    );
-
-    expect(result.enabledMcpjsonServers).toEqual(["archgate"]);
-  });
-
   test("handles non-object permissions gracefully", () => {
     const result = mergeClaudeSettings(
       { permissions: "invalid" },
@@ -145,8 +111,7 @@ describe("configureClaudeSettings", () => {
 
     const content = JSON.parse(await Bun.file(settingsPath).text());
     expect(content.agent).toBe("archgate:developer");
-    expect(content.enableAllProjectMcpServers).toBe(true);
-    expect(content.enabledMcpjsonServers).toEqual(["archgate"]);
+    expect(content.permissions.allow).toContain("Skill(archgate:architect)");
   });
 
   test("merges into existing file without overwriting user entries", async () => {
@@ -179,11 +144,7 @@ describe("configureClaudeSettings", () => {
     expect(content.permissions.deny).toEqual(["Bash(rm *)"]);
     // Allow permissions appended
     expect(content.permissions.allow).toContain("Bash(git *)");
-    expect(content.permissions.allow).toContain(
-      "mcp__plugin_archgate_archgate__*"
-    );
-    // Archgate MCP server added
-    expect(content.enabledMcpjsonServers).toContain("archgate");
+    expect(content.permissions.allow).toContain("Skill(archgate:architect)");
   });
 
   test("returns correct absolute path", async () => {

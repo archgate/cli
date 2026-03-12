@@ -1,10 +1,7 @@
 {
   "agent": "archgate:developer",
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["archgate"],
   "permissions": {
     "allow": [
-      "mcp__plugin_archgate_archgate__*",
       "Skill(archgate:architect)",
       "Skill(archgate:quality-manager)",
       "Skill(archgate:adr-author)"
