@@ -5,6 +5,7 @@ on:
     types: [opened, edited, synchronize, reopened]
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,7 +19,7 @@ jobs:
     name: Validate Code
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -38,6 +39,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Validate commit messages
+        if: github.event_name == 'pull_request'
         run: echo "${{ github.event.pull_request.title }}" | bun run commitlint
       - name: Validate
         id: validate
