@@ -79,6 +79,9 @@ Bun 1.3.8, Moon 1.39.4, Node LTS, npm 11.6.0. Minimum user-facing Bun: `>=1.2.21
 - `ARCH-004` — No barrel files (direct imports only)
 - `ARCH-005` — Testing standards (Bun test, fixtures, 80% coverage)
 - `ARCH-006` — Dependency policy (minimal deps, Bun built-ins)
+- `ARCH-007` — Cross-platform subprocess execution (Bun.spawn, no Bun.$)
+- `GEN-001` — Documentation site (Astro Starlight)
+- `GEN-002` — Documentation internationalization (en + pt-br parity)
 
 ## ADR Format
 

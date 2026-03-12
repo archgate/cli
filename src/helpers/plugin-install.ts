@@ -2,34 +2,68 @@
  * plugin-install.ts — Download and install the archgate plugin for supported editors.
  *
  * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
+ * - VS Code:     marketplace URL for manual user-settings configuration (application-scoped)
+ * - Copilot CLI:  auto-installs via `copilot` CLI, or prints manual commands as fallback
  * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
  */
 
 import { join } from "node:path";
 import { mkdirSync, unlinkSync } from "node:fs";
-import { $ } from "bun";
 import { logDebug } from "./log";
 import type { StoredCredentials } from "./auth";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
+
+/**
+ * Run a command using Bun.spawn (cross-platform, no shell).
+ * Returns { exitCode, stdout }.
+ */
+async function run(
+  cmd: string[],
+  opts?: { cwd?: string }
+): Promise<{ exitCode: number; stdout: string }> {
+  const proc = Bun.spawn(cmd, {
+    cwd: opts?.cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const stdout = await new Response(proc.stdout).text();
+  const exitCode = await proc.exited;
+  return { exitCode, stdout };
+}
 
 // ---------------------------------------------------------------------------
 // Claude Code — CLI auto-install + manual fallback
 // ---------------------------------------------------------------------------
 
 /**
- * Build the authenticated git marketplace URL for Claude Code plugin installation.
+ * Build the authenticated git marketplace URL for Claude Code & Copilot CLI plugin installation.
+ * Claude Code and Copilot CLI both use the .claude-plugin/ manifest format.
  */
 export function buildMarketplaceUrl(credentials: StoredCredentials): string {
   return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate.git`;
 }
 
 /**
+ * Build the authenticated git marketplace URL for VS Code plugin installation.
+ * VS Code Copilot uses the .github/plugin/ manifest format, served from a separate repo.
+ */
+export function buildVscodeMarketplaceUrl(
+  credentials: StoredCredentials
+): string {
+  return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate-vscode.git`;
+}
+
+/**
  * Check whether the `claude` CLI is available on the system PATH.
  */
 export async function isClaudeCliAvailable(): Promise<boolean> {
-  const result = await $`claude --version`.nothrow().quiet();
-  return result.exitCode === 0;
+  try {
+    const { exitCode } = await run(["claude", "--version"]);
+    return exitCode === 0;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -47,9 +81,7 @@ export async function installClaudePlugin(
   const url = buildMarketplaceUrl(credentials);
 
   logDebug("Adding archgate marketplace to claude CLI");
-  const addResult = await $`claude plugin marketplace add ${url}`
-    .nothrow()
-    .quiet();
+  const addResult = await run(["claude", "plugin", "marketplace", "add", url]);
   if (addResult.exitCode !== 0) {
     throw new Error(
       `claude plugin marketplace add failed (exit ${addResult.exitCode})`
@@ -57,9 +89,12 @@ export async function installClaudePlugin(
   }
 
   logDebug("Installing archgate plugin via claude CLI");
-  const installResult = await $`claude plugin install archgate@archgate`
-    .nothrow()
-    .quiet();
+  const installResult = await run([
+    "claude",
+    "plugin",
+    "install",
+    "archgate@archgate",
+  ]);
   if (installResult.exitCode !== 0) {
     throw new Error(
       `claude plugin install failed (exit ${installResult.exitCode})`
@@ -113,6 +148,48 @@ export async function installCursorPlugin(
   return extractedFiles;
 }
 
+// ---------------------------------------------------------------------------
+// Copilot CLI — CLI auto-install + manual fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether the `copilot` CLI is available on the system PATH.
+ */
+export async function isCopilotCliAvailable(): Promise<boolean> {
+  try {
+    const { exitCode } = await run(["copilot", "--version"]);
+    return exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install the archgate plugin via the `copilot` CLI.
+ *
+ * Runs:
+ *   copilot plugin install <authenticated-git-url>
+ *
+ * Throws on failure so the caller can fall back to manual instructions.
+ */
+export async function installCopilotPlugin(
+  credentials: StoredCredentials
+): Promise<void> {
+  const url = buildMarketplaceUrl(credentials);
+
+  logDebug("Installing archgate plugin via copilot CLI");
+  const installResult = await run(["copilot", "plugin", "install", url]);
+  if (installResult.exitCode !== 0) {
+    throw new Error(
+      `copilot plugin install failed (exit ${installResult.exitCode})`
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared — tar extraction helper
+// ---------------------------------------------------------------------------
+
 /**
  * Extract a .tar.gz buffer to a destination directory.
  * Uses system tar (available on macOS, Linux, and Windows 10+).
@@ -129,7 +206,7 @@ async function extractTarGz(
     mkdirSync(destDir, { recursive: true });
 
     // Extract using tar (available on macOS, Linux, and Windows 10+)
-    const result = await $`tar -xzf ${tmpArchive} -C ${destDir}`.nothrow();
+    const result = await run(["tar", "-xzf", tmpArchive, "-C", destDir]);
 
     if (result.exitCode !== 0) {
       throw new Error(
@@ -138,8 +215,8 @@ async function extractTarGz(
     }
 
     // List extracted files for reporting
-    const listResult = await $`tar -tzf ${tmpArchive}`.nothrow().text();
-    const files = listResult
+    const listResult = await run(["tar", "-tzf", tmpArchive]);
+    const files = listResult.stdout
       .split("\n")
       .map((f) => f.trim())
       .filter(Boolean);

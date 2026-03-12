@@ -10,7 +10,9 @@ files: ["package.json"]
 
 Minimizing dependencies reduces supply chain risk, install size, and maintenance burden. Every production dependency is a trust relationship: the project trusts the dependency's maintainers, their CI/CD pipeline, and every transitive dependency in the tree. Supply chain attacks targeting popular npm packages (event-stream, ua-parser-js, colors.js) have demonstrated that this trust is frequently exploited.
 
-Bun provides many built-in capabilities that eliminate the need for external packages — file I/O (`Bun.file`, `Bun.write`), HTTP server, shell commands (`Bun.$`), glob (`Bun.Glob`), TOML/YAML parsing, and testing. The fewer external packages in the dependency tree, the smaller the attack surface and the faster the install.
+Bun provides many built-in capabilities that eliminate the need for external packages — file I/O (`Bun.file`, `Bun.write`), HTTP server, subprocess execution (`Bun.spawn`), glob (`Bun.Glob`), TOML/YAML parsing, and testing. The fewer external packages in the dependency tree, the smaller the attack surface and the faster the install.
+
+> **Note on `Bun.$` (Bun shell):** The `Bun.$` template literal API hangs on Windows because the shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that freeze the process. This project uses `Bun.spawn` (array-based, no shell) exclusively for cross-platform subprocess execution. See commit `ca33377` for the migration.
 
 **Alternatives considered:**
 
@@ -42,7 +44,9 @@ Development dependencies (`devDependencies`) are less restricted but should stil
 
 ### Do
 
-- Use Bun built-ins for file I/O (`Bun.file`, `Bun.write`), HTTP, shell commands (`Bun.$`), glob (`Bun.Glob`), testing (`bun:test`)
+- Use Bun built-ins for file I/O (`Bun.file`, `Bun.write`), HTTP, subprocess execution (`Bun.spawn`), glob (`Bun.Glob`), testing (`bun:test`)
+- Use `Bun.spawn` with array-based arguments for all subprocess execution — it works correctly on macOS, Linux, and Windows
+- **DON'T** use `Bun.$` (Bun shell template literals) for subprocess execution — it hangs on Windows due to pipe handling issues
 - Justify any new production dependency in a PR description
 - Keep `devDependencies` for tooling only (linting, formatting, commitlint)
 - Review the transitive dependency tree before adding a package
@@ -69,8 +73,10 @@ await Bun.write("output.json", JSON.stringify(data));
 const glob = new Bun.Glob("src/**/*.ts");
 const files = Array.from(glob.scanSync({ cwd: projectRoot }));
 
-// Shell commands — use Bun built-in
-const result = await Bun.$`git ls-files`.text();
+// Subprocess execution — use Bun.spawn (cross-platform, no shell)
+const proc = Bun.spawn(["git", "ls-files"], { stdout: "pipe", stderr: "pipe" });
+const result = await new Response(proc.stdout).text();
+await proc.exited;
 
 // Colors — use node:util built-in (not chalk)
 import { styleText } from "node:util";
@@ -108,12 +114,12 @@ const subset = pick(obj, ["a", "b"]);
 
 ### Negative
 
-- **Bun built-in documentation is less comprehensive** — Some Bun APIs (`Bun.Glob`, `Bun.$`) have less documentation and fewer community examples than their npm counterparts (`glob`, `execa`). Contributors may need to reference Bun's source or test files.
+- **Bun built-in documentation is less comprehensive** — Some Bun APIs (`Bun.Glob`, `Bun.spawn`) have less documentation and fewer community examples than their npm counterparts (`glob`, `execa`). Contributors may need to reference Bun's source or test files.
 - **Bun API surface may change** — Bun is actively developing and some APIs may change between minor versions. Pinning via `.prototools` mitigates but does not eliminate this risk.
 
 ### Risks
 
-- **Bun API instability** — Bun built-in APIs (especially newer ones like `Bun.Glob`, `Bun.$`) may introduce breaking changes or behavioral differences between versions.
+- **Bun API instability** — Bun built-in APIs (especially newer ones like `Bun.Glob`, `Bun.spawn`) may introduce breaking changes or behavioral differences between versions. The `Bun.$` shell API is explicitly avoided due to Windows pipe deadlocks discovered in production.
   - **Mitigation:** The project pins Bun version via `.prototools` (currently 1.3.8). API changes are caught during controlled upgrades with full test suite validation.
 - **Bun built-in feature gaps** — Some functionality may be missing from Bun built-ins (e.g., advanced glob options, streaming HTTP edge cases). If a Bun built-in lacks a critical feature, the fallback is to add an approved dependency with full justification.
   - **Mitigation:** The approved dependency list exists precisely for this case. The threshold is "Bun cannot do this," not "Bun can do this but an npm package is slightly more convenient."
