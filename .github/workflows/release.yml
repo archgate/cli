@@ -83,6 +83,10 @@ jobs:
           workflow: pull-request
           github-token: ${{ github.token }}
           branch: release
+  validate-release-pr:
+    name: Validate release PR
+    needs: pull-request
+    uses: ./.github/workflows/code-pull-request.yml
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
