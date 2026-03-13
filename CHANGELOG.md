@@ -1,3 +1,9 @@
+## [0.9.2](https://github.com/archgate/cli/compare/v0.9.1...v0.9.2) (2026-03-13)
+
+### Bug Fixes
+
+* remove stale MCP server configs from editor settings ([#53](https://github.com/archgate/cli/issues/53)) ([5c9fdfd](https://github.com/archgate/cli/commit/5c9fdfd49b5c6cd4962de9c3d08a09bd9363288c)), closes [#50](https://github.com/archgate/cli/issues/50)
+
 ## [0.9.1](https://github.com/archgate/cli/compare/v0.9.0...v0.9.1) (2026-03-13)
 
 ### Bug Fixes
