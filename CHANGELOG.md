@@ -1,3 +1,9 @@
+## [0.9.1](https://github.com/archgate/cli/compare/v0.9.0...v0.9.1) (2026-03-13)
+
+### Bug Fixes
+
+* pipeline credentials for release ([#49](https://github.com/archgate/cli/issues/49)) ([788961c](https://github.com/archgate/cli/commit/788961c6bc9c278e4528bd6f302c499e40f44abc))
+
 ## 0.9.0 (2026-03-12)
 
 ### Features
