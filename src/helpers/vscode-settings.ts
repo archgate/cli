@@ -2,50 +2,7 @@ import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 
-/**
- * MCP server configuration that archgate injects into .vscode/mcp.json.
- *
- * VS Code uses a dedicated `.vscode/mcp.json` file for MCP server registration
- * (not `.vscode/settings.json`). The `servers` key format is defined by VS Code's
- * MCP configuration spec.
- */
-export const ARCHGATE_VSCODE_MCP_CONFIG = {
-  servers: {
-    archgate: {
-      command: "archgate",
-      args: ["mcp"],
-    },
-  },
-} as const;
-
-type VscodeMcpConfig = Record<string, unknown>;
 type VscodeUserSettings = Record<string, unknown>;
-
-/**
- * Pure, additive merge of archgate MCP server config into existing VS Code MCP config.
- *
- * - Preserves all existing MCP server entries
- * - Adds the archgate server (overwrites if already present)
- */
-export function mergeVscodeMcpConfig(
-  existing: VscodeMcpConfig,
-  archgate: typeof ARCHGATE_VSCODE_MCP_CONFIG
-): VscodeMcpConfig {
-  const existingServers =
-    typeof existing.servers === "object" &&
-    existing.servers !== null &&
-    !Array.isArray(existing.servers)
-      ? (existing.servers as Record<string, unknown>)
-      : {};
-
-  return {
-    ...existing,
-    servers: {
-      ...existingServers,
-      ...archgate.servers,
-    },
-  };
-}
 
 /**
  * VS Code's built-in default marketplaces for `chat.plugins.marketplaces`.
@@ -128,40 +85,27 @@ export function getVscodeUserSettingsPath(): string {
 /**
  * Configure VS Code settings for archgate integration.
  *
- * 1. Creates/updates `.vscode/mcp.json` (workspace-level) with the Archgate MCP server.
- * 2. If `marketplaceUrl` is provided, adds it to `chat.plugins.marketplaces` in
- *    the VS Code user-level settings.json (application-scoped — cannot be set per workspace).
+ * If `marketplaceUrl` is provided, adds it to `chat.plugins.marketplaces` in
+ * the VS Code user-level settings.json (application-scoped — cannot be set per workspace).
  *
- * @returns Absolute path to the workspace MCP config file.
+ * @returns Absolute path to the .vscode/ directory.
  */
 export async function configureVscodeSettings(
   projectRoot: string,
   marketplaceUrl?: string
 ): Promise<string> {
   const vscodeDir = join(projectRoot, ".vscode");
-  const mcpConfigPath = join(vscodeDir, "mcp.json");
-
-  // --- Workspace: .vscode/mcp.json ---
-  let existing: VscodeMcpConfig = {};
-  if (existsSync(mcpConfigPath)) {
-    const content = await Bun.file(mcpConfigPath).text();
-    existing = Bun.JSONC.parse(content) as VscodeMcpConfig;
-  }
-
-  const merged = mergeVscodeMcpConfig(existing, ARCHGATE_VSCODE_MCP_CONFIG);
 
   if (!existsSync(vscodeDir)) {
     mkdirSync(vscodeDir, { recursive: true });
   }
-
-  await Bun.write(mcpConfigPath, JSON.stringify(merged, null, 2) + "\n");
 
   // --- User-level: chat.plugins.marketplaces ---
   if (marketplaceUrl) {
     await addMarketplaceToUserSettings(marketplaceUrl);
   }
 
-  return mcpConfigPath;
+  return vscodeDir;
 }
 
 /**

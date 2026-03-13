@@ -116,7 +116,7 @@ async function configureEditorSettings(
     case "cursor":
       return configureCursorSettings(projectRoot);
     case "vscode": {
-      // VS Code: .vscode/mcp.json always, marketplace URL to user settings if logged in
+      // VS Code: marketplace URL to user settings if logged in
       const { loadCredentials } = await import("./auth");
       const creds = await loadCredentials();
       const marketplaceUrl = creds
