@@ -41,7 +41,9 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Validate commit messages
         if: github.event_name == 'pull_request'
-        run: echo "${{ github.event.pull_request.title }}" | bun run commitlint
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | bun run commitlint
       - name: Validate
         id: validate
         run: bun run validate
