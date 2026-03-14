@@ -1,3 +1,9 @@
+## [0.9.3](https://github.com/archgate/cli/compare/v0.9.2...v0.9.3) (2026-03-14)
+
+### Bug Fixes
+
+* **ci:** prevent expression injection in PR title handling ([#55](https://github.com/archgate/cli/issues/55)) ([036615f](https://github.com/archgate/cli/commit/036615fd19cb32a0db46a87b06509cf77a7223a1))
+
 ## [0.9.2](https://github.com/archgate/cli/compare/v0.9.1...v0.9.2) (2026-03-13)
 
 ### Bug Fixes
