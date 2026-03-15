@@ -1,3 +1,13 @@
+## [0.10.0](https://github.com/archgate/cli/compare/v0.9.3...v0.10.0) (2026-03-15)
+
+### Features
+
+* **docs:** maximize SEO discoverability ([#58](https://github.com/archgate/cli/issues/58)) ([4d8b04e](https://github.com/archgate/cli/commit/4d8b04e27202a9ccee7474458a672bfd1c623f79))
+
+### Bug Fixes
+
+* **ci:** prevent release workflow self-cancellation ([#60](https://github.com/archgate/cli/issues/60)) ([63dd9c2](https://github.com/archgate/cli/commit/63dd9c22789eef0cce230f597a1aaad235cf65cd))
+
 ## [0.9.3](https://github.com/archgate/cli/compare/v0.9.2...v0.9.3) (2026-03-14)
 
 ### Bug Fixes
