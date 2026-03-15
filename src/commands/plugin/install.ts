@@ -1,4 +1,5 @@
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 import { styleText } from "node:util";
 import { loadCredentials } from "../../helpers/auth";
 import {
@@ -12,9 +13,7 @@ import {
 } from "../../helpers/plugin-install";
 import { configureVscodeSettings } from "../../helpers/vscode-settings";
 import { logError, logInfo, logWarn } from "../../helpers/log";
-
-const VALID_EDITORS = ["claude", "cursor", "vscode", "copilot"] as const;
-type EditorTarget = (typeof VALID_EDITORS)[number];
+import type { EditorTarget } from "../../helpers/init-project";
 
 const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
@@ -23,24 +22,16 @@ const EDITOR_LABELS: Record<EditorTarget, string> = {
   copilot: "Copilot CLI",
 };
 
+const editorOption = new Option("--editor <editor>", "target editor")
+  .choices(["claude", "cursor", "vscode", "copilot"] as const)
+  .default("claude" as const);
+
 export function registerPluginInstallCommand(plugin: Command) {
   plugin
     .command("install")
     .description("Install the archgate plugin for the specified editor")
-    .option(
-      "--editor <editor>",
-      "target editor (claude, cursor, vscode, copilot)",
-      "claude"
-    )
+    .addOption(editorOption)
     .action(async (opts) => {
-      const editor = opts.editor;
-      if (!VALID_EDITORS.includes(editor as EditorTarget)) {
-        logError(
-          `Unknown editor "${editor}". Supported: ${VALID_EDITORS.join(", ")}`
-        );
-        process.exit(1);
-      }
-
       const credentials = await loadCredentials();
       if (!credentials) {
         logError(
@@ -50,11 +41,10 @@ export function registerPluginInstallCommand(plugin: Command) {
         process.exit(1);
       }
 
-      const target = editor as EditorTarget;
-      const label = EDITOR_LABELS[target];
+      const label = EDITOR_LABELS[opts.editor];
 
       try {
-        switch (target) {
+        switch (opts.editor) {
           case "claude": {
             if (await isClaudeCliAvailable()) {
               await installClaudePlugin(credentials);

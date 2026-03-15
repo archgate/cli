@@ -1,4 +1,5 @@
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 import { loadCredentials } from "../../helpers/auth";
 import {
   buildMarketplaceUrl,
@@ -6,7 +7,9 @@ import {
 } from "../../helpers/plugin-install";
 import { logError } from "../../helpers/log";
 
-const VALID_EDITORS = ["claude", "cursor", "vscode", "copilot"] as const;
+const editorOption = new Option("--editor <editor>", "target editor")
+  .choices(["claude", "cursor", "vscode", "copilot"] as const)
+  .default("claude" as const);
 
 export function registerPluginUrlCommand(plugin: Command) {
   plugin
@@ -14,20 +17,8 @@ export function registerPluginUrlCommand(plugin: Command) {
     .description(
       "Print the authenticated plugin repository URL for manual configuration"
     )
-    .option(
-      "--editor <editor>",
-      "target editor (claude, cursor, vscode, copilot)",
-      "claude"
-    )
+    .addOption(editorOption)
     .action(async (opts) => {
-      const editor = opts.editor;
-      if (!VALID_EDITORS.includes(editor as (typeof VALID_EDITORS)[number])) {
-        logError(
-          `Unknown editor "${editor}". Supported: ${VALID_EDITORS.join(", ")}`
-        );
-        process.exit(1);
-      }
-
       const credentials = await loadCredentials();
       if (!credentials) {
         logError(
@@ -38,7 +29,7 @@ export function registerPluginUrlCommand(plugin: Command) {
       }
 
       const url =
-        editor === "vscode"
+        opts.editor === "vscode"
           ? buildVscodeMarketplaceUrl(credentials)
           : buildMarketplaceUrl(credentials);
 

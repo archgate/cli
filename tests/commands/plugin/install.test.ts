@@ -25,4 +25,17 @@ describe("registerPluginInstallCommand", () => {
     expect(editorOpt).toBeDefined();
     expect(editorOpt!.defaultValue).toBe("claude");
   });
+
+  test("--editor option restricts choices to valid editors", () => {
+    const program = new Command();
+    registerPluginInstallCommand(program);
+    const sub = program.commands.find((c) => c.name() === "install")!;
+    const editorOpt = sub.options.find((o) => o.long === "--editor")!;
+    expect(editorOpt.argChoices).toEqual([
+      "claude",
+      "cursor",
+      "vscode",
+      "copilot",
+    ]);
+  });
 });
