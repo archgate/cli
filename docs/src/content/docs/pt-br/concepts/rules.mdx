@@ -1,6 +1,6 @@
 ---
 title: Regras
-description: Como o sistema de regras do Archgate transforma decisões de ADR em verificações automatizadas.
+description: Entenda o sistema de regras TypeScript do Archgate que transforma Architecture Decision Records em verificações automatizadas com relatórios por arquivo.
 ---
 
 Regras são o lado executável de um ADR. Elas vivem em arquivos `.rules.ts` complementares ao lado do documento ADR e exportam verificações automatizadas via a função `defineRules()`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true`, importa seu arquivo de regras complementar e executa cada verificação contra seu codebase.

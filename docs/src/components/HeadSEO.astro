@@ -1,0 +1,102 @@
+---
+/**
+ * Custom Starlight Head override that injects structured data (JSON-LD)
+ * into every page:
+ *
+ *   1. BreadcrumbList — auto-generated from the URL path
+ *   2. TechArticle   — for all documentation pages (not splash/home)
+ *
+ * Registered via `components: { Head }` in astro.config.mjs.
+ */
+import Default from "@astrojs/starlight/components/Head.astro";
+
+const route = Astro.locals.starlightRoute;
+const siteUrl =
+  Astro.site?.href?.replace(/\/$/, "") ?? "https://cli.archgate.dev";
+const pathname = Astro.url.pathname;
+const pageUrl = `${siteUrl}${pathname}`;
+
+// Guard: 404 and other non-content pages may not have route data.
+const hasRoute = route?.entry?.data !== undefined && route?.entry?.data !== null;
+const title = hasRoute ? route.entry.data.title : undefined;
+const description = hasRoute ? route.entry.data.description : undefined;
+const template = hasRoute ? route.entry.data.template : undefined;
+
+// ── BreadcrumbList ────────────────────────────────────────────────
+// Build breadcrumbs from the URL path segments.
+const segments = pathname
+  .split("/")
+  .filter((s: string) => s.length > 0);
+const breadcrumbItems: Array<{
+  "@type": string;
+  position: number;
+  name: string;
+  item: string;
+}> = [
+  { "@type": "ListItem", position: 1, name: "Home", item: `${siteUrl}/` },
+];
+
+if (hasRoute && segments.length > 0) {
+  let cumulativePath = "";
+  for (let i = 0; i < segments.length; i++) {
+    cumulativePath += `/${segments[i]}`;
+    const name =
+      i === segments.length - 1
+        ? title
+        : segments[i]
+            .replaceAll("-", " ")
+            .replaceAll(/\b\w/g, (c: string) => c.toUpperCase());
+    breadcrumbItems.push({
+      "@type": "ListItem",
+      position: i + 2,
+      name: name ?? segments[i],
+      item: `${siteUrl}${cumulativePath}/`,
+    });
+  }
+}
+
+const breadcrumbLd =
+  breadcrumbItems.length > 1
+    ? {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        itemListElement: breadcrumbItems,
+      }
+    : null;
+
+// ── TechArticle (all doc pages except splash/home) ────────────────
+const isSplash = template === "splash";
+const articleLd =
+  hasRoute && !isSplash
+    ? {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        headline: title,
+        description,
+        url: pageUrl,
+        inLanguage: route.lang ?? "en",
+        isPartOf: {
+          "@type": "WebSite",
+          name: "Archgate CLI Documentation",
+          url: siteUrl,
+        },
+        publisher: {
+          "@type": "Organization",
+          name: "Archgate",
+          url: "https://archgate.dev",
+        },
+      }
+    : null;
+---
+
+<Default {...Astro.props}><slot /></Default>
+
+{/* BreadcrumbList — pages with path segments */}
+{breadcrumbLd && (
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)} />
+)}
+
+{/* TechArticle — doc pages only */}
+{articleLd && (
+  <script type="application/ld+json" set:html={JSON.stringify(articleLd)} />
+)}

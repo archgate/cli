@@ -1,6 +1,6 @@
 ---
 title: Rules
-description: How Archgate's rule system turns ADR decisions into automated checks.
+description: Understand Archgate's TypeScript rule system that turns Architecture Decision Records into automated compliance checks with file-level violation reporting.
 ---
 
 Rules are the executable side of an ADR. They live in companion `.rules.ts` files alongside the ADR document and export automated checks via the `defineRules()` function. When you run `archgate check`, the CLI loads each ADR that has `rules: true`, imports its companion rules file, and executes every check against your codebase.

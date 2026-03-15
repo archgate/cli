@@ -1,0 +1,8 @@
+# Archgate CLI Documentation — https://cli.archgate.dev
+# Allow all search engines and AI crawlers full access
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://cli.archgate.dev/sitemap-index.xml
