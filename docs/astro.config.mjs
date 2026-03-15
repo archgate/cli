@@ -79,10 +79,24 @@ export default defineConfig({
           href: "https://github.com/archgate/cli",
         },
       ],
+      components: {
+        Head: "./src/components/HeadSEO.astro",
+      },
       editLink: {
         baseUrl: "https://github.com/archgate/cli/edit/main/docs/",
       },
+      favicon: "/favicon.svg",
       head: [
+        // ── Favicon ───────────────────────────────────────────────
+        {
+          tag: "link",
+          attrs: {
+            rel: "icon",
+            type: "image/svg+xml",
+            href: "/favicon.svg",
+          },
+        },
+        // ── Analytics ─────────────────────────────────────────────
         {
           tag: "script",
           attrs: {
@@ -90,6 +104,91 @@ export default defineConfig({
             src: "https://static.cloudflareinsights.com/beacon.min.js",
             "data-cf-beacon": '{"token": "cee359c05ecc496aabc4f40f05302a03"}',
           },
+        },
+        // ── Open Graph image ──────────────────────────────────────
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:image",
+            content: "https://cli.archgate.dev/og-image.png",
+          },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:image:width", content: "1200" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:image:height", content: "630" },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            property: "og:image:alt",
+            content:
+              "Archgate — Architecture Decision Records as Executable Rules",
+          },
+        },
+        // ── Twitter / X card ──────────────────────────────────────
+        {
+          tag: "meta",
+          attrs: {
+            name: "twitter:image",
+            content: "https://cli.archgate.dev/og-image.png",
+          },
+        },
+        // ── Additional meta ───────────────────────────────────────
+        {
+          tag: "meta",
+          attrs: { name: "author", content: "Archgate" },
+        },
+        {
+          tag: "meta",
+          attrs: { name: "theme-color", content: "#6366f1" },
+        },
+        {
+          tag: "meta",
+          attrs: {
+            name: "keywords",
+            content:
+              "archgate, architecture decision records, ADR, executable rules, code governance, AI governance, TypeScript rules, CLI, compliance automation, MCP server",
+          },
+        },
+        // ── JSON-LD: WebSite ──────────────────────────────────────
+        {
+          tag: "script",
+          attrs: { type: "application/ld+json" },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "Archgate CLI Documentation",
+            url: "https://cli.archgate.dev",
+            description:
+              "Documentation for Archgate — enforce Architecture Decision Records as executable TypeScript rules for automated code governance.",
+            inLanguage: ["en", "pt-BR"],
+          }),
+        },
+        // ── JSON-LD: SoftwareApplication ──────────────────────────
+        {
+          tag: "script",
+          attrs: { type: "application/ld+json" },
+          content: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            name: "Archgate CLI",
+            applicationCategory: "DeveloperApplication",
+            operatingSystem: "macOS, Linux, Windows",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+            url: "https://cli.archgate.dev",
+            downloadUrl: "https://www.npmjs.com/package/archgate",
+            description:
+              "CLI tool that enforces Architecture Decision Records (ADRs) as executable TypeScript rules for automated code governance.",
+            author: {
+              "@type": "Organization",
+              name: "Archgate",
+              url: "https://archgate.dev",
+            },
+          }),
         },
       ],
       sidebar: [

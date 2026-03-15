@@ -1,0 +1,45 @@
+# Archgate CLI
+
+> Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs). It combines human-readable documentation with machine-checkable TypeScript rules to enforce architectural decisions across codebases — for both humans and AI agents.
+
+Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdown files with YAML frontmatter that describe architectural decisions. Companion `.rules.ts` files contain automated TypeScript checks that run against the codebase and report violations with file paths and line numbers.
+
+## Key capabilities
+
+- **Executable rules**: Write compliance rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
+- **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
+- **AI-aware governance**: The MCP server gives AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
+- **Editor plugins**: Claude Code, VS Code, Cursor, and Copilot CLI plugins give AI agents role-based governance skills.
+- **Self-governance**: Archgate governs its own development using the same tool.
+
+## Installation
+
+Available via npm (`npm install -g archgate`), Homebrew, or standalone binary for macOS, Linux, and Windows.
+
+## Documentation
+
+- [Getting Started — Installation](https://cli.archgate.dev/getting-started/installation/): Install on macOS, Linux, or Windows via npm, Homebrew, or standalone binary.
+- [Getting Started — Quick Start](https://cli.archgate.dev/getting-started/quick-start/): Set up Archgate in under 5 minutes with your first ADR and rule.
+- [Core Concepts — ADRs](https://cli.archgate.dev/concepts/adrs/): How Architecture Decision Records work as both documentation and executable rules.
+- [Core Concepts — Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
+- [Core Concepts — Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain for targeted governance.
+- [Guide — Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
+- [Guide — Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the defineRules API with file matching and violation reporting.
+- [Guide — CI Integration](https://cli.archgate.dev/guides/ci-integration/): Add Archgate checks to GitHub Actions, GitLab CI, or any pipeline.
+- [Guide — Claude Code Plugin](https://cli.archgate.dev/guides/claude-code-plugin/): Give AI agents a governance workflow that reads ADRs, validates code, and captures patterns.
+- [Guide — VS Code Plugin](https://cli.archgate.dev/guides/vscode-plugin/): Real-time ADR compliance in VS Code.
+- [Guide — Copilot CLI Plugin](https://cli.archgate.dev/guides/copilot-cli-plugin/): Add architecture governance to GitHub Copilot CLI.
+- [Guide — Cursor Integration](https://cli.archgate.dev/guides/cursor-integration/): Configure Cursor IDE with Archgate agent rules and skills.
+- [Guide — MCP Server](https://cli.archgate.dev/guides/mcp-server/): Give AI agents live access to ADRs via the Model Context Protocol.
+- [Guide — Pre-commit Hooks](https://cli.archgate.dev/guides/pre-commit-hooks/): Automatically check ADR compliance before every commit.
+- [Reference — CLI Commands](https://cli.archgate.dev/reference/cli-commands/): Complete reference for init, check, adr create/list/show, login, and more.
+- [Reference — MCP Tools](https://cli.archgate.dev/reference/mcp-tools/): API reference for adr_list, adr_read, check_compliance, and review_context.
+- [Reference — Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for defineRules, RuleContext, and violation reporting.
+- [Reference — ADR Schema](https://cli.archgate.dev/reference/adr-schema/): YAML frontmatter schema and markdown structure reference for ADRs.
+- [Examples — Common Rule Patterns](https://cli.archgate.dev/examples/common-rule-patterns/): Ready-to-use rule patterns for naming conventions, import restrictions, and more.
+
+## Optional
+
+- [GitHub Repository](https://github.com/archgate/cli)
+- [Editor Plugin Beta](https://plugins.archgate.dev)
+- [npm Package](https://www.npmjs.com/package/archgate)
