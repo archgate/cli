@@ -12,6 +12,7 @@ import { registerCheckCommand } from "./commands/check";
 import { registerLoginCommand } from "./commands/login";
 import { registerReviewContextCommand } from "./commands/review-context";
 import { registerSessionContextCommand } from "./commands/session-context/index";
+import { registerPluginCommand } from "./commands/plugin/index";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 import { logError } from "./helpers/log";
 
@@ -42,6 +43,7 @@ async function main() {
   registerCheckCommand(program);
   registerReviewContextCommand(program);
   registerSessionContextCommand(program);
+  registerPluginCommand(program);
   registerUpgradeCommand(program);
   registerCleanCommand(program);
 
