@@ -30,11 +30,15 @@ Add the following to your project's `.mcp.json` file (create it if it does not e
 }
 ```
 
-Claude Code reads this file on startup and connects to the Archgate MCP server automatically. You can also run `archgate init` (which defaults to `--editor claude`) to generate this configuration along with the full `.archgate/` directory.
+Claude Code reads this file on startup and connects to the Archgate MCP server automatically.
+
+:::note[Editor plugins use CLI commands directly]
+The Archgate editor plugins (Claude Code, Cursor, VS Code, Copilot CLI) do **not** use the MCP server. They invoke Archgate CLI commands directly (e.g., `archgate review-context`, `archgate check`). The MCP server is for custom integrations or MCP-compatible clients that are not using the editor plugins.
+:::
 
 ## Configuring in Cursor
 
-Run `archgate init --editor cursor` to generate `.cursor/mcp.json` with the same server configuration. See the [Cursor Integration](/guides/cursor-integration/) guide for details.
+Add the same configuration to your project's `.cursor/mcp.json` file. See the [Cursor Integration](/guides/cursor-integration/) guide for details.
 
 ## Available MCP tools
 
@@ -119,5 +123,5 @@ A typical AI agent session using the MCP server follows this pattern:
 6. **Agent iterates** until `check` reports zero violations.
 
 :::tip[Automate this entire workflow]
-The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) automate this flow end-to-end. The agent reads ADRs, writes compliant code, runs checks, validates with the architect skill, and captures learnings -- all without manual MCP tool calls. [Sign up for beta access](https://plugins.archgate.dev).
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) automate this flow end-to-end using CLI commands directly. The agent reads ADRs, writes compliant code, runs checks, validates with the architect skill, and captures learnings -- all without manual intervention. [Sign up for beta access](https://plugins.archgate.dev).
 :::

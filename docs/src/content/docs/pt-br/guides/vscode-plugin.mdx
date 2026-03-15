@@ -9,7 +9,7 @@ O plugin Archgate para VS Code oferece aos agentes de IA que trabalham no [VS Co
 
 O VS Code suporta **plugins de agente** instalados a partir de marketplaces baseados em git. O plugin Archgate é servido a partir de um repositório git em `plugins.archgate.dev/archgate-vscode.git`. Quando você adiciona esse marketplace às suas configurações de usuário do VS Code, o VS Code descobre e instala o plugin automaticamente.
 
-O plugin usa o mesmo formato dos plugins do Claude Code (`.claude-plugin/plugin.json`), que o sistema de plugins de agente do VS Code reconhece nativamente.
+O plugin é servido no formato nativo `.github/plugin/` do VS Code Copilot, separado do formato `.claude-plugin/` do Claude Code.
 
 ## Instalação
 
@@ -42,8 +42,7 @@ archgate init --editor vscode
 Se você já estiver logado, este comando:
 
 1. Cria o diretório de governança `.archgate/` (ADRs, regras de lint)
-2. Cria `.vscode/mcp.json` com a configuração do servidor MCP do Archgate
-3. Adiciona a URL autenticada do marketplace nas suas **configurações de usuário** do VS Code
+2. Adiciona a URL autenticada do marketplace nas suas **configurações de usuário** do VS Code
 
 A configuração `chat.plugins.marketplaces` tem escopo de aplicação no VS Code, então não pode ser definida por workspace. O CLI escreve automaticamente no seu `settings.json` de nível de usuário:
 
@@ -61,27 +60,13 @@ archgate init --editor vscode --install-plugin
 
 ### Arquivos gerados
 
-O comando cria ou atualiza os seguintes arquivos:
+O comando cria ou atualiza o seguinte:
 
-| Arquivo                    | Escopo    | Propósito                                                           |
-| -------------------------- | --------- | ------------------------------------------------------------------- |
-| `.vscode/mcp.json`         | Workspace | Configuração do servidor MCP para que o VS Code acesse os seus ADRs |
-| `settings.json` do usuário | Usuário   | `chat.plugins.marketplaces` com a URL autenticada                   |
+| Arquivo                    | Escopo  | Propósito                                         |
+| -------------------------- | ------- | ------------------------------------------------- |
+| `settings.json` do usuário | Usuário | `chat.plugins.marketplaces` com a URL autenticada |
 
-Se `.vscode/mcp.json` já existir, o Archgate mescla sua configuração de forma aditiva -- entradas de servidores existentes são preservadas. O arquivo de configurações de usuário também é mesclado de forma aditiva -- configurações existentes nunca são sobrescritas.
-
-A configuração MCP do workspace (`.vscode/mcp.json`):
-
-```json
-{
-  "servers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
-```
+O arquivo de configurações de usuário é mesclado de forma aditiva -- configurações existentes nunca são sobrescritas. Os marketplaces padrão do VS Code (`github/copilot-plugins`, `github/awesome-copilot`) são preservados quando a chave é definida pela primeira vez.
 
 A configuração do marketplace no nível de usuário (adicionada ao seu `settings.json`):
 
@@ -99,13 +84,20 @@ Se preferir não deixar o CLI modificar suas configurações de usuário, você 
 
 ## O que o plugin oferece
 
-O plugin adiciona skills baseadas em papéis ao agente de IA do VS Code. Cada skill encapsula uma parte específica do fluxo de governança, garantindo que os agentes sigam o mesmo processo todas as vezes.
+O plugin adiciona um agente e skills baseadas em papéis ao VS Code. O agente orquestra o fluxo de governança, invocando skills conforme necessário.
 
-### Skills incluídas
+### Agente
+
+| Agente               | Propósito                                                                      |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+
+O agente `archgate:developer` é definido como agente padrão via as configurações do plugin. Ele orquestra as skills abaixo automaticamente como parte do seu fluxo.
+
+### Skills
 
 | Skill                      | Propósito                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `archgate:developer`       | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois             |
 | `archgate:architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
 | `archgate:quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
 | `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
@@ -128,7 +120,7 @@ O plugin segue um fluxo estruturado para cada tarefa de codificação:
 
 ### 1. Ler os ADRs aplicáveis
 
-Quando o desenvolvedor atribui uma tarefa de codificação, o agente lê todos os ADRs que se aplicam aos arquivos sendo alterados. O servidor MCP fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
+Quando o desenvolvedor atribui uma tarefa de codificação, o agente executa `archgate review-context` para ler todos os ADRs que se aplicam aos arquivos sendo alterados. Isso fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
 
 ### 2. Escrever código seguindo as restrições dos ADRs
 
@@ -146,20 +138,8 @@ O agente invoca `archgate:architect` para validar a conformidade estrutural com 
 
 O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs.
 
-## Integração com o servidor MCP
-
-O plugin se comunica com os ADRs do seu projeto por meio do servidor MCP do Archgate. O servidor fornece:
-
-- **Conteúdo de ADRs** -- texto completo de qualquer ADR, acessível por ID
-- **Contexto de revisão** -- resumos condensados de todos os ADRs aplicáveis a um conjunto de arquivos alterados
-- **Verificação de regras** -- execução de regras automatizadas com relatório de violações
-- **Listagem de ADRs** -- inventário de todos os ADRs do projeto com metadados
-
-O servidor MCP roda localmente e lê diretamente do seu diretório `.archgate/adrs/`. Nenhum dado sai da sua máquina.
-
 ## Dicas
 
-- **Faça commit do `.vscode/mcp.json`** para compartilhar a configuração MCP com sua equipe.
 - **Cada desenvolvedor executa `archgate init --editor vscode`** após `archgate login` para configurar a URL do marketplace no nível de usuário.
 - **Execute o onboard uma vez por projeto** para gerar seus ADRs iniciais a partir do seu codebase real.
 - **Mantenha os arquivos de regras dos ADRs atualizados** -- o agente aplica o que as regras verificam.

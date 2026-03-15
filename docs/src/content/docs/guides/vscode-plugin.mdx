@@ -61,27 +61,13 @@ archgate init --editor vscode --install-plugin
 
 ### Generated files
 
-The command creates or updates the following files:
+The command creates or updates the following:
 
-| File                 | Scope     | Purpose                                                  |
-| -------------------- | --------- | -------------------------------------------------------- |
-| `.vscode/mcp.json`   | Workspace | MCP server configuration so VS Code can access your ADRs |
-| User `settings.json` | User      | `chat.plugins.marketplaces` with the authenticated URL   |
+| File                 | Scope | Purpose                                                |
+| -------------------- | ----- | ------------------------------------------------------ |
+| User `settings.json` | User  | `chat.plugins.marketplaces` with the authenticated URL |
 
-If `.vscode/mcp.json` already exists, Archgate merges its configuration additively -- existing server entries are preserved. The user settings file is also merged additively -- existing settings are never overwritten.
-
-The workspace MCP configuration (`.vscode/mcp.json`):
-
-```json
-{
-  "servers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
-```
+The user settings file is merged additively -- existing settings are never overwritten. VS Code's built-in default marketplaces (`github/copilot-plugins`, `github/awesome-copilot`) are preserved when the key is set for the first time.
 
 The user-level marketplace setting (added to your `settings.json`):
 
@@ -99,13 +85,20 @@ If you prefer not to let the CLI modify your user settings, you can add the mark
 
 ## What the plugin provides
 
-The plugin adds role-based skills to VS Code's AI agent. Each skill encapsulates a specific part of the governance workflow, so agents follow the same process every time.
+The plugin adds an agent and role-based skills to VS Code's AI. The agent orchestrates the governance workflow, invoking skills as needed.
 
-### Skills included
+### Agent
+
+| Agent                | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+
+The `archgate:developer` agent is set as the default agent via the plugin settings. It orchestrates the skills below automatically as part of its workflow.
+
+### Skills
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:developer`       | General development agent that reads ADRs before coding and validates after           |
 | `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
 | `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
@@ -146,20 +139,8 @@ The agent invokes `archgate:architect` to validate structural ADR compliance bey
 
 The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing as new ADRs.
 
-## MCP server integration
-
-The plugin communicates with your project's ADRs through the Archgate MCP server. The server provides:
-
-- **ADR content** -- full text of any ADR, accessible by ID
-- **Review context** -- condensed briefings of all ADRs applicable to a set of changed files
-- **Rule checking** -- execution of automated rules with violation reporting
-- **ADR listing** -- inventory of all ADRs in the project with metadata
-
-The MCP server runs locally and reads directly from your `.archgate/adrs/` directory. No data leaves your machine.
-
 ## Tips
 
-- **Commit `.vscode/mcp.json`** to share the MCP configuration with your team.
 - **Each developer runs `archgate init --editor vscode`** after `archgate login` to configure their user-level marketplace URL.
 - **Run onboard once per project** to generate your initial ADRs from your actual codebase.
 - **Keep ADR rule files up to date** -- the agent enforces what the rules check for.
