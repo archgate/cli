@@ -9,7 +9,7 @@ on:
 
 concurrency:
   group: release-${{ github.ref_name }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: write
