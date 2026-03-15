@@ -1,24 +1,22 @@
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 import { existsSync } from "node:fs";
 import inquirer from "inquirer";
 import { projectPaths } from "../../helpers/paths";
-import {
-  ADR_DOMAINS,
-  AdrFrontmatterSchema,
-  type AdrDomain,
-} from "../../formats/adr";
+import { ADR_DOMAINS, type AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
 import { logError } from "../../helpers/log";
+
+const domainOption = new Option("--domain <domain>", "ADR domain").choices(
+  ADR_DOMAINS
+);
 
 export function registerAdrCreateCommand(adr: Command) {
   adr
     .command("create")
     .description("Create a new ADR")
     .option("--title <title>", "ADR title (skip interactive prompt)")
-    .option(
-      "--domain <domain>",
-      "ADR domain: backend, frontend, data, architecture, general"
-    )
+    .addOption(domainOption)
     .option("--files <patterns>", "File patterns, comma-separated")
     .option("--body <markdown>", "Full ADR body markdown (skip template)")
     .option("--rules", "Set rules: true in frontmatter")
@@ -39,16 +37,7 @@ export function registerAdrCreateCommand(adr: Command) {
 
       // Non-interactive mode when --title and --domain are provided
       if (opts.title && opts.domain) {
-        const domainResult = AdrFrontmatterSchema.shape.domain.safeParse(
-          opts.domain
-        );
-        if (!domainResult.success) {
-          logError(
-            `Invalid domain '${opts.domain}'. Must be one of: ${ADR_DOMAINS.join(", ")}`
-          );
-          process.exit(1);
-        }
-        domain = domainResult.data;
+        domain = opts.domain;
         title = opts.title;
         files = opts.files
           ? opts.files

@@ -113,7 +113,7 @@ export function registerExampleCommand(program: Command) {
 
 ### Automated Enforcement
 
-- **Archgate rule** ARCH-008/use-add-option-for-choices: Scans command files for `.option()` calls that include a hardcoded choices-like pattern and flags them for migration to `.addOption()` with `.choices()`. Severity: warning.
+- **Archgate rule** ARCH-008/use-add-option-for-choices: Scans command files for `.option()` calls that include a hardcoded choices-like pattern and flags them for migration to `.addOption()` with `.choices()`. Severity: error.
 
 ### Manual Enforcement
 

@@ -1,8 +1,14 @@
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 import { logError } from "../helpers/log";
 import { findProjectRoot } from "../helpers/paths";
 import { buildReviewContext } from "../engine/context";
-import { AdrFrontmatterSchema } from "../formats/adr";
+import { ADR_DOMAINS } from "../formats/adr";
+
+const domainOption = new Option(
+  "--domain <domain>",
+  "filter to a single domain"
+).choices(ADR_DOMAINS);
 
 export function registerReviewContextCommand(program: Command) {
   program
@@ -12,10 +18,7 @@ export function registerReviewContextCommand(program: Command) {
     )
     .option("--staged", "Only include git-staged files")
     .option("--run-checks", "Include ADR compliance check results")
-    .option(
-      "--domain <domain>",
-      "Filter to a single domain (backend, frontend, data, architecture, general)"
-    )
+    .addOption(domainOption)
     .action(async (opts) => {
       const projectRoot = findProjectRoot();
       if (!projectRoot) {
@@ -25,26 +28,10 @@ export function registerReviewContextCommand(program: Command) {
         process.exit(1);
       }
 
-      if (opts.domain) {
-        const result = AdrFrontmatterSchema.shape.domain.safeParse(opts.domain);
-        if (!result.success) {
-          logError(
-            `Invalid domain '${opts.domain}'. Use: backend, frontend, data, architecture, general`
-          );
-          process.exit(1);
-        }
-      }
-
       const context = await buildReviewContext(projectRoot, {
         staged: opts.staged,
         runChecks: opts.runChecks,
-        domain: opts.domain as
-          | "backend"
-          | "frontend"
-          | "data"
-          | "architecture"
-          | "general"
-          | undefined,
+        domain: opts.domain,
       });
 
       console.log(JSON.stringify(context, null, 2));
