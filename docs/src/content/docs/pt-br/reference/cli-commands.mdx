@@ -29,7 +29,7 @@ archgate login
 
 Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena ambos em `~/.archgate/credentials`.
 
-As credenciais são necessárias para instalar plugins de editor via `archgate init --install-plugin`. A CLI em si (check, init, mcp, etc.) funciona sem login.
+As credenciais são necessárias para instalar plugins de editor via `archgate init --install-plugin`. A CLI em si (check, init, etc.) funciona sem login.
 
 :::tip[Plugin em beta]
 Os plugins de editor estão atualmente em beta. Cadastre-se em [plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso.
@@ -382,37 +382,6 @@ archgate adr update \
   --title "Updated Command Structure" \
   --body "## Context\n\nUpdated context..."
 ```
-
----
-
-## archgate mcp
-
-Inicia o servidor MCP para integração com agentes de IA.
-
-```bash
-archgate mcp
-```
-
-Executa um servidor MCP usando transporte stdio. O servidor expõe ferramentas para verificar conformidade com ADRs, listar ADRs e obter contexto de revisão. Consulte a referência de [Ferramentas MCP](/pt-br/reference/mcp-tools/) para a lista completa de ferramentas e recursos disponíveis.
-
-O servidor inicia mesmo quando nenhum diretório `.archgate/` é encontrado. Nesse caso, as ferramentas retornam orientações direcionando o agente a inicializar a governança primeiro.
-
-### Configuração
-
-Adicione a configuração MCP do seu projeto (`.mcp.json` na raiz do projeto):
-
-```json
-{
-  "mcpServers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-Executar `archgate init` cria essa configuração automaticamente para o seu editor.
 
 ---
 

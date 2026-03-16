@@ -42,8 +42,7 @@ archgate init --editor vscode
 If you are already logged in, this command:
 
 1. Creates the `.archgate/` governance directory (ADRs, lint rules)
-2. Creates `.vscode/mcp.json` with the Archgate MCP server configuration
-3. Adds the authenticated marketplace URL to your VS Code **user settings**
+2. Adds the authenticated marketplace URL to your VS Code **user settings**
 
 The `chat.plugins.marketplaces` setting is application-scoped in VS Code, so it cannot be set per-workspace. The CLI automatically writes it to your user-level `settings.json`:
 
@@ -121,7 +120,7 @@ The plugin follows a structured workflow for every coding task:
 
 ### 1. Read applicable ADRs
 
-When the developer gives a coding task, the agent reads all ADRs that apply to the files being changed. The MCP server provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
 
 ### 2. Write code following ADR constraints
 

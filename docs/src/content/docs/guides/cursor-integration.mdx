@@ -132,12 +132,12 @@ The governance rule in `.cursor/rules/archgate-governance.mdc` uses `alwaysApply
 
 ## Session transcript access
 
-The `cursor_session_context` MCP tool reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
+The `archgate session-context cursor` command reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
 
-The tool accepts two optional parameters:
+The command accepts two optional flags:
 
-- `maxEntries` -- Maximum number of entries to return (default: 200, most recent entries).
-- `sessionId` -- A specific session UUID to read. If omitted, the most recent session is used.
+- `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries).
+- `--session-id <uuid>` -- A specific session UUID to read. If omitted, the most recent session is used.
 
 ## Tips for effective usage
 
