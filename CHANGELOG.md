@@ -1,3 +1,13 @@
+## [0.11.0](https://github.com/archgate/cli/compare/v0.10.0...v0.11.0) (2026-03-16)
+
+### Features
+
+* add `archgate plugin` command group ([#61](https://github.com/archgate/cli/issues/61)) ([24950b4](https://github.com/archgate/cli/commit/24950b4f7874754ddd8d7f923add23c52090ae86))
+
+### Bug Fixes
+
+* **docs:** sync pt-br translations with English source ([#64](https://github.com/archgate/cli/issues/64)) ([e1dd6b7](https://github.com/archgate/cli/commit/e1dd6b792d0ece21a9f7ee3d76c0385717b2f5cb))
+
 ## [0.10.0](https://github.com/archgate/cli/compare/v0.9.3...v0.10.0) (2026-03-15)
 
 ### Features
