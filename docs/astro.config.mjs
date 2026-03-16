@@ -105,7 +105,23 @@ export default defineConfig({
             "data-cf-beacon": '{"token": "cee359c05ecc496aabc4f40f05302a03"}',
           },
         },
-        // ── Open Graph image ──────────────────────────────────────
+        // ── Open Graph ────────────────────────────────────────────
+        {
+          tag: "meta",
+          attrs: { property: "og:type", content: "website" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:site_name", content: "Archgate" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:locale", content: "en_US" },
+        },
+        {
+          tag: "meta",
+          attrs: { property: "og:locale:alternate", content: "pt_BR" },
+        },
         {
           tag: "meta",
           attrs: {
@@ -130,6 +146,10 @@ export default defineConfig({
           },
         },
         // ── Twitter / X card ──────────────────────────────────────
+        {
+          tag: "meta",
+          attrs: { name: "twitter:card", content: "summary_large_image" },
+        },
         {
           tag: "meta",
           attrs: {
@@ -177,7 +197,10 @@ export default defineConfig({
             "@type": "SoftwareApplication",
             name: "Archgate CLI",
             applicationCategory: "DeveloperApplication",
+            applicationSubCategory: "Code Governance",
             operatingSystem: "macOS, Linux, Windows",
+            softwareVersion: "0.11.0",
+            license: "https://github.com/archgate/cli/blob/main/LICENSE",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
             url: "https://cli.archgate.dev",
             downloadUrl: "https://www.npmjs.com/package/archgate",

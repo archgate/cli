@@ -22,6 +22,14 @@ const title = hasRoute ? route.entry.data.title : undefined;
 const description = hasRoute ? route.entry.data.description : undefined;
 const template = hasRoute ? route.entry.data.template : undefined;
 
+// ── hreflang alternate links ─────────────────────────────────────
+// Map between English and pt-BR pages for search engine language targeting.
+const isPtBr = pathname.startsWith("/pt-br/");
+const enPath = isPtBr ? pathname.replace(/^\/pt-br\//, "/") : pathname;
+const ptBrPath = isPtBr ? pathname : `/pt-br${pathname}`;
+const enUrl = `${siteUrl}${enPath}`;
+const ptBrUrl = `${siteUrl}${ptBrPath}`;
+
 // ── BreadcrumbList ────────────────────────────────────────────────
 // Build breadcrumbs from the URL path segments.
 const segments = pathname
@@ -64,6 +72,13 @@ const breadcrumbLd =
       }
     : null;
 
+// ── Markdown alternate link for LLM agents ──────────────────────
+// Points to the raw .mdx source on GitHub so AI crawlers can fetch markdown.
+const entryId = hasRoute ? route.entry.id : null;
+const markdownUrl = entryId
+  ? `https://raw.githubusercontent.com/archgate/cli/main/docs/src/content/docs/${entryId}${entryId.endsWith(".mdx") || entryId.endsWith(".md") ? "" : ".mdx"}`
+  : null;
+
 // ── TechArticle (all doc pages except splash/home) ────────────────
 const isSplash = template === "splash";
 const articleLd =
@@ -74,6 +89,7 @@ const articleLd =
         headline: title,
         description,
         url: pageUrl,
+        mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
         inLanguage: route.lang ?? "en",
         isPartOf: {
           "@type": "WebSite",
@@ -85,11 +101,24 @@ const articleLd =
           name: "Archgate",
           url: "https://archgate.dev",
         },
+        author: {
+          "@type": "Organization",
+          name: "Archgate",
+          url: "https://archgate.dev",
+        },
       }
     : null;
 ---
 
 <Default {...Astro.props}><slot /></Default>
+
+{/* hreflang x-default — Starlight already emits en + pt-BR alternates */}
+<link rel="alternate" hreflang="x-default" href={enUrl} />
+
+{/* Markdown source for LLM agents */}
+{markdownUrl && (
+  <link rel="alternate" type="text/markdown" href={markdownUrl} />
+)}
 
 {/* BreadcrumbList — pages with path segments */}
 {breadcrumbLd && (
