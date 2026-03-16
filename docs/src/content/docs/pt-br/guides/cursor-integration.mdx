@@ -30,6 +30,12 @@ archgate init --editor cursor --install-plugin
 
 O pacote do plugin é baixado de `plugins.archgate.dev` e extraído no diretório `.cursor/`. Ele inclui regras de agente e definições de skills.
 
+Para instalar ou reinstalar o plugin em um projeto já inicializado:
+
+```bash
+archgate plugin install --editor cursor
+```
+
 ### Sem plugin (gratuito)
 
 Sem o plugin, `archgate init --editor cursor` ainda configura uma regra de governança básica. O agente de IA pode consultar ADRs e executar verificações via comandos CLI, mas não recebe as skills baseadas em papéis descritas abaixo.

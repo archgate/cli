@@ -65,6 +65,20 @@ Se o CLI `claude` estiver no seu PATH, o plugin é instalado automaticamente via
 
 Se o CLI `claude` não for encontrado, o comando exibe os comandos manuais para você executar.
 
+### Instalando o plugin em um projeto existente
+
+Se seu projeto já foi inicializado, você pode instalar ou reinstalar o plugin sem executar `archgate init` novamente:
+
+```bash
+archgate plugin install
+```
+
+Para obter a URL autenticada do repositório para configuração manual:
+
+```bash
+archgate plugin url
+```
+
 ## Configuração inicial com onboard
 
 Após a instalação, execute a skill `archgate:onboard` no seu projeto uma vez. Essa skill:

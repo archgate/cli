@@ -30,6 +30,12 @@ archgate init --editor cursor --install-plugin
 
 The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory. It includes agent rules and skill definitions.
 
+To install or reinstall the plugin on an already-initialized project:
+
+```bash
+archgate plugin install --editor cursor
+```
+
 ### Without plugin (free)
 
 Without the plugin, `archgate init --editor cursor` still configures a basic governance rule. The AI agent can consult ADRs and run checks via CLI commands, but does not get the role-based skills described below.

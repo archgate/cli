@@ -102,10 +102,10 @@ Cria o diretório `.archgate/` com um ADR de exemplo, arquivo de regras compleme
 
 ### Opções
 
-| Opção               | Padrão   | Descrição                                                                |
-| ------------------- | -------- | ------------------------------------------------------------------------ |
-| `--editor <editor>` | `claude` | Integração de editor a configurar (`claude`, `cursor`)                   |
-| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` prévio) |
+| Opção               | Padrão   | Descrição                                                                   |
+| ------------------- | -------- | --------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Integração de editor a configurar (`claude`, `cursor`, `vscode`, `copilot`) |
+| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` prévio)    |
 
 Quando `--install-plugin` é passado, a CLI instala o plugin do Archgate para o editor selecionado. Se a flag for omitida, a CLI faz detecção automática: instala o plugin quando existem credenciais válidas (de um `archgate login` anterior) e pula caso contrário.
 
@@ -137,6 +137,84 @@ Quando `--editor cursor` é usado, a saída mostra `.cursor/` em vez de `.claude
     ARCH-001-example.rules.ts    # Example rules file
   lint/
     archgate.config.ts           # Archgate configuration
+```
+
+---
+
+## archgate plugin
+
+Gerencia os plugins de editor do Archgate independentemente do `archgate init`.
+
+```bash
+archgate plugin <subcomando> [options]
+```
+
+Use `archgate plugin` para instalar plugins ou obter a URL autenticada do repositório em projetos que já foram inicializados.
+
+### Subcomandos
+
+#### archgate plugin url
+
+Exibe a URL autenticada do repositório de plugins para configuração manual de ferramentas.
+
+```bash
+archgate plugin url [options]
+```
+
+| Opção               | Padrão   | Descrição                                             |
+| ------------------- | -------- | ----------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`) |
+
+A URL inclui suas credenciais e pode ser usada para configurar manualmente as ferramentas do editor. Por exemplo, para adicionar o marketplace do Archgate no Claude Code:
+
+```bash
+claude plugin marketplace add "$(archgate plugin url)"
+claude plugin install archgate@archgate
+```
+
+Para o VS Code, a URL aponta para um repositório de plugin separado:
+
+```bash
+archgate plugin url --editor vscode
+```
+
+#### archgate plugin install
+
+Instala o plugin do Archgate para o editor especificado em um projeto já inicializado.
+
+```bash
+archgate plugin install [options]
+```
+
+| Opção               | Padrão   | Descrição                                             |
+| ------------------- | -------- | ----------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`) |
+
+O comportamento de instalação varia por editor:
+
+- **Claude Code:** Instala automaticamente via CLI `claude` se disponível; exibe comandos manuais caso contrário.
+- **Copilot CLI:** Instala automaticamente via CLI `copilot` se disponível; exibe comandos manuais caso contrário.
+- **Cursor:** Baixa e extrai o pacote do plugin no diretório `.cursor/`.
+- **VS Code:** Adiciona a URL do marketplace nas configurações de usuário do VS Code.
+
+### Exemplos
+
+Obter a URL do plugin para configuração manual:
+
+```bash
+archgate plugin url
+```
+
+Instalar o plugin para o Claude Code:
+
+```bash
+archgate plugin install
+```
+
+Instalar o plugin para o Cursor:
+
+```bash
+archgate plugin install --editor cursor
 ```
 
 ---

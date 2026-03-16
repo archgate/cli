@@ -1,11 +1,10 @@
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 import { styleText } from "node:util";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { loadCredentials } from "../helpers/auth";
-
-const VALID_EDITORS = ["claude", "cursor", "vscode", "copilot"] as const;
 
 const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
@@ -21,41 +20,32 @@ const EDITOR_DIRS: Record<EditorTarget, string> = {
   copilot: ".github/copilot/",
 };
 
+const editorOption = new Option("--editor <editor>", "editor integration")
+  .choices(["claude", "cursor", "vscode", "copilot"] as const)
+  .default("claude" as const);
+
 export function registerInitCommand(program: Command) {
   program
     .command("init")
     .description("Initialize Archgate governance in the current project")
-    .option(
-      "--editor <editor>",
-      "editor integration to configure (claude, cursor, vscode, copilot)",
-      "claude"
-    )
+    .addOption(editorOption)
     .option(
       "--install-plugin",
       "install the archgate plugin (requires prior `archgate login`)"
     )
     .action(async (opts) => {
       try {
-        const editor = opts.editor as string;
-        if (!VALID_EDITORS.includes(editor as EditorTarget)) {
-          logError(
-            `Unknown editor "${editor}". Supported: ${VALID_EDITORS.join(", ")}`
-          );
-          process.exit(1);
-        }
-
         // Auto-detect: install plugin if credentials exist (unless explicitly off)
         const installPlugin =
           opts.installPlugin ?? (await loadCredentials()) !== null;
 
         const result = await initProject(process.cwd(), {
-          editor: editor as EditorTarget,
+          editor: opts.editor,
           installPlugin,
         });
 
-        const editorTarget = editor as EditorTarget;
-        const label = EDITOR_LABELS[editorTarget];
-        const dir = EDITOR_DIRS[editorTarget];
+        const label = EDITOR_LABELS[opts.editor];
+        const dir = EDITOR_DIRS[opts.editor];
 
         console.log(`Initialized Archgate governance in ${result.projectRoot}`);
         console.log(`  adrs/          - architecture decision records`);
@@ -72,7 +62,7 @@ export function registerInitCommand(program: Command) {
             }
           } else {
             // CLI not found for this editor — show manual commands
-            printManualInstructions(editorTarget, result.plugin.detail);
+            printManualInstructions(opts.editor, result.plugin.detail);
           }
         } else if (installPlugin) {
           // User wanted plugin but no credentials
