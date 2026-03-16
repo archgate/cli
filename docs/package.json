@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "bun run scripts/generate-llms-full.ts && astro build",
     "preview": "astro preview"
   },
   "dependencies": {

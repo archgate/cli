@@ -1,0 +1,3810 @@
+# Archgate CLI
+
+> Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs). It combines human-readable documentation with machine-checkable TypeScript rules to enforce architectural decisions across codebases — for both humans and AI agents.
+
+Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdown files with YAML frontmatter that describe architectural decisions. Companion `.rules.ts` files contain automated TypeScript checks that run against the codebase and report violations with file paths and line numbers.
+
+## Key capabilities
+
+- **Executable rules**: Write compliance rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
+- **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
+- **AI-aware governance**: The MCP server gives AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
+- **Editor plugins**: Claude Code, VS Code, Cursor, and Copilot CLI plugins give AI agents role-based governance skills.
+- **Self-governance**: Archgate governs its own development using the same tool.
+
+## Installation
+
+Available via npm (`npm install -g archgate`), Homebrew, or standalone binary for macOS, Linux, and Windows.
+
+## Documentation
+
+- [Getting Started — Installation](https://cli.archgate.dev/getting-started/installation/): Install on macOS, Linux, or Windows via npm, Homebrew, or standalone binary.
+- [Getting Started — Quick Start](https://cli.archgate.dev/getting-started/quick-start/): Set up Archgate in under 5 minutes with your first ADR and rule.
+- [Core Concepts — ADRs](https://cli.archgate.dev/concepts/adrs/): How Architecture Decision Records work as both documentation and executable rules.
+- [Core Concepts — Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
+- [Core Concepts — Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain for targeted governance.
+- [Guide — Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
+- [Guide — Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the defineRules API with file matching and violation reporting.
+- [Guide — CI Integration](https://cli.archgate.dev/guides/ci-integration/): Add Archgate checks to GitHub Actions, GitLab CI, or any pipeline.
+- [Guide — Claude Code Plugin](https://cli.archgate.dev/guides/claude-code-plugin/): Give AI agents a governance workflow that reads ADRs, validates code, and captures patterns.
+- [Guide — VS Code Plugin](https://cli.archgate.dev/guides/vscode-plugin/): Real-time ADR compliance in VS Code.
+- [Guide — Copilot CLI Plugin](https://cli.archgate.dev/guides/copilot-cli-plugin/): Add architecture governance to GitHub Copilot CLI.
+- [Guide — Cursor Integration](https://cli.archgate.dev/guides/cursor-integration/): Configure Cursor IDE with Archgate agent rules and skills.
+- [Guide — MCP Server](https://cli.archgate.dev/guides/mcp-server/): Give AI agents live access to ADRs via the Model Context Protocol.
+- [Guide — Pre-commit Hooks](https://cli.archgate.dev/guides/pre-commit-hooks/): Automatically check ADR compliance before every commit.
+- [Reference — CLI Commands](https://cli.archgate.dev/reference/cli-commands/): Complete reference for init, check, adr create/list/show, login, and more.
+- [Reference — MCP Tools](https://cli.archgate.dev/reference/mcp-tools/): API reference for adr_list, adr_read, check_compliance, and review_context.
+- [Reference — Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for defineRules, RuleContext, and violation reporting.
+- [Reference — ADR Schema](https://cli.archgate.dev/reference/adr-schema/): YAML frontmatter schema and markdown structure reference for ADRs.
+- [Examples — Common Rule Patterns](https://cli.archgate.dev/examples/common-rule-patterns/): Ready-to-use rule patterns for naming conventions, import restrictions, and more.
+
+## Full documentation
+
+For the complete documentation in a single file, see [llms-full.txt](https://cli.archgate.dev/llms-full.txt).
+
+## Optional
+
+- [GitHub Repository](https://github.com/archgate/cli)
+- [Editor Plugin Beta](https://plugins.archgate.dev)
+- [npm Package](https://www.npmjs.com/package/archgate)
+
+---
+
+# Full documentation
+
+Below is the complete English documentation for Archgate CLI.
+
+## Archgate
+
+Source: https://cli.archgate.dev/
+
+## How it works
+
+Archgate has two layers that work together:
+
+1. **ADRs as documents** — Markdown files with YAML frontmatter that describe architectural decisions in plain language. Humans read them. AI agents read them. Everyone stays aligned.
+
+2. **ADRs as rules** — Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
+
+When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file, and reports any violations. Exit code 0 means your code complies. Exit code 1 means it does not.
+
+## Key Features
+
+  
+    Write rules in TypeScript. Archgate runs them against your codebase and
+    reports violations with file paths and line numbers. Rules live next to the
+    decisions they enforce.
+  
+  
+    Wire `archgate check` into your pipeline. Exit code 1 blocks merges when
+    rules are violated. Works with GitHub Actions, GitLab CI, or any CI system
+    that respects exit codes.
+  
+  
+    Editor plugins give AI agents direct access to your ADRs via CLI commands.
+    They read decisions before writing code and validate after. No copy-pasting
+    rules into prompts.
+  
+  
+    Archgate governs its own development. The same tool that checks your code
+    checks ours. Six ADRs enforce command structure, error handling, output
+    formatting, testing, and more.
+  
+
+## Editor plugins
+
+The Archgate CLI works standalone, but **editor plugins** unlock a full AI governance workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
+
+  
+    The Claude Code plugin adds five skills: developer, architect,
+    quality-manager, adr-author, and onboard. Agents follow a structured
+    read-validate-capture loop on every task.
+  
+  
+    The Cursor plugin provides pre-built agent rules and skills that give
+    Cursor's AI agent the same governance workflow as Claude Code.
+  
+
+Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://plugins.archgate.dev) to get access, then install with `archgate login` and `archgate init --install-plugin`.
+
+## Learn more
+
+---
+
+## Getting Started: Installation
+
+Source: https://cli.archgate.dev/getting-started/installation/
+
+## Install globally
+
+Install Archgate globally using your preferred package manager:
+
+```bash
+# npm
+npm install -g archgate
+
+# Bun
+bun install -g archgate
+
+# Yarn
+yarn global add archgate
+
+# pnpm
+pnpm add -g archgate
+```
+
+This installs a lightweight wrapper that delegates to a platform-specific binary. The CLI itself is a standalone binary compiled with Bun — Node.js is only needed for the npm/yarn/pnpm wrapper.
+
+## Install as a dev dependency
+
+You can also add Archgate as a dev dependency in your project and run it through your package manager's script runner. This is useful for pinning a specific version per project or running checks in CI without a global install.
+
+```bash
+# npm
+npm install -D archgate
+
+# Bun
+bun add -d archgate
+
+# Yarn
+yarn add -D archgate
+
+# pnpm
+pnpm add -D archgate
+```
+
+Then run Archgate via your package manager:
+
+```bash
+# npm / Yarn / pnpm
+npx archgate check
+
+# Bun
+bun run archgate check
+```
+
+Or add a script to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "check:adrs": "archgate check"
+  }
+}
+```
+
+```bash
+# Works with any package manager
+npm run check:adrs
+bun run check:adrs
+yarn check:adrs
+pnpm check:adrs
+```
+
+## Platform support
+
+Archgate ships pre-built binaries for the following platforms:
+
+| Platform | Architecture | Package                 |
+| -------- | ------------ | ----------------------- |
+| macOS    | arm64        | `archgate-darwin-arm64` |
+| Linux    | x86_64       | `archgate-linux-x64`    |
+| Windows  | x86_64       | `archgate-win32-x64`    |
+
+The correct binary is installed automatically as an `optionalDependency` when you install `archgate`.
+
+## Verify installation
+
+```bash
+archgate --version
+```
+
+You should see the installed version printed to stdout.
+
+## Proto toolchain users
+
+If you manage Node.js with [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), globally installed npm binaries require an additional setup step.
+
+Add to your proto configuration:
+
+```toml
+# ~/.proto/config.toml
+[tools.npm]
+shared-globals-dir = true
+```
+
+Then add the globals directory to your shell profile (`.bashrc`, `.zshrc`, or equivalent):
+
+```bash
+export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
+```
+
+Restart your shell, then run `npm install -g archgate` again. The `archgate` command should now be available globally.
+
+## Next steps
+
+Once installed, run `archgate init` in your project to set up governance. See the [Quick Start](/getting-started/quick-start/) guide for a walkthrough.
+
+Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full governance workflow on top of the CLI. [Sign up for beta access](https://plugins.archgate.dev).
+
+---
+
+## Getting Started: Quick Start
+
+Source: https://cli.archgate.dev/getting-started/quick-start/
+
+## 1. Install Archgate
+
+If you have not installed the CLI yet, install it globally via npm:
+
+```bash
+npm install -g archgate
+```
+
+See the [Installation](/getting-started/installation/) page for platform details and troubleshooting.
+
+## 2. Initialize your project
+
+Navigate to your project root and run the `init` command:
+
+```bash
+cd my-project
+archgate init
+```
+
+This creates the `.archgate/` directory with the following structure:
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```
+
+The generated files give you a working example to build on.
+
+## 3. Edit the example ADR
+
+Open `.archgate/adrs/ARCH-001-example.md`. Every ADR starts with YAML frontmatter that defines its identity:
+
+```yaml
+---
+id: ARCH-001
+title: Example Decision
+domain: architecture
+rules: true
+files: ["src/**/*.ts"]
+---
+```
+
+- **id** — Unique identifier. Convention is `ARCH-NNN` but any string works.
+- **title** — Human-readable name for the decision.
+- **domain** — Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
+- **rules** — Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
+- **files** — Optional glob patterns that scope which files the rules apply to.
+
+Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
+
+## 4. Add a companion rules file
+
+Create a `.rules.ts` file next to your ADR with the same name prefix. Rules are written in TypeScript using the `defineRules` function:
+
+```typescript
+
+export default defineRules({
+  "no-console-error": {
+    description: "Use logError() instead of console.error()",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const matches = await ctx.grep(file, /console\.error\(/);
+        for (const match of matches) {
+          ctx.report.violation({
+            message: "Use logError() instead of console.error()",
+            file: match.file,
+            line: match.line,
+            fix: "Import logError from your helpers and use it instead",
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+Each rule has a unique key, a description, and an async `check` function. Inside `check`, you have access to:
+
+- **`ctx.scopedFiles`** — Files matching the ADR's `files` glob patterns.
+- **`ctx.grep(file, pattern)`** — Search a file for regex matches, returning file paths and line numbers.
+- **`ctx.report.violation()`** — Report a violation with a message, file path, line number, and optional fix suggestion.
+
+## 5. Run checks
+
+Run the compliance checker against your codebase:
+
+```bash
+archgate check
+```
+
+Archgate loads every ADR with `rules: true`, executes its companion rules file, and prints results. The exit code tells you the outcome:
+
+| Exit code | Meaning                                       |
+| --------- | --------------------------------------------- |
+| 0         | All rules pass. No violations found.          |
+| 1         | One or more violations detected.              |
+| 2         | Internal error (e.g., malformed ADR or rule). |
+
+To check only staged files (useful in pre-commit hooks or CI):
+
+```bash
+archgate check --staged
+```
+
+## What's next?
+
+Now that you have a working setup, dive deeper:
+
+**Understand the concepts:**
+
+- [ADRs](/concepts/adrs/) — What Architecture Decision Records are and how Archgate uses them.
+- [Rules](/concepts/rules/) — How companion `.rules.ts` files turn decisions into automated checks.
+- [Domains](/concepts/domains/) — How domains group related ADRs and scope file matching.
+
+**Write your own:**
+
+- [Writing ADRs](/guides/writing-adrs/) — Learn the full ADR format and best practices for writing effective decisions.
+- [Writing Rules](/guides/writing-rules/) — Explore the rule API, advanced patterns, and how to test your rules.
+- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns for dependency checks, naming conventions, and more.
+
+**Integrate into your workflow:**
+
+- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
+- [Pre-commit Hooks](/guides/pre-commit-hooks/) — Run checks locally before every commit.
+- [Claude Code Plugin](/guides/claude-code-plugin/) — Give AI agents a full governance workflow with role-based skills.
+- [Cursor Integration](/guides/cursor-integration/) — Use Archgate with Cursor IDE for AI-assisted development.
+
+Want AI agents that automatically read your ADRs before coding? Sign up for the editor plugin beta at [plugins.archgate.dev](https://plugins.archgate.dev), then run `archgate login` and `archgate init --install-plugin`.
+
+---
+
+## Core Concepts: Architecture Decision Records
+
+Source: https://cli.archgate.dev/concepts/adrs/
+
+An Architecture Decision Record (ADR) is a short document that captures a single architectural decision along with its context and consequences. ADRs answer the question: _why_ was this decision made, and _what_ are its trade-offs?
+
+Archgate builds on the ADR concept by giving each decision two expressions: a **document** that humans and AI agents read, and an optional **rules file** that machines execute.
+
+## Two Expressions of an ADR
+
+### ADR as Document
+
+The document is a Markdown file with YAML frontmatter stored in `.archgate/adrs/`. It describes the decision in plain language: what problem it solves, what alternatives were considered, what the team decided, and what consequences follow.
+
+Both humans and AI agents consume this document. When an AI coding agent is about to write code, it reads the relevant ADRs to understand the constraints before generating anything.
+
+With the [Claude Code](/guides/claude-code-plugin/) or [Cursor](/guides/cursor-integration/) plugin, your AI agent reads the applicable ADRs automatically before every coding task -- no manual copy-pasting into prompts. [Sign up for beta access](https://plugins.archgate.dev).
+
+### ADR as Rules
+
+The rules file is a companion `.rules.ts` file that exports automated checks via `defineRules()`. When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file against your codebase, and reports any violations with file paths and line numbers.
+
+Not every ADR needs rules. Some decisions are best enforced through code review alone. Set `rules: false` when no automated check is practical.
+
+## File Naming Convention
+
+ADR files follow a strict naming convention that encodes the domain prefix, sequence number, and a human-readable slug:
+
+```
+{PREFIX}-{NNN}-{slug}.md            # The document
+{PREFIX}-{NNN}-{slug}.rules.ts      # The companion rules file (optional)
+```
+
+For example, an architecture-domain ADR about command structure would produce:
+
+```
+ARCH-001-command-structure.md
+ARCH-001-command-structure.rules.ts
+```
+
+The prefix comes from the ADR's domain (see [Domains](/concepts/domains/)). The sequence number is zero-padded to three digits and auto-incremented by `archgate adr create`.
+
+## YAML Frontmatter
+
+Every ADR document starts with a YAML frontmatter block between `---` delimiters. The frontmatter is the machine-readable metadata that Archgate uses to load, filter, and scope rules.
+
+| Field    | Type         | Required | Description                                                      |
+| -------- | ------------ | -------- | ---------------------------------------------------------------- |
+| `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                    |
+| `title`  | string       | Yes      | Human-readable title of the decision                             |
+| `domain` | enum         | Yes      | One of: `backend`, `frontend`, `data`, `architecture`, `general` |
+| `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                |
+| `files`  | string array | No       | Glob patterns that scope which files the rules check             |
+
+The `files` field is optional. When present, it restricts rule execution to only the files matching the given globs. When absent, rules run against all project files. For example, `files: ["src/commands/**/*.ts"]` limits checks to command files only.
+
+## ADR Body Sections
+
+After the frontmatter, the ADR body follows a standard section structure:
+
+### Context
+
+Describes the problem or situation that prompted the decision. Include alternatives that were considered and why they were rejected.
+
+### Decision
+
+States the decision itself and its key constraints. This is the section AI agents pay the most attention to when deciding how to write code.
+
+### Do's and Don'ts
+
+Concrete, actionable guidance split into two sub-sections. These act as a quick-reference checklist for developers and AI agents.
+
+### Consequences
+
+Split into three sub-sections:
+
+- **Positive** -- benefits the decision provides
+- **Negative** -- trade-offs accepted
+- **Risks** -- things that could go wrong and how to mitigate them
+
+### Compliance and Enforcement
+
+Describes how the decision is enforced, both through automated rules (with rule IDs and severities) and manual review checklists.
+
+### References
+
+Links to related ADRs, external documentation, or design documents.
+
+## Complete Example
+
+Below is a full ADR with frontmatter and all sections filled in.
+
+```markdown
+---
+id: BE-001
+title: API Response Envelope
+domain: backend
+rules: true
+files: ["src/api/**/*.ts"]
+---
+
+## Context
+
+The API returns data in inconsistent shapes across endpoints. Some endpoints
+wrap responses in `{ data, error }`, others return raw arrays, and error
+responses vary between plain strings and structured objects.
+
+**Alternatives considered:**
+
+- **No envelope** -- Return raw data and rely on HTTP status codes alone.
+  Simple, but clients cannot distinguish between "the endpoint returned an
+  empty array" and "the endpoint errored."
+- **GraphQL-style errors array** -- Use `{ data, errors: [] }`. Flexible
+  but adds complexity for simple REST endpoints.
+
+The chosen envelope balances consistency with simplicity.
+
+## Decision
+
+All API endpoints MUST return responses in a standard envelope:
+
+- Success: `{ data: T }`
+- Error: `{ error: { code: string, message: string } }`
+
+HTTP status codes remain the primary success/failure signal. The envelope
+provides a predictable structure for clients to parse.
+
+## Do's and Don'ts
+
+### Do
+
+- Wrap all API responses in the `{ data }` or `{ error }` envelope
+- Use specific error codes (e.g., `VALIDATION_FAILED`, `NOT_FOUND`)
+- Include the HTTP status code that matches the error semantics
+
+### Don't
+
+- Don't return raw arrays or primitives from API endpoints
+- Don't nest envelopes (no `{ data: { data: ... } }`)
+- Don't put stack traces in the error message field
+
+## Consequences
+
+### Positive
+
+- Clients can parse every response with the same logic
+- Error responses always have a machine-readable code for programmatic handling
+
+### Negative
+
+- Adds a small amount of boilerplate to every endpoint handler
+- Slightly larger payloads due to the wrapper object
+
+### Risks
+
+- Developers may forget the envelope on new endpoints. Mitigated by
+  the automated rule that scans for non-conforming return statements.
+
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** BE-001/response-envelope: Scans API handler files for
+  return statements and verifies they use the envelope helper. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. New API endpoints use the response envelope
+2. Error responses include a specific error code, not a generic message
+
+## References
+
+- [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
+- [ARCH-002 -- Error Handling](./ARCH-002-error-handling.md)
+```
+
+---
+
+## Core Concepts: Domains
+
+Source: https://cli.archgate.dev/concepts/domains/
+
+Domains are categories that group related ADRs together. Every ADR belongs to exactly one domain, and the domain determines the prefix used in the ADR's identifier.
+
+## Built-in Domains
+
+Archgate ships with five built-in domains. Each has a short prefix that appears at the start of every ADR ID in that domain.
+
+| Domain         | Prefix | Use for                                             |
+| -------------- | ------ | --------------------------------------------------- |
+| `backend`      | `BE`   | Server-side logic, APIs, databases, services        |
+| `frontend`     | `FE`   | UI components, client-side logic, styling patterns  |
+| `data`         | `DATA` | Data models, schemas, pipelines, storage strategies |
+| `architecture` | `ARCH` | Cross-cutting architectural decisions               |
+| `general`      | `GEN`  | General project conventions and workflows           |
+
+For example, the third backend ADR would have the ID `BE-003`, and a first frontend ADR would be `FE-001`.
+
+## How Domains Are Used
+
+### ADR Identification
+
+The domain prefix is baked into every ADR's `id` field. When you run `archgate adr create` and select a domain, the CLI automatically determines the next available sequence number for that domain's prefix. An architecture domain with two existing ADRs (`ARCH-001`, `ARCH-002`) would assign `ARCH-003` to the next one.
+
+The file name mirrors the ID:
+
+```
+ARCH-003-dependency-policy.md
+ARCH-003-dependency-policy.rules.ts
+```
+
+### Filtering
+
+The `archgate adr list` command supports a `--domain` flag to show only ADRs from a specific domain:
+
+```bash
+archgate adr list --domain backend
+archgate adr list --domain architecture
+```
+
+This is useful in large projects where dozens of ADRs span multiple concerns. Filtering by domain lets you focus on the decisions relevant to your current work.
+
+### AI Agent Context
+
+The `archgate review-context` command groups changed files by domain when providing context to AI agents. When an agent is about to write code, it receives only the ADR briefings relevant to the domains its changes touch, rather than the full set of all ADRs. This scoping reduces noise and helps agents focus on the constraints that actually apply.
+
+### Scoped Validation
+
+While domains themselves do not restrict which files a rule can check (that is the job of the `files` glob in the ADR frontmatter), domains provide a logical grouping that helps teams organize their governance. A backend team can review all `BE-*` ADRs to understand their constraints, while the frontend team focuses on `FE-*`.
+
+## When to Use Which Domain
+
+### backend
+
+Use for decisions about server-side code: API design patterns, database access conventions, authentication flows, service-to-service communication, queue handling, and background job patterns.
+
+**Example ADRs:** API response envelope format, database migration strategy, error code taxonomy.
+
+### frontend
+
+Use for decisions about client-side code: component structure, state management patterns, styling approaches, accessibility requirements, and build tooling choices.
+
+**Example ADRs:** Component file structure, CSS methodology, form validation pattern.
+
+### data
+
+Use for decisions about data: schema design, data pipeline conventions, storage engine choices, serialization formats, and data validation strategies.
+
+**Example ADRs:** Event schema versioning, database naming conventions, data retention policy.
+
+### architecture
+
+Use for cross-cutting decisions that span multiple domains or affect the project's overall structure. These are decisions that backend, frontend, and data teams all need to follow.
+
+**Example ADRs:** Command structure, error handling conventions, dependency management policy, testing standards.
+
+### general
+
+Use for project-wide conventions that do not fit neatly into a technical domain: code review processes, commit message formats, documentation standards, and onboarding practices.
+
+**Example ADRs:** Commit message format, PR description template, documentation requirements.
+
+## Choosing the Right Domain
+
+When deciding which domain an ADR belongs to, consider who needs to follow it:
+
+- If only backend developers need to follow it, use `backend`.
+- If only frontend developers need to follow it, use `frontend`.
+- If it concerns data modeling or pipelines specifically, use `data`.
+- If it applies across multiple technical domains, use `architecture`.
+- If it is a process or convention rather than a technical decision, use `general`.
+
+When in doubt between `architecture` and a specific domain, prefer the more specific domain. Reserve `architecture` for decisions that genuinely cut across boundaries.
+
+---
+
+## Core Concepts: Rules
+
+Source: https://cli.archgate.dev/concepts/rules/
+
+Rules are the executable side of an ADR. They live in companion `.rules.ts` files alongside the ADR document and export automated checks via the `defineRules()` function. When you run `archgate check`, the CLI loads each ADR that has `rules: true`, imports its companion rules file, and executes every check against your codebase.
+
+## Defining Rules
+
+A rules file is a TypeScript module that default-exports the result of `defineRules()`. Import the function from the `archgate/rules` package:
+
+```typescript
+
+export default defineRules({
+  "rule-key": {
+    description: "What this rule checks",
+    severity: "error",
+    async check(ctx) {
+      // Inspect files and report violations
+    },
+  },
+});
+```
+
+Each key in the object passed to `defineRules()` becomes the rule ID. The full rule identifier shown in check output combines the ADR ID and the rule key, for example `ARCH-004/no-barrel-files`.
+
+## Rule Structure
+
+Every rule has three parts:
+
+| Property      | Type     | Required | Description                                   |
+| ------------- | -------- | -------- | --------------------------------------------- |
+| `description` | string   | Yes      | A short summary of what the rule checks       |
+| `severity`    | string   | No       | `"error"` (default), `"warning"`, or `"info"` |
+| `check`       | function | Yes      | Async function receiving a `RuleContext`      |
+
+### Severity Levels
+
+Severity determines what happens when a rule finds a problem:
+
+| Severity  | Exit Code | Effect                                    |
+| --------- | --------- | ----------------------------------------- |
+| `error`   | 1         | Violation is reported and the check fails |
+| `warning` | 0         | Warning is logged but the check passes    |
+| `info`    | 0         | Informational message, check passes       |
+
+When `archgate check` runs, exit code 1 means at least one `error`-severity violation was found. Exit code 0 means no errors (warnings and info messages are logged but do not block).
+
+## The RuleContext
+
+The `check` function receives a `RuleContext` object that provides everything a rule needs to inspect the codebase and report findings.
+
+### Project Information
+
+| Property           | Type       | Description                                                                      |
+| ------------------ | ---------- | -------------------------------------------------------------------------------- |
+| `ctx.projectRoot`  | `string`   | Absolute path to the project root directory                                      |
+| `ctx.scopedFiles`  | `string[]` | Files matching the ADR's `files` globs, or all project files if no globs are set |
+| `ctx.changedFiles` | `string[]` | Files changed in git (populated when running with `--staged`)                    |
+
+### File Operations
+
+| Method               | Returns             | Description                        |
+| -------------------- | ------------------- | ---------------------------------- |
+| `ctx.glob(pattern)`  | `Promise<string[]>` | Find files matching a glob pattern |
+| `ctx.readFile(path)` | `Promise<string>`   | Read a file's content as a string  |
+| `ctx.readJSON(path)` | `Promise<unknown>`  | Read and parse a JSON file         |
+
+### Search Operations
+
+| Method                             | Returns                | Description                                  |
+| ---------------------------------- | ---------------------- | -------------------------------------------- |
+| `ctx.grep(file, pattern)`          | `Promise` | Search a single file with a regex pattern    |
+| `ctx.grepFiles(pattern, fileGlob)` | `Promise` | Search across multiple files matching a glob |
+
+Both `grep` and `grepFiles` return an array of `GrepMatch` objects:
+
+```typescript
+interface GrepMatch {
+  file: string; // Relative path from project root
+  line: number; // 1-based line number
+  column: number; // 1-based column number
+  content: string; // The full line content
+}
+```
+
+### Reporting
+
+The `ctx.report` object provides three methods for reporting findings:
+
+```typescript
+ctx.report.violation({ message, file?, line?, fix? });
+ctx.report.warning({ message, file?, line?, fix? });
+ctx.report.info({ message, file?, line?, fix? });
+```
+
+Each method accepts an object with:
+
+| Property  | Type   | Required | Description                          |
+| --------- | ------ | -------- | ------------------------------------ |
+| `message` | string | Yes      | What the problem is                  |
+| `file`    | string | No       | Relative path to the offending file  |
+| `line`    | number | No       | Line number where the problem occurs |
+| `fix`     | string | No       | Suggested fix for the violation      |
+
+Use `ctx.report.violation()` for problems that must block merges. Use `ctx.report.warning()` for issues worth flagging but not blocking. Use `ctx.report.info()` for purely informational output.
+
+## Rule Timeout
+
+Each rule has a 30-second execution timeout. If a rule's `check` function does not complete within 30 seconds, it is terminated and reported as an error. This prevents runaway rules from blocking the pipeline indefinitely.
+
+## Complete Example
+
+Here is a complete rules file that checks for a banned import pattern. It enforces that no source file imports directly from `node:fs` (the project requires using a wrapper instead).
+
+```typescript
+
+export default defineRules({
+  "no-direct-fs-import": {
+    description:
+      "Source files must not import directly from node:fs; use the fs wrapper",
+    severity: "error",
+    async check(ctx) {
+      const sourceFiles = ctx.scopedFiles.filter(
+        (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
+      );
+
+      for (const file of sourceFiles) {
+        const matches = await ctx.grep(file, /from ["']node:fs["']/);
+
+        for (const match of matches) {
+          ctx.report.violation({
+            message: `Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.`,
+            file: match.file,
+            line: match.line,
+            fix: 'Replace the import with: import { readFile, writeFile } from "../helpers/fs"',
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+When this rule runs against a file containing `import { readFileSync } from "node:fs"`, the output looks like:
+
+```
+ARCH-007/no-direct-fs-import  ERROR
+  src/services/config.ts:3 — Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
+  Fix: Replace the import with: import { readFile, writeFile } from "../helpers/fs"
+```
+
+## Execution Model
+
+Rules execute with the following guarantees:
+
+- **Parallel across ADRs** -- Rules from different ADRs run concurrently for faster execution.
+- **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
+- **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
+- **Changed files for staged mode** -- When running `archgate check --staged`, `ctx.changedFiles` contains only the files staged in git, letting rules skip unchanged files for faster feedback.
+
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) run `archgate check` automatically after every code change. The agent reads the applicable ADRs, writes compliant code, and validates -- no manual check commands needed. [Sign up for beta access](https://plugins.archgate.dev).
+
+---
+
+## Guides: CI Integration
+
+Source: https://cli.archgate.dev/guides/ci-integration/
+
+Archgate checks fit into any CI system that respects exit codes. Add a single step to your pipeline and violations will block merges automatically.
+
+## GitHub Actions
+
+The simplest setup is a dedicated job that installs Archgate and runs `archgate check`:
+
+```yaml
+name: ADR Compliance
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g archgate
+      - run: archgate check
+```
+
+This installs the CLI globally and runs all ADR rules. If any rule reports a violation with `error` severity, the step exits with code 1 and the job fails.
+
+## GitHub Actions annotations
+
+Use `--ci` to output violations as GitHub Actions workflow annotations. These appear inline on the pull request's "Files changed" tab, pointing directly to the offending file and line.
+
+```yaml
+- run: archgate check --ci
+```
+
+The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
+
+## Machine-readable output
+
+Use `--json` for structured output that other tools can parse:
+
+```yaml
+- run: archgate check --json > results.json
+```
+
+The JSON output includes:
+
+```json
+{
+  "pass": false,
+  "total": 6,
+  "passed": 5,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-006",
+      "ruleId": "no-unapproved-deps",
+      "description": "Production dependencies must be on the approved list",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Unapproved production dependency: \"chalk\"",
+          "file": "package.json",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 18
+    }
+  ],
+  "durationMs": 142
+}
+```
+
+## Exit codes
+
+| Code | Meaning          | CI behavior  |
+| ---- | ---------------- | ------------ |
+| 0    | All checks pass  | Job succeeds |
+| 1    | Violations found | Job fails    |
+| 2    | Internal error   | Job fails    |
+
+Warnings (severity `warning`) are logged but do not affect the exit code. Only `error`-severity violations cause exit code 1.
+
+## Narrowing scope
+
+### Check only staged files
+
+Use `--staged` to limit checking to git-staged files. This is useful in pre-commit hooks or when you only want to validate what is about to be committed:
+
+```yaml
+- run: archgate check --staged
+```
+
+### Check a specific ADR
+
+Use `--adr <id>` to run rules from a single ADR:
+
+```yaml
+- run: archgate check --adr ARCH-006
+```
+
+This is useful when a PR only touches files governed by one ADR and you want faster feedback.
+
+## Adding to an existing pipeline
+
+If you already have a CI configuration, add Archgate as a single step after your checkout:
+
+```yaml
+# Existing pipeline
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: "22"
+  - run: npm ci
+  - run: npm test
+
+  # Add Archgate check
+  - run: npm install -g archgate
+  - run: archgate check --ci
+```
+
+No additional dependencies or configuration files are needed beyond the `.archgate/` directory already in your repository.
+
+## Caching the installation
+
+Cache the `~/.archgate` directory to speed up repeated installs:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Archgate
+        uses: actions/cache@v4
+        with:
+          path: ~/.archgate
+          key: archgate-${{ runner.os }}
+
+      - run: npm install -g archgate
+      - run: archgate check --ci
+```
+
+## GitLab CI
+
+```yaml
+adr-compliance:
+  image: node:22
+  script:
+    - npm install -g archgate
+    - archgate check
+```
+
+## Bun-based CI
+
+If your CI already uses Bun, install Archgate with `bun` instead of `npm`:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install -g archgate
+      - run: archgate check --ci
+```
+
+## Other CI systems
+
+Archgate works with any CI system that can run shell commands. The pattern is always the same:
+
+1. Install: `npm install -g archgate` (or `bun install -g archgate`)
+2. Run: `archgate check`
+3. Check the exit code (0 = pass, 1 = violations, 2 = error)
+
+For systems that support annotations (Azure DevOps, Buildkite, etc.), use `--json` to parse the output and emit annotations in the format your CI expects.
+
+## Pre-commit hooks
+
+You can also run Archgate as a local pre-commit hook. Add this to `.git/hooks/pre-commit` (or use a hook manager like Husky or Lefthook):
+
+```bash
+#!/bin/sh
+archgate check --staged
+```
+
+The `--staged` flag ensures only files about to be committed are checked, keeping the hook fast.
+
+## Verbose output
+
+Use `--verbose` to see passing rules and timing information alongside failures. This is helpful for debugging slow checks or confirming that rules are running as expected:
+
+```yaml
+- run: archgate check --verbose
+```
+
+CI catches violations at merge time. Editor plugins catch them at coding time. With the [Claude Code](/guides/claude-code-plugin/) or [Cursor](/guides/cursor-integration/) plugin, your AI agent reads ADRs before writing code and validates compliance before you even commit. [Sign up for beta access](https://plugins.archgate.dev).
+
+---
+
+## Guides: Claude Code Plugin
+
+Source: https://cli.archgate.dev/guides/claude-code-plugin/
+
+The Archgate Claude Code plugin gives AI agents working in [Claude Code](https://claude.ai/code) a structured governance workflow. Instead of relying on prompt instructions that drift over time, agents read your ADRs directly via Archgate CLI commands and validate their own code against your rules.
+
+## What the plugin provides
+
+The plugin adds an agent and role-based skills to Claude Code. The agent orchestrates the governance workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
+
+### Agent
+
+| Agent                | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+
+The `archgate:developer` agent is set as the default agent via `.claude/settings.local.json`. It orchestrates the skills below automatically as part of its workflow.
+
+### Skills
+
+| Skill                      | Purpose                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+
+## Installation
+
+The Claude Code plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+
+### 1. Log in with GitHub
+
+Authenticate with your GitHub account to obtain a plugin token:
+
+```bash
+archgate login
+```
+
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+
+### 2. Initialize your project with the plugin
+
+Run `archgate init` in your project. If you are already logged in, the plugin is installed automatically:
+
+```bash
+archgate init
+```
+
+To explicitly request plugin installation:
+
+```bash
+archgate init --install-plugin
+```
+
+This creates `.claude/settings.local.json` with the `archgate:developer` agent and skill permissions pre-configured.
+
+If the `claude` CLI is on your PATH, the plugin is installed automatically via:
+
+1. `claude plugin marketplace add` (registers the Archgate marketplace)
+2. `claude plugin install archgate@archgate` (installs the plugin)
+
+If the `claude` CLI is not found, the command prints the manual commands for you to run.
+
+### Installing the plugin on an existing project
+
+If your project is already initialized, you can install or reinstall the plugin without re-running `archgate init`:
+
+```bash
+archgate plugin install
+```
+
+To get the authenticated repository URL for manual configuration:
+
+```bash
+archgate plugin url
+```
+
+## Initial setup with onboard
+
+After installation, run the `archgate:onboard` skill in your project once. This skill:
+
+1. Explores your codebase structure (directories, key files, package configuration)
+2. Interviews you about your team's conventions, constraints, and architectural decisions
+3. Creates an initial set of ADRs based on your responses
+4. Sets up the `.archgate/` directory with your first rules
+
+The onboard skill is designed to run once per project. After onboarding, the other skills handle day-to-day development.
+
+## How it works in practice
+
+The plugin follows a structured workflow for every coding task:
+
+### 1. Read applicable ADRs
+
+When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+
+The agent does not write code until it has read the applicable ADRs. This is enforced by the `archgate:developer` skill.
+
+### 2. Write code following ADR constraints
+
+The agent writes code that complies with the constraints from the ADRs. The Do's and Don'ts sections serve as concrete guardrails -- the agent references them while coding.
+
+### 3. Validate changes
+
+After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
+
+### 4. Architect review
+
+The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch. The architect skill reviews the full context of the changes against all applicable ADRs.
+
+### 5. Capture learnings
+
+The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing. The quality manager may propose new ADRs or updates to existing ones when recurring conventions emerge.
+
+## ADR-driven refusal
+
+When the agent encounters a task that would require violating an ADR, it refuses and explains which ADR would be violated. It then suggests how to achieve the same goal while staying compliant.
+
+For example, if a developer asks the agent to add `chalk` as a dependency in a project governed by ARCH-006 (dependency policy), the agent will:
+
+1. Refuse, citing ARCH-006 and the approved dependency list
+2. Suggest using `styleText()` from `node:util` instead
+3. Offer to implement the task using the compliant alternative
+
+This behavior is consistent regardless of how the developer phrases the request. ADRs are treated as mandatory constraints, not suggestions.
+
+## How the plugin accesses ADRs
+
+The plugin uses Archgate CLI commands directly to read ADRs and run compliance checks. The key commands are:
+
+- **`archgate review-context`** -- condensed briefings of all ADRs applicable to changed files, grouped by domain
+- **`archgate check --staged`** -- automated rule checking with violation reporting
+- **`archgate adr show <id>`** -- full text of a specific ADR
+- **`archgate adr list`** -- inventory of all ADRs in the project with metadata
+- **`archgate session-context claude-code`** -- read session transcripts for context recovery
+
+All commands run locally and read directly from your `.archgate/adrs/` directory. No data leaves your machine.
+
+## When to use each agent or skill
+
+| Scenario                                     | Agent or skill             |
+| -------------------------------------------- | -------------------------- |
+| Starting a new project with Archgate         | `archgate:onboard`         |
+| Day-to-day coding tasks                      | `archgate:developer`       |
+| Reviewing a PR for ADR compliance            | `archgate:architect`       |
+| Noticing a recurring pattern worth codifying | `archgate:quality-manager` |
+| Creating or editing an ADR                   | `archgate:adr-author`      |
+
+The `archgate:developer` agent orchestrates the skills automatically -- it invokes `archgate:architect` and `archgate:quality-manager` as part of its workflow. Most of the time, you only need to interact with the developer agent directly.
+
+---
+
+## Guides: Copilot CLI Plugin
+
+Source: https://cli.archgate.dev/guides/copilot-cli-plugin/
+
+The Archgate Copilot CLI plugin gives AI agents working in [GitHub Copilot CLI](https://github.com/features/copilot) a structured governance workflow. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+
+## How it works
+
+Copilot CLI supports plugin installation from git repositories using `copilot plugin install`. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate.git`, which Copilot CLI recognizes natively -- the same `.claude-plugin/plugin.json` manifest format works for both Claude Code and Copilot CLI.
+
+## Installation
+
+The Copilot CLI plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+
+### 1. Log in with GitHub
+
+Authenticate with your GitHub account to obtain a plugin token:
+
+```bash
+archgate login
+```
+
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+
+### 2. Initialize your project with the plugin
+
+Run `archgate init` with the `--editor copilot` flag:
+
+```bash
+archgate init --editor copilot
+```
+
+If you are already logged in and the `copilot` CLI is on your PATH, the plugin is installed automatically via:
+
+```bash
+copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
+```
+
+If the `copilot` CLI is not found, the command prints the manual command for you to run.
+
+To explicitly request plugin installation:
+
+```bash
+archgate init --editor copilot --install-plugin
+```
+
+To install or reinstall the plugin on an already-initialized project:
+
+```bash
+archgate plugin install --editor copilot
+```
+
+### Generated files
+
+The command creates the `.github/copilot/` directory for plugin configuration. Plugin installation is handled separately via the `copilot plugin install` command.
+
+### Manual installation
+
+If the `copilot` CLI is not found during `archgate init`, you can install the plugin manually:
+
+```bash
+copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
+```
+
+You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+
+## What the plugin provides
+
+The plugin adds an agent and role-based skills to Copilot CLI. The agent orchestrates the governance workflow, invoking skills as needed.
+
+### Agent
+
+| Agent                | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+
+The `archgate:developer` agent is set as the default agent via the plugin settings. It orchestrates the skills below automatically as part of its workflow.
+
+### Skills
+
+| Skill                      | Purpose                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+
+## Initial setup with onboard
+
+After installation, run the `archgate:onboard` skill in your project once. This skill:
+
+1. Explores your codebase structure (directories, key files, package configuration)
+2. Interviews you about your team's conventions, constraints, and architectural decisions
+3. Creates an initial set of ADRs based on your responses
+4. Sets up the `.archgate/` directory with your first rules
+
+The onboard skill is designed to run once per project. After onboarding, the other skills handle day-to-day development.
+
+## How it works in practice
+
+The plugin follows a structured workflow for every coding task:
+
+### 1. Read applicable ADRs
+
+When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+
+### 2. Write code following ADR constraints
+
+The agent writes code that complies with the constraints from the ADRs. The Do's and Don'ts sections serve as concrete guardrails.
+
+### 3. Validate changes
+
+After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
+
+### 4. Architect review
+
+The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch.
+
+### 5. Capture learnings
+
+The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing as new ADRs.
+
+## Tips
+
+- **Run onboard once per project** to generate your initial ADRs from your actual codebase.
+- **Keep ADR rule files up to date** -- the agent enforces what the rules check for.
+
+---
+
+## Guides: Cursor Integration
+
+Source: https://cli.archgate.dev/guides/cursor-integration/
+
+Archgate integrates with [Cursor](https://cursor.com) to give AI agents a structured governance workflow. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+
+## Setup
+
+Run `archgate init` with the `--editor cursor` flag to configure Cursor integration in your project:
+
+```bash
+archgate init --editor cursor
+```
+
+### With plugin (beta)
+
+The Cursor plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access.
+
+If you have logged in via `archgate login`, the init command also downloads and installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow.
+
+To explicitly install the plugin:
+
+```bash
+archgate login              # one-time setup
+archgate init --editor cursor --install-plugin
+```
+
+The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory. It includes agent rules and skill definitions.
+
+To install or reinstall the plugin on an already-initialized project:
+
+```bash
+archgate plugin install --editor cursor
+```
+
+### Without plugin (free)
+
+Without the plugin, `archgate init --editor cursor` still configures a basic governance rule. The AI agent can consult ADRs and run checks via CLI commands, but does not get the role-based skills described below.
+
+### Generated files
+
+| File                                    | Purpose                                                        |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `.cursor/rules/archgate-governance.mdc` | Always-on Cursor rule that instructs the agent to consult ADRs |
+
+## What the plugin provides
+
+The plugin adds an agent and role-based skills to Cursor. Each is invoked as a slash command with the `/ag-` prefix. The agent orchestrates the governance workflow, invoking skills as needed.
+
+### Agent
+
+| Slash command   | Purpose                                                                     |
+| --------------- | --------------------------------------------------------------------------- |
+| `/ag-developer` | General development agent that reads ADRs before coding and validates after |
+
+The `/ag-developer` agent orchestrates the skills below automatically as part of its workflow.
+
+### Skills
+
+| Slash command         | Purpose                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `/ag-architect`       | Validates code changes against all project ADRs for structural compliance             |
+| `/ag-quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `/ag-adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `/ag-onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+
+These are the same agent and skills available in the Claude Code plugin (`archgate:developer`, `archgate:architect`, etc.), adapted for Cursor's slash command interface with the `ag-` prefix.
+
+## Initial setup with onboard
+
+After installing the plugin, run `/ag-onboard` in your project once. This skill:
+
+1. Explores your codebase structure (directories, key files, package configuration)
+2. Interviews you about your team's conventions, constraints, and architectural decisions
+3. Creates an initial set of ADRs based on your responses
+4. Sets up the `.archgate/` directory with your first rules
+
+The onboard skill is designed to run once per project. After onboarding, the other skills handle day-to-day development.
+
+## How it works in practice
+
+### With the plugin
+
+The `/ag-developer` skill follows a structured workflow for every coding task:
+
+1. **Read applicable ADRs** -- The agent calls `review_context` to see which ADRs apply to the files being changed. It does not write code until it has read the applicable ADRs.
+
+2. **Write code following ADR constraints** -- The agent implements changes following the Do's and Don'ts from the applicable ADRs.
+
+3. **Run compliance checks** -- The agent runs `archgate check` to execute automated rules. Any violations are fixed before proceeding.
+
+4. **Architect review** -- The agent invokes `/ag-architect` to validate structural ADR compliance beyond what automated rules catch.
+
+5. **Capture learnings** -- The agent invokes `/ag-quality-manager` to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
+
+### Without the plugin
+
+The agent uses the governance rule and CLI commands to follow four manual steps:
+
+1. **Review context** -- Run `archgate review-context` to see which ADRs apply to the files being changed.
+
+2. **Read individual ADRs** -- For full context on a specific decision, run `archgate adr show <id>` (for example, `archgate adr show ARCH-001`).
+
+3. **Write code** -- Implement changes following the constraints from the applicable ADRs.
+
+4. **Run compliance checks** -- Run `archgate check --staged` to validate that the code complies with all ADR rules.
+
+## ADR-driven refusal
+
+When the agent encounters a task that would require violating an ADR, it refuses and explains which ADR would be violated. It then suggests how to achieve the same goal while staying compliant.
+
+For example, if a developer asks the agent to add `chalk` as a dependency in a project governed by a dependency policy ADR, the agent will:
+
+1. Refuse, citing the ADR and the approved dependency list
+2. Suggest using the approved alternative instead
+3. Offer to implement the task using the compliant approach
+
+This behavior is consistent regardless of how the developer phrases the request. ADRs are treated as mandatory constraints, not suggestions.
+
+## When to use each agent or skill
+
+| Scenario                                     | Slash command         |
+| -------------------------------------------- | --------------------- |
+| Starting a new project with Archgate         | `/ag-onboard`         |
+| Day-to-day coding tasks                      | `/ag-developer`       |
+| Reviewing a PR for ADR compliance            | `/ag-architect`       |
+| Noticing a recurring pattern worth codifying | `/ag-quality-manager` |
+| Creating or editing an ADR                   | `/ag-adr-author`      |
+
+The `/ag-developer` agent orchestrates the skills automatically -- it invokes `/ag-architect` and `/ag-quality-manager` as part of its workflow. Most of the time, you only need to use `/ag-developer` directly.
+
+## Governance rule
+
+The governance rule in `.cursor/rules/archgate-governance.mdc` uses `alwaysApply: true`, which means the Cursor agent always has governance context available without manual activation. It instructs the agent to run `archgate review-context` before coding and `archgate check --staged` after.
+
+## Session transcript access
+
+The `archgate session-context cursor` command reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
+
+The command accepts two optional flags:
+
+- `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries).
+- `--session-id <uuid>` -- A specific session UUID to read. If omitted, the most recent session is used.
+
+## Tips for effective usage
+
+- **Use `/ag-developer` for coding tasks.** It orchestrates the full read-validate-capture workflow automatically.
+- **Run `/ag-onboard` once per project.** It sets up your initial ADRs based on your actual codebase and conventions.
+- **Use `/ag-architect` for PR reviews.** It validates structural compliance beyond what automated rules catch.
+- **Use `/ag-quality-manager` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
+- **Commit the `.cursor/` directory.** This ensures every team member gets the same governance configuration when they clone the repository.
+- **Keep ADR rules files up to date.** The agent enforces what the rules check for -- if a rule is missing, the violation will not be caught.
+
+---
+
+## Guides: Pre-commit Hooks
+
+Source: https://cli.archgate.dev/guides/pre-commit-hooks/
+
+## Overview
+
+The `archgate check --staged` command checks only git-staged files against your ADR rules. Because it skips unstaged and untracked files, it runs fast enough to use as a pre-commit hook without slowing down your workflow.
+
+When a check fails, the commit is blocked. Violations are printed to stderr with file paths and line numbers so you can locate and fix them immediately.
+
+## Lefthook
+
+[Lefthook](https://github.com/evilmartians/lefthook) is a fast, cross-platform git hooks manager. Add the following to your `lefthook.yml`:
+
+```yaml
+# lefthook.yml
+pre-commit:
+  commands:
+    adr-check:
+      run: archgate check --staged
+```
+
+Install the hook with:
+
+```bash
+lefthook install
+```
+
+## Husky
+
+[Husky](https://typicode.github.io/husky/) is a popular git hooks tool for Node.js projects. Add the check to your pre-commit hook:
+
+```bash
+# .husky/pre-commit
+archgate check --staged
+```
+
+Make sure the hook file is executable:
+
+```bash
+chmod +x .husky/pre-commit
+```
+
+## What happens when checks fail
+
+When `archgate check --staged` finds violations, it exits with code 1. This blocks the commit. The output includes:
+
+- The ADR ID and rule name that was violated
+- The file path where the violation was found
+- The line number (when available)
+- A description of what the rule expects
+
+Fix the violations, re-stage the files with `git add`, and commit again.
+
+## Performance
+
+The `--staged` flag restricts checks to only the files in the git staging area. This means:
+
+- A project with hundreds of source files but only three staged files will only check those three files.
+- Rules that do not match any staged files are skipped entirely.
+- Typical pre-commit checks complete in under a second.
+
+Without `--staged`, `archgate check` scans all files matched by each ADR's `files` glob pattern, which is useful for CI but slower for interactive use.
+
+## Useful flags
+
+| Flag         | Purpose                                                                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`   | Only check git-staged files (required for pre-commit)                                                                      |
+| `--verbose`  | Show passing rules and timing information -- helpful when debugging why a check is slow or which rules are being evaluated |
+| `--json`     | Output results as JSON -- useful for piping to other tools or custom reporting scripts                                     |
+| `--adr <id>` | Only check rules from a specific ADR -- useful for isolating a single rule during debugging                                |
+| `--ci`       | Output GitHub Actions annotations -- use this in CI workflows instead of pre-commit hooks                                  |
+
+## Combining with other hooks
+
+Pre-commit hooks can run multiple commands. For example, with Lefthook:
+
+```yaml
+# lefthook.yml
+pre-commit:
+  commands:
+    lint:
+      run: npm run lint
+    typecheck:
+      run: npm run typecheck
+    adr-check:
+      run: archgate check --staged
+```
+
+Each command runs independently. If any command exits with a non-zero code, the commit is blocked.
+
+---
+
+## Guides: VS Code Plugin
+
+Source: https://cli.archgate.dev/guides/vscode-plugin/
+
+The Archgate VS Code plugin gives AI agents working in [VS Code](https://code.visualstudio.com/) a structured governance workflow. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+
+## How it works
+
+VS Code supports **agent plugins** installed from git-based marketplaces. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate-vscode.git`. When you add this marketplace to your VS Code user settings, VS Code discovers and installs the plugin automatically.
+
+The plugin is served in VS Code Copilot's native `.github/plugin/` manifest format, separate from the Claude Code `.claude-plugin/` format.
+
+## Installation
+
+Agent plugins require **VS Code 1.110 (February 2026 release) or later**. Earlier versions do not support git-based agent plugin marketplaces. Check your version with `code --version`.
+
+The VS Code plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+
+### 1. Log in with GitHub
+
+Authenticate with your GitHub account to obtain a plugin token:
+
+```bash
+archgate login
+```
+
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+
+### 2. Initialize your project with the plugin
+
+Run `archgate init` with the `--editor vscode` flag:
+
+```bash
+archgate init --editor vscode
+```
+
+If you are already logged in, this command:
+
+1. Creates the `.archgate/` governance directory (ADRs, lint rules)
+2. Adds the authenticated marketplace URL to your VS Code **user settings**
+
+The `chat.plugins.marketplaces` setting is application-scoped in VS Code, so it cannot be set per-workspace. The CLI automatically writes it to your user-level `settings.json`:
+
+| Platform | User settings path                                      |
+| -------- | ------------------------------------------------------- |
+| Windows  | `%APPDATA%\Code\User\settings.json`                     |
+| macOS    | `~/Library/Application Support/Code/User/settings.json` |
+| Linux    | `~/.config/Code/User/settings.json`                     |
+
+To explicitly request plugin installation:
+
+```bash
+archgate init --editor vscode --install-plugin
+```
+
+To install or reinstall the plugin on an already-initialized project:
+
+```bash
+archgate plugin install --editor vscode
+```
+
+### Generated files
+
+The command creates or updates the following:
+
+| File                 | Scope | Purpose                                                |
+| -------------------- | ----- | ------------------------------------------------------ |
+| User `settings.json` | User  | `chat.plugins.marketplaces` with the authenticated URL |
+
+The user settings file is merged additively -- existing settings are never overwritten. VS Code's built-in default marketplaces (`github/copilot-plugins`, `github/awesome-copilot`) are preserved when the key is set for the first time.
+
+The user-level marketplace setting (added to your `settings.json`):
+
+```json
+{
+  "chat.plugins.marketplaces": [
+    "https://<github-user>:<token>@plugins.archgate.dev/archgate-vscode.git"
+  ]
+}
+```
+
+### Manual setup
+
+If you prefer not to let the CLI modify your user settings, you can add the marketplace URL manually. Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+
+## What the plugin provides
+
+The plugin adds an agent and role-based skills to VS Code's AI. The agent orchestrates the governance workflow, invoking skills as needed.
+
+### Agent
+
+| Agent                | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+
+The `archgate:developer` agent is set as the default agent via the plugin settings. It orchestrates the skills below automatically as part of its workflow.
+
+### Skills
+
+| Skill                      | Purpose                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+
+## Initial setup with onboard
+
+After installation, run the `archgate:onboard` skill in your project once. This skill:
+
+1. Explores your codebase structure (directories, key files, package configuration)
+2. Interviews you about your team's conventions, constraints, and architectural decisions
+3. Creates an initial set of ADRs based on your responses
+4. Sets up the `.archgate/` directory with your first rules
+
+The onboard skill is designed to run once per project. After onboarding, the other skills handle day-to-day development.
+
+## How it works in practice
+
+The plugin follows a structured workflow for every coding task:
+
+### 1. Read applicable ADRs
+
+When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+
+### 2. Write code following ADR constraints
+
+The agent writes code that complies with the constraints from the ADRs. The Do's and Don'ts sections serve as concrete guardrails.
+
+### 3. Validate changes
+
+After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
+
+### 4. Architect review
+
+The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch.
+
+### 5. Capture learnings
+
+The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing as new ADRs.
+
+## Tips
+
+- **Each developer runs `archgate init --editor vscode`** after `archgate login` to configure their user-level marketplace URL.
+- **Run onboard once per project** to generate your initial ADRs from your actual codebase.
+- **Keep ADR rule files up to date** -- the agent enforces what the rules check for.
+
+---
+
+## Guides: Writing ADRs
+
+Source: https://cli.archgate.dev/guides/writing-adrs/
+
+## Creating an ADR
+
+Use `archgate adr create` to generate a new ADR with the standard template. The command supports both interactive and non-interactive modes.
+
+### Interactive mode
+
+Run the command with no arguments to get guided prompts:
+
+```bash
+archgate adr create
+```
+
+You will be prompted for:
+
+1. **Domain** -- one of `backend`, `frontend`, `data`, `architecture`, or `general`
+2. **Title** -- a short, descriptive name for the decision
+3. **File patterns** -- optional comma-separated globs that scope rule checking (e.g., `src/commands/**/*.ts`)
+
+The CLI assigns a sequential ID based on the domain prefix (`ARCH-001`, `FE-002`, `BE-003`, etc.) and writes the file to `.archgate/adrs/`.
+
+### Non-interactive mode
+
+Pass `--title` and `--domain` to skip prompts:
+
+```bash
+archgate adr create --title "API Response Format" --domain backend --files "src/api/**/*.ts"
+```
+
+Available flags:
+
+| Flag              | Description                                            |
+| ----------------- | ------------------------------------------------------ |
+| `--title <title>` | ADR title (required for non-interactive mode)          |
+| `--domain <name>` | Domain: backend, frontend, data, architecture, general |
+| `--files <globs>` | Comma-separated file patterns for rule scoping         |
+| `--rules`         | Set `rules: true` in frontmatter                       |
+| `--body <md>`     | Full ADR body markdown (skip template)                 |
+| `--json`          | Output the result as JSON                              |
+
+## The generated template
+
+When you create an ADR without `--body`, the CLI generates a template with all standard sections:
+
+```markdown
+---
+id: BE-001
+title: API Response Format
+domain: backend
+rules: false
+files: ["src/api/**/*.ts"]
+---
+
+# API Response Format
+
+## Context
+
+Describe the context and problem statement.
+
+## Decision
+
+Describe the decision that was made.
+
+## Do's and Don'ts
+
+### Do
+
+-
+
+### Don't
+
+-
+
+## Consequences
+
+### Positive
+
+-
+
+### Negative
+
+-
+
+### Risks
+
+-
+
+## Compliance and Enforcement
+
+Describe how this decision will be enforced.
+
+## References
+
+-
+```
+
+## Section-by-section writing guidance
+
+### Context
+
+Explain why this decision was needed. What problem prompted it? What alternatives were considered and why were they rejected?
+
+Good context sections include:
+
+- The problem or pain point that triggered the decision
+- Alternatives that were evaluated, with brief trade-off analysis
+- Any constraints that narrowed the options (team size, runtime, compatibility)
+
+```markdown
+## Context
+
+The CLI needs a consistent pattern for defining and registering commands. As the
+command surface grows (init, check, adr, login, upgrade, clean), the registration
+mechanism must scale without introducing hidden coupling or making the dependency
+graph opaque.
+
+**Alternatives considered:**
+
+- **Auto-discovery via `executableDir()`** -- Commander.js supports automatic
+  command discovery by scanning a directory. This hides the dependency graph and
+  makes dead command detection impossible.
+- **Single-file command map** -- Simple but creates a monolithic file that grows
+  with every command.
+```
+
+### Decision
+
+State what was decided. Be specific and concrete -- this section should leave no ambiguity about what developers must do.
+
+Include numbered constraints when the decision has multiple facets:
+
+```markdown
+## Decision
+
+Commands live in src/commands/ and export a register\*Command(program) function.
+The main entry point (src/cli.ts) explicitly imports and calls each register
+function.
+
+**Key constraints:**
+
+1. **One command per file** -- Each .ts file defines exactly one command
+2. **Explicit registration** -- Every command must be manually imported in src/cli.ts
+3. **Thin commands** -- Command files handle I/O only; no business logic
+```
+
+### Do's and Don'ts
+
+This is the section developers and AI agents reference most frequently. Write concrete examples of correct and incorrect patterns. Use real code when possible.
+
+```markdown
+## Do's and Don'ts
+
+### Do
+
+- Export a register\*Command function from each command module
+- Keep commands thin: parse args, call helpers/engine, format output
+- Use src/commands/<name>.ts for top-level commands
+
+### Don't
+
+- Don't put business logic in command files -- move it to src/engine/ or src/helpers/
+- Don't use executableDir() for command discovery
+- Don't call .parse() in command files -- the entry point handles parsing
+```
+
+### Consequences
+
+Break consequences into three categories:
+
+- **Positive** -- benefits the team gains from this decision
+- **Negative** -- trade-offs the team accepts (every decision has them)
+- **Risks** -- what could go wrong, and how you plan to mitigate it
+
+```markdown
+## Consequences
+
+### Positive
+
+- In-process execution enables testing without spawning subprocesses
+- Explicit imports make all commands visible at a glance in src/cli.ts
+
+### Negative
+
+- Manual import bookkeeping -- each new command requires adding an import
+
+### Risks
+
+- Stale imports when commands are removed. Mitigation: TypeScript catches
+  missing modules at compile time.
+```
+
+### Compliance and Enforcement
+
+Describe how this decision is enforced. There are two enforcement mechanisms:
+
+1. **Automated rules** -- companion `.rules.ts` files that run during `archgate check`
+2. **Manual enforcement** -- what code reviewers should verify
+
+```markdown
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** ARCH-001/register-function-export: Scans all command files
+  and verifies each exports a register\*Command function. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. New commands are imported and registered in src/cli.ts
+2. Command files delegate to engine/helpers for business logic
+```
+
+### References
+
+Link to related ADRs, external documentation, or relevant discussions:
+
+```markdown
+## References
+
+- [Commander.js documentation](https://github.com/tj/commander.js)
+- [ARCH-004 -- No Barrel Files](./ARCH-004-no-barrel-files.md)
+- [ARCH-002 -- Error Handling](./ARCH-002-error-handling.md)
+```
+
+## Scoping rules with `files`
+
+The `files` field in the frontmatter is an array of glob patterns. When set, `archgate check` only passes matching files to the rule's `ctx.scopedFiles`. This keeps rules focused on the code they govern.
+
+```yaml
+---
+id: ARCH-001
+title: Command Structure
+domain: architecture
+rules: true
+files: ["src/commands/**/*.ts"]
+---
+```
+
+If `files` is omitted, `ctx.scopedFiles` includes all project files. This is appropriate for project-wide rules like dependency policies.
+
+Common patterns:
+
+| Pattern                | Matches                          |
+| ---------------------- | -------------------------------- |
+| `src/commands/**/*.ts` | All TypeScript files in commands |
+| `src/**/*.ts`          | All TypeScript source files      |
+| `package.json`         | Only the root package.json       |
+| `src/api/**/*.ts`      | API layer files                  |
+| `tests/**/*.test.ts`   | Test files                       |
+
+## When to set `rules: true` vs `rules: false`
+
+Set `rules: true` when you have a companion `.rules.ts` file with automated checks. The file must be named identically to the ADR markdown file but with a `.rules.ts` extension:
+
+```
+.archgate/adrs/
+  ARCH-001-command-structure.md          # rules: true
+  ARCH-001-command-structure.rules.ts    # companion rules file
+  ARCH-002-error-handling.md             # rules: true
+  ARCH-002-error-handling.rules.ts       # companion rules file
+  GEN-001-code-review-process.md         # rules: false (no automated checks)
+```
+
+Set `rules: false` for decisions that are enforced through code review alone -- process decisions, team agreements, or guidelines that are difficult to check programmatically.
+
+## Updating ADRs
+
+Use `archgate adr update` to modify an existing ADR:
+
+```bash
+archgate adr update --id ARCH-001 --body "## Context\n\nUpdated context..." --title "New Title"
+```
+
+The `--id` and `--body` flags are required. All other frontmatter fields (`--title`, `--domain`, `--files`, `--rules`) are optional and preserve their existing values when omitted.
+
+| Flag              | Description                                       |
+| ----------------- | ------------------------------------------------- |
+| `--id <id>`       | ADR ID to update (required)                       |
+| `--body <md>`     | Full replacement body markdown (required)         |
+| `--title <title>` | New title (preserves existing if omitted)         |
+| `--domain <name>` | New domain (preserves existing if omitted)        |
+| `--files <globs>` | New file patterns (preserves existing if omitted) |
+| `--rules`         | Set `rules: true`                                 |
+| `--json`          | Output the result as JSON                         |
+
+## Tips for effective ADRs
+
+1. **Keep each ADR focused on a single decision.** If you find yourself writing about two unrelated topics, split them into separate ADRs.
+
+2. **Be specific in Do's and Don'ts.** Vague guidelines like "write clean code" are not actionable. Show concrete code patterns.
+
+3. **Include real code examples.** The Do's and Don'ts section is where developers and AI agents look first. Annotated code examples make the decision unambiguous.
+
+4. **Document alternatives you rejected.** Future contributors will ask "why didn't we use X?" The Context section should answer that question.
+
+5. **State trade-offs honestly.** Every decision has negative consequences. Documenting them builds trust and helps the team understand what was traded away.
+
+6. **Write rules for decisions that can be checked automatically.** If a rule can catch a violation before code review, set `rules: true` and write a companion `.rules.ts` file. See the [Writing Rules](/guides/writing-rules/) guide.
+
+7. **Use domain prefixes to organize.** The domain field (`backend`, `frontend`, `data`, `architecture`, `general`) determines the ID prefix and helps filter ADRs by area.
+
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include an ADR Author skill that creates and updates ADRs following your project's conventions. The Quality Manager skill also proposes new ADRs when it detects recurring patterns. [Sign up for beta access](https://plugins.archgate.dev).
+
+---
+
+## Guides: Writing Rules
+
+Source: https://cli.archgate.dev/guides/writing-rules/
+
+Rules are TypeScript functions that check your codebase for ADR compliance. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
+
+```
+.archgate/adrs/
+  ARCH-001-command-structure.md          # The decision
+  ARCH-001-command-structure.rules.ts    # The automated checks
+```
+
+## Basic setup
+
+Every rules file exports a default `defineRules()` call. Each key becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
+
+```typescript
+
+export default defineRules({
+  "my-rule-id": {
+    description: "What this rule checks",
+    async check(ctx) {
+      // Your check logic here
+    },
+  },
+});
+```
+
+A single rules file can define multiple rules:
+
+```typescript
+
+export default defineRules({
+  "first-rule": {
+    description: "Checks one thing",
+    async check(ctx) {
+      // ...
+    },
+  },
+  "second-rule": {
+    description: "Checks another thing",
+    async check(ctx) {
+      // ...
+    },
+  },
+});
+```
+
+## The Context API
+
+The `ctx` object passed to every `check` function provides file reading, searching, and reporting capabilities. Here is a detailed reference with examples.
+
+### ctx.scopedFiles
+
+An array of file paths matching the ADR's `files` glob from its frontmatter. If the ADR has no `files` field, this includes all project files.
+
+```typescript
+for (const file of ctx.scopedFiles) {
+  const content = await ctx.readFile(file);
+  // Check content...
+}
+```
+
+Use `ctx.scopedFiles` when your rule should only apply to files the ADR governs. For example, a command structure rule scoped to `src/commands/**/*.ts` will only receive command files.
+
+### ctx.changedFiles
+
+An array of file paths that have been modified (git staged or changed). Useful for incremental checking -- only validate files that were actually touched.
+
+```typescript
+const filesToCheck = ctx.scopedFiles.filter((f) =>
+  ctx.changedFiles.includes(f)
+);
+for (const file of filesToCheck) {
+  // Only check changed files
+}
+```
+
+### ctx.readFile(path)
+
+Read a file's content as a string. The path is relative to the project root.
+
+```typescript
+const content = await ctx.readFile("src/cli.ts");
+```
+
+### ctx.readJSON(path)
+
+Read and parse a JSON file. Returns `unknown` -- cast it to the expected shape.
+
+```typescript
+const pkg = (await ctx.readJSON("package.json")) as {
+  dependencies?: Record<string, string>;
+};
+```
+
+### ctx.grep(file, pattern)
+
+Search a single file with a regular expression. Returns an array of `GrepMatch` objects, each with `file`, `line`, `column`, and `content` properties.
+
+```typescript
+const matches = await ctx.grep(file, /console\.error\(/);
+for (const match of matches) {
+  ctx.report.violation({
+    message: "Use logError() instead of console.error()",
+    file: match.file,
+    line: match.line,
+  });
+}
+```
+
+### ctx.grepFiles(pattern, fileGlob)
+
+Search across multiple files matching a glob pattern. Returns a flat array of `GrepMatch` objects from all matching files.
+
+```typescript
+const matches = await ctx.grepFiles(/TODO:/, "src/**/*.ts");
+for (const match of matches) {
+  ctx.report.warning({
+    message: "TODO comment found",
+    file: match.file,
+    line: match.line,
+  });
+}
+```
+
+### ctx.glob(pattern)
+
+Find files by glob pattern. Returns an array of file paths relative to the project root.
+
+```typescript
+const testFiles = await ctx.glob("tests/**/*.test.ts");
+```
+
+### ctx.report
+
+The reporting interface with three severity methods:
+
+- `ctx.report.violation(detail)` -- error severity (exit code 1, blocks CI)
+- `ctx.report.warning(detail)` -- warning severity (logged but does not block)
+- `ctx.report.info(detail)` -- informational (logged for visibility)
+
+Each method accepts an object with:
+
+| Field     | Type     | Required | Description                            |
+| --------- | -------- | -------- | -------------------------------------- |
+| `message` | `string` | Yes      | What the violation is                  |
+| `file`    | `string` | No       | Path to the offending file             |
+| `line`    | `number` | No       | Line number of the violation           |
+| `fix`     | `string` | No       | Suggested fix (shown to the developer) |
+
+```typescript
+ctx.report.violation({
+  message: "Command file must export a register*Command function",
+  file: "src/commands/check.ts",
+  line: 5,
+  fix: "Add: export function registerCheckCommand(program: Command) { ... }",
+});
+```
+
+### ctx.projectRoot
+
+The absolute path to the project root directory. Useful when you need to construct absolute paths.
+
+## Complete worked examples
+
+### Example 1: Dependency allowlist
+
+Check that all production dependencies are on an approved list. This is the rule Archgate uses for its own ARCH-006 dependency policy.
+
+```typescript
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default defineRules({
+  "no-unapproved-deps": {
+    description: "Production dependencies must be on the approved list",
+    async check(ctx) {
+      let pkg: { dependencies?: Record<string, string> };
+      try {
+        pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+      } catch {
+        return;
+      }
+
+      const deps = Object.keys(pkg.dependencies ?? {});
+      for (const dep of deps) {
+        if (!APPROVED_DEPS.includes(dep)) {
+          ctx.report.violation({
+            message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+            file: "package.json",
+            fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+### Example 2: Required export pattern
+
+Verify that every command file exports a `register*Command` function. This is the rule Archgate uses for its own ARCH-001 command structure.
+
+```typescript
+
+export default defineRules({
+  "register-function-export": {
+    description: "Command files must export a register*Command function",
+    async check(ctx) {
+      const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+      const checks = files.map(async (file) => {
+        const content = await ctx.readFile(file);
+        if (!/export\s+function\s+register\w+Command/.test(content)) {
+          ctx.report.violation({
+            message: "Command file must export a register*Command function",
+            file,
+          });
+        }
+      });
+      await Promise.all(checks);
+    },
+  },
+});
+```
+
+### Example 3: Banned import pattern
+
+Prevent importing a specific library when native alternatives exist.
+
+```typescript
+
+export default defineRules({
+  "no-lodash": {
+    description: "Do not use lodash -- use native array methods instead",
+    async check(ctx) {
+      const matches = await ctx.grepFiles(
+        /import\s+.*from\s+['"]lodash/,
+        "src/**/*.ts"
+      );
+      for (const match of matches) {
+        ctx.report.violation({
+          message: "Do not import lodash. Use native array methods instead.",
+          file: match.file,
+          line: match.line,
+          fix: "Replace lodash usage with native Array.prototype methods",
+        });
+      }
+    },
+  },
+});
+```
+
+### Example 4: File naming convention
+
+Enforce kebab-case naming for source files.
+
+```typescript
+
+export default defineRules({
+  "kebab-case-files": {
+    description: "Source files must use kebab-case naming",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const name = basename(file).replace(/\.(ts|tsx|js|jsx)$/, "");
+        if (name !== name.toLowerCase() || name.includes("_")) {
+          ctx.report.violation({
+            message: `File name "${basename(file)}" must be kebab-case (lowercase with hyphens)`,
+            file,
+            fix: `Rename to ${name.toLowerCase().replace(/_/g, "-")}`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+### Example 5: Maximum file length
+
+Warn when files exceed a line count threshold.
+
+```typescript
+
+const MAX_LINES = 300;
+
+export default defineRules({
+  "max-file-length": {
+    description: `Source files should not exceed ${MAX_LINES} lines`,
+    async check(ctx) {
+      const checks = ctx.scopedFiles.map(async (file) => {
+        const content = await ctx.readFile(file);
+        const lineCount = content.split("\n").length;
+        if (lineCount > MAX_LINES) {
+          ctx.report.warning({
+            message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+            file,
+            fix: "Extract related functions into separate modules",
+          });
+        }
+      });
+      await Promise.all(checks);
+    },
+  },
+});
+```
+
+### Example 6: Required test coverage
+
+Verify that every source file has a corresponding test file.
+
+```typescript
+
+export default defineRules({
+  "test-file-exists": {
+    description: "Every source module must have a corresponding test file",
+    async check(ctx) {
+      const testFiles = await ctx.glob("tests/**/*.test.ts");
+      const testBaseNames = new Set(
+        testFiles.map((f) => basename(f).replace(".test.ts", ""))
+      );
+
+      for (const file of ctx.scopedFiles) {
+        const name = basename(file).replace(/\.ts$/, "");
+        if (!testBaseNames.has(name)) {
+          ctx.report.warning({
+            message: `No test file found for ${basename(file)}`,
+            file,
+            fix: `Create tests/${name}.test.ts`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+## Severity levels
+
+Each rule can set a default severity in its configuration. The severity determines how violations are treated:
+
+| Severity  | Exit code | Behavior                             |
+| --------- | --------- | ------------------------------------ |
+| `error`   | 1         | Blocks CI, must be fixed             |
+| `warning` | 0         | Logged but does not block            |
+| `info`    | 0         | Informational, logged for visibility |
+
+Set the severity in the rule definition:
+
+```typescript
+export default defineRules({
+  "my-rule": {
+    description: "...",
+    severity: "warning",
+    async check(ctx) {
+      // Violations from this rule are warnings, not errors
+      ctx.report.violation({ message: "..." });
+    },
+  },
+});
+```
+
+If `severity` is omitted, it defaults to `error`.
+
+You can also report at different severities within the same rule using `ctx.report.violation()`, `ctx.report.warning()`, and `ctx.report.info()` directly.
+
+## Rule timeout
+
+Each rule has a 30-second execution timeout. If a rule exceeds this limit, it is treated as an error. This prevents runaway checks from blocking the pipeline.
+
+Keep rules fast by:
+
+- Using `ctx.grepFiles()` instead of reading every file manually
+- Using `Promise.all()` to check files in parallel
+- Scoping rules with the `files` frontmatter field to limit the number of files processed
+
+## The `fix` field
+
+The `fix` field is an optional string shown to the developer alongside the violation message. It describes what action to take to resolve the issue. Fixes are not auto-applied -- they are guidance.
+
+```typescript
+ctx.report.violation({
+  message: `Unapproved dependency: "chalk"`,
+  file: "package.json",
+  fix: "Use styleText() from node:util instead of chalk",
+});
+```
+
+When displayed, the fix appears below the violation message:
+
+```
+ARCH-006/no-unapproved-deps
+  package.json
+    Unapproved dependency: "chalk"
+    Fix: Use styleText() from node:util instead of chalk
+```
+
+## Tips for writing rules
+
+1. **Use `Promise.all()` for parallel file checks.** When checking multiple files independently, process them in parallel instead of sequentially.
+
+   ```typescript
+   // Good: parallel
+   const checks = files.map(async (file) => {
+     const content = await ctx.readFile(file);
+     // ...
+   });
+   await Promise.all(checks);
+
+   // Avoid: sequential
+   for (const file of files) {
+     const content = await ctx.readFile(file);
+     // ...
+   }
+   ```
+
+2. **Use `ctx.changedFiles` for incremental checking.** When running `archgate check --staged`, `ctx.changedFiles` contains only the git-staged files. Filter `ctx.scopedFiles` against it to check only what changed.
+
+3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
+
+4. **Use `ctx.grepFiles()` over manual iteration.** When searching for a pattern across many files, `ctx.grepFiles()` is more efficient than reading each file and running a regex.
+
+5. **Provide actionable `fix` messages.** A fix like "Don't do this" is not helpful. Tell the developer exactly what to do instead.
+
+6. **Filter out non-applicable files early.** If your rule only applies to certain files within the scope, filter `ctx.scopedFiles` before processing:
+
+   ```typescript
+   const commandFiles = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+   ```
+
+7. **Handle missing files gracefully.** If your rule reads a specific file like `package.json`, wrap the read in a try/catch and return early if the file does not exist.
+
+## Next steps
+
+- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns for dependency checks, naming conventions, import restrictions, and more.
+- [Rule API Reference](/reference/rule-api/) — Full reference for all rule API types and functions.
+- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into your pipeline to enforce rules on every PR.
+
+---
+
+## Reference: ADR Schema
+
+Source: https://cli.archgate.dev/reference/adr-schema/
+
+Every Archgate ADR is a Markdown file stored in `.archgate/adrs/` with YAML frontmatter that defines the decision's identity and scope. This page documents the frontmatter schema, markdown section structure, and validation behavior.
+
+## Frontmatter Schema
+
+The YAML frontmatter block sits between `---` delimiters at the top of the file.
+
+```yaml
+---
+id: ARCH-001
+title: Command Structure
+domain: architecture
+rules: true
+files: ["src/commands/**/*.ts"]
+---
+```
+
+### Fields
+
+| Field    | Type       | Required | Description                                                                        |
+| -------- | ---------- | -------- | ---------------------------------------------------------------------------------- |
+| `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`). |
+| `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                           |
+| `domain` | `enum`     | Yes      | Domain category. One of: `backend`, `frontend`, `data`, `architecture`, `general`. |
+| `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.           |
+| `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                           |
+
+### id
+
+The ADR identifier. By convention, it uses the domain prefix followed by a zero-padded sequence number (e.g., `ARCH-001`, `BE-003`). The `archgate adr create` command generates IDs automatically.
+
+Any non-empty string is valid, but following the prefix convention keeps ADRs organized and sortable.
+
+### title
+
+A short, descriptive name for the architectural decision. Displayed in `archgate adr list` output and used as the heading when AI agents reference the ADR.
+
+### domain
+
+Groups related ADRs together. The domain also determines the ID prefix used by `archgate adr create`.
+
+### rules
+
+Set to `true` when this ADR has a companion `.rules.ts` file. When `archgate check` runs, it skips ADRs where `rules` is `false`.
+
+### files
+
+An optional array of glob patterns that scope the rule's file coverage. When present, `ctx.scopedFiles` in the rules file only contains files matching these patterns. When absent, all project files are in scope.
+
+```yaml
+files: ["src/commands/**/*.ts"]
+```
+
+Multiple patterns can be specified:
+
+```yaml
+files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
+```
+
+---
+
+## Domain Prefixes
+
+Each domain maps to a prefix used in the ADR ID convention.
+
+| Domain         | Prefix | Example ID |
+| -------------- | ------ | ---------- |
+| `backend`      | `BE`   | `BE-001`   |
+| `frontend`     | `FE`   | `FE-001`   |
+| `data`         | `DATA` | `DATA-001` |
+| `architecture` | `ARCH` | `ARCH-001` |
+| `general`      | `GEN`  | `GEN-001`  |
+
+The `archgate adr create` command uses this mapping to auto-generate IDs.
+
+---
+
+## File Naming Convention
+
+ADR files follow a naming convention that encodes the ID and a human-readable slug:
+
+```
+{ID}-{slug}.md              # The document
+{ID}-{slug}.rules.ts        # The companion rules file (optional)
+```
+
+For example:
+
+```
+ARCH-001-command-structure.md
+ARCH-001-command-structure.rules.ts
+```
+
+The slug is a kebab-case version of the title, auto-generated by `archgate adr create`.
+
+---
+
+## Markdown Sections
+
+After the frontmatter, the ADR body follows a standard section structure. While Archgate does not enforce specific sections, the following structure is recommended for consistency.
+
+### Context
+
+Describes the problem or situation that prompted the decision. Include alternatives that were considered and why they were rejected.
+
+```markdown
+## Context
+
+The CLI returns errors in inconsistent formats. Some commands print raw
+stack traces, others print nothing, and a few use `console.error()` with
+custom formatting.
+
+**Alternatives considered:**
+
+- **No standard** -- Let each command handle errors its own way. Simple
+  but leads to an inconsistent user experience.
+- **Try/catch wrapper** -- A global try/catch at the CLI entry point.
+  Loses context about which command failed.
+```
+
+### Decision
+
+States the decision itself and its key constraints. This is the primary section AI agents read before writing code.
+
+```markdown
+## Decision
+
+All commands MUST use `logError()` from `src/helpers/log.ts` for error
+output. Commands MUST NOT call `console.error()` directly.
+```
+
+### Do's and Don'ts
+
+Concrete, actionable guidance split into two sub-sections. These act as a quick-reference checklist for developers and AI agents.
+
+```markdown
+## Do's and Don'ts
+
+### Do
+
+- Use `logError(message, detail?)` for all error output
+- Include a suggested fix in the detail parameter when possible
+- Exit with code 1 for user errors, code 2 for internal errors
+
+### Don't
+
+- Don't call `console.error()` directly in command files
+- Don't print stack traces to users
+- Don't exit without printing an error message first
+```
+
+### Consequences
+
+Split into three sub-sections that document trade-offs.
+
+```markdown
+## Consequences
+
+### Positive
+
+- Consistent error formatting across all commands
+- Machine-parseable error output when combined with `--json`
+
+### Negative
+
+- Requires importing `logError` in every command file
+- Cannot use built-in error formatting from libraries
+
+### Risks
+
+- New contributors may use `console.error()` by habit. Mitigated by the
+  automated rule that scans for direct `console.error()` calls.
+```
+
+### Compliance and Enforcement
+
+Describes how the decision is enforced through automated rules and manual review.
+
+```markdown
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** ARCH-002/no-console-error: Scans command files for
+  `console.error()` calls. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. Error messages are actionable and include context
+2. Exit codes match the error type (1 for user, 2 for internal)
+```
+
+### References
+
+Links to related ADRs, external documentation, or design documents.
+
+```markdown
+## References
+
+- [ARCH-001 -- Command Structure](./ARCH-001-command-structure.md)
+- [Node.js process.exit documentation](https://nodejs.org/api/process.html#processexitcode)
+```
+
+---
+
+## Companion Rules File
+
+When `rules: true`, Archgate looks for a companion file with the same name but `.rules.ts` extension.
+
+```
+ARCH-002-error-handling.md          # rules: true in frontmatter
+ARCH-002-error-handling.rules.ts    # companion rules file
+```
+
+The rules file must export a default `RuleSet` created via `defineRules()`:
+
+```typescript
+
+export default defineRules({
+  "no-console-error": {
+    description: "Use logError() instead of console.error()",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const matches = await ctx.grep(file, /console\.error\(/);
+        for (const match of matches) {
+          ctx.report.violation({
+            message: "Use logError() instead of console.error()",
+            file: match.file,
+            line: match.line,
+            fix: "Import logError from src/helpers/log and use it instead",
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+See the [Rule API](/reference/rule-api/) for the complete TypeScript API reference.
+
+---
+
+## Validation
+
+The YAML frontmatter is validated at parse time using a Zod schema. Invalid frontmatter causes a parse error with a descriptive message.
+
+### Required fields
+
+If a required field is missing, the ADR fails to parse:
+
+```
+Invalid ADR frontmatter in ARCH-001-example.md:
+  - domain: Required
+```
+
+### Invalid enum values
+
+If `domain` is not one of the valid values:
+
+```
+Invalid ADR frontmatter in ARCH-001-example.md:
+  - domain: Invalid enum value. Expected 'backend' | 'frontend' | 'data' | 'architecture' | 'general', received 'security'
+```
+
+### Type mismatches
+
+If `rules` is a string instead of a boolean:
+
+```
+Invalid ADR frontmatter in ARCH-001-example.md:
+  - rules: Expected boolean, received string
+```
+
+ADRs that fail validation are skipped by `archgate check` and reported as errors.
+
+---
+
+## Reference: CLI Commands
+
+Source: https://cli.archgate.dev/reference/cli-commands/
+
+## Global options
+
+These options are available on all commands:
+
+| Option            | Description                |
+| ----------------- | -------------------------- |
+| `--version`, `-V` | Print the Archgate version |
+| `--help`, `-h`    | Show help for any command  |
+
+```bash
+archgate --version
+archgate check --help
+```
+
+---
+
+## archgate login
+
+Authenticate with GitHub to access Archgate editor plugins.
+
+```bash
+archgate login
+```
+
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores both in `~/.archgate/credentials`.
+
+Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
+
+Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://plugins.archgate.dev) to get access.
+
+### Subcommands
+
+| Subcommand               | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `archgate login`         | Authenticate (skips if already logged in) |
+| `archgate login status`  | Show current authentication status        |
+| `archgate login logout`  | Remove stored credentials                 |
+| `archgate login refresh` | Re-authenticate and claim a new token     |
+
+### Examples
+
+Log in for the first time:
+
+```bash
+archgate login
+```
+
+```
+Authenticating with GitHub...
+
+Open https://github.com/login/device in your browser
+and enter the code: ABCD-1234
+
+Waiting for authorization...
+GitHub user: yourname
+Claiming archgate plugin token...
+
+Authenticated as yourname. Plugin access is now available.
+Run `archgate init` to set up a project with the archgate plugin.
+```
+
+Check login status:
+
+```bash
+archgate login status
+```
+
+```
+Logged in as yourname (since 2026-02-28)
+```
+
+Log out:
+
+```bash
+archgate login logout
+```
+
+Re-authenticate:
+
+```bash
+archgate login refresh
+```
+
+---
+
+## archgate init
+
+Initialize Archgate governance in the current project.
+
+```bash
+archgate init [options]
+```
+
+Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
+
+### Options
+
+| Option              | Default  | Description                                                               |
+| ------------------- | -------- | ------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`, `vscode`, `copilot`) |
+| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`)      |
+
+When `--install-plugin` is passed, the CLI installs the Archgate plugin for the selected editor. If the flag is omitted, the CLI auto-detects: it installs the plugin when valid credentials exist (from a previous `archgate login`) and skips otherwise.
+
+### Plugin installation behavior
+
+**Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
+
+**Cursor:** The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory.
+
+### Output
+
+```
+Initialized Archgate governance in /path/to/project
+  adrs/          - architecture decision records
+  lint/          - linter-specific rules
+  .claude/       - Claude Code settings configured
+
+Archgate plugin installed for Claude Code.
+```
+
+When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
+
+### Generated structure
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```
+
+---
+
+## archgate plugin
+
+Manage Archgate editor plugins independently of `archgate init`.
+
+```bash
+archgate plugin <subcommand> [options]
+```
+
+Use `archgate plugin` to install plugins or retrieve the authenticated repository URL on projects that have already been initialized.
+
+### Subcommands
+
+#### archgate plugin url
+
+Print the authenticated plugin repository URL for manual tool configuration.
+
+```bash
+archgate plugin url [options]
+```
+
+| Option              | Default  | Description                                             |
+| ------------------- | -------- | ------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
+
+The URL includes your credentials and can be used to manually configure editor tools. For example, to add the Archgate marketplace in Claude Code:
+
+```bash
+claude plugin marketplace add "$(archgate plugin url)"
+claude plugin install archgate@archgate
+```
+
+For VS Code, the URL points to a separate plugin repository:
+
+```bash
+archgate plugin url --editor vscode
+```
+
+#### archgate plugin install
+
+Install the Archgate plugin for the specified editor on an already-initialized project.
+
+```bash
+archgate plugin install [options]
+```
+
+| Option              | Default  | Description                                             |
+| ------------------- | -------- | ------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
+
+Installation behavior varies by editor:
+
+- **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
+- **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
+- **Cursor:** Downloads and extracts the plugin bundle into `.cursor/`.
+- **VS Code:** Adds the marketplace URL to VS Code user settings.
+
+### Examples
+
+Get the plugin URL for manual configuration:
+
+```bash
+archgate plugin url
+```
+
+Install the plugin for Claude Code:
+
+```bash
+archgate plugin install
+```
+
+Install the plugin for Cursor:
+
+```bash
+archgate plugin install --editor cursor
+```
+
+---
+
+## archgate check
+
+Run all automated ADR compliance checks against the codebase.
+
+```bash
+archgate check [options]
+```
+
+Loads every ADR with `rules: true` in its frontmatter, executes the companion `.rules.ts` file, and reports violations with file paths and line numbers.
+
+### Options
+
+| Option       | Description                                               |
+| ------------ | --------------------------------------------------------- |
+| `--staged`   | Only check git-staged files (useful for pre-commit hooks) |
+| `--json`     | Machine-readable JSON output                              |
+| `--ci`       | GitHub Actions annotation format                          |
+| `--adr <id>` | Only check rules from a specific ADR                      |
+| `--verbose`  | Show passing rules and timing info                        |
+
+### Exit codes
+
+| Code | Meaning                                       |
+| ---- | --------------------------------------------- |
+| 0    | All rules pass. No violations found.          |
+| 1    | One or more violations detected.              |
+| 2    | Internal error (e.g., malformed ADR or rule). |
+
+### Examples
+
+Check the entire project:
+
+```bash
+archgate check
+```
+
+Check only staged files before committing:
+
+```bash
+archgate check --staged
+```
+
+Check a single ADR:
+
+```bash
+archgate check --adr ARCH-001
+```
+
+Get JSON output for CI integration:
+
+```bash
+archgate check --json
+```
+
+Get GitHub Actions annotations:
+
+```bash
+archgate check --ci
+```
+
+### JSON output format
+
+When `--json` is used, the output is a single JSON object:
+
+```json
+{
+  "pass": false,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-001",
+      "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Command file must export a register*Command function",
+          "file": "src/commands/broken.ts",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 12
+    }
+  ],
+  "durationMs": 42
+}
+```
+
+---
+
+## archgate adr create
+
+Create a new ADR interactively or via flags.
+
+```bash
+archgate adr create [options]
+```
+
+When run without `--title` and `--domain`, the command prompts interactively for the domain, title, and optional file patterns. When both `--title` and `--domain` are provided, it runs non-interactively.
+
+The ADR ID is auto-generated with the domain prefix and the next available sequence number (e.g., `ARCH-002`, `BE-001`).
+
+### Options
+
+| Option               | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| `--title <title>`    | ADR title (skip interactive prompt)                                   |
+| `--domain <domain>`  | ADR domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | File patterns, comma-separated                                        |
+| `--body <markdown>`  | Full ADR body markdown (skip template)                                |
+| `--rules`            | Set `rules: true` in frontmatter                                      |
+| `--json`             | Output as JSON                                                        |
+
+### Examples
+
+Interactive mode:
+
+```bash
+archgate adr create
+```
+
+Non-interactive mode:
+
+```bash
+archgate adr create \
+  --title "API Response Envelope" \
+  --domain backend \
+  --files "src/api/**/*.ts" \
+  --rules
+```
+
+---
+
+## archgate adr list
+
+List all ADRs in the project.
+
+```bash
+archgate adr list [options]
+```
+
+### Options
+
+| Option              | Description      |
+| ------------------- | ---------------- |
+| `--json`            | Output as JSON   |
+| `--domain <domain>` | Filter by domain |
+
+### Examples
+
+List all ADRs in table format:
+
+```bash
+archgate adr list
+```
+
+```
+ID          Domain        Rules  Title
+────────────────────────────────────────────────────────
+ARCH-001    architecture  true   Command Structure
+ARCH-002    architecture  true   Error Handling
+BE-001      backend       true   API Response Envelope
+```
+
+List ADRs as JSON:
+
+```bash
+archgate adr list --json
+```
+
+Filter by domain:
+
+```bash
+archgate adr list --domain backend
+```
+
+---
+
+## archgate adr show
+
+Print a specific ADR by ID.
+
+```bash
+archgate adr show <id>
+```
+
+Prints the full ADR content (frontmatter and body) to stdout.
+
+### Arguments
+
+| Argument | Description                         |
+| -------- | ----------------------------------- |
+| `<id>`   | ADR ID (e.g., `ARCH-001`, `BE-003`) |
+
+### Example
+
+```bash
+archgate adr show ARCH-001
+```
+
+---
+
+## archgate adr update
+
+Update an existing ADR by ID.
+
+```bash
+archgate adr update --id <id> --body <markdown> [options]
+```
+
+Replaces the ADR body with the provided markdown. Frontmatter fields (`--title`, `--domain`, `--files`, `--rules`) are updated only when explicitly passed; otherwise the existing values are preserved.
+
+### Options
+
+| Option               | Required | Description                                                           |
+| -------------------- | -------- | --------------------------------------------------------------------- |
+| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                   |
+| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                    |
+| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                         |
+| `--domain <domain>`  | No       | New domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)    |
+| `--rules`            | No       | Set `rules: true` in frontmatter                                      |
+| `--json`             | No       | Output as JSON                                                        |
+
+### Example
+
+```bash
+archgate adr update \
+  --id ARCH-001 \
+  --title "Updated Command Structure" \
+  --body "## Context\n\nUpdated context..."
+```
+
+---
+
+## archgate upgrade
+
+Upgrade Archgate to the latest version via npm.
+
+```bash
+archgate upgrade
+```
+
+Checks the npm registry for the latest published version. If a newer version is available, runs `npm install -g archgate@latest` to upgrade. If already up-to-date, prints a message and exits.
+
+### Example
+
+```bash
+archgate upgrade
+```
+
+```
+Checking for latest Archgate release...
+Upgrading 0.3.0 -> 0.4.0...
+Archgate upgraded to 0.4.0 successfully.
+```
+
+---
+
+## archgate clean
+
+Remove the CLI cache directory.
+
+```bash
+archgate clean
+```
+
+Removes `~/.archgate/`, which stores cached data such as update check timestamps. Safe to run at any time -- the directory is recreated automatically when needed.
+
+### Example
+
+```bash
+archgate clean
+```
+
+```
+/home/user/.archgate cleaned up
+```
+
+---
+
+## Reference: Rule API
+
+Source: https://cli.archgate.dev/reference/rule-api/
+
+Archgate rules are TypeScript files that export automated checks via `defineRules()`. Each rule receives a `RuleContext` with utilities for searching files, reading content, and reporting violations.
+
+## defineRules
+
+```typescript
+
+export default defineRules({
+  "my-rule-id": {
+    description: "Human-readable description of what this rule checks",
+    severity: "error", // optional, defaults to "error"
+    async check(ctx) {
+      // Rule logic here
+    },
+  },
+});
+```
+
+The `defineRules` function takes a record of rule configurations keyed by rule ID. Keys become the rule IDs that appear in check output and violation reports. The function returns a `RuleSet` object.
+
+```typescript
+function defineRules(rules: Record<string, RuleConfig>): RuleSet;
+```
+
+---
+
+## RuleConfig
+
+Each rule in the record must conform to the `RuleConfig` interface.
+
+```typescript
+interface RuleConfig {
+  description: string;
+  severity?: Severity;
+  check: (ctx: RuleContext) => Promise<void>;
+}
+```
+
+| Field         | Type                                  | Required | Description                                            |
+| ------------- | ------------------------------------- | -------- | ------------------------------------------------------ |
+| `description` | `string`                              | Yes      | Human-readable description shown in check output       |
+| `severity`    | `Severity`                            | No       | Default severity for violations. Defaults to `"error"` |
+| `check`       | `(ctx: RuleContext) => Promise<void>` | Yes      | Async function containing the rule logic               |
+
+---
+
+## RuleContext
+
+The `check` function receives a `RuleContext` object with the project state and utility methods.
+
+```typescript
+interface RuleContext {
+  projectRoot: string;
+  scopedFiles: string[];
+  changedFiles: string[];
+  glob(pattern: string): Promise<string[]>;
+  grep(file: string, pattern: RegExp): Promise;
+  grepFiles(pattern: RegExp, fileGlob: string): Promise;
+  readFile(path: string): Promise<string>;
+  readJSON(path: string): Promise<unknown>;
+  report: RuleReport;
+}
+```
+
+### Properties
+
+#### projectRoot
+
+```typescript
+projectRoot: string;
+```
+
+Absolute path to the project root directory (where `.archgate/` lives).
+
+#### scopedFiles
+
+```typescript
+scopedFiles: string[];
+```
+
+Files matching the ADR's `files` glob patterns from its frontmatter. If the ADR has no `files` field, this contains all project files. Use this as the primary file list for your rule checks.
+
+#### changedFiles
+
+```typescript
+changedFiles: string[];
+```
+
+Files that have been modified according to git. When `--staged` is used, this contains only staged files. When running without `--staged`, this contains all changed files (staged and unstaged). Empty when no git changes are detected.
+
+#### report
+
+```typescript
+report: RuleReport;
+```
+
+The reporting interface for recording violations, warnings, and informational messages. See [RuleReport](#rulereport) below.
+
+### Methods
+
+#### glob
+
+```typescript
+glob(pattern: string): Promise<string[]>;
+```
+
+Find files matching a glob pattern relative to the project root. Returns an array of absolute file paths.
+
+```typescript
+const testFiles = await ctx.glob("tests/**/*.test.ts");
+```
+
+#### grep
+
+```typescript
+grep(file: string, pattern: RegExp): Promise;
+```
+
+Search a single file for lines matching a regular expression. Returns an array of `GrepMatch` objects with file path, line number, column, and matched content.
+
+```typescript
+const matches = await ctx.grep(file, /console\.error\(/);
+```
+
+#### grepFiles
+
+```typescript
+grepFiles(pattern: RegExp, fileGlob: string): Promise;
+```
+
+Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call.
+
+```typescript
+const matches = await ctx.grepFiles(/TODO:/i, "src/**/*.ts");
+```
+
+#### readFile
+
+```typescript
+readFile(path: string): Promise<string>;
+```
+
+Read the contents of a file as a string. The path is relative to the project root.
+
+```typescript
+const content = await ctx.readFile("src/config.ts");
+```
+
+#### readJSON
+
+```typescript
+readJSON(path: string): Promise<unknown>;
+```
+
+Read and parse a JSON file. The path is relative to the project root. Returns the parsed value as `unknown` -- cast to the expected type in your rule.
+
+```typescript
+const pkg = (await ctx.readJSON("package.json")) as {
+  dependencies?: Record<string, string>;
+};
+```
+
+---
+
+## RuleReport
+
+The reporting interface for recording check results. Each method accepts a detail object describing the issue.
+
+```typescript
+interface RuleReport {
+  violation(detail: ReportDetail): void;
+  warning(detail: ReportDetail): void;
+  info(detail: ReportDetail): void;
+}
+```
+
+#### violation
+
+```typescript
+report.violation(detail: ReportDetail): void;
+```
+
+Report a rule violation. Violations cause the check to fail with exit code 1. Use for hard constraints that must not be merged.
+
+#### warning
+
+```typescript
+report.warning(detail: ReportDetail): void;
+```
+
+Report a warning. Warnings appear in check output but do not cause the check to fail. Use for non-blocking guidance.
+
+#### info
+
+```typescript
+report.info(detail: ReportDetail): void;
+```
+
+Report an informational message. Does not affect the check exit code. Use for suggestions or notes.
+
+### ReportDetail
+
+The detail object passed to `violation`, `warning`, and `info`.
+
+```typescript
+interface ReportDetail {
+  message: string;
+  file?: string;
+  line?: number;
+  fix?: string;
+}
+```
+
+| Field     | Type     | Required | Description                             |
+| --------- | -------- | -------- | --------------------------------------- |
+| `message` | `string` | Yes      | Human-readable description of the issue |
+| `file`    | `string` | No       | File path where the issue was found     |
+| `line`    | `number` | No       | Line number in the file                 |
+| `fix`     | `string` | No       | Suggested fix or remediation action     |
+
+---
+
+## GrepMatch
+
+Returned by `ctx.grep()` and `ctx.grepFiles()`.
+
+```typescript
+interface GrepMatch {
+  file: string;
+  line: number;
+  column: number;
+  content: string;
+}
+```
+
+| Field     | Type     | Description                          |
+| --------- | -------- | ------------------------------------ |
+| `file`    | `string` | Absolute path to the matched file    |
+| `line`    | `number` | Line number of the match (1-based)   |
+| `column`  | `number` | Column number of the match (1-based) |
+| `content` | `string` | Full content of the matched line     |
+
+---
+
+## Severity
+
+```typescript
+type Severity = "error" | "warning" | "info";
+```
+
+| Value       | Exit code impact | Description                     |
+| ----------- | ---------------- | ------------------------------- |
+| `"error"`   | Causes exit 1    | Hard constraint, blocks merges  |
+| `"warning"` | No impact        | Non-blocking guidance           |
+| `"info"`    | No impact        | Informational, suggestions only |
+
+---
+
+## ViolationDetail
+
+The internal representation of a reported issue, used in check output and JSON results.
+
+```typescript
+interface ViolationDetail {
+  ruleId: string;
+  adrId: string;
+  message: string;
+  file?: string;
+  line?: number;
+  fix?: string;
+  severity: Severity;
+}
+```
+
+| Field      | Type       | Description                          |
+| ---------- | ---------- | ------------------------------------ |
+| `ruleId`   | `string`   | Rule ID from the `defineRules` key   |
+| `adrId`    | `string`   | ADR ID from the frontmatter          |
+| `message`  | `string`   | Human-readable description           |
+| `file`     | `string?`  | File path where the issue was found  |
+| `line`     | `number?`  | Line number in the file              |
+| `fix`      | `string?`  | Suggested fix                        |
+| `severity` | `Severity` | Effective severity of this violation |
+
+---
+
+## RuleSet
+
+The return type of `defineRules`. You do not construct this directly.
+
+```typescript
+type RuleSet = {
+  rules: Record<string, RuleConfig>;
+};
+```
+
+---
+
+## Examples: Common Rule Patterns
+
+Source: https://cli.archgate.dev/examples/common-rule-patterns/
+
+This page provides complete, copy-pasteable rule examples for common governance scenarios. Each pattern includes the full rule code, an explanation of how it works, and guidance on when to use it.
+
+## Pattern 1: Dependency Allowlist
+
+**When to use:** Restrict production dependencies to a curated list to prevent dependency bloat and supply-chain risk.
+
+```typescript
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default defineRules({
+  "no-unapproved-deps": {
+    description: "Production dependencies must be on the approved list",
+    async check(ctx) {
+      let pkg: { dependencies?: Record<string, string> };
+      try {
+        pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+      } catch {
+        return; // No package.json — nothing to check
+      }
+
+      const deps = Object.keys(pkg.dependencies ?? {});
+      for (const dep of deps) {
+        if (!APPROVED_DEPS.includes(dep)) {
+          ctx.report.violation({
+            message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+            file: "package.json",
+            fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+**How it works:** Reads `package.json`, iterates over production `dependencies`, and reports a violation for any package not in the `APPROVED_DEPS` array. Dependencies in `devDependencies` are not checked. The fix message guides the developer toward either getting the dependency approved or reclassifying it.
+
+---
+
+## Pattern 2: Required Export Pattern
+
+**When to use:** Ensure files in a specific directory export a required function signature, such as the `register*Command` pattern for CLI command files.
+
+```typescript
+
+export default defineRules({
+  "register-function-export": {
+    description: "Command files must export a register*Command function",
+    async check(ctx) {
+      const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+      const checks = files.map(async (file) => {
+        const content = await ctx.readFile(file);
+        if (!/export\s+function\s+register\w+Command/.test(content)) {
+          ctx.report.violation({
+            message: "Command file must export a register*Command function",
+            file,
+          });
+        }
+      });
+      await Promise.all(checks);
+    },
+  },
+});
+```
+
+**How it works:** Filters out `index.ts` barrel files, then checks each scoped file for an exported function matching the `register*Command` naming pattern. The regex looks for `export function register` followed by any word characters and `Command`. Files that do not match get a violation.
+
+To adapt this pattern, change the regex to match your project's required export convention. For example, to require a default export of a React component:
+
+```typescript
+if (!/export\s+default\s+function\s+\w+/.test(content)) {
+```
+
+---
+
+## Pattern 3: Banned Import
+
+**When to use:** Prevent usage of a specific library or module across the codebase. Common use cases include banning heavy libraries like `lodash` or `moment` in favor of native alternatives, or preventing imports from internal modules that are being deprecated.
+
+```typescript
+
+const BANNED_IMPORTS = [
+  {
+    pattern: /from\s+['"]lodash['"]/,
+    name: "lodash",
+    alternative: "native array methods",
+  },
+  {
+    pattern: /from\s+['"]moment['"]/,
+    name: "moment",
+    alternative: "Temporal API or date-fns",
+  },
+  {
+    pattern: /from\s+['"]axios['"]/,
+    name: "axios",
+    alternative: "native fetch()",
+  },
+];
+
+export default defineRules({
+  "no-banned-imports": {
+    description: "Prevent usage of banned libraries",
+    async check(ctx) {
+      for (const banned of BANNED_IMPORTS) {
+        const matches = await ctx.grepFiles(banned.pattern, "src/**/*.ts");
+        for (const match of matches) {
+          ctx.report.violation({
+            message: `Banned import: "${banned.name}" is not allowed. Use ${banned.alternative} instead.`,
+            file: match.file,
+            line: match.line,
+            fix: `Replace ${banned.name} with ${banned.alternative}`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+**How it works:** Defines a list of banned imports with the regex pattern to detect them, the library name for the error message, and the recommended alternative. Uses `ctx.grepFiles` to scan all TypeScript files for each banned pattern and reports a violation for every match.
+
+To add more banned imports, add entries to the `BANNED_IMPORTS` array. The pattern should match the `from "..."` part of the import statement.
+
+---
+
+## Pattern 4: File Naming Convention
+
+**When to use:** Enforce consistent file naming across a directory, such as requiring kebab-case for all source files.
+
+```typescript
+
+const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
+
+export default defineRules({
+  "kebab-case-filenames": {
+    description: "Source files must use kebab-case naming",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const name = basename(file);
+
+        // Skip test files and type declaration files
+        if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
+
+        if (!KEBAB_CASE.test(name)) {
+          ctx.report.violation({
+            message: `File "${name}" does not follow kebab-case naming convention`,
+            file,
+            fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+**How it works:** Extracts the basename of each scoped file and tests it against a kebab-case regex. The regex requires lowercase letters and digits separated by hyphens, with a valid file extension. Test files and type declarations are excluded. The fix suggestion auto-converts camelCase to kebab-case.
+
+To change the naming convention, replace the regex. For example, for camelCase:
+
+```typescript
+const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
+```
+
+---
+
+## Pattern 5: No TODO Comments in Production
+
+**When to use:** Flag TODO, FIXME, HACK, and XXX comments so they are resolved before merging. Uses `warning` severity so it does not block CI, but makes the comments visible in check output.
+
+```typescript
+
+export default defineRules({
+  "no-todo-comments": {
+    description: "TODO and FIXME comments should be resolved before merging",
+    severity: "warning",
+    async check(ctx) {
+      const matches = await ctx.grepFiles(
+        /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
+        "src/**/*.ts"
+      );
+      for (const match of matches) {
+        ctx.report.warning({
+          message: `${match.content.trim()} -- resolve before merging`,
+          file: match.file,
+          line: match.line,
+        });
+      }
+    },
+  },
+});
+```
+
+**How it works:** Uses `ctx.grepFiles` to scan all TypeScript files in `src/` for comments starting with `TODO:`, `FIXME:`, `HACK:`, or `XXX:` (case-insensitive). Each match is reported as a warning with the original comment text. Because the severity is `"warning"`, the check exits with code 0 even when matches are found -- it surfaces the comments without blocking merges.
+
+To make this a hard blocker, change the severity to `"error"` and use `ctx.report.violation()` instead of `ctx.report.warning()`.
+
+---
+
+## Pattern 6: Test File Coverage
+
+**When to use:** Ensure every source file has a corresponding test file, preventing untested code from being merged.
+
+```typescript
+
+export default defineRules({
+  "test-file-exists": {
+    description: "Every source file should have a corresponding test file",
+    severity: "warning",
+    async check(ctx) {
+      for (const file of ctx.scopedFiles) {
+        const rel = relative(ctx.projectRoot, file);
+        const testPath = rel
+          .replace(/^src\//, "tests/")
+          .replace(/\.ts$/, ".test.ts");
+        const testFiles = await ctx.glob(testPath);
+        if (testFiles.length === 0) {
+          ctx.report.warning({
+            message: `No test file found at ${testPath}`,
+            file,
+            fix: `Create a test file at ${testPath}`,
+          });
+        }
+      }
+    },
+  },
+});
+```
+
+**How it works:** For each scoped source file, converts the path from `src/` to `tests/` and appends `.test.ts`. Then uses `ctx.glob` to check if the test file exists. If not, reports a warning with a fix suggesting the expected test file path.
+
+This assumes a test directory structure that mirrors `src/`:
+
+```
+src/
+  helpers/
+    log.ts
+    paths.ts
+tests/
+  helpers/
+    log.test.ts
+    paths.test.ts
+```
+
+To adapt for projects that colocate tests next to source files, change the path transformation:
+
+```typescript
+const testPath = rel.replace(/\.ts$/, ".test.ts");
+// src/helpers/log.ts -> src/helpers/log.test.ts
+```
+
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include a Quality Manager skill that identifies recurring patterns in your codebase and proposes new rules to enforce them. [Sign up for beta access](https://plugins.archgate.dev).
+
+---

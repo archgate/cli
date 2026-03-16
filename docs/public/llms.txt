@@ -38,6 +38,10 @@ Available via npm (`npm install -g archgate`), Homebrew, or standalone binary fo
 - [Reference — ADR Schema](https://cli.archgate.dev/reference/adr-schema/): YAML frontmatter schema and markdown structure reference for ADRs.
 - [Examples — Common Rule Patterns](https://cli.archgate.dev/examples/common-rule-patterns/): Ready-to-use rule patterns for naming conventions, import restrictions, and more.
 
+## Full documentation
+
+For the complete documentation in a single file, see [llms-full.txt](https://cli.archgate.dev/llms-full.txt).
+
 ## Optional
 
 - [GitHub Repository](https://github.com/archgate/cli)
