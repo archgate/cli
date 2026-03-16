@@ -56,6 +56,20 @@ If the `claude` CLI is on your PATH, the plugin is installed automatically via:
 
 If the `claude` CLI is not found, the command prints the manual commands for you to run.
 
+### Installing the plugin on an existing project
+
+If your project is already initialized, you can install or reinstall the plugin without re-running `archgate init`:
+
+```bash
+archgate plugin install
+```
+
+To get the authenticated repository URL for manual configuration:
+
+```bash
+archgate plugin url
+```
+
 ## Initial setup with onboard
 
 After installation, run the `archgate:onboard` skill in your project once. This skill:
