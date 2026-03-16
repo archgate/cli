@@ -232,7 +232,6 @@ export default defineConfig({
               label: "Cursor Integration",
               slug: "guides/cursor-integration",
             },
-            { label: "MCP Server", slug: "guides/mcp-server" },
             {
               label: "Pre-commit Hooks",
               slug: "guides/pre-commit-hooks",
@@ -243,7 +242,6 @@ export default defineConfig({
           label: "Reference",
           items: [
             { label: "CLI Commands", slug: "reference/cli-commands" },
-            { label: "MCP Tools", slug: "reference/mcp-tools" },
             { label: "Rule API", slug: "reference/rule-api" },
             { label: "ADR Schema", slug: "reference/adr-schema" },
           ],

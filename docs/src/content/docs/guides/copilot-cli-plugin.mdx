@@ -49,26 +49,7 @@ archgate init --editor copilot --install-plugin
 
 ### Generated files
 
-The command creates the following configuration:
-
-| File                       | Purpose                                              |
-| -------------------------- | ---------------------------------------------------- |
-| `.github/copilot/mcp.json` | MCP server connection so Copilot CLI can access ADRs |
-
-If `.github/copilot/mcp.json` already exists, Archgate merges its configuration additively -- existing MCP server entries are preserved.
-
-The MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
-```
+The command creates the `.github/copilot/` directory for plugin configuration. Plugin installation is handled separately via the `copilot plugin install` command.
 
 ### Manual installation
 
@@ -82,13 +63,20 @@ You can find your authenticated URL by running `archgate login` and checking `~/
 
 ## What the plugin provides
 
-The plugin adds role-based skills to Copilot CLI. Each skill encapsulates a specific part of the governance workflow, so agents follow the same process every time.
+The plugin adds an agent and role-based skills to Copilot CLI. The agent orchestrates the governance workflow, invoking skills as needed.
 
-### Skills included
+### Agent
+
+| Agent                | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+
+The `archgate:developer` agent is set as the default agent via the plugin settings. It orchestrates the skills below automatically as part of its workflow.
+
+### Skills
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:developer`       | General development agent that reads ADRs before coding and validates after           |
 | `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
 | `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
@@ -111,7 +99,7 @@ The plugin follows a structured workflow for every coding task:
 
 ### 1. Read applicable ADRs
 
-When the developer gives a coding task, the agent reads all ADRs that apply to the files being changed. The MCP server provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
 
 ### 2. Write code following ADR constraints
 
@@ -129,19 +117,7 @@ The agent invokes `archgate:architect` to validate structural ADR compliance bey
 
 The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing as new ADRs.
 
-## MCP server integration
-
-The plugin communicates with your project's ADRs through the Archgate MCP server. The server provides:
-
-- **ADR content** -- full text of any ADR, accessible by ID
-- **Review context** -- condensed briefings of all ADRs applicable to a set of changed files
-- **Rule checking** -- execution of automated rules with violation reporting
-- **ADR listing** -- inventory of all ADRs in the project with metadata
-
-The MCP server runs locally and reads directly from your `.archgate/adrs/` directory. No data leaves your machine.
-
 ## Tips
 
-- **Commit `.github/copilot/mcp.json`** to share the MCP configuration with your team.
 - **Run onboard once per project** to generate your initial ADRs from your actual codebase.
 - **Keep ADR rule files up to date** -- the agent enforces what the rules check for.

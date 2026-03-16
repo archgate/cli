@@ -3,17 +3,24 @@ title: Claude Code Plugin
 description: Set up the Archgate plugin for Claude Code. Give AI agents a governance workflow that reads ADRs, validates code, and captures architectural patterns.
 ---
 
-The Archgate Claude Code plugin gives AI agents working in [Claude Code](https://claude.ai/code) a structured governance workflow. Instead of relying on prompt instructions that drift over time, agents read your ADRs directly through the MCP server and validate their own code against your rules.
+The Archgate Claude Code plugin gives AI agents working in [Claude Code](https://claude.ai/code) a structured governance workflow. Instead of relying on prompt instructions that drift over time, agents read your ADRs directly via Archgate CLI commands and validate their own code against your rules.
 
 ## What the plugin provides
 
-The plugin adds role-based skills to Claude Code. Each skill encapsulates a specific part of the governance workflow, so agents follow the same process every time -- read decisions before coding, validate after, and capture new patterns for the team.
+The plugin adds an agent and role-based skills to Claude Code. The agent orchestrates the governance workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
 
-### Skills included
+### Agent
+
+| Agent                | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+
+The `archgate:developer` agent is set as the default agent via `.claude/settings.local.json`. It orchestrates the skills below automatically as part of its workflow.
+
+### Skills
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:developer`       | General development agent that reads ADRs before coding and validates after           |
 | `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
 | `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
@@ -49,6 +56,8 @@ To explicitly request plugin installation:
 archgate init --install-plugin
 ```
 
+This creates `.claude/settings.local.json` with the `archgate:developer` agent and skill permissions pre-configured.
+
 If the `claude` CLI is on your PATH, the plugin is installed automatically via:
 
 1. `claude plugin marketplace add` (registers the Archgate marketplace)
@@ -73,7 +82,7 @@ The plugin follows a structured workflow for every coding task:
 
 ### 1. Read applicable ADRs
 
-When the developer gives a coding task, the agent reads all ADRs that apply to the files being changed. The MCP server provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
+When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
 
 The agent does not write code until it has read the applicable ADRs. This is enforced by the `archgate:developer` skill.
 
@@ -105,20 +114,21 @@ For example, if a developer asks the agent to add `chalk` as a dependency in a p
 
 This behavior is consistent regardless of how the developer phrases the request. ADRs are treated as mandatory constraints, not suggestions.
 
-## MCP server integration
+## How the plugin accesses ADRs
 
-The plugin communicates with your project's ADRs through the Archgate MCP server. The server provides:
+The plugin uses Archgate CLI commands directly to read ADRs and run compliance checks. The key commands are:
 
-- **ADR content** -- full text of any ADR, accessible by ID
-- **Review context** -- condensed briefings of all ADRs applicable to a set of changed files
-- **Rule checking** -- execution of automated rules with violation reporting
-- **ADR listing** -- inventory of all ADRs in the project with metadata
+- **`archgate review-context`** -- condensed briefings of all ADRs applicable to changed files, grouped by domain
+- **`archgate check --staged`** -- automated rule checking with violation reporting
+- **`archgate adr show <id>`** -- full text of a specific ADR
+- **`archgate adr list`** -- inventory of all ADRs in the project with metadata
+- **`archgate session-context claude-code`** -- read session transcripts for context recovery
 
-The MCP server runs locally and reads directly from your `.archgate/adrs/` directory. No data leaves your machine.
+All commands run locally and read directly from your `.archgate/adrs/` directory. No data leaves your machine.
 
-## When to use each skill
+## When to use each agent or skill
 
-| Scenario                                     | Skill to use               |
+| Scenario                                     | Agent or skill             |
 | -------------------------------------------- | -------------------------- |
 | Starting a new project with Archgate         | `archgate:onboard`         |
 | Day-to-day coding tasks                      | `archgate:developer`       |
@@ -126,4 +136,4 @@ The MCP server runs locally and reads directly from your `.archgate/adrs/` direc
 | Noticing a recurring pattern worth codifying | `archgate:quality-manager` |
 | Creating or editing an ADR                   | `archgate:adr-author`      |
 
-The `archgate:developer` skill orchestrates the others automatically -- it invokes `archgate:architect` and `archgate:quality-manager` as part of its workflow. Most of the time, you only need to interact with the developer skill directly.
+The `archgate:developer` agent orchestrates the skills automatically -- it invokes `archgate:architect` and `archgate:quality-manager` as part of its workflow. Most of the time, you only need to interact with the developer agent directly.

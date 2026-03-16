@@ -45,7 +45,7 @@ This is useful in large projects where dozens of ADRs span multiple concerns. Fi
 
 ### AI Agent Context
 
-The MCP server's `review_context` tool groups changed files by domain when providing context to AI agents. When an agent is about to write code, it receives only the ADR briefings relevant to the domains its changes touch, rather than the full set of all ADRs. This scoping reduces noise and helps agents focus on the constraints that actually apply.
+The `archgate review-context` command groups changed files by domain when providing context to AI agents. When an agent is about to write code, it receives only the ADR briefings relevant to the domains its changes touch, rather than the full set of all ADRs. This scoping reduces noise and helps agents focus on the constraints that actually apply.
 
 ### Scoped Validation
 

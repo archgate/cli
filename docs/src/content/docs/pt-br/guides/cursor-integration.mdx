@@ -28,36 +28,40 @@ archgate login              # configuração única
 archgate init --editor cursor --install-plugin
 ```
 
-O pacote do plugin é baixado de `plugins.archgate.dev` e extraído no diretório `.cursor/`. Ele inclui regras de agente, definições de skills e configuração MCP.
+O pacote do plugin é baixado de `plugins.archgate.dev` e extraído no diretório `.cursor/`. Ele inclui regras de agente e definições de skills.
 
 ### Sem plugin (gratuito)
 
-Sem o plugin, `archgate init --editor cursor` ainda configura a conexão com o servidor MCP e uma regra de governança básica. O agente de IA pode acessar seus ADRs e executar verificações, mas não recebe as skills baseadas em papéis descritas abaixo.
+Sem o plugin, `archgate init --editor cursor` ainda configura uma regra de governança básica. O agente de IA pode consultar ADRs e executar verificações via comandos CLI, mas não recebe as skills baseadas em papéis descritas abaixo.
 
 ### Arquivos gerados
 
-| Arquivo                                 | Propósito                                                                   |
-| --------------------------------------- | --------------------------------------------------------------------------- |
-| `.cursor/mcp.json`                      | Conexão com o servidor MCP para que o agente de IA do Cursor acesse os ADRs |
-| `.cursor/rules/archgate-governance.mdc` | Regra sempre ativa do Cursor que instrui o agente a consultar os ADRs       |
-
-Se `.cursor/mcp.json` já existir, o Archgate mescla sua configuração de forma aditiva -- entradas de servidor MCP existentes são preservadas.
+| Arquivo                                 | Propósito                                                             |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `.cursor/rules/archgate-governance.mdc` | Regra sempre ativa do Cursor que instrui o agente a consultar os ADRs |
 
 ## O que o plugin oferece
 
-O plugin adiciona skills baseadas em papéis ao Cursor. Cada skill é invocada como um slash command com o prefixo `/ag-`. As skills encapsulam partes específicas do fluxo de governança para que o agente siga o mesmo processo todas as vezes.
+O plugin adiciona um agente e skills baseadas em papéis ao Cursor. Cada um é invocado como um slash command com o prefixo `/ag-`. O agente orquestra o fluxo de governança, invocando skills conforme necessário.
 
-### Skills incluídas
+### Agente
 
-| Slash command         | Skill           | Propósito                                                                                  |
-| --------------------- | --------------- | ------------------------------------------------------------------------------------------ |
-| `/ag-developer`       | Developer       | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois             |
-| `/ag-architect`       | Architect       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
-| `/ag-quality-manager` | Quality Manager | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
-| `/ag-adr-author`      | ADR Author      | Cria e edita ADRs seguindo as convenções do projeto                                        |
-| `/ag-onboard`         | Onboard         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+| Slash command   | Propósito                                                                      |
+| --------------- | ------------------------------------------------------------------------------ |
+| `/ag-developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
 
-Essas são as mesmas skills disponíveis no plugin para Claude Code (`archgate:developer`, `archgate:architect`, etc.), adaptadas para a interface de slash commands do Cursor.
+O agente `/ag-developer` orquestra as skills abaixo automaticamente como parte do seu fluxo.
+
+### Skills
+
+| Slash command         | Propósito                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `/ag-architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
+| `/ag-quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
+| `/ag-adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
+| `/ag-onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+
+Esses são o mesmo agente e skills disponíveis no plugin para Claude Code (`archgate:developer`, `archgate:architect`, etc.), adaptados para a interface de slash commands do Cursor com o prefixo `ag-`.
 
 ## Configuração inicial com onboard
 
@@ -74,9 +78,9 @@ A skill de onboard foi projetada para ser executada uma vez por projeto. Após o
 
 ### Com o plugin
 
-A skill `/ag-developer` segue um fluxo estruturado para cada tarefa de codificação:
+O agente `/ag-developer` segue um fluxo estruturado para cada tarefa de codificação:
 
-1. **Ler os ADRs aplicáveis** -- O agente chama `review_context` para ver quais ADRs se aplicam aos arquivos sendo alterados. Ele não escreve código até ter lido os ADRs aplicáveis.
+1. **Ler os ADRs aplicáveis** -- O agente executa `archgate review-context` para ver quais ADRs se aplicam aos arquivos sendo alterados. Ele não escreve código até ter lido os ADRs aplicáveis.
 
 2. **Escrever código seguindo as restrições dos ADRs** -- O agente implementa as alterações seguindo as seções Do's and Don'ts dos ADRs aplicáveis.
 
@@ -88,15 +92,15 @@ A skill `/ag-developer` segue um fluxo estruturado para cada tarefa de codifica�
 
 ### Sem o plugin
 
-O agente se conecta ao servidor MCP do Archgate e segue quatro passos manuais:
+O agente usa a regra de governança e comandos CLI para seguir quatro passos manuais:
 
-1. **Revisar contexto** -- Chamar `review_context` para ver quais ADRs se aplicam aos arquivos sendo alterados.
+1. **Revisar contexto** -- Executar `archgate review-context` para ver quais ADRs se aplicam aos arquivos sendo alterados.
 
-2. **Ler ADRs individuais** -- Para contexto completo sobre uma decisão específica, ler o recurso `adr://` (por exemplo, `adr://ARCH-001`).
+2. **Ler ADRs individuais** -- Para contexto completo sobre uma decisão específica, executar `archgate adr show <id>` (por exemplo, `archgate adr show ARCH-001`).
 
 3. **Escrever código** -- Implementar as alterações seguindo as restrições dos ADRs aplicáveis.
 
-4. **Executar verificações de conformidade** -- Chamar `check` (opcionalmente com `staged: true`) para validar que o código está em conformidade com todas as regras dos ADRs.
+4. **Executar verificações de conformidade** -- Executar `archgate check --staged` para validar que o código está em conformidade com todas as regras dos ADRs.
 
 ## Recusa orientada por ADRs
 
@@ -110,7 +114,7 @@ Por exemplo, se um desenvolvedor pedir ao agente para adicionar `chalk` como dep
 
 Esse comportamento é consistente independentemente de como o desenvolvedor formula a solicitação. ADRs são tratados como restrições obrigatórias, não sugestões.
 
-## Quando usar cada skill
+## Quando usar cada agente ou skill
 
 | Cenário                                                 | Slash command         |
 | ------------------------------------------------------- | --------------------- |
@@ -120,42 +124,11 @@ Esse comportamento é consistente independentemente de como o desenvolvedor form
 | Percebendo um padrão recorrente que vale ser codificado | `/ag-quality-manager` |
 | Criando ou editando um ADR                              | `/ag-adr-author`      |
 
-A skill `/ag-developer` orquestra as outras automaticamente -- ela invoca `/ag-architect` e `/ag-quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa usar `/ag-developer` diretamente.
+O agente `/ag-developer` orquestra as skills automaticamente -- ele invoca `/ag-architect` e `/ag-quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa usar `/ag-developer` diretamente.
 
-## Configuração do servidor MCP
+## Regra de governança
 
-O arquivo `.cursor/mcp.json` gerado registra o servidor MCP do Archgate:
-
-```json
-{
-  "mcpServers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-A regra de governança em `.cursor/rules/archgate-governance.mdc` usa `alwaysApply: true`, o que significa que o agente do Cursor sempre tem o contexto de governança disponível sem ativação manual.
-
-O servidor MCP fornece:
-
-- **Conteúdo de ADRs** -- texto completo de qualquer ADR, acessível por ID via recursos `adr://`
-- **Contexto de revisão** -- resumos condensados de todos os ADRs aplicáveis a um conjunto de arquivos alterados
-- **Verificação de regras** -- execução de regras automatizadas com relatório de violações
-- **Listagem de ADRs** -- inventário de todos os ADRs do projeto com metadados
-
-O servidor MCP roda localmente e lê diretamente do seu diretório `.archgate/adrs/`. Nenhum dado sai da sua máquina.
-
-## Acesso a transcrições de sessão
-
-A ferramenta MCP `cursor_session_context` lê transcrições de sessão do agente Cursor a partir do disco. Isso permite que as skills acessem o histórico da conversa atual, o que é útil para recuperar contexto que pode ter sido compactado ou truncado.
-
-A ferramenta aceita dois parâmetros opcionais:
-
-- `maxEntries` -- Número máximo de entradas a retornar (padrão: 200, entradas mais recentes).
-- `sessionId` -- Um UUID de sessão específico para ler. Se omitido, a sessão mais recente é usada.
+A regra de governança em `.cursor/rules/archgate-governance.mdc` usa `alwaysApply: true`, o que significa que o agente do Cursor sempre tem o contexto de governança disponível sem ativação manual. Ela instrui o agente a executar `archgate review-context` antes de codificar e `archgate check --staged` depois.
 
 ## Dicas para uso eficaz
 

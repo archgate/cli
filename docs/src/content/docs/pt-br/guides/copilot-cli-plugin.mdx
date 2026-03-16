@@ -49,26 +49,7 @@ archgate init --editor copilot --install-plugin
 
 ### Arquivos gerados
 
-O comando cria a seguinte configuração:
-
-| Arquivo                    | Propósito                                                     |
-| -------------------------- | ------------------------------------------------------------- |
-| `.github/copilot/mcp.json` | Conexão do servidor MCP para que o Copilot CLI acesse os ADRs |
-
-Se `.github/copilot/mcp.json` já existir, o Archgate mescla sua configuração de forma aditiva -- entradas de servidores MCP existentes são preservadas.
-
-A configuração MCP:
-
-```json
-{
-  "mcpServers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
-```
+O comando cria o diretório `.github/copilot/` para configuração do plugin. A instalação do plugin é feita separadamente via o comando `copilot plugin install`.
 
 ### Instalação manual
 
@@ -82,13 +63,20 @@ Você pode encontrar sua URL autenticada executando `archgate login` e verifican
 
 ## O que o plugin oferece
 
-O plugin adiciona skills baseadas em papéis ao Copilot CLI. Cada skill encapsula uma parte específica do fluxo de governança, garantindo que os agentes sigam o mesmo processo todas as vezes.
+O plugin adiciona um agente e skills baseadas em papéis ao Copilot CLI. O agente orquestra o fluxo de governança, invocando skills conforme necessário.
 
-### Skills incluídas
+### Agente
+
+| Agente               | Propósito                                                                      |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+
+O agente `archgate:developer` é definido como agente padrão via as configurações do plugin. Ele orquestra as skills abaixo automaticamente como parte do seu fluxo.
+
+### Skills
 
 | Skill                      | Propósito                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `archgate:developer`       | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois             |
 | `archgate:architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
 | `archgate:quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
 | `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
@@ -111,7 +99,7 @@ O plugin segue um fluxo estruturado para cada tarefa de codificação:
 
 ### 1. Ler os ADRs aplicáveis
 
-Quando o desenvolvedor atribui uma tarefa de codificação, o agente lê todos os ADRs que se aplicam aos arquivos sendo alterados. O servidor MCP fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
+Quando o desenvolvedor atribui uma tarefa de codificação, o agente executa `archgate review-context` para ler todos os ADRs que se aplicam aos arquivos sendo alterados. Isso fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
 
 ### 2. Escrever código seguindo as restrições dos ADRs
 
@@ -129,19 +117,7 @@ O agente invoca `archgate:architect` para validar a conformidade estrutural com 
 
 O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs.
 
-## Integração com o servidor MCP
-
-O plugin se comunica com os ADRs do seu projeto por meio do servidor MCP do Archgate. O servidor fornece:
-
-- **Conteúdo de ADRs** -- texto completo de qualquer ADR, acessível por ID
-- **Contexto de revisão** -- resumos condensados de todos os ADRs aplicáveis a um conjunto de arquivos alterados
-- **Verificação de regras** -- execução de regras automatizadas com relatório de violações
-- **Listagem de ADRs** -- inventário de todos os ADRs do projeto com metadados
-
-O servidor MCP roda localmente e lê diretamente do seu diretório `.archgate/adrs/`. Nenhum dado sai da sua máquina.
-
 ## Dicas
 
-- **Faça commit do `.github/copilot/mcp.json`** para compartilhar a configuração MCP com sua equipe.
 - **Execute o onboard uma vez por projeto** para gerar seus ADRs iniciais a partir do seu codebase real.
 - **Mantenha os arquivos de regras dos ADRs atualizados** -- o agente aplica o que as regras verificam.
