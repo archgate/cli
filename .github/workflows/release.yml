@@ -83,33 +83,6 @@ jobs:
           workflow: pull-request
           github-token: ${{ github.token }}
           branch: release
-      - name: Sync optional dependency versions on release branch
-        run: |
-          git fetch origin release || exit 0
-          git checkout release
-          VERSION=$(node -p "require('./package.json').version")
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            let changed = false;
-            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
-              if (pkg.optionalDependencies[dep] !== pkg.version) {
-                pkg.optionalDependencies[dep] = pkg.version;
-                changed = true;
-              }
-            }
-            if (changed) {
-              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-              process.stdout.write('updated');
-            } else {
-              process.stdout.write('unchanged');
-            }
-          "
-          if ! git diff --quiet package.json 2>/dev/null; then
-            git add package.json
-            git commit -m "chore: sync platform package versions to $VERSION"
-            git push origin release
-          fi
   validate-release-pr:
     name: Validate release PR
     needs: pull-request
