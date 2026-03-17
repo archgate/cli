@@ -1,4 +1,27 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(oxfmt *)",
+      "Bash(oxlint *)",
+      "Bash(bun run *)",
+      "Bash(bun test *)",
+      "Bash(bun install *)",
+      "Bash(git *)",
+      "Bash(wc *)",
+      "Bash(ls *)",
+      "Bash(rm *)",
+      "Bash(proto *)",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "hooks": {
     "PostToolUse": [
       {
