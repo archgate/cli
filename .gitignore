@@ -23,6 +23,9 @@ coverage
 # Local MCP config
 .mcp.json
 
+# Claude Code worktrees
+.claude/worktrees
+
 # Proto / Moon
 .moon/cache
 .moon/docker

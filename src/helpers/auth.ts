@@ -106,7 +106,7 @@ export async function pollForAccessToken(
   const deadline = Date.now() + expiresIn * 1000;
   let pollInterval = interval;
 
-  // eslint-disable-next-line no-await-in-loop -- sequential polling is required by RFC 8628
+  /* oxlint-disable no-await-in-loop -- sequential polling is required by RFC 8628 */
   while (Date.now() < deadline) {
     await Bun.sleep(pollInterval * 1000);
 
@@ -148,6 +148,7 @@ export async function pollForAccessToken(
       );
     }
   }
+  /* oxlint-enable no-await-in-loop */
 
   throw new Error("Device code expired. Please try again.");
 }
