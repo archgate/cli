@@ -2,43 +2,43 @@
   "name": "archgate",
   "version": "0.11.1",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
-  "readme": "README.md",
-  "license": "Apache-2.0",
-  "homepage": "https://cli.archgate.dev",
-  "bin": {
-    "archgate": "bin/archgate.cjs"
-  },
-  "exports": {
-    "./rules": "./src/formats/rules.ts"
-  },
-  "files": [
-    "src/formats/rules.ts",
-    "bin/archgate.cjs"
+  "keywords": [
+    "adr",
+    "archgate",
+    "architecture-decision-records",
+    "cli",
+    "governance",
+    "linter"
   ],
+  "homepage": "https://cli.archgate.dev",
+  "bugs": {
+    "url": "https://github.com/archgate/cli/issues"
+  },
+  "license": "Apache-2.0",
   "author": {
     "name": "Archgate",
     "url": "https://archgate.dev"
-  },
-  "keywords": [
-    "archgate",
-    "adr",
-    "architecture-decision-records",
-    "governance",
-    "linter",
-    "cli"
-  ],
-  "bugs": {
-    "url": "https://github.com/archgate/cli/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/archgate/cli.git"
   },
+  "bin": {
+    "archgate": "bin/archgate.cjs"
+  },
+  "files": [
+    "src/formats/rules.ts",
+    "bin/archgate.cjs"
+  ],
   "os": [
     "darwin",
     "linux",
     "win32"
   ],
+  "type": "module",
+  "exports": {
+    "./rules": "./src/formats/rules.ts"
+  },
   "scripts": {
     "cli": "bun run src/cli.ts",
     "check": "bun run src/cli.ts check",
@@ -56,7 +56,6 @@
     "docs:build": "cd docs && bunx --bun astro build",
     "docs:preview": "cd docs && bunx --bun astro preview"
   },
-  "type": "module",
   "devDependencies": {
     "@commander-js/extra-typings": "14.0.0",
     "@commitlint/cli": "19.8.1",
@@ -68,8 +67,8 @@
     "conventional-changelog": "7.1.1",
     "conventional-changelog-angular": "8.0.0",
     "inquirer": "12.9.4",
-    "oxlint": "1.14.0",
     "oxfmt": "0.41.0",
+    "oxlint": "1.14.0",
     "zod": "4.3.6"
   },
   "peerDependencies": {
@@ -79,5 +78,6 @@
     "archgate-darwin-arm64": "0.11.1",
     "archgate-linux-x64": "0.11.1",
     "archgate-win32-x64": "0.11.1"
-  }
+  },
+  "readme": "README.md"
 }

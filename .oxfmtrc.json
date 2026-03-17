@@ -1,7 +1,7 @@
 {
   "trailingComma": "es5",
   "printWidth": 80,
-  "sortPackageJson": false,
+  "sortPackageJson": true,
   "ignorePatterns": [
     "node_modules/",
     "dist",
