@@ -38,7 +38,7 @@ Keep production dependencies minimal. Prefer Bun built-ins over external package
 2. Review of the package's dependency tree size, maintenance status, and download count
 3. Approval by the project maintainer
 
-Development dependencies (`devDependencies`) are less restricted but should still be minimal: linting (oxlint), formatting (prettier), commit conventions (commitlint), and type declarations only.
+Development dependencies (`devDependencies`) are less restricted but should still be minimal: linting (oxlint), formatting (oxfmt), commit conventions (commitlint), and type declarations only.
 
 ## Do's and Don'ts
 

@@ -25,9 +25,8 @@ describe("auth", () => {
 
   describe("saveCredentials / loadCredentials", () => {
     test("round-trips credentials to ~/.archgate/credentials", async () => {
-      const { saveCredentials, loadCredentials } = await import(
-        "../../src/helpers/auth"
-      );
+      const { saveCredentials, loadCredentials } =
+        await import("../../src/helpers/auth");
 
       await saveCredentials({
         token: "ag_beta_abc123",
