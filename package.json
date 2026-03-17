@@ -50,7 +50,7 @@
     "docs:preview": "cd docs && bunx --bun astro preview",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "lint": "oxlint .",
+    "lint": "oxlint --deny-warnings .",
     "test": "bun test --timeout 60000",
     "test:watch": "bun test --watch --timeout 60000",
     "typecheck": "tsc --build",

@@ -15,6 +15,7 @@ import { registerUpgradeCommand } from "./commands/upgrade";
 import { installGit } from "./helpers/git";
 import { logError } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
+import { isSupportedPlatform } from "./helpers/platform";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
 if (typeof Bun === "undefined")
@@ -25,7 +26,7 @@ if (typeof Bun === "undefined")
 if (!semver.satisfies(Bun.version, ">=1.2.21"))
   throw new Error("You need to update Bun to version 1.2.21 or higher");
 
-if (!["darwin", "linux", "win32"].includes(process.platform))
+if (!isSupportedPlatform())
   throw new Error("Archgate only supports macOS, Linux, and Windows");
 
 createPathIfNotExists(paths.cacheFolder);
