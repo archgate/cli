@@ -21,6 +21,18 @@ describe("encodeProjectPath", () => {
   test("replaces multiple consecutive slashes", () => {
     expect(encodeProjectPath("/a//b")).toBe("-a--b");
   });
+
+  test("replaces backslashes with dashes (Windows paths)", () => {
+    expect(encodeProjectPath("C:\\Users\\user\\project")).toBe(
+      "C:-Users-user-project"
+    );
+  });
+
+  test("handles mixed slashes", () => {
+    expect(encodeProjectPath("C:\\Users/user\\project")).toBe(
+      "C:-Users-user-project"
+    );
+  });
 });
 
 describe("readClaudeCodeSession", () => {

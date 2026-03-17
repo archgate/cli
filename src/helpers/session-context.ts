@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 
 /** Encode a project root path into the directory name used by Claude/Cursor. */
 export function encodeProjectPath(projectRoot: string): string {
-  return projectRoot.replaceAll("/", "-");
+  return projectRoot.replaceAll("\\", "-").replaceAll("/", "-");
 }
 
 const RELEVANT_TYPES = new Set(["user", "assistant"]);
