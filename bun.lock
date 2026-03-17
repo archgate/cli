@@ -19,9 +19,9 @@
         "zod": "4.3.6",
       },
       "optionalDependencies": {
-        "archgate-darwin-arm64": "0.11.0",
-        "archgate-linux-x64": "0.11.0",
-        "archgate-win32-x64": "0.11.0",
+        "archgate-darwin-arm64": "0.11.1",
+        "archgate-linux-x64": "0.11.1",
+        "archgate-win32-x64": "0.11.1",
       },
       "peerDependencies": {
         "typescript": "^5",
@@ -146,12 +146,6 @@
     "ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 
     "ansi-styles": ["ansi-styles@3.2.1", "", { "dependencies": { "color-convert": "^1.9.0" } }, "sha512-VT0ZI6kZRdTh8YyJw3SMbYm/u+NqfsAxEpWO0Pf9sq8/e94WxxOpPKx9FR1FlyCtOVDNOQ+8ntlqFxiRc+r5qA=="],
-
-    "archgate-darwin-arm64": ["archgate-darwin-arm64@0.11.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-fKkDfgPfiucngfRbP1p1nfTT08aKHBVX4L9JqfFPotaYorS8uLUThcQY33pJ1mESgFAXcqC5rLCmIYxTgPl0gA=="],
-
-    "archgate-linux-x64": ["archgate-linux-x64@0.11.0", "", { "os": "linux", "cpu": "x64" }, "sha512-JRvbWC4LySfj5EhcQFA7LlhDOpsvv7qU3GOuxQURwOm8+brjmI9Rk0BRrhowKDZcqk2QswC6xkvwZTJ53eGdvQ=="],
-
-    "archgate-win32-x64": ["archgate-win32-x64@0.11.0", "", { "os": "win32", "cpu": "x64" }, "sha512-dQ3t74V8BRJVFHERwymHKZBp/2FkxKgMxkhs/T/r+G5wmnbZmFml6ojX+LI47Ohp97NeTfgf1CRjeyrlQrSYFA=="],
 
     "argparse": ["argparse@2.0.1", "", {}, "sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q=="],
 
