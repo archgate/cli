@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
@@ -25,9 +25,8 @@ describe("auth", () => {
 
   describe("saveCredentials / loadCredentials", () => {
     test("round-trips credentials to ~/.archgate/credentials", async () => {
-      const { saveCredentials, loadCredentials } = await import(
-        "../../src/helpers/auth"
-      );
+      const { saveCredentials, loadCredentials } =
+        await import("../../src/helpers/auth");
 
       await saveCredentials({
         token: "ag_beta_abc123",

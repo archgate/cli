@@ -72,9 +72,5 @@ export function parseAdr(content: string, filePath: string): AdrDocument {
     );
   }
 
-  return {
-    frontmatter: result.data,
-    body,
-    filePath,
-  };
+  return { frontmatter: result.data, body, filePath };
 }

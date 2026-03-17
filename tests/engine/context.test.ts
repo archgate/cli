@@ -1,7 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
   extractAdrSections,
   briefAdr,
@@ -97,9 +98,6 @@ describe("briefAdr", () => {
       makeAdr({ files: ["src/**/*.ts"] }, "## Decision\nX.")
     );
     expect(briefing.files).toEqual(["src/**/*.ts"]);
-  });
-
-  test("files is undefined when ADR has no files globs", () => {
     expect(briefAdr(makeAdr({}, "## Decision\nX.")).files).toBeUndefined();
   });
 

@@ -1,11 +1,12 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { projectPaths } from "../../src/helpers/paths";
-import { generateExampleAdr } from "../../src/helpers/adr-templates";
-import { createPathIfNotExists } from "../../src/helpers/paths";
+import { join } from "node:path";
+
 import { parseAdr } from "../../src/formats/adr";
+import { generateExampleAdr } from "../../src/helpers/adr-templates";
+import { projectPaths } from "../../src/helpers/paths";
+import { createPathIfNotExists } from "../../src/helpers/paths";
 
 let tempDir: string;
 

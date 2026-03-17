@@ -1,6 +1,7 @@
-import type { Command } from "@commander-js/extra-typings";
 import { styleText } from "node:util";
-import { logError, logInfo } from "../helpers/log";
+
+import type { Command } from "@commander-js/extra-typings";
+
 import {
   requestDeviceCode,
   pollForAccessToken,
@@ -10,6 +11,7 @@ import {
   loadCredentials,
   clearCredentials,
 } from "../helpers/auth";
+import { logError, logInfo } from "../helpers/log";
 
 export function registerLoginCommand(program: Command) {
   const login = program

@@ -16,9 +16,7 @@ Place linter plugin files here, named by tool:
 2. Reference it in your oxlint config:
 
 ```json
-{
-  "plugins": [".archgate/lint/oxlint.js"]
-}
+{ "plugins": [".archgate/lint/oxlint.js"] }
 ```
 
 ## Why here?

@@ -1,10 +1,12 @@
 import { readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { pathToFileURL } from "node:url";
+
+import { z } from "zod";
+
 import { parseAdr } from "../formats/adr";
 import type { AdrDocument } from "../formats/adr";
 import { type RuleSet } from "../formats/rules";
-import { z } from "zod";
 import type { RuleContext } from "../formats/rules";
 
 const RuleSetSchema = z.object({
@@ -20,8 +22,8 @@ const RuleSetSchema = z.object({
     })
   ),
 });
-import { projectPaths } from "../helpers/paths";
 import { logDebug, logWarn } from "../helpers/log";
+import { projectPaths } from "../helpers/paths";
 
 export interface LoadedAdr {
   adr: AdrDocument;

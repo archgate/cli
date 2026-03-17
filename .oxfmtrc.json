@@ -1,0 +1,8 @@
+{
+  "trailingComma": "es5",
+  "printWidth": 80,
+  "objectWrap": "collapse",
+  "sortImports": {},
+  "sortPackageJson": { "sortScripts": true },
+  "ignorePatterns": ["bun.lock", "CHANGELOG.md"]
+}

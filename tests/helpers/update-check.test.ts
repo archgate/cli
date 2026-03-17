@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 describe("checkForUpdatesIfNeeded", () => {
   let tempDir: string;
@@ -93,10 +93,7 @@ describe("checkForUpdatesIfNeeded", () => {
 
   test("returns null when version is missing from response", async () => {
     const mockFetch = mock(() =>
-      Promise.resolve({
-        ok: true,
-        json: () => Promise.resolve({}),
-      })
+      Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
     );
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 

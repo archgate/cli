@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
+
+import { parseAdr } from "../../src/formats/adr";
 import {
   generateExampleAdr,
   generateAdrTemplate,
 } from "../../src/helpers/adr-templates";
-import { parseAdr } from "../../src/formats/adr";
 
 describe("generateExampleAdr", () => {
   test("produces a parseable ADR", () => {

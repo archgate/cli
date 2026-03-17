@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Settings that archgate injects into .claude/settings.local.json.

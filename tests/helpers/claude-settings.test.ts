@@ -1,7 +1,8 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import {
   ARCHGATE_CLAUDE_SETTINGS,
   mergeClaudeSettings,
@@ -33,11 +34,7 @@ describe("mergeClaudeSettings", () => {
 
   test("appends permissions.allow with dedup", () => {
     const result = mergeClaudeSettings(
-      {
-        permissions: {
-          allow: ["Bash(git *)", "Skill(archgate:architect)"],
-        },
-      },
+      { permissions: { allow: ["Bash(git *)", "Skill(archgate:architect)"] } },
       ARCHGATE_CLAUDE_SETTINGS
     );
 
@@ -52,12 +49,7 @@ describe("mergeClaudeSettings", () => {
 
   test("preserves existing deny permissions", () => {
     const result = mergeClaudeSettings(
-      {
-        permissions: {
-          allow: ["Bash(ls)"],
-          deny: ["Bash(rm -rf *)"],
-        },
-      },
+      { permissions: { allow: ["Bash(ls)"], deny: ["Bash(rm -rf *)"] } },
       ARCHGATE_CLAUDE_SETTINGS
     );
 
@@ -68,10 +60,7 @@ describe("mergeClaudeSettings", () => {
 
   test("preserves unknown top-level keys", () => {
     const result = mergeClaudeSettings(
-      {
-        customSetting: "value",
-        anotherKey: 42,
-      },
+      { customSetting: "value", anotherKey: 42 },
       ARCHGATE_CLAUDE_SETTINGS
     );
 
@@ -121,10 +110,7 @@ describe("configureClaudeSettings", () => {
     const existingSettings = {
       agent: "my-custom-agent",
       myCustomKey: true,
-      permissions: {
-        allow: ["Bash(git *)"],
-        deny: ["Bash(rm *)"],
-      },
+      permissions: { allow: ["Bash(git *)"], deny: ["Bash(rm *)"] },
     };
     await Bun.write(
       join(claudeDir, "settings.local.json"),

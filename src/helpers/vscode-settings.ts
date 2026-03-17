@@ -1,11 +1,12 @@
-import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
+
 import {
+  getWindowsHomeDirFromWSL,
+  isMacOS,
   isWSL,
   isWindows,
-  isMacOS,
-  getWindowsHomeDirFromWSL,
 } from "./platform";
 
 type VscodeUserSettings = Record<string, unknown>;

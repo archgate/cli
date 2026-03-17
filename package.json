@@ -2,61 +2,60 @@
   "name": "archgate",
   "version": "0.11.1",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
-  "readme": "README.md",
-  "license": "Apache-2.0",
-  "homepage": "https://cli.archgate.dev",
-  "bin": {
-    "archgate": "bin/archgate.cjs"
-  },
-  "exports": {
-    "./rules": "./src/formats/rules.ts"
-  },
-  "files": [
-    "src/formats/rules.ts",
-    "bin/archgate.cjs"
+  "keywords": [
+    "adr",
+    "archgate",
+    "architecture-decision-records",
+    "cli",
+    "governance",
+    "linter"
   ],
+  "homepage": "https://cli.archgate.dev",
+  "bugs": {
+    "url": "https://github.com/archgate/cli/issues"
+  },
+  "license": "Apache-2.0",
   "author": {
     "name": "Archgate",
     "url": "https://archgate.dev"
-  },
-  "keywords": [
-    "archgate",
-    "adr",
-    "architecture-decision-records",
-    "governance",
-    "linter",
-    "cli"
-  ],
-  "bugs": {
-    "url": "https://github.com/archgate/cli/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/archgate/cli.git"
   },
+  "bin": {
+    "archgate": "bin/archgate.cjs"
+  },
+  "files": [
+    "src/formats/rules.ts",
+    "bin/archgate.cjs"
+  ],
   "os": [
     "darwin",
     "linux",
     "win32"
   ],
+  "type": "module",
+  "exports": {
+    "./rules": "./src/formats/rules.ts"
+  },
   "scripts": {
-    "cli": "bun run src/cli.ts",
+    "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
+    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
     "check": "bun run src/cli.ts check",
+    "cli": "bun run src/cli.ts",
+    "commit": "cz",
+    "docs:build": "cd docs && bunx --bun astro build",
+    "docs:dev": "cd docs && bunx --bun astro dev",
+    "docs:preview": "cd docs && bunx --bun astro preview",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings .",
-    "typecheck": "tsc --build",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
     "test": "bun test --timeout 60000",
     "test:watch": "bun test --watch --timeout 60000",
-    "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
-    "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check && bun run build:check",
-    "commit": "cz",
-    "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
-    "docs:dev": "cd docs && bunx --bun astro dev",
-    "docs:build": "cd docs && bunx --bun astro build",
-    "docs:preview": "cd docs && bunx --bun astro preview"
+    "typecheck": "tsc --build",
+    "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check && bun run build:check"
   },
-  "type": "module",
   "devDependencies": {
     "@commander-js/extra-typings": "14.0.0",
     "@commitlint/cli": "19.8.1",
@@ -68,8 +67,8 @@
     "conventional-changelog": "7.1.1",
     "conventional-changelog-angular": "8.0.0",
     "inquirer": "12.9.4",
+    "oxfmt": "0.41.0",
     "oxlint": "1.14.0",
-    "prettier": "3.6.2",
     "zod": "4.3.6"
   },
   "peerDependencies": {
@@ -79,5 +78,6 @@
     "archgate-darwin-arm64": "0.11.1",
     "archgate-linux-x64": "0.11.1",
     "archgate-win32-x64": "0.11.1"
-  }
+  },
+  "readme": "README.md"
 }

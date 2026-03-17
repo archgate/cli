@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
+
 import { NpmProject } from "@simple-release/npm";
 
 class ArchgateProject extends NpmProject {

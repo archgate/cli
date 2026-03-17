@@ -1,13 +1,14 @@
 import { join, relative, isAbsolute } from "node:path";
+
 import type {
   GrepMatch,
   RuleContext,
   RuleReport,
   ViolationDetail,
 } from "../formats/rules";
-import type { LoadedAdr } from "./loader";
 import { logDebug } from "../helpers/log";
 import { resolveScopedFiles, getStagedFiles } from "./git-files";
+import type { LoadedAdr } from "./loader";
 
 const RULE_TIMEOUT_MS = 30_000;
 
@@ -213,8 +214,5 @@ export async function runChecks(
     }
   }
 
-  return {
-    results,
-    totalDurationMs: performance.now() - startTime,
-  };
+  return { results, totalDurationMs: performance.now() - startTime };
 }

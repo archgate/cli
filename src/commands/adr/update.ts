@@ -1,10 +1,12 @@
+import { existsSync } from "node:fs";
+
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
-import { existsSync } from "node:fs";
-import { projectPaths } from "../../helpers/paths";
+
 import { ADR_DOMAINS } from "../../formats/adr";
 import { updateAdrFile } from "../../helpers/adr-writer";
 import { logError } from "../../helpers/log";
+import { projectPaths } from "../../helpers/paths";
 
 const domainOption = new Option("--domain <domain>", "new ADR domain").choices(
   ADR_DOMAINS

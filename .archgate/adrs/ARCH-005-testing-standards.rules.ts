@@ -1,5 +1,6 @@
-import { defineRules } from "../../src/formats/rules";
 import { basename, dirname } from "node:path";
+
+import { defineRules } from "../../src/formats/rules";
 
 export default defineRules({
   "test-mirrors-src": {

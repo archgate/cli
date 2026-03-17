@@ -6,8 +6,9 @@
  */
 
 import { unlinkSync } from "node:fs";
-import { internalPath, createPathIfNotExists } from "./paths";
+
 import { logDebug } from "./log";
+import { internalPath, createPathIfNotExists } from "./paths";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -74,14 +75,8 @@ export interface StoredCredentials {
 export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
   const response = await fetch(GITHUB_DEVICE_CODE_URL, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      client_id: GITHUB_CLIENT_ID,
-      scope: "read:user",
-    }),
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: GITHUB_CLIENT_ID, scope: "read:user" }),
     signal: AbortSignal.timeout(15_000),
   });
 

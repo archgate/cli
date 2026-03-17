@@ -1,4 +1,5 @@
 import type { Command } from "@commander-js/extra-typings";
+
 import { registerClaudeCodeSessionContextCommand } from "./claude-code";
 import { registerCursorSessionContextCommand } from "./cursor";
 

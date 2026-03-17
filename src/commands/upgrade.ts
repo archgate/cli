@@ -1,5 +1,6 @@
 import type { Command } from "@commander-js/extra-typings";
 import { semver } from "bun";
+
 import { logError } from "../helpers/log";
 import { resolveCommand } from "../helpers/platform";
 

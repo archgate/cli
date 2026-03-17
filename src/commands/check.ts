@@ -1,14 +1,15 @@
 import type { Command } from "@commander-js/extra-typings";
-import { logError } from "../helpers/log";
-import { findProjectRoot } from "../helpers/paths";
+
 import { loadRuleAdrs } from "../engine/loader";
-import { runChecks } from "../engine/runner";
 import {
   reportConsole,
   reportJSON,
   reportCI,
   getExitCode,
 } from "../engine/reporter";
+import { runChecks } from "../engine/runner";
+import { logError } from "../helpers/log";
+import { findProjectRoot } from "../helpers/paths";
 
 export function registerCheckCommand(program: Command) {
   program

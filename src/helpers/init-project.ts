@@ -1,11 +1,12 @@
-import { basename } from "node:path";
 import { existsSync, readdirSync } from "node:fs";
-import { createPathIfNotExists, projectPaths } from "./paths";
+import { basename } from "node:path";
+
 import { generateExampleAdr } from "./adr-templates";
 import { configureClaudeSettings } from "./claude-settings";
-import { configureCursorSettings } from "./cursor-settings";
-import { configureVscodeSettings } from "./vscode-settings";
 import { configureCopilotSettings } from "./copilot-settings";
+import { configureCursorSettings } from "./cursor-settings";
+import { createPathIfNotExists, projectPaths } from "./paths";
+import { configureVscodeSettings } from "./vscode-settings";
 
 export type EditorTarget = "claude" | "cursor" | "vscode" | "copilot";
 

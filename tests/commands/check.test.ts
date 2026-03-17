@@ -1,10 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { loadRuleAdrs } from "../../src/engine/loader";
-import { runChecks } from "../../src/engine/runner";
 import { getExitCode } from "../../src/engine/reporter";
+import { runChecks } from "../../src/engine/runner";
 
 // Absolute path to the real defineRules module (forward slashes for import specifiers)
 const RULES_MODULE_PATH = join(

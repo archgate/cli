@@ -1,6 +1,7 @@
 import { readdirSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
 import { homedir } from "node:os";
+import { basename, join } from "node:path";
+
 import { isWSL, toWindowsPath } from "./platform";
 
 /**

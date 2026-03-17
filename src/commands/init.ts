@@ -1,10 +1,12 @@
+import { styleText } from "node:util";
+
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
-import { styleText } from "node:util";
-import { logError, logInfo, logWarn } from "../helpers/log";
+
+import { loadCredentials } from "../helpers/auth";
 import { initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
-import { loadCredentials } from "../helpers/auth";
+import { logError, logInfo, logWarn } from "../helpers/log";
 
 const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",

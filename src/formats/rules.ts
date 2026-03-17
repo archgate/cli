@@ -57,9 +57,7 @@ export interface RuleConfig {
 
 // --- Rule Set ---
 
-export type RuleSet = {
-  rules: Record<string, RuleConfig>;
-};
+export type RuleSet = { rules: Record<string, RuleConfig> };
 
 /**
  * Define rules in a .rules.ts companion file.

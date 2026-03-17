@@ -2,18 +2,18 @@
   "name": "archgate-darwin-arm64",
   "version": "0.0.0",
   "description": "darwin arm64 binary for archgate",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archgate/cli.git"
+  },
+  "files": [
+    "bin/archgate"
+  ],
   "os": [
     "darwin"
   ],
   "cpu": [
     "arm64"
-  ],
-  "files": [
-    "bin/archgate"
-  ],
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/archgate/cli.git"
-  }
+  ]
 }

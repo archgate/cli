@@ -1,11 +1,12 @@
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+
 import { loadCredentials } from "../../helpers/auth";
+import { logError } from "../../helpers/log";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
 } from "../../helpers/plugin-install";
-import { logError } from "../../helpers/log";
 
 const editorOption = new Option("--editor <editor>", "target editor")
   .choices(["claude", "cursor", "vscode", "copilot"] as const)

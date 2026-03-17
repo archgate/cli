@@ -2,18 +2,18 @@
   "name": "archgate-win32-x64",
   "version": "0.0.0",
   "description": "windows x64 binary for archgate",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/archgate/cli.git"
+  },
+  "files": [
+    "bin/archgate.exe"
+  ],
   "os": [
     "win32"
   ],
   "cpu": [
     "x64"
-  ],
-  "files": [
-    "bin/archgate.exe"
-  ],
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/archgate/cli.git"
-  }
+  ]
 }
