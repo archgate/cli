@@ -1,8 +1,10 @@
-import type { Command } from "@commander-js/extra-typings";
 import { existsSync } from "node:fs";
 import { rmSync } from "node:fs";
-import { internalPath } from "../helpers/paths";
+
+import type { Command } from "@commander-js/extra-typings";
+
 import { logError } from "../helpers/log";
+import { internalPath } from "../helpers/paths";
 
 export function registerCleanCommand(program: Command) {
   program

@@ -1,13 +1,14 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+
 import { parseAdr } from "../formats/adr";
 import type { AdrDocument, AdrDomain } from "../formats/adr";
-import type { ReportSummary } from "./reporter";
-import { buildSummary } from "./reporter";
+import { projectPaths } from "../helpers/paths";
 import { getChangedFiles, getStagedFiles } from "./git-files";
 import { loadRuleAdrs } from "./loader";
+import type { ReportSummary } from "./reporter";
+import { buildSummary } from "./reporter";
 import { runChecks } from "./runner";
-import { projectPaths } from "../helpers/paths";
 
 export interface AdrBriefing {
   id: string;

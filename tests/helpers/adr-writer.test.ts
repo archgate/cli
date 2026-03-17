@@ -6,8 +6,10 @@ import {
   writeFileSync,
   existsSync,
 } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { parseAdr } from "../../src/formats/adr";
 import {
   slugify,
   getNextId,
@@ -16,7 +18,6 @@ import {
   findAdrFileById,
   updateAdrFile,
 } from "../../src/helpers/adr-writer";
-import { parseAdr } from "../../src/formats/adr";
 
 describe("slugify", () => {
   test("converts title to lowercase kebab-case", () => {

@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+
 import { logDebug, logInfo, logError, logWarn } from "../../src/helpers/log";
 
 describe("log helpers", () => {

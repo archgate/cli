@@ -1,6 +1,7 @@
-import { join, dirname } from "node:path";
-import { logDebug } from "./log";
 import { existsSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+
+import { logDebug } from "./log";
 
 export function internalPath(...path: string[]) {
   const internalFolder = join(

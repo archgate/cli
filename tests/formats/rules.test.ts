@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import { defineRules } from "../../src/formats/rules";
 import type { RuleConfig, RuleSet } from "../../src/formats/rules";
 
@@ -43,10 +44,7 @@ describe("defineRules", () => {
 
   test("defaults severity to undefined (engine applies 'error' default)", () => {
     const result = defineRules({
-      "my-rule": {
-        description: "A rule",
-        check: async () => {},
-      },
+      "my-rule": { description: "A rule", check: async () => {} },
     });
 
     expect(result.rules["my-rule"].severity).toBeUndefined();
@@ -55,10 +53,7 @@ describe("defineRules", () => {
   test("preserves check function references", () => {
     const checkFn = async () => {};
     const result = defineRules({
-      "test-rule": {
-        description: "Test",
-        check: checkFn,
-      },
+      "test-rule": { description: "Test", check: checkFn },
     });
 
     expect(result.rules["test-rule"].check).toBe(checkFn);
@@ -66,10 +61,7 @@ describe("defineRules", () => {
 
   test("satisfies RuleSet type", () => {
     const result: RuleSet = defineRules({
-      "typed-rule": {
-        description: "Typed",
-        check: async () => {},
-      },
+      "typed-rule": { description: "Typed", check: async () => {} },
     });
 
     expect(result.rules).toBeDefined();

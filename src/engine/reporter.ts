@@ -1,6 +1,7 @@
 import { styleText } from "node:util";
-import type { CheckResult } from "./runner";
+
 import type { Severity } from "../formats/rules";
+import type { CheckResult } from "./runner";
 
 export interface ReportSummary {
   pass: boolean;

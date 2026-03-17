@@ -1,6 +1,6 @@
 import { readdirSync, statSync } from "node:fs";
-import { join, basename } from "node:path";
 import { homedir } from "node:os";
+import { join, basename } from "node:path";
 
 /** Encode a project root path into the directory name used by Claude/Cursor. */
 export function encodeProjectPath(projectRoot: string): string {

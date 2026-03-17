@@ -1,4 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+
 import {
   buildSummary,
   reportConsole,
@@ -51,12 +52,7 @@ describe("reporter", () => {
     test("returns 1 when there are error violations", () => {
       const result = makeResult({
         violations: [
-          {
-            ruleId: "r",
-            adrId: "a",
-            message: "bad",
-            severity: "error",
-          },
+          { ruleId: "r", adrId: "a", message: "bad", severity: "error" },
         ],
       });
       expect(getExitCode(result)).toBe(1);
@@ -65,12 +61,7 @@ describe("reporter", () => {
     test("returns 0 when only warnings present", () => {
       const result = makeResult({
         violations: [
-          {
-            ruleId: "r",
-            adrId: "a",
-            message: "meh",
-            severity: "warning",
-          },
+          { ruleId: "r", adrId: "a", message: "meh", severity: "warning" },
         ],
       });
       expect(getExitCode(result)).toBe(0);
@@ -154,12 +145,7 @@ describe("reporter", () => {
       reportCI(
         makeResult({
           violations: [
-            {
-              ruleId: "r",
-              adrId: "a",
-              message: "info msg",
-              severity: "info",
-            },
+            { ruleId: "r", adrId: "a", message: "info msg", severity: "info" },
           ],
         })
       );

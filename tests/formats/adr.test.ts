@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+
 import { parseAdr, parseFrontmatter } from "../../src/formats/adr";
 
 const FIXTURES = join(import.meta.dir, "..", "fixtures");

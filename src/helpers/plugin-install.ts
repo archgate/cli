@@ -7,10 +7,11 @@
  * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
  */
 
-import { join } from "node:path";
 import { mkdirSync, unlinkSync } from "node:fs";
-import { logDebug } from "./log";
+import { join } from "node:path";
+
 import type { StoredCredentials } from "./auth";
+import { logDebug } from "./log";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
 
@@ -115,10 +116,7 @@ export async function installCursorPlugin(
   token: string
 ): Promise<string[]> {
   const response = await fetch(`${PLUGINS_API}/api/cursor`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "User-Agent": "archgate-cli",
-    },
+    headers: { Authorization: `Bearer ${token}`, "User-Agent": "archgate-cli" },
     signal: AbortSignal.timeout(30_000),
   });
 

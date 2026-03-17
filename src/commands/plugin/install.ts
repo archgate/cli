@@ -1,7 +1,11 @@
+import { styleText } from "node:util";
+
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
-import { styleText } from "node:util";
+
 import { loadCredentials } from "../../helpers/auth";
+import type { EditorTarget } from "../../helpers/init-project";
+import { logError, logInfo, logWarn } from "../../helpers/log";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
@@ -12,8 +16,6 @@ import {
   isCopilotCliAvailable,
 } from "../../helpers/plugin-install";
 import { configureVscodeSettings } from "../../helpers/vscode-settings";
-import { logError, logInfo, logWarn } from "../../helpers/log";
-import type { EditorTarget } from "../../helpers/init-project";
 
 const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",

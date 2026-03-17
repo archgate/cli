@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+
 import { Command } from "@commander-js/extra-typings";
+
 import { registerCleanCommand } from "../../src/commands/clean";
 
 describe("registerCleanCommand", () => {

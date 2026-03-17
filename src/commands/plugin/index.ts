@@ -1,6 +1,7 @@
 import type { Command } from "@commander-js/extra-typings";
-import { registerPluginUrlCommand } from "./url";
+
 import { registerPluginInstallCommand } from "./install";
+import { registerPluginUrlCommand } from "./url";
 
 export function registerPluginCommand(program: Command) {
   const plugin = program

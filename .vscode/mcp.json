@@ -1,8 +1,1 @@
-{
-  "servers": {
-    "archgate": {
-      "command": "archgate",
-      "args": ["mcp"]
-    }
-  }
-}
+{ "servers": { "archgate": { "command": "archgate", "args": ["mcp"] } } }

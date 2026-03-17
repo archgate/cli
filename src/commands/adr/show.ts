@@ -1,8 +1,10 @@
-import type { Command } from "@commander-js/extra-typings";
 import { existsSync } from "node:fs";
-import { projectPaths } from "../../helpers/paths";
+
+import type { Command } from "@commander-js/extra-typings";
+
 import { findAdrFileById } from "../../helpers/adr-writer";
 import { logError } from "../../helpers/log";
+import { projectPaths } from "../../helpers/paths";
 
 export function registerAdrShowCommand(adr: Command) {
   adr

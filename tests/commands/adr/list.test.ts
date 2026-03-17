@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+
 import { Command } from "@commander-js/extra-typings";
+
 import { registerAdrListCommand } from "../../../src/commands/adr/list";
 
 describe("registerAdrListCommand", () => {

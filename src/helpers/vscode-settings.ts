@@ -1,6 +1,6 @@
-import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
+import { join } from "node:path";
 
 type VscodeUserSettings = Record<string, unknown>;
 

@@ -1,6 +1,7 @@
 import { semver } from "bun";
-import { internalPath } from "./paths";
+
 import { logDebug } from "./log";
+import { internalPath } from "./paths";
 
 const CACHE_FILE = "last-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours

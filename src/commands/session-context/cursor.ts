@@ -1,8 +1,9 @@
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+
+import { logError } from "../../helpers/log";
 import { findProjectRoot } from "../../helpers/paths";
 import { readCursorSession } from "../../helpers/session-context";
-import { logError } from "../../helpers/log";
 
 const maxEntriesOption = new Option(
   "--max-entries <n>",

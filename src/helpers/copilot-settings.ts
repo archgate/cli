@@ -1,5 +1,5 @@
-import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Configure Copilot CLI settings for archgate integration.

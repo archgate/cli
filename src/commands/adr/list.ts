@@ -1,9 +1,11 @@
-import type { Command } from "@commander-js/extra-typings";
 import { existsSync, readdirSync } from "node:fs";
 import { styleText } from "node:util";
-import { projectPaths } from "../../helpers/paths";
+
+import type { Command } from "@commander-js/extra-typings";
+
 import { parseAdr, type AdrDocument } from "../../formats/adr";
 import { logError } from "../../helpers/log";
+import { projectPaths } from "../../helpers/paths";
 
 async function loadAdrs(adrsDir: string): Promise<AdrDocument[]> {
   const files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));

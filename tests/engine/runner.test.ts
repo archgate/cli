@@ -1,11 +1,12 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { runChecks } from "../../src/engine/runner";
-import { defineRules } from "../../src/formats/rules";
-import type { AdrDocument } from "../../src/formats/adr";
+import { join } from "node:path";
+
 import type { LoadedAdr } from "../../src/engine/loader";
+import { runChecks } from "../../src/engine/runner";
+import type { AdrDocument } from "../../src/formats/adr";
+import { defineRules } from "../../src/formats/rules";
 
 describe("runChecks", () => {
   let tempDir: string;
@@ -222,10 +223,7 @@ describe("runChecks", () => {
     const loaded = makeLoadedAdr(
       {},
       defineRules({
-        "timing-test": {
-          description: "Test timing",
-          async check() {},
-        },
+        "timing-test": { description: "Test timing", async check() {} },
       })
     );
 

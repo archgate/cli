@@ -6,8 +6,9 @@ import {
   copyFileSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { loadRuleAdrs } from "../../src/engine/loader";
 
 // Absolute path to the real defineRules module (forward slashes for import specifiers)

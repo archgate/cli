@@ -1,5 +1,5 @@
-import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import { defineConfig } from "astro/config";
 
 export default defineConfig({
   site: "https://cli.archgate.dev",
@@ -79,22 +79,14 @@ export default defineConfig({
           href: "https://github.com/archgate/cli",
         },
       ],
-      components: {
-        Head: "./src/components/HeadSEO.astro",
-      },
-      editLink: {
-        baseUrl: "https://github.com/archgate/cli/edit/main/docs/",
-      },
+      components: { Head: "./src/components/HeadSEO.astro" },
+      editLink: { baseUrl: "https://github.com/archgate/cli/edit/main/docs/" },
       favicon: "/favicon.svg",
       head: [
         // ── Favicon ───────────────────────────────────────────────
         {
           tag: "link",
-          attrs: {
-            rel: "icon",
-            type: "image/svg+xml",
-            href: "/favicon.svg",
-          },
+          attrs: { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
         },
         // ── Analytics ─────────────────────────────────────────────
         {
@@ -106,18 +98,12 @@ export default defineConfig({
           },
         },
         // ── Open Graph ────────────────────────────────────────────
-        {
-          tag: "meta",
-          attrs: { property: "og:type", content: "website" },
-        },
+        { tag: "meta", attrs: { property: "og:type", content: "website" } },
         {
           tag: "meta",
           attrs: { property: "og:site_name", content: "Archgate" },
         },
-        {
-          tag: "meta",
-          attrs: { property: "og:locale", content: "en_US" },
-        },
+        { tag: "meta", attrs: { property: "og:locale", content: "en_US" } },
         {
           tag: "meta",
           attrs: { property: "og:locale:alternate", content: "pt_BR" },
@@ -129,14 +115,8 @@ export default defineConfig({
             content: "https://cli.archgate.dev/og-image.png",
           },
         },
-        {
-          tag: "meta",
-          attrs: { property: "og:image:width", content: "1200" },
-        },
-        {
-          tag: "meta",
-          attrs: { property: "og:image:height", content: "630" },
-        },
+        { tag: "meta", attrs: { property: "og:image:width", content: "1200" } },
+        { tag: "meta", attrs: { property: "og:image:height", content: "630" } },
         {
           tag: "meta",
           attrs: {
@@ -158,14 +138,8 @@ export default defineConfig({
           },
         },
         // ── Additional meta ───────────────────────────────────────
-        {
-          tag: "meta",
-          attrs: { name: "author", content: "Archgate" },
-        },
-        {
-          tag: "meta",
-          attrs: { name: "theme-color", content: "#6366f1" },
-        },
+        { tag: "meta", attrs: { name: "author", content: "Archgate" } },
+        { tag: "meta", attrs: { name: "theme-color", content: "#6366f1" } },
         {
           tag: "meta",
           attrs: {
@@ -225,10 +199,7 @@ export default defineConfig({
         {
           label: "Core Concepts",
           items: [
-            {
-              label: "Architecture Decision Records",
-              slug: "concepts/adrs",
-            },
+            { label: "Architecture Decision Records", slug: "concepts/adrs" },
             { label: "Rules", slug: "concepts/rules" },
             { label: "Domains", slug: "concepts/domains" },
           ],
@@ -239,26 +210,11 @@ export default defineConfig({
             { label: "Writing ADRs", slug: "guides/writing-adrs" },
             { label: "Writing Rules", slug: "guides/writing-rules" },
             { label: "CI Integration", slug: "guides/ci-integration" },
-            {
-              label: "Claude Code Plugin",
-              slug: "guides/claude-code-plugin",
-            },
-            {
-              label: "VS Code Plugin",
-              slug: "guides/vscode-plugin",
-            },
-            {
-              label: "Copilot CLI Plugin",
-              slug: "guides/copilot-cli-plugin",
-            },
-            {
-              label: "Cursor Integration",
-              slug: "guides/cursor-integration",
-            },
-            {
-              label: "Pre-commit Hooks",
-              slug: "guides/pre-commit-hooks",
-            },
+            { label: "Claude Code Plugin", slug: "guides/claude-code-plugin" },
+            { label: "VS Code Plugin", slug: "guides/vscode-plugin" },
+            { label: "Copilot CLI Plugin", slug: "guides/copilot-cli-plugin" },
+            { label: "Cursor Integration", slug: "guides/cursor-integration" },
+            { label: "Pre-commit Hooks", slug: "guides/pre-commit-hooks" },
           ],
         },
         {

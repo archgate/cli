@@ -1,4 +1,5 @@
 import type { Command } from "@commander-js/extra-typings";
+
 import { registerAdrCreateCommand } from "./create";
 import { registerAdrListCommand } from "./list";
 import { registerAdrShowCommand } from "./show";
