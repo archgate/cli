@@ -42,7 +42,7 @@
   "scripts": {
     "cli": "bun run src/cli.ts",
     "check": "bun run src/cli.ts check",
-    "lint": "oxlint .",
+    "lint": "oxlint --deny-warnings .",
     "typecheck": "tsc --build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
