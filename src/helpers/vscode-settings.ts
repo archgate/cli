@@ -1,6 +1,12 @@
 import { join } from "node:path";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
+import {
+  isWSL,
+  isWindows,
+  isMacOS,
+  getWindowsHomeDirFromWSL,
+} from "./platform";
 
 type VscodeUserSettings = Record<string, unknown>;
 
@@ -60,15 +66,15 @@ export function mergeMarketplaceUrl(
  * - Windows: %APPDATA%/Code/User/settings.json
  * - macOS:   ~/Library/Application Support/Code/User/settings.json
  * - Linux:   ~/.config/Code/User/settings.json
+ * - WSL:     Windows-side AppData path (VS Code runs on Windows)
  */
-export function getVscodeUserSettingsPath(): string {
-  const platform = process.platform;
-  if (platform === "win32") {
+export async function getVscodeUserSettingsPath(): Promise<string> {
+  if (isWindows()) {
     const appData =
       process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
     return join(appData, "Code", "User", "settings.json");
   }
-  if (platform === "darwin") {
+  if (isMacOS()) {
     return join(
       homedir(),
       "Library",
@@ -77,6 +83,21 @@ export function getVscodeUserSettingsPath(): string {
       "User",
       "settings.json"
     );
+  }
+  // WSL: VS Code runs on the Windows side, so resolve Windows AppData path
+  if (isWSL()) {
+    const winHome = await getWindowsHomeDirFromWSL();
+    if (winHome) {
+      return join(
+        winHome,
+        "AppData",
+        "Roaming",
+        "Code",
+        "User",
+        "settings.json"
+      );
+    }
+    // Fall through to Linux path if Windows home not resolvable
   }
   // Linux and others
   return join(homedir(), ".config", "Code", "User", "settings.json");
@@ -119,7 +140,7 @@ export async function configureVscodeSettings(
 export async function addMarketplaceToUserSettings(
   marketplaceUrl: string
 ): Promise<string> {
-  const settingsPath = getVscodeUserSettingsPath();
+  const settingsPath = await getVscodeUserSettingsPath();
   const settingsDir = join(settingsPath, "..");
 
   let existing: VscodeUserSettings = {};

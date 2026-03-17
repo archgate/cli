@@ -6,30 +6,32 @@ import {
 } from "../../src/helpers/session-context";
 
 describe("encodeProjectPath", () => {
-  test("replaces forward slashes with dashes", () => {
-    expect(encodeProjectPath("/home/user/project")).toBe("-home-user-project");
+  test("replaces forward slashes with dashes", async () => {
+    expect(await encodeProjectPath("/home/user/project")).toBe(
+      "-home-user-project"
+    );
   });
 
-  test("handles paths without slashes", () => {
-    expect(encodeProjectPath("project")).toBe("project");
+  test("handles paths without slashes", async () => {
+    expect(await encodeProjectPath("project")).toBe("project");
   });
 
-  test("handles empty string", () => {
-    expect(encodeProjectPath("")).toBe("");
+  test("handles empty string", async () => {
+    expect(await encodeProjectPath("")).toBe("");
   });
 
-  test("replaces multiple consecutive slashes", () => {
-    expect(encodeProjectPath("/a//b")).toBe("-a--b");
+  test("replaces multiple consecutive slashes", async () => {
+    expect(await encodeProjectPath("/a//b")).toBe("-a--b");
   });
 
-  test("replaces backslashes with dashes (Windows paths)", () => {
-    expect(encodeProjectPath("C:\\Users\\user\\project")).toBe(
+  test("replaces backslashes with dashes (Windows paths)", async () => {
+    expect(await encodeProjectPath("C:\\Users\\user\\project")).toBe(
       "C:-Users-user-project"
     );
   });
 
-  test("handles mixed slashes", () => {
-    expect(encodeProjectPath("C:\\Users/user\\project")).toBe(
+  test("handles mixed slashes", async () => {
+    expect(await encodeProjectPath("C:\\Users/user\\project")).toBe(
       "C:-Users-user-project"
     );
   });

@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { mkdirSync, unlinkSync } from "node:fs";
 import { logDebug } from "./log";
 import type { StoredCredentials } from "./auth";
+import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
 
@@ -56,14 +57,11 @@ export function buildVscodeMarketplaceUrl(
 
 /**
  * Check whether the `claude` CLI is available on the system PATH.
+ * On WSL, also checks for `claude.exe` (Windows-side installation).
  */
 export async function isClaudeCliAvailable(): Promise<boolean> {
-  try {
-    const { exitCode } = await run(["claude", "--version"]);
-    return exitCode === 0;
-  } catch {
-    return false;
-  }
+  const resolved = await resolveCommand("claude");
+  return resolved !== null;
 }
 
 /**
@@ -79,9 +77,10 @@ export async function installClaudePlugin(
   credentials: StoredCredentials
 ): Promise<void> {
   const url = buildMarketplaceUrl(credentials);
+  const cmd = (await resolveCommand("claude")) ?? "claude";
 
   logDebug("Adding archgate marketplace to claude CLI");
-  const addResult = await run(["claude", "plugin", "marketplace", "add", url]);
+  const addResult = await run([cmd, "plugin", "marketplace", "add", url]);
   if (addResult.exitCode !== 0) {
     throw new Error(
       `claude plugin marketplace add failed (exit ${addResult.exitCode})`
@@ -90,7 +89,7 @@ export async function installClaudePlugin(
 
   logDebug("Installing archgate plugin via claude CLI");
   const installResult = await run([
-    "claude",
+    cmd,
     "plugin",
     "install",
     "archgate@archgate",
@@ -154,14 +153,11 @@ export async function installCursorPlugin(
 
 /**
  * Check whether the `copilot` CLI is available on the system PATH.
+ * On WSL, also checks for `copilot.exe` (Windows-side installation).
  */
 export async function isCopilotCliAvailable(): Promise<boolean> {
-  try {
-    const { exitCode } = await run(["copilot", "--version"]);
-    return exitCode === 0;
-  } catch {
-    return false;
-  }
+  const resolved = await resolveCommand("copilot");
+  return resolved !== null;
 }
 
 /**
@@ -176,9 +172,10 @@ export async function installCopilotPlugin(
   credentials: StoredCredentials
 ): Promise<void> {
   const url = buildMarketplaceUrl(credentials);
+  const cmd = (await resolveCommand("copilot")) ?? "copilot";
 
   logDebug("Installing archgate plugin via copilot CLI");
-  const installResult = await run(["copilot", "plugin", "install", url]);
+  const installResult = await run([cmd, "plugin", "install", url]);
   if (installResult.exitCode !== 0) {
     throw new Error(
       `copilot plugin install failed (exit ${installResult.exitCode})`

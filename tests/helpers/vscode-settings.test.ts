@@ -103,14 +103,15 @@ describe("addMarketplaceToUserSettings", () => {
   const URL = "https://user:token@plugins.archgate.dev/archgate.git";
 
   /** Use the real path resolver so the test matches addMarketplaceToUserSettings */
-  function settingsPath() {
-    return getVscodeUserSettingsPath();
+  async function settingsPath() {
+    return await getVscodeUserSettingsPath();
   }
 
   test("creates settings file with defaults when none exists", async () => {
     await addMarketplaceToUserSettings(URL);
 
-    const content = JSON.parse(await Bun.file(settingsPath()).text());
+    const path = await settingsPath();
+    const content = JSON.parse(await Bun.file(path).text());
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "github/copilot-plugins",
       "github/awesome-copilot",
@@ -119,15 +120,16 @@ describe("addMarketplaceToUserSettings", () => {
   });
 
   test("merges JSONC settings and includes defaults when key absent", async () => {
-    mkdirSync(join(settingsPath(), ".."), { recursive: true });
+    const path = await settingsPath();
+    mkdirSync(join(path, ".."), { recursive: true });
     await Bun.write(
-      settingsPath(),
+      path,
       `{ "git.autofetch": true, "chat.mcp.gallery.enabled": true, }`
     );
 
     await addMarketplaceToUserSettings(URL);
 
-    const content = JSON.parse(await Bun.file(settingsPath()).text());
+    const content = JSON.parse(await Bun.file(path).text());
     expect(content["git.autofetch"]).toBe(true);
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "github/copilot-plugins",
@@ -137,9 +139,10 @@ describe("addMarketplaceToUserSettings", () => {
   });
 
   test("deduplicates when key already exists", async () => {
-    mkdirSync(join(settingsPath(), ".."), { recursive: true });
+    const path = await settingsPath();
+    mkdirSync(join(path, ".."), { recursive: true });
     await Bun.write(
-      settingsPath(),
+      path,
       JSON.stringify({
         "chat.plugins.marketplaces": ["https://other.git", URL],
       })
@@ -147,7 +150,7 @@ describe("addMarketplaceToUserSettings", () => {
 
     await addMarketplaceToUserSettings(URL);
 
-    const content = JSON.parse(await Bun.file(settingsPath()).text());
+    const content = JSON.parse(await Bun.file(path).text());
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "https://other.git",
       URL,

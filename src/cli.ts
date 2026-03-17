@@ -15,6 +15,7 @@ import { registerSessionContextCommand } from "./commands/session-context/index"
 import { registerPluginCommand } from "./commands/plugin/index";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 import { logError } from "./helpers/log";
+import { isSupportedPlatform } from "./helpers/platform";
 
 if (typeof Bun === "undefined")
   throw new Error(
@@ -24,7 +25,7 @@ if (typeof Bun === "undefined")
 if (!semver.satisfies(Bun.version, ">=1.2.21"))
   throw new Error("You need to update Bun to version 1.2.21 or higher");
 
-if (!["darwin", "linux", "win32"].includes(process.platform))
+if (!isSupportedPlatform())
   throw new Error("Archgate only supports macOS, Linux, and Windows");
 
 createPathIfNotExists(paths.cacheFolder);

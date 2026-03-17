@@ -1,9 +1,20 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir } from "node:os";
+import { isWSL, toWindowsPath } from "./platform";
 
-/** Encode a project root path into the directory name used by Claude/Cursor. */
-export function encodeProjectPath(projectRoot: string): string {
+/**
+ * Encode a project root path into the directory name used by Claude/Cursor.
+ * In WSL, converts to Windows path first so the encoded name matches
+ * what Windows-side Claude/Cursor uses.
+ */
+export async function encodeProjectPath(projectRoot: string): Promise<string> {
+  if (isWSL()) {
+    const winPath = await toWindowsPath(projectRoot);
+    if (winPath) {
+      return winPath.replaceAll("\\", "-").replaceAll("/", "-");
+    }
+  }
   return projectRoot.replaceAll("\\", "-").replaceAll("/", "-");
 }
 
@@ -84,7 +95,7 @@ export async function readClaudeCodeSession(
   options?: ReadSessionOptions
 ): Promise<ClaudeSessionResult> {
   const limit = options?.maxEntries ?? 200;
-  const encodedPath = encodeProjectPath(projectRoot ?? process.cwd());
+  const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
   const projectsDir = join(homedir(), ".claude", "projects", encodedPath);
 
   let files: string[];
@@ -150,7 +161,7 @@ export async function readCursorSession(
   options?: ReadCursorSessionOptions
 ): Promise<CursorSessionResult> {
   const limit = options?.maxEntries ?? 200;
-  const encodedPath = encodeProjectPath(projectRoot ?? process.cwd());
+  const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
   const transcriptsDir = join(
     homedir(),
     ".cursor",
