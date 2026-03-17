@@ -18,10 +18,7 @@
       "Grep"
     ]
   },
-  "attribution": {
-    "commit": "",
-    "pr": ""
-  },
+  "attribution": { "commit": "", "pr": "" },
   "hooks": {
     "PostToolUse": [
       {

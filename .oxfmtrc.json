@@ -4,13 +4,5 @@
   "objectWrap": "collapse",
   "sortImports": {},
   "sortPackageJson": { "sortScripts": true },
-  "ignorePatterns": [
-    "node_modules/",
-    "dist",
-    "coverage",
-    "bun.lock",
-    "CHANGELOG.md",
-    "packages/*/bin/",
-    "docs/.astro"
-  ]
+  "ignorePatterns": ["bun.lock", "CHANGELOG.md"]
 }
