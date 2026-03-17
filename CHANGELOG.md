@@ -1,3 +1,9 @@
+## [0.11.1](https://github.com/archgate/cli/compare/v0.11.0...v0.11.1) (2026-03-17)
+
+### Bug Fixes
+
+* pin platform package versions to exact release version ([#67](https://github.com/archgate/cli/issues/67)) ([939964a](https://github.com/archgate/cli/commit/939964aa2cd63cba06bd659ec79a0414a63fb324))
+
 ## [0.11.0](https://github.com/archgate/cli/compare/v0.10.0...v0.11.0) (2026-03-16)
 
 ### Features
