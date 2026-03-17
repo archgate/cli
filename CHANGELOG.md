@@ -1,3 +1,10 @@
+## [0.11.2](https://github.com/archgate/cli/compare/v0.11.0...v0.11.2) (2026-03-17)
+
+### Bug Fixes
+
+* handle Windows backslash paths in encodeProjectPath ([#69](https://github.com/archgate/cli/issues/69)) ([ad63659](https://github.com/archgate/cli/commit/ad63659e2d717d13236d7983afce2fd5697687a0))
+* pin platform package versions to exact release version ([#67](https://github.com/archgate/cli/issues/67)) ([939964a](https://github.com/archgate/cli/commit/939964aa2cd63cba06bd659ec79a0414a63fb324))
+
 ## [0.11.1](https://github.com/archgate/cli/compare/v0.11.0...v0.11.1) (2026-03-17)
 
 ### Bug Fixes
