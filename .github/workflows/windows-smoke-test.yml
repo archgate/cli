@@ -1,4 +1,4 @@
-name: Windows Smoke Test
+name: Smoke Tests
 
 on:
   pull_request:
@@ -15,10 +15,20 @@ concurrency:
 
 jobs:
   smoke-test:
-    name: Windows Smoke Test
-    runs-on: windows-latest
+    name: Smoke Test (${{ matrix.os }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: Windows
+            runner: windows-latest
+            binary_name: archgate.exe
+          - os: Linux
+            runner: ubuntu-latest
+            binary_name: archgate
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,21 +43,26 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Lint
+        if: matrix.os == 'Windows'
         run: bun run lint
 
       - name: Typecheck
+        if: matrix.os == 'Windows'
         run: bun run typecheck
 
       - name: Format check
+        if: matrix.os == 'Windows'
         run: bun run format:check
 
       - name: Tests
+        if: matrix.os == 'Windows'
         run: bun test --timeout 60000
 
-      - name: Build Windows binary
+      - name: Build binary
         run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
 
-      - name: Smoke test binary
+      - name: Smoke test binary (Windows)
+        if: matrix.os == 'Windows'
         shell: pwsh
         run: |
           $binary = "dist/archgate-smoke-test.exe"
@@ -62,28 +77,46 @@ jobs:
             exit 1
           }
 
-      - name: Build old-version binary for upgrade test
+      - name: Smoke test binary (Linux)
+        if: matrix.os == 'Linux'
+        run: |
+          binary="dist/archgate-smoke-test"
+          if [ ! -f "$binary" ]; then
+            echo "::error::Binary not found at $binary"
+            exit 1
+          fi
+          chmod +x "$binary"
+          output=$("$binary" --version 2>&1)
+          echo "archgate version: $output"
+
+      - name: Build old-version binary for upgrade test (Windows)
+        if: matrix.os == 'Windows'
         shell: pwsh
         run: |
-          # Save original version and set a fake old one
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
           $originalVersion = $pkg.version
           $pkg.version = "0.0.1"
           $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
           bun build src/cli.ts --compile --bytecode --outfile dist/archgate-upgrade-test
-          # Restore original version
           $pkg.version = $originalVersion
           $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
 
-      - name: Smoke test upgrade (binary self-replacement)
+      - name: Build old-version binary for upgrade test (Linux)
+        if: matrix.os == 'Linux'
+        run: |
+          original_version=$(jq -r .version package.json)
+          jq '.version = "0.0.1"' package.json > package.json.tmp && mv package.json.tmp package.json
+          bun build src/cli.ts --compile --bytecode --outfile dist/archgate-upgrade-test
+          jq --arg v "$original_version" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
+
+      - name: Smoke test upgrade (Windows)
+        if: matrix.os == 'Windows'
         shell: pwsh
         run: |
-          # Place the old binary in ~/.archgate/bin/
           $binDir = "$HOME\.archgate\bin"
           New-Item -ItemType Directory -Path $binDir -Force | Out-Null
           Copy-Item "dist/archgate-upgrade-test.exe" "$binDir\archgate.exe" -Force
 
-          # Verify it reports the fake old version
           $before = & "$binDir\archgate.exe" --version 2>&1
           Write-Host "Before upgrade: $before"
           if ($before -ne "0.0.1") {
@@ -91,14 +124,12 @@ jobs:
             exit 1
           }
 
-          # Run upgrade — should download latest from GitHub Releases and self-replace
           & "$binDir\archgate.exe" upgrade 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Upgrade failed with exit code $LASTEXITCODE"
             exit 1
           }
 
-          # Verify the binary was replaced with the latest version
           $after = & "$binDir\archgate.exe" --version 2>&1
           Write-Host "After upgrade: $after"
           if ($after -eq "0.0.1") {
@@ -106,3 +137,28 @@ jobs:
             exit 1
           }
           Write-Host "Upgrade smoke test passed: $before -> $after"
+
+      - name: Smoke test upgrade (Linux)
+        if: matrix.os == 'Linux'
+        run: |
+          bin_dir="$HOME/.archgate/bin"
+          mkdir -p "$bin_dir"
+          cp dist/archgate-upgrade-test "$bin_dir/archgate"
+          chmod +x "$bin_dir/archgate"
+
+          before=$("$bin_dir/archgate" --version 2>&1)
+          echo "Before upgrade: $before"
+          if [ "$before" != "0.0.1" ]; then
+            echo "::error::Expected version 0.0.1, got $before"
+            exit 1
+          fi
+
+          "$bin_dir/archgate" upgrade 2>&1
+
+          after=$("$bin_dir/archgate" --version 2>&1)
+          echo "After upgrade: $after"
+          if [ "$after" = "0.0.1" ]; then
+            echo "::error::Binary was not replaced — still reports 0.0.1"
+            exit 1
+          fi
+          echo "Upgrade smoke test passed: $before -> $after"
