@@ -1,0 +1,147 @@
+name: Smoke Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows Smoke Test
+    runs-on: windows-latest
+    timeout-minutes: 15
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Tests
+        run: bun test --timeout 60000
+
+      - name: Build Windows binary
+        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
+
+      - name: Smoke test binary
+        shell: pwsh
+        run: |
+          $binary = "dist/archgate-smoke-test.exe"
+          if (-not (Test-Path $binary)) {
+            Write-Error "Binary not found at $binary"
+            exit 1
+          }
+          $output = & $binary --version 2>&1
+          Write-Host "archgate version: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+
+      - name: Smoke test install.ps1
+        shell: pwsh
+        env:
+          ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
+        run: |
+          # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
+          if (-not $env:ARCHGATE_VERSION) {
+            $release = gh release view --json tagName --jq .tagName 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $release) {
+              Write-Host "::warning::No releases found, skipping install.ps1 smoke test"
+              exit 0
+            }
+            $env:ARCHGATE_VERSION = $release
+          }
+          Write-Host "Testing install.ps1 with version $env:ARCHGATE_VERSION"
+
+          $installDir = Join-Path $env:TEMP "archgate-smoke-install-$(Get-Random)"
+          $env:ARCHGATE_INSTALL_DIR = $installDir
+
+          # Run installer non-interactively (Read-Host returns empty → defaults to adding PATH)
+          & "$env:GITHUB_WORKSPACE\install.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "install.ps1 exited with code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Verify binary was installed
+          $exe = Join-Path $installDir "archgate.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "archgate.exe not found at $exe after install"
+            exit 1
+          }
+
+          $output = & $exe --version 2>&1
+          Write-Host "Installed archgate version: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Installed binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Cleanup
+          Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
+
+  linux:
+    name: Linux Install Script Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Smoke test install.sh
+        env:
+          ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
+        run: |
+          # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
+          if [ -z "$ARCHGATE_VERSION" ]; then
+            ARCHGATE_VERSION="$(gh release view --json tagName --jq .tagName 2>/dev/null || true)"
+            if [ -z "$ARCHGATE_VERSION" ]; then
+              echo "::warning::No releases found, skipping install.sh smoke test"
+              exit 0
+            fi
+            export ARCHGATE_VERSION
+          fi
+          echo "Testing install.sh with version $ARCHGATE_VERSION"
+
+          export ARCHGATE_INSTALL_DIR="$(mktemp -d)"
+
+          # Run installer (no TTY in CI → skips PATH prompt automatically)
+          sh install.sh
+
+          # Verify binary was installed
+          if [ ! -f "$ARCHGATE_INSTALL_DIR/archgate" ]; then
+            echo "::error::archgate binary not found at $ARCHGATE_INSTALL_DIR/archgate after install"
+            exit 1
+          fi
+
+          output="$("$ARCHGATE_INSTALL_DIR/archgate" --version 2>&1)"
+          echo "Installed archgate version: $output"
+
+          # Cleanup
+          rm -rf "$ARCHGATE_INSTALL_DIR"
