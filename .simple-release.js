@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 
 import { NpmProject } from "@simple-release/npm";
@@ -21,6 +22,7 @@ class ArchgateProject extends NpmProject {
 
       if (changed) {
         writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
+        execSync("bun install", { stdio: "inherit" });
       }
     }
 
