@@ -146,11 +146,16 @@ describe("auth", () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
       const originalFetch = globalThis.fetch;
-      mockFetch(() => Promise.resolve(Response.json({ login: "octocat" })));
+      mockFetch(() =>
+        Promise.resolve(
+          Response.json({ login: "octocat", email: "octo@cat.com" })
+        )
+      );
 
       try {
         const user = await getGitHubUser("gho_test_token");
-        expect(user).toBe("octocat");
+        expect(user.login).toBe("octocat");
+        expect(user.email).toBe("octo@cat.com");
       } finally {
         globalThis.fetch = originalFetch;
       }

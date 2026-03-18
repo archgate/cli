@@ -105,8 +105,9 @@ async function runDeviceFlow(): Promise<void> {
     deviceCode.expires_in
   );
 
-  // Step 3: Get GitHub username
-  const githubUser = await getGitHubUser(githubToken);
+  // Step 3: Get GitHub user info
+  const { login: githubUser, email: githubEmail } =
+    await getGitHubUser(githubToken);
   logInfo(`GitHub user: ${styleText("bold", githubUser)}`);
 
   // Step 4: Exchange GitHub token for archgate plugin token
@@ -122,19 +123,21 @@ async function runDeviceFlow(): Promise<void> {
     );
     console.log("Let's sign you up now.\n");
 
-    await runSignupFlow(githubUser, githubToken);
+    await runSignupFlow(githubUser, githubToken, githubEmail);
   }
 }
 
 async function runSignupFlow(
   githubUser: string,
-  githubToken: string
+  githubToken: string,
+  githubEmail: string | null
 ): Promise<void> {
   const answers = await inquirer.prompt([
     {
       type: "input",
       name: "email",
       message: "Email address:",
+      default: githubEmail ?? undefined,
       validate: (v: string) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Enter a valid email address",
     },
