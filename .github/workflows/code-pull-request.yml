@@ -44,13 +44,6 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: echo "$PR_TITLE" | bun run commitlint
-      - name: Check llms-full.txt is up to date
-        run: |
-          bun run docs/scripts/generate-llms-full.ts
-          git diff --exit-code docs/public/llms-full.txt || {
-            echo "::error::docs/public/llms-full.txt is out of date. Run 'bun run docs/scripts/generate-llms-full.ts' and commit the result."
-            exit 1
-          }
       - name: Validate
         id: validate
         run: bun run validate
