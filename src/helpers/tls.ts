@@ -3,6 +3,8 @@
  * and provide actionable guidance to the user.
  */
 
+import { isWindows } from "./platform";
+
 const TLS_ERROR_PATTERNS = [
   "self signed certificate",
   "unable to get local issuer certificate",
@@ -28,10 +30,9 @@ export function isTlsError(error: unknown): boolean {
  * Shows the correct shell syntax for the current platform.
  */
 export function tlsHintMessage(): string {
-  const example =
-    process.platform === "win32"
-      ? '  $env:NODE_EXTRA_CA_CERTS="C:\\path\\to\\corporate-ca.pem"'
-      : '  export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.pem"';
+  const example = isWindows()
+    ? '  $env:NODE_EXTRA_CA_CERTS="C:\\path\\to\\corporate-ca.pem"'
+    : '  export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.pem"';
 
   return [
     "TLS certificate verification failed.",
