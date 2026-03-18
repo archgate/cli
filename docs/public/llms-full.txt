@@ -105,7 +105,7 @@ The Archgate CLI works standalone, but **editor plugins** unlock a full AI gover
     Cursor's AI agent the same governance workflow as Claude Code.
   
 
-Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://plugins.archgate.dev) to get access, then install with `archgate login` and `archgate init --install-plugin`.
+Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate, then `archgate init --install-plugin` to set up the plugin.
 
 ## Learn more
 
@@ -130,10 +130,13 @@ irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
 This downloads a pre-built binary for your platform and installs it to `~/.archgate/bin/`. The installer detects your shell profiles and offers to add the directory to your PATH.
 
 You can customize the install with environment variables:
-- `ARCHGATE_VERSION` — Install a specific version (e.g. `v0.11.2`). Default: latest release.
-- `ARCHGATE_INSTALL_DIR` — Custom install directory. Default: `~/.archgate/bin`.
 
-You can also download binaries directly from GitHub Releases: https://github.com/archgate/cli/releases
+| Variable               | Description                                 | Default           |
+| ---------------------- | ------------------------------------------- | ----------------- |
+| `ARCHGATE_VERSION`     | Install a specific version (e.g. `v0.11.2`) | Latest release    |
+| `ARCHGATE_INSTALL_DIR` | Custom install directory                    | `~/.archgate/bin` |
+
+You can also download binaries directly from [GitHub Releases](https://github.com/archgate/cli/releases).
 
 ## Install via npm
 
@@ -186,11 +189,7 @@ bun run archgate check
 Or add a script to your `package.json`:
 
 ```json
-{
-  "scripts": {
-    "check:adrs": "archgate check"
-  }
-}
+{ "scripts": { "check:adrs": "archgate check" } }
 ```
 
 ```bash
@@ -245,7 +244,7 @@ Restart your shell, then run `npm install -g archgate` again. The `archgate` com
 
 Once installed, run `archgate init` in your project to set up governance. See the [Quick Start](/getting-started/quick-start/) guide for a walkthrough.
 
-Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full governance workflow on top of the CLI. [Sign up for beta access](https://plugins.archgate.dev).
+Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full governance workflow on top of the CLI. Run `archgate login` to sign up and get started.
 
 ---
 
@@ -388,7 +387,7 @@ Now that you have a working setup, dive deeper:
 - [Claude Code Plugin](/guides/claude-code-plugin/) — Give AI agents a full governance workflow with role-based skills.
 - [Cursor Integration](/guides/cursor-integration/) — Use Archgate with Cursor IDE for AI-assisted development.
 
-Want AI agents that automatically read your ADRs before coding? Sign up for the editor plugin beta at [plugins.archgate.dev](https://plugins.archgate.dev), then run `archgate login` and `archgate init --install-plugin`.
+Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign up and authenticate, then run `archgate init --install-plugin` to set up the plugin.
 
 ---
 
@@ -994,6 +993,26 @@ adr-compliance:
     - archgate check
 ```
 
+## Standalone installer (no Node.js)
+
+If your CI environment does not have Node.js, use the standalone installer to download a pre-built binary directly from GitHub Releases:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+      - run: ~/.archgate/bin/archgate check --ci
+```
+
+This works in any environment with `curl` and `tar` — no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
+
+```yaml
+- run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | ARCHGATE_VERSION=v0.11.2 sh
+```
+
 ## Bun-based CI
 
 If your CI already uses Bun, install Archgate with `bun` instead of `npm`:
@@ -1013,7 +1032,7 @@ jobs:
 
 Archgate works with any CI system that can run shell commands. The pattern is always the same:
 
-1. Install: `npm install -g archgate` (or `bun install -g archgate`)
+1. Install: `npm install -g archgate`, `bun install -g archgate`, or use the [standalone installer](/getting-started/installation/#install-standalone-recommended)
 2. Run: `archgate check`
 3. Check the exit code (0 = pass, 1 = violations, 2 = error)
 
@@ -1071,7 +1090,7 @@ The `archgate:developer` agent is set as the default agent via `.claude/settings
 
 ## Installation
 
-The Claude Code plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+The Claude Code plugin is currently in beta. Run `archgate login` to sign up and authenticate.
 
 ### 1. Log in with GitHub
 
@@ -1207,7 +1226,7 @@ Copilot CLI supports plugin installation from git repositories using `copilot pl
 
 ## Installation
 
-The Copilot CLI plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+The Copilot CLI plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
 
 ### 1. Log in with GitHub
 
@@ -1340,7 +1359,7 @@ archgate init --editor cursor
 
 ### With plugin (beta)
 
-The Cursor plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access.
+The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
 
 If you have logged in via `archgate login`, the init command also downloads and installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow.
 
@@ -1589,7 +1608,7 @@ The plugin is served in VS Code Copilot's native `.github/plugin/` manifest form
 
 Agent plugins require **VS Code 1.110 (February 2026 release) or later**. Earlier versions do not support git-based agent plugin marketplaces. Check your version with `code --version`.
 
-The VS Code plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+The VS Code plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
 
 ### 1. Log in with GitHub
 
@@ -2781,7 +2800,7 @@ archgate check --help
 
 ## archgate login
 
-Authenticate with GitHub to access Archgate editor plugins.
+Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, VS Code, Copilot CLI, or Cursor), and use case, then registers you before completing the login.
 
 ```bash
 archgate login
@@ -2789,9 +2808,11 @@ archgate login
 
 Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores both in `~/.archgate/credentials`.
 
+If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
+
 Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
 
-Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://plugins.archgate.dev) to get access.
+Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate.
 
 ### Subcommands
 
@@ -2818,11 +2839,60 @@ and enter the code: ABCD-1234
 
 Waiting for authorization...
 GitHub user: yourname
+
+No account found. Let's get you signed up.
+Email: you@example.com
+Editor: Claude Code
+Use case: Enforcing ADRs in our monorepo
+
+Registering...
 Claiming archgate plugin token...
 
 Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
+
+If the project already has `.archgate/adrs/`, the final line reads:
+
+```
+Run `archgate check` to validate your project against its ADRs.
+```
+
+### Troubleshooting
+
+#### TLS/corporate proxy errors
+
+If `archgate login` fails with a TLS certificate error (common behind corporate proxies), point your runtime at your organization's CA bundle using the `NODE_EXTRA_CA_CERTS` environment variable.
+
+On macOS/Linux:
+
+```bash
+export NODE_EXTRA_CA_CERTS=/path/to/your-corporate-ca.pem
+archgate login
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:NODE_EXTRA_CA_CERTS = "C:\path\to\your-corporate-ca.pem"
+archgate login
+```
+
+On Windows (cmd):
+
+```cmd
+set NODE_EXTRA_CA_CERTS=C:\path\to\your-corporate-ca.pem
+archgate login
+```
+
+On Windows (Git Bash):
+
+```bash
+export NODE_EXTRA_CA_CERTS=/c/path/to/your-corporate-ca.pem
+archgate login
+```
+
+Ask your IT team for the correct certificate path if you are unsure.
 
 Check login status:
 
@@ -3561,9 +3631,7 @@ interface ViolationDetail {
 The return type of `defineRules`. You do not construct this directly.
 
 ```typescript
-type RuleSet = {
-  rules: Record<string, RuleConfig>;
-};
+type RuleSet = { rules: Record<string, RuleConfig> };
 ```
 
 ---
