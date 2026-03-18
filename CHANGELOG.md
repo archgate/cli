@@ -1,3 +1,9 @@
+## [0.12.0](https://github.com/archgate/cli/compare/v0.11.2...v0.12.0) (2026-03-18)
+
+### Features
+
+* standalone installer and GitHub Releases distribution ([#72](https://github.com/archgate/cli/issues/72)) ([09fc5dd](https://github.com/archgate/cli/commit/09fc5dd554e2c444c0c18877392999c041264be9))
+
 ## [0.11.2](https://github.com/archgate/cli/compare/v0.11.0...v0.11.2) (2026-03-17)
 
 ### Bug Fixes
