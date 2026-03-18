@@ -54,6 +54,7 @@ Use three exit codes with clear semantics:
 - Don't catch and swallow unexpected errors — let them propagate
 - Don't show stack traces for user errors
 - Don't use `console.error()` directly — use `logError()` for consistent formatting
+- Don't use `console.log()` or `console.warn()` directly in helper or engine files — use `logInfo()` or `logWarn()` (command files are the I/O layer and may use console directly)
 - Don't exit with code 0 when an operation fails
 - Don't use exit codes other than 0, 1, or 2
 
@@ -122,7 +123,7 @@ try {
 ### Risks
 
 - **Swallowed errors in async code** — Async functions that catch errors without re-throwing can silently fail. Unhandled promise rejections in Bun terminate the process with a non-zero exit code, which provides a safety net, but the error message may be unclear.
-  - **Mitigation:** The `logError()` convention makes explicit error handling visible in code review. The `use-log-error` automated rule flags direct `console.error()` usage, nudging developers toward the standard pattern.
+  - **Mitigation:** The log helper convention makes explicit error handling visible in code review. The `use-log-error` rule flags direct `console.error()` usage, and the `use-log-helpers` rule flags direct `console.log()`/`console.warn()` in helper and engine files, nudging developers toward the standard pattern.
 - **Exit code 2 masking real issues** — If an unexpected error occurs in a rule file, the CLI exits with code 2 ("internal error") rather than code 1 ("violations"). This could confuse CI systems that only check for non-zero exit.
   - **Mitigation:** The check engine wraps rule execution with timeout and error boundaries, reporting rule errors separately from violations. The `--verbose` flag shows which rules errored.
 
@@ -131,6 +132,7 @@ try {
 ### Automated Enforcement
 
 - **Archgate rule** `ARCH-002/use-log-error`: Scans all source files (excluding `helpers/log.ts` and test files) for `console.error()` usage and flags violations. Severity: `error`.
+- **Archgate rule** `ARCH-002/use-log-helpers`: Scans helper and engine files for direct `console.log()`, `console.warn()`, or `console.info()` usage. Excludes `helpers/log.ts` (canonical implementation), `engine/reporter.ts` (check output system), `helpers/login-flow.ts` (interactive device flow UI), and test files. Command files are exempt since they are the I/O layer. Severity: `error`.
 - **Archgate rule** `ARCH-002/exit-code-convention`: Scans all source files for `process.exit()` calls and verifies the exit code is 0, 1, or 2. Severity: `error`.
 
 ### Manual Enforcement
