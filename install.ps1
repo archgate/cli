@@ -54,16 +54,29 @@ try {
 
 Write-Host "archgate $Version installed to $InstallDir\archgate.exe"
 
-# --- Update PATH guidance ---
+# --- Update PATH ---
 
 $CurrentPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($CurrentPath -notlike "*$InstallDir*") {
     Write-Host ""
-    Write-Host "To add archgate to your PATH, run:"
+    Write-Host "archgate is not on your PATH."
     Write-Host ""
-    Write-Host "  [Environment]::SetEnvironmentVariable('Path', '$InstallDir;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
+    Write-Host "  Will add: $InstallDir"
     Write-Host ""
-    Write-Host "Then restart your terminal."
+
+    $answer = Read-Host "Add to your user PATH now? [Y/n]"
+    if ($answer -match '^[nN]') {
+        Write-Host ""
+        Write-Host "Skipped. To add manually, run:"
+        Write-Host ""
+        Write-Host "  [Environment]::SetEnvironmentVariable('Path', '$InstallDir;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
+    } else {
+        [Environment]::SetEnvironmentVariable("Path", "$InstallDir;$CurrentPath", "User")
+        $env:Path = "$InstallDir;$env:Path"
+        Write-Host "  Updated user PATH."
+    }
+    Write-Host ""
+    Write-Host "Restart your terminal for the change to take effect in new sessions."
 }
 
 Write-Host ""
