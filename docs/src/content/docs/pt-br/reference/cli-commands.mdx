@@ -514,6 +514,81 @@ archgate adr update \
 
 ---
 
+## archgate review-context
+
+Pré-computa o contexto de revisão com briefings de ADRs para arquivos alterados. Projetado para integrações de CI e plugins de editor que precisam de um resumo de quais ADRs se aplicam aos arquivos sendo alterados.
+
+```bash
+archgate review-context [options]
+```
+
+### Opções
+
+| Opção               | Descrição                                |
+| ------------------- | ---------------------------------------- |
+| `--staged`          | Incluir apenas arquivos no git stage     |
+| `--run-checks`      | Incluir resultados de verificação de ADR |
+| `--domain <domain>` | Filtrar por um único domínio             |
+
+### Exemplo
+
+```bash
+archgate review-context --staged
+```
+
+---
+
+## archgate session-context
+
+Lê transcrições de sessão de editores de IA para o projeto. Útil para auditar o que um agente de IA fez durante uma sessão de codificação.
+
+```bash
+archgate session-context <subcomando> [options]
+```
+
+### Subcomandos
+
+#### archgate session-context claude-code
+
+Lê a transcrição de sessão do Claude Code para o projeto.
+
+```bash
+archgate session-context claude-code [options]
+```
+
+| Opção               | Descrição                                   |
+| ------------------- | ------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200) |
+
+#### archgate session-context cursor
+
+Lê a transcrição de sessão do agente Cursor para o projeto.
+
+```bash
+archgate session-context cursor [options]
+```
+
+| Opção               | Descrição                                   |
+| ------------------- | ------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200) |
+| `--session-id <id>` | UUID específico da sessão a ser lida        |
+
+### Exemplos
+
+Ler a última sessão do Claude Code:
+
+```bash
+archgate session-context claude-code
+```
+
+Ler uma sessão específica do Cursor:
+
+```bash
+archgate session-context cursor --session-id abc123
+```
+
+---
+
 ## archgate upgrade
 
 Atualiza o Archgate para a versão mais recente via npm.

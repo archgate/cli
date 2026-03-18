@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs) — combining human-readable docs with machine-checkable rules. The CLI dogfoods itself via ADRs in `.archgate/adrs/`. AI features are delivered as a Claude Code plugin (`archgate/claude-code-plugin`), not via direct API calls.
+Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs) — combining human-readable docs with machine-checkable rules. The CLI dogfoods itself via ADRs in `.archgate/adrs/`. AI features are delivered as a Claude Code plugin (`../plugins/claude-code`), not via direct API calls.
 
 ## Technology Stack
 
@@ -19,7 +19,7 @@ bun run format                # oxfmt --write
 bun run format:check          # oxfmt --check
 bun test                      # all tests
 bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + build check
-bun run build                 # binaries → dist/ (darwin-arm64, linux-x64, win32-x64)
+bun run build:check            # verify build compiles (CI builds binaries via release workflow)
 bun run commit                # conventional commit wizard
 ```
 
@@ -33,19 +33,27 @@ bun run commit                # conventional commit wizard
 
 Entry point: `src/cli.ts` (shebang `#!/usr/bin/env bun`). Commands registered via `register*Command(program)`.
 
-| Command           | File                                | Description                                  |
-| ----------------- | ----------------------------------- | -------------------------------------------- |
-| `init`            | `commands/init.ts`                  | Initialize `.archgate/` skeleton             |
-| `check`           | `commands/check.ts`                 | Run ADR compliance checks                    |
-| `adr create`      | `commands/adr/create.ts`            | Create ADR interactively                     |
-| `adr list`        | `commands/adr/list.ts`              | List ADRs (`--json`, `--domain`)             |
-| `adr show <id>`   | `commands/adr/show.ts`              | Show ADR by ID                               |
-| `adr update`      | `commands/adr/update.ts`            | Update ADR by ID                             |
-| `login`           | `commands/login.ts`                 | GitHub auth for editor plugins               |
-| `review-context`  | `commands/review-context.ts`        | Pre-compute review context for changed files |
-| `session-context` | `commands/session-context/index.ts` | Read AI editor session transcripts           |
-| `upgrade`         | `commands/upgrade.ts`               | Upgrade CLI via npm                          |
-| `clean`           | `commands/clean.ts`                 | Remove `~/.archgate/` cache                  |
+| Command                       | File                                      | Description                                                     |
+| ----------------------------- | ----------------------------------------- | --------------------------------------------------------------- |
+| `init`                        | `commands/init.ts`                        | Initialize Archgate governance in the current project           |
+| `check`                       | `commands/check.ts`                       | Run ADR compliance checks                                       |
+| `adr create`                  | `commands/adr/create.ts`                  | Create a new ADR                                                |
+| `adr list`                    | `commands/adr/list.ts`                    | List all ADRs (`--json`, `--domain`)                            |
+| `adr show <id>`               | `commands/adr/show.ts`                    | Show a specific ADR by ID                                       |
+| `adr update`                  | `commands/adr/update.ts`                  | Update an existing ADR by ID                                    |
+| `login`                       | `commands/login.ts`                       | Authenticate with GitHub to access archgate plugins             |
+| `login status`                | `commands/login.ts`                       | Show current authentication status                              |
+| `login logout`                | `commands/login.ts`                       | Remove stored credentials                                       |
+| `login refresh`               | `commands/login.ts`                       | Re-authenticate and claim a new token                           |
+| `review-context`              | `commands/review-context.ts`              | Pre-compute review context with ADR briefings for changed files |
+| `session-context`             | `commands/session-context/index.ts`       | Read AI editor session transcripts                              |
+| `session-context claude-code` | `commands/session-context/claude-code.ts` | Read Claude Code session transcript for the project             |
+| `session-context cursor`      | `commands/session-context/cursor.ts`      | Read Cursor agent session transcript for the project            |
+| `plugin`                      | `commands/plugin/index.ts`                | Manage archgate editor plugins                                  |
+| `plugin install`              | `commands/plugin/install.ts`              | Install the archgate plugin for the specified editor            |
+| `plugin url`                  | `commands/plugin/url.ts`                  | Print the authenticated plugin repository URL                   |
+| `upgrade`                     | `commands/upgrade.ts`                     | Upgrade Archgate to the latest version                          |
+| `clean`                       | `commands/clean.ts`                       | Clean the CLI temp files                                        |
 
 ### Key Paths
 
@@ -69,7 +77,7 @@ Zod schemas are the single source of truth. Types derived via `z.infer<>` — ne
 
 ## Toolchain (`.prototools`)
 
-Bun 1.3.8, Moon 1.39.4, Node LTS, npm 11.6.0. Minimum user-facing Bun: `>=1.2.21` (enforced in `src/cli.ts`).
+Bun 1.3.9, Node LTS, npm 11.11.0. Minimum user-facing Bun: `>=1.2.21` (enforced in `src/cli.ts`).
 
 ## Self-Governance ADRs (`.archgate/adrs/`)
 
@@ -80,6 +88,8 @@ Bun 1.3.8, Moon 1.39.4, Node LTS, npm 11.6.0. Minimum user-facing Bun: `>=1.2.21
 - `ARCH-005` — Testing standards (Bun test, fixtures, 80% coverage)
 - `ARCH-006` — Dependency policy (minimal deps, Bun built-ins)
 - `ARCH-007` — Cross-platform subprocess execution (Bun.spawn, no Bun.$)
+- `ARCH-008` — Typed command options (use addOption for choices/argParser)
+- `ARCH-009` — Centralized platform detection (use helpers/platform)
 - `GEN-001` — Documentation site (Astro Starlight)
 - `GEN-002` — Documentation internationalization (en + pt-br parity)
 

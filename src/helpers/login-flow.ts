@@ -42,7 +42,7 @@ export interface LoginFlowResult {
 export async function runLoginFlow(
   options?: LoginFlowOptions
 ): Promise<LoginFlowResult> {
-  console.log("Authenticating with GitHub...\n");
+  logInfo("Authenticating with GitHub...\n");
 
   const deviceCode = await requestDeviceCode();
   console.log(
@@ -63,7 +63,7 @@ export async function runLoginFlow(
     await getGitHubUser(githubToken);
   logInfo(`GitHub user: ${styleText("bold", githubUser)}`);
 
-  console.log("Claiming archgate plugin token...");
+  logInfo("Claiming archgate plugin token...");
   let archgateToken: string;
   try {
     archgateToken = await claimArchgateToken(githubToken);
@@ -140,18 +140,16 @@ async function runSignupPrompt(
       v.trim().length > 0 || "Please describe your use case",
   });
 
-  console.log("\nSubmitting signup request...");
+  logInfo("\nSubmitting signup request...");
   const result = await requestSignup(githubUser, email, useCase, editor!);
 
   if (!result.ok) {
-    logError(
-      "Signup request failed. Please try again or sign up at https://plugins.archgate.dev"
-    );
+    logError("Signup request failed. Please try again with `archgate login`.");
     return null;
   }
 
   if (result.token) return result.token;
 
-  console.log("Claiming archgate plugin token...");
+  logInfo("Claiming archgate plugin token...");
   return claimArchgateToken(githubToken);
 }
