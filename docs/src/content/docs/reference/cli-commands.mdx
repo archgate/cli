@@ -27,12 +27,14 @@ Authenticate with GitHub to access Archgate editor plugins. If you are not regis
 archgate login
 ```
 
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores both in `~/.archgate/credentials`. If the current directory already contains `.archgate/adrs/`, the post-login message shows `archgate check` as the suggested next step instead of `archgate init`.
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores both in `~/.archgate/credentials`.
+
+If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
 
 Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
 
 :::tip[Plugin beta]
-Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate directly from the CLI -- no separate registration step needed.
+Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate.
 :::
 
 ### Subcommands
