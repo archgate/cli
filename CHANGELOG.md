@@ -1,3 +1,9 @@
+## [0.13.1](https://github.com/archgate/cli/compare/v0.13.0...v0.13.1) (2026-03-18)
+
+### Bug Fixes
+
+* split upload release asset step for Windows compatibility ([#77](https://github.com/archgate/cli/issues/77)) ([54ba520](https://github.com/archgate/cli/commit/54ba520b668d3ea9dbb3a24f733ad6dc0c53f3a8))
+
 ## [0.13.0](https://github.com/archgate/cli/compare/v0.11.2...v0.13.0) (2026-03-18)
 
 ### Features
