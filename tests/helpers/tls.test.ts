@@ -47,4 +47,13 @@ describe("tlsHintMessage", () => {
   test("mentions corporate proxy", () => {
     expect(tlsHintMessage()).toContain("corporate proxy");
   });
+
+  test("shows PowerShell syntax on Windows", () => {
+    const msg = tlsHintMessage();
+    if (process.platform === "win32") {
+      expect(msg).toContain("$env:NODE_EXTRA_CA_CERTS=");
+    } else {
+      expect(msg).toContain("export NODE_EXTRA_CA_CERTS=");
+    }
+  });
 });
