@@ -12,6 +12,7 @@ import {
   clearCredentials,
 } from "../helpers/auth";
 import { logError, logInfo } from "../helpers/log";
+import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 export function registerLoginCommand(program: Command) {
   const login = program
@@ -32,6 +33,10 @@ export function registerLoginCommand(program: Command) {
 
       await runDeviceFlow();
     } catch (err) {
+      if (isTlsError(err)) {
+        logError(tlsHintMessage());
+        process.exit(1);
+      }
       logError(err instanceof Error ? err.message : String(err));
       process.exit(1);
     }
@@ -67,6 +72,10 @@ export function registerLoginCommand(program: Command) {
         await clearCredentials();
         await runDeviceFlow();
       } catch (err) {
+        if (isTlsError(err)) {
+          logError(tlsHintMessage());
+          process.exit(1);
+        }
         logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
