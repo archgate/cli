@@ -210,15 +210,22 @@ export async function resolveCommand(name: string): Promise<string | null> {
     if (Bun.which(exeName)) return exeName;
   }
 
-  // 3. Native Windows: try WSL
+  // 3. Native Windows: try WSL (with timeout to avoid hanging when WSL is slow)
   if (info.runtime === "win32") {
     try {
       const proc = Bun.spawn(["wsl", "which", name], {
         stdout: "pipe",
         stderr: "pipe",
       });
-      const exitCode = await proc.exited;
-      if (exitCode === 0) return name;
+      const timeout = new Promise<"timeout">((resolve) =>
+        setTimeout(() => resolve("timeout"), 3000)
+      );
+      const result = await Promise.race([proc.exited, timeout]);
+      if (result === "timeout") {
+        proc.kill();
+        return null;
+      }
+      if (result === 0) return name;
     } catch {
       // wsl not available
     }

@@ -110,7 +110,6 @@ See the [writing rules guide](https://cli.archgate.dev/guides/writing-rules/) fo
 | `archgate adr show <id>` | Print a specific ADR                                       |
 | `archgate adr update`    | Update an ADR's frontmatter                                |
 | `archgate login`         | Authenticate with GitHub for editor plugins                |
-| `archgate mcp`           | Start the MCP server for AI agent integration              |
 | `archgate upgrade`       | Upgrade to the latest release                              |
 | `archgate clean`         | Remove the CLI cache (`~/.archgate/`)                      |
 
@@ -135,7 +134,7 @@ Add `archgate check` to your CI pipeline or pre-commit hooks to block merges tha
 
 ## Documentation
 
-Full documentation is available at **[cli.archgate.dev](https://cli.archgate.dev)** — including guides for writing ADRs, writing rules, CI integration, editor plugin setup, and the complete CLI and MCP reference.
+Full documentation is available at **[cli.archgate.dev](https://cli.archgate.dev)** — including guides for writing ADRs, writing rules, CI integration, editor plugin setup, and the complete CLI reference.
 
 ## Contributing
 

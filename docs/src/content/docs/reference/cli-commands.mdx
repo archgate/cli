@@ -514,6 +514,81 @@ archgate adr update \
 
 ---
 
+## archgate review-context
+
+Pre-compute review context with ADR briefings for changed files. Designed for CI and editor plugin integrations that need a summary of which ADRs apply to the files being changed.
+
+```bash
+archgate review-context [options]
+```
+
+### Options
+
+| Option              | Description                          |
+| ------------------- | ------------------------------------ |
+| `--staged`          | Only include git-staged files        |
+| `--run-checks`      | Include ADR compliance check results |
+| `--domain <domain>` | Filter to a single domain            |
+
+### Example
+
+```bash
+archgate review-context --staged
+```
+
+---
+
+## archgate session-context
+
+Read AI editor session transcripts for the project. Useful for auditing what an AI agent did during a coding session.
+
+```bash
+archgate session-context <subcommand> [options]
+```
+
+### Subcommands
+
+#### archgate session-context claude-code
+
+Read the Claude Code session transcript for the project.
+
+```bash
+archgate session-context claude-code [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+
+#### archgate session-context cursor
+
+Read the Cursor agent session transcript for the project.
+
+```bash
+archgate session-context cursor [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+| `--session-id <id>` | Specific session UUID to read            |
+
+### Examples
+
+Read the latest Claude Code session:
+
+```bash
+archgate session-context claude-code
+```
+
+Read a specific Cursor session:
+
+```bash
+archgate session-context cursor --session-id abc123
+```
+
+---
+
 ## archgate upgrade
 
 Upgrade Archgate to the latest version via npm.

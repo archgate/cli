@@ -1,4 +1,4 @@
-import { logDebug } from "./log";
+import { logDebug, logInfo } from "./log";
 import { isWindows, isMacOS, resolveCommand } from "./platform";
 
 export async function installGit() {
@@ -6,7 +6,7 @@ export async function installGit() {
     logDebug("Git is already installed");
     return;
   }
-  console.log("Git is not installed. Installing...");
+  logInfo("Git is not installed. Installing...");
   if (isWindows()) {
     throw new Error(
       "Git is not installed. Install it from https://git-scm.com/download/win and make sure it is on your PATH."
