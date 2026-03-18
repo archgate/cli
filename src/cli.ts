@@ -49,7 +49,10 @@ async function main() {
   registerUpgradeCommand(program);
   registerCleanCommand(program);
 
-  const updateCheckPromise = checkForUpdatesIfNeeded(packageJson.version);
+  const isUpgrade = process.argv.includes("upgrade");
+  const updateCheckPromise = isUpgrade
+    ? Promise.resolve(null)
+    : checkForUpdatesIfNeeded(packageJson.version);
   await program.parseAsync(process.argv);
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);
