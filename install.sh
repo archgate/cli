@@ -53,19 +53,46 @@ resolve_version() {
     return
   fi
 
+  api_url="https://api.github.com/repos/${REPO}/releases/latest"
+
   if command -v curl >/dev/null 2>&1; then
-    VERSION="$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//')"
+    response="$(curl -fsSL "$api_url" || true)"
   elif command -v wget >/dev/null 2>&1; then
-    VERSION="$(wget -qO- "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//')"
+    response="$(wget -qO- "$api_url" 2>/dev/null || true)"
   else
     echo "Error: curl or wget is required." >&2
     exit 1
   fi
 
+  # Basic sanity check that we got a JSON-like response
+  case "$response" in
+    \{*)
+      ;;
+    *)
+      echo "Error: unexpected response from GitHub releases API." >&2
+      echo "Response (truncated): $(printf '%s' "$response" | head -c 200)" >&2
+      exit 1
+      ;;
+  esac
+
+  if command -v jq >/dev/null 2>&1; then
+    VERSION="$(printf '%s' "$response" | jq -r '.tag_name // empty')"
+  else
+    VERSION="$(printf '%s' "$response" | grep "tag_name" | sed 's/.*"tag_name": *"//;s/".*//')"
+  fi
+
   if [ -z "$VERSION" ]; then
-    echo "Error: could not determine latest version." >&2
+    echo "Error: could not determine latest version (empty tag_name)." >&2
     exit 1
   fi
+
+  # Validate that VERSION looks reasonable (non-empty and not an obvious error)
+  case "$VERSION" in
+    *[!A-Za-z0-9._-]*)
+      echo "Error: invalid version tag received: '$VERSION'" >&2
+      exit 1
+      ;;
+  esac
 }
 
 # --- Download and install ---
@@ -80,8 +107,11 @@ download_and_install() {
 
   if command -v curl >/dev/null 2>&1; then
     curl -fsSL "$url" -o "$tmpdir/archgate.tar.gz"
-  else
+  elif command -v wget >/dev/null 2>&1; then
     wget -qO "$tmpdir/archgate.tar.gz" "$url"
+  else
+    echo "Error: neither 'curl' nor 'wget' is installed. Please install one of them to download archgate." >&2
+    exit 1
   fi
 
   tar -xzf "$tmpdir/archgate.tar.gz" -C "$tmpdir"
@@ -207,13 +237,17 @@ setup_path() {
   echo ""
 
   # Prompt requires /dev/tty — available even when stdin is piped (curl | sh)
-  if [ ! -e /dev/tty ]; then
-    echo "No TTY available. To add archgate to your PATH manually, add the lines above to your shell profile."
+  if [ ! -r /dev/tty ]; then
+    echo "No readable TTY available. To add archgate to your PATH manually, add the lines above to your shell profile."
     return
   fi
 
   printf "Update these files now? [Y/n] "
-  read -r answer </dev/tty
+  if ! read -r answer </dev/tty; then
+    echo ""
+    echo "Could not read from terminal. To add archgate to your PATH manually, add the lines above to your shell profile."
+    return
+  fi
   case "$answer" in
     [nN]*)
       echo ""

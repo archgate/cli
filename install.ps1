@@ -20,8 +20,13 @@ function Get-LatestVersion {
     if ($env:ARCHGATE_VERSION) {
         return $env:ARCHGATE_VERSION
     }
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
-    return $release.tag_name
+    try {
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -ErrorAction Stop
+        return $release.tag_name
+    } catch {
+        Write-Error "Error: failed to query GitHub for latest archgate version. Details: $($_.Exception.Message)"
+        return $null
+    }
 }
 
 $Version = Get-LatestVersion
@@ -39,7 +44,7 @@ Write-Host "Installing archgate $Version ($Artifact)..."
 $TmpDir = New-Item -ItemType Directory -Path (Join-Path $env:TEMP "archgate-install-$(Get-Random)")
 try {
     $ZipPath = Join-Path $TmpDir "archgate.zip"
-    Invoke-WebRequest -Uri $Url -OutFile $ZipPath -UseBasicParsing
+    Invoke-WebRequest -Uri $Url -OutFile $ZipPath -UseBasicParsing -ErrorAction Stop
 
     Expand-Archive -Path $ZipPath -DestinationPath $TmpDir -Force
 
@@ -47,7 +52,16 @@ try {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
     }
 
-    Move-Item -Path (Join-Path $TmpDir "archgate.exe") -Destination (Join-Path $InstallDir "archgate.exe") -Force
+    $ExtractedExe = Join-Path $TmpDir "archgate.exe"
+    if (-not (Test-Path $ExtractedExe)) {
+        Write-Error "Error: 'archgate.exe' was not found in the extracted archive at '$ExtractedExe'. The downloaded package may be corrupt or incompatible."
+        exit 1
+    }
+
+    Move-Item -Path $ExtractedExe -Destination (Join-Path $InstallDir "archgate.exe") -Force
+} catch {
+    Write-Error "Error: failed to download archgate from $Url. Please verify the version '$Version' exists and check your network connection. $($_.Exception.Message)"
+    exit 1
 } finally {
     Remove-Item -Path $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }
@@ -69,7 +83,7 @@ if ($CurrentPath -notlike "*$InstallDir*") {
         Write-Host ""
         Write-Host "Skipped. To add manually, run:"
         Write-Host ""
-        Write-Host "  [Environment]::SetEnvironmentVariable('Path', '$InstallDir;' + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
+        Write-Host "  [Environment]::SetEnvironmentVariable('Path', `"$InstallDir;`" + [Environment]::GetEnvironmentVariable('Path', 'User'), 'User')"
     } else {
         [Environment]::SetEnvironmentVariable("Path", "$InstallDir;$CurrentPath", "User")
         $env:Path = "$InstallDir;$env:Path"

@@ -10,10 +10,14 @@ export async function git(args: string[], cwd: string): Promise<string> {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
+  const stdoutPromise = new Response(proc.stdout).text();
+  const stderrPromise = new Response(proc.stderr).text();
+  const [stdout, stderr, exitCode] = await Promise.all([
+    stdoutPromise,
+    stderrPromise,
+    proc.exited,
+  ]);
   if (exitCode !== 0) {
-    const stderr = await new Response(proc.stderr).text();
     throw new Error(
       `git ${args.join(" ")} failed (exit ${exitCode}): ${stderr.trim()}`
     );
