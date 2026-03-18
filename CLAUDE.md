@@ -82,7 +82,7 @@ Bun 1.3.9, Node LTS, npm 11.11.0. Minimum user-facing Bun: `>=1.2.21` (enforced 
 ## Self-Governance ADRs (`.archgate/adrs/`)
 
 - `ARCH-001` — Command structure (register pattern, no business logic)
-- `ARCH-002` — Error handling (exit codes, logError)
+- `ARCH-002` — Error handling (exit codes, log helpers)
 - `ARCH-003` — Output formatting (styleText, --json, no emoji)
 - `ARCH-004` — No barrel files (direct imports only)
 - `ARCH-005` — Testing standards (Bun test, fixtures, 80% coverage)
