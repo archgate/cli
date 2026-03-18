@@ -26,15 +26,23 @@ export function isSignupRequiredError(message?: string): boolean {
   );
 }
 
+export interface SignupResult {
+  ok: boolean;
+  /** Token returned by the API when signup is auto-approved. */
+  token: string | null;
+}
+
 /**
  * Submit a signup request to the archgate plugins platform.
- * Returns true on success (201), false otherwise.
+ * On auto-approved signups the API returns the token directly,
+ * avoiding a separate claim round-trip.
  */
 export async function requestSignup(
   github: string,
   email: string,
-  useCase: string
-): Promise<boolean> {
+  useCase: string,
+  editor: string = "claude-code"
+): Promise<SignupResult> {
   const response = await fetch(`${PLUGINS_API}/api/signup`, {
     method: "POST",
     headers: {
@@ -42,8 +50,14 @@ export async function requestSignup(
       "User-Agent": "archgate-cli",
       Origin: PLUGINS_API,
     },
-    body: JSON.stringify({ github, email, useCase }),
+    body: JSON.stringify({ github, email, useCase, editor }),
     signal: AbortSignal.timeout(15_000),
   });
-  return response.status === 201;
+
+  if (response.status !== 201) {
+    return { ok: false, token: null };
+  }
+
+  const data = (await response.json().catch(() => ({}))) as { token?: string };
+  return { ok: true, token: data.token ?? null };
 }

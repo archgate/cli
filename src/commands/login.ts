@@ -142,6 +142,15 @@ async function runSignupFlow(
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Enter a valid email address",
     },
     {
+      type: "list",
+      name: "editor",
+      message: "Which editor will you use with archgate?",
+      choices: [
+        { name: "Claude Code", value: "claude-code" },
+        { name: "Cursor", value: "cursor" },
+      ],
+    },
+    {
       type: "input",
       name: "useCase",
       message: "How do you plan to use archgate?",
@@ -151,18 +160,27 @@ async function runSignupFlow(
   ]);
 
   console.log("\nSubmitting signup request...");
-  const ok = await requestSignup(githubUser, answers.email, answers.useCase);
+  const result = await requestSignup(
+    githubUser,
+    answers.email,
+    answers.useCase,
+    answers.editor
+  );
 
-  if (!ok) {
+  if (!result.ok) {
     logError(
       "Signup request failed. Please try again or sign up at https://plugins.archgate.dev"
     );
     process.exit(1);
   }
 
-  // Signup auto-approves — claim the token immediately
-  console.log("Claiming archgate plugin token...");
-  const archgateToken = await claimArchgateToken(githubToken);
+  // Use the token from signup if available, otherwise claim separately
+  let archgateToken = result.token;
+  if (!archgateToken) {
+    console.log("Claiming archgate plugin token...");
+    archgateToken = await claimArchgateToken(githubToken);
+  }
+
   await storeAndFinish(archgateToken, githubUser);
 }
 
