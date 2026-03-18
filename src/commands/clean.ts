@@ -1,10 +1,19 @@
-import { existsSync } from "node:fs";
-import { rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
 
 import type { Command } from "@commander-js/extra-typings";
 
 import { logError } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
+
+/**
+ * Check whether the running binary lives under ~/.archgate/bin/.
+ * When true, the bin/ directory must be preserved during clean.
+ */
+function shouldPreserveBinDir(): boolean {
+  const binDir = internalPath("bin");
+  return process.execPath.startsWith(binDir);
+}
 
 export function registerCleanCommand(program: Command) {
   program
@@ -18,9 +27,23 @@ export function registerCleanCommand(program: Command) {
         return;
       }
 
+      const preserveBin = shouldPreserveBinDir();
+
       try {
-        rmSync(destinationPath, { recursive: true, force: true });
-        console.log(`${destinationPath} cleaned up`);
+        if (preserveBin) {
+          // Remove everything except bin/ to avoid deleting the running binary
+          for (const entry of readdirSync(destinationPath)) {
+            if (entry === "bin") continue;
+            rmSync(join(destinationPath, entry), {
+              recursive: true,
+              force: true,
+            });
+          }
+          console.log(`${destinationPath} cleaned up (bin/ preserved)`);
+        } else {
+          rmSync(destinationPath, { recursive: true, force: true });
+          console.log(`${destinationPath} cleaned up`);
+        }
       } catch (error) {
         logError(
           `Failed to clean ${destinationPath}.`,
