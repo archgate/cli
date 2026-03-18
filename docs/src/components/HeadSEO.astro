@@ -30,6 +30,45 @@ const ptBrPath = isPtBr ? pathname : `/pt-br${pathname}`;
 const enUrl = `${siteUrl}${enPath}`;
 const ptBrUrl = `${siteUrl}${ptBrPath}`;
 
+/**
+ * Convert a URL path segment into a human-readable breadcrumb label.
+ * Handles common special cases (e.g., language codes, acronyms),
+ * then falls back to a reasonable title-casing strategy.
+ */
+function toBreadcrumbName(segment: string): string {
+  const lower = segment.toLowerCase();
+
+  // Special-case known slugs that should not be naively title-cased.
+  const specialCases: Record<string, string> = {
+    "pt-br": "PT-BR",
+    "api": "API",
+    "cli": "CLI",
+    "http": "HTTP",
+    "https": "HTTPS",
+  };
+  if (specialCases[lower]) {
+    return specialCases[lower];
+  }
+
+  // Replace dashes with spaces for readability.
+  const withSpaces = segment.replaceAll("-", " ");
+
+  // Title-case words, but keep short/all-caps tokens as-is (e.g., "API").
+  return withSpaces
+    .split(" ")
+    .filter((part) => part.length > 0)
+    .map((part) => {
+      const isAllCaps = /^[A-Z0-9]+$/.test(part);
+      if (isAllCaps || part.length <= 3) {
+        return part.toUpperCase();
+      }
+      const first = part.charAt(0).toUpperCase();
+      const rest = part.slice(1).toLowerCase();
+      return first + rest;
+    })
+    .join(" ");
+}
+
 // ── BreadcrumbList ────────────────────────────────────────────────
 // Build breadcrumbs from the URL path segments.
 const segments = pathname
@@ -51,9 +90,7 @@ if (hasRoute && segments.length > 0) {
     const name =
       i === segments.length - 1
         ? title
-        : segments[i]
-            .replaceAll("-", " ")
-            .replaceAll(/\b\w/g, (c: string) => c.toUpperCase());
+        : toBreadcrumbName(segments[i]);
     breadcrumbItems.push({
       "@type": "ListItem",
       position: i + 2,
@@ -75,8 +112,14 @@ const breadcrumbLd =
 // ── Markdown alternate link for LLM agents ──────────────────────
 // Points to the raw .mdx source on GitHub so AI crawlers can fetch markdown.
 const entryId = hasRoute ? route.entry.id : null;
-const markdownUrl = entryId
-  ? `https://raw.githubusercontent.com/archgate/cli/main/docs/src/content/docs/${entryId}${entryId.endsWith(".mdx") || entryId.endsWith(".md") ? "" : ".mdx"}`
+const markdownPath =
+  entryId && (entryId.endsWith(".mdx") || entryId.endsWith(".md"))
+    ? entryId
+    : entryId
+      ? `${entryId}.mdx`
+      : null;
+const markdownUrl = markdownPath
+  ? `https://raw.githubusercontent.com/archgate/cli/main/docs/src/content/docs/${markdownPath}`
   : null;
 
 // ── TechArticle (all doc pages except splash/home) ────────────────
