@@ -9,6 +9,7 @@ import { unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
 import { internalPath, createPathIfNotExists } from "./paths";
+import { SignupRequiredError, isSignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -148,10 +149,17 @@ export async function pollForAccessToken(
   throw new Error("Device code expired. Please try again.");
 }
 
+export interface GitHubUserInfo {
+  login: string;
+  email: string | null;
+}
+
 /**
- * Step 3: Get the authenticated GitHub username.
+ * Step 3: Get the authenticated GitHub user info.
  */
-export async function getGitHubUser(accessToken: string): Promise<string> {
+export async function getGitHubUser(
+  accessToken: string
+): Promise<GitHubUserInfo> {
   const response = await fetch("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -164,11 +172,14 @@ export async function getGitHubUser(accessToken: string): Promise<string> {
     throw new Error(`Failed to fetch GitHub user (HTTP ${response.status})`);
   }
 
-  const data = (await response.json()) as { login?: string };
+  const data = (await response.json()) as {
+    login?: string;
+    email?: string | null;
+  };
   if (!data.login) {
     throw new Error("GitHub API did not return a username");
   }
-  return data.login;
+  return { login: data.login, email: data.email ?? null };
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +205,11 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
     const body = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
+
+    if (isSignupRequiredError(body.error)) {
+      throw new SignupRequiredError();
+    }
+
     const message =
       body.error ?? `Token claim failed (HTTP ${response.status})`;
     throw new Error(message);
@@ -205,6 +221,9 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
   }
   return data.token;
 }
+
+// Re-export for consumers that import from auth.ts
+export { SignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
 // Credential Storage

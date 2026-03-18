@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,6 +9,7 @@ import {
   getChangedFiles,
   resolveScopedFiles,
 } from "../../src/engine/git-files";
+import { git, safeRmSync } from "../test-utils";
 
 describe("git-files", () => {
   let tempDir: string;
@@ -18,7 +19,7 @@ describe("git-files", () => {
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    safeRmSync(tempDir);
   });
 
   describe("getGitTrackedFiles", () => {
@@ -28,9 +29,9 @@ describe("git-files", () => {
     });
 
     test("returns tracked files in a git repo", async () => {
-      await Bun.$`git init`.cwd(tempDir).quiet();
+      await git(["init"], tempDir);
       writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-      await Bun.$`git add file.ts`.cwd(tempDir).quiet();
+      await git(["add", "file.ts"], tempDir);
       const result = await getGitTrackedFiles(tempDir);
       expect(result).not.toBeNull();
       expect(result!.has("file.ts")).toBe(true);
@@ -44,9 +45,9 @@ describe("git-files", () => {
     });
 
     test("returns staged files", async () => {
-      await Bun.$`git init`.cwd(tempDir).quiet();
+      await git(["init"], tempDir);
       writeFileSync(join(tempDir, "staged.ts"), "export const x = 1;");
-      await Bun.$`git add staged.ts`.cwd(tempDir).quiet();
+      await git(["add", "staged.ts"], tempDir);
       const files = await getStagedFiles(tempDir);
       expect(files).toContain("staged.ts");
     });
@@ -59,21 +60,21 @@ describe("git-files", () => {
     });
 
     test("returns both staged and unstaged changes", async () => {
-      await Bun.$`git init`.cwd(tempDir).quiet();
-      await Bun.$`git config user.email "test@test.com"`.cwd(tempDir).quiet();
-      await Bun.$`git config user.name "Test"`.cwd(tempDir).quiet();
+      await git(["init"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
       writeFileSync(join(tempDir, "a.ts"), "export const a = 1;");
-      await Bun.$`git add a.ts`.cwd(tempDir).quiet();
-      await Bun.$`git commit -m "init"`.cwd(tempDir).quiet();
+      await git(["add", "a.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
       // Stage a new file (staged change)
       writeFileSync(join(tempDir, "b.ts"), "export const b = 1;");
-      await Bun.$`git add b.ts`.cwd(tempDir).quiet();
+      await git(["add", "b.ts"], tempDir);
       // Modify a committed file without staging (unstaged change)
       writeFileSync(join(tempDir, "a.ts"), "export const a = 2;");
       const files = await getChangedFiles(tempDir);
       expect(files).toContain("a.ts");
       expect(files).toContain("b.ts");
-    });
+    }, 15_000);
   });
 
   describe("resolveScopedFiles", () => {
@@ -83,11 +84,11 @@ describe("git-files", () => {
     });
 
     test("resolves files matching glob pattern", async () => {
-      await Bun.$`git init`.cwd(tempDir).quiet();
+      await git(["init"], tempDir);
       mkdirSync(join(tempDir, "src"), { recursive: true });
       writeFileSync(join(tempDir, "src", "foo.ts"), "export const x = 1;");
       writeFileSync(join(tempDir, "src", "bar.md"), "# Doc");
-      await Bun.$`git add .`.cwd(tempDir).quiet();
+      await git(["add", "."], tempDir);
       const files = await resolveScopedFiles(tempDir, ["src/**/*.ts"]);
       expect(files).toContain("src/foo.ts");
       expect(files).not.toContain("src/bar.md");

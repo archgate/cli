@@ -2,11 +2,14 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+import inquirer from "inquirer";
 
 import { loadCredentials } from "../helpers/auth";
 import { initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
+import { runLoginFlow } from "../helpers/login-flow";
+import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
@@ -20,6 +23,14 @@ const EDITOR_DIRS: Record<EditorTarget, string> = {
   cursor: ".cursor/",
   vscode: ".vscode/",
   copilot: ".github/copilot/",
+};
+
+/** Map init editor flags to signup editor identifiers. */
+const SIGNUP_EDITORS: Record<EditorTarget, string> = {
+  claude: "claude-code",
+  cursor: "cursor",
+  vscode: "vscode",
+  copilot: "copilot-cli",
 };
 
 const editorOption = new Option("--editor <editor>", "editor integration")
@@ -37,9 +48,34 @@ export function registerInitCommand(program: Command) {
     )
     .action(async (opts) => {
       try {
-        // Auto-detect: install plugin if credentials exist (unless explicitly off)
-        const installPlugin =
-          opts.installPlugin ?? (await loadCredentials()) !== null;
+        let hasCredentials = (await loadCredentials()) !== null;
+
+        // If no credentials and --install-plugin not explicitly set, offer to log in
+        // Skip interactive prompts in non-TTY environments (agent-driven runs)
+        if (
+          !hasCredentials &&
+          opts.installPlugin === undefined &&
+          process.stdin.isTTY
+        ) {
+          const { wantPlugin } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "wantPlugin",
+              message:
+                "Would you like to install the Archgate editor plugin? (requires GitHub login)",
+              default: true,
+            },
+          ]);
+
+          if (wantPlugin) {
+            const result = await runLoginFlow({
+              editor: SIGNUP_EDITORS[opts.editor],
+            });
+            hasCredentials = result.ok;
+          }
+        }
+
+        const installPlugin = opts.installPlugin ?? hasCredentials;
 
         const result = await initProject(process.cwd(), {
           editor: opts.editor,
@@ -74,6 +110,10 @@ export function registerInitCommand(program: Command) {
           );
         }
       } catch (err) {
+        if (isTlsError(err)) {
+          logError(tlsHintMessage());
+          process.exit(1);
+        }
         logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
@@ -99,7 +139,7 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
       break;
     default:
-      // cursor auto-installs always — should not reach here
+      // cursor/vscode auto-install — should not reach here
       break;
   }
 }

@@ -9,7 +9,42 @@ const LOCALES = ["pt-br"];
 
 const CONTENT_ROOT = "docs/src/content/docs";
 
+/** Patterns that match locale-prefixed internal links in MDX files. */
+const LOCALE_LINK_PATTERNS = LOCALES.map(
+  (locale) => new RegExp(`(?:href="|\\]\\()/${locale}/`, "g")
+);
+
 export default defineRules({
+  "no-locale-prefix-in-links": {
+    description:
+      "Locale pages must not use locale-prefixed internal links — Starlight resolves them automatically",
+    severity: "error",
+    async check(ctx) {
+      /* oxlint-disable no-await-in-loop -- sequential per-locale is fine for a small list */
+      for (const locale of LOCALES) {
+        const localePrefix = `${CONTENT_ROOT}/${locale}/`;
+        const localeFiles = (await ctx.glob(`${localePrefix}**/*.mdx`)).filter(
+          (f) => f.startsWith(localePrefix)
+        );
+        const pattern = LOCALE_LINK_PATTERNS[LOCALES.indexOf(locale)];
+
+        const matches = await Promise.all(
+          localeFiles.map((file) => ctx.grep(file, pattern))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message: `Internal link contains locale prefix "/${locale}/". Remove the prefix — Starlight resolves locale routes automatically.`,
+              file: m.file,
+              line: m.line,
+              fix: `Replace "/${locale}/..." with "/..." in the link`,
+            });
+          }
+        }
+      }
+      /* oxlint-enable no-await-in-loop */
+    },
+  },
   "i18n-page-parity": {
     description:
       "Every root MDX file must have a corresponding translation in each locale, and vice versa",

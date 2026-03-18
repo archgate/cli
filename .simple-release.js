@@ -23,6 +23,7 @@ class ArchgateProject extends NpmProject {
       if (changed) {
         writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
         execSync("bun install", { stdio: "inherit" });
+        this.changedFiles.push("bun.lock");
       }
     }
 

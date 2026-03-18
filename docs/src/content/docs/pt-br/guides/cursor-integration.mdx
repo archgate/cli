@@ -3,7 +3,7 @@ title: Integração com Cursor
 description: Integre o Archgate com o Cursor IDE para desenvolvimento assistido por IA com governança arquitetural. Configure regras e skills de agente para conformidade ADR.
 ---
 
-O Archgate se integra com o [Cursor](https://cursor.com) para oferecer aos agentes de IA um fluxo de governança estruturado. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/pt-br/guides/claude-code-plugin/).
+O Archgate se integra com o [Cursor](https://cursor.com) para oferecer aos agentes de IA um fluxo de governança estruturado. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
 
 ## Configuração
 
@@ -16,7 +16,7 @@ archgate init --editor cursor
 ### Com plugin (beta)
 
 :::note[Acesso beta necessário]
-O plugin para Cursor está atualmente em beta. [Cadastre-se em plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso.
+O plugin para Cursor está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
 :::
 
 Se você fez login via `archgate login`, o comando init também baixa e instala o plugin Archgate para o Cursor. O plugin fornece regras de agente pré-configuradas e skills que dão ao agente de IA do Cursor um fluxo de governança completo.

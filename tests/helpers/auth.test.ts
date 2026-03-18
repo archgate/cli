@@ -146,11 +146,16 @@ describe("auth", () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
       const originalFetch = globalThis.fetch;
-      mockFetch(() => Promise.resolve(Response.json({ login: "octocat" })));
+      mockFetch(() =>
+        Promise.resolve(
+          Response.json({ login: "octocat", email: "octo@cat.com" })
+        )
+      );
 
       try {
         const user = await getGitHubUser("gho_test_token");
-        expect(user).toBe("octocat");
+        expect(user.login).toBe("octocat");
+        expect(user.email).toBe("octo@cat.com");
       } finally {
         globalThis.fetch = originalFetch;
       }
@@ -189,8 +194,9 @@ describe("auth", () => {
       }
     });
 
-    test("throws with error message from service on 403", async () => {
-      const { claimArchgateToken } = await import("../../src/helpers/auth");
+    test("throws SignupRequiredError on 403 with no approved signup", async () => {
+      const { claimArchgateToken, SignupRequiredError } =
+        await import("../../src/helpers/auth");
 
       const originalFetch = globalThis.fetch;
       mockFetch(() =>
@@ -203,8 +209,8 @@ describe("auth", () => {
       );
 
       try {
-        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
-          "No approved signup"
+        await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
+          SignupRequiredError
         );
       } finally {
         globalThis.fetch = originalFetch;

@@ -47,4 +47,15 @@ describe("tlsHintMessage", () => {
   test("mentions corporate proxy", () => {
     expect(tlsHintMessage()).toContain("corporate proxy");
   });
+
+  test("shows shell-appropriate syntax per platform", () => {
+    const msg = tlsHintMessage();
+    if (process.platform === "win32") {
+      expect(msg).toContain("PowerShell:");
+      expect(msg).toContain("cmd:");
+      expect(msg).toContain("Git Bash:");
+    } else {
+      expect(msg).toContain("export NODE_EXTRA_CA_CERTS=");
+    }
+  });
 });

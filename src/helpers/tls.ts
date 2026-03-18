@@ -3,6 +3,8 @@
  * and provide actionable guidance to the user.
  */
 
+import { isWindows } from "./platform";
+
 const TLS_ERROR_PATTERNS = [
   "self signed certificate",
   "unable to get local issuer certificate",
@@ -25,15 +27,24 @@ export function isTlsError(error: unknown): boolean {
 
 /**
  * Human-readable hint explaining the TLS failure and how to fix it.
+ * Shows the correct shell syntax for the current platform.
  */
 export function tlsHintMessage(): string {
+  const examples = isWindows()
+    ? [
+        '  PowerShell:  $env:NODE_EXTRA_CA_CERTS="C:\\path\\to\\corporate-ca.pem"',
+        "  cmd:         set NODE_EXTRA_CA_CERTS=C:\\path\\to\\corporate-ca.pem",
+        '  Git Bash:    export NODE_EXTRA_CA_CERTS="/c/path/to/corporate-ca.pem"',
+      ]
+    : ['  export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.pem"'];
+
   return [
     "TLS certificate verification failed.",
     "This typically happens behind a corporate proxy that performs SSL inspection.",
     "",
     "To fix this, set the NODE_EXTRA_CA_CERTS environment variable to your corporate CA certificate:",
     "",
-    '  export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.pem"',
+    ...examples,
     "",
     "Then retry the command.",
   ].join("\n");

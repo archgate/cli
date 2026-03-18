@@ -2,16 +2,10 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import {
-  requestDeviceCode,
-  pollForAccessToken,
-  getGitHubUser,
-  claimArchgateToken,
-  saveCredentials,
-  loadCredentials,
-  clearCredentials,
-} from "../helpers/auth";
+import { loadCredentials, clearCredentials } from "../helpers/auth";
 import { logError, logInfo } from "../helpers/log";
+import { runLoginFlow } from "../helpers/login-flow";
+import { findProjectRoot } from "../helpers/paths";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 export function registerLoginCommand(program: Command) {
@@ -31,7 +25,12 @@ export function registerLoginCommand(program: Command) {
         return;
       }
 
-      await runDeviceFlow();
+      const result = await runLoginFlow();
+      if (result.ok) {
+        printNextStep();
+      } else {
+        process.exit(1);
+      }
     } catch (err) {
       if (isTlsError(err)) {
         logError(tlsHintMessage());
@@ -70,7 +69,12 @@ export function registerLoginCommand(program: Command) {
     .action(async () => {
       try {
         await clearCredentials();
-        await runDeviceFlow();
+        const result = await runLoginFlow();
+        if (result.ok) {
+          printNextStep();
+        } else {
+          process.exit(1);
+        }
       } catch (err) {
         if (isTlsError(err)) {
           logError(tlsHintMessage());
@@ -82,46 +86,14 @@ export function registerLoginCommand(program: Command) {
     });
 }
 
-async function runDeviceFlow(): Promise<void> {
-  console.log("Authenticating with GitHub...\n");
-
-  // Step 1: Request device code
-  const deviceCode = await requestDeviceCode();
-
-  console.log(
-    `Open ${styleText("bold", deviceCode.verification_uri)} in your browser`
-  );
-  console.log(
-    `and enter the code: ${styleText(["bold", "green"], deviceCode.user_code)}\n`
-  );
-  console.log("Waiting for authorization...");
-
-  // Step 2: Poll for access token
-  const githubToken = await pollForAccessToken(
-    deviceCode.device_code,
-    deviceCode.interval,
-    deviceCode.expires_in
-  );
-
-  // Step 3: Get GitHub username
-  const githubUser = await getGitHubUser(githubToken);
-  logInfo(`GitHub user: ${styleText("bold", githubUser)}`);
-
-  // Step 4: Exchange GitHub token for archgate plugin token
-  console.log("Claiming archgate plugin token...");
-  const archgateToken = await claimArchgateToken(githubToken);
-
-  // Step 5: Store credentials
-  await saveCredentials({
-    token: archgateToken,
-    github_user: githubUser,
-    created_at: new Date().toISOString().split("T")[0],
-  });
-
-  console.log(
-    `\nAuthenticated as ${styleText("bold", githubUser)}. Plugin access is now available.`
-  );
-  console.log(
-    "Run `archgate init` to set up a project with the archgate plugin."
-  );
+function printNextStep(): void {
+  if (findProjectRoot()) {
+    console.log(
+      "Run `archgate check` to validate your project against its ADRs."
+    );
+  } else {
+    console.log(
+      "Run `archgate init` to set up a project with the archgate plugin."
+    );
+  }
 }
