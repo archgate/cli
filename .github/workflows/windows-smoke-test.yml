@@ -61,3 +61,48 @@ jobs:
             Write-Error "Binary exited with code $LASTEXITCODE"
             exit 1
           }
+
+      - name: Build old-version binary for upgrade test
+        shell: pwsh
+        run: |
+          # Save original version and set a fake old one
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          $originalVersion = $pkg.version
+          $pkg.version = "0.0.1"
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+          bun build src/cli.ts --compile --bytecode --outfile dist/archgate-upgrade-test
+          # Restore original version
+          $pkg.version = $originalVersion
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content package.json
+
+      - name: Smoke test upgrade (binary self-replacement)
+        shell: pwsh
+        run: |
+          # Place the old binary in ~/.archgate/bin/
+          $binDir = "$HOME\.archgate\bin"
+          New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+          Copy-Item "dist/archgate-upgrade-test.exe" "$binDir\archgate.exe" -Force
+
+          # Verify it reports the fake old version
+          $before = & "$binDir\archgate.exe" --version 2>&1
+          Write-Host "Before upgrade: $before"
+          if ($before -ne "0.0.1") {
+            Write-Error "Expected version 0.0.1, got $before"
+            exit 1
+          }
+
+          # Run upgrade — should download latest from GitHub Releases and self-replace
+          & "$binDir\archgate.exe" upgrade 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Upgrade failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Verify the binary was replaced with the latest version
+          $after = & "$binDir\archgate.exe" --version 2>&1
+          Write-Host "After upgrade: $after"
+          if ($after -eq "0.0.1") {
+            Write-Error "Binary was not replaced — still reports 0.0.1"
+            exit 1
+          }
+          Write-Host "Upgrade smoke test passed: $before -> $after"
