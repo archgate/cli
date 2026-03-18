@@ -96,13 +96,19 @@ jobs:
           Compress-Archive -Path "archgate.exe" -DestinationPath "${{ matrix.artifact }}.zip"
           Remove-Item "archgate.exe"
 
-      - name: Upload release asset
+      - name: Upload release asset (Unix)
+        if: runner.os != 'Windows'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            gh release upload "$TAG" "${{ matrix.artifact }}.zip" --clobber
-          else
-            gh release upload "$TAG" "${{ matrix.artifact }}.tar.gz" --clobber
-          fi
+          gh release upload "$TAG" "${{ matrix.artifact }}.tar.gz" --clobber
+
+      - name: Upload release asset (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.event.release.tag_name || inputs.tag }}"
+          gh release upload $tag "${{ matrix.artifact }}.zip" --clobber
