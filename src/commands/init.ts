@@ -2,11 +2,21 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+import inquirer from "inquirer";
 
-import { loadCredentials } from "../helpers/auth";
+import {
+  loadCredentials,
+  requestDeviceCode,
+  pollForAccessToken,
+  getGitHubUser,
+  claimArchgateToken,
+  saveCredentials,
+} from "../helpers/auth";
 import { initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
+import { SignupRequiredError, requestSignup } from "../helpers/signup";
+import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
@@ -37,9 +47,31 @@ export function registerInitCommand(program: Command) {
     )
     .action(async (opts) => {
       try {
-        // Auto-detect: install plugin if credentials exist (unless explicitly off)
-        const installPlugin =
-          opts.installPlugin ?? (await loadCredentials()) !== null;
+        let hasCredentials = (await loadCredentials()) !== null;
+
+        // If no credentials and --install-plugin not explicitly set, offer to log in
+        // Skip interactive prompts in non-TTY environments (agent-driven runs)
+        if (
+          !hasCredentials &&
+          opts.installPlugin === undefined &&
+          process.stdin.isTTY
+        ) {
+          const { wantPlugin } = await inquirer.prompt([
+            {
+              type: "confirm",
+              name: "wantPlugin",
+              message:
+                "Would you like to install the Archgate editor plugin? (requires GitHub login)",
+              default: true,
+            },
+          ]);
+
+          if (wantPlugin) {
+            hasCredentials = await runInlineLogin(opts.editor);
+          }
+        }
+
+        const installPlugin = opts.installPlugin ?? hasCredentials;
 
         const result = await initProject(process.cwd(), {
           editor: opts.editor,
@@ -74,10 +106,106 @@ export function registerInitCommand(program: Command) {
           );
         }
       } catch (err) {
+        if (isTlsError(err)) {
+          logError(tlsHintMessage());
+          process.exit(1);
+        }
         logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
     });
+}
+
+/** Map init editor flags to signup editor identifiers. */
+const SIGNUP_EDITORS: Record<EditorTarget, string> = {
+  claude: "claude-code",
+  cursor: "cursor",
+  vscode: "vscode",
+  copilot: "copilot-cli",
+};
+
+/**
+ * Run the GitHub device flow + signup inline during init.
+ * Returns true if credentials were obtained.
+ */
+async function runInlineLogin(editor: EditorTarget): Promise<boolean> {
+  console.log("\nAuthenticating with GitHub...\n");
+
+  const deviceCode = await requestDeviceCode();
+  console.log(
+    `Open ${styleText("bold", deviceCode.verification_uri)} in your browser`
+  );
+  console.log(
+    `and enter the code: ${styleText(["bold", "green"], deviceCode.user_code)}\n`
+  );
+  console.log("Waiting for authorization...");
+
+  const githubToken = await pollForAccessToken(
+    deviceCode.device_code,
+    deviceCode.interval,
+    deviceCode.expires_in
+  );
+
+  const { login: githubUser, email: githubEmail } =
+    await getGitHubUser(githubToken);
+  logInfo(`GitHub user: ${styleText("bold", githubUser)}`);
+
+  console.log("Claiming archgate plugin token...");
+  let archgateToken: string;
+  try {
+    archgateToken = await claimArchgateToken(githubToken);
+  } catch (err) {
+    if (!(err instanceof SignupRequiredError)) throw err;
+
+    console.log(
+      `\nYour GitHub account ${styleText("bold", githubUser)} is not yet registered.`
+    );
+    console.log("Let's sign you up now.\n");
+
+    const answers = await inquirer.prompt([
+      {
+        type: "input",
+        name: "email",
+        message: "Email address:",
+        default: githubEmail ?? undefined,
+        validate: (v: string) =>
+          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Enter a valid email address",
+      },
+      {
+        type: "input",
+        name: "useCase",
+        message: "How do you plan to use archgate?",
+        validate: (v: string) =>
+          v.trim().length > 0 || "Please describe your use case",
+      },
+    ]);
+
+    console.log("\nSubmitting signup request...");
+    const result = await requestSignup(
+      githubUser,
+      answers.email,
+      answers.useCase,
+      SIGNUP_EDITORS[editor]
+    );
+
+    if (!result.ok) {
+      logError("Signup request failed. Continuing without plugin.");
+      return false;
+    }
+
+    archgateToken = result.token ?? (await claimArchgateToken(githubToken));
+  }
+
+  await saveCredentials({
+    token: archgateToken,
+    github_user: githubUser,
+    created_at: new Date().toISOString().split("T")[0],
+  });
+
+  logInfo(
+    `Authenticated as ${styleText("bold", githubUser)}. Continuing with plugin installation.\n`
+  );
+  return true;
 }
 
 /**
