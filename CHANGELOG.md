@@ -1,3 +1,14 @@
+## [0.13.0](https://github.com/archgate/cli/compare/v0.11.2...v0.13.0) (2026-03-18)
+
+### Features
+
+* add ARCH-009 adr, tls platform hints, release lockfile fix, flaky test fixes ([#76](https://github.com/archgate/cli/issues/76)) ([15fdef5](https://github.com/archgate/cli/commit/15fdef5560480a78d22520725af7a49176463aaa))
+* standalone installer and GitHub Releases distribution ([#72](https://github.com/archgate/cli/issues/72)) ([09fc5dd](https://github.com/archgate/cli/commit/09fc5dd554e2c444c0c18877392999c041264be9))
+
+### Bug Fixes
+
+* update lockfile and detect TLS errors in login ([#74](https://github.com/archgate/cli/issues/74)) ([2c15d83](https://github.com/archgate/cli/commit/2c15d83404ece9d7678e6cb95e4d1c0f1a80e6fd))
+
 ## [0.12.0](https://github.com/archgate/cli/compare/v0.11.2...v0.12.0) (2026-03-18)
 
 ### Features
