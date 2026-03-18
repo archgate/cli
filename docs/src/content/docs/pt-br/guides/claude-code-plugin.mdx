@@ -29,12 +29,12 @@ O agente `archgate:developer` é definido como agente padrão via `.claude/setti
 ## Instalação
 
 :::note[Acesso beta necessário]
-O plugin para Claude Code está atualmente em beta. [Cadastre-se em plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso antes de seguir os passos abaixo.
+O plugin para Claude Code está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar diretamente pela CLI -- nenhum passo de registro separado é necessário.
 :::
 
 ### 1. Faça login com o GitHub
 
-Autentique-se com sua conta do GitHub para obter um token do plugin:
+Autentique-se com sua conta do GitHub para obter um token do plugin. Se você ainda não possui cadastro, a CLI cuida do registro de forma interativa -- solicita seu email, preferência de editor e caso de uso, e então realiza o cadastro automaticamente:
 
 ```bash
 archgate login

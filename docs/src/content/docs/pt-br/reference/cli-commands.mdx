@@ -21,18 +21,18 @@ archgate check --help
 
 ## archgate login
 
-Autentique-se com o GitHub para acessar os plugins de editor do Archgate.
+Autentique-se com o GitHub para acessar os plugins de editor do Archgate. Se você ainda não possui cadastro, a CLI cuida do registro automaticamente -- solicita seu email, preferência de editor (Claude Code, VS Code, Copilot CLI ou Cursor) e caso de uso, e então realiza o cadastro antes de concluir o login.
 
 ```bash
 archgate login
 ```
 
-Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena ambos em `~/.archgate/credentials`.
+Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena ambos em `~/.archgate/credentials`. Se o diretório atual já contiver `.archgate/adrs/`, a mensagem pós-login sugere `archgate check` como próximo passo em vez de `archgate init`.
 
 As credenciais são necessárias para instalar plugins de editor via `archgate init --install-plugin`. A CLI em si (check, init, etc.) funciona sem login.
 
 :::tip[Plugin em beta]
-Os plugins de editor estão atualmente em beta. Cadastre-se em [plugins.archgate.dev](https://plugins.archgate.dev) para obter acesso.
+Os plugins de editor estão atualmente em beta. Execute `archgate login` para se cadastrar e autenticar diretamente pela CLI -- nenhum passo de registro separado é necessário.
 :::
 
 ### Subcomandos
@@ -60,11 +60,60 @@ and enter the code: ABCD-1234
 
 Waiting for authorization...
 GitHub user: yourname
+
+No account found. Let's get you signed up.
+Email: you@example.com
+Editor: Claude Code
+Use case: Enforcing ADRs in our monorepo
+
+Registering...
 Claiming archgate plugin token...
 
 Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
+
+Se o projeto já possuir `.archgate/adrs/`, a última linha exibe:
+
+```
+Run `archgate check` to validate your project against its ADRs.
+```
+
+### Solução de problemas
+
+#### Erros de TLS/proxy corporativo
+
+Se `archgate login` falhar com um erro de certificado TLS (comum em redes com proxy corporativo), aponte o runtime para o certificado CA da sua organização usando a variável de ambiente `NODE_EXTRA_CA_CERTS`.
+
+No macOS/Linux:
+
+```bash
+export NODE_EXTRA_CA_CERTS=/caminho/para/seu-ca-corporativo.pem
+archgate login
+```
+
+No Windows (PowerShell):
+
+```powershell
+$env:NODE_EXTRA_CA_CERTS = "C:\caminho\para\seu-ca-corporativo.pem"
+archgate login
+```
+
+No Windows (cmd):
+
+```cmd
+set NODE_EXTRA_CA_CERTS=C:\caminho\para\seu-ca-corporativo.pem
+archgate login
+```
+
+No Windows (Git Bash):
+
+```bash
+export NODE_EXTRA_CA_CERTS=/c/caminho/para/seu-ca-corporativo.pem
+archgate login
+```
+
+Consulte sua equipe de TI para obter o caminho correto do certificado caso tenha dúvidas.
 
 Verificar o status do login:
 

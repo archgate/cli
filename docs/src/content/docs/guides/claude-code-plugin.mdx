@@ -29,12 +29,12 @@ The `archgate:developer` agent is set as the default agent via `.claude/settings
 ## Installation
 
 :::note[Beta access required]
-The Claude Code plugin is currently in beta. [Sign up at plugins.archgate.dev](https://plugins.archgate.dev) to get access before following the steps below.
+The Claude Code plugin is currently in beta. Run `archgate login` to sign up and authenticate directly from the CLI -- no separate registration step needed.
 :::
 
 ### 1. Log in with GitHub
 
-Authenticate with your GitHub account to obtain a plugin token:
+Authenticate with your GitHub account to obtain a plugin token. If you are not registered yet, the CLI handles signup interactively -- it prompts for your email, editor preference, and use case, then registers you automatically:
 
 ```bash
 archgate login
