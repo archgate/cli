@@ -189,8 +189,9 @@ describe("auth", () => {
       }
     });
 
-    test("throws with error message from service on 403", async () => {
-      const { claimArchgateToken } = await import("../../src/helpers/auth");
+    test("throws SignupRequiredError on 403 with no approved signup", async () => {
+      const { claimArchgateToken, SignupRequiredError } =
+        await import("../../src/helpers/auth");
 
       const originalFetch = globalThis.fetch;
       mockFetch(() =>
@@ -203,8 +204,8 @@ describe("auth", () => {
       );
 
       try {
-        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
-          "No approved signup"
+        await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
+          SignupRequiredError
         );
       } finally {
         globalThis.fetch = originalFetch;

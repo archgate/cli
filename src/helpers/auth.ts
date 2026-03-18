@@ -9,6 +9,7 @@ import { unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
 import { internalPath, createPathIfNotExists } from "./paths";
+import { SignupRequiredError, isSignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -194,6 +195,11 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
     const body = (await response.json().catch(() => ({}))) as {
       error?: string;
     };
+
+    if (isSignupRequiredError(body.error)) {
+      throw new SignupRequiredError();
+    }
+
     const message =
       body.error ?? `Token claim failed (HTTP ${response.status})`;
     throw new Error(message);
@@ -205,6 +211,9 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
   }
   return data.token;
 }
+
+// Re-export for consumers that import from auth.ts
+export { SignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
 // Credential Storage

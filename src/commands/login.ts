@@ -1,6 +1,7 @@
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
+import inquirer from "inquirer";
 
 import {
   requestDeviceCode,
@@ -12,6 +13,7 @@ import {
   clearCredentials,
 } from "../helpers/auth";
 import { logError, logInfo } from "../helpers/log";
+import { SignupRequiredError, requestSignup } from "../helpers/signup";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 export function registerLoginCommand(program: Command) {
@@ -109,9 +111,62 @@ async function runDeviceFlow(): Promise<void> {
 
   // Step 4: Exchange GitHub token for archgate plugin token
   console.log("Claiming archgate plugin token...");
-  const archgateToken = await claimArchgateToken(githubToken);
+  try {
+    const archgateToken = await claimArchgateToken(githubToken);
+    await storeAndFinish(archgateToken, githubUser);
+  } catch (err) {
+    if (!(err instanceof SignupRequiredError)) throw err;
 
-  // Step 5: Store credentials
+    console.log(
+      `\nYour GitHub account ${styleText("bold", githubUser)} is not yet registered.`
+    );
+    console.log("Let's sign you up now.\n");
+
+    await runSignupFlow(githubUser, githubToken);
+  }
+}
+
+async function runSignupFlow(
+  githubUser: string,
+  githubToken: string
+): Promise<void> {
+  const answers = await inquirer.prompt([
+    {
+      type: "input",
+      name: "email",
+      message: "Email address:",
+      validate: (v: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Enter a valid email address",
+    },
+    {
+      type: "input",
+      name: "useCase",
+      message: "How do you plan to use archgate?",
+      validate: (v: string) =>
+        v.trim().length > 0 || "Please describe your use case",
+    },
+  ]);
+
+  console.log("\nSubmitting signup request...");
+  const ok = await requestSignup(githubUser, answers.email, answers.useCase);
+
+  if (!ok) {
+    logError(
+      "Signup request failed. Please try again or sign up at https://plugins.archgate.dev"
+    );
+    process.exit(1);
+  }
+
+  // Signup auto-approves — claim the token immediately
+  console.log("Claiming archgate plugin token...");
+  const archgateToken = await claimArchgateToken(githubToken);
+  await storeAndFinish(archgateToken, githubUser);
+}
+
+async function storeAndFinish(
+  archgateToken: string,
+  githubUser: string
+): Promise<void> {
   await saveCredentials({
     token: archgateToken,
     github_user: githubUser,
