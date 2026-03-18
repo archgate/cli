@@ -13,6 +13,7 @@ import {
   clearCredentials,
 } from "../helpers/auth";
 import { logError, logInfo } from "../helpers/log";
+import { findProjectRoot } from "../helpers/paths";
 import { SignupRequiredError, requestSignup } from "../helpers/signup";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
@@ -199,7 +200,14 @@ async function storeAndFinish(
   console.log(
     `\nAuthenticated as ${styleText("bold", githubUser)}. Plugin access is now available.`
   );
-  console.log(
-    "Run `archgate init` to set up a project with the archgate plugin."
-  );
+
+  if (findProjectRoot()) {
+    console.log(
+      "Run `archgate check` to validate your project against its ADRs."
+    );
+  } else {
+    console.log(
+      "Run `archgate init` to set up a project with the archgate plugin."
+    );
+  }
 }
