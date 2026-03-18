@@ -14,7 +14,7 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 ## Installation
 
-Available via npm (`npm install -g archgate`), Homebrew, or standalone binary for macOS, Linux, and Windows.
+Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh` (macOS/Linux) or `irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex` (Windows PowerShell). Also available via npm (`npm install -g archgate`) or direct download from GitHub Releases.
 
 ## Documentation
 
@@ -115,9 +115,29 @@ Editor plugins are currently in beta. Sign up at [plugins.archgate.dev](https://
 
 Source: https://cli.archgate.dev/getting-started/installation/
 
-## Install globally
+## Install standalone (recommended)
 
-Install Archgate globally using your preferred package manager:
+The fastest way to install Archgate — no Node.js or package manager required:
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
+```
+
+This downloads a pre-built binary for your platform and installs it to `~/.archgate/bin/`. The installer detects your shell profiles and offers to add the directory to your PATH.
+
+You can customize the install with environment variables:
+- `ARCHGATE_VERSION` — Install a specific version (e.g. `v0.11.2`). Default: latest release.
+- `ARCHGATE_INSTALL_DIR` — Custom install directory. Default: `~/.archgate/bin`.
+
+You can also download binaries directly from GitHub Releases: https://github.com/archgate/cli/releases
+
+## Install via npm
+
+Install Archgate globally using your preferred Node.js package manager:
 
 ```bash
 # npm
@@ -235,13 +255,17 @@ Source: https://cli.archgate.dev/getting-started/quick-start/
 
 ## 1. Install Archgate
 
-If you have not installed the CLI yet, install it globally via npm:
+If you have not installed the CLI yet:
 
 ```bash
+# Standalone (no Node.js required)
+curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+
+# Or via npm
 npm install -g archgate
 ```
 
-See the [Installation](/getting-started/installation/) page for platform details and troubleshooting.
+See the [Installation](/getting-started/installation/) page for all options, including Windows and custom install directories.
 
 ## 2. Initialize your project
 

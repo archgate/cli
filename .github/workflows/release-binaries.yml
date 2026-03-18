@@ -10,7 +10,7 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -80,3 +80,29 @@ jobs:
 
       - name: Publish platform package
         run: npm publish ./packages/${{ matrix.artifact }} --access public --provenance
+
+      - name: Prepare release asset (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cp dist/${{ matrix.artifact }} archgate
+          tar -czf ${{ matrix.artifact }}.tar.gz archgate
+          rm archgate
+
+      - name: Prepare release asset (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "dist/${{ matrix.artifact }}.exe" "archgate.exe"
+          Compress-Archive -Path "archgate.exe" -DestinationPath "${{ matrix.artifact }}.zip"
+          Remove-Item "archgate.exe"
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            gh release upload "$TAG" "${{ matrix.artifact }}.zip" --clobber
+          else
+            gh release upload "$TAG" "${{ matrix.artifact }}.tar.gz" --clobber
+          fi

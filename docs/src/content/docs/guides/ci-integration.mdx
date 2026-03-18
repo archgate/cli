@@ -159,6 +159,26 @@ adr-compliance:
     - archgate check
 ```
 
+## Standalone installer (no Node.js)
+
+If your CI environment does not have Node.js, use the standalone installer to download a pre-built binary directly from GitHub Releases:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+      - run: ~/.archgate/bin/archgate check --ci
+```
+
+This works in any environment with `curl` and `tar` — no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
+
+```yaml
+      - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | ARCHGATE_VERSION=v0.11.2 sh
+```
+
 ## Bun-based CI
 
 If your CI already uses Bun, install Archgate with `bun` instead of `npm`:
@@ -178,7 +198,7 @@ jobs:
 
 Archgate works with any CI system that can run shell commands. The pattern is always the same:
 
-1. Install: `npm install -g archgate` (or `bun install -g archgate`)
+1. Install: `npm install -g archgate`, `bun install -g archgate`, or use the [standalone installer](/getting-started/installation/#install-standalone-recommended)
 2. Run: `archgate check`
 3. Check the exit code (0 = pass, 1 = violations, 2 = error)
 
