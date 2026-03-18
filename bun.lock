@@ -19,9 +19,9 @@
         "zod": "4.3.6",
       },
       "optionalDependencies": {
-        "archgate-darwin-arm64": "0.13.1",
-        "archgate-linux-x64": "0.13.1",
-        "archgate-win32-x64": "0.13.1",
+        "archgate-darwin-arm64": "0.13.2",
+        "archgate-linux-x64": "0.13.2",
+        "archgate-win32-x64": "0.13.2",
       },
       "peerDependencies": {
         "typescript": "^5",

@@ -1,3 +1,9 @@
+## [0.13.2](https://github.com/archgate/cli/compare/v0.13.1...v0.13.2) (2026-03-18)
+
+### Bug Fixes
+
+* use PROCESSOR_ARCHITECTURE for Windows arch detection in installer ([#79](https://github.com/archgate/cli/issues/79)) ([63afc7e](https://github.com/archgate/cli/commit/63afc7e23d628035417f1b51b135e7d0bf717067))
+
 ## [0.13.1](https://github.com/archgate/cli/compare/v0.13.0...v0.13.1) (2026-03-18)
 
 ### Bug Fixes
