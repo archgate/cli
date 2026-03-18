@@ -8,8 +8,8 @@ $InstallDir = if ($env:ARCHGATE_INSTALL_DIR) { $env:ARCHGATE_INSTALL_DIR } else 
 
 # --- Check architecture ---
 
-$Arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-if ($Arch -ne "X64") {
+$Arch = $env:PROCESSOR_ARCHITECTURE
+if ($Arch -ne "AMD64") {
     Write-Error "Error: unsupported architecture: $Arch. archgate supports x64 only on Windows."
     exit 1
 }
