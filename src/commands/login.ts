@@ -147,6 +147,8 @@ async function runSignupFlow(
       message: "Which editor will you use with archgate?",
       choices: [
         { name: "Claude Code", value: "claude-code" },
+        { name: "VS Code", value: "vscode" },
+        { name: "Copilot CLI", value: "copilot-cli" },
         { name: "Cursor", value: "cursor" },
       ],
     },
