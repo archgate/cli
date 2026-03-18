@@ -30,9 +30,13 @@ export function isTlsError(error: unknown): boolean {
  * Shows the correct shell syntax for the current platform.
  */
 export function tlsHintMessage(): string {
-  const example = isWindows()
-    ? '  $env:NODE_EXTRA_CA_CERTS="C:\\path\\to\\corporate-ca.pem"'
-    : '  export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.pem"';
+  const examples = isWindows()
+    ? [
+        '  PowerShell:  $env:NODE_EXTRA_CA_CERTS="C:\\path\\to\\corporate-ca.pem"',
+        "  cmd:         set NODE_EXTRA_CA_CERTS=C:\\path\\to\\corporate-ca.pem",
+        '  Git Bash:    export NODE_EXTRA_CA_CERTS="/c/path/to/corporate-ca.pem"',
+      ]
+    : ['  export NODE_EXTRA_CA_CERTS="/path/to/corporate-ca.pem"'];
 
   return [
     "TLS certificate verification failed.",
@@ -40,7 +44,7 @@ export function tlsHintMessage(): string {
     "",
     "To fix this, set the NODE_EXTRA_CA_CERTS environment variable to your corporate CA certificate:",
     "",
-    example,
+    ...examples,
     "",
     "Then retry the command.",
   ].join("\n");
