@@ -1,11 +1,34 @@
 ---
 title: Installation
-description: Install the Archgate CLI on macOS, Linux, or Windows via npm, Homebrew, or standalone binary. Start enforcing ADRs as executable code rules in minutes.
+description: Install the Archgate CLI on macOS, Linux, or Windows via a one-line installer, npm, or standalone binary. Start enforcing ADRs as executable code rules in minutes.
 ---
 
-## Install globally
+## Install standalone (recommended)
 
-Install Archgate globally using your preferred package manager:
+The fastest way to install Archgate — no Node.js or package manager required:
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
+```
+
+This downloads a pre-built binary for your platform and installs it to `~/.archgate/bin/`. The installer detects your shell profiles and offers to add the directory to your PATH.
+
+You can customize the install with environment variables:
+
+| Variable               | Description                                 | Default           |
+| ---------------------- | ------------------------------------------- | ----------------- |
+| `ARCHGATE_VERSION`     | Install a specific version (e.g. `v0.11.2`) | Latest release    |
+| `ARCHGATE_INSTALL_DIR` | Custom install directory                    | `~/.archgate/bin` |
+
+You can also download binaries directly from [GitHub Releases](https://github.com/archgate/cli/releases).
+
+## Install via npm
+
+Install Archgate globally using your preferred Node.js package manager:
 
 ```bash
 # npm
