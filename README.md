@@ -95,29 +95,7 @@ archgate check
 
 ## Writing rules
 
-Each ADR can have a companion `.rules.ts` file that exports a plain object typed with `satisfies RuleSet`. Rules receive the list of files to check and return an array of violations with file paths and line numbers.
-
-See the [writing rules guide](https://cli.archgate.dev/guides/writing-rules/) for examples and the full [rule API reference](https://cli.archgate.dev/reference/rule-api/).
-
-## Commands
-
-| Command                  | Description                                                |
-| ------------------------ | ---------------------------------------------------------- |
-| `archgate init`          | Initialize `.archgate/` with example ADR and editor config |
-| `archgate check`         | Run ADR compliance checks (`--staged` for pre-commit)      |
-| `archgate adr create`    | Create a new ADR interactively                             |
-| `archgate adr list`      | List all ADRs (`--json`, `--domain`)                       |
-| `archgate adr show <id>` | Print a specific ADR                                       |
-| `archgate adr update`    | Update an ADR's frontmatter                                |
-| `archgate login`         | Authenticate with GitHub for editor plugins                |
-| `archgate upgrade`       | Upgrade to the latest release                              |
-| `archgate clean`         | Remove the CLI cache (`~/.archgate/`)                      |
-
-See the [CLI reference](https://cli.archgate.dev/reference/cli-commands/) for full usage and options.
-
-## CI and pre-commit hooks
-
-Add `archgate check` to your CI pipeline or pre-commit hooks to block merges that violate ADRs. See the [CI integration guide](https://cli.archgate.dev/guides/ci-integration/) and [pre-commit hooks guide](https://cli.archgate.dev/guides/pre-commit-hooks/) for setup instructions.
+Each ADR can have a companion `.rules.ts` file that exports automated checks. See the [writing rules guide](https://cli.archgate.dev/guides/writing-rules/) for examples and the full [rule API reference](https://cli.archgate.dev/reference/rule-api/).
 
 ## Supercharge with AI plugins
 
