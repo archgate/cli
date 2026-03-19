@@ -1,0 +1,3 @@
+# Install script redirects
+/install-unix https://raw.githubusercontent.com/archgate/cli/main/install.sh 302
+/install-windows https://raw.githubusercontent.com/archgate/cli/main/install.ps1 302

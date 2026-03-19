@@ -42,10 +42,13 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+curl -fsSL https://cli.archgate.dev/install-unix | sh
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
+irm https://cli.archgate.dev/install-windows | iex
+
+# Windows (Git Bash / MSYS2)
+curl -fsSL https://cli.archgate.dev/install-unix | sh
 ```
 
 **Via npm** (or any Node.js package manager):
@@ -77,7 +80,7 @@ npx archgate check         # run via package manager
 
 ```bash
 # 1. Install
-curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh  # or: npm install -g archgate
+curl -fsSL https://cli.archgate.dev/install-unix | sh  # or: npm install -g archgate
 
 # 2. Initialize governance in your project
 cd my-project
