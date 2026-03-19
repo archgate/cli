@@ -254,13 +254,12 @@ setup_path() {
   echo ""
 
   # Prompt requires /dev/tty — available even when stdin is piped (curl | sh).
-  # Test with an actual open, not just -r, because CI runners may report it as
-  # readable yet fail to open it (no controlling terminal).
-  if ! exec 3</dev/tty 2>/dev/null; then
+  # Use a subshell to test the actual open, because -r may pass on CI runners
+  # that have /dev/tty present but no controlling terminal.
+  if ! (exec </dev/tty) 2>/dev/null; then
     echo "No TTY available. To add archgate to your PATH manually, add the lines above to your shell profile."
     return
   fi
-  exec 3<&-
 
   printf "Update these files now? [Y/n] "
   if ! read -r answer </dev/tty 2>/dev/null; then
