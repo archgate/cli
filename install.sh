@@ -28,7 +28,7 @@ detect_platform() {
     x86_64|amd64)  arch="x64" ;;
     *)
       echo "Error: unsupported architecture: $arch" >&2
-      echo "archgate supports arm64 (macOS) and x64 (Linux)." >&2
+      echo "archgate supports arm64 (macOS) and x64 (Linux, Windows)." >&2
       exit 1
       ;;
   esac
