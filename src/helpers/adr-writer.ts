@@ -113,21 +113,19 @@ export async function findAdrFileById(
 
   const files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
 
-  for (const file of files) {
-    const filePath = join(adrsDir, file);
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- sequential file search
-      const content = await Bun.file(filePath).text();
-      const adr = parseAdr(content, filePath);
-      if (adr.frontmatter.id === id) {
-        return adr;
+  const results = await Promise.all(
+    files.map(async (file) => {
+      const filePath = join(adrsDir, file);
+      try {
+        const content = await Bun.file(filePath).text();
+        return parseAdr(content, filePath);
+      } catch {
+        return null;
       }
-    } catch {
-      // Skip unparseable files
-    }
-  }
+    })
+  );
 
-  return null;
+  return results.find((adr) => adr?.frontmatter.id === id) ?? null;
 }
 
 export interface UpdateAdrResult {
