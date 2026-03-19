@@ -13,9 +13,14 @@ curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
 
 # Windows (PowerShell)
 irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
+
+# Windows (Git Bash / MSYS2)
+curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
 ```
 
 Isso baixa um binário pré-compilado para sua plataforma e instala em `~/.archgate/bin/`. O instalador detecta os perfis do seu shell e oferece adicionar o diretório ao seu PATH.
+
+No Windows, o instalador PowerShell também detecta perfis de shell do Git Bash (`.bashrc`, `.bash_profile`, `.profile`) e oferece configurar o PATH neles.
 
 Você pode personalizar a instalação com variáveis de ambiente:
 
