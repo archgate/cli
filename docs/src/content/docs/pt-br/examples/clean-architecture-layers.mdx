@@ -1,0 +1,128 @@
+---
+title: clean-architecture-layers
+description: Garanta a direção das dependências em clean architecture impedindo que camadas internas referenciem camadas externas.
+---
+
+Garanta a direção das dependências em clean architecture — camadas internas não devem referenciar camadas externas.
+
+## Detalhes da regra
+
+Clean architecture determina que as dependências apontem para dentro: API → Application → Domain. A camada Domain não deve ter dependências externas, a camada Application não deve referenciar Infrastructure diretamente, e nenhuma camada inferior deve referenciar o projeto API. Esta regra verifica diretivas `using` (C#) ou declarações `import` para garantir essas fronteiras.
+
+O mesmo padrão se aplica a qualquer arquitetura em camadas em qualquer linguagem — ajuste os padrões de import e os caminhos das camadas conforme necessário.
+
+## Exemplos de código **incorreto**
+
+```csharp title="Domain/Entities/User.cs"
+using Microsoft.EntityFrameworkCore;        // ✗ Domain → Infrastructure
+using StavangerChallenge.Infrastructure;    // ✗ Domain → Infrastructure
+```
+
+```csharp title="Application/Services/UserService.cs"
+using StavangerChallenge.Infrastructure;    // ✗ Application → Infrastructure
+using StavangerChallenge.API;               // ✗ Application → API
+```
+
+## Exemplos de código **correto**
+
+```csharp title="Domain/Entities/User.cs"
+namespace StavangerChallenge.Domain.Entities;
+// No external dependencies — pure domain logic
+```
+
+```csharp title="Application/Services/UserService.cs"
+using StavangerChallenge.Domain.Entities;   // ✓ Application → Domain
+// Uses IRepository<T> interface, not Infrastructure directly
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-infrastructure-in-domain": {
+      description:
+        "Domain layer must not reference Infrastructure or ORM packages",
+      async check(ctx) {
+        const domainFiles = await ctx.glob("backend/src/**/Domain/**/*.cs");
+        for (const file of domainFiles) {
+          const matches = await ctx.grep(
+            file,
+            /using\s+(Microsoft\.EntityFrameworkCore|MyApp\.Infrastructure)/
+          );
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Domain must not reference Infrastructure: "${match.content.trim()}"`,
+              file: match.file,
+              line: match.line,
+              fix: "Remove this using directive. Domain entities should have zero external dependencies.",
+            });
+          }
+        }
+      },
+    },
+    "no-infrastructure-in-application": {
+      description:
+        "Application layer must not reference Infrastructure directly",
+      async check(ctx) {
+        const appFiles = await ctx.glob("backend/src/**/Application/**/*.cs");
+        for (const file of appFiles) {
+          const matches = await ctx.grep(file, /using\s+MyApp\.Infrastructure/);
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Application must not reference Infrastructure: "${match.content.trim()}"`,
+              file: match.file,
+              line: match.line,
+              fix: "Define an interface in Application and implement it in Infrastructure.",
+            });
+          }
+        }
+      },
+    },
+    "no-upward-api-references": {
+      description: "No layer should reference the API project",
+      async check(ctx) {
+        const lowerLayerPatterns = [
+          "backend/src/**/Domain/**/*.cs",
+          "backend/src/**/Application/**/*.cs",
+          "backend/src/**/Infrastructure/**/*.cs",
+        ];
+        for (const pattern of lowerLayerPatterns) {
+          const files = await ctx.glob(pattern);
+          for (const file of files) {
+            const matches = await ctx.grep(file, /using\s+MyApp\.API/);
+            for (const match of matches) {
+              ctx.report.violation({
+                message: `Lower layers must not reference the API project: "${match.content.trim()}"`,
+                file: match.file,
+                line: match.line,
+                fix: "Dependencies flow inward: API → Application → Domain.",
+              });
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Para projetos TypeScript, adapte os padrões:
+
+```typescript
+// Check that domain/ does not import from infrastructure/
+/import\s+.*from\s+["'].*\/infrastructure\//
+
+// Check that no layer imports from api/
+/import\s+.*from\s+["'].*\/api\//
+```
+
+## Quando usar
+
+Quando seu projeto segue clean architecture, arquitetura hexagonal, ou qualquer arquitetura em camadas onde a direção das dependências precisa ser garantida.
+
+## Quando não usar
+
+Quando seu projeto não utiliza uma arquitetura em camadas, ou quando as camadas não estão organizadas em diretórios distintos.

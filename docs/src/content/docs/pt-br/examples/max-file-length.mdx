@@ -1,0 +1,67 @@
+---
+title: max-file-length
+description: Alerta quando arquivos fonte excedem um limite configuravel de linhas para incentivar codigo modular.
+---
+
+Alerta quando arquivos fonte excedem um limite de linhas.
+
+## Detalhes da regra
+
+Arquivos grandes são mais difíceis de navegar, revisar e testar. Esta regra conta as linhas de cada arquivo no escopo e reporta um warning quando a contagem excede um máximo configurável. Usar severidade `warning` mantém o CI verde enquanto evidencia arquivos que devem ser refatorados.
+
+## Exemplos de código **incorreto**
+
+Um arquivo com 450 linhas quando o limite é 300:
+
+```
+src/engine/runner.ts (450 lines)
+```
+
+## Exemplos de código **correto**
+
+A mesma lógica dividida em módulos focados:
+
+```
+src/engine/runner.ts     (120 lines)
+src/engine/loader.ts     (95 lines)
+src/engine/reporter.ts   (85 lines)
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const MAX_LINES = 300;
+
+export default {
+  rules: {
+    "max-file-length": {
+      description: `Source files should not exceed ${MAX_LINES} lines`,
+      severity: "warning",
+      async check(ctx) {
+        const checks = ctx.scopedFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+          if (lineCount > MAX_LINES) {
+            ctx.report.warning({
+              message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+              file,
+              fix: "Extract related functions into separate modules",
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando você quer uma barreira suave contra arquivos crescendo demais. Ajuste `MAX_LINES` de acordo com a preferência da sua equipe (200-500 é comum).
+
+## Quando não usar
+
+Quando alguns arquivos são legitimamente grandes (código gerado, suítes de teste com muitos casos), ou quando você prefere outras métricas de complexidade como complexidade ciclomática.

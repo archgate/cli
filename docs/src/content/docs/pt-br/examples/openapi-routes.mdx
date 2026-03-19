@@ -1,0 +1,108 @@
+---
+title: openapi-routes
+description: Garanta que todos os arquivos de rotas do backend utilizem definições de rotas tipadas com OpenAPI em vez de handlers HTTP brutos.
+---
+
+Garanta que todos os arquivos de rotas do backend utilizem definições de rotas tipadas com OpenAPI.
+
+## Detalhes da regra
+
+Quando um framework backend suporta integração com OpenAPI (ex.: `@hono/zod-openapi`), handlers HTTP brutos (`.get()`, `.post()`) ignoram a validação de schema e a geração automática de documentação. Esta regra verifica se os arquivos de rota importam a integração com OpenAPI e utilizam `.openapi()` em vez de métodos brutos.
+
+## Exemplos de código **incorreto**
+
+```typescript title="packages/backend/src/routes/users.ts"
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.get("/users", async (c) => {
+  // No OpenAPI schema, no auto-generated docs
+  return c.json(await getUsers());
+});
+```
+
+## Exemplos de código **correto**
+
+```typescript title="packages/backend/src/routes/users.ts"
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+
+const route = createRoute({
+  method: "get",
+  path: "/users",
+  responses: {
+    200: {
+      content: { "application/json": { schema: UserListSchema } },
+      description: "List of users",
+    },
+  },
+});
+
+app.openapi(route, async (c) => {
+  return c.json(await getUsers());
+});
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "openapi-route-completeness": {
+      description:
+        "All backend routes must use @hono/zod-openapi, not raw HTTP methods",
+      async check(ctx) {
+        const routeFiles = await ctx.glob("packages/backend/src/routes/*.ts");
+
+        for (const file of routeFiles) {
+          if (file.includes(".test.") || file.includes(".spec.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          const importsOpenApi = /from\s+["']@hono\/zod-openapi["']/.test(
+            content
+          );
+          const hasRawMethods = /\.(?:get|post|put|delete|patch)\s*\(/.test(
+            content
+          );
+          const hasOpenApiCalls = /\.openapi\s*\(/.test(content);
+
+          if (!importsOpenApi && hasRawMethods) {
+            ctx.report.violation({
+              message: `Route file uses raw HTTP methods without importing @hono/zod-openapi`,
+              file,
+              fix: "Import from @hono/zod-openapi and use .openapi() instead of raw .get()/.post()",
+            });
+          }
+
+          if (importsOpenApi && hasRawMethods && !hasOpenApiCalls) {
+            ctx.report.violation({
+              message: `Route file imports @hono/zod-openapi but uses raw HTTP methods instead of .openapi()`,
+              file,
+              fix: "Replace raw .get()/.post() calls with .openapi() route definitions",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando seu framework backend suporta integração com OpenAPI e você deseja garantir que todas as rotas sejam documentadas e validadas por schema. Adapte o padrão de import e a detecção de métodos para o seu framework:
+
+```typescript
+// For Express with express-openapi-validator
+/from\s+["']express-openapi-validator["']/
+
+// For Fastify with @fastify/swagger
+/from\s+["']@fastify\/swagger["']/
+```
+
+## Quando não usar
+
+Quando nem todas as rotas precisam de documentação OpenAPI (ex.: health checks internos, endpoints de métricas), ou quando as especificações OpenAPI são mantidas separadamente do código das rotas.

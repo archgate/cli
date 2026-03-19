@@ -1,0 +1,61 @@
+---
+title: no-todo-comments
+description: Flag TODO, FIXME, HACK, and XXX comments to ensure they are resolved before merging.
+---
+
+Flag `TODO`, `FIXME`, `HACK`, and `XXX` comments so they are resolved before merging.
+
+## Rule details
+
+TODO comments are useful during development but should not accumulate in the main branch. This rule uses `ctx.grepFiles` to scan all source files for common task-marker comments. It uses `warning` severity so it does not block CI, but makes the comments visible in every check run.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/git.ts"
+// TODO: handle merge conflicts
+// FIXME: this breaks on Windows
+// HACK: workaround for upstream bug
+// XXX: revisit this logic
+```
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/git.ts"
+// Proper implementation with no deferred work
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-todo-comments": {
+      description: "TODO and FIXME comments should be resolved before merging",
+      severity: "warning",
+      async check(ctx) {
+        const matches = await ctx.grepFiles(
+          /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
+          "src/**/*.ts"
+        );
+        for (const match of matches) {
+          ctx.report.warning({
+            message: `${match.content.trim()} — resolve before merging`,
+            file: match.file,
+            line: match.line,
+          });
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When you want visibility into deferred work and want to prevent TODO comments from accumulating over time. Change severity to `"error"` and use `ctx.report.violation()` to make it a hard blocker.
+
+## When not to use it
+
+When TODO comments are intentional documentation (e.g., tracked by a separate tool that creates issues from TODO comments).

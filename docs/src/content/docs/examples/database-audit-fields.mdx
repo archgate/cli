@@ -1,0 +1,117 @@
+---
+title: database-audit-fields
+description: Ensure all database tables include required audit columns like created_at and updated_at for traceability.
+---
+
+Ensure all database tables include required audit columns.
+
+## Rule details
+
+Audit fields (`created_at`, `updated_at`) are essential for debugging, data governance, and sync protocols. This rule parses schema files to find table definitions, extracts each table's column block using brace-depth tracking, and checks for the presence of required columns. It works with any ORM that defines tables as function calls with object arguments (Drizzle, Prisma schema-in-code, etc.).
+
+## Examples of **incorrect** code
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  // Missing created_at and updated_at
+});
+```
+
+## Examples of **correct** code
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  created_at: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updated_at: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "audit-fields": {
+      description:
+        "All database tables must have created_at and updated_at columns",
+      async check(ctx) {
+        const schemaFiles = await ctx.glob("packages/**/src/schema.ts");
+        const TABLE_PATTERN = /sqliteTable\s*\(\s*["']([^"']+)["']/g;
+
+        for (const file of schemaFiles) {
+          const content = await ctx.readFile(file);
+          let match;
+
+          while ((match = TABLE_PATTERN.exec(content)) !== null) {
+            const tableName = match[1];
+            const tableStart = match.index;
+
+            // Extract the table's column block using brace-depth tracking
+            const afterMatch = content.slice(tableStart);
+            const firstBrace = afterMatch.indexOf("{");
+            if (firstBrace === -1) continue;
+
+            let depth = 0;
+            let tableEnd = tableStart + firstBrace;
+            for (let i = firstBrace; i < afterMatch.length; i++) {
+              if (afterMatch[i] === "{") depth++;
+              else if (afterMatch[i] === "}") {
+                depth--;
+                if (depth === 0) {
+                  tableEnd = tableStart + i;
+                  break;
+                }
+              }
+            }
+
+            const tableBlock = content.slice(tableStart, tableEnd + 1);
+
+            if (!tableBlock.includes('"created_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "created_at" column`,
+                file,
+                fix: 'Add created_at: text("created_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+            if (!tableBlock.includes('"updated_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "updated_at" column`,
+                file,
+                fix: 'Add updated_at: text("updated_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your data model requires consistent audit fields for traceability, debugging, or compliance. Adapt the `TABLE_PATTERN` regex and column names for your ORM:
+
+```typescript
+// For Drizzle with PostgreSQL
+const TABLE_PATTERN = /pgTable\s*\(\s*["']([^"']+)["']/g;
+
+// For Prisma-style definitions
+const TABLE_PATTERN = /model\s+(\w+)\s*\{/g;
+```
+
+## When not to use it
+
+When some tables intentionally omit audit fields (e.g., join tables, materialized views), or when audit fields are added automatically at the database level via triggers.

@@ -1,0 +1,83 @@
+---
+title: no-banned-imports
+description: Prevent usage of banned libraries and enforce recommended alternatives using a data-driven pattern list.
+---
+
+Prevent usage of banned libraries and enforce recommended alternatives.
+
+## Rule details
+
+Teams often ban heavy or deprecated libraries in favor of lighter or native alternatives. This rule uses a data-driven configuration — an array of objects specifying the regex pattern, the library name, and the recommended alternative. Adding a new ban is a one-line change.
+
+## Examples of **incorrect** code
+
+```typescript title="src/utils/date.ts"
+import { format } from "moment";
+```
+
+```typescript title="src/api/client.ts"
+import axios from "axios";
+```
+
+## Examples of **correct** code
+
+```typescript title="src/utils/date.ts"
+import { format } from "date-fns";
+```
+
+```typescript title="src/api/client.ts"
+const response = await fetch("/api/data");
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const BANNED_IMPORTS = [
+  {
+    pattern: /from\s+['"]lodash['"]/,
+    name: "lodash",
+    alternative: "native array methods",
+  },
+  {
+    pattern: /from\s+['"]moment['"]/,
+    name: "moment",
+    alternative: "Temporal API or date-fns",
+  },
+  {
+    pattern: /from\s+['"]axios['"]/,
+    name: "axios",
+    alternative: "native fetch()",
+  },
+];
+
+export default {
+  rules: {
+    "no-banned-imports": {
+      description: "Prevent usage of banned libraries",
+      async check(ctx) {
+        for (const banned of BANNED_IMPORTS) {
+          const matches = await ctx.grepFiles(banned.pattern, "src/**/*.ts");
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Banned import: "${banned.name}" is not allowed. Use ${banned.alternative} instead.`,
+              file: match.file,
+              line: match.line,
+              fix: `Replace ${banned.name} with ${banned.alternative}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your team has standardized on specific libraries and wants to prevent drift toward alternatives. Common bans include lodash (native methods), moment (date-fns or Temporal), and axios (native fetch).
+
+## When not to use it
+
+When your project has no preference between libraries, or when the banned library is still in active migration and some usage is expected temporarily.

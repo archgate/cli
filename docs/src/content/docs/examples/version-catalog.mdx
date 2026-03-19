@@ -1,0 +1,143 @@
+---
+title: version-catalog
+description: Enforce centralized version management in monorepos by requiring catalog or workspace notation for all dependencies.
+---
+
+Enforce centralized version management in monorepos by requiring `catalog:` or `workspace:` notation for all dependencies.
+
+## Rule details
+
+In monorepos with many packages, duplicating version strings across `package.json` files leads to version drift and upgrade pain. This rule ensures every dependency reference uses `catalog:` (resolved from a central catalog in the root `package.json`) or `workspace:` (for internal packages), never a raw semver string.
+
+The rule has two checks: `catalog-usage` verifies all dependencies use the correct notation, and `catalog-completeness` verifies that every `catalog:` reference resolves to an actual entry in the root catalog.
+
+## Examples of **incorrect** code
+
+```json title="packages/api/package.json"
+{ "dependencies": { "zod": "^3.23.0", "hono": "^4.0.0" } }
+```
+
+Raw semver strings bypass the central catalog and will diverge across packages.
+
+## Examples of **correct** code
+
+```json title="packages/api/package.json"
+{
+  "dependencies": {
+    "zod": "catalog:",
+    "hono": "catalog:",
+    "@myorg/shared": "workspace:*"
+  }
+}
+```
+
+```json title="package.json (root)"
+{ "catalog": { "zod": "^3.23.0", "hono": "^4.0.0" } }
+```
+
+All versions are managed centrally. Upgrading `zod` requires changing only the root catalog.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "catalog-usage": {
+      description:
+        'All workspace dependencies must use "catalog:" or "workspace:" notation',
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as Record<string, unknown>;
+          for (const depType of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+          ]) {
+            const deps = pkg[depType] as Record<string, string> | undefined;
+            if (!deps) continue;
+
+            for (const [name, version] of Object.entries(deps)) {
+              if (
+                typeof version === "string" &&
+                !version.startsWith("catalog:") &&
+                !version.startsWith("workspace:")
+              ) {
+                ctx.report.violation({
+                  message: `${file}: ${depType}.${name} uses "${version}" instead of "catalog:" or "workspace:"`,
+                  file,
+                  fix: `Change to "catalog:" and ensure the package is listed in root package.json catalog`,
+                });
+              }
+            }
+          }
+        }
+      },
+    },
+    "catalog-completeness": {
+      description:
+        "All catalog: references must resolve to entries in root package.json catalog",
+      async check(ctx) {
+        const rootPkg = (await ctx.readJSON("package.json")) as Record<
+          string,
+          unknown
+        >;
+        const catalog = (rootPkg.catalog ?? {}) as Record<string, string>;
+        const catalogKeys = new Set(Object.keys(catalog));
+
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as Record<string, unknown>;
+          for (const depType of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+          ]) {
+            const deps = pkg[depType] as Record<string, string> | undefined;
+            if (!deps) continue;
+
+            for (const [name, version] of Object.entries(deps)) {
+              if (
+                typeof version !== "string" ||
+                !version.startsWith("catalog:")
+              )
+                continue;
+
+              const catalogRef =
+                version === "catalog:"
+                  ? name
+                  : version.slice("catalog:".length);
+
+              if (!catalogKeys.has(catalogRef)) {
+                ctx.report.violation({
+                  message: `${file}: ${depType}.${name} references catalog:${catalogRef} but it is not in root catalog`,
+                  file,
+                  fix: `Add "${catalogRef}" to the catalog section in the root package.json`,
+                });
+              }
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+In monorepos where multiple packages share dependencies and you want a single source of truth for versions (e.g., Bun workspaces with catalog support, or similar setups).
+
+## When not to use it
+
+In single-package repositories or monorepos that use a different version management strategy like Renovate's group updates.

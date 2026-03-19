@@ -1,0 +1,117 @@
+---
+title: page-component-constraints
+description: Enforce that page components are thin layout wrappers by limiting their size and banning data-fetching hooks.
+---
+
+Enforce that page components are thin layout wrappers — small in size and free of data-fetching logic.
+
+## Rule details
+
+In frontend architectures that separate routing from logic, page components should only compose layout and delegate data-fetching to Connected components. This rule enforces two constraints in a single rules file:
+
+1. **Size limit** — Page components must stay under a configurable line count (default: 75 lines).
+2. **No data hooks** — Page components must not use `useState`, `useQuery`, `useMutation`, or other data-fetching hooks directly.
+
+## Examples of **incorrect** code
+
+```tsx title="src/pages/DashboardPage.tsx"
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+export default function DashboardPage() {
+  const [filter, setFilter] = useState(""); // ✗ state hook
+  const { data } = useQuery({ queryKey: ["dashboard"] }); // ✗ data hook
+  // ... 120 lines of layout + logic
+}
+```
+
+## Examples of **correct** code
+
+```tsx title="src/pages/DashboardPage.tsx"
+import { DashboardConnected } from "../components/DashboardConnected";
+import { Sidebar } from "../components/Sidebar";
+
+export default function DashboardPage() {
+  return (
+    <div className="flex">
+      <Sidebar />
+      <DashboardConnected />
+    </div>
+  );
+}
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const PAGE_MAX_LINES = 75;
+
+export default {
+  rules: {
+    "page-max-lines": {
+      description: `Page components must be under ${PAGE_MAX_LINES} lines`,
+      async check(ctx) {
+        const pageFiles = await ctx.glob("src/pages/*Page.tsx");
+
+        for (const file of pageFiles) {
+          if (file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+
+          if (lineCount > PAGE_MAX_LINES) {
+            ctx.report.violation({
+              message: `Page component has ${lineCount} lines (max ${PAGE_MAX_LINES}). Extract logic to Connected components.`,
+              file,
+              fix: "Move data-fetching and business logic to Connected components",
+            });
+          }
+        }
+      },
+    },
+    "page-no-data-hooks": {
+      description: "Page components must not use data-fetching or state hooks",
+      async check(ctx) {
+        const pageFiles = await ctx.glob("src/pages/*Page.tsx");
+
+        const FORBIDDEN_HOOKS =
+          /\b(useState|useForm|useQuery|useMutation|useSuspenseQuery|useInfiniteQuery)\s*[<(]/g;
+
+        const ALLOWED_HOOKS = new Set([
+          "useParams",
+          "useNavigate",
+          "useRouter",
+          "useMatch",
+          "useLocation",
+          "useSearch",
+        ]);
+
+        for (const file of pageFiles) {
+          if (file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          let match;
+          while ((match = FORBIDDEN_HOOKS.exec(content)) !== null) {
+            ctx.report.violation({
+              message: `Page component uses "${match[1]}" hook. Extract to a Connected component.`,
+              file,
+              fix: `Move the "${match[1]}" hook to a Connected component`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your frontend architecture follows the page/container/presentational pattern and you want to enforce that pages remain thin routing endpoints. Adjust `PAGE_MAX_LINES` and the hook lists for your framework.
+
+## When not to use it
+
+When pages are expected to contain logic (e.g., in Next.js server components where data fetching in the page is idiomatic), or when your project does not follow this architectural pattern.

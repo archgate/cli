@@ -1,0 +1,82 @@
+---
+title: kebab-case-filenames
+description: Impoe convencoes consistentes de nomenclatura de arquivos em diretorios de codigo-fonte usando validacao por regex.
+---
+
+Impoe convencoes consistentes de nomenclatura de arquivos em diretorios de codigo-fonte.
+
+## Detalhes da regra
+
+Nomenclatura inconsistente de arquivos (misturando `camelCase`, `PascalCase`, `snake_case` e `kebab-case`) torna os arquivos mais dificeis de encontrar e causa problemas de sensibilidade a maiusculas e minusculas entre sistemas operacionais. Esta regra valida cada nome de arquivo no escopo contra um padrao regex e sugere correcoes.
+
+## Exemplos de codigo **incorreto**
+
+```
+src/
+  helpers/
+    pathUtils.ts        ← camelCase
+    Git_Helper.ts       ← PascalCase + snake_case
+    ADRWriter.ts        ← PascalCase
+```
+
+## Exemplos de codigo **correto**
+
+```
+src/
+  helpers/
+    path-utils.ts
+    git-helper.ts
+    adr-writer.ts
+```
+
+## Implementacao da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+import { basename } from "node:path";
+
+const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
+
+export default {
+  rules: {
+    "kebab-case-filenames": {
+      description: "Source files must use kebab-case naming",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const name = basename(file);
+
+          // Skip test files and type declaration files
+          if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
+
+          if (!KEBAB_CASE.test(name)) {
+            ctx.report.violation({
+              message: `File "${name}" does not follow kebab-case naming convention`,
+              file,
+              fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando sua equipe padronizou uma convencao de nomenclatura e deseja aplica-la automaticamente. Adapte o regex para sua convencao:
+
+```typescript
+// PascalCase (React components)
+const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*\.(ts|tsx)$/;
+
+// camelCase
+const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
+
+// snake_case (Python-style)
+const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
+```
+
+## Quando nao usar
+
+Quando seu projeto intencionalmente mistura convencoes de nomenclatura (ex.: PascalCase para componentes React e kebab-case para utilitarios), ou ao migrar uma base de codigo legada onde renomeacoes em massa nao sao viaveis.

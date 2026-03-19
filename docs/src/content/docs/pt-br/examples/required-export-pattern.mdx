@@ -1,0 +1,82 @@
+---
+title: required-export-pattern
+description: Verifique que arquivos em um diretório específico exportam uma assinatura de função obrigatória para garantir estrutura de módulos consistente.
+---
+
+Verifique que arquivos em um diretório específico exportam uma assinatura de função obrigatória.
+
+## Detalhes da regra
+
+Arquiteturas baseadas em convenção (arquivos de comandos CLI, handlers de rotas, módulos de plugins) frequentemente exigem que cada arquivo exporte uma função com um padrão de nomenclatura específico. Esta regra verifica os arquivos do escopo em busca de um export obrigatório e reporta qualquer arquivo que não corresponda ao padrão. Utiliza `Promise.all()` para verificar arquivos em paralelo, melhorando a performance.
+
+## Exemplos de código **incorreto**
+
+```typescript title="src/commands/deploy.ts"
+// Missing the required register*Command export
+export function deploy() {
+  // ...
+}
+```
+
+## Exemplos de código **correto**
+
+```typescript title="src/commands/deploy.ts"
+import type { Command } from "commander";
+
+export function registerDeployCommand(program: Command) {
+  program
+    .command("deploy")
+    .description("Deploy the application")
+    .action(() => {
+      // ...
+    });
+}
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "register-function-export": {
+      description: "Command files must export a register*Command function",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+        const checks = files.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (!/export\s+function\s+register\w+Command/.test(content)) {
+            ctx.report.violation({
+              message: "Command file must export a register*Command function",
+              file,
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Adapte o padrão para outras convenções:
+
+```typescript
+// Express/Hono route handlers
+/export\s+default\s+.*Router/
+
+// React page components
+/export\s+default\s+function\s+\w+Page/
+
+// Plugin modules
+/export\s+const\s+plugin\s*[:=]/
+```
+
+## Quando usar
+
+Quando sua arquitetura exige um padrão de export específico de arquivos em um diretório. Combine esta regra com o campo `files` do frontmatter do ADR para delimitar o escopo ao diretório correto.
+
+## Quando não usar
+
+Quando o diretório contém tipos de arquivos mistos que não precisam seguir o mesmo padrão de export.

@@ -1,0 +1,110 @@
+---
+title: no-banned-api
+description: Ban specific runtime APIs that cause cross-platform or reliability issues and enforce safe alternatives.
+---
+
+Ban specific runtime APIs that cause cross-platform or reliability issues.
+
+## Rule details
+
+Some APIs work correctly on one platform but fail on another. For example, Bun's shell API (`Bun.$`) hangs on Windows due to pipe deadlocks. This rule detects multiple variants of a banned API — the direct call, the import, and destructured usage — ensuring no form slips through.
+
+This pattern generalizes to any API you want to ban while allowing a safe alternative.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/git.ts"
+// Direct usage
+const result = await Bun.$`git status`;
+
+// Import
+import { $ } from "bun";
+
+// Destructured usage
+const output = await $`ls -la`;
+```
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/git.ts"
+const proc = Bun.spawn(["git", "status"], { stdout: "pipe", stderr: "pipe" });
+const output = await new Response(proc.stdout).text();
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-bun-shell": {
+      description:
+        "Subprocess execution must use Bun.spawn, not Bun.$ (shell hangs on Windows)",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+
+        // Variant 1: Bun.$` template literal
+        const bunShellMatches = await Promise.all(
+          files.map((file) => ctx.grep(file, /Bun\.\$`/))
+        );
+        for (const fileMatches of bunShellMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not use Bun.$ template literals — they hang on Windows. Use Bun.spawn instead.",
+              file: m.file,
+              line: m.line,
+              fix: "Replace Bun.$`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
+            });
+          }
+        }
+
+        // Variant 2: import { $ } from "bun"
+        const dollarImportMatches = await Promise.all(
+          files.map((file) =>
+            ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/)
+          )
+        );
+        for (const fileMatches of dollarImportMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                'Do not import $ from "bun" — the shell API hangs on Windows. Use Bun.spawn instead.',
+              file: m.file,
+              line: m.line,
+              fix: "Remove the $ import and replace shell calls with Bun.spawn",
+            });
+          }
+        }
+
+        // Variant 3: await $` (destructured)
+        const destructuredMatches = await Promise.all(
+          files.map((file) => ctx.grep(file, /await\s+\$`/))
+        );
+        for (const fileMatches of destructuredMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not use $` template literals — they hang on Windows. Use Bun.spawn instead.",
+              file: m.file,
+              line: m.line,
+              fix: "Replace $`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your project must run on multiple platforms and a specific API is known to fail on one of them. Also useful for banning deprecated APIs with known reliability issues.
+
+## When not to use it
+
+When your project targets a single platform and the banned API works reliably there.

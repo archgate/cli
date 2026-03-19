@@ -1,0 +1,117 @@
+---
+title: page-component-constraints
+description: Garanta que componentes de página sejam wrappers finos de layout limitando seu tamanho e proibindo hooks de busca de dados.
+---
+
+Garanta que componentes de página sejam wrappers finos de layout — pequenos em tamanho e livres de lógica de busca de dados.
+
+## Detalhes da regra
+
+Em arquiteturas frontend que separam roteamento de lógica, componentes de página devem apenas compor o layout e delegar a busca de dados para componentes Connected. Esta regra aplica duas restrições em um único arquivo de regras:
+
+1. **Limite de tamanho** — Componentes de página devem ter menos de um número configurável de linhas (padrão: 75 linhas).
+2. **Sem hooks de dados** — Componentes de página não devem usar `useState`, `useQuery`, `useMutation` ou outros hooks de busca de dados diretamente.
+
+## Exemplos de código **incorreto**
+
+```tsx title="src/pages/DashboardPage.tsx"
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+export default function DashboardPage() {
+  const [filter, setFilter] = useState(""); // ✗ state hook
+  const { data } = useQuery({ queryKey: ["dashboard"] }); // ✗ data hook
+  // ... 120 lines of layout + logic
+}
+```
+
+## Exemplos de código **correto**
+
+```tsx title="src/pages/DashboardPage.tsx"
+import { DashboardConnected } from "../components/DashboardConnected";
+import { Sidebar } from "../components/Sidebar";
+
+export default function DashboardPage() {
+  return (
+    <div className="flex">
+      <Sidebar />
+      <DashboardConnected />
+    </div>
+  );
+}
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const PAGE_MAX_LINES = 75;
+
+export default {
+  rules: {
+    "page-max-lines": {
+      description: `Page components must be under ${PAGE_MAX_LINES} lines`,
+      async check(ctx) {
+        const pageFiles = await ctx.glob("src/pages/*Page.tsx");
+
+        for (const file of pageFiles) {
+          if (file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+
+          if (lineCount > PAGE_MAX_LINES) {
+            ctx.report.violation({
+              message: `Page component has ${lineCount} lines (max ${PAGE_MAX_LINES}). Extract logic to Connected components.`,
+              file,
+              fix: "Move data-fetching and business logic to Connected components",
+            });
+          }
+        }
+      },
+    },
+    "page-no-data-hooks": {
+      description: "Page components must not use data-fetching or state hooks",
+      async check(ctx) {
+        const pageFiles = await ctx.glob("src/pages/*Page.tsx");
+
+        const FORBIDDEN_HOOKS =
+          /\b(useState|useForm|useQuery|useMutation|useSuspenseQuery|useInfiniteQuery)\s*[<(]/g;
+
+        const ALLOWED_HOOKS = new Set([
+          "useParams",
+          "useNavigate",
+          "useRouter",
+          "useMatch",
+          "useLocation",
+          "useSearch",
+        ]);
+
+        for (const file of pageFiles) {
+          if (file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          let match;
+          while ((match = FORBIDDEN_HOOKS.exec(content)) !== null) {
+            ctx.report.violation({
+              message: `Page component uses "${match[1]}" hook. Extract to a Connected component.`,
+              file,
+              fix: `Move the "${match[1]}" hook to a Connected component`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando sua arquitetura frontend segue o padrão page/container/presentational e você deseja garantir que as páginas permaneçam como endpoints finos de roteamento. Ajuste `PAGE_MAX_LINES` e as listas de hooks para o seu framework.
+
+## Quando não usar
+
+Quando se espera que as páginas contenham lógica (ex.: em server components do Next.js onde a busca de dados na página é idiomática), ou quando seu projeto não segue esse padrão arquitetural.

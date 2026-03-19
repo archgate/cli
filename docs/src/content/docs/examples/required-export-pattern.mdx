@@ -1,0 +1,82 @@
+---
+title: required-export-pattern
+description: Verify that files in a specific directory export a required function signature to enforce consistent module structure.
+---
+
+Verify that files in a specific directory export a required function signature.
+
+## Rule details
+
+Convention-based architectures (CLI command files, route handlers, plugin modules) often require each file to export a function with a specific naming pattern. This rule scans scoped files for a required export and reports any file that does not match. It uses `Promise.all()` to check files in parallel for performance.
+
+## Examples of **incorrect** code
+
+```typescript title="src/commands/deploy.ts"
+// Missing the required register*Command export
+export function deploy() {
+  // ...
+}
+```
+
+## Examples of **correct** code
+
+```typescript title="src/commands/deploy.ts"
+import type { Command } from "commander";
+
+export function registerDeployCommand(program: Command) {
+  program
+    .command("deploy")
+    .description("Deploy the application")
+    .action(() => {
+      // ...
+    });
+}
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "register-function-export": {
+      description: "Command files must export a register*Command function",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+        const checks = files.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (!/export\s+function\s+register\w+Command/.test(content)) {
+            ctx.report.violation({
+              message: "Command file must export a register*Command function",
+              file,
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Adapt the pattern for other conventions:
+
+```typescript
+// Express/Hono route handlers
+/export\s+default\s+.*Router/
+
+// React page components
+/export\s+default\s+function\s+\w+Page/
+
+// Plugin modules
+/export\s+const\s+plugin\s*[:=]/
+```
+
+## When to use it
+
+When your architecture requires a specific export pattern from files in a directory. Pair this with the ADR's `files` frontmatter field to scope it to the right directory.
+
+## When not to use it
+
+When the directory contains mixed file types that do not all need to follow the same export pattern.

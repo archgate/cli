@@ -1,0 +1,106 @@
+---
+title: no-barrel-files
+description: Detect and ban barrel files (index.ts with only re-exports) to enforce direct imports and improve tree-shaking.
+---
+
+Detect and ban barrel files — `index.ts` files that contain only re-exports and no logic.
+
+## Rule details
+
+Barrel files (re-export-only `index.ts`) obscure where code actually lives, hurt tree-shaking, create circular dependency risks, and slow down IDE navigation. This rule uses a custom analysis function to determine whether an `index.ts` file is a pure re-export barrel by inspecting every non-comment, non-blank line.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/index.ts"
+export { logInfo, logError } from "./log";
+export { resolvePaths } from "./paths";
+export type { PathConfig } from "./paths";
+```
+
+A file that only re-exports symbols from other modules is a barrel file.
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/index.ts"
+export { logInfo, logError } from "./log";
+export { resolvePaths } from "./paths";
+
+// This file has its own logic, so it is not a barrel
+export function getHelperVersion(): string {
+  return "1.0.0";
+}
+```
+
+Or better — delete `index.ts` entirely and import directly:
+
+```typescript
+import { logInfo } from "./helpers/log";
+import { resolvePaths } from "./helpers/paths";
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function isBarrelFile(content: string): boolean {
+  const lines = content
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l !== "" &&
+        !l.startsWith("//") &&
+        !l.startsWith("/*") &&
+        !l.startsWith("*")
+    );
+
+  if (lines.length === 0) return false;
+
+  return lines.every(
+    (line) =>
+      line.startsWith("export ") ||
+      line.startsWith("export{") ||
+      line.startsWith("import ") ||
+      line.startsWith("} from") ||
+      line.startsWith("type ") ||
+      /^[A-Za-z_$,\s]+$/.test(line) ||
+      line === "}" ||
+      line === "};"
+  );
+}
+
+export default {
+  rules: {
+    "no-barrel-files": {
+      description: "index.ts files must not be pure re-export barrels",
+      async check(ctx) {
+        const indexFiles = ctx.scopedFiles.filter((f) =>
+          f.endsWith("/index.ts")
+        );
+
+        const checks = indexFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (isBarrelFile(content)) {
+            ctx.report.violation({
+              message: `Barrel file detected: ${file} contains only re-exports and no logic.`,
+              file,
+              fix: "Delete this barrel file and update imports to point directly to the source module",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When you want to enforce direct imports and avoid the indirection that barrel files introduce. Especially valuable in large codebases where barrel files cause slow IDE performance and make dependency graphs harder to reason about.
+
+## When not to use it
+
+When your project intentionally uses barrel files as a public API boundary (e.g., a library that exports a curated API from `index.ts`).

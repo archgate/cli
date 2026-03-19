@@ -1,0 +1,82 @@
+---
+title: test-file-coverage
+description: Verifica que cada arquivo fonte possui um arquivo de teste correspondente para evitar que código sem testes seja mergeado.
+---
+
+Verifica que cada arquivo fonte possui um arquivo de teste correspondente.
+
+## Detalhes da regra
+
+Código sem testes é um risco. Esta regra impõe uma convenção estrutural: para cada arquivo em `src/`, um arquivo `.test.ts` correspondente deve existir em `tests/`. Ela usa `ctx.glob` para descobrir os arquivos de teste existentes, constrói um set de lookup para matching rápido e reporta qualquer arquivo fonte sem correspondência.
+
+## Exemplos de código **incorreto**
+
+```
+src/
+  helpers/
+    log.ts          ← has a test ✓
+    paths.ts        ← no test file ✗
+tests/
+  helpers/
+    log.test.ts
+```
+
+## Exemplos de código **correto**
+
+```
+src/
+  helpers/
+    log.ts
+    paths.ts
+tests/
+  helpers/
+    log.test.ts
+    paths.test.ts
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+import { relative } from "node:path";
+
+export default {
+  rules: {
+    "test-file-exists": {
+      description: "Every source file should have a corresponding test file",
+      severity: "warning",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const rel = relative(ctx.projectRoot, file);
+          const testPath = rel
+            .replace(/^src\//, "tests/")
+            .replace(/\.ts$/, ".test.ts");
+          const testFiles = await ctx.glob(testPath);
+          if (testFiles.length === 0) {
+            ctx.report.warning({
+              message: `No test file found at ${testPath}`,
+              file,
+              fix: `Create a test file at ${testPath}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Para adaptar em projetos que colocam os testes junto aos arquivos fonte:
+
+```typescript
+const testPath = rel.replace(/\.ts$/, ".test.ts");
+// src/helpers/log.ts → src/helpers/log.test.ts
+```
+
+## Quando usar
+
+Quando sua equipe segue a convenção de que todo módulo fonte deve ter um arquivo de teste correspondente, e você quer identificar testes faltando durante o code review.
+
+## Quando não usar
+
+Quando a cobertura de testes é rastreada por outros meios (por exemplo, thresholds de cobertura no CI), ou quando alguns arquivos fonte genuinamente não precisam de testes (arquivos apenas de tipos, constantes).

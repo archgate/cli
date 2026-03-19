@@ -87,8 +87,9 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
   
   
     Archgate governs its own development. The same tool that checks your code
-    checks ours. Six ADRs enforce command structure, error handling, output
-    formatting, testing, and more.
+    checks ours. Our own ADRs enforce command structure, error handling, output
+    formatting, testing, and more — [see them on
+    GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   
 
 ## Editor plugins
@@ -2255,202 +2256,6 @@ ctx.report.violation({
 
 The absolute path to the project root directory. Useful when you need to construct absolute paths.
 
-## Complete worked examples
-
-### Example 1: Dependency allowlist
-
-Check that all production dependencies are on an approved list. This is the rule Archgate uses for its own ARCH-006 dependency policy.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-const APPROVED_DEPS = [
-  "@commander-js/extra-typings",
-  "inquirer",
-  "@modelcontextprotocol/sdk",
-  "zod",
-];
-
-export default {
-  rules: {
-    "no-unapproved-deps": {
-      description: "Production dependencies must be on the approved list",
-      async check(ctx) {
-        let pkg: { dependencies?: Record<string, string> };
-        try {
-          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
-        } catch {
-          return;
-        }
-
-        const deps = Object.keys(pkg.dependencies ?? {});
-        for (const dep of deps) {
-          if (!APPROVED_DEPS.includes(dep)) {
-            ctx.report.violation({
-              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
-              file: "package.json",
-              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-### Example 2: Required export pattern
-
-Verify that every command file exports a `register*Command` function. This is the rule Archgate uses for its own ARCH-001 command structure.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-export default {
-  rules: {
-    "register-function-export": {
-      description: "Command files must export a register*Command function",
-      async check(ctx) {
-        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
-        const checks = files.map(async (file) => {
-          const content = await ctx.readFile(file);
-          if (!/export\s+function\s+register\w+Command/.test(content)) {
-            ctx.report.violation({
-              message: "Command file must export a register*Command function",
-              file,
-            });
-          }
-        });
-        await Promise.all(checks);
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-### Example 3: Banned import pattern
-
-Prevent importing a specific library when native alternatives exist.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-export default {
-  rules: {
-    "no-lodash": {
-      description: "Do not use lodash -- use native array methods instead",
-      async check(ctx) {
-        const matches = await ctx.grepFiles(
-          /import\s+.*from\s+['"]lodash/,
-          "src/**/*.ts"
-        );
-        for (const match of matches) {
-          ctx.report.violation({
-            message: "Do not import lodash. Use native array methods instead.",
-            file: match.file,
-            line: match.line,
-            fix: "Replace lodash usage with native Array.prototype methods",
-          });
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-### Example 4: File naming convention
-
-Enforce kebab-case naming for source files.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-export default {
-  rules: {
-    "kebab-case-files": {
-      description: "Source files must use kebab-case naming",
-      async check(ctx) {
-        for (const file of ctx.scopedFiles) {
-          const name = basename(file).replace(/\.(ts|tsx|js|jsx)$/, "");
-          if (name !== name.toLowerCase() || name.includes("_")) {
-            ctx.report.violation({
-              message: `File name "${basename(file)}" must be kebab-case (lowercase with hyphens)`,
-              file,
-              fix: `Rename to ${name.toLowerCase().replace(/_/g, "-")}`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-### Example 5: Maximum file length
-
-Warn when files exceed a line count threshold.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-const MAX_LINES = 300;
-
-export default {
-  rules: {
-    "max-file-length": {
-      description: `Source files should not exceed ${MAX_LINES} lines`,
-      async check(ctx) {
-        const checks = ctx.scopedFiles.map(async (file) => {
-          const content = await ctx.readFile(file);
-          const lineCount = content.split("\n").length;
-          if (lineCount > MAX_LINES) {
-            ctx.report.warning({
-              message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
-              file,
-              fix: "Extract related functions into separate modules",
-            });
-          }
-        });
-        await Promise.all(checks);
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-### Example 6: Required test coverage
-
-Verify that every source file has a corresponding test file.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-export default {
-  rules: {
-    "test-file-exists": {
-      description: "Every source module must have a corresponding test file",
-      async check(ctx) {
-        const testFiles = await ctx.glob("tests/**/*.test.ts");
-        const testBaseNames = new Set(
-          testFiles.map((f) => basename(f).replace(".test.ts", ""))
-        );
-
-        for (const file of ctx.scopedFiles) {
-          const name = basename(file).replace(/\.ts$/, "");
-          if (!testBaseNames.has(name)) {
-            ctx.report.warning({
-              message: `No test file found for ${basename(file)}`,
-              file,
-              fix: `Create tests/${name}.test.ts`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
 ## Severity levels
 
 Each rule can set a default severity in its configuration. The severity determines how violations are treated:
@@ -2550,7 +2355,7 @@ ARCH-006/no-unapproved-deps
 
 ## Next steps
 
-- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns for dependency checks, naming conventions, import restrictions, and more.
+- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns organized by category: dependency management, import restrictions, file structure, code quality, database schema, and architecture boundaries.
 - [Rule API Reference](/reference/rule-api/) — Full reference for all rule API types and functions.
 - [CI Integration](/guides/ci-integration/) — Wire `archgate check` into your pipeline to enforce rules on every PR.
 
@@ -3777,45 +3582,265 @@ type RuleSet = { rules: Record<string, RuleConfig> };
 
 ---
 
-## Examples: Common Rule Patterns
+## Examples: clean-architecture-layers
 
-Source: https://cli.archgate.dev/examples/common-rule-patterns/
+Source: https://cli.archgate.dev/examples/clean-architecture-layers/
 
-This page provides complete, copy-pasteable rule examples for common governance scenarios. Each pattern includes the full rule code, an explanation of how it works, and guidance on when to use it.
+Enforce dependency direction in clean architecture — inner layers must not reference outer layers.
 
-## Pattern 1: Dependency Allowlist
+## Rule details
 
-**When to use:** Restrict production dependencies to a curated list to prevent dependency bloat and supply-chain risk.
+Clean architecture mandates that dependencies point inward: API → Application → Domain. The Domain layer must have zero external dependencies, the Application layer must not reference Infrastructure directly, and no lower layer should reference the API project. This rule checks `using` directives (C#) or `import` statements to enforce these boundaries.
+
+The same pattern applies to any layered architecture in any language — adjust the import patterns and layer paths accordingly.
+
+## Examples of **incorrect** code
+
+```csharp title="Domain/Entities/User.cs"
+using Microsoft.EntityFrameworkCore;        // ✗ Domain → Infrastructure
+using StavangerChallenge.Infrastructure;    // ✗ Domain → Infrastructure
+```
+
+```csharp title="Application/Services/UserService.cs"
+using StavangerChallenge.Infrastructure;    // ✗ Application → Infrastructure
+using StavangerChallenge.API;               // ✗ Application → API
+```
+
+## Examples of **correct** code
+
+```csharp title="Domain/Entities/User.cs"
+namespace StavangerChallenge.Domain.Entities;
+// No external dependencies — pure domain logic
+```
+
+```csharp title="Application/Services/UserService.cs"
+using StavangerChallenge.Domain.Entities;   // ✓ Application → Domain
+// Uses IRepository<T> interface, not Infrastructure directly
+```
+
+## Rule implementation
 
 ```typescript
 /// <reference path="../rules.d.ts" />
 
-const APPROVED_DEPS = [
-  "@commander-js/extra-typings",
-  "inquirer",
-  "@modelcontextprotocol/sdk",
-  "zod",
-];
+export default {
+  rules: {
+    "no-infrastructure-in-domain": {
+      description:
+        "Domain layer must not reference Infrastructure or ORM packages",
+      async check(ctx) {
+        const domainFiles = await ctx.glob("backend/src/**/Domain/**/*.cs");
+        for (const file of domainFiles) {
+          const matches = await ctx.grep(
+            file,
+            /using\s+(Microsoft\.EntityFrameworkCore|MyApp\.Infrastructure)/
+          );
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Domain must not reference Infrastructure: "${match.content.trim()}"`,
+              file: match.file,
+              line: match.line,
+              fix: "Remove this using directive. Domain entities should have zero external dependencies.",
+            });
+          }
+        }
+      },
+    },
+    "no-infrastructure-in-application": {
+      description:
+        "Application layer must not reference Infrastructure directly",
+      async check(ctx) {
+        const appFiles = await ctx.glob(
+          "backend/src/**/Application/**/*.cs"
+        );
+        for (const file of appFiles) {
+          const matches = await ctx.grep(
+            file,
+            /using\s+MyApp\.Infrastructure/
+          );
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Application must not reference Infrastructure: "${match.content.trim()}"`,
+              file: match.file,
+              line: match.line,
+              fix: "Define an interface in Application and implement it in Infrastructure.",
+            });
+          }
+        }
+      },
+    },
+    "no-upward-api-references": {
+      description: "No layer should reference the API project",
+      async check(ctx) {
+        const lowerLayerPatterns = [
+          "backend/src/**/Domain/**/*.cs",
+          "backend/src/**/Application/**/*.cs",
+          "backend/src/**/Infrastructure/**/*.cs",
+        ];
+        for (const pattern of lowerLayerPatterns) {
+          const files = await ctx.glob(pattern);
+          for (const file of files) {
+            const matches = await ctx.grep(file, /using\s+MyApp\.API/);
+            for (const match of matches) {
+              ctx.report.violation({
+                message: `Lower layers must not reference the API project: "${match.content.trim()}"`,
+                file: match.file,
+                line: match.line,
+                fix: "Dependencies flow inward: API → Application → Domain.",
+              });
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+For TypeScript projects, adapt the patterns:
+
+```typescript
+// Check that domain/ does not import from infrastructure/
+/import\s+.*from\s+["'].*\/infrastructure\//
+
+// Check that no layer imports from api/
+/import\s+.*from\s+["'].*\/api\//
+```
+
+## When to use it
+
+When your project follows clean architecture, hexagonal architecture, or any layered architecture where dependency direction must be enforced.
+
+## When not to use it
+
+When your project does not use a layered architecture, or when layers are not organized into distinct directories.
+
+---
+
+## Examples: Common Rule Patterns
+
+Source: https://cli.archgate.dev/examples/common-rule-patterns/
+
+Browse complete, copy-pasteable rule examples organized by category. Each rule page follows a consistent format: what the rule checks, examples of incorrect and correct code, the full `.rules.ts` implementation, and guidance on when to use it.
+
+## Dependency & Package Management
+
+| Rule | Description |
+| ---- | ----------- |
+| [no-unapproved-deps](/examples/no-unapproved-deps/) | Restrict production dependencies to an approved allowlist |
+| [version-catalog](/examples/version-catalog/) | Enforce centralized version management in monorepos with `catalog:` notation |
+| [monorepo-task-runner](/examples/monorepo-task-runner/) | Ban `package.json` scripts and require task runner config in every package |
+
+## Import & API Restrictions
+
+| Rule | Description |
+| ---- | ----------- |
+| [no-banned-imports](/examples/no-banned-imports/) | Prevent usage of banned libraries with a data-driven pattern list |
+| [no-banned-api](/examples/no-banned-api/) | Ban specific runtime APIs that cause cross-platform or reliability issues |
+| [wrapper-enforcement](/examples/wrapper-enforcement/) | Enforce use of a project wrapper instead of a raw platform API |
+
+## File Structure & Organization
+
+| Rule | Description |
+| ---- | ----------- |
+| [kebab-case-filenames](/examples/kebab-case-filenames/) | Enforce consistent file naming conventions using regex validation |
+| [no-barrel-files](/examples/no-barrel-files/) | Detect and ban barrel files (re-export-only `index.ts`) |
+| [test-file-coverage](/examples/test-file-coverage/) | Verify that every source file has a corresponding test file |
+| [component-pairing](/examples/component-pairing/) | Enforce Connected/presentational component pairs with opt-out support |
+
+## Code Quality & Output
+
+| Rule | Description |
+| ---- | ----------- |
+| [no-todo-comments](/examples/no-todo-comments/) | Flag TODO, FIXME, HACK, and XXX comments before merging |
+| [no-emoji-in-output](/examples/no-emoji-in-output/) | Ban emoji and raw ANSI codes in CLI output strings |
+| [max-file-length](/examples/max-file-length/) | Warn when source files exceed a configurable line count |
+| [page-component-constraints](/examples/page-component-constraints/) | Enforce size limits and ban data-fetching hooks in page components |
+
+## Database Schema
+
+| Rule | Description |
+| ---- | ----------- |
+| [database-audit-fields](/examples/database-audit-fields/) | Ensure all tables include `created_at` and `updated_at` columns |
+
+## Architecture Boundaries
+
+| Rule | Description |
+| ---- | ----------- |
+| [required-export-pattern](/examples/required-export-pattern/) | Verify files export a required function signature |
+| [openapi-routes](/examples/openapi-routes/) | Ensure backend routes use OpenAPI-typed definitions |
+| [clean-architecture-layers](/examples/clean-architecture-layers/) | Enforce dependency direction in layered architectures |
+
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include a Quality Manager skill that identifies recurring patterns in your codebase and proposes new rules to enforce them. [Sign up for beta access](https://plugins.archgate.dev).
+
+---
+
+## Examples: component-pairing
+
+Source: https://cli.archgate.dev/examples/component-pairing/
+
+Enforce that stateful "Connected" components have a corresponding presentational component file.
+
+## Rule details
+
+The container/presentational pattern separates data-fetching (Connected) components from pure UI (presentational) components. This rule checks that every `*Connected.tsx` file has a matching `*.tsx` presentational counterpart. It supports an opt-out directive (`// @no-presentational: <reason>`) for cases where a Connected component does not need a presentational pair.
+
+## Examples of **incorrect** code
+
+```
+src/components/
+  UserListConnected.tsx     ← no UserList.tsx ✗
+```
+
+## Examples of **correct** code
+
+```
+src/components/
+  UserListConnected.tsx     ← fetches data, passes to UserList
+  UserList.tsx              ← pure presentational component
+```
+
+Or, with an opt-out:
+
+```typescript title="src/components/RedirectConnected.tsx"
+// @no-presentational: this component only redirects, no UI to render
+
+// ...
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
 
 export default {
   rules: {
-    "no-unapproved-deps": {
-      description: "Production dependencies must be on the approved list",
+    "connected-wrapper-existence": {
+      description:
+        "Connected wrappers must have a corresponding presentational component file",
       async check(ctx) {
-        let pkg: { dependencies?: Record<string, string> };
-        try {
-          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
-        } catch {
-          return; // No package.json — nothing to check
-        }
+        const connectedFiles = await ctx.glob(
+          "packages/frontend/src/components/**/*Connected.tsx"
+        );
 
-        const deps = Object.keys(pkg.dependencies ?? {});
-        for (const dep of deps) {
-          if (!APPROVED_DEPS.includes(dep)) {
+        for (const file of connectedFiles) {
+          if (file.includes(".stories.") || file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          // Support opt-out directive
+          if (/^\/\/\s*@no-presentational:/.test(content.trimStart()))
+            continue;
+
+          const presentationalFile = file.replace(/Connected\.tsx$/, ".tsx");
+
+          try {
+            await ctx.readFile(presentationalFile);
+          } catch {
             ctx.report.violation({
-              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
-              file: "package.json",
-              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+              message: `Connected wrapper has no corresponding presentational component (expected ${presentationalFile}). Add "// @no-presentational: <reason>" to opt out.`,
+              file,
+              fix: `Create ${presentationalFile} as the presentational counterpart`,
             });
           }
         }
@@ -3825,29 +3850,267 @@ export default {
 } satisfies RuleSet;
 ```
 
-**How it works:** Reads `package.json`, iterates over production `dependencies`, and reports a violation for any package not in the `APPROVED_DEPS` array. Dependencies in `devDependencies` are not checked. The fix message guides the developer toward either getting the dependency approved or reclassifying it.
+## When to use it
+
+When your frontend architecture follows the container/presentational pattern and you want to enforce that data-fetching logic is always separated from UI rendering.
+
+## When not to use it
+
+When your project uses a different component architecture (e.g., hooks-only, or server components), or when the pattern is applied selectively rather than universally.
 
 ---
 
-## Pattern 2: Required Export Pattern
+## Examples: database-audit-fields
 
-**When to use:** Ensure files in a specific directory export a required function signature, such as the `register*Command` pattern for CLI command files.
+Source: https://cli.archgate.dev/examples/database-audit-fields/
+
+Ensure all database tables include required audit columns.
+
+## Rule details
+
+Audit fields (`created_at`, `updated_at`) are essential for debugging, data governance, and sync protocols. This rule parses schema files to find table definitions, extracts each table's column block using brace-depth tracking, and checks for the presence of required columns. It works with any ORM that defines tables as function calls with object arguments (Drizzle, Prisma schema-in-code, etc.).
+
+## Examples of **incorrect** code
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  // Missing created_at and updated_at
+});
+```
+
+## Examples of **correct** code
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  created_at: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updated_at: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+```
+
+## Rule implementation
 
 ```typescript
 /// <reference path="../rules.d.ts" />
 
 export default {
   rules: {
-    "register-function-export": {
-      description: "Command files must export a register*Command function",
+    "audit-fields": {
+      description:
+        "All database tables must have created_at and updated_at columns",
       async check(ctx) {
-        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
-        const checks = files.map(async (file) => {
+        const schemaFiles = await ctx.glob("packages/**/src/schema.ts");
+        const TABLE_PATTERN = /sqliteTable\s*\(\s*["']([^"']+)["']/g;
+
+        for (const file of schemaFiles) {
           const content = await ctx.readFile(file);
-          if (!/export\s+function\s+register\w+Command/.test(content)) {
+          let match;
+
+          while ((match = TABLE_PATTERN.exec(content)) !== null) {
+            const tableName = match[1];
+            const tableStart = match.index;
+
+            // Extract the table's column block using brace-depth tracking
+            const afterMatch = content.slice(tableStart);
+            const firstBrace = afterMatch.indexOf("{");
+            if (firstBrace === -1) continue;
+
+            let depth = 0;
+            let tableEnd = tableStart + firstBrace;
+            for (let i = firstBrace; i < afterMatch.length; i++) {
+              if (afterMatch[i] === "{") depth++;
+              else if (afterMatch[i] === "}") {
+                depth--;
+                if (depth === 0) {
+                  tableEnd = tableStart + i;
+                  break;
+                }
+              }
+            }
+
+            const tableBlock = content.slice(tableStart, tableEnd + 1);
+
+            if (!tableBlock.includes('"created_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "created_at" column`,
+                file,
+                fix: 'Add created_at: text("created_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+            if (!tableBlock.includes('"updated_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "updated_at" column`,
+                file,
+                fix: 'Add updated_at: text("updated_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your data model requires consistent audit fields for traceability, debugging, or compliance. Adapt the `TABLE_PATTERN` regex and column names for your ORM:
+
+```typescript
+// For Drizzle with PostgreSQL
+const TABLE_PATTERN = /pgTable\s*\(\s*["']([^"']+)["']/g;
+
+// For Prisma-style definitions
+const TABLE_PATTERN = /model\s+(\w+)\s*\{/g;
+```
+
+## When not to use it
+
+When some tables intentionally omit audit fields (e.g., join tables, materialized views), or when audit fields are added automatically at the database level via triggers.
+
+---
+
+## Examples: kebab-case-filenames
+
+Source: https://cli.archgate.dev/examples/kebab-case-filenames/
+
+Enforce consistent file naming conventions across source directories.
+
+## Rule details
+
+Inconsistent file naming (mixing `camelCase`, `PascalCase`, `snake_case`, and `kebab-case`) makes files harder to find and causes case-sensitivity issues across operating systems. This rule validates every scoped file name against a regex pattern and suggests corrections.
+
+## Examples of **incorrect** code
+
+```
+src/
+  helpers/
+    pathUtils.ts        ← camelCase
+    Git_Helper.ts       ← PascalCase + snake_case
+    ADRWriter.ts        ← PascalCase
+```
+
+## Examples of **correct** code
+
+```
+src/
+  helpers/
+    path-utils.ts
+    git-helper.ts
+    adr-writer.ts
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
+
+export default {
+  rules: {
+    "kebab-case-filenames": {
+      description: "Source files must use kebab-case naming",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const name = basename(file);
+
+          // Skip test files and type declaration files
+          if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
+
+          if (!KEBAB_CASE.test(name)) {
             ctx.report.violation({
-              message: "Command file must export a register*Command function",
+              message: `File "${name}" does not follow kebab-case naming convention`,
               file,
+              fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your team has standardized on a naming convention and wants to enforce it automatically. Adapt the regex for your convention:
+
+```typescript
+// PascalCase (React components)
+const PASCAL_CASE = /^[A-Z][a-zA-Z0-9]*\.(ts|tsx)$/;
+
+// camelCase
+const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
+
+// snake_case (Python-style)
+const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
+```
+
+## When not to use it
+
+When your project intentionally mixes naming conventions (e.g., PascalCase for React components and kebab-case for utilities), or when migrating a legacy codebase where bulk renames are not feasible.
+
+---
+
+## Examples: max-file-length
+
+Source: https://cli.archgate.dev/examples/max-file-length/
+
+Warn when source files exceed a line count threshold.
+
+## Rule details
+
+Large files are harder to navigate, review, and test. This rule counts lines in each scoped file and reports a warning when the count exceeds a configurable maximum. Using `warning` severity keeps CI green while surfacing files that should be refactored.
+
+## Examples of **incorrect** code
+
+A file with 450 lines when the threshold is 300:
+
+```
+src/engine/runner.ts (450 lines)
+```
+
+## Examples of **correct** code
+
+The same logic split into focused modules:
+
+```
+src/engine/runner.ts     (120 lines)
+src/engine/loader.ts     (95 lines)
+src/engine/reporter.ts   (85 lines)
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const MAX_LINES = 300;
+
+export default {
+  rules: {
+    "max-file-length": {
+      description: `Source files should not exceed ${MAX_LINES} lines`,
+      severity: "warning",
+      async check(ctx) {
+        const checks = ctx.scopedFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+          if (lineCount > MAX_LINES) {
+            ctx.report.warning({
+              message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+              file,
+              fix: "Extract related functions into separate modules",
             });
           }
         });
@@ -3858,19 +4121,280 @@ export default {
 } satisfies RuleSet;
 ```
 
-**How it works:** Filters out `index.ts` barrel files, then checks each scoped file for an exported function matching the `register*Command` naming pattern. The regex looks for `export function register` followed by any word characters and `Command`. Files that do not match get a violation.
+## When to use it
 
-To adapt this pattern, change the regex to match your project's required export convention. For example, to require a default export of a React component:
+When you want a soft guardrail against files growing too large. Adjust `MAX_LINES` to match your team's preference (200-500 is common).
 
-```typescript
-if (!/export\s+default\s+function\s+\w+/.test(content)) {
-```
+## When not to use it
+
+When some files are legitimately large (generated code, test suites with many cases), or when you prefer other complexity metrics like cyclomatic complexity.
 
 ---
 
-## Pattern 3: Banned Import
+## Examples: monorepo-task-runner
 
-**When to use:** Prevent usage of a specific library or module across the codebase. Common use cases include banning heavy libraries like `lodash` or `moment` in favor of native alternatives, or preventing imports from internal modules that are being deprecated.
+Source: https://cli.archgate.dev/examples/monorepo-task-runner/
+
+Enforce that all packages use a centralized task runner instead of `package.json` scripts.
+
+## Rule details
+
+In a monorepo, `package.json` scripts are local to each package and cannot express cross-package dependencies, caching, or orchestration. This rule enforces that all packages use a centralized task runner (e.g., Moon, Turborepo, Nx) by banning `scripts` in `package.json` and requiring a task runner config file (`moon.yml`, `turbo.json`, etc.) in every package.
+
+## Examples of **incorrect** code
+
+```json title="packages/api/package.json"
+{
+  "name": "@myorg/api",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "eslint ."
+  }
+}
+```
+
+## Examples of **correct** code
+
+```json title="packages/api/package.json"
+{
+  "name": "@myorg/api"
+}
+```
+
+```yaml title="packages/api/moon.yml"
+tasks:
+  build:
+    command: tsc
+    inputs:
+      - src/**/*
+  test:
+    command: vitest
+    deps:
+      - ~:build
+  lint:
+    command: eslint .
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-package-scripts": {
+      description:
+        "package.json must not have scripts — use the task runner instead",
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as {
+            scripts?: Record<string, string>;
+          };
+          if (pkg.scripts && Object.keys(pkg.scripts).length > 0) {
+            ctx.report.violation({
+              message: `${file}: has "scripts" field — use task runner config instead`,
+              file,
+              fix: 'Move scripts to the task runner config and remove "scripts" from package.json',
+            });
+          }
+        }
+      },
+    },
+    "task-runner-config": {
+      description: "All packages must have a task runner configuration file",
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const configPath = file.replace("/package.json", "/moon.yml");
+          try {
+            await ctx.readFile(configPath);
+          } catch {
+            ctx.report.violation({
+              message: `Missing task runner config: ${configPath}`,
+              file: configPath,
+              fix: "Create a moon.yml file with appropriate task definitions for this package",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+In monorepos that use a centralized task runner for build orchestration. Adapt the config file check for your runner:
+
+```typescript
+// Turborepo
+const configPath = file.replace("/package.json", "/turbo.json");
+
+// Nx
+const configPath = file.replace("/package.json", "/project.json");
+```
+
+## When not to use it
+
+In single-package repositories, or in monorepos where the task runner is configured centrally (e.g., a single `turbo.json` at the root) rather than per-package.
+
+---
+
+## Examples: no-banned-api
+
+Source: https://cli.archgate.dev/examples/no-banned-api/
+
+Ban specific runtime APIs that cause cross-platform or reliability issues.
+
+## Rule details
+
+Some APIs work correctly on one platform but fail on another. For example, Bun's shell API (`Bun.$`) hangs on Windows due to pipe deadlocks. This rule detects multiple variants of a banned API — the direct call, the import, and destructured usage — ensuring no form slips through.
+
+This pattern generalizes to any API you want to ban while allowing a safe alternative.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/git.ts"
+// Direct usage
+const result = await Bun.$`git status`;
+
+// Import
+
+// Destructured usage
+const output = await $`ls -la`;
+```
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/git.ts"
+const proc = Bun.spawn(["git", "status"], {
+  stdout: "pipe",
+  stderr: "pipe",
+});
+const output = await new Response(proc.stdout).text();
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-bun-shell": {
+      description:
+        "Subprocess execution must use Bun.spawn, not Bun.$ (shell hangs on Windows)",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+
+        // Variant 1: Bun.$` template literal
+        const bunShellMatches = await Promise.all(
+          files.map((file) => ctx.grep(file, /Bun\.\$`/))
+        );
+        for (const fileMatches of bunShellMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not use Bun.$ template literals — they hang on Windows. Use Bun.spawn instead.",
+              file: m.file,
+              line: m.line,
+              fix: "Replace Bun.$`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
+            });
+          }
+        }
+
+        // Variant 2: import { $ } from "bun"
+        const dollarImportMatches = await Promise.all(
+          files.map((file) =>
+            ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/)
+          )
+        );
+        for (const fileMatches of dollarImportMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                'Do not import $ from "bun" — the shell API hangs on Windows. Use Bun.spawn instead.',
+              file: m.file,
+              line: m.line,
+              fix: 'Remove the $ import and replace shell calls with Bun.spawn',
+            });
+          }
+        }
+
+        // Variant 3: await $` (destructured)
+        const destructuredMatches = await Promise.all(
+          files.map((file) => ctx.grep(file, /await\s+\$`/))
+        );
+        for (const fileMatches of destructuredMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not use $` template literals — they hang on Windows. Use Bun.spawn instead.",
+              file: m.file,
+              line: m.line,
+              fix: "Replace $`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your project must run on multiple platforms and a specific API is known to fail on one of them. Also useful for banning deprecated APIs with known reliability issues.
+
+## When not to use it
+
+When your project targets a single platform and the banned API works reliably there.
+
+---
+
+## Examples: no-banned-imports
+
+Source: https://cli.archgate.dev/examples/no-banned-imports/
+
+Prevent usage of banned libraries and enforce recommended alternatives.
+
+## Rule details
+
+Teams often ban heavy or deprecated libraries in favor of lighter or native alternatives. This rule uses a data-driven configuration — an array of objects specifying the regex pattern, the library name, and the recommended alternative. Adding a new ban is a one-line change.
+
+## Examples of **incorrect** code
+
+```typescript title="src/utils/date.ts"
+
+```
+
+```typescript title="src/api/client.ts"
+
+```
+
+## Examples of **correct** code
+
+```typescript title="src/utils/date.ts"
+
+```
+
+```typescript title="src/api/client.ts"
+const response = await fetch("/api/data");
+```
+
+## Rule implementation
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -3915,37 +4439,204 @@ export default {
 } satisfies RuleSet;
 ```
 
-**How it works:** Defines a list of banned imports with the regex pattern to detect them, the library name for the error message, and the recommended alternative. Uses `ctx.grepFiles` to scan all TypeScript files for each banned pattern and reports a violation for every match.
+## When to use it
 
-To add more banned imports, add entries to the `BANNED_IMPORTS` array. The pattern should match the `from "..."` part of the import statement.
+When your team has standardized on specific libraries and wants to prevent drift toward alternatives. Common bans include lodash (native methods), moment (date-fns or Temporal), and axios (native fetch).
+
+## When not to use it
+
+When your project has no preference between libraries, or when the banned library is still in active migration and some usage is expected temporarily.
 
 ---
 
-## Pattern 4: File Naming Convention
+## Examples: no-barrel-files
 
-**When to use:** Enforce consistent file naming across a directory, such as requiring kebab-case for all source files.
+Source: https://cli.archgate.dev/examples/no-barrel-files/
+
+Detect and ban barrel files — `index.ts` files that contain only re-exports and no logic.
+
+## Rule details
+
+Barrel files (re-export-only `index.ts`) obscure where code actually lives, hurt tree-shaking, create circular dependency risks, and slow down IDE navigation. This rule uses a custom analysis function to determine whether an `index.ts` file is a pure re-export barrel by inspecting every non-comment, non-blank line.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/index.ts"
+export { logInfo, logError } from "./log";
+export { resolvePaths } from "./paths";
+export type { PathConfig } from "./paths";
+```
+
+A file that only re-exports symbols from other modules is a barrel file.
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/index.ts"
+export { logInfo, logError } from "./log";
+export { resolvePaths } from "./paths";
+
+// This file has its own logic, so it is not a barrel
+export function getHelperVersion(): string {
+  return "1.0.0";
+}
+```
+
+Or better — delete `index.ts` entirely and import directly:
+
+```typescript
+
+```
+
+## Rule implementation
 
 ```typescript
 /// <reference path="../rules.d.ts" />
 
-const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
+function isBarrelFile(content: string): boolean {
+  const lines = content
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l !== "" &&
+        !l.startsWith("//") &&
+        !l.startsWith("/*") &&
+        !l.startsWith("*")
+    );
+
+  if (lines.length === 0) return false;
+
+  return lines.every(
+    (line) =>
+      line.startsWith("export ") ||
+      line.startsWith("export{") ||
+      line.startsWith("import ") ||
+      line.startsWith("} from") ||
+      line.startsWith("type ") ||
+      /^[A-Za-z_$,\s]+$/.test(line) ||
+      line === "}" ||
+      line === "};"
+  );
+}
 
 export default {
   rules: {
-    "kebab-case-filenames": {
-      description: "Source files must use kebab-case naming",
+    "no-barrel-files": {
+      description: "index.ts files must not be pure re-export barrels",
       async check(ctx) {
-        for (const file of ctx.scopedFiles) {
-          const name = basename(file);
+        const indexFiles = ctx.scopedFiles.filter((f) =>
+          f.endsWith("/index.ts")
+        );
 
-          // Skip test files and type declaration files
-          if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
-
-          if (!KEBAB_CASE.test(name)) {
+        const checks = indexFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (isBarrelFile(content)) {
             ctx.report.violation({
-              message: `File "${name}" does not follow kebab-case naming convention`,
+              message: `Barrel file detected: ${file} contains only re-exports and no logic.`,
               file,
-              fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
+              fix: "Delete this barrel file and update imports to point directly to the source module",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When you want to enforce direct imports and avoid the indirection that barrel files introduce. Especially valuable in large codebases where barrel files cause slow IDE performance and make dependency graphs harder to reason about.
+
+## When not to use it
+
+When your project intentionally uses barrel files as a public API boundary (e.g., a library that exports a curated API from `index.ts`).
+
+---
+
+## Examples: no-emoji-in-output
+
+Source: https://cli.archgate.dev/examples/no-emoji-in-output/
+
+Ban emoji characters in CLI output strings.
+
+## Rule details
+
+Emoji render inconsistently across terminals, break alignment in monospace output, and cause issues with screen readers and CI log parsers. This rule uses Unicode range regex to detect emoji characters and a secondary check to ensure they appear inside string literals (not comments or variable names).
+
+The rule also checks for raw ANSI escape codes, enforcing the use of `styleText()` from `node:util` for terminal formatting.
+
+## Examples of **incorrect** code
+
+```typescript title="src/commands/check.ts"
+console.log("✅ All checks passed!");
+console.log("❌ Validation failed");
+console.log("\x1b[32mSuccess\x1b[0m");  // raw ANSI
+```
+
+## Examples of **correct** code
+
+```typescript title="src/commands/check.ts"
+
+console.log("All checks passed");
+console.log("Validation failed");
+console.log(styleText("green", "Success"));
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const EMOJI_PATTERN =
+  /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+const EMOJI_IN_STRING =
+  /["'`].*[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}].*["'`]/u;
+
+export default {
+  rules: {
+    "no-emoji-in-output": {
+      description: "CLI output must not contain emoji characters",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, EMOJI_PATTERN))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            if (EMOJI_IN_STRING.test(m.content)) {
+              ctx.report.violation({
+                message: "Do not use emoji in CLI output strings",
+                file: m.file,
+                line: m.line,
+                fix: "Remove emoji from output strings",
+              });
+            }
+          }
+        }
+      },
+    },
+    "use-style-text": {
+      description: "Use styleText from node:util instead of raw ANSI codes",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /\\u001b\[|\\x1b\[|\\033\[/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Use styleText() from node:util instead of raw ANSI escape codes",
+              file: m.file,
+              line: m.line,
+              fix: "Import { styleText } from 'node:util' and use styleText(style, text)",
             });
           }
         }
@@ -3955,19 +4646,42 @@ export default {
 } satisfies RuleSet;
 ```
 
-**How it works:** Extracts the basename of each scoped file and tests it against a kebab-case regex. The regex requires lowercase letters and digits separated by hyphens, with a valid file extension. Test files and type declarations are excluded. The fix suggestion auto-converts camelCase to kebab-case.
+## When to use it
 
-To change the naming convention, replace the regex. For example, for camelCase:
+In CLI tools where output consistency across terminals matters, or when accessibility is a priority.
 
-```typescript
-const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
-```
+## When not to use it
+
+In web applications or tools where emoji are part of the expected UI, or when your output is always consumed by humans in modern terminals.
 
 ---
 
-## Pattern 5: No TODO Comments in Production
+## Examples: no-todo-comments
 
-**When to use:** Flag TODO, FIXME, HACK, and XXX comments so they are resolved before merging. Uses `warning` severity so it does not block CI, but makes the comments visible in check output.
+Source: https://cli.archgate.dev/examples/no-todo-comments/
+
+Flag `TODO`, `FIXME`, `HACK`, and `XXX` comments so they are resolved before merging.
+
+## Rule details
+
+TODO comments are useful during development but should not accumulate in the main branch. This rule uses `ctx.grepFiles` to scan all source files for common task-marker comments. It uses `warning` severity so it does not block CI, but makes the comments visible in every check run.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/git.ts"
+// TODO: handle merge conflicts
+// FIXME: this breaks on Windows
+// HACK: workaround for upstream bug
+// XXX: revisit this logic
+```
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/git.ts"
+// Proper implementation with no deferred work
+```
+
+## Rule implementation
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -3984,7 +4698,7 @@ export default {
         );
         for (const match of matches) {
           ctx.report.warning({
-            message: `${match.content.trim()} -- resolve before merging`,
+            message: `${match.content.trim()} — resolve before merging`,
             file: match.file,
             line: match.line,
           });
@@ -3995,15 +4709,447 @@ export default {
 } satisfies RuleSet;
 ```
 
-**How it works:** Uses `ctx.grepFiles` to scan all TypeScript files in `src/` for comments starting with `TODO:`, `FIXME:`, `HACK:`, or `XXX:` (case-insensitive). Each match is reported as a warning with the original comment text. Because the severity is `"warning"`, the check exits with code 0 even when matches are found -- it surfaces the comments without blocking merges.
+## When to use it
 
-To make this a hard blocker, change the severity to `"error"` and use `ctx.report.violation()` instead of `ctx.report.warning()`.
+When you want visibility into deferred work and want to prevent TODO comments from accumulating over time. Change severity to `"error"` and use `ctx.report.violation()` to make it a hard blocker.
+
+## When not to use it
+
+When TODO comments are intentional documentation (e.g., tracked by a separate tool that creates issues from TODO comments).
 
 ---
 
-## Pattern 6: Test File Coverage
+## Examples: no-unapproved-deps
 
-**When to use:** Ensure every source file has a corresponding test file, preventing untested code from being merged.
+Source: https://cli.archgate.dev/examples/no-unapproved-deps/
+
+Restrict production dependencies to an approved allowlist.
+
+## Rule details
+
+Large dependency trees increase supply-chain risk and bloat bundle sizes. This rule reads `package.json` and reports any production dependency that is not on an explicit allowlist. Dev dependencies are not checked.
+
+## Examples of **incorrect** code
+
+```json title="package.json"
+{
+  "dependencies": {
+    "zod": "^3.23.0",
+    "chalk": "^5.3.0"
+  }
+}
+```
+
+If only `zod` is on the approved list, `chalk` triggers a violation.
+
+## Examples of **correct** code
+
+```json title="package.json"
+{
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "chalk": "^5.3.0"
+  }
+}
+```
+
+All production dependencies are on the approved list. Libraries needed only at build time are in `devDependencies`.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default {
+  rules: {
+    "no-unapproved-deps": {
+      description: "Production dependencies must be on the approved list",
+      async check(ctx) {
+        let pkg: { dependencies?: Record<string, string> };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return; // No package.json — nothing to check
+        }
+
+        const deps = Object.keys(pkg.dependencies ?? {});
+        for (const dep of deps) {
+          if (!APPROVED_DEPS.includes(dep)) {
+            ctx.report.violation({
+              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+              file: "package.json",
+              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your team has an explicit dependency governance policy and wants to prevent unapproved packages from entering the production bundle.
+
+## When not to use it
+
+In early-stage projects where the dependency list is still evolving rapidly, or when dependency governance is handled by a separate tool like Socket or Snyk.
+
+---
+
+## Examples: openapi-routes
+
+Source: https://cli.archgate.dev/examples/openapi-routes/
+
+Ensure all backend route files use OpenAPI-typed route definitions.
+
+## Rule details
+
+When a backend framework supports OpenAPI integration (e.g., `@hono/zod-openapi`), raw HTTP method handlers (`.get()`, `.post()`) bypass schema validation and documentation generation. This rule checks that route files import the OpenAPI integration and use `.openapi()` instead of raw methods.
+
+## Examples of **incorrect** code
+
+```typescript title="packages/backend/src/routes/users.ts"
+
+const app = new Hono();
+
+app.get("/users", async (c) => {
+  // No OpenAPI schema, no auto-generated docs
+  return c.json(await getUsers());
+});
+```
+
+## Examples of **correct** code
+
+```typescript title="packages/backend/src/routes/users.ts"
+
+const route = createRoute({
+  method: "get",
+  path: "/users",
+  responses: {
+    200: {
+      content: { "application/json": { schema: UserListSchema } },
+      description: "List of users",
+    },
+  },
+});
+
+app.openapi(route, async (c) => {
+  return c.json(await getUsers());
+});
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "openapi-route-completeness": {
+      description:
+        "All backend routes must use @hono/zod-openapi, not raw HTTP methods",
+      async check(ctx) {
+        const routeFiles = await ctx.glob(
+          "packages/backend/src/routes/*.ts"
+        );
+
+        for (const file of routeFiles) {
+          if (file.includes(".test.") || file.includes(".spec.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          const importsOpenApi =
+            /from\s+["']@hono\/zod-openapi["']/.test(content);
+          const hasRawMethods =
+            /\.(?:get|post|put|delete|patch)\s*\(/.test(content);
+          const hasOpenApiCalls = /\.openapi\s*\(/.test(content);
+
+          if (!importsOpenApi && hasRawMethods) {
+            ctx.report.violation({
+              message: `Route file uses raw HTTP methods without importing @hono/zod-openapi`,
+              file,
+              fix: "Import from @hono/zod-openapi and use .openapi() instead of raw .get()/.post()",
+            });
+          }
+
+          if (importsOpenApi && hasRawMethods && !hasOpenApiCalls) {
+            ctx.report.violation({
+              message: `Route file imports @hono/zod-openapi but uses raw HTTP methods instead of .openapi()`,
+              file,
+              fix: "Replace raw .get()/.post() calls with .openapi() route definitions",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your backend framework supports OpenAPI integration and you want to ensure all routes are documented and schema-validated. Adapt the import pattern and method detection for your framework:
+
+```typescript
+// For Express with express-openapi-validator
+/from\s+["']express-openapi-validator["']/
+
+// For Fastify with @fastify/swagger
+/from\s+["']@fastify\/swagger["']/
+```
+
+## When not to use it
+
+When not all routes require OpenAPI documentation (e.g., internal health checks, metrics endpoints), or when OpenAPI specs are maintained separately from route code.
+
+---
+
+## Examples: page-component-constraints
+
+Source: https://cli.archgate.dev/examples/page-component-constraints/
+
+Enforce that page components are thin layout wrappers — small in size and free of data-fetching logic.
+
+## Rule details
+
+In frontend architectures that separate routing from logic, page components should only compose layout and delegate data-fetching to Connected components. This rule enforces two constraints in a single rules file:
+
+1. **Size limit** — Page components must stay under a configurable line count (default: 75 lines).
+2. **No data hooks** — Page components must not use `useState`, `useQuery`, `useMutation`, or other data-fetching hooks directly.
+
+## Examples of **incorrect** code
+
+```tsx title="src/pages/DashboardPage.tsx"
+
+export default function DashboardPage() {
+  const [filter, setFilter] = useState("");                    // ✗ state hook
+  const { data } = useQuery({ queryKey: ["dashboard"] });      // ✗ data hook
+  // ... 120 lines of layout + logic
+}
+```
+
+## Examples of **correct** code
+
+```tsx title="src/pages/DashboardPage.tsx"
+
+export default function DashboardPage() {
+  return (
+    <div className="flex">
+      
+      
+    </div>
+  );
+}
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const PAGE_MAX_LINES = 75;
+
+export default {
+  rules: {
+    "page-max-lines": {
+      description: `Page components must be under ${PAGE_MAX_LINES} lines`,
+      async check(ctx) {
+        const pageFiles = await ctx.glob("src/pages/*Page.tsx");
+
+        for (const file of pageFiles) {
+          if (file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+
+          if (lineCount > PAGE_MAX_LINES) {
+            ctx.report.violation({
+              message: `Page component has ${lineCount} lines (max ${PAGE_MAX_LINES}). Extract logic to Connected components.`,
+              file,
+              fix: "Move data-fetching and business logic to Connected components",
+            });
+          }
+        }
+      },
+    },
+    "page-no-data-hooks": {
+      description:
+        "Page components must not use data-fetching or state hooks",
+      async check(ctx) {
+        const pageFiles = await ctx.glob("src/pages/*Page.tsx");
+
+        const FORBIDDEN_HOOKS =
+          /\b(useState|useForm|useQuery|useMutation|useSuspenseQuery|useInfiniteQuery)\s*[<(]/g;
+
+        const ALLOWED_HOOKS = new Set([
+          "useParams",
+          "useNavigate",
+          "useRouter",
+          "useMatch",
+          "useLocation",
+          "useSearch",
+        ]);
+
+        for (const file of pageFiles) {
+          if (file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          let match;
+          while ((match = FORBIDDEN_HOOKS.exec(content)) !== null) {
+            ctx.report.violation({
+              message: `Page component uses "${match[1]}" hook. Extract to a Connected component.`,
+              file,
+              fix: `Move the "${match[1]}" hook to a Connected component`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your frontend architecture follows the page/container/presentational pattern and you want to enforce that pages remain thin routing endpoints. Adjust `PAGE_MAX_LINES` and the hook lists for your framework.
+
+## When not to use it
+
+When pages are expected to contain logic (e.g., in Next.js server components where data fetching in the page is idiomatic), or when your project does not follow this architectural pattern.
+
+---
+
+## Examples: required-export-pattern
+
+Source: https://cli.archgate.dev/examples/required-export-pattern/
+
+Verify that files in a specific directory export a required function signature.
+
+## Rule details
+
+Convention-based architectures (CLI command files, route handlers, plugin modules) often require each file to export a function with a specific naming pattern. This rule scans scoped files for a required export and reports any file that does not match. It uses `Promise.all()` to check files in parallel for performance.
+
+## Examples of **incorrect** code
+
+```typescript title="src/commands/deploy.ts"
+// Missing the required register*Command export
+export function deploy() {
+  // ...
+}
+```
+
+## Examples of **correct** code
+
+```typescript title="src/commands/deploy.ts"
+
+export function registerDeployCommand(program: Command) {
+  program
+    .command("deploy")
+    .description("Deploy the application")
+    .action(() => {
+      // ...
+    });
+}
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "register-function-export": {
+      description: "Command files must export a register*Command function",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+        const checks = files.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (!/export\s+function\s+register\w+Command/.test(content)) {
+            ctx.report.violation({
+              message: "Command file must export a register*Command function",
+              file,
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Adapt the pattern for other conventions:
+
+```typescript
+// Express/Hono route handlers
+/export\s+default\s+.*Router/
+
+// React page components
+/export\s+default\s+function\s+\w+Page/
+
+// Plugin modules
+/export\s+const\s+plugin\s*[:=]/
+```
+
+## When to use it
+
+When your architecture requires a specific export pattern from files in a directory. Pair this with the ADR's `files` frontmatter field to scope it to the right directory.
+
+## When not to use it
+
+When the directory contains mixed file types that do not all need to follow the same export pattern.
+
+---
+
+## Examples: test-file-coverage
+
+Source: https://cli.archgate.dev/examples/test-file-coverage/
+
+Verify that every source file has a corresponding test file.
+
+## Rule details
+
+Untested code is a liability. This rule enforces a structural convention: for every file in `src/`, a matching `.test.ts` file must exist in `tests/`. It uses `ctx.glob` to discover existing test files, builds a lookup set for fast matching, and reports any source file without a counterpart.
+
+## Examples of **incorrect** code
+
+```
+src/
+  helpers/
+    log.ts          ← has a test ✓
+    paths.ts        ← no test file ✗
+tests/
+  helpers/
+    log.test.ts
+```
+
+## Examples of **correct** code
+
+```
+src/
+  helpers/
+    log.ts
+    paths.ts
+tests/
+  helpers/
+    log.test.ts
+    paths.test.ts
+```
+
+## Rule implementation
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -4034,28 +5180,246 @@ export default {
 } satisfies RuleSet;
 ```
 
-**How it works:** For each scoped source file, converts the path from `src/` to `tests/` and appends `.test.ts`. Then uses `ctx.glob` to check if the test file exists. If not, reports a warning with a fix suggesting the expected test file path.
-
-This assumes a test directory structure that mirrors `src/`:
-
-```
-src/
-  helpers/
-    log.ts
-    paths.ts
-tests/
-  helpers/
-    log.test.ts
-    paths.test.ts
-```
-
-To adapt for projects that colocate tests next to source files, change the path transformation:
+To adapt for projects that colocate tests next to source files:
 
 ```typescript
 const testPath = rel.replace(/\.ts$/, ".test.ts");
-// src/helpers/log.ts -> src/helpers/log.test.ts
+// src/helpers/log.ts → src/helpers/log.test.ts
 ```
 
-The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include a Quality Manager skill that identifies recurring patterns in your codebase and proposes new rules to enforce them. [Sign up for beta access](https://plugins.archgate.dev).
+## When to use it
+
+When your team follows a convention that every source module must have a corresponding test file, and you want to catch missing tests during code review.
+
+## When not to use it
+
+When test coverage is tracked by other means (e.g., coverage thresholds in CI), or when some source files genuinely do not need tests (type-only files, constants).
+
+---
+
+## Examples: version-catalog
+
+Source: https://cli.archgate.dev/examples/version-catalog/
+
+Enforce centralized version management in monorepos by requiring `catalog:` or `workspace:` notation for all dependencies.
+
+## Rule details
+
+In monorepos with many packages, duplicating version strings across `package.json` files leads to version drift and upgrade pain. This rule ensures every dependency reference uses `catalog:` (resolved from a central catalog in the root `package.json`) or `workspace:` (for internal packages), never a raw semver string.
+
+The rule has two checks: `catalog-usage` verifies all dependencies use the correct notation, and `catalog-completeness` verifies that every `catalog:` reference resolves to an actual entry in the root catalog.
+
+## Examples of **incorrect** code
+
+```json title="packages/api/package.json"
+{
+  "dependencies": {
+    "zod": "^3.23.0",
+    "hono": "^4.0.0"
+  }
+}
+```
+
+Raw semver strings bypass the central catalog and will diverge across packages.
+
+## Examples of **correct** code
+
+```json title="packages/api/package.json"
+{
+  "dependencies": {
+    "zod": "catalog:",
+    "hono": "catalog:",
+    "@myorg/shared": "workspace:*"
+  }
+}
+```
+
+```json title="package.json (root)"
+{
+  "catalog": {
+    "zod": "^3.23.0",
+    "hono": "^4.0.0"
+  }
+}
+```
+
+All versions are managed centrally. Upgrading `zod` requires changing only the root catalog.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "catalog-usage": {
+      description:
+        'All workspace dependencies must use "catalog:" or "workspace:" notation',
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as Record<string, unknown>;
+          for (const depType of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+          ]) {
+            const deps = pkg[depType] as Record<string, string> | undefined;
+            if (!deps) continue;
+
+            for (const [name, version] of Object.entries(deps)) {
+              if (
+                typeof version === "string" &&
+                !version.startsWith("catalog:") &&
+                !version.startsWith("workspace:")
+              ) {
+                ctx.report.violation({
+                  message: `${file}: ${depType}.${name} uses "${version}" instead of "catalog:" or "workspace:"`,
+                  file,
+                  fix: `Change to "catalog:" and ensure the package is listed in root package.json catalog`,
+                });
+              }
+            }
+          }
+        }
+      },
+    },
+    "catalog-completeness": {
+      description:
+        "All catalog: references must resolve to entries in root package.json catalog",
+      async check(ctx) {
+        const rootPkg = (await ctx.readJSON("package.json")) as Record<string, unknown>;
+        const catalog = (rootPkg.catalog ?? {}) as Record<string, string>;
+        const catalogKeys = new Set(Object.keys(catalog));
+
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as Record<string, unknown>;
+          for (const depType of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+          ]) {
+            const deps = pkg[depType] as Record<string, string> | undefined;
+            if (!deps) continue;
+
+            for (const [name, version] of Object.entries(deps)) {
+              if (typeof version !== "string" || !version.startsWith("catalog:"))
+                continue;
+
+              const catalogRef =
+                version === "catalog:" ? name : version.slice("catalog:".length);
+
+              if (!catalogKeys.has(catalogRef)) {
+                ctx.report.violation({
+                  message: `${file}: ${depType}.${name} references catalog:${catalogRef} but it is not in root catalog`,
+                  file,
+                  fix: `Add "${catalogRef}" to the catalog section in the root package.json`,
+                });
+              }
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+In monorepos where multiple packages share dependencies and you want a single source of truth for versions (e.g., Bun workspaces with catalog support, or similar setups).
+
+## When not to use it
+
+In single-package repositories or monorepos that use a different version management strategy like Renovate's group updates.
+
+---
+
+## Examples: wrapper-enforcement
+
+Source: https://cli.archgate.dev/examples/wrapper-enforcement/
+
+Enforce use of a project wrapper instead of a raw platform API.
+
+## Rule details
+
+When a project provides a helper that normalizes a low-level API (e.g., a `platform.ts` helper wrapping `process.platform`), direct usage of the raw API should be banned everywhere except in the wrapper itself. This rule scans scoped files for the raw API call while automatically excluding the helper file and non-production code.
+
+## Examples of **incorrect** code
+
+```typescript title="src/commands/build.ts"
+if (process.platform === "win32") {
+  // Windows-specific logic
+}
+```
+
+## Examples of **correct** code
+
+```typescript title="src/commands/build.ts"
+
+if (isWindows()) {
+  // Windows-specific logic
+}
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-direct-process-platform": {
+      description:
+        "Platform detection must use src/helpers/platform.ts, not process.platform directly",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) =>
+            !f.includes("tests/") &&
+            !f.includes(".archgate/") &&
+            !f.endsWith("src/helpers/platform.ts") // Exclude the wrapper itself
+        );
+
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /process\.platform/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not access process.platform directly — use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
+              file: m.file,
+              line: m.line,
+              fix: 'Import { isWindows } from "../helpers/platform" and use it instead of process.platform',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your project has a wrapper or helper module that normalizes a raw API and you want to prevent direct access to the underlying API. Common examples:
+
+- `platform.ts` wrapping `process.platform`
+- `logger.ts` wrapping `console.log` / `console.error`
+- `fs.ts` wrapping `node:fs` with project-specific defaults
+- `env.ts` wrapping `process.env` with typed accessors
+
+## When not to use it
+
+When the raw API is simple enough that a wrapper adds no value, or when the wrapper has not yet been adopted across the codebase (consider using `warning` severity during migration).
 
 ---
