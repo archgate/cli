@@ -29,9 +29,9 @@ describe("getArtifactInfo", () => {
   test("returns .tar.gz extension for non-win32", () => {
     const info = getArtifactInfo();
     if (process.platform === "win32") return;
-    if (info === null) return;
-    expect(info.ext).toBe(".tar.gz");
-    expect(info.binaryName).toBe("archgate");
+    expect(info).not.toBeNull();
+    expect(info!.ext).toBe(".tar.gz");
+    expect(info!.binaryName).toBe("archgate");
   });
 });
 

@@ -70,7 +70,7 @@ resolve_version() {
       ;;
     *)
       echo "Error: unexpected response from GitHub releases API." >&2
-      echo "Response (truncated): $(printf '%s' "$response" | head -c 200)" >&2
+      echo "Response (truncated): $(printf '%s' "$response" | cut -c1-200)" >&2
       exit 1
       ;;
   esac
