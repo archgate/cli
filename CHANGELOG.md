@@ -1,3 +1,15 @@
+## [0.14.0](https://github.com/archgate/cli/compare/v0.13.2...v0.14.0) (2026-03-19)
+
+### Features
+
+* support binary self-replacement in upgrade command ([#81](https://github.com/archgate/cli/issues/81)) ([561c627](https://github.com/archgate/cli/commit/561c627cecabc99432f6ac66cb1932145c59dabd))
+
+### Bug Fixes
+
+* address AI code quality findings across install scripts and utilities ([#84](https://github.com/archgate/cli/issues/84)) ([4730beb](https://github.com/archgate/cli/commit/4730bebf18a264ee76536ea75b1d648cad0ef0a9))
+* address valid AI code quality findings ([#85](https://github.com/archgate/cli/issues/85)) ([b4630d0](https://github.com/archgate/cli/commit/b4630d0d8b1433291d3ea1db41d903f172957d8f))
+* resolve documentation inconsistencies and minor code issues ([#82](https://github.com/archgate/cli/issues/82)) ([ec50cca](https://github.com/archgate/cli/commit/ec50ccaff2ff413a4f1a6a446eeea5cbbc6a6da0))
+
 ## [0.13.2](https://github.com/archgate/cli/compare/v0.13.1...v0.13.2) (2026-03-18)
 
 ### Bug Fixes
