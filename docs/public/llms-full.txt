@@ -3650,14 +3650,9 @@ export default {
       description:
         "Application layer must not reference Infrastructure directly",
       async check(ctx) {
-        const appFiles = await ctx.glob(
-          "backend/src/**/Application/**/*.cs"
-        );
+        const appFiles = await ctx.glob("backend/src/**/Application/**/*.cs");
         for (const file of appFiles) {
-          const matches = await ctx.grep(
-            file,
-            /using\s+MyApp\.Infrastructure/
-          );
+          const matches = await ctx.grep(file, /using\s+MyApp\.Infrastructure/);
           for (const match of matches) {
             ctx.report.violation({
               message: `Application must not reference Infrastructure: "${match.content.trim()}"`,
@@ -3725,50 +3720,50 @@ Browse complete, copy-pasteable rule examples organized by category. Each rule p
 
 ## Dependency & Package Management
 
-| Rule | Description |
-| ---- | ----------- |
-| [no-unapproved-deps](/examples/no-unapproved-deps/) | Restrict production dependencies to an approved allowlist |
-| [version-catalog](/examples/version-catalog/) | Enforce centralized version management in monorepos with `catalog:` notation |
-| [monorepo-task-runner](/examples/monorepo-task-runner/) | Ban `package.json` scripts and require task runner config in every package |
+| Rule                                                    | Description                                                                  |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [no-unapproved-deps](/examples/no-unapproved-deps/)     | Restrict production dependencies to an approved allowlist                    |
+| [version-catalog](/examples/version-catalog/)           | Enforce centralized version management in monorepos with `catalog:` notation |
+| [monorepo-task-runner](/examples/monorepo-task-runner/) | Ban `package.json` scripts and require task runner config in every package   |
 
 ## Import & API Restrictions
 
-| Rule | Description |
-| ---- | ----------- |
-| [no-banned-imports](/examples/no-banned-imports/) | Prevent usage of banned libraries with a data-driven pattern list |
-| [no-banned-api](/examples/no-banned-api/) | Ban specific runtime APIs that cause cross-platform or reliability issues |
-| [wrapper-enforcement](/examples/wrapper-enforcement/) | Enforce use of a project wrapper instead of a raw platform API |
+| Rule                                                  | Description                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------------- |
+| [no-banned-imports](/examples/no-banned-imports/)     | Prevent usage of banned libraries with a data-driven pattern list         |
+| [no-banned-api](/examples/no-banned-api/)             | Ban specific runtime APIs that cause cross-platform or reliability issues |
+| [wrapper-enforcement](/examples/wrapper-enforcement/) | Enforce use of a project wrapper instead of a raw platform API            |
 
 ## File Structure & Organization
 
-| Rule | Description |
-| ---- | ----------- |
-| [kebab-case-filenames](/examples/kebab-case-filenames/) | Enforce consistent file naming conventions using regex validation |
-| [no-barrel-files](/examples/no-barrel-files/) | Detect and ban barrel files (re-export-only `index.ts`) |
-| [test-file-coverage](/examples/test-file-coverage/) | Verify that every source file has a corresponding test file |
-| [component-pairing](/examples/component-pairing/) | Enforce Connected/presentational component pairs with opt-out support |
+| Rule                                                    | Description                                                           |
+| ------------------------------------------------------- | --------------------------------------------------------------------- |
+| [kebab-case-filenames](/examples/kebab-case-filenames/) | Enforce consistent file naming conventions using regex validation     |
+| [no-barrel-files](/examples/no-barrel-files/)           | Detect and ban barrel files (re-export-only `index.ts`)               |
+| [test-file-coverage](/examples/test-file-coverage/)     | Verify that every source file has a corresponding test file           |
+| [component-pairing](/examples/component-pairing/)       | Enforce Connected/presentational component pairs with opt-out support |
 
 ## Code Quality & Output
 
-| Rule | Description |
-| ---- | ----------- |
-| [no-todo-comments](/examples/no-todo-comments/) | Flag TODO, FIXME, HACK, and XXX comments before merging |
-| [no-emoji-in-output](/examples/no-emoji-in-output/) | Ban emoji and raw ANSI codes in CLI output strings |
-| [max-file-length](/examples/max-file-length/) | Warn when source files exceed a configurable line count |
+| Rule                                                                | Description                                                        |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [no-todo-comments](/examples/no-todo-comments/)                     | Flag TODO, FIXME, HACK, and XXX comments before merging            |
+| [no-emoji-in-output](/examples/no-emoji-in-output/)                 | Ban emoji and raw ANSI codes in CLI output strings                 |
+| [max-file-length](/examples/max-file-length/)                       | Warn when source files exceed a configurable line count            |
 | [page-component-constraints](/examples/page-component-constraints/) | Enforce size limits and ban data-fetching hooks in page components |
 
 ## Database Schema
 
-| Rule | Description |
-| ---- | ----------- |
+| Rule                                                      | Description                                                     |
+| --------------------------------------------------------- | --------------------------------------------------------------- |
 | [database-audit-fields](/examples/database-audit-fields/) | Ensure all tables include `created_at` and `updated_at` columns |
 
 ## Architecture Boundaries
 
-| Rule | Description |
-| ---- | ----------- |
-| [required-export-pattern](/examples/required-export-pattern/) | Verify files export a required function signature |
-| [openapi-routes](/examples/openapi-routes/) | Ensure backend routes use OpenAPI-typed definitions |
+| Rule                                                              | Description                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------- |
+| [required-export-pattern](/examples/required-export-pattern/)     | Verify files export a required function signature     |
+| [openapi-routes](/examples/openapi-routes/)                       | Ensure backend routes use OpenAPI-typed definitions   |
 | [clean-architecture-layers](/examples/clean-architecture-layers/) | Enforce dependency direction in layered architectures |
 
 The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include a Quality Manager skill that identifies recurring patterns in your codebase and proposes new rules to enforce them. [Sign up for beta access](https://plugins.archgate.dev).
@@ -3829,8 +3824,7 @@ export default {
           const content = await ctx.readFile(file);
 
           // Support opt-out directive
-          if (/^\/\/\s*@no-presentational:/.test(content.trimStart()))
-            continue;
+          if (/^\/\/\s*@no-presentational:/.test(content.trimStart())) continue;
 
           const presentationalFile = file.replace(/Connected\.tsx$/, ".tsx");
 
@@ -4146,20 +4140,14 @@ In a monorepo, `package.json` scripts are local to each package and cannot expre
 ```json title="packages/api/package.json"
 {
   "name": "@myorg/api",
-  "scripts": {
-    "build": "tsc",
-    "test": "vitest",
-    "lint": "eslint ."
-  }
+  "scripts": { "build": "tsc", "test": "vitest", "lint": "eslint ." }
 }
 ```
 
 ## Examples of **correct** code
 
 ```json title="packages/api/package.json"
-{
-  "name": "@myorg/api"
-}
+{ "name": "@myorg/api" }
 ```
 
 ```yaml title="packages/api/moon.yml"
@@ -4277,10 +4265,7 @@ const output = await $`ls -la`;
 ## Examples of **correct** code
 
 ```typescript title="src/helpers/git.ts"
-const proc = Bun.spawn(["git", "status"], {
-  stdout: "pipe",
-  stderr: "pipe",
-});
+const proc = Bun.spawn(["git", "status"], { stdout: "pipe", stderr: "pipe" });
 const output = await new Response(proc.stdout).text();
 ```
 
@@ -4328,7 +4313,7 @@ export default {
                 'Do not import $ from "bun" — the shell API hangs on Windows. Use Bun.spawn instead.',
               file: m.file,
               line: m.line,
-              fix: 'Remove the $ import and replace shell calls with Bun.spawn',
+              fix: "Remove the $ import and replace shell calls with Bun.spawn",
             });
           }
         }
@@ -4573,7 +4558,7 @@ The rule also checks for raw ANSI escape codes, enforcing the use of `styleText(
 ```typescript title="src/commands/check.ts"
 console.log("✅ All checks passed!");
 console.log("❌ Validation failed");
-console.log("\x1b[32mSuccess\x1b[0m");  // raw ANSI
+console.log("\x1b[32mSuccess\x1b[0m"); // raw ANSI
 ```
 
 ## Examples of **correct** code
@@ -4732,12 +4717,7 @@ Large dependency trees increase supply-chain risk and bloat bundle sizes. This r
 ## Examples of **incorrect** code
 
 ```json title="package.json"
-{
-  "dependencies": {
-    "zod": "^3.23.0",
-    "chalk": "^5.3.0"
-  }
-}
+{ "dependencies": { "zod": "^3.23.0", "chalk": "^5.3.0" } }
 ```
 
 If only `zod` is on the approved list, `chalk` triggers a violation.
@@ -4746,12 +4726,8 @@ If only `zod` is on the approved list, `chalk` triggers a violation.
 
 ```json title="package.json"
 {
-  "dependencies": {
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "chalk": "^5.3.0"
-  }
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "chalk": "^5.3.0" }
 }
 ```
 
@@ -4860,19 +4836,19 @@ export default {
       description:
         "All backend routes must use @hono/zod-openapi, not raw HTTP methods",
       async check(ctx) {
-        const routeFiles = await ctx.glob(
-          "packages/backend/src/routes/*.ts"
-        );
+        const routeFiles = await ctx.glob("packages/backend/src/routes/*.ts");
 
         for (const file of routeFiles) {
           if (file.includes(".test.") || file.includes(".spec.")) continue;
 
           const content = await ctx.readFile(file);
 
-          const importsOpenApi =
-            /from\s+["']@hono\/zod-openapi["']/.test(content);
-          const hasRawMethods =
-            /\.(?:get|post|put|delete|patch)\s*\(/.test(content);
+          const importsOpenApi = /from\s+["']@hono\/zod-openapi["']/.test(
+            content
+          );
+          const hasRawMethods = /\.(?:get|post|put|delete|patch)\s*\(/.test(
+            content
+          );
           const hasOpenApiCalls = /\.openapi\s*\(/.test(content);
 
           if (!importsOpenApi && hasRawMethods) {
@@ -4933,8 +4909,8 @@ In frontend architectures that separate routing from logic, page components shou
 ```tsx title="src/pages/DashboardPage.tsx"
 
 export default function DashboardPage() {
-  const [filter, setFilter] = useState("");                    // ✗ state hook
-  const { data } = useQuery({ queryKey: ["dashboard"] });      // ✗ data hook
+  const [filter, setFilter] = useState(""); // ✗ state hook
+  const { data } = useQuery({ queryKey: ["dashboard"] }); // ✗ data hook
   // ... 120 lines of layout + logic
 }
 ```
@@ -4984,8 +4960,7 @@ export default {
       },
     },
     "page-no-data-hooks": {
-      description:
-        "Page components must not use data-fetching or state hooks",
+      description: "Page components must not use data-fetching or state hooks",
       async check(ctx) {
         const pageFiles = await ctx.glob("src/pages/*Page.tsx");
 
@@ -5212,12 +5187,7 @@ The rule has two checks: `catalog-usage` verifies all dependencies use the corre
 ## Examples of **incorrect** code
 
 ```json title="packages/api/package.json"
-{
-  "dependencies": {
-    "zod": "^3.23.0",
-    "hono": "^4.0.0"
-  }
-}
+{ "dependencies": { "zod": "^3.23.0", "hono": "^4.0.0" } }
 ```
 
 Raw semver strings bypass the central catalog and will diverge across packages.
@@ -5235,12 +5205,7 @@ Raw semver strings bypass the central catalog and will diverge across packages.
 ```
 
 ```json title="package.json (root)"
-{
-  "catalog": {
-    "zod": "^3.23.0",
-    "hono": "^4.0.0"
-  }
-}
+{ "catalog": { "zod": "^3.23.0", "hono": "^4.0.0" } }
 ```
 
 All versions are managed centrally. Upgrading `zod` requires changing only the root catalog.
@@ -5292,7 +5257,10 @@ export default {
       description:
         "All catalog: references must resolve to entries in root package.json catalog",
       async check(ctx) {
-        const rootPkg = (await ctx.readJSON("package.json")) as Record<string, unknown>;
+        const rootPkg = (await ctx.readJSON("package.json")) as Record<
+          string,
+          unknown
+        >;
         const catalog = (rootPkg.catalog ?? {}) as Record<string, string>;
         const catalogKeys = new Set(Object.keys(catalog));
 
@@ -5312,11 +5280,16 @@ export default {
             if (!deps) continue;
 
             for (const [name, version] of Object.entries(deps)) {
-              if (typeof version !== "string" || !version.startsWith("catalog:"))
+              if (
+                typeof version !== "string" ||
+                !version.startsWith("catalog:")
+              )
                 continue;
 
               const catalogRef =
-                version === "catalog:" ? name : version.slice("catalog:".length);
+                version === "catalog:"
+                  ? name
+                  : version.slice("catalog:".length);
 
               if (!catalogKeys.has(catalogRef)) {
                 ctx.report.violation({
