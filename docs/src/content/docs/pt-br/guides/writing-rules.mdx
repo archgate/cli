@@ -30,6 +30,33 @@ export default {
 } satisfies RuleSet;
 ```
 
+:::note
+A diretiva `/// <reference path>` pode conflitar com a regra `@typescript-eslint/triple-slash-reference` no ESLint ou oxlint. Se seu projeto usa essa regra, desative-a para arquivos em `.archgate/adrs/`.
+
+Para **ESLint** (flat config):
+
+```js
+{
+  files: [".archgate/adrs/*.rules.ts"],
+  rules: { "@typescript-eslint/triple-slash-reference": "off" },
+}
+```
+
+Para **oxlint** (`.oxlintrc.json`):
+
+```json
+{
+  "overrides": [
+    {
+      "files": [".archgate/adrs/*.rules.ts"],
+      "rules": { "typescript/triple-slash-reference": "off" }
+    }
+  ]
+}
+```
+
+:::
+
 Um único arquivo de regras pode definir múltiplas regras:
 
 ```typescript
