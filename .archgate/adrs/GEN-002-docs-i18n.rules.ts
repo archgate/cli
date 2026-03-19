@@ -21,29 +21,29 @@ export default {
         "Locale pages must not use locale-prefixed internal links — Starlight resolves them automatically",
       severity: "error",
       async check(ctx) {
-        /* oxlint-disable no-await-in-loop -- sequential per-locale is fine for a small list */
-        for (const locale of LOCALES) {
-          const localePrefix = `${CONTENT_ROOT}/${locale}/`;
-          const localeFiles = (
-            await ctx.glob(`${localePrefix}**/*.mdx`)
-          ).filter((f) => f.startsWith(localePrefix));
-          const pattern = LOCALE_LINK_PATTERNS[LOCALES.indexOf(locale)];
+        await Promise.all(
+          LOCALES.map(async (locale, i) => {
+            const localePrefix = `${CONTENT_ROOT}/${locale}/`;
+            const localeFiles = (
+              await ctx.glob(`${localePrefix}**/*.mdx`)
+            ).filter((f) => f.startsWith(localePrefix));
+            const pattern = LOCALE_LINK_PATTERNS[i];
 
-          const matches = await Promise.all(
-            localeFiles.map((file) => ctx.grep(file, pattern))
-          );
-          for (const fileMatches of matches) {
-            for (const m of fileMatches) {
-              ctx.report.violation({
-                message: `Internal link contains locale prefix "/${locale}/". Remove the prefix — Starlight resolves locale routes automatically.`,
-                file: m.file,
-                line: m.line,
-                fix: `Replace "/${locale}/..." with "/..." in the link`,
-              });
+            const matches = await Promise.all(
+              localeFiles.map((file) => ctx.grep(file, pattern))
+            );
+            for (const fileMatches of matches) {
+              for (const m of fileMatches) {
+                ctx.report.violation({
+                  message: `Internal link contains locale prefix "/${locale}/". Remove the prefix — Starlight resolves locale routes automatically.`,
+                  file: m.file,
+                  line: m.line,
+                  fix: `Replace "/${locale}/..." with "/..." in the link`,
+                });
+              }
             }
-          }
-        }
-        /* oxlint-enable no-await-in-loop */
+          })
+        );
       },
     },
     "i18n-page-parity": {
