@@ -10,5 +10,11 @@
     "max-depth": "off",
     "no-await-in-loop": "warn",
     "typescript/no-deprecated": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [".archgate/adrs/*.rules.ts"],
+      "rules": { "typescript/triple-slash-reference": "off" }
+    }
+  ]
 }

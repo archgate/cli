@@ -24,6 +24,7 @@ const RuleSetSchema = z.object({
 });
 import { logDebug, logWarn } from "../helpers/log";
 import { projectPaths } from "../helpers/paths";
+import { ensureRulesShim } from "../helpers/rules-shim";
 
 export interface LoadedAdr {
   adr: AdrDocument;
@@ -38,52 +39,55 @@ export async function loadRuleAdrs(
   filterAdrId?: string
 ): Promise<LoadedAdr[]> {
   const pp = projectPaths(projectRoot);
-  const loaded: LoadedAdr[] = [];
 
-  const adrDirs: string[] = [pp.adrsDir];
+  // Ensure rules.d.ts exists so .rules.ts files get type checking
+  // without requiring node_modules (supports non-JS projects)
+  await ensureRulesShim(projectRoot);
 
-  for (const adrsDir of adrDirs) {
-    let files: string[];
-    try {
-      files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
-    } catch {
-      continue;
-    }
+  const adrsDir = pp.adrsDir;
 
-    for (const file of files) {
+  let files: string[];
+  try {
+    files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
+  } catch {
+    return [];
+  }
+
+  // Phase 1: Read and parse all ADR files in parallel
+  const parsedAdrs = await Promise.all(
+    files.map(async (file) => {
       const filePath = join(adrsDir, file);
-      let adr: AdrDocument;
-
       try {
-        // oxlint-disable-next-line no-await-in-loop -- sequential file discovery is intentional
         const content = await Bun.file(filePath).text();
-        adr = parseAdr(content, filePath);
+        return { file, adr: parseAdr(content, filePath) };
       } catch (err) {
         logDebug(`Skipping unparseable ADR: ${filePath}`, err);
-        continue;
+        return null;
       }
+    })
+  );
 
-      // Skip if no rules
-      if (!adr.frontmatter.rules) {
-        continue;
-      }
+  // Filter to ADRs that have rules enabled
+  const ruleAdrs = parsedAdrs.filter(
+    (entry): entry is NonNullable<typeof entry> => {
+      if (entry === null) return false;
+      if (!entry.adr.frontmatter.rules) return false;
+      if (filterAdrId && entry.adr.frontmatter.id !== filterAdrId) return false;
+      return true;
+    }
+  );
 
-      // Filter by specific ADR ID if requested
-      if (filterAdrId && adr.frontmatter.id !== filterAdrId) {
-        continue;
-      }
-
-      // Find companion .rules.ts file
+  // Phase 2: Verify companion files exist and import rule sets in parallel
+  const ruleResults = await Promise.all(
+    ruleAdrs.map(async ({ file, adr }) => {
       const baseName = basename(file, ".md");
       const rulesFile = join(adrsDir, `${baseName}.rules.ts`);
-      // oxlint-disable-next-line no-await-in-loop -- sequential file discovery is intentional
       const rulesFileExists = await Bun.file(rulesFile).exists();
 
       if (!rulesFileExists) {
-        logWarn(
+        throw new Error(
           `ADR ${adr.frontmatter.id} has rules: true but no companion file found: ${rulesFile}`
         );
-        continue;
       }
 
       try {
@@ -91,7 +95,6 @@ export async function loadRuleAdrs(
         // to force re-reading from disk on every call (critical for repeated invocations).
         // Use file:// URL to handle Windows backslash paths in import().
         const rulesUrl = `${pathToFileURL(rulesFile).href}?t=${Date.now()}`;
-        // oxlint-disable-next-line no-await-in-loop -- dynamic import must be sequential
         const mod = await import(rulesUrl);
         const parsed = RuleSetSchema.safeParse(mod.default);
 
@@ -99,19 +102,20 @@ export async function loadRuleAdrs(
           logWarn(
             `ADR ${adr.frontmatter.id}: companion file does not export a valid RuleSet as default`
           );
-          continue;
+          return null;
         }
 
         const ruleSet: RuleSet = parsed.data;
-        loaded.push({ adr, ruleSet });
         logDebug(
           `Loaded ${Object.keys(ruleSet.rules).length} rules from ${adr.frontmatter.id}`
         );
+        return { adr, ruleSet };
       } catch (err) {
         logWarn(`Failed to import rules for ${adr.frontmatter.id}: ${err}`);
+        return null;
       }
-    }
-  }
+    })
+  );
 
-  return loaded;
+  return ruleResults.filter((r): r is LoadedAdr => r !== null);
 }

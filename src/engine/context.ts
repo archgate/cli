@@ -174,7 +174,6 @@ export function matchFilesToAdrs(
 /** Load all ADR documents (not just those with rules) from the project. */
 async function loadAllAdrs(projectRoot: string): Promise<AdrDocument[]> {
   const pp = projectPaths(projectRoot);
-  const adrs: AdrDocument[] = [];
 
   let files: string[];
   try {
@@ -183,16 +182,19 @@ async function loadAllAdrs(projectRoot: string): Promise<AdrDocument[]> {
     return [];
   }
 
-  for (const file of files) {
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- sequential file discovery
-      const content = await Bun.file(join(pp.adrsDir, file)).text();
-      adrs.push(parseAdr(content, join(pp.adrsDir, file)));
-    } catch {
-      // Skip unparseable ADRs
-    }
-  }
-  return adrs;
+  const results = await Promise.all(
+    files.map(async (file) => {
+      try {
+        const filePath = join(pp.adrsDir, file);
+        const content = await Bun.file(filePath).text();
+        return parseAdr(content, filePath);
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  return results.filter((adr): adr is AdrDocument => adr !== null);
 }
 
 const EMPTY_SUMMARY: ReportSummary = {

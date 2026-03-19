@@ -125,4 +125,65 @@ describe("initProject", () => {
       join(tempDir, ".claude", "settings.local.json")
     );
   });
+
+  test("generates rules.d.ts in .archgate/", async () => {
+    await initProject(tempDir);
+
+    const dtsPath = join(tempDir, ".archgate", "rules.d.ts");
+    expect(existsSync(dtsPath)).toBe(true);
+
+    const dtsContent = await Bun.file(dtsPath).text();
+    expect(dtsContent).toContain("declare interface RuleContext");
+  });
+
+  test("adds rules.d.ts to .gitignore", async () => {
+    await initProject(tempDir);
+
+    const gitignorePath = join(tempDir, ".gitignore");
+    expect(existsSync(gitignorePath)).toBe(true);
+
+    const content = await Bun.file(gitignorePath).text();
+    expect(content).toContain(".archgate/rules.d.ts");
+  });
+
+  test("does not duplicate .gitignore entries on re-init", async () => {
+    await initProject(tempDir);
+    await initProject(tempDir);
+
+    const content = await Bun.file(join(tempDir, ".gitignore")).text();
+    const dtsCount = content.split(".archgate/rules.d.ts").length - 1;
+    expect(dtsCount).toBe(1);
+  });
+
+  test("adds oxlint override for triple-slash-reference", async () => {
+    await Bun.write(join(tempDir, ".oxlintrc.json"), '{"rules":{}}');
+    await initProject(tempDir);
+
+    const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
+    expect(config.overrides).toHaveLength(1);
+    expect(config.overrides[0].files).toEqual([".archgate/adrs/*.rules.ts"]);
+    expect(config.overrides[0].rules["typescript/triple-slash-reference"]).toBe(
+      "off"
+    );
+  });
+
+  test("adds eslintrc override for triple-slash-reference", async () => {
+    await Bun.write(join(tempDir, ".eslintrc.json"), '{"rules":{}}');
+    await initProject(tempDir);
+
+    const config = await Bun.file(join(tempDir, ".eslintrc.json")).json();
+    expect(config.overrides).toHaveLength(1);
+    expect(
+      config.overrides[0].rules["@typescript-eslint/triple-slash-reference"]
+    ).toBe("off");
+  });
+
+  test("does not duplicate linter overrides on re-init", async () => {
+    await Bun.write(join(tempDir, ".oxlintrc.json"), "{}");
+    await initProject(tempDir);
+    await initProject(tempDir);
+
+    const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
+    expect(config.overrides).toHaveLength(1);
+  });
 });

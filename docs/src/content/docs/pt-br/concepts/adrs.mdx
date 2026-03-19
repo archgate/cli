@@ -21,7 +21,7 @@ Com o plugin do [Claude Code](/guides/claude-code-plugin/) ou [Cursor](/guides/c
 
 ### ADR como Regras
 
-O arquivo de regras é um arquivo `.rules.ts` complementar que exporta verificações automatizadas via `defineRules()`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true` em seu frontmatter, executa o arquivo de regras complementar contra seu codebase, e reporta quaisquer violações com caminhos de arquivo e números de linha.
+O arquivo de regras é um arquivo `.rules.ts` complementar que exporta um objeto simples tipado com `satisfies RuleSet`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true` em seu frontmatter, executa o arquivo de regras complementar contra seu codebase, e reporta quaisquer violações com caminhos de arquivo e números de linha.
 
 Nem todo ADR precisa de regras. Algumas decisões são melhor aplicadas apenas por revisão de código. Defina `rules: false` quando nenhuma verificação automatizada for prática.
 

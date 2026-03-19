@@ -90,9 +90,10 @@ Bun 1.3.9, Node LTS, npm 11.11.0. Minimum user-facing Bun: `>=1.2.21` (enforced 
 - `ARCH-007` — Cross-platform subprocess execution (Bun.spawn, no Bun.$)
 - `ARCH-008` — Typed command options (use addOption for choices/argParser)
 - `ARCH-009` — Centralized platform detection (use helpers/platform)
+- `ARCH-010` — Prefer Bun built-in JSON parsing (Bun.file().json())
 - `GEN-001` — Documentation site (Astro Starlight)
 - `GEN-002` — Documentation internationalization (en + pt-br parity)
 
 ## ADR Format
 
-YAML frontmatter (`id`, `title`, `domain`, `rules`, optional `files`). Sections: Context, Decision, Do's and Don'ts, Consequences, Compliance, References. Companion `.rules.ts` exports `defineRules()`.
+YAML frontmatter (`id`, `title`, `domain`, `rules`, optional `files`). Sections: Context, Decision, Do's and Don'ts, Consequences, Compliance, References. Companion `.rules.ts` exports a plain object `satisfies RuleSet`.

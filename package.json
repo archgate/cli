@@ -27,7 +27,6 @@
     "archgate": "bin/archgate.cjs"
   },
   "files": [
-    "src/formats/rules.ts",
     "bin/archgate.cjs"
   ],
   "os": [
@@ -36,9 +35,6 @@
     "win32"
   ],
   "type": "module",
-  "exports": {
-    "./rules": "./src/formats/rules.ts"
-  },
   "scripts": {
     "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",

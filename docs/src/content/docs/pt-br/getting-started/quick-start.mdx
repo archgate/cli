@@ -63,29 +63,31 @@ Abaixo do frontmatter, escreva a decisão em markdown. O Archgate não impõe um
 
 ## 4. Adicionar um arquivo de regras complementar
 
-Crie um arquivo `.rules.ts` ao lado do seu ADR com o mesmo prefixo de nome. As regras são escritas em TypeScript usando a função `defineRules`:
+Crie um arquivo `.rules.ts` ao lado do seu ADR com o mesmo prefixo de nome. As regras são escritas em TypeScript usando o tipo `RuleSet`:
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "no-console-error": {
-    description: "Use logError() instead of console.error()",
-    async check(ctx) {
-      for (const file of ctx.scopedFiles) {
-        const matches = await ctx.grep(file, /console\.error\(/);
-        for (const match of matches) {
-          ctx.report.violation({
-            message: "Use logError() instead of console.error()",
-            file: match.file,
-            line: match.line,
-            fix: "Import logError from your helpers and use it instead",
-          });
+export default {
+  rules: {
+    "no-console-error": {
+      description: "Use logError() instead of console.error()",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const matches = await ctx.grep(file, /console\.error\(/);
+          for (const match of matches) {
+            ctx.report.violation({
+              message: "Use logError() instead of console.error()",
+              file: match.file,
+              line: match.line,
+              fix: "Import logError from your helpers and use it instead",
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 Cada regra possui uma chave única, uma descrição e uma função assíncrona `check`. Dentro de `check`, você tem acesso a:

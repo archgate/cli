@@ -24,7 +24,7 @@ Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercont
 - [Core Concepts — Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
 - [Core Concepts — Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain for targeted governance.
 - [Guide — Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
-- [Guide — Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the defineRules API with file matching and violation reporting.
+- [Guide — Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the satisfies RuleSet pattern with file matching and violation reporting.
 - [Guide — CI Integration](https://cli.archgate.dev/guides/ci-integration/): Add Archgate checks to GitHub Actions, GitLab CI, or any pipeline.
 - [Guide — Claude Code Plugin](https://cli.archgate.dev/guides/claude-code-plugin/): Give AI agents a governance workflow that reads ADRs, validates code, and captures patterns.
 - [Guide — VS Code Plugin](https://cli.archgate.dev/guides/vscode-plugin/): Real-time ADR compliance in VS Code.
@@ -34,7 +34,7 @@ Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercont
 - [Guide — Pre-commit Hooks](https://cli.archgate.dev/guides/pre-commit-hooks/): Automatically check ADR compliance before every commit.
 - [Reference — CLI Commands](https://cli.archgate.dev/reference/cli-commands/): Complete reference for init, check, adr create/list/show, login, and more.
 - [Reference — MCP Tools](https://cli.archgate.dev/reference/mcp-tools/): API reference for adr_list, adr_read, check_compliance, and review_context.
-- [Reference — Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for defineRules, RuleContext, and violation reporting.
+- [Reference — Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for RuleSet with satisfies, RuleContext, and violation reporting.
 - [Reference — ADR Schema](https://cli.archgate.dev/reference/adr-schema/): YAML frontmatter schema and markdown structure reference for ADRs.
 - [Examples — Common Rule Patterns](https://cli.archgate.dev/examples/common-rule-patterns/): Ready-to-use rule patterns for naming conventions, import restrictions, and more.
 

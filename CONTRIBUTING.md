@@ -111,7 +111,7 @@ src/
 │   └── runner.ts           # Rule execution engine
 ├── formats/
 │   ├── adr.ts              # ADR frontmatter schema and parsing
-│   └── rules.ts            # Rule types and defineRules()
+│   └── rules.ts            # Rule types (RuleSet, RuleConfig)
 ├── helpers/
 │   ├── paths.ts            # Path helpers (~/.archgate/, .archgate/)
 │   ├── log.ts              # Logging utilities (logDebug, logInfo, etc.)

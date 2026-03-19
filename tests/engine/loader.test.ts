@@ -11,16 +11,6 @@ import { join } from "node:path";
 
 import { loadRuleAdrs } from "../../src/engine/loader";
 
-// Absolute path to the real defineRules module (forward slashes for import specifiers)
-const RULES_MODULE_PATH = join(
-  import.meta.dir,
-  "..",
-  "..",
-  "src",
-  "formats",
-  "rules.ts"
-).replaceAll("\\", "/");
-
 describe("loadRuleAdrs", () => {
   let tempDir: string;
 
@@ -38,13 +28,14 @@ describe("loadRuleAdrs", () => {
   function writeRulesTs(adrsDir: string, baseName: string) {
     writeFileSync(
       join(adrsDir, `${baseName}.rules.ts`),
-      `import { defineRules } from "${RULES_MODULE_PATH}";
-export default defineRules({
-  "sample-rule": {
-    description: "Sample rule",
-    async check(ctx) {},
+      `export default {
+  rules: {
+    "sample-rule": {
+      description: "Sample rule",
+      async check(ctx) {},
+    },
   },
-});
+};
 `
     );
   }
@@ -73,14 +64,15 @@ export default defineRules({
     expect(loaded).toHaveLength(0);
   });
 
-  test("warns and skips when companion file is missing", async () => {
+  test("throws when companion file is missing", () => {
     copyFileSync(
       join(fixturesDir, "TEST-004-missing-companion.md"),
       join(tempDir, ".archgate", "adrs", "TEST-004-missing-companion.md")
     );
 
-    const loaded = await loadRuleAdrs(tempDir);
-    expect(loaded).toHaveLength(0);
+    expect(loadRuleAdrs(tempDir)).rejects.toThrow(
+      "has rules: true but no companion file found"
+    );
   });
 
   test("filters by ADR ID", async () => {

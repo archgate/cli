@@ -80,8 +80,7 @@ export async function configureClaudeSettings(
   // Read existing settings or start with empty object
   let existing: ClaudeSettings = {};
   if (existsSync(settingsPath)) {
-    const content = await Bun.file(settingsPath).text();
-    existing = JSON.parse(content) as ClaudeSettings;
+    existing = (await Bun.file(settingsPath).json()) as ClaudeSettings;
   }
 
   const merged = mergeClaudeSettings(existing, ARCHGATE_CLAUDE_SETTINGS);

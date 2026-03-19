@@ -40,18 +40,21 @@ export async function resolveScopedFiles(
 ): Promise<string[]> {
   const patterns = adrFileGlobs ?? ["**/*"];
   const trackedFiles = await getGitTrackedFiles(projectRoot);
-  const allFiles: string[] = [];
 
-  for (const pattern of patterns) {
-    const glob = new Bun.Glob(pattern);
-    // oxlint-disable-next-line no-await-in-loop -- async iterator
-    for await (const file of glob.scan({ cwd: projectRoot, dot: false })) {
-      const normalized = file.replaceAll("\\", "/");
-      if (trackedFiles && !trackedFiles.has(normalized)) continue;
-      if (!allFiles.includes(normalized)) allFiles.push(normalized);
-    }
-  }
-  return allFiles.sort();
+  const results = await Promise.all(
+    patterns.map(async (pattern) => {
+      const glob = new Bun.Glob(pattern);
+      const files: string[] = [];
+      for await (const file of glob.scan({ cwd: projectRoot, dot: false })) {
+        const normalized = file.replaceAll("\\", "/");
+        if (trackedFiles && !trackedFiles.has(normalized)) continue;
+        files.push(normalized);
+      }
+      return files;
+    })
+  );
+
+  return [...new Set(results.flat())].sort();
 }
 
 /** Get changed files from git staging area. */

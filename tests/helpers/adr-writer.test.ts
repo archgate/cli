@@ -20,19 +20,10 @@ import {
 } from "../../src/helpers/adr-writer";
 
 describe("slugify", () => {
-  test("converts title to lowercase kebab-case", () => {
+  test("converts to lowercase kebab-case and handles edge cases", () => {
     expect(slugify("Use PostgreSQL")).toBe("use-postgresql");
-  });
-
-  test("replaces multiple non-alphanumeric chars with single dash", () => {
     expect(slugify("Hello   World!!!")).toBe("hello-world");
-  });
-
-  test("strips leading and trailing dashes", () => {
     expect(slugify("--trimmed--")).toBe("trimmed");
-  });
-
-  test("handles single word", () => {
     expect(slugify("Monorepo")).toBe("monorepo");
   });
 });
@@ -48,28 +39,18 @@ describe("getNextId", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("returns 001 when directory does not exist", () => {
-    const id = getNextId(join(tempDir, "nonexistent"), "BE");
-    expect(id).toBe("BE-001");
-  });
-
-  test("returns 001 when directory is empty", () => {
+  test("returns 001 for nonexistent or empty directory", () => {
+    expect(getNextId(join(tempDir, "nonexistent"), "BE")).toBe("BE-001");
     mkdirSync(tempDir, { recursive: true });
-    const id = getNextId(tempDir, "FE");
-    expect(id).toBe("FE-001");
+    expect(getNextId(tempDir, "FE")).toBe("FE-001");
   });
 
-  test("increments from the highest existing number", () => {
+  test("increments from highest and ignores different prefixes", () => {
     writeFileSync(join(tempDir, "GEN-001-example.md"), "");
     writeFileSync(join(tempDir, "GEN-003-third.md"), "");
-    const id = getNextId(tempDir, "GEN");
-    expect(id).toBe("GEN-004");
-  });
-
-  test("ignores files with different prefixes", () => {
+    expect(getNextId(tempDir, "GEN")).toBe("GEN-004");
     writeFileSync(join(tempDir, "BE-005-backend.md"), "");
-    const id = getNextId(tempDir, "FE");
-    expect(id).toBe("FE-001");
+    expect(getNextId(tempDir, "FE")).toBe("FE-001");
   });
 });
 
@@ -97,27 +78,17 @@ describe("buildAdrContent", () => {
     expect(doc.body).toContain("Custom content here.");
   });
 
-  test("includes files in frontmatter when provided with body", () => {
+  test("includes files and rules in frontmatter when provided with body", () => {
     const content = buildAdrContent({
       id: "FE-001",
       title: "With Files",
       domain: "frontend",
       body: "# Body",
       files: ["src/**/*.tsx"],
+      rules: true,
     });
     const doc = parseAdr(content, "FE-001-with-files.md");
     expect(doc.frontmatter.files).toEqual(["src/**/*.tsx"]);
-  });
-
-  test("sets rules field when provided with body", () => {
-    const content = buildAdrContent({
-      id: "ARCH-001",
-      title: "With Rules",
-      domain: "architecture",
-      body: "# Body",
-      rules: true,
-    });
-    const doc = parseAdr(content, "ARCH-001-with-rules.md");
     expect(doc.frontmatter.rules).toBe(true);
   });
 });
@@ -163,6 +134,36 @@ describe("createAdrFile", () => {
     });
     expect(result.id).toBe("FE-002");
   });
+
+  test("generates companion .rules.ts only when rules is true", async () => {
+    const withRules = await createAdrFile(tempDir, {
+      title: "With Rules",
+      domain: "architecture",
+      body: "## Context\n\nSome context.",
+      rules: true,
+    });
+    const rulesPath = withRules.filePath.replace(".md", ".rules.ts");
+    expect(existsSync(rulesPath)).toBe(true);
+    const content = await Bun.file(rulesPath).text();
+    expect(content).toContain('/// <reference path="../rules.d.ts" />');
+    expect(content).toContain("satisfies RuleSet");
+
+    const noRules = await createAdrFile(tempDir, {
+      title: "No Rules",
+      domain: "general",
+      body: "## Context\n\nCtx.",
+      rules: false,
+    });
+    expect(existsSync(noRules.filePath.replace(".md", ".rules.ts"))).toBe(
+      false
+    );
+
+    const def = await createAdrFile(tempDir, {
+      title: "Default",
+      domain: "general",
+    });
+    expect(existsSync(def.filePath.replace(".md", ".rules.ts"))).toBe(false);
+  });
 });
 
 describe("findAdrFileById", () => {
@@ -174,22 +175,16 @@ describe("findAdrFileById", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("returns null when directory does not exist", async () => {
-    const result = await findAdrFileById(
-      join(tempDir, "nonexistent"),
-      "GEN-001"
-    );
-    expect(result).toBeNull();
-  });
-
-  test("returns null when ADR ID is not found", async () => {
+  test("returns null when directory missing or ID not found", async () => {
+    expect(
+      await findAdrFileById(join(tempDir, "nonexistent"), "GEN-001")
+    ).toBeNull();
     await createAdrFile(tempDir, {
       title: "Existing",
       domain: "general",
-      body: "## Context\n\nSome context.",
+      body: "## Context\n\nCtx.",
     });
-    const result = await findAdrFileById(tempDir, "GEN-999");
-    expect(result).toBeNull();
+    expect(await findAdrFileById(tempDir, "GEN-999")).toBeNull();
   });
 
   test("returns the matching AdrDocument", async () => {

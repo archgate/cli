@@ -1,30 +1,32 @@
 ---
 title: Rule API
-description: TypeScript API reference for writing Archgate rules. Learn defineRules, RuleContext, violation reporting, file matching, and AST-based compliance checks.
+description: TypeScript API reference for writing Archgate rules. Learn RuleSet with satisfies, RuleContext, violation reporting, file matching, and AST-based compliance checks.
 ---
 
-Archgate rules are TypeScript files that export automated checks via `defineRules()`. Each rule receives a `RuleContext` with utilities for searching files, reading content, and reporting violations.
+Archgate rules are TypeScript files that export a plain object typed with `satisfies RuleSet`. Each rule receives a `RuleContext` with utilities for searching files, reading content, and reporting violations.
 
-## defineRules
+## RuleSet
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "my-rule-id": {
-    description: "Human-readable description of what this rule checks",
-    severity: "error", // optional, defaults to "error"
-    async check(ctx) {
-      // Rule logic here
+export default {
+  rules: {
+    "my-rule-id": {
+      description: "Human-readable description of what this rule checks",
+      severity: "error", // optional, defaults to "error"
+      async check(ctx) {
+        // Rule logic here
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
-The `defineRules` function takes a record of rule configurations keyed by rule ID. Keys become the rule IDs that appear in check output and violation reports. The function returns a `RuleSet` object.
+A rules file default-exports a plain object with a `rules` record keyed by rule ID. Keys become the rule IDs that appear in check output and violation reports. The `satisfies RuleSet` annotation provides type checking without wrapping in a function call.
 
 ```typescript
-function defineRules(rules: Record<string, RuleConfig>): RuleSet;
+type RuleSet = { rules: Record<string, RuleConfig> };
 ```
 
 ---
@@ -279,7 +281,7 @@ interface ViolationDetail {
 
 | Field      | Type       | Description                          |
 | ---------- | ---------- | ------------------------------------ |
-| `ruleId`   | `string`   | Rule ID from the `defineRules` key   |
+| `ruleId`   | `string`   | Rule ID from the `rules` object key  |
 | `adrId`    | `string`   | ADR ID from the frontmatter          |
 | `message`  | `string`   | Human-readable description           |
 | `file`     | `string?`  | File path where the issue was found  |
@@ -291,7 +293,7 @@ interface ViolationDetail {
 
 ## RuleSet
 
-The return type of `defineRules`. You do not construct this directly.
+The type used with `satisfies` to type-check your rules object. Export a plain object that conforms to this shape.
 
 ```typescript
 type RuleSet = { rules: Record<string, RuleConfig> };

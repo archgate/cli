@@ -3,27 +3,29 @@ title: Regras
 description: Entenda o sistema de regras TypeScript do Archgate que transforma Architecture Decision Records em verificações automatizadas com relatórios por arquivo.
 ---
 
-Regras são o lado executável de um ADR. Elas vivem em arquivos `.rules.ts` complementares ao lado do documento ADR e exportam verificações automatizadas via a função `defineRules()`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true`, importa seu arquivo de regras complementar e executa cada verificação contra seu codebase.
+Regras são o lado executável de um ADR. Elas vivem em arquivos `.rules.ts` complementares ao lado do documento ADR e exportam um objeto simples tipado com `satisfies RuleSet`. Quando você executa `archgate check`, a CLI carrega cada ADR que tem `rules: true`, importa seu arquivo de regras complementar e executa cada verificação contra seu codebase.
 
 ## Definindo Regras
 
-Um arquivo de regras é um módulo TypeScript que exporta por padrão o resultado de `defineRules()`. Importe a função do pacote `archgate/rules`:
+Um arquivo de regras é um módulo TypeScript que exporta por padrão um objeto simples em conformidade com o tipo `RuleSet`. O tipo é fornecido pelo shim local gerado automaticamente por `archgate init` (sem necessidade de instalar via npm):
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "rule-key": {
-    description: "What this rule checks",
-    severity: "error",
-    async check(ctx) {
-      // Inspect files and report violations
+export default {
+  rules: {
+    "rule-key": {
+      description: "What this rule checks",
+      severity: "error",
+      async check(ctx) {
+        // Inspect files and report violations
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
-Cada chave no objeto passado para `defineRules()` se torna o ID da regra. O identificador completo da regra mostrado na saída do check combina o ID do ADR e a chave da regra, por exemplo `ARCH-004/no-barrel-files`.
+Cada chave no objeto `rules` se torna o ID da regra. O identificador completo da regra mostrado na saída do check combina o ID do ADR e a chave da regra, por exemplo `ARCH-004/no-barrel-files`.
 
 ## Estrutura da Regra
 
@@ -115,33 +117,35 @@ Cada regra tem um timeout de execução de 30 segundos. Se a função `check` de
 Aqui está um arquivo de regras completo que verifica um padrão de import proibido. Ele garante que nenhum arquivo fonte importe diretamente de `node:fs` (o projeto requer o uso de um wrapper).
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "no-direct-fs-import": {
-    description:
-      "Source files must not import directly from node:fs; use the fs wrapper",
-    severity: "error",
-    async check(ctx) {
-      const sourceFiles = ctx.scopedFiles.filter(
-        (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
-      );
+export default {
+  rules: {
+    "no-direct-fs-import": {
+      description:
+        "Source files must not import directly from node:fs; use the fs wrapper",
+      severity: "error",
+      async check(ctx) {
+        const sourceFiles = ctx.scopedFiles.filter(
+          (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
+        );
 
-      for (const file of sourceFiles) {
-        const matches = await ctx.grep(file, /from ["']node:fs["']/);
+        for (const file of sourceFiles) {
+          const matches = await ctx.grep(file, /from ["']node:fs["']/);
 
-        for (const match of matches) {
-          ctx.report.violation({
-            message: `Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.`,
-            file: match.file,
-            line: match.line,
-            fix: 'Replace the import with: import { readFile, writeFile } from "../helpers/fs"',
-          });
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.`,
+              file: match.file,
+              line: match.line,
+              fix: 'Replace the import with: import { readFile, writeFile } from "../helpers/fs"',
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 Quando essa regra é executada contra um arquivo contendo `import { readFileSync } from "node:fs"`, a saída se parece com:

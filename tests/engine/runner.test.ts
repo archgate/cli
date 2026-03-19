@@ -6,7 +6,7 @@ import { join } from "node:path";
 import type { LoadedAdr } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
-import { defineRules } from "../../src/formats/rules";
+import type { RuleSet } from "../../src/formats/rules";
 
 describe("runChecks", () => {
   let tempDir: string;
@@ -20,9 +20,11 @@ describe("runChecks", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  const EMPTY_RULE_SET: RuleSet = { rules: {} };
+
   function makeLoadedAdr(
     overrides: Partial<AdrDocument["frontmatter"]> = {},
-    ruleSet = defineRules({})
+    ruleSet: RuleSet = EMPTY_RULE_SET
   ): LoadedAdr {
     return {
       adr: {
@@ -45,25 +47,27 @@ describe("runChecks", () => {
 
     const loaded = makeLoadedAdr(
       { files: ["src/**/*.ts"] },
-      defineRules({
-        "no-console": {
-          description: "No console.log",
-          async check(ctx) {
-            const results = await Promise.all(
-              ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/))
-            );
-            for (const matches of results) {
-              for (const m of matches) {
-                ctx.report.violation({
-                  message: "Found console.log",
-                  file: m.file,
-                  line: m.line,
-                });
+      {
+        rules: {
+          "no-console": {
+            description: "No console.log",
+            async check(ctx) {
+              const results = await Promise.all(
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/))
+              );
+              for (const matches of results) {
+                for (const m of matches) {
+                  ctx.report.violation({
+                    message: "Found console.log",
+                    file: m.file,
+                    line: m.line,
+                  });
+                }
               }
-            }
+            },
           },
         },
-      })
+      }
     );
 
     const result = await runChecks(tempDir, [loaded]);
@@ -78,25 +82,27 @@ describe("runChecks", () => {
 
     const loaded = makeLoadedAdr(
       { files: ["src/**/*.ts"] },
-      defineRules({
-        "no-console": {
-          description: "No console.log",
-          async check(ctx) {
-            const results = await Promise.all(
-              ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/))
-            );
-            for (const matches of results) {
-              for (const m of matches) {
-                ctx.report.violation({
-                  message: "Found console.log",
-                  file: m.file,
-                  line: m.line,
-                });
+      {
+        rules: {
+          "no-console": {
+            description: "No console.log",
+            async check(ctx) {
+              const results = await Promise.all(
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/))
+              );
+              for (const matches of results) {
+                for (const m of matches) {
+                  ctx.report.violation({
+                    message: "Found console.log",
+                    file: m.file,
+                    line: m.line,
+                  });
+                }
               }
-            }
+            },
           },
         },
-      })
+      }
     );
 
     const result = await runChecks(tempDir, [loaded]);
@@ -106,14 +112,16 @@ describe("runChecks", () => {
   test("captures rule execution errors", async () => {
     const loaded = makeLoadedAdr(
       {},
-      defineRules({
-        "broken-rule": {
-          description: "Throws an error",
-          check() {
-            throw new Error("Something went wrong");
+      {
+        rules: {
+          "broken-rule": {
+            description: "Throws an error",
+            check() {
+              throw new Error("Something went wrong");
+            },
           },
         },
-      })
+      }
     );
 
     const result = await runChecks(tempDir, [loaded]);
@@ -125,17 +133,19 @@ describe("runChecks", () => {
 
     const loaded = makeLoadedAdr(
       { files: ["src/**/*.ts"] },
-      defineRules({
-        "check-todos": {
-          description: "Check TODOs",
-          severity: "warning",
-          check(ctx) {
-            ctx.report.warning({ message: "Found a TODO" });
-            ctx.report.info({ message: "Info message" });
-            return Promise.resolve();
+      {
+        rules: {
+          "check-todos": {
+            description: "Check TODOs",
+            severity: "warning",
+            check(ctx) {
+              ctx.report.warning({ message: "Found a TODO" });
+              ctx.report.info({ message: "Info message" });
+              return Promise.resolve();
+            },
           },
         },
-      })
+      }
     );
 
     const result = await runChecks(tempDir, [loaded]);
@@ -152,14 +162,16 @@ describe("runChecks", () => {
 
     const loaded = makeLoadedAdr(
       {},
-      defineRules({
-        "glob-test": {
-          description: "Test glob",
-          async check(ctx) {
-            foundFiles = await ctx.glob("src/**/*.ts");
+      {
+        rules: {
+          "glob-test": {
+            description: "Test glob",
+            async check(ctx) {
+              foundFiles = await ctx.glob("src/**/*.ts");
+            },
           },
         },
-      })
+      }
     );
 
     await runChecks(tempDir, [loaded]);
@@ -180,14 +192,16 @@ describe("runChecks", () => {
 
     const loaded = makeLoadedAdr(
       {},
-      defineRules({
-        "grep-test": {
-          description: "Test grepFiles",
-          async check(ctx) {
-            matches = await ctx.grepFiles(/hello/, "src/**/*.ts");
+      {
+        rules: {
+          "grep-test": {
+            description: "Test grepFiles",
+            async check(ctx) {
+              matches = await ctx.grepFiles(/hello/, "src/**/*.ts");
+            },
           },
         },
-      })
+      }
     );
 
     await runChecks(tempDir, [loaded]);
@@ -203,15 +217,17 @@ describe("runChecks", () => {
 
     const loaded = makeLoadedAdr(
       {},
-      defineRules({
-        "read-test": {
-          description: "Test readFile/readJSON",
-          async check(ctx) {
-            fileContent = await ctx.readFile("src/data.json");
-            jsonContent = await ctx.readJSON("src/data.json");
+      {
+        rules: {
+          "read-test": {
+            description: "Test readFile/readJSON",
+            async check(ctx) {
+              fileContent = await ctx.readFile("src/data.json");
+              jsonContent = await ctx.readJSON("src/data.json");
+            },
           },
         },
-      })
+      }
     );
 
     await runChecks(tempDir, [loaded]);
@@ -222,9 +238,11 @@ describe("runChecks", () => {
   test("returns results with timing info", async () => {
     const loaded = makeLoadedAdr(
       {},
-      defineRules({
-        "timing-test": { description: "Test timing", async check() {} },
-      })
+      {
+        rules: {
+          "timing-test": { description: "Test timing", async check() {} },
+        },
+      }
     );
 
     const result = await runChecks(tempDir, [loaded]);

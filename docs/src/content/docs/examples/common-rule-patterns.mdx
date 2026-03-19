@@ -10,7 +10,7 @@ This page provides complete, copy-pasteable rule examples for common governance 
 **When to use:** Restrict production dependencies to a curated list to prevent dependency bloat and supply-chain risk.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
 const APPROVED_DEPS = [
   "@commander-js/extra-typings",
@@ -19,30 +19,32 @@ const APPROVED_DEPS = [
   "zod",
 ];
 
-export default defineRules({
-  "no-unapproved-deps": {
-    description: "Production dependencies must be on the approved list",
-    async check(ctx) {
-      let pkg: { dependencies?: Record<string, string> };
-      try {
-        pkg = (await ctx.readJSON("package.json")) as typeof pkg;
-      } catch {
-        return; // No package.json — nothing to check
-      }
-
-      const deps = Object.keys(pkg.dependencies ?? {});
-      for (const dep of deps) {
-        if (!APPROVED_DEPS.includes(dep)) {
-          ctx.report.violation({
-            message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
-            file: "package.json",
-            fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
-          });
+export default {
+  rules: {
+    "no-unapproved-deps": {
+      description: "Production dependencies must be on the approved list",
+      async check(ctx) {
+        let pkg: { dependencies?: Record<string, string> };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return; // No package.json — nothing to check
         }
-      }
+
+        const deps = Object.keys(pkg.dependencies ?? {});
+        for (const dep of deps) {
+          if (!APPROVED_DEPS.includes(dep)) {
+            ctx.report.violation({
+              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+              file: "package.json",
+              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+            });
+          }
+        }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 **How it works:** Reads `package.json`, iterates over production `dependencies`, and reports a violation for any package not in the `APPROVED_DEPS` array. Dependencies in `devDependencies` are not checked. The fix message guides the developer toward either getting the dependency approved or reclassifying it.
@@ -54,26 +56,28 @@ export default defineRules({
 **When to use:** Ensure files in a specific directory export a required function signature, such as the `register*Command` pattern for CLI command files.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "register-function-export": {
-    description: "Command files must export a register*Command function",
-    async check(ctx) {
-      const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
-      const checks = files.map(async (file) => {
-        const content = await ctx.readFile(file);
-        if (!/export\s+function\s+register\w+Command/.test(content)) {
-          ctx.report.violation({
-            message: "Command file must export a register*Command function",
-            file,
-          });
-        }
-      });
-      await Promise.all(checks);
+export default {
+  rules: {
+    "register-function-export": {
+      description: "Command files must export a register*Command function",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+        const checks = files.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (!/export\s+function\s+register\w+Command/.test(content)) {
+            ctx.report.violation({
+              message: "Command file must export a register*Command function",
+              file,
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 **How it works:** Filters out `index.ts` barrel files, then checks each scoped file for an exported function matching the `register*Command` naming pattern. The regex looks for `export function register` followed by any word characters and `Command`. Files that do not match get a violation.
@@ -91,7 +95,7 @@ if (!/export\s+default\s+function\s+\w+/.test(content)) {
 **When to use:** Prevent usage of a specific library or module across the codebase. Common use cases include banning heavy libraries like `lodash` or `moment` in favor of native alternatives, or preventing imports from internal modules that are being deprecated.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
 const BANNED_IMPORTS = [
   {
@@ -111,24 +115,26 @@ const BANNED_IMPORTS = [
   },
 ];
 
-export default defineRules({
-  "no-banned-imports": {
-    description: "Prevent usage of banned libraries",
-    async check(ctx) {
-      for (const banned of BANNED_IMPORTS) {
-        const matches = await ctx.grepFiles(banned.pattern, "src/**/*.ts");
-        for (const match of matches) {
-          ctx.report.violation({
-            message: `Banned import: "${banned.name}" is not allowed. Use ${banned.alternative} instead.`,
-            file: match.file,
-            line: match.line,
-            fix: `Replace ${banned.name} with ${banned.alternative}`,
-          });
+export default {
+  rules: {
+    "no-banned-imports": {
+      description: "Prevent usage of banned libraries",
+      async check(ctx) {
+        for (const banned of BANNED_IMPORTS) {
+          const matches = await ctx.grepFiles(banned.pattern, "src/**/*.ts");
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Banned import: "${banned.name}" is not allowed. Use ${banned.alternative} instead.`,
+              file: match.file,
+              line: match.line,
+              fix: `Replace ${banned.name} with ${banned.alternative}`,
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 **How it works:** Defines a list of banned imports with the regex pattern to detect them, the library name for the error message, and the recommended alternative. Uses `ctx.grepFiles` to scan all TypeScript files for each banned pattern and reports a violation for every match.
@@ -142,32 +148,34 @@ To add more banned imports, add entries to the `BANNED_IMPORTS` array. The patte
 **When to use:** Enforce consistent file naming across a directory, such as requiring kebab-case for all source files.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 import { basename } from "node:path";
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
 
-export default defineRules({
-  "kebab-case-filenames": {
-    description: "Source files must use kebab-case naming",
-    async check(ctx) {
-      for (const file of ctx.scopedFiles) {
-        const name = basename(file);
+export default {
+  rules: {
+    "kebab-case-filenames": {
+      description: "Source files must use kebab-case naming",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const name = basename(file);
 
-        // Skip test files and type declaration files
-        if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
+          // Skip test files and type declaration files
+          if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
 
-        if (!KEBAB_CASE.test(name)) {
-          ctx.report.violation({
-            message: `File "${name}" does not follow kebab-case naming convention`,
-            file,
-            fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
-          });
+          if (!KEBAB_CASE.test(name)) {
+            ctx.report.violation({
+              message: `File "${name}" does not follow kebab-case naming convention`,
+              file,
+              fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 **How it works:** Extracts the basename of each scoped file and tests it against a kebab-case regex. The regex requires lowercase letters and digits separated by hyphens, with a valid file extension. Test files and type declarations are excluded. The fix suggestion auto-converts camelCase to kebab-case.
@@ -185,27 +193,29 @@ const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
 **When to use:** Flag TODO, FIXME, HACK, and XXX comments so they are resolved before merging. Uses `warning` severity so it does not block CI, but makes the comments visible in check output.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "no-todo-comments": {
-    description: "TODO and FIXME comments should be resolved before merging",
-    severity: "warning",
-    async check(ctx) {
-      const matches = await ctx.grepFiles(
-        /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
-        "src/**/*.ts"
-      );
-      for (const match of matches) {
-        ctx.report.warning({
-          message: `${match.content.trim()} -- resolve before merging`,
-          file: match.file,
-          line: match.line,
-        });
-      }
+export default {
+  rules: {
+    "no-todo-comments": {
+      description: "TODO and FIXME comments should be resolved before merging",
+      severity: "warning",
+      async check(ctx) {
+        const matches = await ctx.grepFiles(
+          /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
+          "src/**/*.ts"
+        );
+        for (const match of matches) {
+          ctx.report.warning({
+            message: `${match.content.trim()} -- resolve before merging`,
+            file: match.file,
+            line: match.line,
+          });
+        }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 **How it works:** Uses `ctx.grepFiles` to scan all TypeScript files in `src/` for comments starting with `TODO:`, `FIXME:`, `HACK:`, or `XXX:` (case-insensitive). Each match is reported as a warning with the original comment text. Because the severity is `"warning"`, the check exits with code 0 even when matches are found -- it surfaces the comments without blocking merges.
@@ -219,31 +229,33 @@ To make this a hard blocker, change the severity to `"error"` and use `ctx.repor
 **When to use:** Ensure every source file has a corresponding test file, preventing untested code from being merged.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 import { relative } from "node:path";
 
-export default defineRules({
-  "test-file-exists": {
-    description: "Every source file should have a corresponding test file",
-    severity: "warning",
-    async check(ctx) {
-      for (const file of ctx.scopedFiles) {
-        const rel = relative(ctx.projectRoot, file);
-        const testPath = rel
-          .replace(/^src\//, "tests/")
-          .replace(/\.ts$/, ".test.ts");
-        const testFiles = await ctx.glob(testPath);
-        if (testFiles.length === 0) {
-          ctx.report.warning({
-            message: `No test file found at ${testPath}`,
-            file,
-            fix: `Create a test file at ${testPath}`,
-          });
+export default {
+  rules: {
+    "test-file-exists": {
+      description: "Every source file should have a corresponding test file",
+      severity: "warning",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const rel = relative(ctx.projectRoot, file);
+          const testPath = rel
+            .replace(/^src\//, "tests/")
+            .replace(/\.ts$/, ".test.ts");
+          const testFiles = await ctx.glob(testPath);
+          if (testFiles.length === 0) {
+            ctx.report.warning({
+              message: `No test file found at ${testPath}`,
+              file,
+              fix: `Create a test file at ${testPath}`,
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 **How it works:** For each scoped source file, converts the path from `src/` to `tests/` and appends `.test.ts`. Then uses `ctx.glob` to check if the test file exists. If not, reports a warning with a fix suggesting the expected test file path.

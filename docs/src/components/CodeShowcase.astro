@@ -34,29 +34,29 @@ Direct <span class="hl-kw">export default</span> is prohibited.
 <span class="hl-green">DO:</span>  Use <span class="hl-kw">createRoute({ handler })</span>
 <span class="hl-red">DON'T:</span> Use <span class="hl-kw">export default function</span>`;
 
-const rulesCode = `<span class="hl-kw">import</span> { defineRules } <span class="hl-kw">from</span> <span class="hl-str">"archgate/rules"</span>;
+const rulesCode = `<span class="hl-kw">export default</span> {
+  <span class="hl-key">rules:</span> {
+    <span class="hl-str">"require-createRoute"</span>: {
+      <span class="hl-key">description:</span> <span class="hl-str">"Use createRoute() factory"</span>,
+      <span class="hl-key">severity:</span> <span class="hl-str">"error"</span>,
+      <span class="hl-kw">async</span> check(<span class="hl-key">ctx</span>) {
+        <span class="hl-kw">const</span> files = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.glob(<span class="hl-str">"src/api/**/*.ts"</span>);
 
-<span class="hl-kw">export default</span> defineRules((<span class="hl-key">ctx</span>) =&gt; [
-  {
-    <span class="hl-key">name:</span> <span class="hl-str">"require-createRoute"</span>,
-    <span class="hl-key">severity:</span> <span class="hl-str">"error"</span>,
-    <span class="hl-kw">async</span> run() {
-      <span class="hl-kw">const</span> files = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.glob(<span class="hl-str">"src/api/**/*.ts"</span>);
-
-      <span class="hl-kw">for</span> (<span class="hl-kw">const</span> file <span class="hl-kw">of</span> files) {
-        <span class="hl-kw">const</span> hits = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.grep(
-          file, <span class="hl-str">/export\\s+default\\s+function/</span>
-        );
-        <span class="hl-kw">for</span> (<span class="hl-kw">const</span> hit <span class="hl-kw">of</span> hits) {
-          <span class="hl-key">ctx</span>.report({
-            file, line: hit.line,
-            message: <span class="hl-str">"Use createRoute() factory"</span>,
-          });
+        <span class="hl-kw">for</span> (<span class="hl-kw">const</span> file <span class="hl-kw">of</span> files) {
+          <span class="hl-kw">const</span> hits = <span class="hl-kw">await</span> <span class="hl-key">ctx</span>.grep(
+            file, <span class="hl-str">/export\\s+default\\s+function/</span>
+          );
+          <span class="hl-kw">for</span> (<span class="hl-kw">const</span> hit <span class="hl-kw">of</span> hits) {
+            <span class="hl-key">ctx</span>.report.violation({
+              file, line: hit.line,
+              message: <span class="hl-str">"Use createRoute() factory"</span>,
+            });
+          }
         }
-      }
+      },
     },
   },
-]);`;
+} <span class="hl-kw">satisfies</span> RuleSet;`;
 ---
 
 <section class="showcase not-content">

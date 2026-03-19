@@ -21,7 +21,7 @@ With the [Claude Code](/guides/claude-code-plugin/) or [Cursor](/guides/cursor-i
 
 ### ADR as Rules
 
-The rules file is a companion `.rules.ts` file that exports automated checks via `defineRules()`. When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file against your codebase, and reports any violations with file paths and line numbers.
+The rules file is a companion `.rules.ts` file that exports a plain object typed with `satisfies RuleSet`. When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file against your codebase, and reports any violations with file paths and line numbers.
 
 Not every ADR needs rules. Some decisions are best enforced through code review alone. Set `rules: false` when no automated check is practical.
 

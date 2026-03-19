@@ -1,30 +1,32 @@
 ---
 title: API de Regras
-description: Referência da API TypeScript para escrever regras do Archgate. Aprenda defineRules, RuleContext, relatórios de violação, correspondência de arquivos e verificações AST.
+description: Referência da API TypeScript para escrever regras do Archgate. Aprenda RuleSet com satisfies, RuleContext, relatórios de violação, correspondência de arquivos e verificações AST.
 ---
 
-As regras do Archgate são arquivos TypeScript que exportam verificações automatizadas via `defineRules()`. Cada regra recebe um `RuleContext` com utilitários para buscar arquivos, ler conteúdo e reportar violações.
+As regras do Archgate são arquivos TypeScript que exportam um objeto simples tipado com `satisfies RuleSet`. Cada regra recebe um `RuleContext` com utilitários para buscar arquivos, ler conteúdo e reportar violações.
 
-## defineRules
+## RuleSet
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "my-rule-id": {
-    description: "Human-readable description of what this rule checks",
-    severity: "error", // optional, defaults to "error"
-    async check(ctx) {
-      // Rule logic here
+export default {
+  rules: {
+    "my-rule-id": {
+      description: "Human-readable description of what this rule checks",
+      severity: "error", // optional, defaults to "error"
+      async check(ctx) {
+        // Rule logic here
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
-A função `defineRules` recebe um registro de configurações de regras indexadas por ID de regra. As chaves se tornam os IDs das regras que aparecem na saída de verificação e nos relatórios de violação. A função retorna um objeto `RuleSet`.
+Um arquivo de regras exporta por padrão um objeto simples com um registro `rules` indexado por ID de regra. As chaves se tornam os IDs das regras que aparecem na saída de verificação e nos relatórios de violação. A anotação `satisfies RuleSet` fornece verificação de tipos sem envolver em uma chamada de função.
 
 ```typescript
-function defineRules(rules: Record<string, RuleConfig>): RuleSet;
+type RuleSet = { rules: Record<string, RuleConfig> };
 ```
 
 ---
@@ -279,7 +281,7 @@ interface ViolationDetail {
 
 | Campo      | Tipo       | Descrição                                         |
 | ---------- | ---------- | ------------------------------------------------- |
-| `ruleId`   | `string`   | ID da regra da chave de `defineRules`             |
+| `ruleId`   | `string`   | ID da regra da chave do objeto `rules`            |
 | `adrId`    | `string`   | ID do ADR do frontmatter                          |
 | `message`  | `string`   | Descrição legível                                 |
 | `file`     | `string?`  | Caminho do arquivo onde o problema foi encontrado |
@@ -291,7 +293,7 @@ interface ViolationDetail {
 
 ## RuleSet
 
-O tipo de retorno de `defineRules`. Você não constrói isso diretamente.
+O tipo usado com `satisfies` para verificar a tipagem do seu objeto de regras. Exporte um objeto simples que esteja em conformidade com esta forma.
 
 ```typescript
 type RuleSet = { rules: Record<string, RuleConfig> };
