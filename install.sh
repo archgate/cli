@@ -28,7 +28,7 @@ detect_platform() {
     x86_64|amd64)  arch="x64" ;;
     *)
       echo "Error: unsupported architecture: $arch" >&2
-      echo "archgate supports arm64 (macOS) and x64 (Linux)." >&2
+      echo "archgate supports arm64 (macOS) and x64 (Linux, Windows)." >&2
       exit 1
       ;;
   esac
@@ -253,14 +253,16 @@ setup_path() {
   done
   echo ""
 
-  # Prompt requires /dev/tty — available even when stdin is piped (curl | sh)
-  if [ ! -r /dev/tty ]; then
-    echo "No readable TTY available. To add archgate to your PATH manually, add the lines above to your shell profile."
+  # Prompt requires /dev/tty — available even when stdin is piped (curl | sh).
+  # Use a subshell to test the actual open, because -r may pass on CI runners
+  # that have /dev/tty present but no controlling terminal.
+  if ! (exec </dev/tty) 2>/dev/null; then
+    echo "No TTY available. To add archgate to your PATH manually, add the lines above to your shell profile."
     return
   fi
 
   printf "Update these files now? [Y/n] "
-  if ! read -r answer </dev/tty; then
+  if ! read -r answer </dev/tty 2>/dev/null; then
     echo ""
     echo "Could not read from terminal. To add archgate to your PATH manually, add the lines above to your shell profile."
     return

@@ -66,6 +66,7 @@ jobs:
         shell: pwsh
         env:
           ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
           if (-not $env:ARCHGATE_VERSION) {
@@ -117,6 +118,7 @@ jobs:
       - name: Smoke test install.sh
         env:
           ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
           if [ -z "$ARCHGATE_VERSION" ]; then
