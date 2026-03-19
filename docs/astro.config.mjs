@@ -227,12 +227,8 @@ export default defineConfig({
         },
         {
           label: "Examples",
-          items: [
-            {
-              label: "Common Rule Patterns",
-              slug: "examples/common-rule-patterns",
-            },
-          ],
+          collapsed: true,
+          autogenerate: { directory: "examples" },
         },
       ],
     }),

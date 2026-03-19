@@ -1,0 +1,99 @@
+---
+title: no-emoji-in-output
+description: Proibe caracteres emoji em strings de saida do CLI para garantir renderizacao consistente entre terminais e ferramentas de acessibilidade.
+---
+
+Proibe caracteres emoji em strings de saída do CLI.
+
+## Detalhes da regra
+
+Emojis renderizam de forma inconsistente entre terminais, quebram o alinhamento em saídas monospace e causam problemas com leitores de tela e parsers de log do CI. Esta regra usa regex de faixa Unicode para detectar caracteres emoji e uma verificação secundária para garantir que eles apareçam dentro de string literals (não em comentários ou nomes de variáveis).
+
+A regra também verifica códigos de escape ANSI crus, impondo o uso de `styleText()` do `node:util` para formatação de terminal.
+
+## Exemplos de código **incorreto**
+
+```typescript title="src/commands/check.ts"
+console.log("✅ All checks passed!");
+console.log("❌ Validation failed");
+console.log("\x1b[32mSuccess\x1b[0m"); // raw ANSI
+```
+
+## Exemplos de código **correto**
+
+```typescript title="src/commands/check.ts"
+import { styleText } from "node:util";
+
+console.log("All checks passed");
+console.log("Validation failed");
+console.log(styleText("green", "Success"));
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const EMOJI_PATTERN =
+  /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+const EMOJI_IN_STRING =
+  /["'`].*[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}].*["'`]/u;
+
+export default {
+  rules: {
+    "no-emoji-in-output": {
+      description: "CLI output must not contain emoji characters",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, EMOJI_PATTERN))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            if (EMOJI_IN_STRING.test(m.content)) {
+              ctx.report.violation({
+                message: "Do not use emoji in CLI output strings",
+                file: m.file,
+                line: m.line,
+                fix: "Remove emoji from output strings",
+              });
+            }
+          }
+        }
+      },
+    },
+    "use-style-text": {
+      description: "Use styleText from node:util instead of raw ANSI codes",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /\\u001b\[|\\x1b\[|\\033\[/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Use styleText() from node:util instead of raw ANSI escape codes",
+              file: m.file,
+              line: m.line,
+              fix: "Import { styleText } from 'node:util' and use styleText(style, text)",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Em ferramentas CLI onde a consistência da saída entre terminais importa, ou quando acessibilidade é uma prioridade.
+
+## Quando não usar
+
+Em aplicações web ou ferramentas onde emojis fazem parte da UI esperada, ou quando a saída é sempre consumida por humanos em terminais modernos.

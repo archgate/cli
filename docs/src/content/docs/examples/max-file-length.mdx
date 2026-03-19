@@ -1,0 +1,67 @@
+---
+title: max-file-length
+description: Warn when source files exceed a configurable line count threshold to encourage modular code.
+---
+
+Warn when source files exceed a line count threshold.
+
+## Rule details
+
+Large files are harder to navigate, review, and test. This rule counts lines in each scoped file and reports a warning when the count exceeds a configurable maximum. Using `warning` severity keeps CI green while surfacing files that should be refactored.
+
+## Examples of **incorrect** code
+
+A file with 450 lines when the threshold is 300:
+
+```
+src/engine/runner.ts (450 lines)
+```
+
+## Examples of **correct** code
+
+The same logic split into focused modules:
+
+```
+src/engine/runner.ts     (120 lines)
+src/engine/loader.ts     (95 lines)
+src/engine/reporter.ts   (85 lines)
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const MAX_LINES = 300;
+
+export default {
+  rules: {
+    "max-file-length": {
+      description: `Source files should not exceed ${MAX_LINES} lines`,
+      severity: "warning",
+      async check(ctx) {
+        const checks = ctx.scopedFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+          if (lineCount > MAX_LINES) {
+            ctx.report.warning({
+              message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+              file,
+              fix: "Extract related functions into separate modules",
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When you want a soft guardrail against files growing too large. Adjust `MAX_LINES` to match your team's preference (200-500 is common).
+
+## When not to use it
+
+When some files are legitimately large (generated code, test suites with many cases), or when you prefer other complexity metrics like cyclomatic complexity.

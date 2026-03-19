@@ -1,284 +1,59 @@
 ---
 title: Padrões Comuns de Regras
-description: "Padrões de regras Archgate prontos para uso em necessidades comuns de governança: convenções de nomenclatura, restrições de import, estrutura de arquivos e mais."
+description: "Padrões de regras Archgate prontos para uso, organizados por categoria: gerenciamento de dependências, restrições de import, estrutura de arquivos, qualidade de código, esquema de banco de dados e limites de arquitetura."
+sidebar:
+  order: 0
 ---
 
-Esta página fornece exemplos completos de regras, prontos para copiar e colar, para cenários comuns de governança. Cada padrão inclui o código completo da regra, uma explicação de como funciona e orientações sobre quando utilizá-lo.
+Navegue por exemplos completos de regras, prontos para copiar e colar, organizados por categoria. Cada página de regra segue um formato consistente: o que a regra verifica, exemplos de código incorreto e correto, a implementação completa do `.rules.ts` e orientações sobre quando usá-la.
 
-## Padrão 1: Lista de Dependências Permitidas
+## Gerenciamento de Dependências e Pacotes
 
-**Quando usar:** Restringir dependências de produção a uma lista curada para evitar inchaços de dependências e riscos na cadeia de suprimentos.
+| Regra                                                   | Descrição                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [no-unapproved-deps](/examples/no-unapproved-deps/)     | Restringir dependências de produção a uma lista aprovada                        |
+| [version-catalog](/examples/version-catalog/)           | Impor gerenciamento centralizado de versões em monorepos com notação `catalog:` |
+| [monorepo-task-runner](/examples/monorepo-task-runner/) | Banir scripts do `package.json` e exigir configuração do task runner            |
 
-```typescript
-/// <reference path="../rules.d.ts" />
+## Restrições de Import e API
 
-const APPROVED_DEPS = [
-  "@commander-js/extra-typings",
-  "inquirer",
-  "@modelcontextprotocol/sdk",
-  "zod",
-];
+| Regra                                                 | Descrição                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| [no-banned-imports](/examples/no-banned-imports/)     | Impedir uso de bibliotecas banidas com lista de padrões configurável   |
+| [no-banned-api](/examples/no-banned-api/)             | Banir APIs de runtime específicas que causam problemas multiplataforma |
+| [wrapper-enforcement](/examples/wrapper-enforcement/) | Impor uso de wrapper do projeto ao invés de API de plataforma direta   |
 
-export default {
-  rules: {
-    "no-unapproved-deps": {
-      description: "Production dependencies must be on the approved list",
-      async check(ctx) {
-        let pkg: { dependencies?: Record<string, string> };
-        try {
-          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
-        } catch {
-          return; // No package.json — nothing to check
-        }
+## Estrutura e Organização de Arquivos
 
-        const deps = Object.keys(pkg.dependencies ?? {});
-        for (const dep of deps) {
-          if (!APPROVED_DEPS.includes(dep)) {
-            ctx.report.violation({
-              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
-              file: "package.json",
-              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
+| Regra                                                   | Descrição                                                               |
+| ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [kebab-case-filenames](/examples/kebab-case-filenames/) | Impor convenções consistentes de nomenclatura de arquivos               |
+| [no-barrel-files](/examples/no-barrel-files/)           | Detectar e banir barrel files (`index.ts` com apenas re-exports)        |
+| [test-file-coverage](/examples/test-file-coverage/)     | Verificar que todo arquivo fonte tem um arquivo de teste correspondente |
+| [component-pairing](/examples/component-pairing/)       | Impor pares Connected/presentational com suporte a opt-out              |
 
-**Como funciona:** Lê o `package.json`, itera sobre as `dependencies` de produção e reporta uma violação para qualquer pacote que não esteja no array `APPROVED_DEPS`. Dependências em `devDependencies` não são verificadas. A mensagem de correção orienta o desenvolvedor a obter a aprovação da dependência ou reclassificá-la.
+## Qualidade de Código e Output
 
----
+| Regra                                                               | Descrição                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| [no-todo-comments](/examples/no-todo-comments/)                     | Sinalizar comentários TODO, FIXME, HACK e XXX antes do merge             |
+| [no-emoji-in-output](/examples/no-emoji-in-output/)                 | Banir emoji e códigos ANSI brutos em strings de output CLI               |
+| [max-file-length](/examples/max-file-length/)                       | Avisar quando arquivos excedem um limite configurável de linhas          |
+| [page-component-constraints](/examples/page-component-constraints/) | Impor limites de tamanho e banir hooks de dados em componentes de página |
 
-## Padrão 2: Padrão de Exportação Obrigatória
+## Esquema de Banco de Dados
 
-**Quando usar:** Garantir que arquivos em um diretório específico exportem uma assinatura de função obrigatória, como o padrão `register*Command` para arquivos de comandos CLI.
+| Regra                                                     | Descrição                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [database-audit-fields](/examples/database-audit-fields/) | Garantir que todas as tabelas incluam colunas `created_at` e `updated_at` |
 
-```typescript
-/// <reference path="../rules.d.ts" />
+## Limites de Arquitetura
 
-export default {
-  rules: {
-    "register-function-export": {
-      description: "Command files must export a register*Command function",
-      async check(ctx) {
-        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
-        const checks = files.map(async (file) => {
-          const content = await ctx.readFile(file);
-          if (!/export\s+function\s+register\w+Command/.test(content)) {
-            ctx.report.violation({
-              message: "Command file must export a register*Command function",
-              file,
-            });
-          }
-        });
-        await Promise.all(checks);
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-**Como funciona:** Filtra arquivos `index.ts` (barrel files), e então verifica cada arquivo no escopo em busca de uma função exportada que corresponda ao padrão de nomenclatura `register*Command`. A regex procura por `export function register` seguido de quaisquer caracteres alfanuméricos e `Command`. Arquivos que não correspondem recebem uma violação.
-
-Para adaptar este padrão, altere a regex para corresponder à convenção de exportação exigida pelo seu projeto. Por exemplo, para exigir uma exportação default de um componente React:
-
-```typescript
-if (!/export\s+default\s+function\s+\w+/.test(content)) {
-```
-
----
-
-## Padrão 3: Importação Banida
-
-**Quando usar:** Impedir o uso de uma biblioteca ou módulo específico em toda a base de código. Casos de uso comuns incluem banir bibliotecas pesadas como `lodash` ou `moment` em favor de alternativas nativas, ou impedir importações de módulos internos que estão sendo descontinuados.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-const BANNED_IMPORTS = [
-  {
-    pattern: /from\s+['"]lodash['"]/,
-    name: "lodash",
-    alternative: "native array methods",
-  },
-  {
-    pattern: /from\s+['"]moment['"]/,
-    name: "moment",
-    alternative: "Temporal API or date-fns",
-  },
-  {
-    pattern: /from\s+['"]axios['"]/,
-    name: "axios",
-    alternative: "native fetch()",
-  },
-];
-
-export default {
-  rules: {
-    "no-banned-imports": {
-      description: "Prevent usage of banned libraries",
-      async check(ctx) {
-        for (const banned of BANNED_IMPORTS) {
-          const matches = await ctx.grepFiles(banned.pattern, "src/**/*.ts");
-          for (const match of matches) {
-            ctx.report.violation({
-              message: `Banned import: "${banned.name}" is not allowed. Use ${banned.alternative} instead.`,
-              file: match.file,
-              line: match.line,
-              fix: `Replace ${banned.name} with ${banned.alternative}`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-**Como funciona:** Define uma lista de importações banidas com o padrão regex para detectá-las, o nome da biblioteca para a mensagem de erro e a alternativa recomendada. Usa `ctx.grepFiles` para escanear todos os arquivos TypeScript em busca de cada padrão banido e reporta uma violação para cada correspondência.
-
-Para adicionar mais importações banidas, adicione entradas ao array `BANNED_IMPORTS`. O padrão deve corresponder à parte `from "..."` da instrução de importação.
-
----
-
-## Padrão 4: Convenção de Nomenclatura de Arquivos
-
-**Quando usar:** Impor nomenclatura consistente de arquivos em um diretório, como exigir kebab-case para todos os arquivos fonte.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-import { basename } from "node:path";
-
-const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
-
-export default {
-  rules: {
-    "kebab-case-filenames": {
-      description: "Source files must use kebab-case naming",
-      async check(ctx) {
-        for (const file of ctx.scopedFiles) {
-          const name = basename(file);
-
-          // Skip test files and type declaration files
-          if (name.endsWith(".test.ts") || name.endsWith(".d.ts")) continue;
-
-          if (!KEBAB_CASE.test(name)) {
-            ctx.report.violation({
-              message: `File "${name}" does not follow kebab-case naming convention`,
-              file,
-              fix: `Rename to ${name.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-**Como funciona:** Extrai o basename de cada arquivo no escopo e o testa contra uma regex de kebab-case. A regex exige letras minúsculas e dígitos separados por hífens, com uma extensão de arquivo válida. Arquivos de teste e declarações de tipo são excluídos. A sugestão de correção converte automaticamente camelCase para kebab-case.
-
-Para alterar a convenção de nomenclatura, substitua a regex. Por exemplo, para camelCase:
-
-```typescript
-const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
-```
-
----
-
-## Padrão 5: Sem Comentários TODO em Produção
-
-**Quando usar:** Sinalizar comentários TODO, FIXME, HACK e XXX para que sejam resolvidos antes do merge. Usa severidade `warning` para não bloquear o CI, mas torna os comentários visíveis na saída da verificação.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-
-export default {
-  rules: {
-    "no-todo-comments": {
-      description: "TODO and FIXME comments should be resolved before merging",
-      severity: "warning",
-      async check(ctx) {
-        const matches = await ctx.grepFiles(
-          /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
-          "src/**/*.ts"
-        );
-        for (const match of matches) {
-          ctx.report.warning({
-            message: `${match.content.trim()} -- resolve before merging`,
-            file: match.file,
-            line: match.line,
-          });
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-**Como funciona:** Usa `ctx.grepFiles` para escanear todos os arquivos TypeScript em `src/` em busca de comentários que comecem com `TODO:`, `FIXME:`, `HACK:` ou `XXX:` (sem distinção de maiúsculas/minúsculas). Cada correspondência é reportada como um aviso com o texto original do comentário. Como a severidade é `"warning"`, a verificação termina com código 0 mesmo quando correspondências são encontradas -- ela exibe os comentários sem bloquear merges.
-
-Para tornar isso um bloqueio definitivo, altere a severidade para `"error"` e use `ctx.report.violation()` em vez de `ctx.report.warning()`.
-
----
-
-## Padrão 6: Cobertura de Arquivos de Teste
-
-**Quando usar:** Garantir que todo arquivo fonte tenha um arquivo de teste correspondente, impedindo que código sem testes seja mergeado.
-
-```typescript
-/// <reference path="../rules.d.ts" />
-import { relative } from "node:path";
-
-export default {
-  rules: {
-    "test-file-exists": {
-      description: "Every source file should have a corresponding test file",
-      severity: "warning",
-      async check(ctx) {
-        for (const file of ctx.scopedFiles) {
-          const rel = relative(ctx.projectRoot, file);
-          const testPath = rel
-            .replace(/^src\//, "tests/")
-            .replace(/\.ts$/, ".test.ts");
-          const testFiles = await ctx.glob(testPath);
-          if (testFiles.length === 0) {
-            ctx.report.warning({
-              message: `No test file found at ${testPath}`,
-              file,
-              fix: `Create a test file at ${testPath}`,
-            });
-          }
-        }
-      },
-    },
-  },
-} satisfies RuleSet;
-```
-
-**Como funciona:** Para cada arquivo fonte no escopo, converte o caminho de `src/` para `tests/` e adiciona `.test.ts`. Em seguida, usa `ctx.glob` para verificar se o arquivo de teste existe. Caso não exista, reporta um aviso com uma correção sugerindo o caminho esperado do arquivo de teste.
-
-Isso pressupõe uma estrutura de diretório de testes que espelha `src/`:
-
-```
-src/
-  helpers/
-    log.ts
-    paths.ts
-tests/
-  helpers/
-    log.test.ts
-    paths.test.ts
-```
-
-Para adaptar em projetos que colocam testes ao lado dos arquivos fonte, altere a transformação do caminho:
-
-```typescript
-const testPath = rel.replace(/\.ts$/, ".test.ts");
-// src/helpers/log.ts -> src/helpers/log.test.ts
-```
+| Regra                                                             | Descrição                                                            |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [required-export-pattern](/examples/required-export-pattern/)     | Verificar que arquivos exportam uma assinatura de função obrigatória |
+| [openapi-routes](/examples/openapi-routes/)                       | Garantir que rotas de backend usem definições tipadas com OpenAPI    |
+| [clean-architecture-layers](/examples/clean-architecture-layers/) | Impor direção de dependências em arquiteturas em camadas             |
 
 :::tip[Deixe agentes de IA escreverem regras para você]
 Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) incluem uma skill de Quality Manager que identifica padrões recorrentes na sua base de código e propõe novas regras para aplicá-los. [Cadastre-se para acesso beta](https://plugins.archgate.dev).

@@ -1,0 +1,79 @@
+---
+title: wrapper-enforcement
+description: Enforce use of a project wrapper or helper instead of a raw platform API, with automatic exclusion of the wrapper file itself.
+---
+
+Enforce use of a project wrapper instead of a raw platform API.
+
+## Rule details
+
+When a project provides a helper that normalizes a low-level API (e.g., a `platform.ts` helper wrapping `process.platform`), direct usage of the raw API should be banned everywhere except in the wrapper itself. This rule scans scoped files for the raw API call while automatically excluding the helper file and non-production code.
+
+## Examples of **incorrect** code
+
+```typescript title="src/commands/build.ts"
+if (process.platform === "win32") {
+  // Windows-specific logic
+}
+```
+
+## Examples of **correct** code
+
+```typescript title="src/commands/build.ts"
+import { isWindows } from "../helpers/platform";
+
+if (isWindows()) {
+  // Windows-specific logic
+}
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-direct-process-platform": {
+      description:
+        "Platform detection must use src/helpers/platform.ts, not process.platform directly",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) =>
+            !f.includes("tests/") &&
+            !f.includes(".archgate/") &&
+            !f.endsWith("src/helpers/platform.ts") // Exclude the wrapper itself
+        );
+
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /process\.platform/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not access process.platform directly — use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
+              file: m.file,
+              line: m.line,
+              fix: 'Import { isWindows } from "../helpers/platform" and use it instead of process.platform',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your project has a wrapper or helper module that normalizes a raw API and you want to prevent direct access to the underlying API. Common examples:
+
+- `platform.ts` wrapping `process.platform`
+- `logger.ts` wrapping `console.log` / `console.error`
+- `fs.ts` wrapping `node:fs` with project-specific defaults
+- `env.ts` wrapping `process.env` with typed accessors
+
+## When not to use it
+
+When the raw API is simple enough that a wrapper adds no value, or when the wrapper has not yet been adopted across the codebase (consider using `warning` severity during migration).

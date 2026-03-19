@@ -1,0 +1,83 @@
+---
+title: no-banned-imports
+description: Previne o uso de bibliotecas banidas e impoe alternativas recomendadas usando uma lista de padroes orientada a dados.
+---
+
+Previne o uso de bibliotecas banidas e impoe alternativas recomendadas.
+
+## Detalhes da regra
+
+Equipes frequentemente banem bibliotecas pesadas ou depreciadas em favor de alternativas mais leves ou nativas. Esta regra usa uma configuracao orientada a dados — um array de objetos especificando o padrao regex, o nome da biblioteca e a alternativa recomendada. Adicionar um novo banimento e uma alteracao de uma linha.
+
+## Exemplos de codigo **incorreto**
+
+```typescript title="src/utils/date.ts"
+import { format } from "moment";
+```
+
+```typescript title="src/api/client.ts"
+import axios from "axios";
+```
+
+## Exemplos de codigo **correto**
+
+```typescript title="src/utils/date.ts"
+import { format } from "date-fns";
+```
+
+```typescript title="src/api/client.ts"
+const response = await fetch("/api/data");
+```
+
+## Implementacao da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const BANNED_IMPORTS = [
+  {
+    pattern: /from\s+['"]lodash['"]/,
+    name: "lodash",
+    alternative: "native array methods",
+  },
+  {
+    pattern: /from\s+['"]moment['"]/,
+    name: "moment",
+    alternative: "Temporal API or date-fns",
+  },
+  {
+    pattern: /from\s+['"]axios['"]/,
+    name: "axios",
+    alternative: "native fetch()",
+  },
+];
+
+export default {
+  rules: {
+    "no-banned-imports": {
+      description: "Prevent usage of banned libraries",
+      async check(ctx) {
+        for (const banned of BANNED_IMPORTS) {
+          const matches = await ctx.grepFiles(banned.pattern, "src/**/*.ts");
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Banned import: "${banned.name}" is not allowed. Use ${banned.alternative} instead.`,
+              file: match.file,
+              line: match.line,
+              fix: `Replace ${banned.name} with ${banned.alternative}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando sua equipe padronizou bibliotecas especificas e deseja evitar a migracao para alternativas. Banimentos comuns incluem lodash (metodos nativos), moment (date-fns ou Temporal) e axios (fetch nativo).
+
+## Quando nao usar
+
+Quando seu projeto nao tem preferencia entre bibliotecas, ou quando a biblioteca banida ainda esta em migracao ativa e algum uso e esperado temporariamente.

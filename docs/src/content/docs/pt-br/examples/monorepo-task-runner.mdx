@@ -1,0 +1,111 @@
+---
+title: monorepo-task-runner
+description: Garanta que todos os pacotes utilizem um task runner centralizado em vez de scripts no package.json para orquestração de build consistente.
+---
+
+Garanta que todos os pacotes utilizem um task runner centralizado em vez de scripts no `package.json`.
+
+## Detalhes da regra
+
+Em um monorepo, scripts no `package.json` são locais a cada pacote e não conseguem expressar dependências entre pacotes, cache ou orquestração. Esta regra garante que todos os pacotes utilizem um task runner centralizado (ex.: Moon, Turborepo, Nx) proibindo `scripts` no `package.json` e exigindo um arquivo de configuração do task runner (`moon.yml`, `turbo.json`, etc.) em cada pacote.
+
+## Exemplos de código **incorreto**
+
+```json title="packages/api/package.json"
+{
+  "name": "@myorg/api",
+  "scripts": { "build": "tsc", "test": "vitest", "lint": "eslint ." }
+}
+```
+
+## Exemplos de código **correto**
+
+```json title="packages/api/package.json"
+{ "name": "@myorg/api" }
+```
+
+```yaml title="packages/api/moon.yml"
+tasks:
+  build:
+    command: tsc
+    inputs:
+      - src/**/*
+  test:
+    command: vitest
+    deps:
+      - ~:build
+  lint:
+    command: eslint .
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-package-scripts": {
+      description:
+        "package.json must not have scripts — use the task runner instead",
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as {
+            scripts?: Record<string, string>;
+          };
+          if (pkg.scripts && Object.keys(pkg.scripts).length > 0) {
+            ctx.report.violation({
+              message: `${file}: has "scripts" field — use task runner config instead`,
+              file,
+              fix: 'Move scripts to the task runner config and remove "scripts" from package.json',
+            });
+          }
+        }
+      },
+    },
+    "task-runner-config": {
+      description: "All packages must have a task runner configuration file",
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const configPath = file.replace("/package.json", "/moon.yml");
+          try {
+            await ctx.readFile(configPath);
+          } catch {
+            ctx.report.violation({
+              message: `Missing task runner config: ${configPath}`,
+              file: configPath,
+              fix: "Create a moon.yml file with appropriate task definitions for this package",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Em monorepos que utilizam um task runner centralizado para orquestração de build. Adapte a verificação do arquivo de configuração para o seu runner:
+
+```typescript
+// Turborepo
+const configPath = file.replace("/package.json", "/turbo.json");
+
+// Nx
+const configPath = file.replace("/package.json", "/project.json");
+```
+
+## Quando não usar
+
+Em repositórios de pacote único, ou em monorepos onde o task runner é configurado centralmente (ex.: um único `turbo.json` na raiz) em vez de por pacote.

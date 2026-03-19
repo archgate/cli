@@ -1,0 +1,82 @@
+---
+title: test-file-coverage
+description: Verify that every source file has a corresponding test file to prevent untested code from being merged.
+---
+
+Verify that every source file has a corresponding test file.
+
+## Rule details
+
+Untested code is a liability. This rule enforces a structural convention: for every file in `src/`, a matching `.test.ts` file must exist in `tests/`. It uses `ctx.glob` to discover existing test files, builds a lookup set for fast matching, and reports any source file without a counterpart.
+
+## Examples of **incorrect** code
+
+```
+src/
+  helpers/
+    log.ts          ← has a test ✓
+    paths.ts        ← no test file ✗
+tests/
+  helpers/
+    log.test.ts
+```
+
+## Examples of **correct** code
+
+```
+src/
+  helpers/
+    log.ts
+    paths.ts
+tests/
+  helpers/
+    log.test.ts
+    paths.test.ts
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+import { relative } from "node:path";
+
+export default {
+  rules: {
+    "test-file-exists": {
+      description: "Every source file should have a corresponding test file",
+      severity: "warning",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const rel = relative(ctx.projectRoot, file);
+          const testPath = rel
+            .replace(/^src\//, "tests/")
+            .replace(/\.ts$/, ".test.ts");
+          const testFiles = await ctx.glob(testPath);
+          if (testFiles.length === 0) {
+            ctx.report.warning({
+              message: `No test file found at ${testPath}`,
+              file,
+              fix: `Create a test file at ${testPath}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+To adapt for projects that colocate tests next to source files:
+
+```typescript
+const testPath = rel.replace(/\.ts$/, ".test.ts");
+// src/helpers/log.ts → src/helpers/log.test.ts
+```
+
+## When to use it
+
+When your team follows a convention that every source module must have a corresponding test file, and you want to catch missing tests during code review.
+
+## When not to use it
+
+When test coverage is tracked by other means (e.g., coverage thresholds in CI), or when some source files genuinely do not need tests (type-only files, constants).

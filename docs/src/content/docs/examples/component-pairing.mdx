@@ -1,0 +1,82 @@
+---
+title: component-pairing
+description: Enforce that stateful Connected components have a corresponding presentational component file, with opt-out support.
+---
+
+Enforce that stateful "Connected" components have a corresponding presentational component file.
+
+## Rule details
+
+The container/presentational pattern separates data-fetching (Connected) components from pure UI (presentational) components. This rule checks that every `*Connected.tsx` file has a matching `*.tsx` presentational counterpart. It supports an opt-out directive (`// @no-presentational: <reason>`) for cases where a Connected component does not need a presentational pair.
+
+## Examples of **incorrect** code
+
+```
+src/components/
+  UserListConnected.tsx     ← no UserList.tsx ✗
+```
+
+## Examples of **correct** code
+
+```
+src/components/
+  UserListConnected.tsx     ← fetches data, passes to UserList
+  UserList.tsx              ← pure presentational component
+```
+
+Or, with an opt-out:
+
+```typescript title="src/components/RedirectConnected.tsx"
+// @no-presentational: this component only redirects, no UI to render
+import { useNavigate } from "react-router";
+// ...
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "connected-wrapper-existence": {
+      description:
+        "Connected wrappers must have a corresponding presentational component file",
+      async check(ctx) {
+        const connectedFiles = await ctx.glob(
+          "packages/frontend/src/components/**/*Connected.tsx"
+        );
+
+        for (const file of connectedFiles) {
+          if (file.includes(".stories.") || file.includes(".test.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          // Support opt-out directive
+          if (/^\/\/\s*@no-presentational:/.test(content.trimStart())) continue;
+
+          const presentationalFile = file.replace(/Connected\.tsx$/, ".tsx");
+
+          try {
+            await ctx.readFile(presentationalFile);
+          } catch {
+            ctx.report.violation({
+              message: `Connected wrapper has no corresponding presentational component (expected ${presentationalFile}). Add "// @no-presentational: <reason>" to opt out.`,
+              file,
+              fix: `Create ${presentationalFile} as the presentational counterpart`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your frontend architecture follows the container/presentational pattern and you want to enforce that data-fetching logic is always separated from UI rendering.
+
+## When not to use it
+
+When your project uses a different component architecture (e.g., hooks-only, or server components), or when the pattern is applied selectively rather than universally.

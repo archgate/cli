@@ -1,0 +1,77 @@
+---
+title: no-unapproved-deps
+description: Restringe dependencias de producao a uma allowlist aprovada para controlar riscos na cadeia de suprimentos e inchaço de dependencias.
+---
+
+Restringe dependencias de producao a uma allowlist aprovada.
+
+## Detalhes da regra
+
+Arvores de dependencias grandes aumentam o risco na cadeia de suprimentos e inflam o tamanho dos bundles. Esta regra le o `package.json` e reporta qualquer dependencia de producao que nao esteja em uma allowlist explicita. Dependencias de desenvolvimento nao sao verificadas.
+
+## Exemplos de codigo **incorreto**
+
+```json title="package.json"
+{ "dependencies": { "zod": "^3.23.0", "chalk": "^5.3.0" } }
+```
+
+Se apenas `zod` esta na lista aprovada, `chalk` gera uma violacao.
+
+## Exemplos de codigo **correto**
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "chalk": "^5.3.0" }
+}
+```
+
+Todas as dependencias de producao estao na lista aprovada. Bibliotecas necessarias apenas em tempo de build estao em `devDependencies`.
+
+## Implementacao da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default {
+  rules: {
+    "no-unapproved-deps": {
+      description: "Production dependencies must be on the approved list",
+      async check(ctx) {
+        let pkg: { dependencies?: Record<string, string> };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return; // No package.json — nothing to check
+        }
+
+        const deps = Object.keys(pkg.dependencies ?? {});
+        for (const dep of deps) {
+          if (!APPROVED_DEPS.includes(dep)) {
+            ctx.report.violation({
+              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+              file: "package.json",
+              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando sua equipe possui uma politica explicita de governanca de dependencias e deseja evitar que pacotes nao aprovados entrem no bundle de producao.
+
+## Quando nao usar
+
+Em projetos em estagio inicial onde a lista de dependencias ainda esta evoluindo rapidamente, ou quando a governanca de dependencias e feita por uma ferramenta separada como Socket ou Snyk.

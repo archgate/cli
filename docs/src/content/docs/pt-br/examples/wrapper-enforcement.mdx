@@ -1,0 +1,79 @@
+---
+title: wrapper-enforcement
+description: Impoe o uso de um wrapper ou helper do projeto em vez de uma API de plataforma crua, com exclusao automatica do proprio arquivo wrapper.
+---
+
+Impoe o uso de um wrapper do projeto em vez de uma API de plataforma crua.
+
+## Detalhes da regra
+
+Quando um projeto fornece um helper que normaliza uma API de baixo nivel (ex.: um helper `platform.ts` encapsulando `process.platform`), o uso direto da API crua deve ser banido em todos os lugares exceto no proprio wrapper. Esta regra varre os arquivos no escopo procurando a chamada da API crua enquanto exclui automaticamente o arquivo helper e codigo de nao-producao.
+
+## Exemplos de codigo **incorreto**
+
+```typescript title="src/commands/build.ts"
+if (process.platform === "win32") {
+  // Windows-specific logic
+}
+```
+
+## Exemplos de codigo **correto**
+
+```typescript title="src/commands/build.ts"
+import { isWindows } from "../helpers/platform";
+
+if (isWindows()) {
+  // Windows-specific logic
+}
+```
+
+## Implementacao da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-direct-process-platform": {
+      description:
+        "Platform detection must use src/helpers/platform.ts, not process.platform directly",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) =>
+            !f.includes("tests/") &&
+            !f.includes(".archgate/") &&
+            !f.endsWith("src/helpers/platform.ts") // Exclude the wrapper itself
+        );
+
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /process\.platform/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not access process.platform directly — use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
+              file: m.file,
+              line: m.line,
+              fix: 'Import { isWindows } from "../helpers/platform" and use it instead of process.platform',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando seu projeto possui um modulo wrapper ou helper que normaliza uma API crua e voce deseja impedir o acesso direto a API subjacente. Exemplos comuns:
+
+- `platform.ts` encapsulando `process.platform`
+- `logger.ts` encapsulando `console.log` / `console.error`
+- `fs.ts` encapsulando `node:fs` com padroes especificos do projeto
+- `env.ts` encapsulando `process.env` com acessores tipados
+
+## Quando nao usar
+
+Quando a API crua e simples o suficiente para que um wrapper nao agregue valor, ou quando o wrapper ainda nao foi adotado em toda a base de codigo (considere usar severidade `warning` durante a migracao).

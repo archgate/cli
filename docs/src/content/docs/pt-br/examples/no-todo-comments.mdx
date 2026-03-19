@@ -1,0 +1,61 @@
+---
+title: no-todo-comments
+description: Sinaliza comentarios TODO, FIXME, HACK e XXX para garantir que sejam resolvidos antes do merge.
+---
+
+Sinaliza comentários `TODO`, `FIXME`, `HACK` e `XXX` para que sejam resolvidos antes do merge.
+
+## Detalhes da regra
+
+Comentários TODO são úteis durante o desenvolvimento, mas não devem se acumular na branch principal. Esta regra usa `ctx.grepFiles` para escanear todos os arquivos fonte em busca de marcadores de tarefas comuns em comentários. Ela usa severidade `warning` para não bloquear o CI, mas torna os comentários visíveis em cada execução de verificação.
+
+## Exemplos de código **incorreto**
+
+```typescript title="src/helpers/git.ts"
+// TODO: handle merge conflicts
+// FIXME: this breaks on Windows
+// HACK: workaround for upstream bug
+// XXX: revisit this logic
+```
+
+## Exemplos de código **correto**
+
+```typescript title="src/helpers/git.ts"
+// Proper implementation with no deferred work
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-todo-comments": {
+      description: "TODO and FIXME comments should be resolved before merging",
+      severity: "warning",
+      async check(ctx) {
+        const matches = await ctx.grepFiles(
+          /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
+          "src/**/*.ts"
+        );
+        for (const match of matches) {
+          ctx.report.warning({
+            message: `${match.content.trim()} — resolve before merging`,
+            file: match.file,
+            line: match.line,
+          });
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando você quer ter visibilidade sobre trabalho adiado e quer evitar que comentários TODO se acumulem ao longo do tempo. Altere a severidade para `"error"` e use `ctx.report.violation()` para torná-lo um bloqueador definitivo.
+
+## Quando não usar
+
+Quando comentários TODO são documentação intencional (por exemplo, rastreados por uma ferramenta separada que cria issues a partir de comentários TODO).

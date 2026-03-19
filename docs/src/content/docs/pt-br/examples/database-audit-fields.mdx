@@ -1,0 +1,117 @@
+---
+title: database-audit-fields
+description: Garanta que todas as tabelas do banco de dados incluam colunas de auditoria obrigatórias como created_at e updated_at para rastreabilidade.
+---
+
+Garanta que todas as tabelas do banco de dados incluam colunas de auditoria obrigatórias.
+
+## Detalhes da regra
+
+Campos de auditoria (`created_at`, `updated_at`) são essenciais para depuração, governança de dados e protocolos de sincronização. Esta regra analisa arquivos de schema para encontrar definições de tabelas, extrai o bloco de colunas de cada tabela usando rastreamento de profundidade de chaves, e verifica a presença das colunas obrigatórias. Funciona com qualquer ORM que defina tabelas como chamadas de função com argumentos de objeto (Drizzle, Prisma schema-in-code, etc.).
+
+## Exemplos de código **incorreto**
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  // Missing created_at and updated_at
+});
+```
+
+## Exemplos de código **correto**
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  created_at: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updated_at: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "audit-fields": {
+      description:
+        "All database tables must have created_at and updated_at columns",
+      async check(ctx) {
+        const schemaFiles = await ctx.glob("packages/**/src/schema.ts");
+        const TABLE_PATTERN = /sqliteTable\s*\(\s*["']([^"']+)["']/g;
+
+        for (const file of schemaFiles) {
+          const content = await ctx.readFile(file);
+          let match;
+
+          while ((match = TABLE_PATTERN.exec(content)) !== null) {
+            const tableName = match[1];
+            const tableStart = match.index;
+
+            // Extract the table's column block using brace-depth tracking
+            const afterMatch = content.slice(tableStart);
+            const firstBrace = afterMatch.indexOf("{");
+            if (firstBrace === -1) continue;
+
+            let depth = 0;
+            let tableEnd = tableStart + firstBrace;
+            for (let i = firstBrace; i < afterMatch.length; i++) {
+              if (afterMatch[i] === "{") depth++;
+              else if (afterMatch[i] === "}") {
+                depth--;
+                if (depth === 0) {
+                  tableEnd = tableStart + i;
+                  break;
+                }
+              }
+            }
+
+            const tableBlock = content.slice(tableStart, tableEnd + 1);
+
+            if (!tableBlock.includes('"created_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "created_at" column`,
+                file,
+                fix: 'Add created_at: text("created_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+            if (!tableBlock.includes('"updated_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "updated_at" column`,
+                file,
+                fix: 'Add updated_at: text("updated_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando seu modelo de dados exige campos de auditoria consistentes para rastreabilidade, depuração ou conformidade. Adapte a regex `TABLE_PATTERN` e os nomes de colunas para o seu ORM:
+
+```typescript
+// For Drizzle with PostgreSQL
+const TABLE_PATTERN = /pgTable\s*\(\s*["']([^"']+)["']/g;
+
+// For Prisma-style definitions
+const TABLE_PATTERN = /model\s+(\w+)\s*\{/g;
+```
+
+## Quando não usar
+
+Quando algumas tabelas intencionalmente omitem campos de auditoria (ex.: tabelas de junção, views materializadas), ou quando campos de auditoria são adicionados automaticamente no nível do banco de dados via triggers.

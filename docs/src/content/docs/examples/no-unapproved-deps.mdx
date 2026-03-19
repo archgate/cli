@@ -1,0 +1,77 @@
+---
+title: no-unapproved-deps
+description: Restrict production dependencies to an approved allowlist to control supply-chain risk and dependency bloat.
+---
+
+Restrict production dependencies to an approved allowlist.
+
+## Rule details
+
+Large dependency trees increase supply-chain risk and bloat bundle sizes. This rule reads `package.json` and reports any production dependency that is not on an explicit allowlist. Dev dependencies are not checked.
+
+## Examples of **incorrect** code
+
+```json title="package.json"
+{ "dependencies": { "zod": "^3.23.0", "chalk": "^5.3.0" } }
+```
+
+If only `zod` is on the approved list, `chalk` triggers a violation.
+
+## Examples of **correct** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "chalk": "^5.3.0" }
+}
+```
+
+All production dependencies are on the approved list. Libraries needed only at build time are in `devDependencies`.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default {
+  rules: {
+    "no-unapproved-deps": {
+      description: "Production dependencies must be on the approved list",
+      async check(ctx) {
+        let pkg: { dependencies?: Record<string, string> };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return; // No package.json — nothing to check
+        }
+
+        const deps = Object.keys(pkg.dependencies ?? {});
+        for (const dep of deps) {
+          if (!APPROVED_DEPS.includes(dep)) {
+            ctx.report.violation({
+              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+              file: "package.json",
+              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## When to use it
+
+When your team has an explicit dependency governance policy and wants to prevent unapproved packages from entering the production bundle.
+
+## When not to use it
+
+In early-stage projects where the dependency list is still evolving rapidly, or when dependency governance is handled by a separate tool like Socket or Snyk.

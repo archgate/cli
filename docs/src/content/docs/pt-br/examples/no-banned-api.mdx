@@ -1,0 +1,110 @@
+---
+title: no-banned-api
+description: Bane APIs de runtime especificas que causam problemas de compatibilidade entre plataformas ou confiabilidade e impoe alternativas seguras.
+---
+
+Bane APIs de runtime especificas que causam problemas de compatibilidade entre plataformas ou confiabilidade.
+
+## Detalhes da regra
+
+Algumas APIs funcionam corretamente em uma plataforma mas falham em outra. Por exemplo, a API shell do Bun (`Bun.$`) trava no Windows devido a deadlocks de pipe. Esta regra detecta multiplas variantes de uma API banida — a chamada direta, o import e o uso desestruturado — garantindo que nenhuma forma passe despercebida.
+
+Este padrao se generaliza para qualquer API que voce queira banir enquanto permite uma alternativa segura.
+
+## Exemplos de codigo **incorreto**
+
+```typescript title="src/helpers/git.ts"
+// Direct usage
+const result = await Bun.$`git status`;
+
+// Import
+import { $ } from "bun";
+
+// Destructured usage
+const output = await $`ls -la`;
+```
+
+## Exemplos de codigo **correto**
+
+```typescript title="src/helpers/git.ts"
+const proc = Bun.spawn(["git", "status"], { stdout: "pipe", stderr: "pipe" });
+const output = await new Response(proc.stdout).text();
+```
+
+## Implementacao da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-bun-shell": {
+      description:
+        "Subprocess execution must use Bun.spawn, not Bun.$ (shell hangs on Windows)",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+
+        // Variant 1: Bun.$` template literal
+        const bunShellMatches = await Promise.all(
+          files.map((file) => ctx.grep(file, /Bun\.\$`/))
+        );
+        for (const fileMatches of bunShellMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not use Bun.$ template literals — they hang on Windows. Use Bun.spawn instead.",
+              file: m.file,
+              line: m.line,
+              fix: "Replace Bun.$`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
+            });
+          }
+        }
+
+        // Variant 2: import { $ } from "bun"
+        const dollarImportMatches = await Promise.all(
+          files.map((file) =>
+            ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/)
+          )
+        );
+        for (const fileMatches of dollarImportMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                'Do not import $ from "bun" — the shell API hangs on Windows. Use Bun.spawn instead.',
+              file: m.file,
+              line: m.line,
+              fix: "Remove the $ import and replace shell calls with Bun.spawn",
+            });
+          }
+        }
+
+        // Variant 3: await $` (destructured)
+        const destructuredMatches = await Promise.all(
+          files.map((file) => ctx.grep(file, /await\s+\$`/))
+        );
+        for (const fileMatches of destructuredMatches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not use $` template literals — they hang on Windows. Use Bun.spawn instead.",
+              file: m.file,
+              line: m.line,
+              fix: "Replace $`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Quando usar
+
+Quando seu projeto precisa rodar em multiplas plataformas e uma API especifica e conhecida por falhar em uma delas. Tambem util para banir APIs depreciadas com problemas conhecidos de confiabilidade.
+
+## Quando nao usar
+
+Quando seu projeto tem como alvo uma unica plataforma e a API banida funciona confiavelmente nela.
