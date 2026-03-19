@@ -1,5 +1,5 @@
 #!/bin/sh
-# Archgate installer for macOS and Linux
+# Archgate installer for macOS, Linux, and Windows (Git Bash / MSYS2)
 # Usage: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
 set -eu
 
@@ -13,11 +13,12 @@ detect_platform() {
   arch="$(uname -m)"
 
   case "$os" in
-    Darwin) platform="darwin" ;;
-    Linux)  platform="linux" ;;
+    Darwin)       platform="darwin" ;;
+    Linux)        platform="linux" ;;
+    MINGW*|MSYS*) platform="win32" ;;
     *)
       echo "Error: unsupported OS: $os" >&2
-      echo "archgate supports macOS (ARM64) and Linux (x86_64)." >&2
+      echo "archgate supports macOS (ARM64), Linux (x86_64), and Windows (x64)." >&2
       exit 1
       ;;
   esac
@@ -39,6 +40,10 @@ detect_platform() {
   fi
   if [ "$platform" = "linux" ] && [ "$arch" != "x64" ]; then
     echo "Error: Linux is only supported on x86_64." >&2
+    exit 1
+  fi
+  if [ "$platform" = "win32" ] && [ "$arch" != "x64" ]; then
+    echo "Error: Windows is only supported on x86_64." >&2
     exit 1
   fi
 
@@ -98,7 +103,13 @@ resolve_version() {
 # --- Download and install ---
 
 download_and_install() {
-  url="https://github.com/${REPO}/releases/download/${VERSION}/${ARTIFACT}.tar.gz"
+  if [ "$platform" = "win32" ]; then
+    ext="zip"
+  else
+    ext="tar.gz"
+  fi
+
+  url="https://github.com/${REPO}/releases/download/${VERSION}/${ARTIFACT}.${ext}"
 
   echo "Installing archgate ${VERSION} (${ARTIFACT})..."
 
@@ -106,18 +117,24 @@ download_and_install() {
   trap 'rm -rf "$tmpdir"' EXIT
 
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$tmpdir/archgate.tar.gz"
+    curl -fsSL "$url" -o "$tmpdir/archgate.${ext}"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$tmpdir/archgate.tar.gz" "$url"
+    wget -qO "$tmpdir/archgate.${ext}" "$url"
   else
     echo "Error: neither 'curl' nor 'wget' is installed. Please install one of them to download archgate." >&2
     exit 1
   fi
 
-  tar -xzf "$tmpdir/archgate.tar.gz" -C "$tmpdir"
   mkdir -p "$INSTALL_DIR"
-  mv "$tmpdir/archgate" "$INSTALL_DIR/archgate"
-  chmod +x "$INSTALL_DIR/archgate"
+
+  if [ "$platform" = "win32" ]; then
+    unzip -qo "$tmpdir/archgate.zip" -d "$tmpdir"
+    mv "$tmpdir/archgate.exe" "$INSTALL_DIR/archgate.exe"
+  else
+    tar -xzf "$tmpdir/archgate.tar.gz" -C "$tmpdir"
+    mv "$tmpdir/archgate" "$INSTALL_DIR/archgate"
+    chmod +x "$INSTALL_DIR/archgate"
+  fi
 }
 
 # --- Update PATH ---
@@ -272,7 +289,11 @@ main() {
   resolve_version
   download_and_install
 
-  echo "archgate ${VERSION} installed to ${INSTALL_DIR}/archgate"
+  if [ "$platform" = "win32" ]; then
+    echo "archgate ${VERSION} installed to ${INSTALL_DIR}/archgate.exe"
+  else
+    echo "archgate ${VERSION} installed to ${INSTALL_DIR}/archgate"
+  fi
   setup_path
 
   echo ""

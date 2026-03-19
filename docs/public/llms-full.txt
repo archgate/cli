@@ -122,13 +122,18 @@ The fastest way to install Archgate — no Node.js or package manager required:
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+curl -fsSL https://cli.archgate.dev/install-unix | sh
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
+irm https://cli.archgate.dev/install-windows | iex
+
+# Windows (Git Bash / MSYS2)
+curl -fsSL https://cli.archgate.dev/install-unix | sh
 ```
 
 This downloads a pre-built binary for your platform and installs it to `~/.archgate/bin/`. The installer detects your shell profiles and offers to add the directory to your PATH.
+
+On Windows, the PowerShell installer also detects Git Bash shell profiles (`.bashrc`, `.bash_profile`, `.profile`) and offers to configure PATH there as well.
 
 You can customize the install with environment variables:
 
@@ -259,7 +264,7 @@ If you have not installed the CLI yet:
 
 ```bash
 # Standalone (no Node.js required)
-curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+curl -fsSL https://cli.archgate.dev/install-unix | sh
 
 # Or via npm
 npm install -g archgate
@@ -1013,7 +1018,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+      - run: curl -fsSL https://cli.archgate.dev/install-unix | sh
       - run: ~/.archgate/bin/archgate check --ci
 ```
 

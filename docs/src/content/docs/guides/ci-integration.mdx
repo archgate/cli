@@ -169,7 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh
+      - run: curl -fsSL https://cli.archgate.dev/install-unix | sh
       - run: ~/.archgate/bin/archgate check --ci
 ```
 

@@ -93,5 +93,49 @@ if ($CurrentPath -notlike "*$InstallDir*") {
     Write-Host "Restart your terminal for the change to take effect in new sessions."
 }
 
+# --- Update Git Bash / MSYS2 shell profiles ---
+
+$GitBashProfiles = @()
+foreach ($f in @("$HOME\.bashrc", "$HOME\.bash_profile", "$HOME\.profile")) {
+    if (Test-Path $f) {
+        $GitBashProfiles += $f
+        break
+    }
+}
+
+$InstallDirPosix = $InstallDir -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
+$PathLine = "export PATH=`"$InstallDirPosix:`$PATH`""
+
+$NeedsUpdate = @()
+foreach ($f in $GitBashProfiles) {
+    if (-not (Select-String -Path $f -SimpleMatch $InstallDirPosix -Quiet)) {
+        $NeedsUpdate += $f
+    }
+}
+
+if ($NeedsUpdate.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Detected Git Bash shell profiles to update:"
+    foreach ($f in $NeedsUpdate) {
+        Write-Host "  $f  ->  $PathLine"
+    }
+    Write-Host ""
+
+    $answer = Read-Host "Update these files now? [Y/n]"
+    if ($answer -match '^[nN]') {
+        Write-Host ""
+        Write-Host "Skipped. To add manually, append this line to your shell profile:"
+        Write-Host ""
+        Write-Host "  $PathLine"
+    } else {
+        foreach ($f in $NeedsUpdate) {
+            Add-Content -Path $f -Value "`n# archgate`n$PathLine"
+            Write-Host "  Updated: $f"
+        }
+        Write-Host ""
+        Write-Host "Restart Git Bash for the change to take effect."
+    }
+}
+
 Write-Host ""
 Write-Host "Run 'archgate --help' to get started."
