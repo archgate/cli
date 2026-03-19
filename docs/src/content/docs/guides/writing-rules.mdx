@@ -1,6 +1,6 @@
 ---
 title: Writing Rules
-description: Write TypeScript rules that automatically enforce your Architecture Decision Records. Learn the Archgate defineRules API, file matching, and violation reporting.
+description: Write TypeScript rules that automatically enforce your Architecture Decision Records. Learn the Archgate rule API with satisfies RuleSet, file matching, and violation reporting.
 ---
 
 Rules are TypeScript functions that check your codebase for ADR compliance. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
@@ -13,40 +13,44 @@ Rules are TypeScript functions that check your codebase for ADR compliance. They
 
 ## Basic setup
 
-Every rules file exports a default `defineRules()` call. Each key becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
+Every rules file exports a default plain object typed with `satisfies RuleSet`. Each key in the `rules` object becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "my-rule-id": {
-    description: "What this rule checks",
-    async check(ctx) {
-      // Your check logic here
+export default {
+  rules: {
+    "my-rule-id": {
+      description: "What this rule checks",
+      async check(ctx) {
+        // Your check logic here
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 A single rules file can define multiple rules:
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "first-rule": {
-    description: "Checks one thing",
-    async check(ctx) {
-      // ...
+export default {
+  rules: {
+    "first-rule": {
+      description: "Checks one thing",
+      async check(ctx) {
+        // ...
+      },
+    },
+    "second-rule": {
+      description: "Checks another thing",
+      async check(ctx) {
+        // ...
+      },
     },
   },
-  "second-rule": {
-    description: "Checks another thing",
-    async check(ctx) {
-      // ...
-    },
-  },
-});
+} satisfies RuleSet;
 ```
 
 ## The Context API
@@ -172,7 +176,7 @@ The absolute path to the project root directory. Useful when you need to constru
 Check that all production dependencies are on an approved list. This is the rule Archgate uses for its own ARCH-006 dependency policy.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
 const APPROVED_DEPS = [
   "@commander-js/extra-typings",
@@ -181,30 +185,32 @@ const APPROVED_DEPS = [
   "zod",
 ];
 
-export default defineRules({
-  "no-unapproved-deps": {
-    description: "Production dependencies must be on the approved list",
-    async check(ctx) {
-      let pkg: { dependencies?: Record<string, string> };
-      try {
-        pkg = (await ctx.readJSON("package.json")) as typeof pkg;
-      } catch {
-        return;
-      }
-
-      const deps = Object.keys(pkg.dependencies ?? {});
-      for (const dep of deps) {
-        if (!APPROVED_DEPS.includes(dep)) {
-          ctx.report.violation({
-            message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
-            file: "package.json",
-            fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
-          });
+export default {
+  rules: {
+    "no-unapproved-deps": {
+      description: "Production dependencies must be on the approved list",
+      async check(ctx) {
+        let pkg: { dependencies?: Record<string, string> };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return;
         }
-      }
+
+        const deps = Object.keys(pkg.dependencies ?? {});
+        for (const dep of deps) {
+          if (!APPROVED_DEPS.includes(dep)) {
+            ctx.report.violation({
+              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+              file: "package.json",
+              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+            });
+          }
+        }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 ### Example 2: Required export pattern
@@ -212,26 +218,28 @@ export default defineRules({
 Verify that every command file exports a `register*Command` function. This is the rule Archgate uses for its own ARCH-001 command structure.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "register-function-export": {
-    description: "Command files must export a register*Command function",
-    async check(ctx) {
-      const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
-      const checks = files.map(async (file) => {
-        const content = await ctx.readFile(file);
-        if (!/export\s+function\s+register\w+Command/.test(content)) {
-          ctx.report.violation({
-            message: "Command file must export a register*Command function",
-            file,
-          });
-        }
-      });
-      await Promise.all(checks);
+export default {
+  rules: {
+    "register-function-export": {
+      description: "Command files must export a register*Command function",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+        const checks = files.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (!/export\s+function\s+register\w+Command/.test(content)) {
+            ctx.report.violation({
+              message: "Command file must export a register*Command function",
+              file,
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 ### Example 3: Banned import pattern
@@ -239,27 +247,29 @@ export default defineRules({
 Prevent importing a specific library when native alternatives exist.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
-export default defineRules({
-  "no-lodash": {
-    description: "Do not use lodash -- use native array methods instead",
-    async check(ctx) {
-      const matches = await ctx.grepFiles(
-        /import\s+.*from\s+['"]lodash/,
-        "src/**/*.ts"
-      );
-      for (const match of matches) {
-        ctx.report.violation({
-          message: "Do not import lodash. Use native array methods instead.",
-          file: match.file,
-          line: match.line,
-          fix: "Replace lodash usage with native Array.prototype methods",
-        });
-      }
+export default {
+  rules: {
+    "no-lodash": {
+      description: "Do not use lodash -- use native array methods instead",
+      async check(ctx) {
+        const matches = await ctx.grepFiles(
+          /import\s+.*from\s+['"]lodash/,
+          "src/**/*.ts"
+        );
+        for (const match of matches) {
+          ctx.report.violation({
+            message: "Do not import lodash. Use native array methods instead.",
+            file: match.file,
+            line: match.line,
+            fix: "Replace lodash usage with native Array.prototype methods",
+          });
+        }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 ### Example 4: File naming convention
@@ -267,26 +277,28 @@ export default defineRules({
 Enforce kebab-case naming for source files.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 import { basename } from "node:path";
 
-export default defineRules({
-  "kebab-case-files": {
-    description: "Source files must use kebab-case naming",
-    async check(ctx) {
-      for (const file of ctx.scopedFiles) {
-        const name = basename(file).replace(/\.(ts|tsx|js|jsx)$/, "");
-        if (name !== name.toLowerCase() || name.includes("_")) {
-          ctx.report.violation({
-            message: `File name "${basename(file)}" must be kebab-case (lowercase with hyphens)`,
-            file,
-            fix: `Rename to ${name.toLowerCase().replace(/_/g, "-")}`,
-          });
+export default {
+  rules: {
+    "kebab-case-files": {
+      description: "Source files must use kebab-case naming",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const name = basename(file).replace(/\.(ts|tsx|js|jsx)$/, "");
+          if (name !== name.toLowerCase() || name.includes("_")) {
+            ctx.report.violation({
+              message: `File name "${basename(file)}" must be kebab-case (lowercase with hyphens)`,
+              file,
+              fix: `Rename to ${name.toLowerCase().replace(/_/g, "-")}`,
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 ### Example 5: Maximum file length
@@ -294,29 +306,31 @@ export default defineRules({
 Warn when files exceed a line count threshold.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 
 const MAX_LINES = 300;
 
-export default defineRules({
-  "max-file-length": {
-    description: `Source files should not exceed ${MAX_LINES} lines`,
-    async check(ctx) {
-      const checks = ctx.scopedFiles.map(async (file) => {
-        const content = await ctx.readFile(file);
-        const lineCount = content.split("\n").length;
-        if (lineCount > MAX_LINES) {
-          ctx.report.warning({
-            message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
-            file,
-            fix: "Extract related functions into separate modules",
-          });
-        }
-      });
-      await Promise.all(checks);
+export default {
+  rules: {
+    "max-file-length": {
+      description: `Source files should not exceed ${MAX_LINES} lines`,
+      async check(ctx) {
+        const checks = ctx.scopedFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+          if (lineCount > MAX_LINES) {
+            ctx.report.warning({
+              message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+              file,
+              fix: "Extract related functions into separate modules",
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 ### Example 6: Required test coverage
@@ -324,31 +338,33 @@ export default defineRules({
 Verify that every source file has a corresponding test file.
 
 ```typescript
-import { defineRules } from "archgate/rules";
+/// <reference path="../rules.d.ts" />
 import { basename } from "node:path";
 
-export default defineRules({
-  "test-file-exists": {
-    description: "Every source module must have a corresponding test file",
-    async check(ctx) {
-      const testFiles = await ctx.glob("tests/**/*.test.ts");
-      const testBaseNames = new Set(
-        testFiles.map((f) => basename(f).replace(".test.ts", ""))
-      );
+export default {
+  rules: {
+    "test-file-exists": {
+      description: "Every source module must have a corresponding test file",
+      async check(ctx) {
+        const testFiles = await ctx.glob("tests/**/*.test.ts");
+        const testBaseNames = new Set(
+          testFiles.map((f) => basename(f).replace(".test.ts", ""))
+        );
 
-      for (const file of ctx.scopedFiles) {
-        const name = basename(file).replace(/\.ts$/, "");
-        if (!testBaseNames.has(name)) {
-          ctx.report.warning({
-            message: `No test file found for ${basename(file)}`,
-            file,
-            fix: `Create tests/${name}.test.ts`,
-          });
+        for (const file of ctx.scopedFiles) {
+          const name = basename(file).replace(/\.ts$/, "");
+          if (!testBaseNames.has(name)) {
+            ctx.report.warning({
+              message: `No test file found for ${basename(file)}`,
+              file,
+              fix: `Create tests/${name}.test.ts`,
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 ## Severity levels
@@ -364,16 +380,18 @@ Each rule can set a default severity in its configuration. The severity determin
 Set the severity in the rule definition:
 
 ```typescript
-export default defineRules({
-  "my-rule": {
-    description: "...",
-    severity: "warning",
-    async check(ctx) {
-      // Violations from this rule are warnings, not errors
-      ctx.report.violation({ message: "..." });
+export default {
+  rules: {
+    "my-rule": {
+      description: "...",
+      severity: "warning",
+      async check(ctx) {
+        // Violations from this rule are warnings, not errors
+        ctx.report.violation({ message: "..." });
+      },
     },
   },
-});
+} satisfies RuleSet;
 ```
 
 If `severity` is omitted, it defaults to `error`.

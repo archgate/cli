@@ -8,6 +8,7 @@ import {
   parseAdr,
 } from "../formats/adr";
 import { generateAdrTemplate } from "./adr-templates";
+import { generateRulesTemplate } from "./rules-shim";
 
 export function slugify(title: string): string {
   return title
@@ -90,6 +91,14 @@ export async function createAdrFile(
   const fileName = `${id}-${slug}.md`;
   const filePath = join(adrsDir, fileName);
   await Bun.write(filePath, content);
+
+  // Generate companion .rules.ts when rules are enabled
+  if (opts.rules) {
+    const rulesFileName = `${id}-${slug}.rules.ts`;
+    const rulesFilePath = join(adrsDir, rulesFileName);
+    await Bun.write(rulesFilePath, generateRulesTemplate());
+  }
+
   return { id, fileName, filePath };
 }
 

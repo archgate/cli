@@ -58,11 +58,3 @@ export interface RuleConfig {
 // --- Rule Set ---
 
 export type RuleSet = { rules: Record<string, RuleConfig> };
-
-/**
- * Define rules in a .rules.ts companion file.
- * Keys become rule IDs, preventing duplicates.
- */
-export function defineRules(rules: Record<string, RuleConfig>): RuleSet {
-  return { rules };
-}

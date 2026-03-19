@@ -24,6 +24,7 @@ const RuleSetSchema = z.object({
 });
 import { logDebug, logWarn } from "../helpers/log";
 import { projectPaths } from "../helpers/paths";
+import { ensureRulesShim } from "../helpers/rules-shim";
 
 export interface LoadedAdr {
   adr: AdrDocument;
@@ -39,6 +40,10 @@ export async function loadRuleAdrs(
 ): Promise<LoadedAdr[]> {
   const pp = projectPaths(projectRoot);
   const loaded: LoadedAdr[] = [];
+
+  // Ensure rules.d.ts exists so .rules.ts files get type checking
+  // without requiring node_modules (supports non-JS projects)
+  await ensureRulesShim(projectRoot);
 
   const adrDirs: string[] = [pp.adrsDir];
 
@@ -80,10 +85,9 @@ export async function loadRuleAdrs(
       const rulesFileExists = await Bun.file(rulesFile).exists();
 
       if (!rulesFileExists) {
-        logWarn(
+        throw new Error(
           `ADR ${adr.frontmatter.id} has rules: true but no companion file found: ${rulesFile}`
         );
-        continue;
       }
 
       try {

@@ -7,16 +7,6 @@ import { loadRuleAdrs } from "../../src/engine/loader";
 import { getExitCode } from "../../src/engine/reporter";
 import { runChecks } from "../../src/engine/runner";
 
-// Absolute path to the real defineRules module (forward slashes for import specifiers)
-const RULES_MODULE_PATH = join(
-  import.meta.dir,
-  "..",
-  "..",
-  "src",
-  "formats",
-  "rules.ts"
-).replaceAll("\\", "/");
-
 describe("check command integration", () => {
   let tempDir: string;
 
@@ -36,7 +26,6 @@ describe("check command integration", () => {
   });
 
   test("exits 0 when all rules pass", async () => {
-    // ADR with a rule that always passes
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-001-passing.md"),
       `---
@@ -51,13 +40,14 @@ rules: true
     );
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-001-passing.rules.ts"),
-      `import { defineRules } from "${RULES_MODULE_PATH}";
-export default defineRules({
-  "always-pass": {
-    description: "Always passes",
-    async check() {},
+      `export default {
+  rules: {
+    "always-pass": {
+      description: "Always passes",
+      async check() {},
+    },
   },
-});
+};
 `
     );
 
@@ -84,24 +74,25 @@ files: ["src/**/*.ts"]
     );
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-002-failing.rules.ts"),
-      `import { defineRules } from "${RULES_MODULE_PATH}";
-export default defineRules({
-  "no-console": {
-    description: "No console.log",
-    async check(ctx) {
-      for (const file of ctx.scopedFiles) {
-        const matches = await ctx.grep(file, /console\\.log/);
-        for (const m of matches) {
-          ctx.report.violation({
-            message: "Found console.log",
-            file: m.file,
-            line: m.line,
-          });
+      `export default {
+  rules: {
+    "no-console": {
+      description: "No console.log",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const matches = await ctx.grep(file, /console\\.log/);
+          for (const m of matches) {
+            ctx.report.violation({
+              message: "Found console.log",
+              file: m.file,
+              line: m.line,
+            });
+          }
         }
-      }
+      },
     },
   },
-});
+};
 `
     );
 
@@ -126,13 +117,14 @@ rules: true
     );
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-003-filter.rules.ts"),
-      `import { defineRules } from "${RULES_MODULE_PATH}";
-export default defineRules({
-  "filtered": {
-    description: "Filtered rule",
-    async check() {},
+      `export default {
+  rules: {
+    "filtered": {
+      description: "Filtered rule",
+      async check() {},
+    },
   },
-});
+};
 `
     );
 

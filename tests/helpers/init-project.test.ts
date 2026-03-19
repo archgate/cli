@@ -125,4 +125,33 @@ describe("initProject", () => {
       join(tempDir, ".claude", "settings.local.json")
     );
   });
+
+  test("generates rules.d.ts in .archgate/", async () => {
+    await initProject(tempDir);
+
+    const dtsPath = join(tempDir, ".archgate", "rules.d.ts");
+    expect(existsSync(dtsPath)).toBe(true);
+
+    const dtsContent = await Bun.file(dtsPath).text();
+    expect(dtsContent).toContain("declare interface RuleContext");
+  });
+
+  test("adds rules.d.ts to .gitignore", async () => {
+    await initProject(tempDir);
+
+    const gitignorePath = join(tempDir, ".gitignore");
+    expect(existsSync(gitignorePath)).toBe(true);
+
+    const content = await Bun.file(gitignorePath).text();
+    expect(content).toContain(".archgate/rules.d.ts");
+  });
+
+  test("does not duplicate .gitignore entries on re-init", async () => {
+    await initProject(tempDir);
+    await initProject(tempDir);
+
+    const content = await Bun.file(join(tempDir, ".gitignore")).text();
+    const dtsCount = content.split(".archgate/rules.d.ts").length - 1;
+    expect(dtsCount).toBe(1);
+  });
 });

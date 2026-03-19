@@ -95,7 +95,7 @@ archgate check
 
 ## Writing rules
 
-Each ADR can have a companion `.rules.ts` file that exports checks using `defineRules()` from the `archgate` package. Rules receive the list of files to check and return an array of violations with file paths and line numbers.
+Each ADR can have a companion `.rules.ts` file that exports a plain object typed with `satisfies RuleSet`. Rules receive the list of files to check and return an array of violations with file paths and line numbers.
 
 See the [writing rules guide](https://cli.archgate.dev/guides/writing-rules/) for examples and the full [rule API reference](https://cli.archgate.dev/reference/rule-api/).
 

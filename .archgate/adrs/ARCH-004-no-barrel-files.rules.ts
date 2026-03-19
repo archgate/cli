@@ -1,4 +1,4 @@
-import { defineRules } from "../../src/formats/rules";
+/// <reference path="../rules.d.ts" />
 
 /**
  * Determines whether a file is a barrel (re-export-only index.ts).
@@ -37,25 +37,29 @@ function isBarrelFile(content: string): boolean {
   );
 }
 
-export default defineRules({
-  "no-barrel-files": {
-    description: "index.ts files must not be pure re-export barrels",
-    severity: "error",
-    async check(ctx) {
-      const indexFiles = ctx.scopedFiles.filter((f) => f.endsWith("/index.ts"));
+export default {
+  rules: {
+    "no-barrel-files": {
+      description: "index.ts files must not be pure re-export barrels",
+      severity: "error",
+      async check(ctx) {
+        const indexFiles = ctx.scopedFiles.filter((f) =>
+          f.endsWith("/index.ts")
+        );
 
-      const checks = indexFiles.map(async (file) => {
-        const content = await ctx.readFile(file);
-        if (isBarrelFile(content)) {
-          ctx.report.violation({
-            message: `Barrel file detected: ${file} contains only re-exports and no logic. Import directly from source modules instead.`,
-            file,
-            fix: "Delete this barrel file and update all imports to point directly to the source module (e.g., import from './adr' instead of '.')",
-          });
-        }
-      });
+        const checks = indexFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (isBarrelFile(content)) {
+            ctx.report.violation({
+              message: `Barrel file detected: ${file} contains only re-exports and no logic. Import directly from source modules instead.`,
+              file,
+              fix: "Delete this barrel file and update all imports to point directly to the source module (e.g., import from './adr' instead of '.')",
+            });
+          }
+        });
 
-      await Promise.all(checks);
+        await Promise.all(checks);
+      },
     },
   },
-});
+} satisfies RuleSet;

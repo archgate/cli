@@ -95,4 +95,4 @@ Bun 1.3.9, Node LTS, npm 11.11.0. Minimum user-facing Bun: `>=1.2.21` (enforced 
 
 ## ADR Format
 
-YAML frontmatter (`id`, `title`, `domain`, `rules`, optional `files`). Sections: Context, Decision, Do's and Don'ts, Consequences, Compliance, References. Companion `.rules.ts` exports `defineRules()`.
+YAML frontmatter (`id`, `title`, `domain`, `rules`, optional `files`). Sections: Context, Decision, Do's and Don'ts, Consequences, Compliance, References. Companion `.rules.ts` exports a plain object `satisfies RuleSet`.
