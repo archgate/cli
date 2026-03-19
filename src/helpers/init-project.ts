@@ -54,6 +54,9 @@ export async function initProject(
   // Ensure generated shim files are gitignored
   await ensureGitignoreEntries(projectRoot);
 
+  // Disable triple-slash-reference lint rule for .archgate/adrs/ if linter detected
+  await ensureLinterOverrides(projectRoot);
+
   // Only generate the example ADR when no ADRs exist yet
   const hasExistingAdrs =
     existsSync(paths.adrsDir) &&
@@ -162,6 +165,54 @@ async function ensureGitignoreEntries(projectRoot: string): Promise<void> {
 
   const block = `\n${GITIGNORE_HEADER}\n${missing.join("\n")}\n`;
   await Bun.write(gitignorePath, content + block);
+}
+
+const ARCHGATE_RULES_GLOB = ".archgate/adrs/*.rules.ts";
+const TRIPLE_SLASH_RULE_ESLINT = "@typescript-eslint/triple-slash-reference";
+const TRIPLE_SLASH_RULE_OXLINT = "typescript/triple-slash-reference";
+
+/**
+ * Detect JSON-based linter configs and add an override to disable
+ * the triple-slash-reference rule for archgate rule files.
+ * Only modifies .oxlintrc.json and .eslintrc.json — JS configs
+ * require manual setup (documented in the writing-rules guide).
+ */
+async function ensureLinterOverrides(projectRoot: string): Promise<void> {
+  await ensureOxlintOverride(projectRoot);
+  await ensureEslintrcOverride(projectRoot);
+}
+
+async function addJsonOverride(
+  configPath: string,
+  ruleName: string
+): Promise<void> {
+  if (!existsSync(configPath)) return;
+
+  const raw = await Bun.file(configPath).text();
+  if (raw.includes(ARCHGATE_RULES_GLOB)) return;
+
+  const config = await Bun.file(configPath).json();
+  const overrides: unknown[] = config.overrides ?? [];
+  overrides.push({
+    files: [ARCHGATE_RULES_GLOB],
+    rules: { [ruleName]: "off" },
+  });
+  config.overrides = overrides;
+  await Bun.write(configPath, `${JSON.stringify(config, null, 2)}\n`);
+}
+
+async function ensureOxlintOverride(projectRoot: string): Promise<void> {
+  await addJsonOverride(
+    join(projectRoot, ".oxlintrc.json"),
+    TRIPLE_SLASH_RULE_OXLINT
+  );
+}
+
+async function ensureEslintrcOverride(projectRoot: string): Promise<void> {
+  await addJsonOverride(
+    join(projectRoot, ".eslintrc.json"),
+    TRIPLE_SLASH_RULE_ESLINT
+  );
 }
 
 /**

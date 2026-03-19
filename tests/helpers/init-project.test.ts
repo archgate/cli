@@ -154,4 +154,36 @@ describe("initProject", () => {
     const dtsCount = content.split(".archgate/rules.d.ts").length - 1;
     expect(dtsCount).toBe(1);
   });
+
+  test("adds oxlint override for triple-slash-reference", async () => {
+    await Bun.write(join(tempDir, ".oxlintrc.json"), '{"rules":{}}');
+    await initProject(tempDir);
+
+    const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
+    expect(config.overrides).toHaveLength(1);
+    expect(config.overrides[0].files).toEqual([".archgate/adrs/*.rules.ts"]);
+    expect(config.overrides[0].rules["typescript/triple-slash-reference"]).toBe(
+      "off"
+    );
+  });
+
+  test("adds eslintrc override for triple-slash-reference", async () => {
+    await Bun.write(join(tempDir, ".eslintrc.json"), '{"rules":{}}');
+    await initProject(tempDir);
+
+    const config = await Bun.file(join(tempDir, ".eslintrc.json")).json();
+    expect(config.overrides).toHaveLength(1);
+    expect(
+      config.overrides[0].rules["@typescript-eslint/triple-slash-reference"]
+    ).toBe("off");
+  });
+
+  test("does not duplicate linter overrides on re-init", async () => {
+    await Bun.write(join(tempDir, ".oxlintrc.json"), "{}");
+    await initProject(tempDir);
+    await initProject(tempDir);
+
+    const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
+    expect(config.overrides).toHaveLength(1);
+  });
 });
