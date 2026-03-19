@@ -103,7 +103,10 @@ foreach ($f in @("$HOME\.bashrc", "$HOME\.bash_profile", "$HOME\.profile")) {
     }
 }
 
-$InstallDirPosix = $InstallDir -replace '\\', '/' -replace '^([A-Za-z]):', { '/' + $args[0].Groups[1].Value.ToLower() }
+$InstallDirPosix = $InstallDir -replace '\\', '/'
+if ($InstallDirPosix -match '^([A-Za-z]):') {
+    $InstallDirPosix = '/' + $Matches[1].ToLower() + $InstallDirPosix.Substring(2)
+}
 $PathLine = "export PATH=`"${InstallDirPosix}:`$PATH`""
 
 $NeedsUpdate = @()
