@@ -24,20 +24,19 @@ When versions diverge, npm installs pull mismatched platform binaries and search
 
 **Automated via release process:** The `.simple-release.js` bump hook already syncs `optionalDependencies` versions during the release workflow — it reads `package.json` after the version bump and updates all `optionalDependencies` entries to match. This is fully automated and requires no manual intervention.
 
-**Not automated:** `docs/astro.config.mjs` `softwareVersion` is NOT updated by the release process. This must be updated manually (or by adding it to `.simple-release.js`). The companion archgate rule catches this drift in CI.
+**Automated via release process:** The `.simple-release.js` bump hook also updates `softwareVersion` in `docs/astro.config.mjs` to match `package.json`. Both syncs are fully automated.
 
 ## Do's and Don'ts
 
 ### Do
 
-- Update `docs/astro.config.mjs` `softwareVersion` when bumping the CLI version
-- Rely on `.simple-release.js` for `optionalDependencies` sync (do not update manually)
-- Use the companion rules to catch version drift in CI
+- Rely on `.simple-release.js` for both `optionalDependencies` and `softwareVersion` sync (do not update manually)
+- Use the companion rules to catch version drift in CI as a safety net
 
 ### Don't
 
-- Don't hardcode version strings in docs without keeping them in sync with `package.json`
 - Don't manually edit `optionalDependencies` versions — the release hook handles this
+- Don't manually edit `softwareVersion` in `docs/astro.config.mjs` — the release hook handles this
 
 ## Consequences
 
@@ -49,13 +48,13 @@ When versions diverge, npm installs pull mismatched platform binaries and search
 
 ### Negative
 
-- `docs/astro.config.mjs` requires a manual update until it is added to the release hook
+- None — all version sync is automated via the release hook
 
 ## Compliance and Enforcement
 
 ### Automated Enforcement
 
-- **Release hook** `.simple-release.js`: Syncs `optionalDependencies` versions during `bump()`. Fully automated.
+- **Release hook** `.simple-release.js`: Syncs `optionalDependencies` versions and `docs/astro.config.mjs` `softwareVersion` during `bump()`. Fully automated.
 - **Archgate rule** `ARCH-013/docs-version-sync`: Checks that `softwareVersion` in `docs/astro.config.mjs` matches `package.json` version. Severity: `error`.
 - **Archgate rule** `ARCH-013/optional-deps-version-sync`: Checks that all `optionalDependencies` versions match `package.json` version. Severity: `error`.
 
