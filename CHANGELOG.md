@@ -1,3 +1,14 @@
+## [0.16.0](https://github.com/archgate/cli/compare/v0.15.0...v0.16.0) (2026-03-20)
+
+### Features
+
+* on-demand binary download fallback for npm distribution ([#92](https://github.com/archgate/cli/issues/92)) ([c5512db](https://github.com/archgate/cli/commit/c5512db65d6a7505ed8d7dc1c6cbaa564a92fc31))
+* support all installation methods in upgrade command ([#97](https://github.com/archgate/cli/issues/97)) ([8312986](https://github.com/archgate/cli/commit/831298637da042bee53b90769d994cc6018a508a))
+
+### Bug Fixes
+
+* treat rule import failures as errors ([#95](https://github.com/archgate/cli/issues/95)) ([abac53e](https://github.com/archgate/cli/commit/abac53e5739b833fa22247576d9963a3b85a9cfc))
+
 ## [0.15.0](https://github.com/archgate/cli/compare/v0.14.0...v0.15.0) (2026-03-19)
 
 ### Features
