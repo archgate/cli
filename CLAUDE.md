@@ -45,6 +45,10 @@ Entry point: `src/cli.ts` (shebang `#!/usr/bin/env bun`). Commands registered vi
 
 Zod schemas are the single source of truth. Types derived via `z.infer<>` — never define separate interfaces. Use `safeParse()`. Reuse `AdrFrontmatterSchema.shape.*` to avoid duplicating enums.
 
+## npm Distribution
+
+The npm package is a **thin shim** — it contains only `bin/archgate.cjs` and `scripts/postinstall.cjs`. The postinstall script downloads the prebuilt platform binary. All runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary via `bun build --compile`, so they belong in `devDependencies`, not `dependencies`. The `optionalDependencies` (archgate-darwin-arm64, etc.) are platform-specific binary packages synced to the CLI version by `.simple-release.js` during release.
+
 ## Conventions
 
 - Commands export `register*Command(program)`, handle I/O only — no business logic

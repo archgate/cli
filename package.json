@@ -77,6 +77,5 @@
     "archgate-linux-x64": "0.16.0",
     "archgate-win32-x64": "0.16.0"
   },
-  "readme": "README.md",
-  "_dependencies_note": "All runtime deps (commander, inquirer, zod) are bundled into the compiled binary via `bun build --compile`. The npm package is a thin shim that downloads the prebuilt binary (see scripts/postinstall.cjs). devDependencies is the correct section since the shim itself doesn't need these at runtime."
+  "readme": "README.md"
 }
