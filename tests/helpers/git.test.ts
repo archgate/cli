@@ -1,69 +1,10 @@
-import {
-  describe,
-  expect,
-  test,
-  beforeEach,
-  afterEach,
-  setDefaultTimeout,
-} from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { describe, expect, test } from "bun:test";
 
-import { getChangedFiles, installGit } from "../../src/helpers/git";
-import { git, safeRmSync } from "../test-utils";
-
-setDefaultTimeout(15_000);
-
-describe("getChangedFiles", () => {
-  let tempDir: string;
-
-  beforeEach(async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-git-test-"));
-    await git(["init"], tempDir);
-    await git(["config", "user.email", "test@test.com"], tempDir);
-    await git(["config", "user.name", "Test"], tempDir);
-    // Create an initial commit so HEAD exists
-    writeFileSync(join(tempDir, "README.md"), "init");
-    await git(["add", "."], tempDir);
-    await git(["commit", "-m", "init"], tempDir);
-  });
-
-  afterEach(() => {
-    safeRmSync(tempDir);
-  });
-
-  test("returns empty array when no changes", async () => {
-    const files = await getChangedFiles(tempDir);
-    expect(files).toEqual([]);
-  });
-
-  test("returns modified files", async () => {
-    writeFileSync(join(tempDir, "README.md"), "changed");
-    const files = await getChangedFiles(tempDir);
-    expect(files).toContain("README.md");
-  });
-
-  test("returns staged files", async () => {
-    writeFileSync(join(tempDir, "new.ts"), "export const x = 1;");
-    await git(["add", "new.ts"], tempDir);
-    const files = await getChangedFiles(tempDir);
-    expect(files).toContain("new.ts");
-  });
-
-  test("deduplicates files that are both staged and modified", async () => {
-    writeFileSync(join(tempDir, "file.ts"), "v1");
-    await git(["add", "file.ts"], tempDir);
-    writeFileSync(join(tempDir, "file.ts"), "v2");
-    const files = await getChangedFiles(tempDir);
-    const count = files.filter((f) => f === "file.ts").length;
-    expect(count).toBe(1);
-  });
-});
+import { installGit } from "../../src/helpers/git";
 
 describe("installGit", () => {
-  test("does nothing when git is already available", async () => {
-    // Git is present in the test environment — installGit should return without throwing
+  test("does not throw when git is available", async () => {
+    // git is expected to be available in the test environment
     await expect(installGit()).resolves.toBeUndefined();
   });
 

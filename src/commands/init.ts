@@ -5,18 +5,11 @@ import { Option } from "@commander-js/extra-typings";
 import inquirer from "inquirer";
 
 import { loadCredentials } from "../helpers/auth";
-import { initProject } from "../helpers/init-project";
+import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
-
-const EDITOR_LABELS: Record<EditorTarget, string> = {
-  claude: "Claude Code",
-  cursor: "Cursor",
-  vscode: "VS Code",
-  copilot: "Copilot CLI",
-};
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
   claude: ".claude/",

@@ -11,6 +11,13 @@ import { configureVscodeSettings } from "./vscode-settings";
 
 export type EditorTarget = "claude" | "cursor" | "vscode" | "copilot";
 
+export const EDITOR_LABELS: Record<EditorTarget, string> = {
+  claude: "Claude Code",
+  cursor: "Cursor",
+  vscode: "VS Code",
+  copilot: "Copilot CLI",
+};
+
 export interface InitOptions {
   editor?: EditorTarget;
   /** When true, attempt to install the archgate plugin using stored credentials. */

@@ -17,17 +17,22 @@ export function registerCursorSessionContextCommand(parent: Command) {
     .addOption(maxEntriesOption)
     .option("--session-id <id>", "Specific session UUID to read")
     .action(async (opts) => {
-      const projectRoot = findProjectRoot();
-      const result = await readCursorSession(projectRoot, {
-        maxEntries: opts.maxEntries,
-        sessionId: opts.sessionId,
-      });
+      try {
+        const projectRoot = findProjectRoot();
+        const result = await readCursorSession(projectRoot, {
+          maxEntries: opts.maxEntries,
+          sessionId: opts.sessionId,
+        });
 
-      if (!result.ok) {
-        logError(result.error);
+        if (!result.ok) {
+          logError(result.error);
+          process.exit(1);
+        }
+
+        console.log(JSON.stringify(result.data, null, 2));
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
-
-      console.log(JSON.stringify(result.data, null, 2));
     });
 }

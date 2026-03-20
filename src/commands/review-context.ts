@@ -29,12 +29,17 @@ export function registerReviewContextCommand(program: Command) {
         process.exit(1);
       }
 
-      const context = await buildReviewContext(projectRoot, {
-        staged: opts.staged,
-        runChecks: opts.runChecks,
-        domain: opts.domain,
-      });
+      try {
+        const context = await buildReviewContext(projectRoot, {
+          staged: opts.staged,
+          runChecks: opts.runChecks,
+          domain: opts.domain,
+        });
 
-      console.log(JSON.stringify(context, null, 2));
+        console.log(JSON.stringify(context, null, 2));
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
     });
 }

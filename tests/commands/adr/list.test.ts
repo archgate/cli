@@ -195,8 +195,8 @@ describe("adr list action handler", () => {
     expect(allOutput).toContain("No ADRs found.");
   });
 
-  test("prints 'No ADRs found.' when adrs directory does not exist", async () => {
-    mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+  test("prints 'No ADRs found.' when adrs directory is empty", async () => {
+    mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
 
     process.chdir(tempDir);
     const parent = makeProgram();

@@ -1,25 +1,18 @@
 import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
 import { logDebug } from "./log";
 
 export function internalPath(...path: string[]) {
-  const internalFolder = join(
-    process.env.HOME ?? process.env.USERPROFILE ?? "~",
-    ".archgate"
-  );
+  // Use process.env.HOME/USERPROFILE first (testable via env override),
+  // fall back to os.homedir() which handles platform-specific resolution.
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
+  const internalFolder = join(home, ".archgate");
   return join(internalFolder, ...path);
 }
 
-export const paths = {
-  // TODO: this must follow the git tags matching the CLI version
-  templatesRemoteArchive:
-    "https://github.com/archgate/templates/archive/refs/heads/main.zip",
-  cacheFolder: internalPath("cache"),
-  templatesZipFile: internalPath("cache", "templates.zip"),
-  templatesUnzippedFolder: internalPath("cache", "templates-main"),
-  template: (name: string) => internalPath("cache", "templates-main", name),
-} as const;
+export const paths = { cacheFolder: internalPath("cache") } as const;
 
 export function projectPath(projectRoot: string, ...path: string[]) {
   return join(projectRoot, ".archgate", ...path);

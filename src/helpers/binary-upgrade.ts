@@ -68,7 +68,7 @@ const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/release
 export async function fetchLatestGitHubVersion(): Promise<string | null> {
   const response = await fetch(GITHUB_RELEASES_API, {
     headers: { "User-Agent": "archgate-cli" },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) return null;
@@ -93,7 +93,7 @@ export async function downloadReleaseBinary(
 
   const response = await fetch(archiveUrl, {
     headers: { "User-Agent": "archgate-cli" },
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(60_000),
   });
 
   if (!response.ok) {
