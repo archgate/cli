@@ -7,22 +7,71 @@ As verificações do Archgate funcionam em qualquer sistema de CI que respeite c
 
 ## GitHub Actions
 
-A configuração mais simples é um job dedicado que instala o Archgate e executa `archgate check`:
+A forma mais rápida de adicionar o Archgate ao GitHub Actions é com a action oficial [`archgate/check-action`](https://github.com/archgate/check-action). Ela instala o CLI, executa `archgate check --ci` e exibe violações como anotações inline na aba "Files changed" do pull request:
 
 ```yaml
-name: ADR Compliance
-on: [push, pull_request]
+name: Archgate
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm install -g archgate
-      - run: archgate check
+      - uses: archgate/check-action@v1
 ```
 
-Isso instala o CLI globalmente e executa todas as regras de ADR. Se qualquer regra reportar uma violação com severidade `error`, o passo termina com código 1 e o job falha.
+Isso é tudo — sem configuração de Node.js, sem passo de instalação. Se qualquer regra reportar uma violação com severidade `error`, o job falha com código de saída 1.
+
+### Fixar uma versão
+
+```yaml
+- uses: archgate/check-action@v1
+  with:
+    version: v0.15.0
+```
+
+### Action apenas de setup
+
+Se você precisa executar comandos do Archgate além do `check` (ex: `archgate adr list --json`), use [`archgate/setup-action`](https://github.com/archgate/setup-action) para instalar o CLI e adicioná-lo ao PATH, e depois execute os comandos necessários:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: archgate/setup-action@v1
+  - run: archgate check --ci
+  - run: archgate adr list --json
+```
+
+### Workflow multiplataforma
+
+Ambas as actions suportam runners Ubuntu, macOS e Windows:
+
+```yaml
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Configuração manual
+
+Se você preferir não usar as actions oficiais, pode instalar o Archgate manualmente:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - run: npm install -g archgate
+  - run: archgate check
+```
 
 ## Anotações do GitHub Actions
 
@@ -33,6 +82,10 @@ Use `--ci` para exibir violações como anotações de workflow do GitHub Action
 ```
 
 A flag `--ci` produz anotações `::error` e `::warning` no formato esperado pelo GitHub Actions. Cada anotação inclui o ID do ADR, o ID da regra, o caminho do arquivo e o número da linha.
+
+:::note
+A `archgate/check-action` passa `--ci` automaticamente — você só precisa dessa flag ao executar `archgate check` manualmente.
+:::
 
 ## Saída legível por máquina
 

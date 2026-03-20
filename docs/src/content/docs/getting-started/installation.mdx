@@ -113,25 +113,44 @@ archgate --version
 
 You should see the installed version printed to stdout.
 
-## Proto toolchain users
+## Install via proto
 
-If you manage Node.js with [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), globally installed npm binaries require an additional setup step.
+If you use [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), you can install Archgate directly as a proto plugin — no Node.js or npm required.
 
-Add to your proto configuration:
+Add the plugin to your `.prototools`:
 
 ```toml
-# ~/.proto/config.toml
-[tools.npm]
-shared-globals-dir = true
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
 ```
 
-Then add the globals directory to your shell profile (`.bashrc`, `.zshrc`, or equivalent):
+Then install and use it like any other proto tool:
 
 ```bash
-export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
+proto install archgate
+archgate check
 ```
 
-Restart your shell, then run `npm install -g archgate` again. The `archgate` command should now be available globally.
+Proto manages the binary for you, including version pinning and auto-installation. To pin a specific version, add it at the root of `.prototools`:
+
+```toml
+archgate = "0.15.0"
+
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
+```
+
+You can also list available versions and manage installations with proto commands:
+
+```bash
+proto list-remote archgate   # list available versions
+proto install archgate 0.15.0  # install a specific version
+proto pin archgate 0.15.0      # pin version in .prototools
+```
+
+:::note[Using npm globals with proto?]
+If you prefer `npm install -g archgate` instead of the proto plugin, you need to configure proto to expose global npm binaries. Add `shared-globals-dir = true` under `[tools.npm]` in `~/.proto/config.toml`, then add `$HOME/.proto/tools/node/globals/bin` to your shell PATH.
+:::
 
 ## Next steps
 

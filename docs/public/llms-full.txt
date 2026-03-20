@@ -226,25 +226,42 @@ archgate --version
 
 You should see the installed version printed to stdout.
 
-## Proto toolchain users
+## Install via proto
 
-If you manage Node.js with [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), globally installed npm binaries require an additional setup step.
+If you use [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), you can install Archgate directly as a proto plugin — no Node.js or npm required.
 
-Add to your proto configuration:
+Add the plugin to your `.prototools`:
 
 ```toml
-# ~/.proto/config.toml
-[tools.npm]
-shared-globals-dir = true
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
 ```
 
-Then add the globals directory to your shell profile (`.bashrc`, `.zshrc`, or equivalent):
+Then install and use it like any other proto tool:
 
 ```bash
-export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
+proto install archgate
+archgate check
 ```
 
-Restart your shell, then run `npm install -g archgate` again. The `archgate` command should now be available globally.
+Proto manages the binary for you, including version pinning and auto-installation. To pin a specific version, add it at the root of `.prototools`:
+
+```toml
+archgate = "0.15.0"
+
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
+```
+
+You can also list available versions and manage installations with proto commands:
+
+```bash
+proto list-remote archgate   # list available versions
+proto install archgate 0.15.0  # install a specific version
+proto pin archgate 0.15.0      # pin version in .prototools
+```
+
+If you prefer `npm install -g archgate` instead of the proto plugin, you need to configure proto to expose global npm binaries. Add `shared-globals-dir = true` under `[tools.npm]` in `~/.proto/config.toml`, then add `$HOME/.proto/tools/node/globals/bin` to your shell PATH.
 
 ## Next steps
 
@@ -856,22 +873,71 @@ Archgate checks fit into any CI system that respects exit codes. Add a single st
 
 ## GitHub Actions
 
-The simplest setup is a dedicated job that installs Archgate and runs `archgate check`:
+The fastest way to add Archgate to GitHub Actions is with the official [`archgate/check-action`](https://github.com/archgate/check-action). It installs the CLI, runs `archgate check --ci`, and outputs violations as inline annotations on the pull request's "Files changed" tab:
 
 ```yaml
-name: ADR Compliance
-on: [push, pull_request]
+name: Archgate
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm install -g archgate
-      - run: archgate check
+      - uses: archgate/check-action@v1
 ```
 
-This installs the CLI globally and runs all ADR rules. If any rule reports a violation with `error` severity, the step exits with code 1 and the job fails.
+That's it — no Node.js setup, no install step. If any rule reports a violation with `error` severity, the job fails with exit code 1.
+
+### Pin a version
+
+```yaml
+- uses: archgate/check-action@v1
+  with:
+    version: v0.15.0
+```
+
+### Setup-only action
+
+If you need to run Archgate commands beyond `check` (e.g. `archgate adr list --json`), use [`archgate/setup-action`](https://github.com/archgate/setup-action) to install the CLI and add it to PATH, then run whatever commands you need:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: archgate/setup-action@v1
+  - run: archgate check --ci
+  - run: archgate adr list --json
+```
+
+### Cross-platform workflow
+
+Both actions support Ubuntu, macOS, and Windows runners:
+
+```yaml
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Manual setup
+
+If you prefer not to use the official actions, you can install Archgate manually:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - run: npm install -g archgate
+  - run: archgate check
+```
 
 ## GitHub Actions annotations
 
@@ -882,6 +948,9 @@ Use `--ci` to output violations as GitHub Actions workflow annotations. These ap
 ```
 
 The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
+
+:::note
+The `archgate/check-action` passes `--ci` automatically — you only need this flag when running `archgate check` manually.
 
 ## Machine-readable output
 

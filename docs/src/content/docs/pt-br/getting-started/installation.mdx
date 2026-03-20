@@ -113,25 +113,44 @@ archgate --version
 
 Você deverá ver a versão instalada impressa no stdout.
 
-## Usuários do Proto toolchain
+## Instalar via proto
 
-Se você gerencia o Node.js com o [proto](https://moonrepo.dev/proto) (gerenciador de toolchain do moonrepo), binários npm instalados globalmente requerem um passo adicional de configuração.
+Se você usa o [proto](https://moonrepo.dev/proto) (gerenciador de toolchain do moonrepo), pode instalar o Archgate diretamente como um plugin proto — sem necessidade de Node.js ou npm.
 
-Adicione à sua configuração do proto:
+Adicione o plugin ao seu `.prototools`:
 
 ```toml
-# ~/.proto/config.toml
-[tools.npm]
-shared-globals-dir = true
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
 ```
 
-Depois adicione o diretório de globais ao perfil do seu shell (`.bashrc`, `.zshrc` ou equivalente):
+Depois instale e use como qualquer outra ferramenta proto:
 
 ```bash
-export PATH="$HOME/.proto/tools/node/globals/bin:$PATH"
+proto install archgate
+archgate check
 ```
 
-Reinicie seu shell e execute `npm install -g archgate` novamente. O comando `archgate` agora deverá estar disponível globalmente.
+O proto gerencia o binário para você, incluindo fixação de versão e instalação automática. Para fixar uma versão específica, adicione na raiz do `.prototools`:
+
+```toml
+archgate = "0.15.0"
+
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
+```
+
+Você também pode listar versões disponíveis e gerenciar instalações com comandos do proto:
+
+```bash
+proto list-remote archgate     # listar versões disponíveis
+proto install archgate 0.15.0  # instalar uma versão específica
+proto pin archgate 0.15.0      # fixar versão no .prototools
+```
+
+:::note[Usando npm globals com proto?]
+Se você preferir `npm install -g archgate` ao invés do plugin proto, precisa configurar o proto para expor binários npm globais. Adicione `shared-globals-dir = true` em `[tools.npm]` no `~/.proto/config.toml`, e depois adicione `$HOME/.proto/tools/node/globals/bin` ao PATH do seu shell.
+:::
 
 ## Próximos passos
 
