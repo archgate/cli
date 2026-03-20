@@ -27,7 +27,8 @@
     "archgate": "bin/archgate.cjs"
   },
   "files": [
-    "bin/archgate.cjs"
+    "bin/archgate.cjs",
+    "scripts/postinstall.cjs"
   ],
   "os": [
     "darwin",
@@ -47,6 +48,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint --deny-warnings .",
+    "postinstall": "node scripts/postinstall.cjs",
     "test": "bun test --timeout 60000",
     "test:watch": "bun test --watch --timeout 60000",
     "typecheck": "tsc --build",
