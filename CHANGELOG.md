@@ -1,3 +1,14 @@
+## [0.15.0](https://github.com/archgate/cli/compare/v0.14.0...v0.15.0) (2026-03-19)
+
+### Features
+
+* local rules shim, ARCH-010, and parallel file discovery ([#86](https://github.com/archgate/cli/issues/86)) ([3975be4](https://github.com/archgate/cli/commit/3975be4278db0bc3ac8e57154fda939d2c14fa2e))
+* support Git Bash PATH setup in install scripts ([#89](https://github.com/archgate/cli/issues/89)) ([57a5cef](https://github.com/archgate/cli/commit/57a5cef71725b00de2d3a1f2588eaa1a2684a495))
+
+### Bug Fixes
+
+* correct Windows drive letter casing and platform error message ([#91](https://github.com/archgate/cli/issues/91)) ([521d8bf](https://github.com/archgate/cli/commit/521d8bf2dd3a6b2950982f4525fa3a1c4de0004e))
+
 ## [0.14.0](https://github.com/archgate/cli/compare/v0.13.2...v0.14.0) (2026-03-19)
 
 ### Features
