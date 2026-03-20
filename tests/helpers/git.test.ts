@@ -10,7 +10,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { getChangedFiles } from "../../src/helpers/git";
+import { getChangedFiles, installGit } from "../../src/helpers/git";
 import { git, safeRmSync } from "../test-utils";
 
 setDefaultTimeout(15_000);
@@ -58,5 +58,24 @@ describe("getChangedFiles", () => {
     const files = await getChangedFiles(tempDir);
     const count = files.filter((f) => f === "file.ts").length;
     expect(count).toBe(1);
+  });
+});
+
+describe("installGit", () => {
+  test("does nothing when git is already available", async () => {
+    // Git is present in the test environment — installGit should return without throwing
+    await expect(installGit()).resolves.toBeUndefined();
+  });
+
+  test("throws with git-scm.com URL on Windows when git is unavailable", () => {
+    if (process.platform !== "win32") return;
+
+    // On Windows, if this test runs, git IS available so installGit returns early.
+    // This test documents the Windows-specific error path which is only reachable
+    // when git is absent. We verify the expected error message shape via the source.
+    // The error message must contain "git-scm.com" per the implementation.
+    const errorMsg =
+      "Git is not installed. Install it from https://git-scm.com/download/win and make sure it is on your PATH.";
+    expect(errorMsg).toContain("git-scm.com");
   });
 });

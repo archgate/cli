@@ -175,6 +175,23 @@ describe("auth", () => {
         globalThis.fetch = originalFetch;
       }
     });
+
+    test("throws when login missing from response", async () => {
+      const { getGitHubUser } = await import("../../src/helpers/auth");
+
+      const originalFetch = globalThis.fetch;
+      mockFetch(() =>
+        Promise.resolve(Response.json({ email: "octo@cat.com" }))
+      );
+
+      try {
+        await expect(getGitHubUser("gho_test_token")).rejects.toThrow(
+          "GitHub API did not return a username"
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
   });
 
   describe("claimArchgateToken", () => {
@@ -211,6 +228,40 @@ describe("auth", () => {
       try {
         await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
           SignupRequiredError
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    test("throws generic error on non-signup 403", async () => {
+      const { claimArchgateToken } = await import("../../src/helpers/auth");
+
+      const originalFetch = globalThis.fetch;
+      mockFetch(() =>
+        Promise.resolve(
+          Response.json({ error: "Account suspended" }, { status: 403 })
+        )
+      );
+
+      try {
+        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
+          "Account suspended"
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    test("throws when token missing from successful response", async () => {
+      const { claimArchgateToken } = await import("../../src/helpers/auth");
+
+      const originalFetch = globalThis.fetch;
+      mockFetch(() => Promise.resolve(Response.json({})));
+
+      try {
+        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
+          "Plugins service did not return a token"
         );
       } finally {
         globalThis.fetch = originalFetch;
