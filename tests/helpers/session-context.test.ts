@@ -1,10 +1,15 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 import {
   encodeProjectPath,
   readClaudeCodeSession,
   readCursorSession,
 } from "../../src/helpers/session-context";
+
+// Cursor happy-path tests live in session-context-cursor.test.ts to stay under max-lines.
 
 describe("encodeProjectPath", () => {
   test("replaces forward slashes with dashes", async () => {
@@ -51,6 +56,166 @@ describe("readClaudeCodeSession", () => {
     const result = await readClaudeCodeSession("/definitely/not/a/real/path");
     expect(result.ok).toBe(false);
   });
+
+  describe("happy path", () => {
+    // Use a unique encoded project name under the *real* homedir so that
+    // homedir() caching on Linux doesn't break the tests.
+    const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const projectRoot = `/__archgate_test_${uniqueId}`;
+    const encodedProject = projectRoot.replaceAll("/", "-");
+    let projectsDir: string;
+
+    beforeEach(() => {
+      projectsDir = join(homedir(), ".claude", "projects", encodedProject);
+      mkdirSync(projectsDir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(projectsDir, { recursive: true, force: true });
+    });
+
+    function writeSession(entries: object[]): void {
+      writeFileSync(
+        join(projectsDir, "session.jsonl"),
+        entries.map((e) => JSON.stringify(e)).join("\n")
+      );
+    }
+
+    test("returns data with correct transcript when JSONL exists", async () => {
+      writeSession([
+        { type: "user", message: { role: "user", content: "hello" } },
+        {
+          type: "assistant",
+          message: { role: "assistant", content: "hi there" },
+        },
+        { type: "system", message: { role: "system", content: "ignored" } },
+      ]);
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.sessionFile).toBe("session.jsonl");
+      expect(result.data.totalEntries).toBe(3);
+      expect(result.data.relevantEntries).toBe(2);
+      expect(result.data.transcript[0]).toEqual({
+        type: "user",
+        role: "user",
+        contentPreview: "hello",
+      });
+      expect(result.data.transcript[1]).toEqual({
+        type: "assistant",
+        role: "assistant",
+        contentPreview: "hi there",
+      });
+    });
+
+    test("filters to only user/assistant types", async () => {
+      writeSession([
+        { type: "system", message: { role: "system", content: "sys msg" } },
+        { type: "tool", message: { role: "tool", content: "tool output" } },
+        { type: "user", message: { role: "user", content: "only this" } },
+      ]);
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.relevantEntries).toBe(1);
+      expect(result.data.transcript[0]?.contentPreview).toBe("only this");
+    });
+
+    test("truncates string content preview to 500 chars", async () => {
+      writeSession([
+        { type: "user", message: { role: "user", content: "x".repeat(600) } },
+      ]);
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      const preview = result.data.transcript[0]?.contentPreview ?? "";
+      expect(preview).toHaveLength(503); // 500 chars + "..."
+      expect(preview.endsWith("...")).toBe(true);
+    });
+
+    test("handles array content: text truncation, tool_use, tool_result", async () => {
+      writeSession([
+        {
+          type: "assistant",
+          message: {
+            role: "assistant",
+            content: [
+              { type: "text", text: "y".repeat(400) },
+              { type: "tool_use", name: "bash", id: "tool-1" },
+            ],
+          },
+        },
+        {
+          type: "user",
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "toolu_abc123",
+                content: "res",
+              },
+            ],
+          },
+        },
+      ]);
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      const assistantPreview = result.data.transcript[0]?.contentPreview ?? "";
+      expect(assistantPreview).toHaveLength(303 + " | [tool_use: bash]".length);
+      expect(assistantPreview).toContain("[tool_use: bash]");
+      expect(result.data.transcript[1]?.contentPreview).toContain(
+        "[tool_result: toolu_abc123]"
+      );
+    });
+
+    test("respects maxEntries — keeps last N relevant entries", async () => {
+      writeSession(
+        Array.from({ length: 10 }, (_, i) => ({
+          type: i % 2 === 0 ? "user" : "assistant",
+          message: {
+            role: i % 2 === 0 ? "user" : "assistant",
+            content: `message ${i}`,
+          },
+        }))
+      );
+
+      const result = await readClaudeCodeSession(projectRoot, {
+        maxEntries: 3,
+      });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.relevantEntries).toBe(10);
+      expect(result.data.transcript).toHaveLength(3);
+      expect(result.data.transcript[2]?.contentPreview).toBe("message 9");
+    });
+
+    test("returns error when directory exists but has no .jsonl files", async () => {
+      writeFileSync(join(projectsDir, "notes.txt"), "not a session");
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(false);
+      if (!result.ok)
+        expect(result.error).toContain("No JSONL session files found");
+    });
+
+    test("returns error when JSONL file is malformed", async () => {
+      writeFileSync(
+        join(projectsDir, "session.jsonl"),
+        "not valid jsonl }{garbage"
+      );
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(false);
+      if (!result.ok)
+        expect(result.error).toContain("Failed to read session file");
+    });
+  });
 });
 
 describe("readCursorSession", () => {
@@ -63,4 +228,6 @@ describe("readCursorSession", () => {
       );
     }
   });
+
+  // Happy-path tests with temp home dir are in session-context-cursor.test.ts.
 });

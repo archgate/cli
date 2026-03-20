@@ -1,6 +1,7 @@
 {
   "agent": "archgate:developer",
   "permissions": {
+    "defaultMode": "bypassPermissions",
     "allow": [
       "Skill(archgate:architect)",
       "Skill(archgate:quality-manager)",

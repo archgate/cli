@@ -1,9 +1,19 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, mock, afterEach } from "bun:test";
+import { existsSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   getArtifactInfo,
   getManualInstallHint,
+  fetchLatestGitHubVersion,
+  downloadReleaseBinary,
+  replaceBinary,
 } from "../../src/helpers/binary-upgrade";
+
+function mockFetch(handler: () => Promise<Response>) {
+  globalThis.fetch = mock(handler) as unknown as typeof fetch;
+}
 
 describe("getArtifactInfo", () => {
   test("returns artifact info for the current platform", () => {
@@ -46,5 +56,90 @@ describe("getManualInstallHint", () => {
       expect(hint).toContain("install.sh");
       expect(hint).toContain("curl");
     }
+  });
+});
+
+describe("fetchLatestGitHubVersion", () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
+  test("returns tag_name on success", async () => {
+    mockFetch(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ tag_name: "v1.2.3" }),
+      } as Response)
+    );
+
+    const result = await fetchLatestGitHubVersion();
+    expect(result).toBe("v1.2.3");
+  });
+
+  test("returns null on non-ok response", async () => {
+    mockFetch(() =>
+      Promise.resolve({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({}),
+      } as Response)
+    );
+
+    const result = await fetchLatestGitHubVersion();
+    expect(result).toBeNull();
+  });
+
+  test("returns null when tag_name is missing", async () => {
+    mockFetch(() =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as Response)
+    );
+
+    const result = await fetchLatestGitHubVersion();
+    expect(result).toBeNull();
+  });
+});
+
+describe("downloadReleaseBinary", () => {
+  afterEach(() => {
+    mock.restore();
+  });
+
+  test("throws on HTTP error response", async () => {
+    mockFetch(() => Promise.resolve({ ok: false, status: 404 } as Response));
+
+    const artifact = {
+      name: "archgate-linux-x64",
+      ext: ".tar.gz",
+      binaryName: "archgate",
+    };
+
+    await expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
+      "Download failed (HTTP 404)"
+    );
+  });
+});
+
+describe("replaceBinary", () => {
+  test("renames new binary to current path on non-Windows", () => {
+    if (process.platform === "win32") return;
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+    const currentPath = join(tmpDir, "archgate");
+    const newBinaryPath = join(tmpDir, "archgate.new");
+
+    // Create placeholder files
+    writeFileSync(currentPath, "old binary content");
+    writeFileSync(newBinaryPath, "new binary content");
+
+    replaceBinary(currentPath, newBinaryPath);
+
+    // new binary should have been renamed to currentPath
+    expect(existsSync(currentPath)).toBe(true);
+    // the new binary path should no longer exist (it was renamed)
+    expect(existsSync(newBinaryPath)).toBe(false);
+
+    // verify chmod 755 was applied
+    const mode = statSync(currentPath).mode & 0o777;
+    expect(mode).toBe(0o755);
   });
 });
