@@ -40,7 +40,7 @@ describe("checkForUpdatesIfNeeded", () => {
     const mockFetch = mock(() =>
       Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ version: "0.1.0" }),
+        json: () => Promise.resolve({ tag_name: "v0.1.0" }),
       })
     );
     globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -57,7 +57,7 @@ describe("checkForUpdatesIfNeeded", () => {
     const mockFetch = mock(() =>
       Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ version: "0.2.0" }),
+        json: () => Promise.resolve({ tag_name: "v0.2.0" }),
       })
     );
     globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -73,7 +73,7 @@ describe("checkForUpdatesIfNeeded", () => {
     expect(result).toContain("archgate upgrade");
   });
 
-  test("returns null when npm registry returns non-ok response", async () => {
+  test("returns null when GitHub API returns non-ok response", async () => {
     const mockFetch = mock(() =>
       Promise.resolve({
         ok: false,
@@ -91,7 +91,7 @@ describe("checkForUpdatesIfNeeded", () => {
     expect(result).toBeNull();
   });
 
-  test("returns null when version is missing from response", async () => {
+  test("returns null when tag_name is missing from response", async () => {
     const mockFetch = mock(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
     );

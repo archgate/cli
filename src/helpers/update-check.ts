@@ -1,14 +1,14 @@
 import { semver } from "bun";
 
+import { fetchLatestGitHubVersion } from "./binary-upgrade";
 import { logDebug } from "./log";
 import { internalPath } from "./paths";
 
 const CACHE_FILE = "last-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const NPM_REGISTRY = "https://registry.npmjs.org/archgate/latest";
 
 /**
- * Checks npm for a newer Archgate release (at most once per 24h).
+ * Checks GitHub Releases for a newer Archgate release (at most once per 24h).
  * Returns a human-readable notice string if an update is available, or null otherwise.
  * All errors are swallowed — this is non-fatal and runs in the background.
  */
@@ -33,25 +33,13 @@ export async function checkForUpdatesIfNeeded(
 
     logDebug("Checking for updates...");
 
-    const response = await fetch(NPM_REGISTRY, {
-      headers: { "User-Agent": "archgate-cli" },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!response.ok) {
-      logDebug("Update check failed — npm registry returned", response.status);
+    const tag = await fetchLatestGitHubVersion();
+    if (!tag) {
+      logDebug("Update check failed — could not fetch latest GitHub release");
       return null;
     }
 
-    const data = (await response.json()) as { version: string };
-    const latestVersion = data.version;
-
-    if (!latestVersion) {
-      logDebug(
-        "Update check failed — could not parse version from npm registry"
-      );
-      return null;
-    }
+    const latestVersion = tag.replace(/^v/, "");
 
     // Write new cache timestamp regardless of result
     await Bun.write(cacheFile, String(Date.now()));
