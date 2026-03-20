@@ -33,5 +33,29 @@ export default {
         }
       },
     },
+    "optional-deps-version-sync": {
+      description:
+        "optionalDependencies versions must match package.json version",
+      severity: "error",
+      async check(ctx) {
+        const pkgJson = (await ctx.readJSON("package.json")) as {
+          version?: string;
+          optionalDependencies?: Record<string, string>;
+        };
+        if (!pkgJson.version || !pkgJson.optionalDependencies) return;
+
+        for (const [dep, depVersion] of Object.entries(
+          pkgJson.optionalDependencies
+        )) {
+          if (depVersion !== pkgJson.version) {
+            ctx.report.violation({
+              message: `optionalDependencies "${dep}" version "${depVersion}" does not match package.json version "${pkgJson.version}"`,
+              file: "package.json",
+              fix: `Update ${dep} to "${pkgJson.version}" in optionalDependencies (normally handled by .simple-release.js during release)`,
+            });
+          }
+        }
+      },
+    },
   },
 } satisfies RuleSet;
