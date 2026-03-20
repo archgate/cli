@@ -20,7 +20,7 @@ export function registerLoginCommand(program: Command) {
       if (existing) {
         logInfo(
           `Already logged in as ${styleText("bold", existing.github_user)}.`,
-          "Run `archgate login --refresh` to re-authenticate."
+          "Run `archgate login refresh` to re-authenticate."
         );
         return;
       }
