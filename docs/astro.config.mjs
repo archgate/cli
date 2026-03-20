@@ -15,6 +15,10 @@ export default defineConfig({
         "Enforce Architecture Decision Records as executable rules — for both humans and AI agents.",
       customCss: ["./src/styles/custom.css"],
       expressiveCode: {
+        // Use the pure-JS regex engine instead of the WASM-based oniguruma
+        // engine. Bun's WASM support on Cloudflare Pages triggers a
+        // "call_indirect to a null table entry" crash in oniguruma.
+        shiki: { engine: "javascript" },
         // Disable Starlight's automatic UI color overrides so our
         // hand-picked colors from archgate.dev take full effect.
         useStarlightUiThemeColors: false,
