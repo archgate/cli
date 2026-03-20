@@ -22,7 +22,7 @@ const RuleSetSchema = z.object({
     })
   ),
 });
-import { logDebug, logWarn } from "../helpers/log";
+import { logDebug } from "../helpers/log";
 import { projectPaths } from "../helpers/paths";
 import { ensureRulesShim } from "../helpers/rules-shim";
 
@@ -90,30 +90,24 @@ export async function loadRuleAdrs(
         );
       }
 
-      try {
-        // Cache-bust: Bun caches import() per-process, so append a timestamp
-        // to force re-reading from disk on every call (critical for repeated invocations).
-        // Use file:// URL to handle Windows backslash paths in import().
-        const rulesUrl = `${pathToFileURL(rulesFile).href}?t=${Date.now()}`;
-        const mod = await import(rulesUrl);
-        const parsed = RuleSetSchema.safeParse(mod.default);
+      // Cache-bust: Bun caches import() per-process, so append a timestamp
+      // to force re-reading from disk on every call (critical for repeated invocations).
+      // Use file:// URL to handle Windows backslash paths in import().
+      const rulesUrl = `${pathToFileURL(rulesFile).href}?t=${Date.now()}`;
+      const mod = await import(rulesUrl);
+      const parsed = RuleSetSchema.safeParse(mod.default);
 
-        if (!parsed.success) {
-          logWarn(
-            `ADR ${adr.frontmatter.id}: companion file does not export a valid RuleSet as default`
-          );
-          return null;
-        }
-
-        const ruleSet: RuleSet = parsed.data;
-        logDebug(
-          `Loaded ${Object.keys(ruleSet.rules).length} rules from ${adr.frontmatter.id}`
+      if (!parsed.success) {
+        throw new Error(
+          `ADR ${adr.frontmatter.id}: companion file does not export a valid RuleSet as default`
         );
-        return { adr, ruleSet };
-      } catch (err) {
-        logWarn(`Failed to import rules for ${adr.frontmatter.id}: ${err}`);
-        return null;
       }
+
+      const ruleSet: RuleSet = parsed.data;
+      logDebug(
+        `Loaded ${Object.keys(ruleSet.rules).length} rules from ${adr.frontmatter.id}`
+      );
+      return { adr, ruleSet };
     })
   );
 
