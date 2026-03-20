@@ -1,8 +1,10 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { isWindows, isMacOS, isWSL } from "../../src/helpers/platform";
 import {
   mergeMarketplaceUrl,
   configureVscodeSettings,
@@ -156,5 +158,60 @@ describe("addMarketplaceToUserSettings", () => {
       "https://other.git",
       URL,
     ]);
+  });
+});
+
+describe("getVscodeUserSettingsPath", () => {
+  test("returns a string ending in settings.json", async () => {
+    const path = await getVscodeUserSettingsPath();
+    expect(typeof path).toBe("string");
+    expect(path.endsWith("settings.json")).toBe(true);
+  });
+
+  test("always includes Code/User/settings.json in path", async () => {
+    const path = await getVscodeUserSettingsPath();
+    // Normalize separators so the assertion works cross-platform
+    const normalized = path.replaceAll("\\", "/");
+    expect(normalized).toContain("Code/User/settings.json");
+  });
+
+  test("returns platform-appropriate path", async () => {
+    const path = await getVscodeUserSettingsPath();
+    const normalized = path.replaceAll("\\", "/");
+
+    if (isWindows()) {
+      // Windows: %APPDATA%/Code/User/settings.json
+      const appData = (
+        process.env.APPDATA ?? join(homedir(), "AppData", "Roaming")
+      ).replaceAll("\\", "/");
+      expect(normalized.startsWith(appData.replaceAll("\\", "/"))).toBe(true);
+    } else if (isMacOS()) {
+      // macOS: ~/Library/Application Support/Code/User/settings.json
+      expect(normalized).toContain(
+        "Library/Application Support/Code/User/settings.json"
+      );
+    } else if (!isWSL()) {
+      // Linux (non-WSL): ~/.config/Code/User/settings.json
+      const home = homedir().replaceAll("\\", "/");
+      expect(normalized.startsWith(home)).toBe(true);
+      expect(normalized).toContain(".config/Code/User/settings.json");
+    }
+  });
+
+  test("falls back to AppData/Roaming when APPDATA is unset on Windows", async () => {
+    if (!isWindows()) return; // Only meaningful on Windows
+
+    const savedAppData = process.env.APPDATA;
+    try {
+      delete process.env.APPDATA;
+      const path = await getVscodeUserSettingsPath();
+      const normalized = path.replaceAll("\\", "/");
+      // Should fall back to homedir()/AppData/Roaming
+      expect(normalized).toContain("AppData/Roaming/Code/User/settings.json");
+    } finally {
+      if (savedAppData !== undefined) {
+        process.env.APPDATA = savedAppData;
+      }
+    }
   });
 });
