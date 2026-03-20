@@ -15,10 +15,6 @@ import { logError } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
 
-// ---------------------------------------------------------------------------
-// Install method detection
-// ---------------------------------------------------------------------------
-
 type InstallMethod =
   | { type: "binary"; binaryPath: string }
   | { type: "proto"; protoCmd: string }
@@ -78,7 +74,8 @@ function isLocalInstall(): boolean {
   return process.execPath.includes("node_modules");
 }
 
-function findProjectRoot(): string | null {
+/** Walk up from the binary location to find the nearest package.json (for local installs). */
+function findPackageRoot(): string | null {
   let dir = dirname(process.execPath);
   while (true) {
     if (existsSync(join(dir, "package.json"))) return dir;
@@ -101,7 +98,7 @@ async function detectLocalPm(): Promise<{
   args: string[];
   manualHint: string;
 } | null> {
-  const root = findProjectRoot();
+  const root = findPackageRoot();
   if (!root) return null;
 
   const match = LOCKFILE_TO_PM.find(([lockfile]) =>
@@ -176,10 +173,6 @@ async function detectInstallMethod(): Promise<InstallMethod> {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Upgrade flows
-// ---------------------------------------------------------------------------
-
 async function upgradeBinary(tag: string): Promise<void> {
   const artifact = getArtifactInfo();
   if (!artifact) {
@@ -229,68 +222,65 @@ async function runExternalUpgrade(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Command registration
-// ---------------------------------------------------------------------------
-
 export function registerUpgradeCommand(program: Command) {
   program
     .command("upgrade")
     .description("Upgrade Archgate to the latest version")
     .action(async () => {
-      console.log("Checking for latest Archgate release...");
+      try {
+        console.log("Checking for latest Archgate release...");
 
-      const tag = await fetchLatestGitHubVersion();
-      if (!tag) {
-        logError(
-          "Failed to fetch release info from GitHub.",
-          "Check your network connection."
-        );
+        const tag = await fetchLatestGitHubVersion();
+        if (!tag) {
+          logError(
+            "Failed to fetch release info from GitHub.",
+            "Check your network connection."
+          );
+          process.exit(1);
+        }
+
+        const packageJson = await import("../../package.json");
+        const currentVersion = packageJson.default.version;
+        const latestVersion = tag.replace(/^v/, "");
+        const order = semver.order(currentVersion, latestVersion);
+
+        if (order === null) {
+          logError(
+            `Could not compare versions: ${currentVersion} vs ${latestVersion}`
+          );
+          process.exit(2);
+        }
+
+        if (order >= 0) {
+          console.log(`Archgate is already up-to-date (${currentVersion}).`);
+          process.exit(0);
+        }
+
+        console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
+
+        const method = await detectInstallMethod();
+
+        if (method.type === "binary") {
+          await upgradeBinary(tag);
+        } else if (method.type === "proto") {
+          await runExternalUpgrade(
+            [method.protoCmd, "install", "archgate", "latest", "--pin"],
+            "proto install archgate latest --pin"
+          );
+        } else {
+          await runExternalUpgrade(
+            [method.cmd, ...method.args],
+            method.manualHint
+          );
+        }
+
+        console.log(`Archgate upgraded to ${latestVersion} successfully.`);
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
-
-      const packageJson = await import("../../package.json");
-      const currentVersion = packageJson.default.version;
-      const latestVersion = tag.replace(/^v/, "");
-      const order = semver.order(currentVersion, latestVersion);
-
-      if (order === null) {
-        logError(
-          `Could not compare versions: ${currentVersion} vs ${latestVersion}`
-        );
-        process.exit(2);
-      }
-
-      if (order >= 0) {
-        console.log(`Archgate is already up-to-date (${currentVersion}).`);
-        process.exit(0);
-      }
-
-      console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
-
-      const method = await detectInstallMethod();
-
-      if (method.type === "binary") {
-        await upgradeBinary(tag);
-      } else if (method.type === "proto") {
-        await runExternalUpgrade(
-          [method.protoCmd, "install", "archgate", "latest", "--pin"],
-          "proto install archgate latest --pin"
-        );
-      } else {
-        await runExternalUpgrade(
-          [method.cmd, ...method.args],
-          method.manualHint
-        );
-      }
-
-      console.log(`Archgate upgraded to ${latestVersion} successfully.`);
     });
 }
-
-// ---------------------------------------------------------------------------
-// Exports for testing
-// ---------------------------------------------------------------------------
 
 export {
   isBinaryInstall as _isBinaryInstall,

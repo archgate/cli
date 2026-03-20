@@ -4,8 +4,9 @@ import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
 import { loadCredentials } from "../../helpers/auth";
-import type { EditorTarget } from "../../helpers/init-project";
+import { EDITOR_LABELS } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
+import { findProjectRoot } from "../../helpers/paths";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
@@ -16,13 +17,6 @@ import {
   isCopilotCliAvailable,
 } from "../../helpers/plugin-install";
 import { configureVscodeSettings } from "../../helpers/vscode-settings";
-
-const EDITOR_LABELS: Record<EditorTarget, string> = {
-  claude: "Claude Code",
-  cursor: "Cursor",
-  vscode: "VS Code",
-  copilot: "Copilot CLI",
-};
 
 const editorOption = new Option("--editor <editor>", "target editor")
   .choices(["claude", "cursor", "vscode", "copilot"] as const)
@@ -83,8 +77,9 @@ export function registerPluginInstallCommand(plugin: Command) {
           }
 
           case "cursor": {
+            const projectRoot = findProjectRoot() ?? process.cwd();
             const files = await installCursorPlugin(
-              process.cwd(),
+              projectRoot,
               credentials.token
             );
             logInfo(
@@ -96,7 +91,10 @@ export function registerPluginInstallCommand(plugin: Command) {
 
           case "vscode": {
             const url = buildVscodeMarketplaceUrl(credentials);
-            await configureVscodeSettings(process.cwd(), url);
+            await configureVscodeSettings(
+              findProjectRoot() ?? process.cwd(),
+              url
+            );
             logInfo(
               `Archgate plugin configured for ${label}.`,
               "Marketplace URL added to VS Code user settings."

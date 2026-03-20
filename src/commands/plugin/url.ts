@@ -9,7 +9,7 @@ import {
 } from "../../helpers/plugin-install";
 
 const editorOption = new Option("--editor <editor>", "target editor")
-  .choices(["claude", "cursor", "vscode", "copilot"] as const)
+  .choices(["claude", "vscode", "copilot"] as const)
   .default("claude" as const);
 
 export function registerPluginUrlCommand(plugin: Command) {
@@ -20,20 +20,25 @@ export function registerPluginUrlCommand(plugin: Command) {
     )
     .addOption(editorOption)
     .action(async (opts) => {
-      const credentials = await loadCredentials();
-      if (!credentials) {
-        logError(
-          "Not logged in.",
-          "Run `archgate login` first to authenticate."
-        );
+      try {
+        const credentials = await loadCredentials();
+        if (!credentials) {
+          logError(
+            "Not logged in.",
+            "Run `archgate login` first to authenticate."
+          );
+          process.exit(1);
+        }
+
+        const url =
+          opts.editor === "vscode"
+            ? buildVscodeMarketplaceUrl(credentials)
+            : buildMarketplaceUrl(credentials);
+
+        console.log(url);
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
-
-      const url =
-        opts.editor === "vscode"
-          ? buildVscodeMarketplaceUrl(credentials)
-          : buildMarketplaceUrl(credentials);
-
-      console.log(url);
     });
 }

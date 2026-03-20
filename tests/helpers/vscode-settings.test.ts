@@ -65,16 +65,10 @@ describe("configureVscodeSettings", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("creates .vscode/ dir when nothing exists", async () => {
+  test("does not create .vscode/ dir when no marketplace URL is provided", async () => {
     await configureVscodeSettings(tempDir);
 
-    expect(existsSync(join(tempDir, ".vscode"))).toBe(true);
-  });
-
-  test("does not create mcp.json", async () => {
-    await configureVscodeSettings(tempDir);
-
-    expect(existsSync(join(tempDir, ".vscode", "mcp.json"))).toBe(false);
+    expect(existsSync(join(tempDir, ".vscode"))).toBe(false);
   });
 
   test("returns path to .vscode/ directory", async () => {

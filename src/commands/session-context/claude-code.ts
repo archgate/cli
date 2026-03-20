@@ -16,16 +16,21 @@ export function registerClaudeCodeSessionContextCommand(parent: Command) {
     .description("Read Claude Code session transcript for the project")
     .addOption(maxEntriesOption)
     .action(async (opts) => {
-      const projectRoot = findProjectRoot();
-      const result = await readClaudeCodeSession(projectRoot, {
-        maxEntries: opts.maxEntries,
-      });
+      try {
+        const projectRoot = findProjectRoot();
+        const result = await readClaudeCodeSession(projectRoot, {
+          maxEntries: opts.maxEntries,
+        });
 
-      if (!result.ok) {
-        logError(result.error);
+        if (!result.ok) {
+          logError(result.error);
+          process.exit(1);
+        }
+
+        console.log(JSON.stringify(result.data, null, 2));
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }
-
-      console.log(JSON.stringify(result.data, null, 2));
     });
 }

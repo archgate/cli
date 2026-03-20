@@ -21,33 +21,3 @@ export async function installGit() {
     throw new Error(`Failed to install git (exit code ${exitCode})`);
   }
 }
-
-/**
- * Get list of changed files (unstaged + staged) relative to project root.
- */
-export async function getChangedFiles(projectRoot: string): Promise<string[]> {
-  try {
-    const spawnOpts = {
-      cwd: projectRoot,
-      stdout: "pipe" as const,
-      stderr: "pipe" as const,
-    };
-    const unstaged = Bun.spawn(["git", "diff", "--name-only"], spawnOpts);
-    const staged = Bun.spawn(
-      ["git", "diff", "--cached", "--name-only"],
-      spawnOpts
-    );
-    const [unstagedText, stagedText] = await Promise.all([
-      new Response(unstaged.stdout).text(),
-      new Response(staged.stdout).text(),
-    ]);
-    await Promise.all([unstaged.exited, staged.exited]);
-    const files = [
-      ...unstagedText.trim().split("\n"),
-      ...stagedText.trim().split("\n"),
-    ].filter(Boolean);
-    return [...new Set(files)];
-  } catch {
-    return [];
-  }
-}
