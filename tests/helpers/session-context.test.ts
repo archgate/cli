@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -57,53 +57,32 @@ describe("readClaudeCodeSession", () => {
     expect(result.ok).toBe(false);
   });
 
-  describe("happy path (with temp home dir)", () => {
-    let tmpHome: string;
-    let originalHome: string | undefined;
-    let originalUserProfile: string | undefined;
-    // The project path we'll use — encodeProjectPath("/myproject") = "-myproject"
-    const projectRoot = "/myproject";
-    const encodedProject = "-myproject";
+  describe("happy path", () => {
+    // Use a unique encoded project name under the *real* homedir so that
+    // homedir() caching on Linux doesn't break the tests.
+    const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const projectRoot = `/__archgate_test_${uniqueId}`;
+    const encodedProject = projectRoot.replaceAll("/", "-");
+    let projectsDir: string;
 
     beforeEach(() => {
-      originalHome = process.env["HOME"];
-      originalUserProfile = process.env["USERPROFILE"];
-      tmpHome = mkdtempSync(join(tmpdir(), "archgate-test-claude-"));
-      // node:os homedir() reads USERPROFILE on Windows and HOME on Unix
-      process.env["HOME"] = tmpHome;
-      process.env["USERPROFILE"] = tmpHome;
+      projectsDir = join(homedir(), ".claude", "projects", encodedProject);
+      mkdirSync(projectsDir, { recursive: true });
     });
 
     afterEach(() => {
-      if (originalHome === undefined) {
-        delete process.env["HOME"];
-      } else {
-        process.env["HOME"] = originalHome;
-      }
-      if (originalUserProfile === undefined) {
-        delete process.env["USERPROFILE"];
-      } else {
-        process.env["USERPROFILE"] = originalUserProfile;
-      }
-      rmSync(tmpHome, { recursive: true, force: true });
+      rmSync(projectsDir, { recursive: true, force: true });
     });
 
-    function makeProjectDir(): string {
-      const projectsDir = join(tmpHome, ".claude", "projects", encodedProject);
-      mkdirSync(projectsDir, { recursive: true });
-      return projectsDir;
-    }
-
-    function writeSession(dir: string, entries: object[]): void {
+    function writeSession(entries: object[]): void {
       writeFileSync(
-        join(dir, "session.jsonl"),
+        join(projectsDir, "session.jsonl"),
         entries.map((e) => JSON.stringify(e)).join("\n")
       );
     }
 
     test("returns data with correct transcript when JSONL exists", async () => {
-      const projectsDir = makeProjectDir();
-      writeSession(projectsDir, [
+      writeSession([
         { type: "user", message: { role: "user", content: "hello" } },
         {
           type: "assistant",
@@ -131,8 +110,7 @@ describe("readClaudeCodeSession", () => {
     });
 
     test("filters to only user/assistant types", async () => {
-      const projectsDir = makeProjectDir();
-      writeSession(projectsDir, [
+      writeSession([
         { type: "system", message: { role: "system", content: "sys msg" } },
         { type: "tool", message: { role: "tool", content: "tool output" } },
         { type: "user", message: { role: "user", content: "only this" } },
@@ -146,8 +124,7 @@ describe("readClaudeCodeSession", () => {
     });
 
     test("truncates string content preview to 500 chars", async () => {
-      const projectsDir = makeProjectDir();
-      writeSession(projectsDir, [
+      writeSession([
         { type: "user", message: { role: "user", content: "x".repeat(600) } },
       ]);
 
@@ -160,8 +137,7 @@ describe("readClaudeCodeSession", () => {
     });
 
     test("handles array content: text truncation, tool_use, tool_result", async () => {
-      const projectsDir = makeProjectDir();
-      writeSession(projectsDir, [
+      writeSession([
         {
           type: "assistant",
           message: {
@@ -199,9 +175,7 @@ describe("readClaudeCodeSession", () => {
     });
 
     test("respects maxEntries — keeps last N relevant entries", async () => {
-      const projectsDir = makeProjectDir();
       writeSession(
-        projectsDir,
         Array.from({ length: 10 }, (_, i) => ({
           type: i % 2 === 0 ? "user" : "assistant",
           message: {
@@ -222,7 +196,6 @@ describe("readClaudeCodeSession", () => {
     });
 
     test("returns error when directory exists but has no .jsonl files", async () => {
-      const projectsDir = makeProjectDir();
       writeFileSync(join(projectsDir, "notes.txt"), "not a session");
 
       const result = await readClaudeCodeSession(projectRoot);
@@ -232,7 +205,6 @@ describe("readClaudeCodeSession", () => {
     });
 
     test("returns error when JSONL file is malformed", async () => {
-      const projectsDir = makeProjectDir();
       writeFileSync(
         join(projectsDir, "session.jsonl"),
         "not valid jsonl }{garbage"

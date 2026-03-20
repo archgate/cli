@@ -1,69 +1,46 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { readCursorSession } from "../../src/helpers/session-context";
 
-// This file covers readCursorSession happy-path tests that require a temp home dir.
+// This file covers readCursorSession happy-path tests.
 // Error cases for readCursorSession live in session-context.test.ts.
 
-describe("readCursorSession (with temp home dir)", () => {
-  let tmpHome: string;
-  let originalHome: string | undefined;
-  let originalUserProfile: string | undefined;
-  // encodeProjectPath("/myproject") = "-myproject"
-  const projectRoot = "/myproject";
-  const encodedProject = "-myproject";
+describe("readCursorSession", () => {
+  // Use a unique encoded project name under the *real* homedir so that
+  // homedir() caching on Linux doesn't break the tests.
+  const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const projectRoot = `/__archgate_cursor_test_${uniqueId}`;
+  const encodedProject = projectRoot.replaceAll("/", "-");
+  let transcriptsDir: string;
 
   beforeEach(() => {
-    originalHome = process.env["HOME"];
-    originalUserProfile = process.env["USERPROFILE"];
-    tmpHome = mkdtempSync(join(tmpdir(), "archgate-test-cursor-"));
-    // node:os homedir() reads USERPROFILE on Windows and HOME on Unix
-    process.env["HOME"] = tmpHome;
-    process.env["USERPROFILE"] = tmpHome;
-  });
-
-  afterEach(() => {
-    if (originalHome === undefined) {
-      delete process.env["HOME"];
-    } else {
-      process.env["HOME"] = originalHome;
-    }
-    if (originalUserProfile === undefined) {
-      delete process.env["USERPROFILE"];
-    } else {
-      process.env["USERPROFILE"] = originalUserProfile;
-    }
-    rmSync(tmpHome, { recursive: true, force: true });
-  });
-
-  function makeTranscriptsDir(): string {
-    const transcriptsDir = join(
-      tmpHome,
+    transcriptsDir = join(
+      homedir(),
       ".cursor",
       "projects",
       encodedProject,
       "agent-transcripts"
     );
     mkdirSync(transcriptsDir, { recursive: true });
-    return transcriptsDir;
-  }
+  });
 
-  function makeSession(
-    transcriptsDir: string,
-    sessionId: string,
-    lines: string[]
-  ): void {
+  afterEach(() => {
+    // Clean up from .cursor/projects/<encoded> level
+    const projectDir = join(homedir(), ".cursor", "projects", encodedProject);
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  function makeSession(sessionId: string, lines: string[]): void {
     const sessionDir = join(transcriptsDir, sessionId);
     mkdirSync(sessionDir, { recursive: true });
     writeFileSync(join(sessionDir, `${sessionId}.jsonl`), lines.join("\n"));
   }
 
   test("returns data for most recent session", async () => {
-    const transcriptsDir = makeTranscriptsDir();
-    makeSession(transcriptsDir, "session-abc", [
+    makeSession("session-abc", [
       JSON.stringify({
         role: "user",
         message: { role: "user", content: "hello" },
@@ -93,14 +70,13 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("finds session by sessionId", async () => {
-    const transcriptsDir = makeTranscriptsDir();
-    makeSession(transcriptsDir, "session-first", [
+    makeSession("session-first", [
       JSON.stringify({
         role: "user",
         message: { role: "user", content: "first session" },
       }),
     ]);
-    makeSession(transcriptsDir, "session-second", [
+    makeSession("session-second", [
       JSON.stringify({
         role: "user",
         message: { role: "user", content: "second session" },
@@ -118,8 +94,7 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("returns error when sessionId not found (with available list)", async () => {
-    const transcriptsDir = makeTranscriptsDir();
-    makeSession(transcriptsDir, "session-real", [
+    makeSession("session-real", [
       JSON.stringify({
         role: "user",
         message: { role: "user", content: "real" },
@@ -137,9 +112,7 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("returns error when no session directories exist", async () => {
-    // Create transcripts dir but leave it empty
-    makeTranscriptsDir();
-
+    // transcriptsDir exists but is empty
     const result = await readCursorSession(projectRoot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -148,7 +121,6 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("handles malformed JSONL", async () => {
-    const transcriptsDir = makeTranscriptsDir();
     const sessionId = "session-bad";
     const sessionDir = join(transcriptsDir, sessionId);
     mkdirSync(sessionDir, { recursive: true });
@@ -165,8 +137,7 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("filters to user/assistant roles only", async () => {
-    const transcriptsDir = makeTranscriptsDir();
-    makeSession(transcriptsDir, "session-roles", [
+    makeSession("session-roles", [
       JSON.stringify({
         role: "system",
         message: { role: "system", content: "system msg" },
@@ -196,7 +167,6 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("respects maxEntries — keeps last N relevant entries", async () => {
-    const transcriptsDir = makeTranscriptsDir();
     const lines: string[] = [];
     for (let i = 0; i < 8; i++) {
       lines.push(
@@ -209,7 +179,7 @@ describe("readCursorSession (with temp home dir)", () => {
         })
       );
     }
-    makeSession(transcriptsDir, "session-limit", lines);
+    makeSession("session-limit", lines);
 
     const result = await readCursorSession(projectRoot, { maxEntries: 2 });
     expect(result.ok).toBe(true);
@@ -223,10 +193,9 @@ describe("readCursorSession (with temp home dir)", () => {
   });
 
   test("ignores non-directory entries in transcripts dir", async () => {
-    const transcriptsDir = makeTranscriptsDir();
     // Put a plain file in the transcripts dir — it should be skipped
     writeFileSync(join(transcriptsDir, "stray-file.txt"), "noise");
-    makeSession(transcriptsDir, "session-good", [
+    makeSession("session-good", [
       JSON.stringify({
         role: "user",
         message: { role: "user", content: "works" },
