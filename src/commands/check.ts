@@ -29,7 +29,15 @@ export function registerCheckCommand(program: Command) {
         process.exit(1);
       }
 
-      const loadedAdrs = await loadRuleAdrs(projectRoot, opts.adr);
+      let loadedAdrs;
+      try {
+        loadedAdrs = await loadRuleAdrs(projectRoot, opts.adr);
+      } catch (err) {
+        logError(
+          err instanceof Error ? err.message : `Failed to load rules: ${err}`
+        );
+        process.exit(1);
+      }
 
       if (loadedAdrs.length === 0) {
         if (opts.json) {
