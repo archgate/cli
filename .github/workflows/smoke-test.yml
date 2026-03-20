@@ -62,6 +62,54 @@ jobs:
             exit 1
           }
 
+      - name: Smoke test binary from install dir
+        shell: pwsh
+        run: |
+          # Simulate binary install at %APPDATA%\archgate\
+          $installDir = Join-Path $env:APPDATA "archgate"
+          New-Item -Path $installDir -ItemType Directory -Force | Out-Null
+          Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $installDir "archgate.exe")
+          $output = & (Join-Path $installDir "archgate.exe") --version 2>&1
+          Write-Host "archgate version from binary install dir: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+          Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Smoke test binary from proto dir
+        shell: pwsh
+        run: |
+          # Simulate proto install at ~/.proto/tools/archgate/<version>/
+          $protoDir = Join-Path $env:USERPROFILE ".proto" "tools" "archgate" "0.0.0"
+          New-Item -Path $protoDir -ItemType Directory -Force | Out-Null
+          Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $protoDir "archgate.exe")
+          $output = & (Join-Path $protoDir "archgate.exe") --version 2>&1
+          Write-Host "archgate version from proto dir: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+          Remove-Item -Path (Join-Path $env:USERPROFILE ".proto") -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Smoke test binary from node_modules
+        shell: pwsh
+        run: |
+          # Simulate local dev dependency install
+          $projectDir = Join-Path $env:TEMP "archgate-local-smoke"
+          $binDir = Join-Path $projectDir "node_modules" ".bin"
+          New-Item -Path $binDir -ItemType Directory -Force | Out-Null
+          Set-Content -Path (Join-Path $projectDir "package.json") -Value "{}"
+          Set-Content -Path (Join-Path $projectDir "bun.lock") -Value ""
+          Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $binDir "archgate.exe")
+          $output = & (Join-Path $binDir "archgate.exe") --version 2>&1
+          Write-Host "archgate version from node_modules: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+          Remove-Item -Path $projectDir -Recurse -Force -ErrorAction SilentlyContinue
+
       - name: Smoke test install.ps1
         shell: pwsh
         env:
@@ -107,13 +155,61 @@ jobs:
           Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
 
   linux:
-    name: Linux Install Script Smoke Test
+    name: Linux Smoke Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event.pull_request.draft == false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Linux binary
+        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
+
+      - name: Smoke test binary
+        run: |
+          chmod +x dist/archgate-smoke-test
+          output=$(dist/archgate-smoke-test --version 2>&1)
+          echo "archgate version: $output"
+
+      - name: Smoke test binary from ~/.archgate/bin/
+        run: |
+          mkdir -p ~/.archgate/bin
+          cp dist/archgate-smoke-test ~/.archgate/bin/archgate
+          chmod +x ~/.archgate/bin/archgate
+          output=$(~/.archgate/bin/archgate --version 2>&1)
+          echo "archgate version from binary install dir: $output"
+          rm -rf ~/.archgate/bin
+
+      - name: Smoke test binary from proto dir
+        run: |
+          mkdir -p ~/.proto/tools/archgate/0.0.0
+          cp dist/archgate-smoke-test ~/.proto/tools/archgate/0.0.0/archgate
+          chmod +x ~/.proto/tools/archgate/0.0.0/archgate
+          output=$(~/.proto/tools/archgate/0.0.0/archgate --version 2>&1)
+          echo "archgate version from proto dir: $output"
+          rm -rf ~/.proto/tools/archgate
+
+      - name: Smoke test binary from node_modules
+        run: |
+          project_dir=$(mktemp -d)
+          mkdir -p "$project_dir/node_modules/.bin"
+          echo '{}' > "$project_dir/package.json"
+          touch "$project_dir/bun.lock"
+          cp dist/archgate-smoke-test "$project_dir/node_modules/.bin/archgate"
+          chmod +x "$project_dir/node_modules/.bin/archgate"
+          output=$("$project_dir/node_modules/.bin/archgate" --version 2>&1)
+          echo "archgate version from node_modules: $output"
+          rm -rf "$project_dir"
 
       - name: Smoke test install.sh
         env:
