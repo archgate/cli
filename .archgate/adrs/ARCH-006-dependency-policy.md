@@ -120,7 +120,7 @@ const subset = pick(obj, ["a", "b"]);
 ### Risks
 
 - **Bun API instability** — Bun built-in APIs (especially newer ones like `Bun.Glob`, `Bun.spawn`) may introduce breaking changes or behavioral differences between versions. The `Bun.$` shell API is explicitly avoided due to Windows pipe deadlocks discovered in production.
-  - **Mitigation:** The project pins Bun version via `.prototools` (currently 1.3.8). API changes are caught during controlled upgrades with full test suite validation.
+  - **Mitigation:** The project pins Bun version via `.prototools`. API changes are caught during controlled upgrades with full test suite validation.
 - **Bun built-in feature gaps** — Some functionality may be missing from Bun built-ins (e.g., advanced glob options, streaming HTTP edge cases). If a Bun built-in lacks a critical feature, the fallback is to add an approved dependency with full justification.
   - **Mitigation:** The approved dependency list exists precisely for this case. The threshold is "Bun cannot do this," not "Bun can do this but an npm package is slightly more convenient."
 - **New dependency pressure from contributors** — Contributors may add packages out of habit without checking Bun alternatives.
