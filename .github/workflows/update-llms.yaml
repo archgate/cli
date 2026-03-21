@@ -41,7 +41,7 @@ jobs:
       - name: Regenerate llms-full.txt
         run: bun run docs/scripts/generate-llms-full.ts
       - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v6
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "docs: regenerate llms-full.txt"
           file_pattern: docs/public/llms-full.txt
