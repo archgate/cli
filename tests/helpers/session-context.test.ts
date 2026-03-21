@@ -30,16 +30,30 @@ describe("encodeProjectPath", () => {
     expect(await encodeProjectPath("/a//b")).toBe("-a--b");
   });
 
-  test("replaces backslashes with dashes (Windows paths)", async () => {
+  test("replaces backslashes and colons with dashes (Windows paths)", async () => {
     expect(await encodeProjectPath("C:\\Users\\user\\project")).toBe(
-      "C:-Users-user-project"
+      "C--Users-user-project"
     );
   });
 
   test("handles mixed slashes", async () => {
     expect(await encodeProjectPath("C:\\Users/user\\project")).toBe(
-      "C:-Users-user-project"
+      "C--Users-user-project"
     );
+  });
+
+  test("replaces dots with dashes", async () => {
+    expect(await encodeProjectPath("/home/user/.config/project")).toBe(
+      "-home-user--config-project"
+    );
+  });
+
+  test("encodes Windows worktree path (colons, backslashes, dots)", async () => {
+    expect(
+      await encodeProjectPath(
+        "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick"
+      )
+    ).toBe("E--archgate-cli--claude-worktrees-fancy-prancing-sedgewick");
   });
 });
 
@@ -62,7 +76,11 @@ describe("readClaudeCodeSession", () => {
     // homedir() caching on Linux doesn't break the tests.
     const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const projectRoot = `/__archgate_test_${uniqueId}`;
-    const encodedProject = projectRoot.replaceAll("/", "-");
+    const encodedProject = projectRoot
+      .replaceAll("/", "-")
+      .replaceAll("\\", "-")
+      .replaceAll(":", "-")
+      .replaceAll(".", "-");
     let projectsDir: string;
 
     beforeEach(() => {
