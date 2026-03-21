@@ -1,0 +1,140 @@
+---
+title: Security
+description: Understand the Archgate CLI trust model, how rules are executed, and best practices for running checks safely in CI/CD and local development.
+---
+
+Archgate executes TypeScript rules from `.rules.ts` files in your repository. This page explains the trust model, what rules can and cannot do, and how to run checks safely.
+
+## Trust model
+
+**`.rules.ts` files are executable code.** When you run `archgate check`, the CLI dynamically imports every `.rules.ts` companion file and runs its `check` functions. This is equivalent to running `bun .archgate/adrs/*.rules.ts` -- the code has the same capabilities as any other script on your machine.
+
+This means:
+
+- Only run `archgate check` on repositories you trust.
+- Review `.rules.ts` files with the same scrutiny as any other source code in the project.
+- In open-source projects, treat `.rules.ts` changes in pull requests as security-sensitive.
+
+### What rules can access
+
+Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../`, absolute paths, and symbolic links are blocked and throw an error.
+
+However, because rules are standard TypeScript modules, they can also use any Bun/Node.js API directly:
+
+| Capability                 | Via RuleContext | Via direct API calls     |
+| -------------------------- | --------------- | ------------------------ |
+| Read files in project      | Yes (sandboxed) | Yes (unrestricted)       |
+| Read files outside project | Blocked         | Yes (`Bun.file()`, `fs`) |
+| Network requests           | No API provided | Yes (`fetch()`)          |
+| Spawn subprocesses         | No API provided | Yes (`Bun.spawn()`)      |
+| Environment variables      | No API provided | Yes (`process.env`)      |
+
+The `RuleContext` sandbox prevents accidental path traversal in well-intentioned rules. It does not protect against deliberately malicious code -- a rule that imports `fs` directly can bypass the sandbox.
+
+### What rules cannot do
+
+- **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
+- **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
+- **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
+
+## CI/CD best practices
+
+Running `archgate check` in CI is safe when you control the repository content. Extra care is needed for pull requests from external contributors.
+
+### Trusted branches
+
+For pushes to `main` or other protected branches, `archgate check` runs code that has already been reviewed and merged. This is safe:
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Pull requests from forks
+
+When a pull request comes from a fork, the `.rules.ts` files in the PR may contain arbitrary code. This is the same risk as running any untrusted CI script.
+
+**Option 1: Require approval before running.** Use GitHub's environment protection rules or `pull_request_target` with manual approval to gate CI on review:
+
+```yaml
+on:
+  pull_request_target:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: pr-check # Requires manual approval
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: archgate/check-action@v1
+```
+
+**Option 2: Only run checks on trusted files.** Use a separate workflow that checks out the base branch's `.rules.ts` files and runs them against the PR's source files. This ensures only reviewed rules execute.
+
+**Option 3: Skip checks on fork PRs.** If your rules are primarily for internal governance, skip automated checks on fork PRs and run them manually after review:
+
+```yaml
+on:
+  pull_request:
+
+jobs:
+  check:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Least-privilege runners
+
+Run `archgate check` on runners with minimal permissions. The job only needs read access to the repository -- no secrets, deployment keys, or write permissions are required:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+## Local development
+
+### Reviewing rules in new repositories
+
+When cloning or forking a repository that uses Archgate, review the `.archgate/adrs/*.rules.ts` files before running `archgate check` for the first time. Look for:
+
+- Imports of `fs`, `child_process`, `net`, or other system modules
+- Calls to `fetch()`, `Bun.spawn()`, or `Bun.file()` outside the `RuleContext` API
+- Top-level code that runs on import (before the `check` function is called)
+
+Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output.
+
+### Credentials
+
+The `archgate login` command stores an authentication token at `~/.archgate/credentials` with owner-only file permissions (`0600` on Unix). This token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
+
+- Do not commit `~/.archgate/credentials` to version control.
+- Do not share the token in CI logs. Plugin installation commands pass credentials via authenticated URLs to git, which may appear in process listings. Avoid running `archgate plugin install` with verbose logging in shared CI environments.
+- To revoke access, run `archgate logout` or delete `~/.archgate/credentials`.
+
+### Self-update integrity
+
+When you run `archgate upgrade`, the CLI downloads the release binary from GitHub Releases and verifies its SHA256 checksum before extraction. If the checksum does not match, the upgrade is aborted. This protects against tampered downloads due to network interception or compromised mirrors.
+
+## Reporting vulnerabilities
+
+If you discover a security issue in Archgate, please report it responsibly by opening a [GitHub issue](https://github.com/archgate/cli/issues) or contacting the maintainers directly. Do not include exploit code in public issues.

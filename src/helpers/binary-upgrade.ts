@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, renameSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { logDebug } from "./log";
 import { isWindows } from "./platform";
 
 // ---------------------------------------------------------------------------
@@ -89,7 +91,9 @@ export async function downloadReleaseBinary(
   tag: string,
   artifact: ArtifactInfo
 ): Promise<string> {
-  const archiveUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}/${artifact.name}${artifact.ext}`;
+  const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`;
+  const archiveUrl = `${baseUrl}/${artifact.name}${artifact.ext}`;
+  const checksumUrl = `${baseUrl}/${artifact.name}${artifact.ext}.sha256`;
 
   const response = await fetch(archiveUrl, {
     headers: { "User-Agent": "archgate-cli" },
@@ -101,12 +105,61 @@ export async function downloadReleaseBinary(
   }
 
   const buffer = await response.arrayBuffer();
+
+  // Verify SHA256 checksum when available (releases after this change)
+  try {
+    const checksumResponse = await fetch(checksumUrl, {
+      headers: { "User-Agent": "archgate-cli" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (checksumResponse.ok) {
+      const checksumText = await checksumResponse.text();
+      const expectedHash = checksumText.trim().split(/\s+/)[0].toLowerCase();
+      const actualHash = createHash("sha256")
+        .update(new Uint8Array(buffer))
+        .digest("hex");
+      if (actualHash !== expectedHash) {
+        throw new Error(
+          `Checksum mismatch for ${artifact.name}${artifact.ext}: expected ${expectedHash}, got ${actualHash}`
+        );
+      }
+      logDebug("Checksum verified:", actualHash);
+    } else {
+      logDebug("No checksum file available — skipping verification");
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("Checksum mismatch")) {
+      throw err;
+    }
+    logDebug("Checksum verification skipped:", err);
+  }
   const tmpDir = mkdtempSync(join(tmpdir(), "archgate-upgrade-"));
   const archivePath = join(tmpDir, `archgate${artifact.ext}`);
 
   await Bun.write(archivePath, buffer);
 
   if (artifact.ext === ".tar.gz") {
+    // Validate archive entries before extraction to prevent path traversal
+    const listProc = Bun.spawn(["tar", "-tzf", archivePath], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const listing = await new Response(listProc.stdout).text();
+    await listProc.exited;
+
+    for (const entry of listing.split("\n").filter(Boolean)) {
+      const normalized = entry.replaceAll("\\", "/").trim();
+      if (
+        normalized.startsWith("/") ||
+        normalized.includes("../") ||
+        normalized === ".."
+      ) {
+        throw new Error(
+          `Unsafe path in release archive: "${entry}" — aborting extraction`
+        );
+      }
+    }
+
     const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", tmpDir], {
       stdout: "pipe",
       stderr: "pipe",

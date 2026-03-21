@@ -1,4 +1,5 @@
 import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
@@ -13,7 +14,7 @@ async function loadAdrs(adrsDir: string): Promise<AdrDocument[]> {
   const results = await Promise.all(
     files.map(async (file) => {
       try {
-        const content = await Bun.file(`${adrsDir}/${file}`).text();
+        const content = await Bun.file(join(adrsDir, file)).text();
         return parseAdr(content, file);
       } catch {
         return null;

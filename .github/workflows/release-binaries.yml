@@ -87,6 +87,7 @@ jobs:
           cp dist/${{ matrix.artifact }} archgate
           tar -czf ${{ matrix.artifact }}.tar.gz archgate
           rm archgate
+          shasum -a 256 ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Prepare release asset (Windows)
         if: runner.os == 'Windows'
@@ -95,6 +96,7 @@ jobs:
           Copy-Item "dist/${{ matrix.artifact }}.exe" "archgate.exe"
           Compress-Archive -Path "archgate.exe" -DestinationPath "${{ matrix.artifact }}.zip"
           Remove-Item "archgate.exe"
+          (Get-FileHash "${{ matrix.artifact }}.zip" -Algorithm SHA256).Hash.ToLower() + "  ${{ matrix.artifact }}.zip" | Out-File -Encoding ascii "${{ matrix.artifact }}.zip.sha256"
 
       - name: Upload release asset (Unix)
         if: runner.os != 'Windows'
@@ -102,7 +104,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          gh release upload "$TAG" "${{ matrix.artifact }}.tar.gz" --clobber
+          gh release upload "$TAG" "${{ matrix.artifact }}.tar.gz" "${{ matrix.artifact }}.tar.gz.sha256" --clobber
 
       - name: Upload release asset (Windows)
         if: runner.os == 'Windows'
@@ -111,4 +113,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "${{ github.event.release.tag_name || inputs.tag }}"
-          gh release upload $tag "${{ matrix.artifact }}.zip" --clobber
+          gh release upload $tag "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" --clobber

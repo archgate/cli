@@ -219,6 +219,7 @@ export default defineConfig({
             { label: "Copilot CLI Plugin", slug: "guides/copilot-cli-plugin" },
             { label: "Cursor Integration", slug: "guides/cursor-integration" },
             { label: "Pre-commit Hooks", slug: "guides/pre-commit-hooks" },
+            { label: "Security", slug: "guides/security" },
           ],
         },
         {

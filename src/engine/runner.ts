@@ -1,4 +1,5 @@
-import { join, relative, isAbsolute } from "node:path";
+import { lstatSync } from "node:fs";
+import { relative, resolve, isAbsolute } from "node:path";
 
 import type {
   GrepMatch,
@@ -8,6 +9,50 @@ import type {
 } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { resolveScopedFiles, getStagedFiles } from "./git-files";
+
+/**
+ * Resolve a user-supplied path and ensure it stays within projectRoot.
+ * Throws if the resolved path escapes the project boundary or is a symlink.
+ */
+function safePath(projectRoot: string, userPath: string): string {
+  const root = resolve(projectRoot);
+  const absPath = isAbsolute(userPath)
+    ? resolve(userPath)
+    : resolve(root, userPath);
+  // On Windows, paths on different drives produce a full absolute relative()
+  // result rather than a ".." prefix — use startsWith on the normalized paths.
+  if (
+    !absPath.startsWith(root + "/") &&
+    !absPath.startsWith(root + "\\") &&
+    absPath !== root
+  ) {
+    throw new Error(`Path "${userPath}" escapes project root — access denied`);
+  }
+  // Reject symlinks to prevent following links to files outside the project
+  try {
+    if (lstatSync(absPath).isSymbolicLink()) {
+      throw new Error(`Path "${userPath}" is a symbolic link — access denied`);
+    }
+  } catch (err) {
+    // Re-throw our own errors; ignore ENOENT (file may not exist yet for glob results)
+    if (err instanceof Error && err.message.includes("access denied")) {
+      throw err;
+    }
+  }
+  return absPath;
+}
+
+/**
+ * Validate that a glob pattern cannot escape projectRoot via `..` segments.
+ */
+function safeGlob(pattern: string): void {
+  if (pattern.includes("..")) {
+    throw new Error(`Glob pattern "${pattern}" contains ".." — access denied`);
+  }
+  if (isAbsolute(pattern)) {
+    throw new Error(`Glob pattern "${pattern}" is absolute — access denied`);
+  }
+}
 import type { LoadedAdr } from "./loader";
 
 const RULE_TIMEOUT_MS = 30_000;
@@ -56,6 +101,7 @@ function createRuleContext(
     report,
 
     async glob(pattern: string): Promise<string[]> {
+      safeGlob(pattern);
       const g = new Bun.Glob(pattern);
       const results: string[] = [];
       for await (const file of g.scan({ cwd: projectRoot, dot: false })) {
@@ -65,7 +111,7 @@ function createRuleContext(
     },
 
     async grep(file: string, pattern: RegExp): Promise<GrepMatch[]> {
-      const absPath = isAbsolute(file) ? file : join(projectRoot, file);
+      const absPath = safePath(projectRoot, file);
       const content = await Bun.file(absPath).text();
       const lines = content.split("\n");
       const matches: GrepMatch[] = [];
@@ -86,12 +132,13 @@ function createRuleContext(
     },
 
     async grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]> {
+      safeGlob(fileGlob);
       const g = new Bun.Glob(fileGlob);
       const allMatches: GrepMatch[] = [];
 
       for await (const file of g.scan({ cwd: projectRoot, dot: false })) {
         const normalized = file.replaceAll("\\", "/");
-        const absPath = join(projectRoot, file);
+        const absPath = safePath(projectRoot, file);
         try {
           const content = await Bun.file(absPath).text();
           const lines = content.split("\n");
@@ -116,12 +163,12 @@ function createRuleContext(
     },
 
     readFile(path: string): Promise<string> {
-      const absPath = isAbsolute(path) ? path : join(projectRoot, path);
+      const absPath = safePath(projectRoot, path);
       return Bun.file(absPath).text();
     },
 
     readJSON(path: string): Promise<unknown> {
-      const absPath = isAbsolute(path) ? path : join(projectRoot, path);
+      const absPath = safePath(projectRoot, path);
       return Bun.file(absPath).json();
     },
   };
