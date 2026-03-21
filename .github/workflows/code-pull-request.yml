@@ -33,7 +33,7 @@ jobs:
           cache-base: main
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -55,7 +55,7 @@ jobs:
         id: validate
         run: bun run validate
       - name: Save Bun Cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
         with:
           path: /home/runner/.bun/install/cache
