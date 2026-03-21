@@ -5,18 +5,33 @@ import { basename, join } from "node:path";
 import { isWSL, toWindowsPath } from "./platform";
 
 /**
- * Encode a project root path into the directory name used by Claude/Cursor.
- * In WSL, converts to Windows path first so the encoded name matches
- * what Windows-side Claude/Cursor uses.
+ * Encode a project root path into the directory name used by Claude/Cursor
+ * for storing session files under `~/.claude/projects/` or `~/.cursor/projects/`.
+ *
+ * Replaces path separators (`\`, `/`), drive-letter colons (`:`), and dots (`.`)
+ * with dashes (`-`) to match the encoding Claude Code and Cursor use internally.
+ *
+ * Examples:
+ * - `/home/user/project`          → `-home-user-project`
+ * - `C:\Users\user\project`       → `C--Users-user-project`
+ * - `E:\foo\.claude\worktrees\x`  → `E--foo--claude-worktrees-x`
+ *
+ * In WSL, converts to the Windows path first so the encoded name matches
+ * what the Windows-side editor uses.
  */
 export async function encodeProjectPath(projectRoot: string): Promise<string> {
+  let raw = projectRoot;
   if (isWSL()) {
     const winPath = await toWindowsPath(projectRoot);
     if (winPath) {
-      return winPath.replaceAll("\\", "-").replaceAll("/", "-");
+      raw = winPath;
     }
   }
-  return projectRoot.replaceAll("\\", "-").replaceAll("/", "-");
+  return raw
+    .replaceAll("\\", "-")
+    .replaceAll("/", "-")
+    .replaceAll(":", "-")
+    .replaceAll(".", "-");
 }
 
 const RELEVANT_TYPES = new Set(["user", "assistant"]);

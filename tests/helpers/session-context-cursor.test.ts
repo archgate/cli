@@ -13,7 +13,11 @@ describe("readCursorSession", () => {
   // homedir() caching on Linux doesn't break the tests.
   const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const projectRoot = `/__archgate_cursor_test_${uniqueId}`;
-  const encodedProject = projectRoot.replaceAll("/", "-");
+  const encodedProject = projectRoot
+    .replaceAll("/", "-")
+    .replaceAll("\\", "-")
+    .replaceAll(":", "-")
+    .replaceAll(".", "-");
   let transcriptsDir: string;
 
   beforeEach(() => {
