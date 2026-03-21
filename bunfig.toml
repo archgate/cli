@@ -3,3 +3,6 @@ telemetry = false
 [install]
 exact = true
 saveTextLockfile = true
+
+[test]
+preload = ["tests/preload.ts"]

@@ -5,6 +5,7 @@ import inquirer from "inquirer";
 import { ADR_DOMAINS, type AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
 import { logError } from "../../helpers/log";
+import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
 
 const domainOption = new Option("--domain <domain>", "ADR domain").choices(
@@ -88,8 +89,9 @@ export function registerAdrCreateCommand(adr: Command) {
           rules: opts.rules,
         });
 
-        if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+        const useJson = opts.json || isAgentContext();
+        if (useJson) {
+          console.log(formatJSON(result, opts.json ? true : undefined));
         } else {
           console.log(`Created ADR: ${result.filePath}`);
         }

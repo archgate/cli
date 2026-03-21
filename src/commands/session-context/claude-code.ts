@@ -2,6 +2,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
 import { logError } from "../../helpers/log";
+import { formatJSON } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
 import { readClaudeCodeSession } from "../../helpers/session-context";
 
@@ -27,7 +28,7 @@ export function registerClaudeCodeSessionContextCommand(parent: Command) {
           process.exit(1);
         }
 
-        console.log(JSON.stringify(result.data, null, 2));
+        console.log(formatJSON(result.data));
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
         process.exit(1);

@@ -7,6 +7,7 @@ import { Option } from "@commander-js/extra-typings";
 
 import { ADR_DOMAINS, parseAdr, type AdrDocument } from "../../formats/adr";
 import { logError } from "../../helpers/log";
+import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
 
 async function loadAdrs(adrsDir: string): Promise<AdrDocument[]> {
@@ -63,12 +64,12 @@ export function registerAdrListCommand(adr: Command) {
           ? adrs.filter((a) => a.frontmatter.domain === options.domain)
           : adrs;
 
-        if (options.json) {
+        const useJson = options.json || isAgentContext();
+        if (useJson) {
           console.log(
-            JSON.stringify(
+            formatJSON(
               filtered.map((a) => a.frontmatter),
-              null,
-              2
+              options.json ? true : undefined
             )
           );
           return;

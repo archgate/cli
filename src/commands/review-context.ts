@@ -4,6 +4,7 @@ import { Option } from "@commander-js/extra-typings";
 import { buildReviewContext } from "../engine/context";
 import { ADR_DOMAINS } from "../formats/adr";
 import { logError } from "../helpers/log";
+import { formatJSON } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
 
 const domainOption = new Option(
@@ -36,7 +37,7 @@ export function registerReviewContextCommand(program: Command) {
           domain: opts.domain,
         });
 
-        console.log(JSON.stringify(context, null, 2));
+        console.log(formatJSON(context));
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
