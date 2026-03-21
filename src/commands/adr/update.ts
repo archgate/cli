@@ -1,12 +1,10 @@
-import { existsSync } from "node:fs";
-
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
 import { ADR_DOMAINS } from "../../formats/adr";
 import { updateAdrFile } from "../../helpers/adr-writer";
 import { logError } from "../../helpers/log";
-import { projectPaths } from "../../helpers/paths";
+import { findProjectRoot, projectPaths } from "../../helpers/paths";
 
 const domainOption = new Option("--domain <domain>", "new ADR domain").choices(
   ADR_DOMAINS
@@ -27,13 +25,12 @@ export function registerAdrUpdateCommand(adr: Command) {
     .option("--rules", "Set rules: true in frontmatter")
     .option("--json", "Output as JSON")
     .action(async (opts) => {
-      const projectRoot = process.cwd();
-      const paths = projectPaths(projectRoot);
-
-      if (!existsSync(paths.root)) {
+      const projectRoot = findProjectRoot();
+      if (!projectRoot) {
         logError("No .archgate/ directory found. Run `archgate init` first.");
         process.exit(1);
       }
+      const paths = projectPaths(projectRoot);
 
       const files = opts.files
         ? opts.files

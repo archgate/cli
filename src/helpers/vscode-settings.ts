@@ -118,13 +118,14 @@ export async function configureVscodeSettings(
 ): Promise<string> {
   const vscodeDir = join(projectRoot, ".vscode");
 
-  if (!existsSync(vscodeDir)) {
-    mkdirSync(vscodeDir, { recursive: true });
-  }
-
   // --- User-level: chat.plugins.marketplaces ---
   if (marketplaceUrl) {
     await addMarketplaceToUserSettings(marketplaceUrl);
+  }
+
+  // Only create .vscode/ dir when there's a reason to (marketplace URL present)
+  if (marketplaceUrl && !existsSync(vscodeDir)) {
+    mkdirSync(vscodeDir, { recursive: true });
   }
 
   return vscodeDir;
