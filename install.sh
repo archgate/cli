@@ -59,11 +59,15 @@ resolve_version() {
   fi
 
   api_url="https://api.github.com/repos/${REPO}/releases/latest"
+  auth_header=""
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    auth_header="Authorization: token ${GITHUB_TOKEN}"
+  fi
 
   if command -v curl >/dev/null 2>&1; then
-    response="$(curl -fsSL "$api_url" || true)"
+    response="$(curl -fsSL ${auth_header:+-H "$auth_header"} "$api_url" || true)"
   elif command -v wget >/dev/null 2>&1; then
-    response="$(wget -qO- "$api_url" 2>/dev/null || true)"
+    response="$(wget -qO- ${auth_header:+--header="$auth_header"} "$api_url" 2>/dev/null || true)"
   else
     echo "Error: curl or wget is required." >&2
     exit 1

@@ -21,7 +21,11 @@ function Get-LatestVersion {
         return $env:ARCHGATE_VERSION
     }
     try {
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -ErrorAction Stop
+        $headers = @{ "Accept" = "application/vnd.github+json" }
+        if ($env:GITHUB_TOKEN) {
+            $headers["Authorization"] = "token $($env:GITHUB_TOKEN)"
+        }
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers -ErrorAction Stop
         return $release.tag_name
     } catch {
         Write-Error "Error: failed to query GitHub for latest archgate version. Details: $($_.Exception.Message)"
