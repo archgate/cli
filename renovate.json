@@ -21,7 +21,8 @@
     {
       "description": "Group all docs dependencies (Astro, Starlight, etc.) into a single PR",
       "groupName": "docs dependencies",
-      "matchFileNames": ["docs/package.json"]
+      "matchFileNames": ["docs/package.json"],
+      "separateMajorMinor": false
     }
   ]
 }
