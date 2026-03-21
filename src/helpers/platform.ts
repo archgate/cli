@@ -217,9 +217,9 @@ export async function resolveCommand(name: string): Promise<string | null> {
         stdout: "pipe",
         stderr: "pipe",
       });
-      const timeout = new Promise<"timeout">((resolve) =>
-        setTimeout(() => resolve("timeout"), 3000)
-      );
+      const timeout = new Promise<"timeout">((resolve) => {
+        setTimeout(() => resolve("timeout"), 3000);
+      });
       const result = await Promise.race([proc.exited, timeout]);
       if (result === "timeout") {
         proc.kill();
