@@ -1,3 +1,13 @@
+## [0.17.2](https://github.com/archgate/cli/compare/v0.17.1...v0.17.2) (2026-03-21)
+
+### Bug Fixes
+
+* **ci:** post status checks on release PR ([#131](https://github.com/archgate/cli/issues/131)) ([dd2156e](https://github.com/archgate/cli/commit/dd2156eef2e4639f42d48c4bc5d60760acde8036))
+* **config:** unify docs dependencies into a single Renovate PR ([#129](https://github.com/archgate/cli/issues/129)) ([999a237](https://github.com/archgate/cli/commit/999a2375dd1d6891f37d2e202d510c068172303e))
+* **deps:** group docs dependencies into a single Renovate PR ([#125](https://github.com/archgate/cli/issues/125)) ([4c1ad20](https://github.com/archgate/cli/commit/4c1ad201c06ad236b4823bfac3d971e24933bc53))
+* **deps:** update docs dependencies ([#126](https://github.com/archgate/cli/issues/126)) ([4c7008a](https://github.com/archgate/cli/commit/4c7008a568c67b08c05dae07653d4c6c6f7f0f04))
+* encode colons and dots in session-context project path ([#130](https://github.com/archgate/cli/issues/130)) ([262a172](https://github.com/archgate/cli/commit/262a17234cfec5dbe06c152735c3d4a4e8f8707c))
+
 ## [0.17.1](https://github.com/archgate/cli/compare/v0.17.0...v0.17.1) (2026-03-21)
 
 ### Bug Fixes
