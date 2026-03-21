@@ -1,3 +1,9 @@
+## [0.17.1](https://github.com/archgate/cli/compare/v0.17.0...v0.17.1) (2026-03-21)
+
+### Bug Fixes
+
+* serve version from static endpoint to avoid GitHub API rate limits ([#112](https://github.com/archgate/cli/issues/112)) ([877c6f5](https://github.com/archgate/cli/commit/877c6f51b0a992b1cd436f3f1da387f5885e62f9))
+
 ## [0.17.0](https://github.com/archgate/cli/compare/v0.16.0...v0.17.0) (2026-03-21)
 
 ### Features
