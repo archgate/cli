@@ -4,6 +4,7 @@ import { Option } from "@commander-js/extra-typings";
 import { ADR_DOMAINS } from "../../formats/adr";
 import { updateAdrFile } from "../../helpers/adr-writer";
 import { logError } from "../../helpers/log";
+import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
 
 const domainOption = new Option("--domain <domain>", "new ADR domain").choices(
@@ -49,8 +50,9 @@ export function registerAdrUpdateCommand(adr: Command) {
           rules: opts.rules,
         });
 
-        if (opts.json) {
-          console.log(JSON.stringify(result, null, 2));
+        const useJson = opts.json || isAgentContext();
+        if (useJson) {
+          console.log(formatJSON(result, opts.json ? true : undefined));
         } else {
           console.log(`Updated ADR: ${result.filePath}`);
         }

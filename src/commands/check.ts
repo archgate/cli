@@ -9,6 +9,7 @@ import {
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
 import { logError } from "../helpers/log";
+import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
 
 export function registerCheckCommand(program: Command) {
@@ -39,21 +40,26 @@ export function registerCheckCommand(program: Command) {
         process.exit(1);
       }
 
+      const useJson = opts.json || (!opts.ci && isAgentContext());
+
       if (loadedAdrs.length === 0) {
-        if (opts.json) {
+        if (useJson) {
           console.log(
-            JSON.stringify({
-              pass: true,
-              total: 0,
-              passed: 0,
-              failed: 0,
-              warnings: 0,
-              errors: 0,
-              infos: 0,
-              ruleErrors: 0,
-              results: [],
-              durationMs: 0,
-            })
+            formatJSON(
+              {
+                pass: true,
+                total: 0,
+                passed: 0,
+                failed: 0,
+                warnings: 0,
+                errors: 0,
+                infos: 0,
+                ruleErrors: 0,
+                results: [],
+                durationMs: 0,
+              },
+              opts.json ? true : undefined
+            )
           );
         } else {
           console.log("  No rules to check.");
@@ -65,10 +71,10 @@ export function registerCheckCommand(program: Command) {
         staged: opts.staged,
       });
 
-      if (opts.json) {
-        reportJSON(result);
-      } else if (opts.ci) {
+      if (opts.ci) {
         reportCI(result);
+      } else if (useJson) {
+        reportJSON(result, opts.json ? true : undefined);
       } else {
         reportConsole(result, opts.verbose ?? false);
       }

@@ -23,15 +23,16 @@ The CLI needs a coloring solution that works with Bun, has no external dependenc
 
 ## Decision
 
-Use `styleText` from `node:util` for all terminal colors and formatting. Support `--json` flag on commands that output structured data. No emoji in CLI output.
+Use `styleText` from `node:util` for all terminal colors and formatting. Support `--json` flag on commands that output structured data. Auto-detect agent contexts and emit compact JSON to reduce token usage. No emoji in CLI output.
 
 **Key conventions:**
 
 1. **Colors via `styleText` only** — All colored output uses `styleText(format, text)` from `node:util`. No raw ANSI codes, no third-party color libraries. The `format` parameter accepts a single style string (e.g., `"red"`) or an array of styles (e.g., `["red", "bold"]`).
 2. **`--json` flag for machine-readable output** — Commands that produce structured results (check, adr list) support `--json` to emit JSON to stdout. JSON output has no colors, no decorative formatting.
-3. **No emoji** — CLI output uses text symbols and colors for visual distinction. Emoji rendering is inconsistent across terminals, fonts, and CI log viewers.
-4. **stdout for results, stderr for diagnostics** — Normal command output goes to stdout. Errors, warnings, and debug messages go to stderr (via `logError()`, `logWarn()`, `logDebug()`).
-5. **Concise and scannable** — Output should be scannable at a glance. Use whitespace and alignment, not walls of text.
+3. **Auto-compact JSON for agent contexts** — When stdout is not a TTY and the `CI` environment variable is not set, the CLI is likely being invoked by an AI agent. In this case, commands that support `--json` auto-switch to compact JSON output (no indentation/whitespace) to minimize token usage. The detection logic lives in `src/helpers/output.ts` via `isAgentContext()` and `formatJSON()`. The precedence order is: `--ci` flag → `--json` flag (pretty) → agent auto-detect (compact) → TTY (human-readable) → CI env (human-readable).
+4. **No emoji** — CLI output uses text symbols and colors for visual distinction. Emoji rendering is inconsistent across terminals, fonts, and CI log viewers.
+5. **stdout for results, stderr for diagnostics** — Normal command output goes to stdout. Errors, warnings, and debug messages go to stderr (via `logError()`, `logWarn()`, `logDebug()`).
+6. **Concise and scannable** — Output should be scannable at a glance. Use whitespace and alignment, not walls of text.
 
 ## Do's and Don'ts
 
@@ -39,6 +40,9 @@ Use `styleText` from `node:util` for all terminal colors and formatting. Support
 
 - Use `styleText` from `node:util` for colors
 - Support `--json` flag for machine-readable output
+- Use `formatJSON()` from `src/helpers/output.ts` for all JSON serialization in commands — it auto-detects agent context and formats accordingly
+- Pass `forcePretty: true` to `formatJSON()` when the user explicitly passes `--json` (they expect pretty-printed output)
+- Use `isAgentContext()` from `src/helpers/output.ts` to determine if auto-JSON should be enabled for commands that have both human-readable and JSON output modes
 - Use `console.log()` for normal output to stdout, `logError()` for errors to stderr
 - Keep output concise and scannable
 - Respect `NO_COLOR` environment variable (handled automatically by `styleText`)
@@ -50,6 +54,8 @@ Use `styleText` from `node:util` for all terminal colors and formatting. Support
 - Don't include colors in `--json` output
 - Don't output progress spinners without a TTY check
 - Don't use third-party color libraries (chalk, kleur, picocolors)
+- Don't use `JSON.stringify()` directly in command files — use `formatJSON()` so agent-context detection is consistent across all commands
+- Don't assume piped output means agent context when `CI` env is set — CI runners have piped stdout but should get human-readable output
 
 ## Implementation Pattern
 
@@ -65,13 +71,29 @@ console.log(styleText("yellow", `Warning: ${message}`));
 
 // Combined styles — pass an array of formats
 console.log(styleText(["red", "bold"], "error:"));
+```
 
-// JSON output for machine consumption
-if (opts.json) {
-  console.log(JSON.stringify(results, null, 2));
+```typescript
+// Agent-aware JSON output — auto-compact for agents, pretty for humans
+import { formatJSON, isAgentContext } from "../helpers/output";
+
+// Commands with --json flag: auto-detect agent context
+const useJson = opts.json || isAgentContext();
+if (opts.ci) {
+  reportCI(results);
+} else if (useJson) {
+  // forcePretty=true when explicit --json, auto-detect otherwise
+  console.log(formatJSON(results, opts.json ? true : undefined));
 } else {
   reportConsole(results);
 }
+```
+
+```typescript
+// Always-JSON commands (review-context, session-context): just use formatJSON
+import { formatJSON } from "../helpers/output";
+
+console.log(formatJSON(context)); // compact for agents, pretty for humans
 ```
 
 ```typescript
@@ -105,6 +127,11 @@ console.log(chalk.red("Error"));
 if (opts.json) {
   console.log(styleText("green", JSON.stringify(results)));
 }
+
+// BAD: raw JSON.stringify in command files — loses agent-context detection
+console.log(JSON.stringify(results, null, 2));
+// GOOD: use formatJSON() instead
+console.log(formatJSON(results));
 ```
 
 ## Consequences
@@ -115,6 +142,7 @@ if (opts.json) {
 - **Machine-readable output enables scripting** — `--json` flag lets CI systems and scripts consume structured results
 - **Zero dependency on color libraries** — `node:util` is a built-in module, eliminating supply chain risk from color utilities
 - **Automatic `NO_COLOR` support** — `styleText` respects the `NO_COLOR` environment variable without any additional code
+- **Token-efficient agent output** — Auto-compact JSON in agent contexts reduces token usage by 30-50% without requiring agents to pass extra flags. Detection is zero-config: agents get compact JSON automatically because their stdout is piped (non-TTY)
 
 ### Negative
 

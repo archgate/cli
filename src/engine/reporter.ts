@@ -1,6 +1,7 @@
 import { styleText } from "node:util";
 
 import type { Severity } from "../formats/rules";
+import { formatJSON } from "../helpers/output";
 import type { CheckResult } from "./runner";
 
 export interface ReportSummary {
@@ -196,10 +197,12 @@ export function reportConsole(result: CheckResult, verbose: boolean): void {
 
 /**
  * Output results as JSON.
+ * @param forcePretty - When true, always pretty-print (e.g., explicit --json flag).
+ *                      When omitted, format is auto-detected based on TTY/CI context.
  */
-export function reportJSON(result: CheckResult): void {
+export function reportJSON(result: CheckResult, forcePretty?: boolean): void {
   const summary = buildSummary(result);
-  console.log(JSON.stringify(summary, null, 2));
+  console.log(formatJSON(summary, forcePretty));
 }
 
 /**
