@@ -20,11 +20,27 @@ function Get-LatestVersion {
     if ($env:ARCHGATE_VERSION) {
         return $env:ARCHGATE_VERSION
     }
+
+    # Primary: static version endpoint (no rate limits)
     try {
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -ErrorAction Stop
+        $versionInfo = Invoke-RestMethod -Uri "https://cli.archgate.dev/version.json" -ErrorAction Stop
+        if ($versionInfo.version) {
+            return $versionInfo.version
+        }
+    } catch {
+        # Fall through to GitHub API
+    }
+
+    # Fallback: GitHub releases API
+    try {
+        $headers = @{ "Accept" = "application/vnd.github+json" }
+        if ($env:GITHUB_TOKEN) {
+            $headers["Authorization"] = "token $($env:GITHUB_TOKEN)"
+        }
+        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers -ErrorAction Stop
         return $release.tag_name
     } catch {
-        Write-Error "Error: failed to query GitHub for latest archgate version. Details: $($_.Exception.Message)"
+        Write-Error "Error: failed to query latest archgate version. Details: $($_.Exception.Message)"
         return $null
     }
 }
