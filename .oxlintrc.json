@@ -9,6 +9,8 @@
     "max-nested-callbacks": "off",
     "max-depth": "off",
     "no-await-in-loop": "warn",
+    "no-inline-comments": "off",
+    "prefer-top-level-await": "off",
     "typescript/no-deprecated": "error"
   },
   "overrides": [

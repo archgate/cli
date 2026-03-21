@@ -214,7 +214,7 @@ export async function runChecks(
           // oxlint-disable-next-line no-await-in-loop -- rules within an ADR run sequentially
           await Promise.race([
             ruleConfig.check(ctx),
-            new Promise<never>((_, reject) =>
+            new Promise<never>((_, reject) => {
               setTimeout(
                 () =>
                   reject(
@@ -223,8 +223,8 @@ export async function runChecks(
                     )
                   ),
                 RULE_TIMEOUT_MS
-              )
-            ),
+              );
+            }),
           ]);
 
           adrRuleResults.push({
