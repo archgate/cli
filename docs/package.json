@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run scripts/generate-llms-full.ts && astro build",
+    "build": "bun run scripts/generate-version-json.ts && bun run scripts/generate-llms-full.ts && astro build",
     "dev": "astro dev",
     "preview": "astro preview"
   },

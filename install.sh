@@ -58,6 +58,29 @@ resolve_version() {
     return
   fi
 
+  # Primary: static version endpoint (no rate limits)
+  version_url="https://cli.archgate.dev/version.json"
+  static_response=""
+
+  if command -v curl >/dev/null 2>&1; then
+    static_response="$(curl -fsSL "$version_url" 2>/dev/null || true)"
+  elif command -v wget >/dev/null 2>&1; then
+    static_response="$(wget -qO- "$version_url" 2>/dev/null || true)"
+  fi
+
+  if [ -n "$static_response" ]; then
+    if command -v jq >/dev/null 2>&1; then
+      static_version="$(printf '%s' "$static_response" | jq -r '.version // empty')"
+    else
+      static_version="$(printf '%s' "$static_response" | grep '"version"' | sed 's/.*"version": *"//;s/".*//')"
+    fi
+    if [ -n "$static_version" ]; then
+      VERSION="$static_version"
+      return
+    fi
+  fi
+
+  # Fallback: GitHub releases API
   api_url="https://api.github.com/repos/${REPO}/releases/latest"
   auth_header=""
   if [ -n "${GITHUB_TOKEN:-}" ]; then

@@ -40,6 +40,12 @@ class ArchgateProject extends NpmProject {
           this.changedFiles.push(astroConfigPath);
         }
       }
+
+      // Sync docs/public/version.json (used by install scripts)
+      const versionJsonPath = "docs/public/version.json";
+      const versionPayload = `{ "version": "v${version}" }\n`;
+      writeFileSync(versionJsonPath, versionPayload);
+      this.changedFiles.push(versionJsonPath);
     }
 
     return result;
