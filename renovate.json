@@ -19,6 +19,14 @@
       "matchPackageNames": ["oven-sh/bun", "@types/bun"]
     },
     {
+      "description": "Group CLI devDependencies (minor/patch) into a single PR",
+      "groupName": "cli devDependencies (non-major)",
+      "matchFileNames": ["package.json"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "excludePackageNames": ["@types/bun"]
+    },
+    {
       "description": "Group all docs dependencies (Astro, Starlight, etc.) into a single PR",
       "groupName": "docs dependencies",
       "matchFileNames": ["docs/package.json"],
