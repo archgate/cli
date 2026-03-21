@@ -52,6 +52,7 @@ export async function requestSignup(
     },
     body: JSON.stringify({ github, email, useCase, editor }),
     signal: AbortSignal.timeout(15_000),
+    redirect: "error",
   });
 
   if (response.status !== 201) {

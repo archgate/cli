@@ -1,0 +1,136 @@
+---
+title: Seguranca
+description: Entenda o modelo de confianca do Archgate CLI, como as regras sao executadas e as melhores praticas para rodar verificacoes com seguranca em CI/CD e desenvolvimento local.
+---
+
+O Archgate executa regras TypeScript a partir de arquivos `.rules.ts` no seu repositorio. Esta pagina explica o modelo de confianca, o que as regras podem e nao podem fazer, e como rodar verificacoes com seguranca.
+
+## Modelo de confianca
+
+**Arquivos `.rules.ts` sao codigo executavel.** Quando voce roda `archgate check`, o CLI importa dinamicamente cada arquivo `.rules.ts` complementar e executa suas funcoes `check`. Isso equivale a rodar `bun .archgate/adrs/*.rules.ts` -- o codigo tem as mesmas capacidades que qualquer outro script na sua maquina.
+
+Isso significa:
+
+- Rode `archgate check` apenas em repositorios nos quais voce confia.
+- Revise arquivos `.rules.ts` com o mesmo rigor que qualquer outro codigo-fonte do projeto.
+- Em projetos open-source, trate mudancas em `.rules.ts` em pull requests como sensíveis do ponto de vista de seguranca.
+
+### O que as regras podem acessar
+
+As regras recebem um objeto `RuleContext` com operacoes de arquivo isoladas. Todos os metodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) sao restritos ao diretorio raiz do projeto -- travessia de caminho via `../` ou caminhos absolutos e bloqueada e lanca um erro.
+
+Porem, como as regras sao modulos TypeScript padrao, elas tambem podem usar qualquer API do Bun/Node.js diretamente:
+
+| Capacidade                   | Via RuleContext       | Via chamadas diretas de API |
+| ---------------------------- | --------------------- | --------------------------- |
+| Ler arquivos no projeto      | Sim (isolado)         | Sim (sem restricao)         |
+| Ler arquivos fora do projeto | Bloqueado             | Sim (`Bun.file()`, `fs`)    |
+| Requisicoes de rede          | Nenhuma API fornecida | Sim (`fetch()`)             |
+| Executar subprocessos        | Nenhuma API fornecida | Sim (`Bun.spawn()`)         |
+| Variaveis de ambiente        | Nenhuma API fornecida | Sim (`process.env`)         |
+
+O sandbox do `RuleContext` previne travessia de caminho acidental em regras bem-intencionadas. Ele nao protege contra codigo deliberadamente malicioso -- uma regra que importa `fs` diretamente pode contornar o sandbox.
+
+### O que as regras nao podem fazer
+
+- **Escrever arquivos** -- a API do `RuleContext` e somente leitura. Regras reportam violacoes mas nao podem modificar o codebase.
+- **Escapar do timeout de 30 segundos** -- cada regra e encerrada apos 30 segundos de tempo de execucao.
+- **Afetar outras regras** -- regras de ADRs diferentes rodam em paralelo mas nao compartilham estado mutavel atraves da API de contexto.
+
+## Boas praticas para CI/CD
+
+Rodar `archgate check` em CI e seguro quando voce controla o conteudo do repositorio. Cuidado extra e necessario para pull requests de contribuidores externos.
+
+### Branches confiáveis
+
+Para pushes em `main` ou outras branches protegidas, `archgate check` executa codigo que ja foi revisado e mesclado. Isso e seguro:
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Pull requests de forks
+
+Quando um pull request vem de um fork, os arquivos `.rules.ts` no PR podem conter codigo arbitrario. Esse e o mesmo risco de rodar qualquer script de CI nao confiavel.
+
+**Opcao 1: Exigir aprovacao antes de rodar.** Use regras de protecao de ambiente do GitHub ou `pull_request_target` com aprovacao manual para condicionar o CI a revisao:
+
+```yaml
+on:
+  pull_request_target:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: pr-check # Requer aprovacao manual
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: archgate/check-action@v1
+```
+
+**Opcao 2: Rodar verificacoes apenas em arquivos confiaveis.** Use um workflow separado que faz checkout dos arquivos `.rules.ts` da branch base e os executa contra os arquivos-fonte do PR. Isso garante que apenas regras revisadas sejam executadas.
+
+**Opcao 3: Pular verificacoes em PRs de forks.** Se suas regras sao principalmente para governanca interna, pule verificacoes automatizadas em PRs de forks e rode-as manualmente apos revisao:
+
+```yaml
+on:
+  pull_request:
+
+jobs:
+  check:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Runners com privilegio minimo
+
+Rode `archgate check` em runners com permissoes minimas. O job precisa apenas de acesso de leitura ao repositorio -- nao sao necessarios secrets, chaves de deploy ou permissoes de escrita:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+## Desenvolvimento local
+
+### Revisando regras em novos repositorios
+
+Ao clonar ou fazer fork de um repositorio que usa Archgate, revise os arquivos `.archgate/adrs/*.rules.ts` antes de rodar `archgate check` pela primeira vez. Procure por:
+
+- Imports de `fs`, `child_process`, `net` ou outros modulos do sistema
+- Chamadas a `fetch()`, `Bun.spawn()` ou `Bun.file()` fora da API do `RuleContext`
+- Codigo de nivel superior que executa no import (antes da funcao `check` ser chamada)
+
+Regras bem-comportadas usam apenas os metodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saida.
+
+### Credenciais
+
+O comando `archgate login` armazena um token de autenticacao em `~/.archgate/credentials` com permissoes de arquivo somente para o proprietario (`0600` em Unix). Este token e usado para instalacao de plugins e nunca e enviado a terceiros alem do servico de plugins do Archgate.
+
+- Nao commite `~/.archgate/credentials` no controle de versao.
+- Nao exponha o token em logs de CI. Comandos de instalacao de plugins passam credenciais via URLs autenticadas para o git, que podem aparecer em listagens de processos. Evite rodar `archgate plugin install` com logging verbose em ambientes de CI compartilhados.
+- Para revogar acesso, rode `archgate logout` ou delete `~/.archgate/credentials`.
+
+## Reportando vulnerabilidades
+
+Se voce descobrir um problema de seguranca no Archgate, por favor reporte de forma responsavel abrindo uma [issue no GitHub](https://github.com/archgate/cli/issues) ou entrando em contato com os mantenedores diretamente. Nao inclua codigo de exploit em issues publicas.

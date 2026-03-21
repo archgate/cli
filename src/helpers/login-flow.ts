@@ -140,6 +140,19 @@ async function runSignupPrompt(
       v.trim().length > 0 || "Please describe your use case",
   });
 
+  const { confirmed } = await inquirer.prompt({
+    type: "confirm",
+    name: "confirmed",
+    message:
+      "I agree to be contacted by the Archgate team to provide feedback during the beta period.",
+    default: true,
+  });
+
+  if (!confirmed) {
+    logInfo("Signup cancelled.");
+    return null;
+  }
+
   logInfo("\nSubmitting signup request...");
   const result = await requestSignup(githubUser, email, useCase, editor!);
 

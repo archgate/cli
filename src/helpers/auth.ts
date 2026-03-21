@@ -5,7 +5,7 @@
  * plus local storage of the archgate plugin token in ~/.archgate/credentials.
  */
 
-import { unlinkSync } from "node:fs";
+import { chmodSync, unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
 import { internalPath, createPathIfNotExists } from "./paths";
@@ -199,6 +199,7 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
     },
     body: JSON.stringify({ github_token: githubToken }),
     signal: AbortSignal.timeout(15_000),
+    redirect: "error",
   });
 
   if (!response.ok) {
@@ -240,11 +241,14 @@ export async function saveCredentials(
   credentials: StoredCredentials
 ): Promise<void> {
   createPathIfNotExists(internalPath());
-  await Bun.write(
-    credentialsPath(),
-    JSON.stringify(credentials, null, 2) + "\n"
-  );
-  logDebug("Credentials saved to", credentialsPath());
+  const filePath = credentialsPath();
+  await Bun.write(filePath, JSON.stringify(credentials, null, 2) + "\n");
+  try {
+    chmodSync(filePath, 0o600);
+  } catch {
+    // chmod may fail on Windows — NTFS uses ACLs instead
+  }
+  logDebug("Credentials saved to", filePath);
 }
 
 /**

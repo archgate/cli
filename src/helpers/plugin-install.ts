@@ -43,7 +43,9 @@ async function run(
  * Claude Code and Copilot CLI both use the .claude-plugin/ manifest format.
  */
 export function buildMarketplaceUrl(credentials: StoredCredentials): string {
-  return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate.git`;
+  const user = encodeURIComponent(credentials.github_user);
+  const token = encodeURIComponent(credentials.token);
+  return `https://${user}:${token}@plugins.archgate.dev/archgate.git`;
 }
 
 /**
@@ -53,7 +55,9 @@ export function buildMarketplaceUrl(credentials: StoredCredentials): string {
 export function buildVscodeMarketplaceUrl(
   credentials: StoredCredentials
 ): string {
-  return `https://${credentials.github_user}:${credentials.token}@plugins.archgate.dev/archgate-vscode.git`;
+  const user = encodeURIComponent(credentials.github_user);
+  const token = encodeURIComponent(credentials.token);
+  return `https://${user}:${token}@plugins.archgate.dev/archgate-vscode.git`;
 }
 
 /**
@@ -117,6 +121,7 @@ export async function installCursorPlugin(
   const response = await fetch(`${PLUGINS_API}/api/cursor`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "archgate-cli" },
     signal: AbortSignal.timeout(30_000),
+    redirect: "error",
   });
 
   if (response.status === 401) {
@@ -186,8 +191,28 @@ export async function installCopilotPlugin(
 // ---------------------------------------------------------------------------
 
 /**
+ * Validate that tar archive entries do not escape the destination directory
+ * via path traversal ("..") or absolute paths.
+ */
+function validateTarEntries(entries: string[]): void {
+  for (const entry of entries) {
+    const normalized = entry.replaceAll("\\", "/");
+    if (
+      normalized.startsWith("/") ||
+      normalized.includes("../") ||
+      normalized === ".."
+    ) {
+      throw new Error(
+        `Unsafe path in plugin archive: "${entry}" — aborting extraction`
+      );
+    }
+  }
+}
+
+/**
  * Extract a .tar.gz buffer to a destination directory.
  * Uses system tar (available on macOS, Linux, and Windows 10+).
+ * Validates archive entries before extraction to prevent path traversal.
  */
 async function extractTarGz(
   data: Uint8Array,
@@ -200,7 +225,16 @@ async function extractTarGz(
   try {
     mkdirSync(destDir, { recursive: true });
 
-    // Extract using tar (available on macOS, Linux, and Windows 10+)
+    // List entries first and validate before extracting
+    const listResult = await run(["tar", "-tzf", tmpArchive]);
+    const files = listResult.stdout
+      .split("\n")
+      .map((f) => f.trim())
+      .filter(Boolean);
+
+    validateTarEntries(files);
+
+    // Extract only after validation passes
     const result = await run(["tar", "-xzf", tmpArchive, "-C", destDir]);
 
     if (result.exitCode !== 0) {
@@ -208,13 +242,6 @@ async function extractTarGz(
         `Failed to extract plugin archive (tar exit code ${result.exitCode})`
       );
     }
-
-    // List extracted files for reporting
-    const listResult = await run(["tar", "-tzf", tmpArchive]);
-    const files = listResult.stdout
-      .split("\n")
-      .map((f) => f.trim())
-      .filter(Boolean);
 
     return files;
   } finally {
