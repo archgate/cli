@@ -1,18 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "customManagers": [
     {
       "customType": "regex",
       "description": "Extract bun version from .prototools",
-      "managerFilePatterns": [
-        "/^\\.prototools$/"
-      ],
-      "matchStrings": [
-        "bun\\s*=\\s*\"(?<currentValue>[^\"]+)\""
-      ],
+      "managerFilePatterns": ["/^\\.prototools$/"],
+      "matchStrings": ["bun\\s*=\\s*\"(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "oven-sh/bun",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^bun-v(?<version>.+)$"
@@ -22,10 +16,7 @@
     {
       "description": "Group Bun runtime (.prototools) and @types/bun together",
       "groupName": "bun",
-      "matchPackageNames": [
-        "oven-sh/bun",
-        "@types/bun"
-      ]
+      "matchPackageNames": ["oven-sh/bun", "@types/bun"]
     }
   ]
 }
