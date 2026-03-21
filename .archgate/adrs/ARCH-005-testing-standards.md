@@ -184,8 +184,8 @@ globalThis.fetch = (() =>
 
 ### Risks
 
-- **Bun test runner API changes** — Although Bun is past 1.0 (currently 1.3.8), some newer APIs may still evolve between minor versions. Test runner behavior or API may change.
-  - **Mitigation:** The project pins a specific Bun version via `.prototools` (currently 1.3.8). Test runner API changes are caught during controlled Bun upgrades with full test suite validation.
+- **Bun test runner API changes** — Although Bun is past 1.0, some newer APIs may still evolve between minor versions. Test runner behavior or API may change.
+  - **Mitigation:** The project pins a specific Bun version via `.prototools`. Test runner API changes are caught during controlled Bun upgrades with full test suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may not report accurate coverage for all code paths, especially for dynamically imported modules.
   - **Mitigation:** Coverage is a guideline (80% target), not a hard gate. Critical modules (engine, formats) are tested thoroughly regardless of coverage numbers.
 - **Third-party SDK event loop retention** — External SDK instances that hold internal resource references may keep Bun's event loop alive on Linux after all tests complete, causing `bun test` to hang indefinitely. This does not surface on macOS (event loop drains normally there), making it a Linux-CI-only failure that is hard to reproduce locally.
