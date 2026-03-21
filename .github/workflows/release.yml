@@ -12,9 +12,11 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: write
   contents: write
   id-token: write
   pull-requests: write
+  statuses: write
 
 jobs:
   check:
@@ -83,10 +85,23 @@ jobs:
           workflow: pull-request
           github-token: ${{ github.token }}
           branch: release
-  validate-release-pr:
-    name: Validate release PR
-    needs: pull-request
-    uses: ./.github/workflows/code-pull-request.yml
+      - name: Run CI and set status checks on release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          HEAD_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/release --jq '.object.sha')
+
+          gh workflow run code-pull-request.yml --ref release
+          sleep 5
+          RUN_ID=$(gh run list --branch release --workflow code-pull-request.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "Waiting for CI run $RUN_ID..."
+          gh run watch "$RUN_ID" --exit-status && STATUS=success || STATUS=failure
+
+          gh api repos/${{ github.repository }}/statuses/$HEAD_SHA \
+            -f state="$STATUS" \
+            -f context="Validate Code" \
+            -f description="CI $STATUS" \
+            --silent
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
