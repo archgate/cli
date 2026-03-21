@@ -1,3 +1,15 @@
+## [0.17.0](https://github.com/archgate/cli/compare/v0.16.0...v0.17.0) (2026-03-21)
+
+### Features
+
+* auto-compact JSON output in agent contexts ([#108](https://github.com/archgate/cli/issues/108)) ([314e909](https://github.com/archgate/cli/commit/314e909c72c38c17797f9231b7d739ca8be6519e))
+
+### Bug Fixes
+
+* correct login refresh hint from option to subcommand ([03ffeff](https://github.com/archgate/cli/commit/03ffeff5c82abd3803b69746055360bfd736cb5c))
+* resolve consistency issues across CLI codebase ([#101](https://github.com/archgate/cli/issues/101)) ([4e182da](https://github.com/archgate/cli/commit/4e182da79f7943fa6d97af8251707d052077c939))
+* security hardening across CLI ([#104](https://github.com/archgate/cli/issues/104)) ([ba2ba49](https://github.com/archgate/cli/commit/ba2ba49bf90b5b7abddd71d298190a621762034c))
+
 ## [0.16.0](https://github.com/archgate/cli/compare/v0.15.0...v0.16.0) (2026-03-20)
 
 ### Features

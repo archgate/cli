@@ -1,6 +1,6 @@
 {
   "name": "archgate",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "keywords": [
     "adr",
@@ -73,9 +73,9 @@
     "typescript": "^5"
   },
   "optionalDependencies": {
-    "archgate-darwin-arm64": "0.16.0",
-    "archgate-linux-x64": "0.16.0",
-    "archgate-win32-x64": "0.16.0"
+    "archgate-darwin-arm64": "0.17.0",
+    "archgate-linux-x64": "0.17.0",
+    "archgate-win32-x64": "0.17.0"
   },
   "readme": "README.md"
 }
