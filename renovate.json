@@ -17,6 +17,11 @@
       "description": "Group Bun runtime (.prototools) and @types/bun together",
       "groupName": "bun",
       "matchPackageNames": ["oven-sh/bun", "@types/bun"]
+    },
+    {
+      "description": "Group all docs dependencies (Astro, Starlight, etc.) into a single PR",
+      "groupName": "docs dependencies",
+      "matchFileNames": ["docs/package.json"]
     }
   ]
 }
