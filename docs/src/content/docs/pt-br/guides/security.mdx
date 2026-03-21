@@ -17,7 +17,7 @@ Isso significa:
 
 ### O que as regras podem acessar
 
-As regras recebem um objeto `RuleContext` com operacoes de arquivo isoladas. Todos os metodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) sao restritos ao diretorio raiz do projeto -- travessia de caminho via `../` ou caminhos absolutos e bloqueada e lanca um erro.
+As regras recebem um objeto `RuleContext` com operacoes de arquivo isoladas. Todos os metodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) sao restritos ao diretorio raiz do projeto -- travessia de caminho via `../`, caminhos absolutos e links simbolicos sao bloqueados e lancam um erro.
 
 Porem, como as regras sao modulos TypeScript padrao, elas tambem podem usar qualquer API do Bun/Node.js diretamente:
 
@@ -130,6 +130,10 @@ O comando `archgate login` armazena um token de autenticacao em `~/.archgate/cre
 - Nao commite `~/.archgate/credentials` no controle de versao.
 - Nao exponha o token em logs de CI. Comandos de instalacao de plugins passam credenciais via URLs autenticadas para o git, que podem aparecer em listagens de processos. Evite rodar `archgate plugin install` com logging verbose em ambientes de CI compartilhados.
 - Para revogar acesso, rode `archgate logout` ou delete `~/.archgate/credentials`.
+
+### Integridade da atualizacao
+
+Quando voce roda `archgate upgrade`, o CLI baixa o binario de release do GitHub Releases e verifica o checksum SHA256 antes da extracao. Se o checksum nao corresponder, a atualizacao e abortada. Isso protege contra downloads adulterados por interceptacao de rede ou mirrors comprometidos.
 
 ## Reportando vulnerabilidades
 

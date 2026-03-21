@@ -17,7 +17,7 @@ This means:
 
 ### What rules can access
 
-Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../` or absolute paths is blocked and throws an error.
+Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../`, absolute paths, and symbolic links are blocked and throw an error.
 
 However, because rules are standard TypeScript modules, they can also use any Bun/Node.js API directly:
 
@@ -130,6 +130,10 @@ The `archgate login` command stores an authentication token at `~/.archgate/cred
 - Do not commit `~/.archgate/credentials` to version control.
 - Do not share the token in CI logs. Plugin installation commands pass credentials via authenticated URLs to git, which may appear in process listings. Avoid running `archgate plugin install` with verbose logging in shared CI environments.
 - To revoke access, run `archgate logout` or delete `~/.archgate/credentials`.
+
+### Self-update integrity
+
+When you run `archgate upgrade`, the CLI downloads the release binary from GitHub Releases and verifies its SHA256 checksum before extraction. If the checksum does not match, the upgrade is aborted. This protects against tampered downloads due to network interception or compromised mirrors.
 
 ## Reporting vulnerabilities
 
