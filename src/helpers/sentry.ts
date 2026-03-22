@@ -13,9 +13,12 @@
  * are wrapped to never affect CLI behavior or exit codes.
  */
 
+import { join } from "node:path";
+
 import * as Sentry from "@sentry/bun";
 
 import { logDebug } from "./log";
+import { internalPath } from "./paths";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
 
@@ -28,6 +31,26 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
  */
 const SENTRY_DSN =
   "https://bb693c2cbc4238dbcd6efac609062402@o4511085517340672.ingest.de.sentry.io/4511085521469520";
+
+// ---------------------------------------------------------------------------
+// Install method detection
+// ---------------------------------------------------------------------------
+
+function detectInstallMethod(): string {
+  const execPath = process.execPath;
+  const binDir = internalPath("bin");
+
+  if (execPath.startsWith(binDir)) return "binary";
+
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "~";
+  const protoHome = process.env.PROTO_HOME ?? join(home, ".proto");
+  const protoToolDir = join(protoHome, "tools", "archgate");
+  if (execPath.startsWith(protoToolDir)) return "proto";
+
+  if (execPath.includes("node_modules")) return "local";
+
+  return "package-manager";
+}
 
 // ---------------------------------------------------------------------------
 // State
@@ -64,7 +87,7 @@ export function initSentry(): void {
   try {
     Sentry.init({
       dsn: SENTRY_DSN,
-      release: `archgate@${cliVersion}`,
+      release: cliVersion,
       environment: process.env.NODE_ENV ?? "production",
       // Do not send default PII (hostnames, IPs, etc.)
       sendDefaultPii: false,
@@ -81,6 +104,8 @@ export function initSentry(): void {
           arch: process.arch,
           is_ci: String(Boolean(process.env.CI)),
           is_tty: String(Boolean(process.stdout.isTTY)),
+          install_method: detectInstallMethod(),
+          install_path: process.execPath,
         },
         contexts: {
           runtime: {
