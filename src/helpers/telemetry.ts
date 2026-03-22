@@ -27,7 +27,7 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
  * PostHog project API key (write-only, safe to embed in client code).
  * This key can only ingest events — it cannot read data or manage the project.
  */
-const POSTHOG_API_KEY = "phc_placeholder";
+const POSTHOG_API_KEY = "phc_gSnjpsvRfQggmgeXUgbevbG0SULK5rT9gTZ8m3yjknv";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
 // ---------------------------------------------------------------------------

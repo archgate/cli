@@ -23,6 +23,12 @@ import {
   flushSentry,
   initSentry,
 } from "./helpers/sentry";
+import {
+  flushTelemetry,
+  initTelemetry,
+  trackCommand,
+  trackCommandResult,
+} from "./helpers/telemetry";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
 if (typeof Bun === "undefined")
@@ -41,18 +47,28 @@ createPathIfNotExists(paths.cacheFolder);
 async function main() {
   await installGit();
 
-  // Initialize error tracking (no-op if opted out)
+  // Initialize error tracking and telemetry (no-ops if opted out)
   initSentry();
+  initTelemetry();
 
   const program = new Command()
     .name("archgate")
     .version(packageJson.version)
     .description("AI governance for software development");
 
-  // Add Sentry breadcrumb for each command execution
+  // Track command execution for Sentry breadcrumbs and PostHog analytics
+  let commandStartTime = 0;
   program.hook("preAction", (thisCommand) => {
     const fullCommand = getFullCommandName(thisCommand);
     addBreadcrumb("command", `Running: ${fullCommand}`);
+    trackCommand(fullCommand);
+    commandStartTime = performance.now();
+  });
+
+  program.hook("postAction", (thisCommand) => {
+    const fullCommand = getFullCommandName(thisCommand);
+    const durationMs = Math.round(performance.now() - commandStartTime);
+    trackCommandResult(fullCommand, 0, durationMs);
   });
 
   registerInitCommand(program);
@@ -74,8 +90,8 @@ async function main() {
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);
 
-  // Flush Sentry events before exit
-  await flushSentry();
+  // Flush telemetry and error tracking before exit
+  await Promise.all([flushTelemetry(), flushSentry()]);
 }
 
 /**
@@ -97,7 +113,7 @@ function getFullCommandName(command: Command): string {
 
 main().catch(async (err: unknown) => {
   captureException(err, { command: "main" });
-  await flushSentry();
+  await Promise.all([flushTelemetry(), flushSentry()]);
   logError(String(err));
   process.exit(2);
 });
