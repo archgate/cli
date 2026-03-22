@@ -17,7 +17,12 @@ import { installGit } from "./helpers/git";
 import { logError } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
 import { isSupportedPlatform } from "./helpers/platform";
-import { captureException, initSentry } from "./helpers/sentry";
+import {
+  addBreadcrumb,
+  captureException,
+  flushSentry,
+  initSentry,
+} from "./helpers/sentry";
 import {
   flushTelemetry,
   initTelemetry,
@@ -50,10 +55,11 @@ async function main() {
     .version(packageJson.version)
     .description("AI governance for software development");
 
-  // Track which command is being executed
+  // Track which command is being executed and add Sentry breadcrumb
   program.hook("preAction", (thisCommand) => {
     const fullCommand = getFullCommandName(thisCommand);
     trackCommand(fullCommand);
+    addBreadcrumb("command", `Running: ${fullCommand}`);
   });
 
   registerInitCommand(program);
@@ -75,8 +81,9 @@ async function main() {
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);
 
-  // Flush telemetry events (fire-and-forget, with timeout)
+  // Flush telemetry and Sentry events before exit
   await flushTelemetry();
+  await flushSentry();
 }
 
 /**
@@ -96,8 +103,9 @@ function getFullCommandName(command: Command): string {
   return parts.join(" ") || "root";
 }
 
-main().catch((err: unknown) => {
+main().catch(async (err: unknown) => {
   captureException(err, { command: "main" });
+  await flushSentry();
   logError(String(err));
   process.exit(2);
 });

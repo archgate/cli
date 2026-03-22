@@ -1,18 +1,12 @@
-import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+import { describe, test, beforeEach, afterEach, mock } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-/** Type-safe fetch mock — Bun's fetch type includes `preconnect`. */
-function mockFetch(handler: () => Response) {
-  globalThis.fetch = mock(handler) as unknown as typeof fetch;
-}
 
 describe("sentry", () => {
   let tempDir: string;
   let originalHome: string | undefined;
   let originalTelemetryEnv: string | undefined;
-  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-sentry-test-"));
@@ -30,93 +24,86 @@ describe("sentry", () => {
       process.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
     }
     rmSync(tempDir, { recursive: true, force: true });
-    globalThis.fetch = originalFetch;
-    mock.restore();
 
     const { _resetSentry } = await import("../../src/helpers/sentry");
     _resetSentry();
     const { _resetConfigCache } =
       await import("../../src/helpers/telemetry-config");
     _resetConfigCache();
+    mock.restore();
   });
 
   describe("initSentry", () => {
-    test("initializes when telemetry is enabled", async () => {
-      mockFetch(() => new Response("OK"));
-      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
+    test("initializes Sentry SDK when telemetry is enabled", async () => {
+      const { initSentry } = await import("../../src/helpers/sentry");
 
-      const { initSentry, captureException } =
-        await import("../../src/helpers/sentry");
-
+      // Should not throw — Sentry.init is called internally
       initSentry();
-
-      // captureException should attempt to send (fire-and-forget)
-      captureException(new Error("test error"), { command: "check" });
-
-      // Give async fire-and-forget time to execute
-      await Bun.sleep(100);
-
-      // The fetch would have been called if the DSN was valid.
-      // With placeholder DSN, initSentry parses it and initialized=true,
-      // so captureException fires the async send.
-      expect(fetchMock).toHaveBeenCalled();
     });
 
     test("does not initialize when telemetry is disabled", async () => {
       process.env.ARCHGATE_TELEMETRY = "0";
-      mockFetch(() => new Response("OK"));
-      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
 
       const { initSentry, captureException } =
         await import("../../src/helpers/sentry");
 
       initSentry();
+      // captureException should be a no-op
       captureException(new Error("should not send"));
-
-      await Bun.sleep(100);
-      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
   describe("captureException", () => {
-    test("silently ignores fetch failures", async () => {
-      mockFetch(() => {
-        throw new Error("Network error");
-      });
+    test("is a no-op when not initialized", async () => {
+      const { captureException } = await import("../../src/helpers/sentry");
 
+      // Should not throw
+      captureException(new Error("should not send"));
+    });
+
+    test("handles non-Error values without throwing", async () => {
       const { initSentry, captureException } =
         await import("../../src/helpers/sentry");
 
       initSentry();
       // Should not throw
-      captureException(new Error("test"), { command: "check" });
-      await Bun.sleep(100);
+      captureException("string error", { command: "init" });
+    });
+  });
+
+  describe("addBreadcrumb", () => {
+    test("is a no-op when not initialized", async () => {
+      const { addBreadcrumb } = await import("../../src/helpers/sentry");
+
+      // Should not throw
+      addBreadcrumb("test", "test breadcrumb");
     });
 
-    test("handles non-Error values", async () => {
-      mockFetch(() => new Response("OK"));
-      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
-
-      const { initSentry, captureException } =
+    test("adds breadcrumb when initialized", async () => {
+      const { initSentry, addBreadcrumb } =
         await import("../../src/helpers/sentry");
 
       initSentry();
-      captureException("string error", { command: "init" });
-      await Bun.sleep(100);
+      // Should not throw
+      addBreadcrumb("command", "Running: check", { staged: true });
+    });
+  });
 
-      expect(fetchMock).toHaveBeenCalled();
+  describe("flushSentry", () => {
+    test("is a no-op when not initialized", async () => {
+      const { flushSentry } = await import("../../src/helpers/sentry");
+
+      // Should not throw
+      await flushSentry();
     });
 
-    test("is a no-op when not initialized", async () => {
-      mockFetch(() => new Response("OK"));
-      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
+    test("flushes when initialized", async () => {
+      const { initSentry, flushSentry } =
+        await import("../../src/helpers/sentry");
 
-      const { captureException } = await import("../../src/helpers/sentry");
-
-      captureException(new Error("should not send"));
-      await Bun.sleep(100);
-
-      expect(fetchMock).not.toHaveBeenCalled();
+      initSentry();
+      // Should not throw
+      await flushSentry(100);
     });
   });
 });

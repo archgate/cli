@@ -1,15 +1,19 @@
 /**
- * sentry.ts — Error tracking via Sentry HTTP envelope API.
+ * sentry.ts — Error tracking via @sentry/bun SDK.
  *
- * No SDK dependency — uses fetch() to POST error envelopes directly to
- * Sentry's envelope endpoint. This keeps the binary lean (ARCH-006) while
- * providing crash reporting for exit-code-2 errors.
+ * Uses the official Sentry SDK for Bun to capture errors with full
+ * breadcrumb context. Breadcrumbs are added throughout CLI execution
+ * (command start, config loading, rule checks, etc.) so that crash
+ * reports include the sequence of operations leading to the failure.
  *
  * IP anonymization: the Sentry project has "Prevent Storing of IP Addresses"
- * enabled server-side. The CLI also omits user.ip_address from the payload.
+ * enabled server-side.
  *
- * All network calls are fire-and-forget: failures never affect CLI behavior.
+ * Sentry is only initialized when telemetry is enabled. All Sentry calls
+ * are wrapped to never affect CLI behavior or exit codes.
  */
+
+import * as Sentry from "@sentry/bun";
 
 import { logDebug } from "./log";
 import { getPlatformInfo } from "./platform";
@@ -21,91 +25,18 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
 
 /**
  * Sentry DSN (write-only ingest URL, safe to embed in client code).
- * Format: https://<key>@<host>/<project_id>
  */
 const SENTRY_DSN =
   "https://bb693c2cbc4238dbcd6efac609062402@o4511085517340672.ingest.de.sentry.io/4511085521469520";
-
-/** Maximum time to wait for the Sentry request (ms). */
-const SENTRY_TIMEOUT_MS = 5_000;
-
-// ---------------------------------------------------------------------------
-// DSN parsing
-// ---------------------------------------------------------------------------
-
-interface ParsedDSN {
-  publicKey: string;
-  host: string;
-  projectId: string;
-}
-
-function parseDSN(dsn: string): ParsedDSN | null {
-  try {
-    const url = new URL(dsn);
-    const publicKey = url.username;
-    const projectId = url.pathname.replace("/", "");
-    const host = `${url.protocol}//${url.host}`;
-    if (!publicKey || !projectId) return null;
-    return { publicKey, host, projectId };
-  } catch {
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
 let initialized = false;
-let parsedDSN: ParsedDSN | null = null;
 
 // ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Initialize Sentry error tracking. Call once at CLI startup.
- * No-op if telemetry is disabled.
- */
-export function initSentry(): void {
-  if (!isTelemetryEnabled()) {
-    logDebug("Sentry disabled — telemetry is off");
-    return;
-  }
-
-  parsedDSN = parseDSN(SENTRY_DSN);
-  if (!parsedDSN) {
-    logDebug("Sentry disabled — invalid DSN");
-    return;
-  }
-
-  initialized = true;
-  logDebug("Sentry initialized");
-}
-
-/**
- * Capture an exception and send it to Sentry.
- * Fire-and-forget: errors are silently swallowed.
- *
- * @param error The error to capture
- * @param context Optional extra context (command name, options, etc.)
- */
-export function captureException(
-  error: unknown,
-  context?: Record<string, unknown>
-): void {
-  if (!initialized || !parsedDSN) return;
-
-  const err = error instanceof Error ? error : new Error(String(error));
-
-  // Build and send envelope asynchronously — never block the CLI
-  sendErrorEnvelope(err, context).catch(() => {
-    logDebug("Sentry capture failed (silently ignored)");
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Envelope construction
 // ---------------------------------------------------------------------------
 
 function getCliVersion(): string {
@@ -118,165 +49,126 @@ function getCliVersion(): string {
 }
 
 /**
- * Build and send a Sentry error envelope via the HTTP API.
- *
- * Envelope format: https://develop.sentry.dev/sdk/envelopes/
- * Each line is a JSON object, separated by newlines:
- *   1. Envelope header (event_id, dsn, sent_at)
- *   2. Item header (type, content_type, length)
- *   3. Item payload (the error event)
+ * Initialize Sentry error tracking. Call once at CLI startup.
+ * No-op if telemetry is disabled.
  */
-async function sendErrorEnvelope(
-  error: Error,
-  context?: Record<string, unknown>
-): Promise<void> {
-  if (!parsedDSN) return;
+export function initSentry(): void {
+  if (!isTelemetryEnabled()) {
+    logDebug("Sentry disabled — telemetry is off");
+    return;
+  }
 
-  const eventId = generateEventId();
   const cliVersion = getCliVersion();
-  const installId = getInstallId();
   const { runtime } = getPlatformInfo();
 
-  const event = {
-    event_id: eventId,
-    timestamp: Date.now() / 1000,
-    platform: "javascript",
-    level: "error",
-    release: `archgate@${cliVersion}`,
-    environment: process.env.NODE_ENV ?? "production",
-    server_name: undefined, // explicitly omit hostname
-    user: {
-      id: installId,
-      // No ip_address — server-side stripping handles this
-    },
-    contexts: {
-      runtime: {
-        name: "bun",
-        // oxlint-disable-next-line no-negated-condition -- Bun availability check requires typeof guard
-        version: typeof Bun !== "undefined" ? Bun.version : "unknown",
-      },
-      os: { name: runtime, machine: process.arch },
-      cli: {
-        ...context,
-        is_ci: Boolean(process.env.CI),
-        is_tty: Boolean(process.stdout.isTTY),
-      },
-    },
-    exception: {
-      values: [
-        {
-          type: error.name,
-          value: error.message,
-          stacktrace: error.stack ? parseStacktrace(error.stack) : undefined,
+  try {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      release: `archgate@${cliVersion}`,
+      environment: process.env.NODE_ENV ?? "production",
+      // Do not send default PII (hostnames, IPs, etc.)
+      sendDefaultPii: false,
+      // Enable tracing so sentry-trace headers propagate to the plugins service
+      tracesSampleRate: 1.0,
+      // Propagate traces to the plugins API for distributed tracing
+      tracePropagationTargets: ["plugins.archgate.dev"],
+      // Set the anonymous install ID as the user
+      initialScope: {
+        user: { id: getInstallId() },
+        tags: {
+          cli_version: cliVersion,
+          os: runtime,
+          arch: process.arch,
+          is_ci: String(Boolean(process.env.CI)),
+          is_tty: String(Boolean(process.stdout.isTTY)),
         },
-      ],
-    },
-    tags: { cli_version: cliVersion, os: runtime, arch: process.arch },
-  };
-
-  const eventJson = JSON.stringify(event);
-
-  // Envelope: header \n item-header \n item-payload
-  const envelopeHeader = JSON.stringify({
-    event_id: eventId,
-    dsn: SENTRY_DSN,
-    sent_at: new Date().toISOString(),
-    sdk: { name: "archgate-cli", version: cliVersion },
-  });
-
-  const itemHeader = JSON.stringify({
-    type: "event",
-    content_type: "application/json",
-    length: Buffer.byteLength(eventJson),
-  });
-
-  const envelope = `${envelopeHeader}\n${itemHeader}\n${eventJson}`;
-
-  const envelopeUrl = `${parsedDSN.host}/api/${parsedDSN.projectId}/envelope/`;
-
-  await fetch(envelopeUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-sentry-envelope",
-      "X-Sentry-Auth": `Sentry sentry_version=7, sentry_client=archgate-cli/${cliVersion}, sentry_key=${parsedDSN.publicKey}`,
-    },
-    body: envelope,
-    signal: AbortSignal.timeout(SENTRY_TIMEOUT_MS),
-  });
-
-  logDebug("Sentry event sent:", eventId);
-}
-
-// ---------------------------------------------------------------------------
-// Stack trace parsing
-// ---------------------------------------------------------------------------
-
-interface SentryFrame {
-  filename?: string;
-  function?: string;
-  lineno?: number;
-  colno?: number;
-  in_app?: boolean;
-}
-
-/**
- * Parse a V8/Bun stack trace string into Sentry frame format.
- * Strips absolute paths to relative for privacy.
- */
-function parseStacktrace(stack: string): { frames: SentryFrame[] } {
-  const frames: SentryFrame[] = [];
-  const lines = stack.split("\n");
-
-  for (const line of lines) {
-    const match = line.match(/^\s+at\s+(?:(.+?)\s+)?\(?(.+?):(\d+):(\d+)\)?$/);
-    if (!match) continue;
-
-    const [, fn, filepath, lineStr, colStr] = match;
-
-    // Strip absolute paths — keep only the relative part from src/ or tests/
-    const relPath = stripToRelativePath(filepath ?? "");
-
-    frames.push({
-      filename: relPath,
-      function: fn ?? "<anonymous>",
-      lineno: Number(lineStr),
-      colno: Number(colStr),
-      in_app: relPath.startsWith("src/") || relPath.startsWith("tests/"),
+        contexts: {
+          runtime: {
+            name: "bun",
+            // oxlint-disable-next-line no-negated-condition -- Bun availability check requires typeof guard
+            version: typeof Bun !== "undefined" ? Bun.version : "unknown",
+          },
+        },
+      },
+      // Keep default integrations including Http/Undici for distributed tracing
+      // (sentry-trace headers are auto-injected into fetch calls matching
+      // tracePropagationTargets above)
+      // Limit breadcrumbs to keep payloads small
+      maxBreadcrumbs: 50,
     });
-  }
 
-  // Sentry expects frames in caller-first order (reversed from stack trace)
-  return { frames: frames.reverse() };
+    initialized = true;
+    logDebug("Sentry initialized");
+  } catch {
+    logDebug("Sentry init failed (silently ignored)");
+  }
 }
 
 /**
- * Strip an absolute file path to a relative path from the project root.
- * E.g., /home/user/project/src/cli.ts → src/cli.ts
+ * Add a breadcrumb to the current Sentry scope.
+ * Breadcrumbs are attached to the next error event, providing context
+ * about the sequence of operations leading to a crash.
+ *
+ * @param category Short category name (e.g., "command", "config", "check")
+ * @param message Human-readable description
+ * @param data Optional structured data
+ * @param level Breadcrumb severity level (default: "info")
  */
-function stripToRelativePath(filepath: string): string {
-  // Match common project path segments
-  const markers = ["/src/", "/tests/", "/node_modules/"];
-  for (const marker of markers) {
-    const idx = filepath.lastIndexOf(marker);
-    if (idx !== -1) return filepath.slice(idx + 1);
+export function addBreadcrumb(
+  category: string,
+  message: string,
+  data?: Record<string, unknown>,
+  level: "debug" | "info" | "warning" | "error" = "info"
+): void {
+  if (!initialized) return;
+
+  try {
+    Sentry.addBreadcrumb({
+      category,
+      message,
+      data,
+      level,
+      timestamp: Date.now() / 1000,
+    });
+  } catch {
+    // Never let breadcrumb failures affect CLI behavior
   }
-  // Fallback: use the last path component
-  const lastSlash = Math.max(
-    filepath.lastIndexOf("/"),
-    filepath.lastIndexOf("\\")
-  );
-  return lastSlash === -1 ? filepath : filepath.slice(lastSlash + 1);
 }
 
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
+/**
+ * Capture an exception and send it to Sentry.
+ *
+ * @param error The error to capture
+ * @param context Optional extra context (command name, options, etc.)
+ */
+export function captureException(
+  error: unknown,
+  context?: Record<string, unknown>
+): void {
+  if (!initialized) return;
 
-/** Generate a 32-character hex event ID (Sentry format). */
-function generateEventId(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  try {
+    Sentry.captureException(error, { contexts: { cli: context } });
+  } catch {
+    logDebug("Sentry capture failed (silently ignored)");
+  }
+}
+
+/**
+ * Flush pending Sentry events. Call before process exit to ensure
+ * error events are sent.
+ *
+ * @param timeoutMs Maximum time to wait for flush (default: 2000ms)
+ */
+export async function flushSentry(timeoutMs = 2000): Promise<void> {
+  if (!initialized) return;
+
+  try {
+    await Sentry.flush(timeoutMs);
+    logDebug("Sentry flushed");
+  } catch {
+    logDebug("Sentry flush failed (silently ignored)");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -285,6 +177,8 @@ function generateEventId(): string {
 
 /** Reset Sentry state. For testing only. */
 export function _resetSentry(): void {
+  if (initialized) {
+    Sentry.close();
+  }
   initialized = false;
-  parsedDSN = null;
 }
