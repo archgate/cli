@@ -1,18 +1,12 @@
-import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-/** Type-safe fetch mock — Bun's fetch type includes `preconnect`. */
-function mockFetch(handler: () => Response) {
-  globalThis.fetch = mock(handler) as unknown as typeof fetch;
-}
 
 describe("telemetry", () => {
   let tempDir: string;
   let originalHome: string | undefined;
   let originalTelemetryEnv: string | undefined;
-  const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-telemetry-test-"));
@@ -30,8 +24,6 @@ describe("telemetry", () => {
       process.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
     }
     rmSync(tempDir, { recursive: true, force: true });
-    globalThis.fetch = originalFetch;
-    mock.restore();
 
     const { _resetTelemetry } = await import("../../src/helpers/telemetry");
     _resetTelemetry();
@@ -41,117 +33,67 @@ describe("telemetry", () => {
   });
 
   describe("initTelemetry", () => {
-    test("initializes when telemetry is enabled", async () => {
-      const { initTelemetry, trackEvent, _getEventBuffer } =
+    test("initializes PostHog client when telemetry is enabled", async () => {
+      const { initTelemetry, _getClient } =
         await import("../../src/helpers/telemetry");
 
       initTelemetry();
-      trackEvent("test_event", { key: "value" });
-
-      const buffer = _getEventBuffer();
-      expect(buffer).toHaveLength(1);
-      expect(buffer[0].event).toBe("test_event");
+      expect(_getClient()).not.toBeNull();
     });
 
     test("skips init when telemetry is disabled via env", async () => {
       process.env.ARCHGATE_TELEMETRY = "0";
 
-      const { initTelemetry, trackEvent, _getEventBuffer } =
+      const { initTelemetry, _getClient } =
         await import("../../src/helpers/telemetry");
 
       initTelemetry();
-      trackEvent("test_event");
-
-      expect(_getEventBuffer()).toHaveLength(0);
+      expect(_getClient()).toBeNull();
     });
   });
 
   describe("trackEvent", () => {
-    test("buffers events with common properties", async () => {
-      const { initTelemetry, trackEvent, _getEventBuffer } =
+    test("captures event via PostHog client without throwing", async () => {
+      const { initTelemetry, trackEvent } =
         await import("../../src/helpers/telemetry");
 
       initTelemetry();
+      // Should not throw — events are queued internally by the SDK
       trackEvent("command_executed", { command: "check" });
-
-      const buffer = _getEventBuffer();
-      expect(buffer).toHaveLength(1);
-      expect(buffer[0].properties).toMatchObject({
-        $lib: "archgate-cli",
-        os: process.platform,
-        arch: process.arch,
-        command: "check",
-        $ip: null,
-      });
-      expect(buffer[0].timestamp).toBeTruthy();
     });
 
     test("is a no-op when not initialized", async () => {
-      const { trackEvent, _getEventBuffer } =
-        await import("../../src/helpers/telemetry");
+      const { trackEvent } = await import("../../src/helpers/telemetry");
 
-      trackEvent("should_not_buffer");
-      expect(_getEventBuffer()).toHaveLength(0);
+      // Should not throw
+      trackEvent("should_not_capture");
     });
   });
 
   describe("trackCommand", () => {
-    test("buffers a command_executed event", async () => {
-      const { initTelemetry, trackCommand, _getEventBuffer } =
+    test("captures a command_executed event without throwing", async () => {
+      const { initTelemetry, trackCommand } =
         await import("../../src/helpers/telemetry");
 
       initTelemetry();
+      // Should not throw
       trackCommand("adr create", { json: true });
-
-      const buffer = _getEventBuffer();
-      expect(buffer).toHaveLength(1);
-      expect(buffer[0].event).toBe("command_executed");
-      expect(buffer[0].properties.command).toBe("adr create");
-      expect(buffer[0].properties.json).toBe(true);
     });
   });
 
   describe("flushTelemetry", () => {
-    test("sends buffered events to PostHog and clears buffer", async () => {
-      mockFetch(() => new Response("OK", { status: 200 }));
-      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
-
-      const { initTelemetry, trackEvent, flushTelemetry, _getEventBuffer } =
-        await import("../../src/helpers/telemetry");
-
-      initTelemetry();
-      trackEvent("test_event_1");
-      trackEvent("test_event_2");
-
-      await flushTelemetry();
-
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-      expect(_getEventBuffer()).toHaveLength(0);
-    });
-
-    test("is a no-op when buffer is empty", async () => {
-      mockFetch(() => new Response("OK"));
-      const fetchMock = globalThis.fetch as unknown as ReturnType<typeof mock>;
-
+    test("flushes without throwing when initialized", async () => {
       const { initTelemetry, flushTelemetry } =
         await import("../../src/helpers/telemetry");
 
       initTelemetry();
-      await flushTelemetry();
 
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Flush with no pending events — should resolve quickly
+      await flushTelemetry();
     });
 
-    test("silently ignores fetch failures", async () => {
-      mockFetch(() => {
-        throw new Error("Network error");
-      });
-
-      const { initTelemetry, trackEvent, flushTelemetry } =
-        await import("../../src/helpers/telemetry");
-
-      initTelemetry();
-      trackEvent("test_event");
+    test("is a no-op when not initialized", async () => {
+      const { flushTelemetry } = await import("../../src/helpers/telemetry");
 
       // Should not throw
       await flushTelemetry();

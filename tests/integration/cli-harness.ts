@@ -29,7 +29,13 @@ export async function runCli(
     cwd,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env, NO_COLOR: "1", CI: "1", ...env },
+    env: {
+      ...process.env,
+      NO_COLOR: "1",
+      CI: "1",
+      ARCHGATE_TELEMETRY: "0",
+      ...env,
+    },
   });
 
   const [stdout, stderr, exitCode] = await Promise.all([

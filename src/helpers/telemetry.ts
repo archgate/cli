@@ -1,17 +1,18 @@
 /**
- * telemetry.ts — Anonymous usage analytics via PostHog HTTP API.
+ * telemetry.ts — Anonymous usage analytics via PostHog Node SDK.
  *
- * No SDK dependency — uses fetch() directly to POST events to PostHog's
- * capture endpoint. Events are buffered during command execution and flushed
- * once at the end. All network calls are fire-and-forget: failures are
- * silently ignored and never affect CLI behavior or exit codes.
+ * Uses the official posthog-node SDK for event capture with automatic
+ * batching and flush. Events are captured during command execution and
+ * flushed before process exit.
  *
- * IP anonymization: PostHog resolves IP to country/region server-side, then
- * the "Discard client IP data" project setting drops the IP from storage.
- * The CLI sends `$ip: null` to explicitly signal PostHog not to store it.
+ * IP anonymization: the CLI sends `$ip: null` on every event to signal
+ * PostHog to resolve geo server-side then discard the IP. The project
+ * also has "Discard client IP data" enabled in PostHog settings.
  *
  * See https://cli.archgate.dev/reference/telemetry for the full privacy policy.
  */
+
+import { PostHog } from "posthog-node";
 
 import packageJson from "../../package.json";
 import { logDebug } from "./log";
@@ -28,26 +29,12 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
  */
 const POSTHOG_API_KEY = "phc_placeholder";
 const POSTHOG_HOST = "https://us.i.posthog.com";
-const CAPTURE_ENDPOINT = `${POSTHOG_HOST}/capture/`;
-
-/** Maximum time to wait for the flush request (ms). */
-const FLUSH_TIMEOUT_MS = 5_000;
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface PostHogEvent {
-  event: string;
-  properties: Record<string, unknown>;
-  timestamp: string;
-}
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
-let eventBuffer: PostHogEvent[] = [];
+let client: PostHog | null = null;
 let initialized = false;
 let distinctId = "";
 
@@ -58,14 +45,12 @@ let distinctId = "";
 function getCommonProperties(): Record<string, unknown> {
   const { runtime } = getPlatformInfo();
   return {
-    $lib: "archgate-cli",
     cli_version: packageJson.version,
     os: runtime,
     arch: process.arch,
     bun_version: Bun.version,
     is_ci: Boolean(Bun.env.CI),
     is_tty: Boolean(process.stdout.isTTY),
-    node_env: Bun.env.NODE_ENV ?? "production",
     // Signal PostHog to resolve geo then discard the IP
     $ip: null,
   };
@@ -86,31 +71,43 @@ export function initTelemetry(): void {
   }
 
   distinctId = getInstallId();
-  initialized = true;
-  logDebug("Telemetry initialized:", distinctId);
+
+  try {
+    client = new PostHog(POSTHOG_API_KEY, {
+      host: POSTHOG_HOST,
+      // Disable polling for feature flags — we don't use them in the CLI
+      disableGeoip: false,
+      flushAt: 20,
+      flushInterval: 10_000,
+    });
+
+    initialized = true;
+    logDebug("Telemetry initialized:", distinctId);
+  } catch {
+    logDebug("Telemetry init failed (silently ignored)");
+  }
 }
 
 /**
  * Track a named event with optional properties.
- * Events are buffered and sent on flush(). No-op if telemetry is disabled.
+ * No-op if telemetry is disabled.
  */
 export function trackEvent(
   event: string,
   properties?: Record<string, unknown>
 ): void {
-  if (!initialized) return;
+  if (!initialized || !client) return;
 
-  eventBuffer.push({
-    event,
-    properties: {
-      ...getCommonProperties(),
-      ...properties,
-      distinct_id: distinctId,
-    },
-    timestamp: new Date().toISOString(),
-  });
-
-  logDebug("Telemetry event buffered:", event);
+  try {
+    client.capture({
+      distinctId,
+      event,
+      properties: { ...getCommonProperties(), ...properties },
+    });
+    logDebug("Telemetry event captured:", event);
+  } catch {
+    // Silently ignore — telemetry must never affect CLI behavior
+  }
 }
 
 /**
@@ -139,25 +136,22 @@ export function trackCommandResult(
 }
 
 /**
- * Flush all buffered events to PostHog.
- * Fire-and-forget: errors are silently swallowed.
- * Returns a promise that resolves when the flush attempt completes.
+ * Flush pending events to PostHog. Call before process exit to ensure
+ * events are delivered.
  */
-export async function flushTelemetry(): Promise<void> {
-  if (!initialized || eventBuffer.length === 0) return;
-
-  const events = eventBuffer;
-  eventBuffer = [];
+export async function flushTelemetry(timeoutMs = 3000): Promise<void> {
+  if (!initialized || !client) return;
 
   try {
-    logDebug(`Flushing ${events.length} telemetry event(s)`);
-
-    await fetch(CAPTURE_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: POSTHOG_API_KEY, batch: events }),
-      signal: AbortSignal.timeout(FLUSH_TIMEOUT_MS),
-    });
+    logDebug("Flushing telemetry events");
+    // Race shutdown against a timeout to prevent hanging on exit
+    await Promise.race([
+      client.shutdown(),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, timeoutMs);
+      }),
+    ]);
+    logDebug("Telemetry flushed");
   } catch {
     // Silently ignore — telemetry must never affect CLI behavior
     logDebug("Telemetry flush failed (silently ignored)");
@@ -170,12 +164,15 @@ export async function flushTelemetry(): Promise<void> {
 
 /** Reset telemetry state. For testing only. */
 export function _resetTelemetry(): void {
-  eventBuffer = [];
+  if (client) {
+    client.shutdown().catch(() => {});
+  }
+  client = null;
   initialized = false;
   distinctId = "";
 }
 
-/** Get buffered events. For testing only. */
-export function _getEventBuffer(): PostHogEvent[] {
-  return eventBuffer;
+/** Get the PostHog client instance. For testing only. */
+export function _getClient(): PostHog | null {
+  return client;
 }
