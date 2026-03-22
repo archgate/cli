@@ -1,3 +1,13 @@
+## [0.18.0](https://github.com/archgate/cli/compare/v0.17.2...v0.18.0) (2026-03-22)
+
+### Features
+
+* add anonymous telemetry and error tracking ([#135](https://github.com/archgate/cli/issues/135)) ([fadfcb1](https://github.com/archgate/cli/commit/fadfcb19a87aef931702bb81abd4b4385ebae5d5))
+
+### Bug Fixes
+
+* **ci:** skip release PR validation when branch missing ([#133](https://github.com/archgate/cli/issues/133)) ([d424244](https://github.com/archgate/cli/commit/d4242442d762e63bcf0e997e605b4a283632601f))
+
 ## [0.17.2](https://github.com/archgate/cli/compare/v0.17.1...v0.17.2) (2026-03-21)
 
 ### Bug Fixes
