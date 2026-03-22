@@ -24,7 +24,7 @@
       "matchFileNames": ["package.json"],
       "matchDepTypes": ["devDependencies"],
       "matchUpdateTypes": ["minor", "patch"],
-      "excludePackageNames": ["@types/bun"]
+      "matchPackageNames": ["!@types/bun"]
     },
     {
       "description": "Group all docs dependencies (Astro, Starlight, etc.) into a single PR",
