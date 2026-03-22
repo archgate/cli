@@ -11,23 +11,11 @@ import { registerLoginCommand } from "./commands/login";
 import { registerPluginCommand } from "./commands/plugin/index";
 import { registerReviewContextCommand } from "./commands/review-context";
 import { registerSessionContextCommand } from "./commands/session-context/index";
-import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { installGit } from "./helpers/git";
 import { logError } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
 import { isSupportedPlatform } from "./helpers/platform";
-import {
-  addBreadcrumb,
-  captureException,
-  flushSentry,
-  initSentry,
-} from "./helpers/sentry";
-import {
-  flushTelemetry,
-  initTelemetry,
-  trackCommand,
-} from "./helpers/telemetry";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
 if (typeof Bun === "undefined")
@@ -46,21 +34,10 @@ createPathIfNotExists(paths.cacheFolder);
 async function main() {
   await installGit();
 
-  // Initialize telemetry and error tracking (no-op if opted out)
-  initTelemetry();
-  initSentry();
-
   const program = new Command()
     .name("archgate")
     .version(packageJson.version)
     .description("AI governance for software development");
-
-  // Track which command is being executed and add Sentry breadcrumb
-  program.hook("preAction", (thisCommand) => {
-    const fullCommand = getFullCommandName(thisCommand);
-    trackCommand(fullCommand);
-    addBreadcrumb("command", `Running: ${fullCommand}`);
-  });
 
   registerInitCommand(program);
   registerLoginCommand(program);
@@ -71,7 +48,6 @@ async function main() {
   registerPluginCommand(program);
   registerUpgradeCommand(program);
   registerCleanCommand(program);
-  registerTelemetryCommand(program);
 
   const isUpgrade = process.argv.includes("upgrade");
   const updateCheckPromise = isUpgrade
@@ -80,32 +56,9 @@ async function main() {
   await program.parseAsync(process.argv);
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);
-
-  // Flush telemetry and Sentry events before exit
-  await flushTelemetry();
-  await flushSentry();
 }
 
-/**
- * Reconstruct the full command name from Commander's command chain.
- * E.g., "adr create" from the "create" subcommand of "adr".
- */
-function getFullCommandName(command: Command): string {
-  const parts: string[] = [];
-  let current: Command | null = command;
-  while (current) {
-    const name = current.name();
-    if (name && name !== "archgate") {
-      parts.unshift(name);
-    }
-    current = current.parent as Command | null;
-  }
-  return parts.join(" ") || "root";
-}
-
-main().catch(async (err: unknown) => {
-  captureException(err, { command: "main" });
-  await flushSentry();
+main().catch((err: unknown) => {
   logError(String(err));
   process.exit(2);
 });

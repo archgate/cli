@@ -1,10 +1,10 @@
 /**
- * sentry.ts — Error tracking via @sentry/bun SDK.
+ * sentry.ts — Error tracking via @sentry/node-core light mode.
  *
- * Uses the official Sentry SDK for Bun to capture errors with full
- * breadcrumb context. Breadcrumbs are added throughout CLI execution
- * (command start, config loading, rule checks, etc.) so that crash
- * reports include the sequence of operations leading to the failure.
+ * Uses Sentry's lightweight "light" SDK variant which excludes all
+ * OpenTelemetry auto-instrumentation — ideal for a CLI that only needs
+ * error capture with breadcrumbs. This avoids pulling in 600+ modules
+ * of OTel instrumentation for MongoDB, Redis, Express, etc.
  *
  * IP anonymization: the Sentry project has "Prevent Storing of IP Addresses"
  * enabled server-side.
@@ -15,7 +15,7 @@
 
 import { join } from "node:path";
 
-import * as Sentry from "@sentry/bun";
+import * as Sentry from "@sentry/node-core/light";
 
 import packageJson from "../../package.json";
 import { logDebug } from "./log";
@@ -83,10 +83,6 @@ export function initSentry(): void {
       environment: Bun.env.NODE_ENV ?? "production",
       // Do not send default PII (hostnames, IPs, etc.)
       sendDefaultPii: false,
-      // Enable tracing so sentry-trace headers propagate to the plugins service
-      tracesSampleRate: 1.0,
-      // Propagate traces to the plugins API for distributed tracing
-      tracePropagationTargets: ["plugins.archgate.dev"],
       // Set the anonymous install ID as the user
       initialScope: {
         user: { id: getInstallId() },
@@ -101,9 +97,6 @@ export function initSentry(): void {
         },
         contexts: { runtime: { name: "bun", version: Bun.version } },
       },
-      // Keep default integrations including Http/Undici for distributed tracing
-      // (sentry-trace headers are auto-injected into fetch calls matching
-      // tracePropagationTargets above)
       // Limit breadcrumbs to keep payloads small
       maxBreadcrumbs: 50,
     });
