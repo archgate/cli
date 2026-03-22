@@ -19,7 +19,7 @@
 
 import { chmodSync, unlinkSync } from "node:fs";
 
-import { logDebug } from "./log";
+import { logDebug, logWarn } from "./log";
 import { internalPath, createPathIfNotExists } from "./paths";
 
 const CREDENTIAL_HOST = "plugins.archgate.dev";
@@ -186,7 +186,10 @@ export async function saveCredentials(
     logDebug("git credential approve failed — token may not be persisted");
   }
 
-  // Store metadata in ~/.archgate/credentials (for `login status` display)
+  // Store metadata in ~/.archgate/credentials (for `login status` display).
+  // DEPRECATED: The token is also written to this file as a fallback for systems
+  // without a git credential manager. In the next major version, only metadata
+  // (github_user, created_at) will be written — the token field will be removed.
   createPathIfNotExists(internalPath());
   const filePath = metadataPath();
   await Bun.write(filePath, JSON.stringify(credentials, null, 2) + "\n");
@@ -229,8 +232,15 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     };
   }
 
-  // Fall back to token in the file (legacy plaintext storage)
+  // DEPRECATED: Fall back to token in the plaintext file (legacy storage).
+  // This fallback will be removed in the next major version. Users on systems
+  // without a git credential manager should run `archgate login refresh` to
+  // migrate their token to the credential manager.
   if (!data.token) return null;
+  logWarn(
+    "Token loaded from plaintext file (deprecated).",
+    "Run `archgate login refresh` to migrate to secure credential storage."
+  );
   return data;
 }
 
