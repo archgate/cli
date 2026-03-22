@@ -83,18 +83,6 @@ A variável de ambiente tem prioridade sobre a configuração da CLI. Se `ARCHGA
 - **Rastreamento de erros**: Sentry Cloud (região dos EUA). Eventos de erro retidos por 90 dias.
 - **Configuração local**: `~/.archgate/config.json` armazena sua preferência de telemetria e o ID de instalação anônimo.
 
-## Aviso de primeira execução
-
-Na primeira execução, o Archgate exibe um aviso único no stderr:
-
-```
-Archgate collects anonymous usage data to improve the CLI.
-Disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
-Learn more: https://cli.archgate.dev/reference/telemetry
-```
-
-Este aviso é exibido uma única vez e não aparece novamente.
-
 ## Código aberto
 
 A implementação da telemetria é totalmente open source. Você pode inspecionar exatamente quais dados são coletados lendo:

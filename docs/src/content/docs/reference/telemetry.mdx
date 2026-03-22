@@ -83,18 +83,6 @@ The environment variable takes precedence over the CLI setting. If `ARCHGATE_TEL
 - **Error tracking**: Sentry Cloud (US region). Error events retained for 90 days.
 - **Local config**: `~/.archgate/config.json` stores your telemetry preference and anonymous install ID.
 
-## First-run notice
-
-On first run, Archgate displays a one-time notice to stderr:
-
-```
-Archgate collects anonymous usage data to improve the CLI.
-Disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
-Learn more: https://cli.archgate.dev/reference/telemetry
-```
-
-This notice is shown once and does not appear again.
-
 ## Open source
 
 The telemetry implementation is fully open source. You can inspect exactly what data is collected by reading:

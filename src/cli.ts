@@ -23,7 +23,6 @@ import {
   initTelemetry,
   trackCommand,
 } from "./helpers/telemetry";
-import { showTelemetryNotice } from "./helpers/telemetry-notice";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
 if (typeof Bun === "undefined")
@@ -45,7 +44,6 @@ async function main() {
   // Initialize telemetry and error tracking (no-op if opted out)
   initTelemetry();
   initSentry();
-  showTelemetryNotice();
 
   const program = new Command()
     .name("archgate")
