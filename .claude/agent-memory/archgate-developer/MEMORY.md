@@ -57,6 +57,10 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - **Gitignore and prettierignore rules** — `packages/*/bin/archgate` is gitignored (binary injected by CI); `packages/*/bin/` is prettier-ignored (binary files must not be formatted).
 - **npm OIDC publishing** — Uses `id-token: write` permission + `actions/setup-node@v4` with `registry-url: 'https://registry.npmjs.org'`. No `NODE_AUTH_TOKEN` secret needed for OIDC trusted publishing — matches the pattern in `release.yml`.
 
+## Telemetry Strategy
+
+- [Telemetry & Analytics Strategy](project_telemetry_strategy.md) — Decisions on PostHog analytics, Sentry error tracking, plugin surveys (2026-03-22)
+
 ## MCP Tools Structure
 
 - MCP tools live in `src/mcp/tools/` — one file per tool (check, list-adrs, review-context, claude-code-session-context, cursor-session-context)

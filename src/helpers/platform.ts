@@ -35,13 +35,13 @@ export function getPlatformInfo(): PlatformInfo {
   }
 
   // Check WSL2 env vars first (fastest)
-  const distroName = process.env.WSL_DISTRO_NAME;
+  const distroName = Bun.env.WSL_DISTRO_NAME;
   if (distroName) {
     cachedPlatformInfo = { runtime, isWSL: true, wslDistro: distroName };
     return cachedPlatformInfo;
   }
 
-  if (process.env.WSL_INTEROP) {
+  if (Bun.env.WSL_INTEROP) {
     cachedPlatformInfo = { runtime, isWSL: true, wslDistro: null };
     return cachedPlatformInfo;
   }

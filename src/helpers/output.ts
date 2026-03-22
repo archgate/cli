@@ -12,7 +12,7 @@
  * stdout is not a TTY AND not running in a CI environment.
  */
 export function isAgentContext(): boolean {
-  return !process.stdout.isTTY && !process.env.CI;
+  return !process.stdout.isTTY && !Bun.env.CI;
 }
 
 /**

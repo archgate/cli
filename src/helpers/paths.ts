@@ -5,9 +5,9 @@ import { join, dirname } from "node:path";
 import { logDebug } from "./log";
 
 export function internalPath(...path: string[]) {
-  // Use process.env.HOME/USERPROFILE first (testable via env override),
+  // Use Bun.env.HOME/USERPROFILE first (testable via env override),
   // fall back to os.homedir() which handles platform-specific resolution.
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? homedir();
+  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? homedir();
   const internalFolder = join(home, ".archgate");
   return join(internalFolder, ...path);
 }
