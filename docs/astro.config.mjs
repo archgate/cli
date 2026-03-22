@@ -177,7 +177,7 @@ export default defineConfig({
             applicationCategory: "DeveloperApplication",
             applicationSubCategory: "Code Governance",
             operatingSystem: "macOS, Linux, Windows",
-            softwareVersion: "0.19.0",
+            softwareVersion: "0.20.0",
             license: "https://github.com/archgate/cli/blob/main/LICENSE",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
             url: "https://cli.archgate.dev",
