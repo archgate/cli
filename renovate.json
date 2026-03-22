@@ -1,18 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "customManagers": [
     {
       "customType": "regex",
       "description": "Extract bun version from .prototools",
-      "managerFilePatterns": [
-        "/^\\.prototools$/"
-      ],
-      "matchStrings": [
-        "bun\\s*=\\s*\"(?<currentValue>[^\"]+)\""
-      ],
+      "managerFilePatterns": ["/^\\.prototools$/"],
+      "matchStrings": ["bun\\s*=\\s*\"(?<currentValue>[^\"]+)\""],
       "depNameTemplate": "oven-sh/bun",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^bun-v(?<version>.+)$"
@@ -22,34 +16,20 @@
     {
       "description": "Group Bun runtime (.prototools) and @types/bun together",
       "groupName": "bun",
-      "matchPackageNames": [
-        "oven-sh/bun",
-        "@types/bun"
-      ]
+      "matchPackageNames": ["oven-sh/bun", "@types/bun"]
     },
     {
       "description": "Group CLI devDependencies (minor/patch) into a single PR",
       "groupName": "cli devDependencies (non-major)",
-      "matchFileNames": [
-        "package.json"
-      ],
-      "matchDepTypes": [
-        "devDependencies"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "matchPackageNames": [
-        "!@types/bun"
-      ]
+      "matchFileNames": ["package.json"],
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": ["!@types/bun"]
     },
     {
       "description": "Group all docs dependencies (Astro, Starlight, etc.) into a single PR",
       "groupName": "docs dependencies",
-      "matchFileNames": [
-        "docs/package.json"
-      ],
+      "matchFileNames": ["docs/package.json"],
       "separateMajorMinor": false
     }
   ]
