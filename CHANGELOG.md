@@ -1,3 +1,9 @@
+## [0.19.0](https://github.com/archgate/cli/compare/v0.18.0...v0.19.0) (2026-03-22)
+
+### Features
+
+* store tokens in git credential manager instead of plaintext ([#138](https://github.com/archgate/cli/issues/138)) ([e495e01](https://github.com/archgate/cli/commit/e495e018f84d0bed68186f71a9d888659f22d40d))
+
 ## [0.18.0](https://github.com/archgate/cli/compare/v0.17.2...v0.18.0) (2026-03-22)
 
 ### Features
