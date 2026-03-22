@@ -139,7 +139,7 @@ async function configureEditorSettings(
       const { loadCredentials } = await import("./auth");
       const creds = await loadCredentials();
       const marketplaceUrl = creds
-        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl(creds)
+        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl()
         : undefined;
       return configureVscodeSettings(projectRoot, marketplaceUrl);
     }
@@ -227,7 +227,7 @@ async function ensureEslintrcOverride(projectRoot: string): Promise<void> {
  * Returns null-safe result — never throws.
  */
 async function tryInstallPlugin(
-  projectRoot: string,
+  _projectRoot: string,
   editor: EditorTarget
 ): Promise<PluginResult> {
   const { loadCredentials } = await import("./auth");
@@ -237,13 +237,9 @@ async function tryInstallPlugin(
   }
 
   if (editor === "cursor") {
-    const { installCursorPlugin } = await import("./plugin-install");
-    const files = await installCursorPlugin(projectRoot, credentials.token);
-    return {
-      installed: true,
-      autoInstalled: true,
-      detail: `Extracted ${files.length} files to .cursor/`,
-    };
+    // Cursor requires GitHub credentials for download — skip auto-install during init.
+    // Users can run `archgate plugin install --editor cursor` separately.
+    return { installed: false };
   }
 
   if (editor === "vscode") {
@@ -262,14 +258,14 @@ async function tryInstallPlugin(
 
     if (await isCopilotCliAvailable()) {
       try {
-        await installCopilotPlugin(credentials);
+        await installCopilotPlugin();
         return { installed: true, autoInstalled: true };
       } catch {
         // Fall through to manual instructions
       }
     }
 
-    const url = buildMarketplaceUrl(credentials);
+    const url = buildMarketplaceUrl();
     return { installed: true, detail: url };
   }
 
@@ -279,13 +275,13 @@ async function tryInstallPlugin(
 
   if (await isClaudeCliAvailable()) {
     try {
-      await installClaudePlugin(credentials);
+      await installClaudePlugin();
       return { installed: true, autoInstalled: true };
     } catch {
       // Fall through to manual instructions
     }
   }
 
-  const url = buildMarketplaceUrl(credentials);
+  const url = buildMarketplaceUrl();
   return { installed: true, detail: url };
 }

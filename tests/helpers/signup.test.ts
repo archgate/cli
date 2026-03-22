@@ -51,11 +51,11 @@ describe("isSignupRequiredError", () => {
 });
 
 describe("requestSignup", () => {
-  test("returns ok=true and token on 201 with token", async () => {
+  test("returns ok=true on 201", async () => {
     const originalFetch = globalThis.fetch;
     mockFetch(() =>
       Promise.resolve(
-        Response.json({ token: "ag_beta_auto_approved" }, { status: 201 })
+        Response.json({ ok: true }, { status: 201 })
       )
     );
 
@@ -66,30 +66,12 @@ describe("requestSignup", () => {
         "testing"
       );
       expect(result.ok).toBe(true);
-      expect(result.token).toBe("ag_beta_auto_approved");
     } finally {
       globalThis.fetch = originalFetch;
     }
   });
 
-  test("returns ok=true and token=null on 201 without token (manual approval)", async () => {
-    const originalFetch = globalThis.fetch;
-    mockFetch(() => Promise.resolve(Response.json({}, { status: 201 })));
-
-    try {
-      const result = await requestSignup(
-        "octocat",
-        "octo@example.com",
-        "testing"
-      );
-      expect(result.ok).toBe(true);
-      expect(result.token).toBeNull();
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
-  });
-
-  test("returns ok=false and token=null on non-201 status", async () => {
+  test("returns ok=false on non-201 status", async () => {
     const originalFetch = globalThis.fetch;
     mockFetch(() => Promise.resolve(new Response("Conflict", { status: 409 })));
 
@@ -100,13 +82,12 @@ describe("requestSignup", () => {
         "testing"
       );
       expect(result.ok).toBe(false);
-      expect(result.token).toBeNull();
     } finally {
       globalThis.fetch = originalFetch;
     }
   });
 
-  test("returns ok=true and token=null when response.json() throws", async () => {
+  test("returns ok=true even when response is not JSON", async () => {
     const originalFetch = globalThis.fetch;
     mockFetch(() => Promise.resolve(new Response("not-json", { status: 201 })));
 
@@ -117,7 +98,6 @@ describe("requestSignup", () => {
         "testing"
       );
       expect(result.ok).toBe(true);
-      expect(result.token).toBeNull();
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -131,7 +111,7 @@ describe("requestSignup", () => {
       (_input: string | URL | Request, init?: RequestInit) => {
         capturedBody = init?.body as string;
         return Promise.resolve(
-          Response.json({ token: "ag_beta_tok" }, { status: 201 })
+          Response.json({ ok: true }, { status: 201 })
         );
       }
     ) as unknown as typeof fetch;

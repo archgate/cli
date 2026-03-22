@@ -28,14 +28,12 @@ export function isSignupRequiredError(message?: string): boolean {
 
 export interface SignupResult {
   ok: boolean;
-  /** Token returned by the API when signup is auto-approved. */
-  token: string | null;
 }
 
 /**
  * Submit a signup request to the archgate plugins platform.
- * On auto-approved signups the API returns the token directly,
- * avoiding a separate claim round-trip.
+ * The API auto-approves signups — no tokens are returned.
+ * Users authenticate via their existing git credentials.
  */
 export async function requestSignup(
   github: string,
@@ -56,9 +54,8 @@ export async function requestSignup(
   });
 
   if (response.status !== 201) {
-    return { ok: false, token: null };
+    return { ok: false };
   }
 
-  const data = (await response.json().catch(() => ({}))) as { token?: string };
-  return { ok: true, token: data.token ?? null };
+  return { ok: true };
 }

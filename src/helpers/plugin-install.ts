@@ -1,16 +1,19 @@
 /**
  * plugin-install.ts — Download and install the archgate plugin for supported editors.
  *
+ * Authentication relies on the user's existing git credential helpers
+ * (e.g., `gh auth login`, macOS Keychain, git-credential-store).
+ * No archgate-specific tokens are embedded in URLs.
+ *
  * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
  * - VS Code:     marketplace URL for manual user-settings configuration (application-scoped)
  * - Copilot CLI:  auto-installs via `copilot` CLI, or prints manual commands as fallback
- * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
+ * - Cursor:      downloads cursor.tar.gz from the plugins service using GitHub credentials
  */
 
 import { mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-import type { StoredCredentials } from "./auth";
 import { logDebug } from "./log";
 import { resolveCommand } from "./platform";
 
@@ -39,25 +42,19 @@ async function run(
 // ---------------------------------------------------------------------------
 
 /**
- * Build the authenticated git marketplace URL for Claude Code & Copilot CLI plugin installation.
- * Claude Code and Copilot CLI both use the .claude-plugin/ manifest format.
+ * Build the git marketplace URL for Claude Code & Copilot CLI plugin installation.
+ * No credentials are embedded — Claude Code uses git credential helpers.
  */
-export function buildMarketplaceUrl(credentials: StoredCredentials): string {
-  const user = encodeURIComponent(credentials.github_user);
-  const token = encodeURIComponent(credentials.token);
-  return `https://${user}:${token}@plugins.archgate.dev/archgate.git`;
+export function buildMarketplaceUrl(): string {
+  return `https://plugins.archgate.dev/archgate.git`;
 }
 
 /**
- * Build the authenticated git marketplace URL for VS Code plugin installation.
- * VS Code Copilot uses the .github/plugin/ manifest format, served from a separate repo.
+ * Build the git marketplace URL for VS Code plugin installation.
+ * No credentials are embedded — git credential helpers provide authentication.
  */
-export function buildVscodeMarketplaceUrl(
-  credentials: StoredCredentials
-): string {
-  const user = encodeURIComponent(credentials.github_user);
-  const token = encodeURIComponent(credentials.token);
-  return `https://${user}:${token}@plugins.archgate.dev/archgate-vscode.git`;
+export function buildVscodeMarketplaceUrl(): string {
+  return `https://plugins.archgate.dev/archgate-vscode.git`;
 }
 
 /**
@@ -73,15 +70,14 @@ export async function isClaudeCliAvailable(): Promise<boolean> {
  * Install the archgate plugin via the `claude` CLI.
  *
  * Runs:
- *   claude plugin marketplace add <authenticated-url>
+ *   claude plugin marketplace add <url>
  *   claude plugin install archgate@archgate
  *
+ * Authentication is handled by Claude Code's git credential helpers.
  * Throws on failure so the caller can fall back to manual instructions.
  */
-export async function installClaudePlugin(
-  credentials: StoredCredentials
-): Promise<void> {
-  const url = buildMarketplaceUrl(credentials);
+export async function installClaudePlugin(): Promise<void> {
+  const url = buildMarketplaceUrl();
   const cmd = (await resolveCommand("claude")) ?? "claude";
 
   logDebug("Adding archgate marketplace to claude CLI");
@@ -113,20 +109,26 @@ export async function installClaudePlugin(
 /**
  * Download the cursor.tar.gz from the plugins service and extract it to the project root.
  * Creates/overwrites .cursor/ folder contents with the pre-built agent and skills.
+ *
+ * Authentication uses the user's GitHub username and token via HTTP Basic Auth.
  */
 export async function installCursorPlugin(
   projectRoot: string,
-  token: string
+  githubUser: string,
+  githubToken: string
 ): Promise<string[]> {
   const response = await fetch(`${PLUGINS_API}/api/cursor`, {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": "archgate-cli" },
+    headers: {
+      Authorization: `Basic ${btoa(`${githubUser}:${githubToken}`)}`,
+      "User-Agent": "archgate-cli",
+    },
     signal: AbortSignal.timeout(30_000),
     redirect: "error",
   });
 
   if (response.status === 401) {
     throw new Error(
-      "Plugin download unauthorized. Your token may have expired — run `archgate login refresh`."
+      "Plugin download unauthorized. Ensure your GitHub credentials are valid."
     );
   }
 
@@ -167,14 +169,13 @@ export async function isCopilotCliAvailable(): Promise<boolean> {
  * Install the archgate plugin via the `copilot` CLI.
  *
  * Runs:
- *   copilot plugin install <authenticated-git-url>
+ *   copilot plugin install <git-url>
  *
+ * Authentication is handled by git credential helpers.
  * Throws on failure so the caller can fall back to manual instructions.
  */
-export async function installCopilotPlugin(
-  credentials: StoredCredentials
-): Promise<void> {
-  const url = buildMarketplaceUrl(credentials);
+export async function installCopilotPlugin(): Promise<void> {
+  const url = buildMarketplaceUrl();
   const cmd = (await resolveCommand("copilot")) ?? "copilot";
 
   logDebug("Installing archgate plugin via copilot CLI");

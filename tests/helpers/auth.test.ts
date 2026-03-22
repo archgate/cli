@@ -29,14 +29,12 @@ describe("auth", () => {
         await import("../../src/helpers/auth");
 
       await saveCredentials({
-        token: "ag_beta_abc123",
         github_user: "testuser",
         created_at: "2026-01-15",
       });
 
       const loaded = await loadCredentials();
       expect(loaded).not.toBeNull();
-      expect(loaded!.token).toBe("ag_beta_abc123");
       expect(loaded!.github_user).toBe("testuser");
       expect(loaded!.created_at).toBe("2026-01-15");
     });
@@ -66,7 +64,7 @@ describe("auth", () => {
       const credPath = join(tempDir, ".archgate", "credentials");
       const { mkdirSync } = await import("node:fs");
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
-      await Bun.write(credPath, JSON.stringify({ token: "abc" }));
+      await Bun.write(credPath, JSON.stringify({ created_at: "2026-01-01" }));
 
       const result = await loadCredentials();
       expect(result).toBeNull();
@@ -79,7 +77,6 @@ describe("auth", () => {
         await import("../../src/helpers/auth");
 
       await saveCredentials({
-        token: "ag_beta_abc123",
         github_user: "testuser",
         created_at: "2026-01-15",
       });
@@ -187,81 +184,6 @@ describe("auth", () => {
       try {
         await expect(getGitHubUser("gho_test_token")).rejects.toThrow(
           "GitHub API did not return a username"
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
-    });
-  });
-
-  describe("claimArchgateToken", () => {
-    test("returns token from plugins service", async () => {
-      const { claimArchgateToken } = await import("../../src/helpers/auth");
-
-      const originalFetch = globalThis.fetch;
-      mockFetch(() =>
-        Promise.resolve(Response.json({ token: "ag_beta_claimed_token" }))
-      );
-
-      try {
-        const token = await claimArchgateToken("gho_github_token");
-        expect(token).toBe("ag_beta_claimed_token");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
-    });
-
-    test("throws SignupRequiredError on 403 with no approved signup", async () => {
-      const { claimArchgateToken, SignupRequiredError } =
-        await import("../../src/helpers/auth");
-
-      const originalFetch = globalThis.fetch;
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json(
-            { error: "No approved signup found for this GitHub account" },
-            { status: 403 }
-          )
-        )
-      );
-
-      try {
-        await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
-          SignupRequiredError
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
-    });
-
-    test("throws generic error on non-signup 403", async () => {
-      const { claimArchgateToken } = await import("../../src/helpers/auth");
-
-      const originalFetch = globalThis.fetch;
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json({ error: "Account suspended" }, { status: 403 })
-        )
-      );
-
-      try {
-        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
-          "Account suspended"
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
-    });
-
-    test("throws when token missing from successful response", async () => {
-      const { claimArchgateToken } = await import("../../src/helpers/auth");
-
-      const originalFetch = globalThis.fetch;
-      mockFetch(() => Promise.resolve(Response.json({})));
-
-      try {
-        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
-          "Plugins service did not return a token"
         );
       } finally {
         globalThis.fetch = originalFetch;

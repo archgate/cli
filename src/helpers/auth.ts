@@ -1,21 +1,20 @@
 /**
- * auth.ts — GitHub Device Flow authentication and archgate token management.
+ * auth.ts — GitHub Device Flow authentication and registration management.
  *
- * Implements RFC 8628 (OAuth 2.0 Device Authorization Grant) for CLI login,
- * plus local storage of the archgate plugin token in ~/.archgate/credentials.
+ * Implements RFC 8628 (OAuth 2.0 Device Authorization Grant) for CLI login.
+ * Users authenticate via GitHub credentials (git credential helpers) — no
+ * archgate-specific tokens are needed. The login flow registers the user
+ * and stores their GitHub username in ~/.archgate/credentials.
  */
 
 import { chmodSync, unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
 import { internalPath, createPathIfNotExists } from "./paths";
-import { SignupRequiredError, isSignupRequiredError } from "./signup";
-
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const PLUGINS_API = "https://plugins.archgate.dev";
 const GITHUB_DEVICE_CODE_URL = "https://github.com/login/device/code";
 const GITHUB_DEVICE_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const CREDENTIALS_FILE = "credentials";
@@ -60,7 +59,6 @@ type DeviceTokenResponse =
   | DeviceTokenErrorResponse;
 
 export interface StoredCredentials {
-  token: string;
   github_user: string;
   created_at: string;
 }
@@ -182,49 +180,8 @@ export async function getGitHubUser(
   return { login: data.login, email: data.email ?? null };
 }
 
-// ---------------------------------------------------------------------------
-// Token Claim
-// ---------------------------------------------------------------------------
-
-/**
- * Exchange a GitHub access token for an archgate plugin token
- * via POST /api/token/claim on the plugins service.
- */
-export async function claimArchgateToken(githubToken: string): Promise<string> {
-  const response = await fetch(`${PLUGINS_API}/api/token/claim`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": "archgate-cli",
-    },
-    body: JSON.stringify({ github_token: githubToken }),
-    signal: AbortSignal.timeout(15_000),
-    redirect: "error",
-  });
-
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
-
-    if (isSignupRequiredError(body.error)) {
-      throw new SignupRequiredError();
-    }
-
-    const message =
-      body.error ?? `Token claim failed (HTTP ${response.status})`;
-    throw new Error(message);
-  }
-
-  const data = (await response.json()) as { token?: string };
-  if (!data.token) {
-    throw new Error("Plugins service did not return a token");
-  }
-  return data.token;
-}
-
 // Re-export for consumers that import from auth.ts
-export { SignupRequiredError } from "./signup";
+export { SignupRequiredError, isSignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
 // Credential Storage
@@ -235,7 +192,8 @@ function credentialsPath(): string {
 }
 
 /**
- * Persist archgate credentials to ~/.archgate/credentials (JSON).
+ * Persist registration info to ~/.archgate/credentials (JSON).
+ * Only stores GitHub username — no tokens (users authenticate via git credentials).
  */
 export async function saveCredentials(
   credentials: StoredCredentials
@@ -252,7 +210,7 @@ export async function saveCredentials(
 }
 
 /**
- * Load stored archgate credentials, or null if none exist.
+ * Load stored credentials, or null if none exist.
  */
 export async function loadCredentials(): Promise<StoredCredentials | null> {
   const file = Bun.file(credentialsPath());
@@ -262,7 +220,7 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
 
   try {
     const data = (await file.json()) as StoredCredentials;
-    if (!data.token || !data.github_user) {
+    if (!data.github_user) {
       return null;
     }
     return data;

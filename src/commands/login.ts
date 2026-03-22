@@ -11,15 +11,15 @@ import { isTlsError, tlsHintMessage } from "../helpers/tls";
 export function registerLoginCommand(program: Command) {
   const login = program
     .command("login")
-    .description("Authenticate with GitHub to access archgate plugins");
+    .description("Authenticate with GitHub and register for archgate plugins");
 
   login.action(async () => {
     try {
-      // Check if already logged in
+      // Check if already registered
       const existing = await loadCredentials();
       if (existing) {
         logInfo(
-          `Already logged in as ${styleText("bold", existing.github_user)}.`,
+          `Already registered as ${styleText("bold", existing.github_user)}.`,
           "Run `archgate login refresh` to re-authenticate."
         );
         return;
@@ -43,21 +43,21 @@ export function registerLoginCommand(program: Command) {
 
   login
     .command("status")
-    .description("Show current authentication status")
+    .description("Show current registration status")
     .action(async () => {
       const creds = await loadCredentials();
       if (creds) {
         console.log(
-          `Logged in as ${styleText("bold", creds.github_user)} (since ${creds.created_at})`
+          `Registered as ${styleText("bold", creds.github_user)} (since ${creds.created_at})`
         );
       } else {
-        console.log("Not logged in. Run `archgate login` to authenticate.");
+        console.log("Not registered. Run `archgate login` to sign up.");
       }
     });
 
   login
     .command("logout")
-    .description("Remove stored credentials")
+    .description("Remove stored registration info")
     .action(async () => {
       await clearCredentials();
       console.log("Logged out successfully.");
@@ -65,7 +65,7 @@ export function registerLoginCommand(program: Command) {
 
   login
     .command("refresh")
-    .description("Re-authenticate and claim a new token")
+    .description("Re-authenticate and update registration")
     .action(async () => {
       try {
         await clearCredentials();
