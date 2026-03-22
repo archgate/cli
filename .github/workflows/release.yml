@@ -89,7 +89,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          HEAD_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/release --jq '.object.sha')
+          HEAD_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/release --jq '.object.sha' 2>/dev/null) || true
+
+          if [ -z "$HEAD_SHA" ]; then
+            echo "No release branch found — nothing to validate"
+            exit 0
+          fi
 
           gh workflow run code-pull-request.yml --ref release
           sleep 5
