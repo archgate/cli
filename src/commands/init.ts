@@ -4,7 +4,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 import inquirer from "inquirer";
 
-import { loadCredentials } from "../helpers/auth";
+import { loadCredentials } from "../helpers/credential-store";
 import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";

@@ -135,11 +135,11 @@ async function configureEditorSettings(
     case "cursor":
       return configureCursorSettings(projectRoot);
     case "vscode": {
-      // VS Code: marketplace URL to user settings if logged in
-      const { loadCredentials } = await import("./auth");
+      // VS Code: marketplace URL to user settings (credentials provided by git credential manager)
+      const { loadCredentials } = await import("./credential-store");
       const creds = await loadCredentials();
       const marketplaceUrl = creds
-        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl(creds)
+        ? (await import("./plugin-install")).buildVscodeMarketplaceUrl()
         : undefined;
       return configureVscodeSettings(projectRoot, marketplaceUrl);
     }
@@ -230,7 +230,7 @@ async function tryInstallPlugin(
   projectRoot: string,
   editor: EditorTarget
 ): Promise<PluginResult> {
-  const { loadCredentials } = await import("./auth");
+  const { loadCredentials } = await import("./credential-store");
   const credentials = await loadCredentials();
   if (!credentials) {
     return { installed: false };
@@ -262,14 +262,14 @@ async function tryInstallPlugin(
 
     if (await isCopilotCliAvailable()) {
       try {
-        await installCopilotPlugin(credentials);
+        await installCopilotPlugin();
         return { installed: true, autoInstalled: true };
       } catch {
         // Fall through to manual instructions
       }
     }
 
-    const url = buildMarketplaceUrl(credentials);
+    const url = buildMarketplaceUrl();
     return { installed: true, detail: url };
   }
 
@@ -279,13 +279,13 @@ async function tryInstallPlugin(
 
   if (await isClaudeCliAvailable()) {
     try {
-      await installClaudePlugin(credentials);
+      await installClaudePlugin();
       return { installed: true, autoInstalled: true };
     } catch {
       // Fall through to manual instructions
     }
   }
 
-  const url = buildMarketplaceUrl(credentials);
+  const url = buildMarketplaceUrl();
   return { installed: true, detail: url };
 }

@@ -10,11 +10,16 @@
 import { mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
-import type { StoredCredentials } from "./auth";
 import { logDebug } from "./log";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
+
+/** Base marketplace URL — credentials are provided by the git credential manager. */
+const MARKETPLACE_URL = "https://plugins.archgate.dev/archgate.git";
+/** Base VS Code marketplace URL — credentials are provided by the git credential manager. */
+const VSCODE_MARKETPLACE_URL =
+  "https://plugins.archgate.dev/archgate-vscode.git";
 
 /**
  * Run a command using Bun.spawn (cross-platform, no shell).
@@ -39,25 +44,19 @@ async function run(
 // ---------------------------------------------------------------------------
 
 /**
- * Build the authenticated git marketplace URL for Claude Code & Copilot CLI plugin installation.
- * Claude Code and Copilot CLI both use the .claude-plugin/ manifest format.
+ * Get the marketplace URL for Claude Code & Copilot CLI plugin installation.
+ * Credentials are provided by the git credential manager (no tokens in URLs).
  */
-export function buildMarketplaceUrl(credentials: StoredCredentials): string {
-  const user = encodeURIComponent(credentials.github_user);
-  const token = encodeURIComponent(credentials.token);
-  return `https://${user}:${token}@plugins.archgate.dev/archgate.git`;
+export function buildMarketplaceUrl(): string {
+  return MARKETPLACE_URL;
 }
 
 /**
- * Build the authenticated git marketplace URL for VS Code plugin installation.
- * VS Code Copilot uses the .github/plugin/ manifest format, served from a separate repo.
+ * Get the marketplace URL for VS Code plugin installation.
+ * Credentials are provided by the git credential manager (no tokens in URLs).
  */
-export function buildVscodeMarketplaceUrl(
-  credentials: StoredCredentials
-): string {
-  const user = encodeURIComponent(credentials.github_user);
-  const token = encodeURIComponent(credentials.token);
-  return `https://${user}:${token}@plugins.archgate.dev/archgate-vscode.git`;
+export function buildVscodeMarketplaceUrl(): string {
+  return VSCODE_MARKETPLACE_URL;
 }
 
 /**
@@ -78,10 +77,8 @@ export async function isClaudeCliAvailable(): Promise<boolean> {
  *
  * Throws on failure so the caller can fall back to manual instructions.
  */
-export async function installClaudePlugin(
-  credentials: StoredCredentials
-): Promise<void> {
-  const url = buildMarketplaceUrl(credentials);
+export async function installClaudePlugin(): Promise<void> {
+  const url = buildMarketplaceUrl();
   const cmd = (await resolveCommand("claude")) ?? "claude";
 
   logDebug("Adding archgate marketplace to claude CLI");
@@ -171,10 +168,8 @@ export async function isCopilotCliAvailable(): Promise<boolean> {
  *
  * Throws on failure so the caller can fall back to manual instructions.
  */
-export async function installCopilotPlugin(
-  credentials: StoredCredentials
-): Promise<void> {
-  const url = buildMarketplaceUrl(credentials);
+export async function installCopilotPlugin(): Promise<void> {
+  const url = buildMarketplaceUrl();
   const cmd = (await resolveCommand("copilot")) ?? "copilot";
 
   logDebug("Installing archgate plugin via copilot CLI");

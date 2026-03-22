@@ -2,7 +2,7 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { loadCredentials, clearCredentials } from "../helpers/auth";
+import { loadCredentials, clearCredentials } from "../helpers/credential-store";
 import { logError, logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";

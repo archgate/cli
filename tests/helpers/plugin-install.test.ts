@@ -9,61 +9,31 @@ import {
 
 describe("plugin-install", () => {
   describe("buildMarketplaceUrl", () => {
-    test("builds URL with credentials embedded", () => {
-      const url = buildMarketplaceUrl({
-        token: "ag_beta_abc123def456",
-        github_user: "octocat",
-        created_at: "2026-01-15",
-      });
-      expect(url).toBe(
-        "https://octocat:ag_beta_abc123def456@plugins.archgate.dev/archgate.git"
-      );
+    test("returns bare URL without embedded credentials", () => {
+      const url = buildMarketplaceUrl();
+      expect(url).toBe("https://plugins.archgate.dev/archgate.git");
     });
 
-    test("uses github_user as the URL username", () => {
-      const url = buildMarketplaceUrl({
-        token: "ag_beta_token",
-        github_user: "my-handle",
-        created_at: "2026-02-01",
-      });
-      expect(url).toContain("my-handle:");
-      expect(url).toContain(":ag_beta_token@");
+    test("does not contain @ (no embedded credentials)", () => {
+      const url = buildMarketplaceUrl();
+      expect(url).not.toContain("@");
     });
   });
 
   describe("buildVscodeMarketplaceUrl", () => {
-    test("builds URL pointing to archgate-vscode.git", () => {
-      const url = buildVscodeMarketplaceUrl({
-        token: "ag_beta_abc123def456",
-        github_user: "octocat",
-        created_at: "2026-01-15",
-      });
-      expect(url).toBe(
-        "https://octocat:ag_beta_abc123def456@plugins.archgate.dev/archgate-vscode.git"
-      );
+    test("returns bare URL pointing to archgate-vscode.git", () => {
+      const url = buildVscodeMarketplaceUrl();
+      expect(url).toBe("https://plugins.archgate.dev/archgate-vscode.git");
     });
 
-    test("embeds credentials correctly", () => {
-      const url = buildVscodeMarketplaceUrl({
-        token: "ag_beta_token",
-        github_user: "my-handle",
-        created_at: "2026-02-01",
-      });
-      expect(url).toContain("my-handle:");
-      expect(url).toContain(":ag_beta_token@");
+    test("does not contain @ (no embedded credentials)", () => {
+      const url = buildVscodeMarketplaceUrl();
+      expect(url).not.toContain("@");
     });
 
     test("uses archgate-vscode.git repo (not archgate.git)", () => {
-      const vscodeUrl = buildVscodeMarketplaceUrl({
-        token: "tok",
-        github_user: "user",
-        created_at: "2026-01-01",
-      });
-      const claudeUrl = buildMarketplaceUrl({
-        token: "tok",
-        github_user: "user",
-        created_at: "2026-01-01",
-      });
+      const vscodeUrl = buildVscodeMarketplaceUrl();
+      const claudeUrl = buildMarketplaceUrl();
       expect(vscodeUrl).toContain("archgate-vscode.git");
       expect(claudeUrl).not.toContain("archgate-vscode.git");
       expect(claudeUrl).toContain("archgate.git");
