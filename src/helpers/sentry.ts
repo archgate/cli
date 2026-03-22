@@ -23,7 +23,8 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
  * Sentry DSN (write-only ingest URL, safe to embed in client code).
  * Format: https://<key>@<host>/<project_id>
  */
-const SENTRY_DSN = "https://placeholder@o0.ingest.us.sentry.io/0";
+const SENTRY_DSN =
+  "https://bb693c2cbc4238dbcd6efac609062402@o4511085517340672.ingest.de.sentry.io/4511085521469520";
 
 /** Maximum time to wait for the Sentry request (ms). */
 const SENTRY_TIMEOUT_MS = 5_000;
