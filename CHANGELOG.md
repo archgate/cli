@@ -1,3 +1,9 @@
+## [0.20.0](https://github.com/archgate/cli/compare/v0.19.0...v0.20.0) (2026-03-22)
+
+### Features
+
+* wire PostHog telemetry into CLI lifecycle ([#141](https://github.com/archgate/cli/issues/141)) ([292ff58](https://github.com/archgate/cli/commit/292ff5809ab925b135c4e074a48eb211bd77ff75))
+
 ## [0.19.0](https://github.com/archgate/cli/compare/v0.18.0...v0.19.0) (2026-03-22)
 
 ### Features
