@@ -37,18 +37,34 @@ const SENTRY_DSN =
 // Install method detection
 // ---------------------------------------------------------------------------
 
-function detectInstallMethod(): string {
+/**
+ * The path to the archgate executable or script.
+ * - Compiled binary: process.execPath IS the archgate binary
+ * - bun run / bunx: Bun.main is the entry script (src/cli.ts or similar)
+ * - proto: process.argv[1] points to the shim
+ */
+function getArchgatePath(): string {
+  // When compiled, process.execPath is the archgate binary itself
+  // (not the bun runtime). Detect by checking if execPath contains "bun".
   const execPath = process.execPath;
+  if (!execPath.includes("bun")) return execPath;
+
+  // When running via `bun run`, Bun.main is the entry script
+  return Bun.main;
+}
+
+function detectInstallMethod(): string {
+  const archgatePath = getArchgatePath();
   const binDir = internalPath("bin");
 
-  if (execPath.startsWith(binDir)) return "binary";
+  if (archgatePath.startsWith(binDir)) return "binary";
 
   const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
   const protoHome = Bun.env.PROTO_HOME ?? join(home, ".proto");
   const protoToolDir = join(protoHome, "tools", "archgate");
-  if (execPath.startsWith(protoToolDir)) return "proto";
+  if (archgatePath.startsWith(protoToolDir)) return "proto";
 
-  if (execPath.includes("node_modules")) return "local";
+  if (archgatePath.includes("node_modules")) return "local";
 
   return "package-manager";
 }
@@ -93,10 +109,16 @@ export function initSentry(): void {
           is_ci: String(Boolean(Bun.env.CI)),
           is_tty: String(Boolean(process.stdout.isTTY)),
           install_method: detectInstallMethod(),
-          install_path: process.execPath,
+          install_path: getArchgatePath(),
         },
-        contexts: { runtime: { name: "bun", version: Bun.version } },
+        contexts: {
+          // Override the default "node" runtime that @sentry/node-core sets
+          runtime: { name: "bun", version: Bun.version },
+        },
       },
+      // Override the default nodeContextIntegration which reports runtime as "node"
+      integrations: (defaults) =>
+        defaults.filter((i) => i.name !== "NodeContext"),
       // Limit breadcrumbs to keep payloads small
       maxBreadcrumbs: 50,
     });
