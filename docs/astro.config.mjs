@@ -228,6 +228,7 @@ export default defineConfig({
             { label: "CLI Commands", slug: "reference/cli-commands" },
             { label: "Rule API", slug: "reference/rule-api" },
             { label: "ADR Schema", slug: "reference/adr-schema" },
+            { label: "Telemetry", slug: "reference/telemetry" },
           ],
         },
         {

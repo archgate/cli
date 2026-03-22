@@ -1,0 +1,104 @@
+---
+title: Telemetry
+description: What anonymous usage data Archgate collects, how to opt out, and our privacy commitments.
+---
+
+Archgate collects **anonymous usage data** to help us understand how the CLI is used, prioritize features, and fix crashes. This page explains exactly what is collected, what is not, and how to opt out.
+
+## What we collect
+
+### Usage analytics (PostHog)
+
+When you run an Archgate command, we record:
+
+- **Command name** and **flags used** (e.g., `check --json`, not flag values)
+- **Exit code** (0, 1, or 2) and **execution duration**
+- **Environment**: OS, architecture, Bun version, Archgate version, CI detection, TTY detection
+- **Coarse location**: country and region (resolved server-side from your IP, then the IP is discarded — see [IP anonymization](#ip-anonymization))
+- **Anonymous install ID**: a random UUID generated on first run — not derived from any personal data
+
+### Error tracking (Sentry)
+
+When the CLI crashes (exit code 2), we send:
+
+- **Error type, message, and stack trace** (file paths are stripped to relative paths like `src/cli.ts`)
+- **Runtime context**: OS, architecture, Bun version, Archgate version
+- **Anonymous install ID** (same random UUID as analytics)
+
+## What we do NOT collect
+
+- **No personal information**: no usernames, emails, IP addresses, or GitHub identifiers
+- **No file content**: no ADR content, source code, project names, or file paths
+- **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
+- **No flag values**: we record that `--json` was used, not what the JSON output contained
+- **No network activity**: no URLs, API keys, or tokens
+
+## IP anonymization
+
+Archgate uses PostHog's built-in IP anonymization:
+
+1. Your CLI sends an event to PostHog with `$ip: null`
+2. PostHog resolves your IP to a **country and region** (e.g., "US", "California") server-side
+3. The IP address is then **discarded** — it is never stored in PostHog
+
+For Sentry error tracking, the project has **"Prevent Storing of IP Addresses"** enabled, so IPs are stripped before storage.
+
+## How to opt out
+
+You can disable all telemetry (both analytics and error tracking) in two ways:
+
+### Environment variable
+
+```bash
+export ARCHGATE_TELEMETRY=0
+```
+
+Accepted values: `0`, `false`, `no`, `off` (case-insensitive).
+
+Add this to your shell profile (`.bashrc`, `.zshrc`, etc.) to disable permanently.
+
+### CLI command
+
+```bash
+archgate telemetry disable
+```
+
+To re-enable:
+
+```bash
+archgate telemetry enable
+```
+
+To check current status:
+
+```bash
+archgate telemetry status
+```
+
+The environment variable takes precedence over the CLI setting. If `ARCHGATE_TELEMETRY=0` is set, telemetry is disabled regardless of the CLI config.
+
+## Where data is stored
+
+- **Analytics**: PostHog Cloud (US region). Data retained per PostHog's standard retention policy.
+- **Error tracking**: Sentry Cloud (US region). Error events retained for 90 days.
+- **Local config**: `~/.archgate/config.json` stores your telemetry preference and anonymous install ID.
+
+## First-run notice
+
+On first run, Archgate displays a one-time notice to stderr:
+
+```
+Archgate collects anonymous usage data to improve the CLI.
+Disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+Learn more: https://cli.archgate.dev/reference/telemetry
+```
+
+This notice is shown once and does not appear again.
+
+## Open source
+
+The telemetry implementation is fully open source. You can inspect exactly what data is collected by reading:
+
+- [`src/helpers/telemetry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry.ts) — PostHog event tracking
+- [`src/helpers/sentry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/sentry.ts) — Sentry error capture
+- [`src/helpers/telemetry-config.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry-config.ts) — Config and opt-out logic

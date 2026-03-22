@@ -1,0 +1,104 @@
+---
+title: Telemetria
+description: Quais dados de uso anonimos o Archgate coleta, como desativar e nossos compromissos de privacidade.
+---
+
+O Archgate coleta **dados de uso anonimos** para nos ajudar a entender como a CLI e utilizada, priorizar funcionalidades e corrigir falhas. Esta pagina explica exatamente o que e coletado, o que nao e, e como desativar.
+
+## O que coletamos
+
+### Analise de uso (PostHog)
+
+Quando voce executa um comando do Archgate, registramos:
+
+- **Nome do comando** e **flags utilizadas** (ex: `check --json`, nao os valores das flags)
+- **Codigo de saida** (0, 1 ou 2) e **duracao da execucao**
+- **Ambiente**: SO, arquitetura, versao do Bun, versao do Archgate, deteccao de CI, deteccao de TTY
+- **Localizacao aproximada**: pais e regiao (resolvidos no servidor a partir do seu IP, que e descartado em seguida — veja [Anonimizacao de IP](#anonimizacao-de-ip))
+- **ID de instalacao anonimo**: um UUID aleatorio gerado na primeira execucao — nao derivado de nenhum dado pessoal
+
+### Rastreamento de erros (Sentry)
+
+Quando a CLI falha (codigo de saida 2), enviamos:
+
+- **Tipo do erro, mensagem e stack trace** (caminhos de arquivos sao reduzidos para caminhos relativos como `src/cli.ts`)
+- **Contexto de execucao**: SO, arquitetura, versao do Bun, versao do Archgate
+- **ID de instalacao anonimo** (mesmo UUID aleatorio da analise)
+
+## O que NAO coletamos
+
+- **Nenhuma informacao pessoal**: nenhum nome de usuario, email, endereco IP ou identificador do GitHub
+- **Nenhum conteudo de arquivo**: nenhum conteudo de ADR, codigo-fonte, nome de projeto ou caminho de arquivo
+- **Nenhum contexto de IA**: nada de interacoes com agentes, prompts ou conteudo gerado por IA
+- **Nenhum valor de flag**: registramos que `--json` foi usado, nao o conteudo da saida JSON
+- **Nenhuma atividade de rede**: nenhuma URL, chave de API ou token
+
+## Anonimizacao de IP
+
+O Archgate usa a anonimizacao de IP nativa do PostHog:
+
+1. Sua CLI envia um evento ao PostHog com `$ip: null`
+2. O PostHog resolve seu IP para um **pais e regiao** (ex: "BR", "Sao Paulo") no servidor
+3. O endereco IP e entao **descartado** — nunca e armazenado no PostHog
+
+Para o rastreamento de erros do Sentry, o projeto tem **"Prevent Storing of IP Addresses"** habilitado, entao os IPs sao removidos antes do armazenamento.
+
+## Como desativar
+
+Voce pode desativar toda a telemetria (analise e rastreamento de erros) de duas formas:
+
+### Variavel de ambiente
+
+```bash
+export ARCHGATE_TELEMETRY=0
+```
+
+Valores aceitos: `0`, `false`, `no`, `off` (sem diferenciacao de maiusculas/minusculas).
+
+Adicione ao seu perfil de shell (`.bashrc`, `.zshrc`, etc.) para desativar permanentemente.
+
+### Comando da CLI
+
+```bash
+archgate telemetry disable
+```
+
+Para reativar:
+
+```bash
+archgate telemetry enable
+```
+
+Para verificar o status atual:
+
+```bash
+archgate telemetry status
+```
+
+A variavel de ambiente tem prioridade sobre a configuracao da CLI. Se `ARCHGATE_TELEMETRY=0` estiver definida, a telemetria e desativada independentemente da configuracao da CLI.
+
+## Onde os dados sao armazenados
+
+- **Analise**: PostHog Cloud (regiao dos EUA). Dados retidos conforme a politica de retencao padrao do PostHog.
+- **Rastreamento de erros**: Sentry Cloud (regiao dos EUA). Eventos de erro retidos por 90 dias.
+- **Configuracao local**: `~/.archgate/config.json` armazena sua preferencia de telemetria e o ID de instalacao anonimo.
+
+## Aviso de primeira execucao
+
+Na primeira execucao, o Archgate exibe um aviso unico no stderr:
+
+```
+Archgate collects anonymous usage data to improve the CLI.
+Disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+Learn more: https://cli.archgate.dev/reference/telemetry
+```
+
+Este aviso e exibido uma unica vez e nao aparece novamente.
+
+## Codigo aberto
+
+A implementacao da telemetria e totalmente open source. Voce pode inspecionar exatamente quais dados sao coletados lendo:
+
+- [`src/helpers/telemetry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry.ts) — Rastreamento de eventos PostHog
+- [`src/helpers/sentry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/sentry.ts) — Captura de erros Sentry
+- [`src/helpers/telemetry-config.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry-config.ts) — Configuracao e logica de desativacao
