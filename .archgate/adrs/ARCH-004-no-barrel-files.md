@@ -1,12 +1,12 @@
 ---
 id: ARCH-004
-title: No Barrel Files
+title: No Barrel Files or Re-Exports
 domain: architecture
 rules: true
 files: ["src/**/*.ts"]
 ---
 
-# No Barrel Files
+# No Barrel Files or Re-Exports
 
 ## Context
 
@@ -30,7 +30,7 @@ This decision aligns with [ARCH-001 — Command Structure](./ARCH-001-command-st
 
 ## Decision
 
-**Barrel files are forbidden.** All imports MUST point directly to the module that defines the symbol.
+**Barrel files and re-exports are forbidden.** All imports MUST point directly to the module that defines the symbol.
 
 This ADR covers all TypeScript source files under `src/`. It does not cover test files or configuration files.
 
@@ -38,6 +38,8 @@ A barrel file is defined as an `index.ts` file that:
 
 - Contains **only** `export`, `export type`, or `import type` statements (re-exports)
 - Has **no** function definitions, class definitions, variable declarations, or executable logic
+
+A **re-export** is any `export { X } from "./other-module"` or `export type { X } from "./other-module"` statement in any file (not just `index.ts`). Re-exports create the same indirection problems as barrel files: hidden coupling, grep-unfriendly navigation, and obscured dependency graphs.
 
 Files named `index.ts` that contain actual logic are **not** barrel files and are permitted. Examples of permitted `index.ts` files:
 
@@ -57,10 +59,12 @@ Files named `index.ts` that contain actual logic are **not** barrel files and ar
 ### Don't
 
 - **DON'T** create `index.ts` files that only re-export symbols from sibling modules
+- **DON'T** re-export symbols from other modules via `export { X } from "./other"` in any file — consumers must import directly from the defining module
 - **DON'T** import from a directory path (e.g., `from "../formats"`) expecting implicit `index.ts` resolution
 - **DON'T** use barrel files as a "public API" facade — this project has no external module consumers
 - **DON'T** add re-export-only statements to an otherwise legitimate `index.ts` — keep composition logic and re-exports separate
 - **DON'T** create `index.ts` files to "simplify" imports — the verbosity of direct imports is the feature, not a problem
+- **DON'T** use a module as a "facade" that re-exports from multiple sources — each import should point to exactly one defining module
 
 ## Implementation Pattern
 

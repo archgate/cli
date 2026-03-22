@@ -26,7 +26,7 @@ describe("auth", () => {
   describe("saveCredentials / loadCredentials", () => {
     test("round-trips credentials to ~/.archgate/credentials", async () => {
       const { saveCredentials, loadCredentials } =
-        await import("../../src/helpers/auth");
+        await import("../../src/helpers/credential-store");
 
       await saveCredentials({
         token: "ag_beta_abc123",
@@ -42,14 +42,16 @@ describe("auth", () => {
     });
 
     test("returns null when no credentials file exists", async () => {
-      const { loadCredentials } = await import("../../src/helpers/auth");
+      const { loadCredentials } =
+        await import("../../src/helpers/credential-store");
 
       const result = await loadCredentials();
       expect(result).toBeNull();
     });
 
     test("returns null when credentials file is invalid JSON", async () => {
-      const { loadCredentials } = await import("../../src/helpers/auth");
+      const { loadCredentials } =
+        await import("../../src/helpers/credential-store");
 
       const credPath = join(tempDir, ".archgate", "credentials");
       const { mkdirSync } = await import("node:fs");
@@ -61,7 +63,8 @@ describe("auth", () => {
     });
 
     test("returns null when credentials file is missing required fields", async () => {
-      const { loadCredentials } = await import("../../src/helpers/auth");
+      const { loadCredentials } =
+        await import("../../src/helpers/credential-store");
 
       const credPath = join(tempDir, ".archgate", "credentials");
       const { mkdirSync } = await import("node:fs");
@@ -76,7 +79,7 @@ describe("auth", () => {
   describe("clearCredentials", () => {
     test("removes credentials file", async () => {
       const { saveCredentials, clearCredentials, loadCredentials } =
-        await import("../../src/helpers/auth");
+        await import("../../src/helpers/credential-store");
 
       await saveCredentials({
         token: "ag_beta_abc123",
@@ -90,7 +93,8 @@ describe("auth", () => {
     });
 
     test("does not throw when no credentials file exists", async () => {
-      const { clearCredentials } = await import("../../src/helpers/auth");
+      const { clearCredentials } =
+        await import("../../src/helpers/credential-store");
 
       // Should not throw
       await clearCredentials();
@@ -212,8 +216,8 @@ describe("auth", () => {
     });
 
     test("throws SignupRequiredError on 403 with no approved signup", async () => {
-      const { claimArchgateToken, SignupRequiredError } =
-        await import("../../src/helpers/auth");
+      const { claimArchgateToken } = await import("../../src/helpers/auth");
+      const { SignupRequiredError } = await import("../../src/helpers/signup");
 
       const originalFetch = globalThis.fetch;
       mockFetch(() =>

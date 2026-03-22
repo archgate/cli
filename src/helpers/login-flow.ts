@@ -12,8 +12,8 @@ import {
   pollForAccessToken,
   getGitHubUser,
   claimArchgateToken,
-  saveCredentials,
 } from "./auth";
+import { saveCredentials } from "./credential-store";
 import { logError, logInfo } from "./log";
 import { SignupRequiredError, requestSignup } from "./signup";
 

@@ -1,7 +1,6 @@
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
-import { loadCredentials } from "../../helpers/auth";
 import { logError } from "../../helpers/log";
 import {
   buildMarketplaceUrl,
@@ -15,25 +14,14 @@ const editorOption = new Option("--editor <editor>", "target editor")
 export function registerPluginUrlCommand(plugin: Command) {
   plugin
     .command("url")
-    .description(
-      "Print the authenticated plugin repository URL for manual configuration"
-    )
+    .description("Print the plugin repository URL for manual configuration")
     .addOption(editorOption)
-    .action(async (opts) => {
+    .action((opts) => {
       try {
-        const credentials = await loadCredentials();
-        if (!credentials) {
-          logError(
-            "Not logged in.",
-            "Run `archgate login` first to authenticate."
-          );
-          process.exit(1);
-        }
-
         const url =
           opts.editor === "vscode"
-            ? buildVscodeMarketplaceUrl(credentials)
-            : buildMarketplaceUrl(credentials);
+            ? buildVscodeMarketplaceUrl()
+            : buildMarketplaceUrl();
 
         console.log(url);
       } catch (err) {

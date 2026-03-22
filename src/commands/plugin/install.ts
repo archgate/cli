@@ -3,7 +3,7 @@ import { styleText } from "node:util";
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
-import { loadCredentials } from "../../helpers/auth";
+import { loadCredentials } from "../../helpers/credential-store";
 import { EDITOR_LABELS } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot } from "../../helpers/paths";
@@ -43,10 +43,10 @@ export function registerPluginInstallCommand(plugin: Command) {
         switch (opts.editor) {
           case "claude": {
             if (await isClaudeCliAvailable()) {
-              await installClaudePlugin(credentials);
+              await installClaudePlugin();
               logInfo(`Archgate plugin installed for ${label}.`);
             } else {
-              const url = buildMarketplaceUrl(credentials);
+              const url = buildMarketplaceUrl();
               logWarn(
                 "Claude CLI not found. To install the plugin manually, run:"
               );
@@ -62,10 +62,10 @@ export function registerPluginInstallCommand(plugin: Command) {
 
           case "copilot": {
             if (await isCopilotCliAvailable()) {
-              await installCopilotPlugin(credentials);
+              await installCopilotPlugin();
               logInfo(`Archgate plugin installed for ${label}.`);
             } else {
-              const url = buildMarketplaceUrl(credentials);
+              const url = buildMarketplaceUrl();
               logWarn(
                 "Copilot CLI not found. To install the plugin manually, run:"
               );
@@ -90,7 +90,7 @@ export function registerPluginInstallCommand(plugin: Command) {
           }
 
           case "vscode": {
-            const url = buildVscodeMarketplaceUrl(credentials);
+            const url = buildVscodeMarketplaceUrl();
             await configureVscodeSettings(
               findProjectRoot() ?? process.cwd(),
               url

@@ -1,11 +1,12 @@
 {
-  "agent": "archgate:developer",
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
       "Skill(archgate:architect)",
       "Skill(archgate:quality-manager)",
-      "Skill(archgate:adr-author)"
-    ]
-  }
+      "Skill(archgate:adr-author)",
+      "WebSearch"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "agent": "archgate:developer"
 }
