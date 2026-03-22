@@ -14,7 +14,8 @@ import {
   claimArchgateToken,
   saveCredentials,
 } from "./auth";
-import { logError, logInfo } from "./log";
+import { logDebug, logError, logInfo } from "./log";
+import { resolveCommand } from "./platform";
 import { SignupRequiredError, requestSignup } from "./signup";
 
 export interface LoginFlowOptions {
@@ -91,6 +92,9 @@ export async function runLoginFlow(
     created_at: new Date().toISOString().split("T")[0],
   });
 
+  // Configure git credential helper for plugins.archgate.dev
+  await configureGitCredentialHelper();
+
   logInfo(
     `Authenticated as ${styleText("bold", githubUser)}. Plugin access is now available.`
   );
@@ -165,4 +169,41 @@ async function runSignupPrompt(
 
   logInfo("Claiming archgate plugin token...");
   return claimArchgateToken(githubToken);
+}
+
+/**
+ * Configure git to use `archgate credential-helper` for plugins.archgate.dev.
+ *
+ * Sets: git config --global credential.https://plugins.archgate.dev.helper "archgate credential-helper"
+ *
+ * This allows git to retrieve the archgate token from the OS credential manager
+ * transparently during clone/fetch operations.
+ */
+async function configureGitCredentialHelper(): Promise<void> {
+  const helperCmd = (await resolveCommand("archgate")) ?? "archgate";
+  const helperValue = `${helperCmd} credential-helper`;
+
+  try {
+    const proc = Bun.spawn(
+      [
+        "git",
+        "config",
+        "--global",
+        "credential.https://plugins.archgate.dev.helper",
+        helperValue,
+      ],
+      { stdout: "pipe", stderr: "pipe" }
+    );
+    const exitCode = await proc.exited;
+    if (exitCode === 0) {
+      logDebug("Git credential helper configured for plugins.archgate.dev");
+    } else {
+      logDebug(`Git credential helper configuration failed (exit ${exitCode})`);
+    }
+  } catch (err) {
+    logDebug(
+      "Failed to configure git credential helper:",
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }

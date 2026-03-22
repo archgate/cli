@@ -12,6 +12,7 @@ import { registerPluginCommand } from "./commands/plugin/index";
 import { registerReviewContextCommand } from "./commands/review-context";
 import { registerSessionContextCommand } from "./commands/session-context/index";
 import { registerTelemetryCommand } from "./commands/telemetry";
+import { registerCredentialHelperCommand } from "./commands/credential-helper";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { installGit } from "./helpers/git";
 import { logError } from "./helpers/log";
@@ -62,6 +63,7 @@ async function main() {
   registerReviewContextCommand(program);
   registerSessionContextCommand(program);
   registerPluginCommand(program);
+  registerCredentialHelperCommand(program);
   registerUpgradeCommand(program);
   registerCleanCommand(program);
   registerTelemetryCommand(program);

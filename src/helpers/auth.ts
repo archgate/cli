@@ -1,14 +1,10 @@
 /**
  * auth.ts — GitHub Device Flow authentication and archgate token management.
  *
- * Implements RFC 8628 (OAuth 2.0 Device Authorization Grant) for CLI login,
- * plus local storage of the archgate plugin token in ~/.archgate/credentials.
+ * Implements RFC 8628 (OAuth 2.0 Device Authorization Grant) for CLI login.
+ * Token storage is handled by credential-store.ts (Bun.secrets + file fallback).
  */
 
-import { chmodSync, unlinkSync } from "node:fs";
-
-import { logDebug } from "./log";
-import { internalPath, createPathIfNotExists } from "./paths";
 import { SignupRequiredError, isSignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
@@ -18,7 +14,6 @@ import { SignupRequiredError, isSignupRequiredError } from "./signup";
 const PLUGINS_API = "https://plugins.archgate.dev";
 const GITHUB_DEVICE_CODE_URL = "https://github.com/login/device/code";
 const GITHUB_DEVICE_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const CREDENTIALS_FILE = "credentials";
 
 /**
  * GitHub OAuth App client ID for the archgate CLI (public client — no secret).
@@ -59,11 +54,7 @@ type DeviceTokenResponse =
   | DeviceTokenPendingResponse
   | DeviceTokenErrorResponse;
 
-export interface StoredCredentials {
-  token: string;
-  github_user: string;
-  created_at: string;
-}
+export type { StoredCredentials } from "./credential-store";
 
 // ---------------------------------------------------------------------------
 // GitHub Device Flow
@@ -226,58 +217,9 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
 // Re-export for consumers that import from auth.ts
 export { SignupRequiredError } from "./signup";
 
-// ---------------------------------------------------------------------------
-// Credential Storage
-// ---------------------------------------------------------------------------
-
-function credentialsPath(): string {
-  return internalPath(CREDENTIALS_FILE);
-}
-
-/**
- * Persist archgate credentials to ~/.archgate/credentials (JSON).
- */
-export async function saveCredentials(
-  credentials: StoredCredentials
-): Promise<void> {
-  createPathIfNotExists(internalPath());
-  const filePath = credentialsPath();
-  await Bun.write(filePath, JSON.stringify(credentials, null, 2) + "\n");
-  try {
-    chmodSync(filePath, 0o600);
-  } catch {
-    // chmod may fail on Windows — NTFS uses ACLs instead
-  }
-  logDebug("Credentials saved to", filePath);
-}
-
-/**
- * Load stored archgate credentials, or null if none exist.
- */
-export async function loadCredentials(): Promise<StoredCredentials | null> {
-  const file = Bun.file(credentialsPath());
-  if (!(await file.exists())) {
-    return null;
-  }
-
-  try {
-    const data = (await file.json()) as StoredCredentials;
-    if (!data.token || !data.github_user) {
-      return null;
-    }
-    return data;
-  } catch {
-    logDebug("Failed to parse credentials file");
-    return null;
-  }
-}
-
-/**
- * Remove stored credentials (logout).
- */
-export async function clearCredentials(): Promise<void> {
-  if (await Bun.file(credentialsPath()).exists()) {
-    unlinkSync(credentialsPath());
-    logDebug("Credentials removed");
-  }
-}
+// Re-export credential storage from the dedicated module
+export {
+  saveCredentials,
+  loadCredentials,
+  clearCredentials,
+} from "./credential-store";
