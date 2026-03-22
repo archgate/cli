@@ -11,15 +11,19 @@ function mockFetch(handler: () => Promise<Response>) {
 describe("auth", () => {
   let tempDir: string;
   let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-auth-test-"));
-    originalHome = process.env.HOME;
-    process.env.HOME = tempDir;
+    originalHome = Bun.env.HOME;
+    originalUserProfile = Bun.env.USERPROFILE;
+    Bun.env.HOME = tempDir;
+    Bun.env.USERPROFILE = tempDir;
   });
 
   afterEach(() => {
-    process.env.HOME = originalHome;
+    Bun.env.HOME = originalHome;
+    Bun.env.USERPROFILE = originalUserProfile;
     rmSync(tempDir, { recursive: true, force: true });
   });
 
