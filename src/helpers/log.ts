@@ -1,11 +1,11 @@
 import { styleText } from "node:util";
 
 export function logDebug(...args: Parameters<typeof console.debug>) {
-  if (process.env.DEBUG) {
+  if (Bun.env.DEBUG) {
     const header = styleText("bgWhite", "DEBUG:");
     console.warn(header, ...args);
   }
-  if (process.env.TRACE) console.trace();
+  if (Bun.env.TRACE) console.trace();
 }
 
 export function logInfo(...args: Parameters<typeof console.info>) {

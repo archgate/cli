@@ -61,8 +61,8 @@ function isBinaryInstall(): boolean {
 }
 
 function getProtoHome(): string {
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? "~";
-  return process.env.PROTO_HOME ?? join(home, ".proto");
+  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
+  return Bun.env.PROTO_HOME ?? join(home, ".proto");
 }
 
 function isProtoInstall(): boolean {

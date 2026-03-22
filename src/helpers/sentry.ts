@@ -17,6 +17,7 @@ import { join } from "node:path";
 
 import * as Sentry from "@sentry/bun";
 
+import packageJson from "../../package.json";
 import { logDebug } from "./log";
 import { internalPath } from "./paths";
 import { getPlatformInfo } from "./platform";
@@ -42,8 +43,8 @@ function detectInstallMethod(): string {
 
   if (execPath.startsWith(binDir)) return "binary";
 
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? "~";
-  const protoHome = process.env.PROTO_HOME ?? join(home, ".proto");
+  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
+  const protoHome = Bun.env.PROTO_HOME ?? join(home, ".proto");
   const protoToolDir = join(protoHome, "tools", "archgate");
   if (execPath.startsWith(protoToolDir)) return "proto";
 
@@ -62,15 +63,6 @@ let initialized = false;
 // Public API
 // ---------------------------------------------------------------------------
 
-function getCliVersion(): string {
-  try {
-    const pkg = require("../../package.json") as { version: string };
-    return pkg.version;
-  } catch {
-    return "unknown";
-  }
-}
-
 /**
  * Initialize Sentry error tracking. Call once at CLI startup.
  * No-op if telemetry is disabled.
@@ -81,14 +73,14 @@ export function initSentry(): void {
     return;
   }
 
-  const cliVersion = getCliVersion();
+  const cliVersion = packageJson.version;
   const { runtime } = getPlatformInfo();
 
   try {
     Sentry.init({
       dsn: SENTRY_DSN,
       release: cliVersion,
-      environment: process.env.NODE_ENV ?? "production",
+      environment: Bun.env.NODE_ENV ?? "production",
       // Do not send default PII (hostnames, IPs, etc.)
       sendDefaultPii: false,
       // Enable tracing so sentry-trace headers propagate to the plugins service
@@ -102,18 +94,12 @@ export function initSentry(): void {
           cli_version: cliVersion,
           os: runtime,
           arch: process.arch,
-          is_ci: String(Boolean(process.env.CI)),
+          is_ci: String(Boolean(Bun.env.CI)),
           is_tty: String(Boolean(process.stdout.isTTY)),
           install_method: detectInstallMethod(),
           install_path: process.execPath,
         },
-        contexts: {
-          runtime: {
-            name: "bun",
-            // oxlint-disable-next-line no-negated-condition -- Bun availability check requires typeof guard
-            version: typeof Bun !== "undefined" ? Bun.version : "unknown",
-          },
-        },
+        contexts: { runtime: { name: "bun", version: Bun.version } },
       },
       // Keep default integrations including Http/Undici for distributed tracing
       // (sentry-trace headers are auto-injected into fetch calls matching

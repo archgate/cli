@@ -71,8 +71,7 @@ export function mergeMarketplaceUrl(
  */
 export async function getVscodeUserSettingsPath(): Promise<string> {
   if (isWindows()) {
-    const appData =
-      process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
+    const appData = Bun.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
     return join(appData, "Code", "User", "settings.json");
   }
   if (isMacOS()) {

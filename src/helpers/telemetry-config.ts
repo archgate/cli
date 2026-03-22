@@ -53,7 +53,7 @@ let cachedConfig: TelemetryConfig | null = null;
  * Accepted values: "0", "false", "no", "off" (case-insensitive).
  */
 export function isEnvTelemetryDisabled(): boolean {
-  const envVal = process.env.ARCHGATE_TELEMETRY;
+  const envVal = Bun.env.ARCHGATE_TELEMETRY;
   if (envVal === undefined) return false;
   return ["0", "false", "no", "off"].includes(envVal.toLowerCase());
 }

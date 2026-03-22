@@ -13,6 +13,7 @@
  * See https://cli.archgate.dev/reference/telemetry for the full privacy policy.
  */
 
+import packageJson from "../../package.json";
 import { logDebug } from "./log";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
@@ -58,28 +59,16 @@ function getCommonProperties(): Record<string, unknown> {
   const { runtime } = getPlatformInfo();
   return {
     $lib: "archgate-cli",
-    cli_version: getCliVersion(),
+    cli_version: packageJson.version,
     os: runtime,
     arch: process.arch,
-    // oxlint-disable-next-line no-negated-condition -- Bun availability check requires typeof guard
-    bun_version: typeof Bun !== "undefined" ? Bun.version : "unknown",
-    is_ci: Boolean(process.env.CI),
+    bun_version: Bun.version,
+    is_ci: Boolean(Bun.env.CI),
     is_tty: Boolean(process.stdout.isTTY),
-    node_env: process.env.NODE_ENV ?? "production",
+    node_env: Bun.env.NODE_ENV ?? "production",
     // Signal PostHog to resolve geo then discard the IP
     $ip: null,
   };
-}
-
-function getCliVersion(): string {
-  try {
-    // Lazy import to avoid circular dependency with cli.ts
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pkg = require("../../package.json") as { version: string };
-    return pkg.version;
-  } catch {
-    return "unknown";
-  }
 }
 
 // ---------------------------------------------------------------------------
