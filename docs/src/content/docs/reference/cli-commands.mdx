@@ -27,7 +27,7 @@ Authenticate with GitHub to access Archgate editor plugins. If you are not regis
 archgate login
 ```
 
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores both in `~/.archgate/credentials`.
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. Non-sensitive metadata (username, date) is saved to `~/.archgate/credentials`.
 
 If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
 
@@ -63,12 +63,14 @@ and enter the code: ABCD-1234
 Waiting for authorization...
 GitHub user: yourname
 
-No account found. Let's get you signed up.
+Your GitHub account yourname is not yet registered.
+Let's sign you up now.
+
 Email: you@example.com
 Editor: Claude Code
 Use case: Enforcing ADRs in our monorepo
 
-Registering...
+Submitting signup request...
 Claiming archgate plugin token...
 
 Authenticated as yourname. Plugin access is now available.
@@ -206,7 +208,7 @@ Use `archgate plugin` to install plugins or retrieve the authenticated repositor
 
 #### archgate plugin url
 
-Print the authenticated plugin repository URL for manual tool configuration.
+Print the plugin repository URL for manual tool configuration.
 
 ```bash
 archgate plugin url [options]
@@ -216,7 +218,7 @@ archgate plugin url [options]
 | ------------------- | -------- | ------------------------------------------------------- |
 | `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
 
-The URL includes your credentials and can be used to manually configure editor tools. For example, to add the Archgate marketplace in Claude Code:
+The URL can be used to manually configure editor tools. Credentials are provided automatically by your git credential manager (stored during `archgate login`). For example, to add the Archgate marketplace in Claude Code:
 
 ```bash
 claude plugin marketplace add "$(archgate plugin url)"
