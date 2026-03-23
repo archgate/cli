@@ -1,3 +1,9 @@
+## [0.22.0](https://github.com/archgate/cli/compare/v0.21.0...v0.22.0) (2026-03-23)
+
+### Features
+
+* add file arguments to check command ([#147](https://github.com/archgate/cli/issues/147)) ([63299a1](https://github.com/archgate/cli/commit/63299a1526230537611598853d2911481d1bab6a))
+
 ## [0.21.0](https://github.com/archgate/cli/compare/v0.20.0...v0.21.0) (2026-03-23)
 
 ### Features
