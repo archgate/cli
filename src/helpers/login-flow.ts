@@ -85,11 +85,7 @@ export async function runLoginFlow(
     archgateToken = result;
   }
 
-  await saveCredentials({
-    token: archgateToken,
-    github_user: githubUser,
-    created_at: new Date().toISOString().split("T")[0],
-  });
+  await saveCredentials({ token: archgateToken, github_user: githubUser });
 
   logInfo(
     `Authenticated as ${styleText("bold", githubUser)}. Plugin access is now available.`

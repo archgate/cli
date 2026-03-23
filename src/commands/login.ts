@@ -47,9 +47,7 @@ export function registerLoginCommand(program: Command) {
     .action(async () => {
       const creds = await loadCredentials();
       if (creds) {
-        console.log(
-          `Logged in as ${styleText("bold", creds.github_user)} (since ${creds.created_at})`
-        );
+        console.log(`Logged in as ${styleText("bold", creds.github_user)}.`);
       } else {
         console.log("Not logged in. Run `archgate login` to authenticate.");
       }
