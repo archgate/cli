@@ -1,3 +1,14 @@
+## [0.23.0](https://github.com/archgate/cli/compare/v0.21.0...v0.23.0) (2026-03-23)
+
+### Features
+
+* add file arguments to check command ([#147](https://github.com/archgate/cli/issues/147)) ([63299a1](https://github.com/archgate/cli/commit/63299a1526230537611598853d2911481d1bab6a))
+* add GEN-003 ADR for tool invocation via package scripts ([#149](https://github.com/archgate/cli/issues/149)) ([58eb611](https://github.com/archgate/cli/commit/58eb611572f26497f03d1e6106c58b697c3450f4))
+
+### Bug Fixes
+
+* prevent release push race condition ([#151](https://github.com/archgate/cli/issues/151)) ([0405f75](https://github.com/archgate/cli/commit/0405f75ecf0ec3c0d51d962882e713657c6b839a))
+
 ## [0.22.0](https://github.com/archgate/cli/compare/v0.21.0...v0.22.0) (2026-03-23)
 
 ### Features
