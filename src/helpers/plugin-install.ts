@@ -1,16 +1,10 @@
-/**
- * plugin-install.ts — Download and install the archgate plugin for supported editors.
- *
- * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
- * - VS Code:     marketplace URL for manual user-settings configuration (application-scoped)
- * - Copilot CLI:  auto-installs via `copilot` CLI, or prints manual commands as fallback
- * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
- */
+/** Download and install the archgate plugin for supported editors. */
 
 import { mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import { logDebug } from "./log";
+import { internalPath } from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -104,18 +98,15 @@ export async function installClaudePlugin(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Cursor — download and extract plugin bundle
+// Shared — authenticated asset download
 // ---------------------------------------------------------------------------
 
-/**
- * Download the cursor.tar.gz from the plugins service and extract it to the project root.
- * Creates/overwrites .cursor/ folder contents with the pre-built agent and skills.
- */
-export async function installCursorPlugin(
-  projectRoot: string,
+/** Download a plugin asset from the plugins API with Bearer auth. */
+async function downloadPluginAsset(
+  path: string,
   token: string
-): Promise<string[]> {
-  const response = await fetch(`${PLUGINS_API}/api/cursor`, {
+): Promise<ArrayBuffer> {
+  const response = await fetch(`${PLUGINS_API}${path}`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "archgate-cli" },
     signal: AbortSignal.timeout(30_000),
     redirect: "error",
@@ -123,28 +114,32 @@ export async function installCursorPlugin(
 
   if (response.status === 401) {
     throw new Error(
-      "Plugin download unauthorized. Your token may have expired — run `archgate login refresh`."
+      "Download unauthorized. Your token may have expired — run `archgate login refresh`."
     );
   }
-
   if (!response.ok) {
     throw new Error(
-      `Plugin download failed (HTTP ${response.status}). Try again later.`
+      `Download failed (HTTP ${response.status}). Try again later.`
     );
   }
 
-  const tarGzBuffer = await response.arrayBuffer();
+  return response.arrayBuffer();
+}
 
+// ---------------------------------------------------------------------------
+// Cursor — download and extract plugin bundle
+// ---------------------------------------------------------------------------
+
+/** Download cursor.tar.gz and extract it to the project root. */
+export async function installCursorPlugin(
+  projectRoot: string,
+  token: string
+): Promise<string[]> {
+  const buffer = await downloadPluginAsset("/api/cursor", token);
   logDebug(
-    `Downloaded cursor plugin archive (${Math.round(tarGzBuffer.byteLength / 1024)} KB)`
+    `Downloaded cursor plugin archive (${Math.round(buffer.byteLength / 1024)} KB)`
   );
-
-  const extractedFiles = await extractTarGz(
-    new Uint8Array(tarGzBuffer),
-    projectRoot
-  );
-
-  return extractedFiles;
+  return extractTarGz(new Uint8Array(buffer), projectRoot);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +187,46 @@ export async function installCopilotPlugin(): Promise<void> {
     throw new Error(
       `copilot plugin install failed (exit ${installResult.exitCode})`
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// VS Code — download .vsix and install via `code` CLI
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether the `code` CLI is available on the system PATH.
+ * On WSL, also checks for `code.exe` (Windows-side installation).
+ */
+export async function isVscodeCliAvailable(): Promise<boolean> {
+  const resolved = await resolveCommand("code");
+  return resolved !== null;
+}
+
+/** Download the .vsix from the plugins service and install via `code` CLI. */
+export async function installVscodeExtension(token: string): Promise<void> {
+  const vsixPath = internalPath("archgate.vsix");
+  const buffer = await downloadPluginAsset("/api/vscode", token);
+  logDebug(
+    `Downloaded VS Code extension (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(vsixPath, buffer);
+
+  try {
+    const codeCmd = (await resolveCommand("code")) ?? "code";
+    logDebug("Installing VS Code extension via code CLI");
+    const result = await run([codeCmd, "--install-extension", vsixPath]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `code --install-extension failed (exit ${result.exitCode})`
+      );
+    }
+  } finally {
+    try {
+      unlinkSync(vsixPath);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 
