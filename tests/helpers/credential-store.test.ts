@@ -30,30 +30,44 @@ describe("credential-store", () => {
   });
 
   describe("saveCredentials", () => {
-    test("writes metadata file WITHOUT token to ~/.archgate/credentials", async () => {
+    test("does not write any metadata file to disk", async () => {
       const { saveCredentials } =
         await import("../../src/helpers/credential-store");
 
       await saveCredentials({
         token: "ag_beta_abc123",
         github_user: "testuser",
-        created_at: "2026-01-15",
       });
 
+      // No credentials file should be written — everything is in git credential manager.
       const credPath = join(tempDir, ".archgate", "credentials");
-      const file = Bun.file(credPath);
-      expect(await file.exists()).toBe(true);
+      expect(await Bun.file(credPath).exists()).toBe(false);
+    });
 
-      const data = await file.json();
-      expect(data.github_user).toBe("testuser");
-      expect(data.created_at).toBe("2026-01-15");
-      // Token must NOT be present in the metadata file
-      expect(data.token).toBeUndefined();
+    test("cleans up legacy metadata file on save", async () => {
+      const { saveCredentials } =
+        await import("../../src/helpers/credential-store");
+
+      // Create a legacy metadata file
+      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+      const credPath = join(tempDir, ".archgate", "credentials");
+      await Bun.write(
+        credPath,
+        JSON.stringify({ github_user: "old", created_at: "2025-01-01" })
+      );
+
+      await saveCredentials({
+        token: "ag_beta_abc123",
+        github_user: "testuser",
+      });
+
+      // Legacy file should be removed.
+      expect(await Bun.file(credPath).exists()).toBe(false);
     });
   });
 
   describe("loadCredentials", () => {
-    test("returns null when no credentials file and no git creds exist", async () => {
+    test("returns null when no credentials exist anywhere", async () => {
       const { loadCredentials } =
         await import("../../src/helpers/credential-store");
 
@@ -61,32 +75,7 @@ describe("credential-store", () => {
       expect(result).toBeNull();
     });
 
-    test("returns null when credentials file is invalid JSON", async () => {
-      const { loadCredentials } =
-        await import("../../src/helpers/credential-store");
-
-      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
-      await Bun.write(join(tempDir, ".archgate", "credentials"), "not-json");
-
-      const result = await loadCredentials();
-      expect(result).toBeNull();
-    });
-
-    test("returns null when github_user is missing", async () => {
-      const { loadCredentials } =
-        await import("../../src/helpers/credential-store");
-
-      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
-      await Bun.write(
-        join(tempDir, ".archgate", "credentials"),
-        JSON.stringify({ created_at: "2026-01-01" })
-      );
-
-      const result = await loadCredentials();
-      expect(result).toBeNull();
-    });
-
-    test("returns null and deletes file when metadata has legacy plaintext token", async () => {
+    test("returns null and deletes legacy metadata file", async () => {
       const { loadCredentials } =
         await import("../../src/helpers/credential-store");
 
@@ -95,56 +84,29 @@ describe("credential-store", () => {
       await Bun.write(
         credPath,
         JSON.stringify({
-          token: "ag_beta_fallback",
+          token: "ag_beta_legacy",
           github_user: "testuser",
           created_at: "2026-01-15",
         })
       );
 
-      // Legacy plaintext tokens are rejected — user must re-login.
+      // Legacy file triggers deletion and returns null (re-login required).
       const result = await loadCredentials();
       expect(result).toBeNull();
-      // The legacy credentials file should be deleted.
       expect(await Bun.file(credPath).exists()).toBe(false);
     });
 
-    test("does not return credentials from plaintext file when git creds fail", async () => {
+    test("returns null when no git creds and no legacy file", async () => {
       const { loadCredentials } =
         await import("../../src/helpers/credential-store");
 
-      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
-      // Write a metadata file with NO token (new format)
-      await Bun.write(
-        join(tempDir, ".archgate", "credentials"),
-        JSON.stringify({ github_user: "testuser", created_at: "2026-01-15" })
-      );
-
-      // Without git credential helper returning creds, result should be null
+      // With isolated git config (no credential helper), returns null.
       const result = await loadCredentials();
-      // On CI without credential helper configured for this host, this is null
-      if (!result) {
-        expect(result).toBeNull();
-      }
+      expect(result).toBeNull();
     });
   });
 
   describe("clearCredentials", () => {
-    test("removes metadata file", async () => {
-      const { saveCredentials, clearCredentials } =
-        await import("../../src/helpers/credential-store");
-
-      await saveCredentials({
-        token: "ag_beta_abc123",
-        github_user: "testuser",
-        created_at: "2026-01-15",
-      });
-
-      await clearCredentials();
-
-      const credPath = join(tempDir, ".archgate", "credentials");
-      expect(await Bun.file(credPath).exists()).toBe(false);
-    });
-
     test("does not throw when no credentials exist", async () => {
       const { clearCredentials } =
         await import("../../src/helpers/credential-store");
@@ -153,23 +115,19 @@ describe("credential-store", () => {
       await clearCredentials();
     });
 
-    test("handles legacy metadata file with plaintext token", async () => {
+    test("cleans up legacy metadata file", async () => {
       const { clearCredentials } =
         await import("../../src/helpers/credential-store");
 
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+      const credPath = join(tempDir, ".archgate", "credentials");
       await Bun.write(
-        join(tempDir, ".archgate", "credentials"),
-        JSON.stringify({
-          token: "ag_beta_legacy",
-          github_user: "testuser",
-          created_at: "2026-01-15",
-        })
+        credPath,
+        JSON.stringify({ github_user: "testuser", created_at: "2026-01-15" })
       );
 
       await clearCredentials();
 
-      const credPath = join(tempDir, ".archgate", "credentials");
       expect(await Bun.file(credPath).exists()).toBe(false);
     });
   });
@@ -177,7 +135,6 @@ describe("credential-store", () => {
   describe("StoredCredentials type", () => {
     test("interface has expected shape", async () => {
       const mod = await import("../../src/helpers/credential-store");
-      // Verify the module exports the expected functions
       expect(typeof mod.saveCredentials).toBe("function");
       expect(typeof mod.loadCredentials).toBe("function");
       expect(typeof mod.clearCredentials).toBe("function");
