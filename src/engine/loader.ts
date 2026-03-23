@@ -22,9 +22,10 @@ const RuleSetSchema = z.object({
     })
   ),
 });
-import { logDebug } from "../helpers/log";
+import { logDebug, logError } from "../helpers/log";
 import { projectPaths } from "../helpers/paths";
 import { ensureRulesShim } from "../helpers/rules-shim";
+import { scanRuleSource } from "./rule-scanner";
 
 export interface LoadedAdr {
   adr: AdrDocument;
@@ -87,6 +88,21 @@ export async function loadRuleAdrs(
       if (!rulesFileExists) {
         throw new Error(
           `ADR ${adr.frontmatter.id} has rules: true but no companion file found: ${rulesFile}`
+        );
+      }
+
+      // Security gate: scan rule source for banned patterns before executing.
+      // This blocks dangerous imports (node:fs, child_process), Bun APIs
+      // (Bun.spawn, Bun.file), network access (fetch), eval, and obfuscation
+      // patterns (computed property access, dynamic imports).
+      const ruleSource = await Bun.file(rulesFile).text();
+      const scanViolations = scanRuleSource(ruleSource);
+      if (scanViolations.length > 0) {
+        for (const v of scanViolations) {
+          logError(`${rulesFile}:${v.line}:${v.column} - ${v.message}`);
+        }
+        throw new Error(
+          `ADR ${adr.frontmatter.id}: rule file blocked by security scanner (${scanViolations.length} violation${scanViolations.length === 1 ? "" : "s"})`
         );
       }
 

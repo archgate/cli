@@ -70,10 +70,12 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 - **DO** preserve MDX curly-brace escaping (`\{\}`) in translations, following [GEN-001](./GEN-001-documentation-site.md)
 - **DO** preserve Starlight component import statements identically in translated files
 - **DO** update translations in the same PR that modifies the English source content
+- **DO** use correct diacritical marks (accents) in Portuguese translations -- ã, ç, é, í, ó, ú, â, ê, ô, à are mandatory. Never write unaccented Portuguese (e.g., `não` not `nao`, `código` not `codigo`, `você` not `voce`, `segurança` not `seguranca`, `funções` not `funcoes`)
 - **DO** update the `LOCALES` constant in the companion rules file when adding a new language
 
 ### Don't
 
+- **DON'T** write Portuguese text without diacritical marks -- unaccented Portuguese is grammatically incorrect and unprofessional (e.g., `execução` not `execucao`, `configuração` not `configuracao`, `também` not `tambem`)
 - **DON'T** leave pages untranslated without a tracking issue explaining when the translation will be added
 - **DON'T** use machine translation without human review for technical accuracy
 - **DON'T** translate code examples, TypeScript identifiers, CLI command names, or file paths
