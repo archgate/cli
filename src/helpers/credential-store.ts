@@ -30,11 +30,11 @@ export interface StoredCredentials {
   created_at: string;
 }
 
-/** Metadata file shape. Legacy files may have a `token` field (auto-migrated). */
+/** Metadata file shape (non-sensitive only). */
 interface CredentialMetadata {
   github_user: string;
   created_at: string;
-  /** @deprecated Auto-migrated to git credential manager on load. */
+  /** @deprecated Legacy field — presence triggers re-login prompt. */
   token?: string;
 }
 
@@ -202,9 +202,9 @@ export async function saveCredentials(
 /**
  * Load stored archgate credentials, or null if none exist.
  *
- * Token is always read from the git credential manager. If a legacy metadata
- * file contains a plaintext token, it is auto-migrated to the credential
- * manager and scrubbed from disk.
+ * Token is always read from the git credential manager — never from disk.
+ * If a legacy metadata file contains a plaintext token, it is deleted and
+ * the user is asked to run `archgate login` again.
  */
 export async function loadCredentials(): Promise<StoredCredentials | null> {
   // Git credential manager is the authoritative token source — check it first
@@ -212,10 +212,21 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
   const gitCreds = await gitCredentialFill();
   const metadata = await readMetadata();
 
-  if (gitCreds) {
-    // Scrub legacy plaintext token from metadata file if present.
-    if (metadata?.token) await writeMetadata(metadata);
+  // If the metadata file contains a legacy plaintext token, delete it
+  // regardless of whether git creds exist — plaintext tokens must not persist.
+  if (metadata?.token) {
+    logWarn(
+      "Plaintext token found in credentials file — removing it.",
+      "Run `archgate login` to re-authenticate."
+    );
+    unlinkSync(metadataPath());
+    logDebug("Legacy credentials file with plaintext token removed");
+    // Even if git creds exist, force re-login so the metadata file is
+    // recreated cleanly without a token field.
+    return null;
+  }
 
+  if (gitCreds) {
     return {
       token: gitCreds.password,
       github_user: gitCreds.username,
@@ -223,41 +234,12 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     };
   }
 
-  // No git creds — attempt to migrate a legacy plaintext token.
-  if (metadata?.token) {
-    logWarn("Migrating plaintext token to git credential manager...");
-    const migrated = await gitCredentialApprove(
-      metadata.github_user,
-      metadata.token
-    );
-    if (migrated) {
-      const verified = await gitCredentialFill();
-      if (verified) {
-        logDebug("Legacy token migrated to git credential manager");
-        const { token } = metadata;
-        await writeMetadata(metadata);
-        return {
-          token,
-          github_user: metadata.github_user,
-          created_at: metadata.created_at,
-        };
-      }
-    }
-    logWarn(
-      "Could not migrate token to git credential manager.",
-      "Your credential helper may not be configured.",
-      "Run `archgate login refresh` to re-authenticate."
-    );
-    return null;
-  }
-
   return null;
 }
 
 /**
  * Remove stored credentials (logout).
- * Clears both the git credential manager and the metadata file,
- * including any legacy plaintext tokens.
+ * Clears both the git credential manager and the metadata file.
  */
 export async function clearCredentials(): Promise<void> {
   const gitCreds = await gitCredentialFill();
@@ -266,19 +248,7 @@ export async function clearCredentials(): Promise<void> {
     logDebug("Token removed from git credential manager");
   }
 
-  const file = Bun.file(metadataPath());
-  if (await file.exists()) {
-    try {
-      const metadata = (await file.json()) as CredentialMetadata;
-      if (metadata.token && metadata.github_user) {
-        await gitCredentialReject(metadata.github_user, metadata.token);
-        logDebug(
-          "Legacy plaintext token also rejected from credential manager"
-        );
-      }
-    } catch {
-      // Metadata file is invalid — just delete it
-    }
+  if (await Bun.file(metadataPath()).exists()) {
     unlinkSync(metadataPath());
     logDebug("Credentials file removed");
   }

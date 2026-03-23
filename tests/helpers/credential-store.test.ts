@@ -86,13 +86,14 @@ describe("credential-store", () => {
       expect(result).toBeNull();
     });
 
-    test("attempts migration when metadata file has legacy plaintext token", async () => {
+    test("returns null and deletes file when metadata has legacy plaintext token", async () => {
       const { loadCredentials } =
         await import("../../src/helpers/credential-store");
 
+      const credPath = join(tempDir, ".archgate", "credentials");
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
       await Bun.write(
-        join(tempDir, ".archgate", "credentials"),
+        credPath,
         JSON.stringify({
           token: "ag_beta_fallback",
           github_user: "testuser",
@@ -100,15 +101,11 @@ describe("credential-store", () => {
         })
       );
 
-      // On test systems without a git credential helper, migration will fail
-      // and loadCredentials returns null (no insecure plaintext fallback)
+      // Legacy plaintext tokens are rejected — user must re-login.
       const result = await loadCredentials();
-      // Result depends on whether git credential helper is configured.
-      // On CI/test systems it's typically null (migration fails gracefully).
-      if (result) {
-        expect(result.github_user).toBe("testuser");
-        expect(result.token).toBeTruthy();
-      }
+      expect(result).toBeNull();
+      // The legacy credentials file should be deleted.
+      expect(await Bun.file(credPath).exists()).toBe(false);
     });
 
     test("does not return credentials from plaintext file when git creds fail", async () => {
