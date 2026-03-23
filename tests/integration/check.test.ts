@@ -238,6 +238,42 @@ describe("check integration", () => {
     expect(stdout).toContain("ms");
   });
 
+  test("file args → scopes checks to specified files", async () => {
+    scaffoldProject(dir);
+    mkdirSync(join(dir, "src"), { recursive: true });
+    mkdirSync(join(dir, "docs"), { recursive: true });
+    writeFileSync(join(dir, "src", "good.ts"), "const x = 1;\n");
+    writeFileSync(join(dir, "src", "bad.ts"), 'console.log("bad");\n');
+    writeFileSync(join(dir, "docs", "readme.md"), "# Hello\n");
+    const noConsoleRule = `export default { rules: { "no-console": { description: "No console.log", async check(ctx) {
+      for (const f of ctx.scopedFiles) { for (const m of await ctx.grep(f, /console\\.log/)) ctx.report.violation({ message: "found", file: m.file, line: m.line }); }
+    } } } };`;
+    writeAdr(
+      dir,
+      "FILE-001.md",
+      makeAdr({
+        id: "FILE-001",
+        title: "X",
+        rules: true,
+        files: ["src/**/*.ts"],
+      })
+    );
+    writeRules(dir, "FILE-001.rules.ts", noConsoleRule);
+
+    const good = await runCli(["check", "--json", "src/good.ts"], dir);
+    expect(good.exitCode).toBe(0);
+    expect(JSON.parse(good.stdout).pass).toBe(true);
+
+    const bad = await runCli(["check", "--json", "src/bad.ts"], dir);
+    expect(bad.exitCode).toBe(1);
+    expect(JSON.parse(bad.stdout).pass).toBe(false);
+
+    // Out-of-scope file → ADR skipped
+    const oos = await runCli(["check", "--json", "docs/readme.md"], dir);
+    expect(oos.exitCode).toBe(0);
+    expect(JSON.parse(oos.stdout).pass).toBe(true);
+  });
+
   test("exit non-zero when no .archgate project found", async () => {
     // dir has no .archgate scaffold
     const { exitCode, stderr } = await runCli(["check"], dir);

@@ -21,7 +21,8 @@ export function registerCheckCommand(program: Command) {
     .option("--staged", "Only check git-staged files")
     .option("--adr <id>", "Only check rules from a specific ADR")
     .option("--verbose", "Show passing rules and timing info")
-    .action(async (opts) => {
+    .argument("[files...]", "Only check rules relevant to these files")
+    .action(async (files, opts) => {
       const projectRoot = findProjectRoot();
       if (!projectRoot) {
         logError(
@@ -67,8 +68,19 @@ export function registerCheckCommand(program: Command) {
         process.exit(0);
       }
 
+      // Collect file paths from arguments and/or stdin pipe
+      let filterFiles: string[] = files ?? [];
+      if (!process.stdin.isTTY) {
+        const stdin = await new Response(
+          process.stdin as unknown as ReadableStream
+        ).text();
+        const piped = stdin.trim().split(/\r?\n/).filter(Boolean);
+        filterFiles = [...filterFiles, ...piped];
+      }
+
       const result = await runChecks(projectRoot, loadedAdrs, {
         staged: opts.staged,
+        files: filterFiles.length > 0 ? filterFiles : undefined,
       });
 
       if (opts.ci) {
