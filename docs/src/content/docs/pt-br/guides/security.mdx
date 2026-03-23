@@ -1,56 +1,56 @@
 ---
-title: Seguranca
-description: Entenda o modelo de confianca do Archgate CLI, como as regras sao executadas e as melhores praticas para rodar verificacoes com seguranca em CI/CD e desenvolvimento local.
+title: Segurança
+description: Entenda o modelo de confiança do Archgate CLI, como as regras são executadas e as melhores práticas para rodar verificações com segurança em CI/CD e desenvolvimento local.
 ---
 
-O Archgate executa regras TypeScript a partir de arquivos `.rules.ts` no seu repositorio. Esta pagina explica o modelo de confianca, o que as regras podem e nao podem fazer, e como rodar verificacoes com seguranca.
+O Archgate executa regras TypeScript a partir de arquivos `.rules.ts` no seu repositório. Esta página explica o modelo de confiança, o que as regras podem e não podem fazer, e como rodar verificações com segurança.
 
-## Modelo de confianca
+## Modelo de confiança
 
-**Arquivos `.rules.ts` sao codigo executavel.** Quando voce roda `archgate check`, o CLI importa dinamicamente cada arquivo `.rules.ts` complementar e executa suas funcoes `check`. Isso equivale a rodar `bun .archgate/adrs/*.rules.ts` -- o codigo tem as mesmas capacidades que qualquer outro script na sua maquina.
+**Arquivos `.rules.ts` são código executável.** Quando você roda `archgate check`, o CLI importa dinamicamente cada arquivo `.rules.ts` complementar e executa suas funções `check`. Isso equivale a rodar `bun .archgate/adrs/*.rules.ts` -- o código tem as mesmas capacidades que qualquer outro script na sua máquina.
 
 Isso significa:
 
-- Rode `archgate check` apenas em repositorios nos quais voce confia.
-- Revise arquivos `.rules.ts` com o mesmo rigor que qualquer outro codigo-fonte do projeto.
-- Em projetos open-source, trate mudancas em `.rules.ts` em pull requests como sensíveis do ponto de vista de seguranca.
+- Rode `archgate check` apenas em repositórios nos quais você confia.
+- Revise arquivos `.rules.ts` com o mesmo rigor que qualquer outro código-fonte do projeto.
+- Em projetos open-source, trate mudanças em `.rules.ts` em pull requests como sensíveis do ponto de vista de segurança.
 
 ### O que as regras podem acessar
 
-As regras recebem um objeto `RuleContext` com operacoes de arquivo isoladas. Todos os metodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) sao restritos ao diretorio raiz do projeto -- travessia de caminho via `../`, caminhos absolutos e links simbolicos sao bloqueados e lancam um erro.
+As regras recebem um objeto `RuleContext` com operações de arquivo isoladas. Todos os métodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) são restritos ao diretório raiz do projeto -- travessia de caminho via `../`, caminhos absolutos e links simbólicos são bloqueados e lançam um erro.
 
-Alem do sandbox de runtime, o Archgate executa um **scanner de seguranca por analise estatica** em cada arquivo `.rules.ts` antes de executa-lo. O scanner analisa a AST da regra e bloqueia arquivos que contenham padroes perigosos:
+Além do sandbox de runtime, o Archgate executa um **scanner de segurança por análise estática** em cada arquivo `.rules.ts` antes de executá-lo. O scanner analisa a AST da regra e bloqueia arquivos que contenham padrões perigosos:
 
-| Padrao                                                                    | Bloqueado |
+| Padrão                                                                    | Bloqueado |
 | ------------------------------------------------------------------------- | --------- |
 | Imports de `node:fs`, `child_process`, `net`, `http`, `vm`, etc.          | Sim       |
 | `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                       | Sim       |
 | `fetch()`                                                                 | Sim       |
 | `eval()`, `new Function()`                                                | Sim       |
-| Acesso computado a propriedades (`Bun[variavel]`, `globalThis[variavel]`) | Sim       |
-| `import()` dinamico com argumento nao-literal                             | Sim       |
-| Atribuicao a `globalThis` ou `process.env`                                | Sim       |
+| Acesso computado a propriedades (`Bun[variável]`, `globalThis[variável]`) | Sim       |
+| `import()` dinâmico com argumento não-literal                             | Sim       |
+| Atribuição a `globalThis` ou `process.env`                                | Sim       |
 
-Se qualquer padrao proibido for encontrado, o arquivo de regra **nao e importado nem executado** e `archgate check` termina com erro.
+Se qualquer padrão proibido for encontrado, o arquivo de regra **não é importado nem executado** e `archgate check` termina com erro.
 
-**Modulos seguros permitidos:** `node:path`, `node:url`, `node:util`, `node:crypto` -- sao modulos utilitarios sem capacidades de sistema de arquivos, rede ou processos.
+**Módulos seguros permitidos:** `node:path`, `node:url`, `node:util`, `node:crypto` -- são módulos utilitários sem capacidades de sistema de arquivos, rede ou processos.
 
-O scanner eleva a barreira de "trivial de explorar" para "requer ofuscacao deliberada que parece suspeita em code review." Regras bem-comportadas usam apenas os metodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saida.
+O scanner eleva a barreira de "trivial de explorar" para "requer ofuscação deliberada que parece suspeita em code review." Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saída.
 
-### O que as regras nao podem fazer
+### O que as regras não podem fazer
 
-- **Escrever arquivos** -- a API do `RuleContext` e somente leitura. Regras reportam violacoes mas nao podem modificar o codebase.
-- **Escapar do timeout de 30 segundos** -- cada regra e encerrada apos 30 segundos de tempo de execucao.
-- **Afetar outras regras** -- regras de ADRs diferentes rodam em paralelo mas nao compartilham estado mutavel atraves da API de contexto.
-- **Usar APIs perigosas** -- o scanner de seguranca bloqueia imports de modulos do sistema (`fs`, `child_process`, `net`, etc.), APIs do Bun (`Bun.spawn`, `Bun.file`), acesso a rede (`fetch`) e geracao de codigo (`eval`, `new Function`). Arquivos de regra que contenham esses padroes sao rejeitados antes da execucao.
+- **Escrever arquivos** -- a API do `RuleContext` é somente leitura. Regras reportam violações mas não podem modificar o codebase.
+- **Escapar do timeout de 30 segundos** -- cada regra é encerrada após 30 segundos de tempo de execução.
+- **Afetar outras regras** -- regras de ADRs diferentes rodam em paralelo mas não compartilham estado mutável através da API de contexto.
+- **Usar APIs perigosas** -- o scanner de segurança bloqueia imports de módulos do sistema (`fs`, `child_process`, `net`, etc.), APIs do Bun (`Bun.spawn`, `Bun.file`), acesso à rede (`fetch`) e geração de código (`eval`, `new Function`). Arquivos de regra que contenham esses padrões são rejeitados antes da execução.
 
-## Boas praticas para CI/CD
+## Boas práticas para CI/CD
 
-Rodar `archgate check` em CI e seguro quando voce controla o conteudo do repositorio. Cuidado extra e necessario para pull requests de contribuidores externos.
+Rodar `archgate check` em CI é seguro quando você controla o conteúdo do repositório. Cuidado extra é necessário para pull requests de contribuidores externos.
 
 ### Branches confiáveis
 
-Para pushes em `main` ou outras branches protegidas, `archgate check` executa codigo que ja foi revisado e mesclado. Isso e seguro:
+Para pushes em `main` ou outras branches protegidas, `archgate check` executa código que já foi revisado e mesclado. Isso é seguro:
 
 ```yaml
 on:
@@ -67,9 +67,9 @@ jobs:
 
 ### Pull requests de forks
 
-Quando um pull request vem de um fork, os arquivos `.rules.ts` no PR podem conter codigo arbitrario. Esse e o mesmo risco de rodar qualquer script de CI nao confiavel.
+Quando um pull request vem de um fork, os arquivos `.rules.ts` no PR podem conter código arbitrário. Esse é o mesmo risco de rodar qualquer script de CI não confiável.
 
-**Opcao 1: Exigir aprovacao antes de rodar.** Use regras de protecao de ambiente do GitHub ou `pull_request_target` com aprovacao manual para condicionar o CI a revisao:
+**Opção 1: Exigir aprovação antes de rodar.** Use regras de proteção de ambiente do GitHub ou `pull_request_target` com aprovação manual para condicionar o CI à revisão:
 
 ```yaml
 on:
@@ -78,7 +78,7 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    environment: pr-check # Requer aprovacao manual
+    environment: pr-check # Requer aprovação manual
     steps:
       - uses: actions/checkout@v4
         with:
@@ -86,9 +86,9 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-**Opcao 2: Rodar verificacoes apenas em arquivos confiaveis.** Use um workflow separado que faz checkout dos arquivos `.rules.ts` da branch base e os executa contra os arquivos-fonte do PR. Isso garante que apenas regras revisadas sejam executadas.
+**Opção 2: Rodar verificações apenas em arquivos confiáveis.** Use um workflow separado que faz checkout dos arquivos `.rules.ts` da branch base e os executa contra os arquivos-fonte do PR. Isso garante que apenas regras revisadas sejam executadas.
 
-**Opcao 3: Pular verificacoes em PRs de forks.** Se suas regras sao principalmente para governanca interna, pule verificacoes automatizadas em PRs de forks e rode-as manualmente apos revisao:
+**Opção 3: Pular verificações em PRs de forks.** Se suas regras são principalmente para governança interna, pule verificações automatizadas em PRs de forks e rode-as manualmente após revisão:
 
 ```yaml
 on:
@@ -103,9 +103,9 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-### Runners com privilegio minimo
+### Runners com privilégio mínimo
 
-Rode `archgate check` em runners com permissoes minimas. O job precisa apenas de acesso de leitura ao repositorio -- nao sao necessarios secrets, chaves de deploy ou permissoes de escrita:
+Rode `archgate check` em runners com permissões mínimas. O job precisa apenas de acesso de leitura ao repositório -- não são necessários secrets, chaves de deploy ou permissões de escrita:
 
 ```yaml
 jobs:
@@ -120,26 +120,26 @@ jobs:
 
 ## Desenvolvimento local
 
-### Revisando regras em novos repositorios
+### Revisando regras em novos repositórios
 
-Ao clonar ou fazer fork de um repositorio que usa Archgate, o scanner de seguranca bloqueia automaticamente padroes perigosos em arquivos `.rules.ts`. Porem, voce ainda deve revisar os arquivos de regras antes de rodar `archgate check` pela primeira vez:
+Ao clonar ou fazer fork de um repositório que usa Archgate, o scanner de segurança bloqueia automaticamente padrões perigosos em arquivos `.rules.ts`. Porém, você ainda deve revisar os arquivos de regras antes de rodar `archgate check` pela primeira vez:
 
-- O scanner detecta uso explicito de APIs proibidas, mas ofuscacao sofisticada (ex: `Reflect.get(Bun, "spawn")`) pode contorna-lo
-- Codigo de nivel superior que executa no import (antes da funcao `check` ser chamada) ainda e executado se passar pelo scanner
-- Regras bem-comportadas usam apenas os metodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saida
+- O scanner detecta uso explícito de APIs proibidas, mas ofuscação sofisticada (ex: `Reflect.get(Bun, "spawn")`) pode contorná-lo
+- Código de nível superior que executa no import (antes da função `check` ser chamada) ainda é executado se passar pelo scanner
+- Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saída
 
 ### Credenciais
 
-O comando `archgate login` armazena um token de autenticacao em `~/.archgate/credentials` com permissoes de arquivo somente para o proprietario (`0600` em Unix). Este token e usado para instalacao de plugins e nunca e enviado a terceiros alem do servico de plugins do Archgate.
+O comando `archgate login` armazena um token de autenticação em `~/.archgate/credentials` com permissões de arquivo somente para o proprietário (`0600` em Unix). Este token é usado para instalação de plugins e nunca é enviado a terceiros além do serviço de plugins do Archgate.
 
-- Nao commite `~/.archgate/credentials` no controle de versao.
-- Nao exponha o token em logs de CI. Comandos de instalacao de plugins passam credenciais via URLs autenticadas para o git, que podem aparecer em listagens de processos. Evite rodar `archgate plugin install` com logging verbose em ambientes de CI compartilhados.
+- Não commite `~/.archgate/credentials` no controle de versão.
+- Não exponha o token em logs de CI. Comandos de instalação de plugins passam credenciais via URLs autenticadas para o git, que podem aparecer em listagens de processos. Evite rodar `archgate plugin install` com logging verbose em ambientes de CI compartilhados.
 - Para revogar acesso, rode `archgate logout` ou delete `~/.archgate/credentials`.
 
-### Integridade da atualizacao
+### Integridade da atualização
 
-Quando voce roda `archgate upgrade`, o CLI baixa o binario de release do GitHub Releases e verifica o checksum SHA256 antes da extracao. Se o checksum nao corresponder, a atualizacao e abortada. Isso protege contra downloads adulterados por interceptacao de rede ou mirrors comprometidos.
+Quando você roda `archgate upgrade`, o CLI baixa o binário de release do GitHub Releases e verifica o checksum SHA256 antes da extração. Se o checksum não corresponder, a atualização é abortada. Isso protege contra downloads adulterados por interceptação de rede ou mirrors comprometidos.
 
 ## Reportando vulnerabilidades
 
-Se voce descobrir um problema de seguranca no Archgate, por favor reporte de forma responsavel abrindo uma [issue no GitHub](https://github.com/archgate/cli/issues) ou entrando em contato com os mantenedores diretamente. Nao inclua codigo de exploit em issues publicas.
+Se você descobrir um problema de segurança no Archgate, por favor reporte de forma responsável abrindo uma [issue no GitHub](https://github.com/archgate/cli/issues) ou entrando em contato com os mantenedores diretamente. Não inclua código de exploit em issues públicas.
