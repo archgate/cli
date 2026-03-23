@@ -8,7 +8,7 @@ import { runCli, createTempProject } from "./cli-harness";
 let tempDir: string;
 let fakeHome: string;
 
-/** Env overrides to isolate from real credentials in ~/.archgate/credentials */
+/** Env overrides to isolate from real ~/.archgate/ state */
 function isolatedEnv(): Record<string, string> {
   return { HOME: fakeHome, USERPROFILE: fakeHome };
 }
