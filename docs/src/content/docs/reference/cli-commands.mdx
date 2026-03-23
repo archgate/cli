@@ -277,10 +277,10 @@ archgate plugin install --editor cursor
 Run all automated ADR compliance checks against the codebase.
 
 ```bash
-archgate check [options]
+archgate check [options] [files...]
 ```
 
-Loads every ADR with `rules: true` in its frontmatter, executes the companion `.rules.ts` file, and reports violations with file paths and line numbers.
+Loads every ADR with `rules: true` in its frontmatter, executes the companion `.rules.ts` file, and reports violations with file paths and line numbers. When file paths are provided as positional arguments, only ADRs whose `files` patterns match those files are executed.
 
 ### Options
 
@@ -292,13 +292,19 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 | `--adr <id>` | Only check rules from a specific ADR                      |
 | `--verbose`  | Show passing rules and timing info                        |
 
+### Arguments
+
+| Argument     | Description                                                                                                     |
+| ------------ | --------------------------------------------------------------------------------------------------------------- |
+| `[files...]` | Optional file paths to scope checks to. Only ADRs whose `files` patterns match will run. Supports stdin piping. |
+
 ### Exit codes
 
-| Code | Meaning                                       |
-| ---- | --------------------------------------------- |
-| 0    | All rules pass. No violations found.          |
-| 1    | One or more violations detected.              |
-| 2    | Internal error (e.g., malformed ADR or rule). |
+| Code | Meaning                                                              |
+| ---- | -------------------------------------------------------------------- |
+| 0    | All rules pass. No violations found.                                 |
+| 1    | One or more violations detected.                                     |
+| 2    | Rule execution error (e.g., malformed rule, security scanner block). |
 
 ### Examples
 
@@ -318,6 +324,18 @@ Check a single ADR:
 
 ```bash
 archgate check --adr ARCH-001
+```
+
+Check specific files (only matching ADRs run):
+
+```bash
+archgate check src/foo.ts src/bar.ts
+```
+
+Pipe from git (check only changed files):
+
+```bash
+git diff --name-only | archgate check --json
 ```
 
 Get JSON output for CI integration:
@@ -359,6 +377,9 @@ When `--json` is used, the output is a single JSON object:
         {
           "message": "Command file must export a register*Command function",
           "file": "src/commands/broken.ts",
+          "line": 1,
+          "endLine": 1,
+          "endColumn": 42,
           "severity": "error"
         }
       ],
@@ -368,6 +389,22 @@ When `--json` is used, the output is a single JSON object:
   "durationMs": 42
 }
 ```
+
+#### Violation fields
+
+| Field       | Type    | Description                                            |
+| ----------- | ------- | ------------------------------------------------------ |
+| `message`   | string  | What the violation is                                  |
+| `file`      | string? | Relative file path                                     |
+| `line`      | number? | Start line (1-based)                                   |
+| `endLine`   | number? | End line (1-based) — for precise editor highlighting   |
+| `endColumn` | number? | End column (0-based) — for precise editor highlighting |
+| `fix`       | string? | Suggested fix (guidance only)                          |
+| `severity`  | string  | `"error"`, `"warning"`, or `"info"`                    |
+
+#### Blocked rule files
+
+When a rule file is blocked by the security scanner (e.g., uses `Bun.spawn()`) or a companion `.rules.ts` file is missing, the result appears in the JSON output with `status: "error"` and `ruleId: "security-scan"`. Violations include the exact file and line of the blocked code (or the `rules: true` line in the ADR for missing companions).
 
 ---
 

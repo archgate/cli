@@ -9,6 +9,7 @@ import type {
 } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { resolveScopedFiles, getStagedFiles } from "./git-files";
+import { type LoadResult, blockedToRuleResult } from "./loader";
 
 /**
  * Resolve a user-supplied path and ensure it stays within projectRoot.
@@ -53,8 +54,6 @@ function safeGlob(pattern: string): void {
     throw new Error(`Glob pattern "${pattern}" is absolute — access denied`);
   }
 }
-import type { LoadedAdr } from "./loader";
-
 const RULE_TIMEOUT_MS = 30_000;
 
 export interface RuleResult {
@@ -179,12 +178,20 @@ function createRuleContext(
  */
 export async function runChecks(
   projectRoot: string,
-  loadedAdrs: LoadedAdr[],
+  loadResults: LoadResult[],
   options: { staged?: boolean; files?: string[] } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
   const changedFiles = options.staged ? await getStagedFiles(projectRoot) : [];
-  const results: RuleResult[] = [];
+  const results: RuleResult[] = loadResults
+    .filter((lr) => lr.type === "blocked")
+    .map((lr) => blockedToRuleResult(projectRoot, lr.value));
+  const loadedAdrs = loadResults
+    .filter(
+      (lr): lr is Extract<LoadResult, { type: "loaded" }> =>
+        lr.type === "loaded"
+    )
+    .map((lr) => lr.value);
 
   // Resolve user-specified files to relative paths for intersection
   let filterFiles: Set<string> | undefined;

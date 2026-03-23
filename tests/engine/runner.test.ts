@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { LoadedAdr } from "../../src/engine/loader";
+import type { LoadResult } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
 import type { RuleSet } from "../../src/formats/rules";
@@ -25,20 +25,23 @@ describe("runChecks", () => {
   function makeLoadedAdr(
     overrides: Partial<AdrDocument["frontmatter"]> = {},
     ruleSet: RuleSet = EMPTY_RULE_SET
-  ): LoadedAdr {
+  ): LoadResult {
     return {
-      adr: {
-        frontmatter: {
-          id: "TEST-001",
-          title: "Test",
-          domain: "general",
-          rules: true,
-          ...overrides,
+      type: "loaded",
+      value: {
+        adr: {
+          frontmatter: {
+            id: "TEST-001",
+            title: "Test",
+            domain: "general",
+            rules: true,
+            ...overrides,
+          },
+          body: "",
+          filePath: "/test.md",
         },
-        body: "",
-        filePath: "/test.md",
+        ruleSet,
       },
-      ruleSet,
     };
   }
 

@@ -19,6 +19,8 @@ export interface ViolationDetail {
   message: string;
   file?: string;
   line?: number;
+  endLine?: number;
+  endColumn?: number;
   fix?: string;
   severity: Severity;
 }

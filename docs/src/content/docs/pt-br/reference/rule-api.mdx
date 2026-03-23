@@ -214,16 +214,22 @@ interface ReportDetail {
   message: string;
   file?: string;
   line?: number;
+  endLine?: number;
+  endColumn?: number;
   fix?: string;
 }
 ```
 
-| Campo     | Tipo     | Obrigatório | Descrição                                         |
-| --------- | -------- | ----------- | ------------------------------------------------- |
-| `message` | `string` | Sim         | Descrição legível do problema                     |
-| `file`    | `string` | Não         | Caminho do arquivo onde o problema foi encontrado |
-| `line`    | `number` | Não         | Número da linha no arquivo                        |
-| `fix`     | `string` | Não         | Sugestão de correção ou ação de remediação        |
+| Campo       | Tipo     | Obrigatório | Descrição                                                         |
+| ----------- | -------- | ----------- | ----------------------------------------------------------------- |
+| `message`   | `string` | Sim         | Descrição legível do problema                                     |
+| `file`      | `string` | Não         | Caminho do arquivo onde o problema foi encontrado                 |
+| `line`      | `number` | Não         | Número da linha inicial (base 1)                                  |
+| `endLine`   | `number` | Não         | Número da linha final (base 1) — para destaque preciso no editor  |
+| `endColumn` | `number` | Não         | Número da coluna final (base 0) — para destaque preciso no editor |
+| `fix`       | `string` | Não         | Sugestão de correção ou ação de remediação                        |
+
+Quando `endLine` e `endColumn` são fornecidos, editores (VS Code, Cursor) podem destacar a expressão exata que viola a regra, em vez da linha inteira. Se omitidos, a linha completa em `line` é destacada.
 
 ---
 
@@ -274,20 +280,24 @@ interface ViolationDetail {
   message: string;
   file?: string;
   line?: number;
+  endLine?: number;
+  endColumn?: number;
   fix?: string;
   severity: Severity;
 }
 ```
 
-| Campo      | Tipo       | Descrição                                         |
-| ---------- | ---------- | ------------------------------------------------- |
-| `ruleId`   | `string`   | ID da regra da chave do objeto `rules`            |
-| `adrId`    | `string`   | ID do ADR do frontmatter                          |
-| `message`  | `string`   | Descrição legível                                 |
-| `file`     | `string?`  | Caminho do arquivo onde o problema foi encontrado |
-| `line`     | `number?`  | Número da linha no arquivo                        |
-| `fix`      | `string?`  | Sugestão de correção                              |
-| `severity` | `Severity` | Severidade efetiva desta violação                 |
+| Campo       | Tipo       | Descrição                                               |
+| ----------- | ---------- | ------------------------------------------------------- |
+| `ruleId`    | `string`   | ID da regra da chave do objeto `rules`                  |
+| `adrId`     | `string`   | ID do ADR do frontmatter                                |
+| `message`   | `string`   | Descrição legível                                       |
+| `file`      | `string?`  | Caminho do arquivo onde o problema foi encontrado       |
+| `line`      | `number?`  | Número da linha inicial (base 1)                        |
+| `endLine`   | `number?`  | Linha final (base 1) — para destaque preciso no editor  |
+| `endColumn` | `number?`  | Coluna final (base 0) — para destaque preciso no editor |
+| `fix`       | `string?`  | Sugestão de correção                                    |
+| `severity`  | `Severity` | Severidade efetiva desta violação                       |
 
 ---
 

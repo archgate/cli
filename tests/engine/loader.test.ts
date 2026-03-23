@@ -50,8 +50,10 @@ describe("loadRuleAdrs", () => {
 
     const loaded = await loadRuleAdrs(tempDir);
     expect(loaded).toHaveLength(1);
-    expect(loaded[0].adr.frontmatter.id).toBe("TEST-001");
-    expect(Object.keys(loaded[0].ruleSet.rules)).toEqual(["sample-rule"]);
+    expect(loaded[0].type).toBe("loaded");
+    const first = loaded[0] as Extract<(typeof loaded)[0], { type: "loaded" }>;
+    expect(first.value.adr.frontmatter.id).toBe("TEST-001");
+    expect(Object.keys(first.value.ruleSet.rules)).toEqual(["sample-rule"]);
   });
 
   test("skips ADR with rules: false", async () => {
@@ -64,15 +66,21 @@ describe("loadRuleAdrs", () => {
     expect(loaded).toHaveLength(0);
   });
 
-  test("throws when companion file is missing", () => {
+  test("returns blocked result when companion file is missing", async () => {
     copyFileSync(
       join(fixturesDir, "TEST-004-missing-companion.md"),
       join(tempDir, ".archgate", "adrs", "TEST-004-missing-companion.md")
     );
 
-    expect(loadRuleAdrs(tempDir)).rejects.toThrow(
-      "has rules: true but no companion file found"
-    );
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    const blocked = results[0] as Extract<
+      (typeof results)[0],
+      { type: "blocked" }
+    >;
+    expect(blocked.value.error).toContain("no companion file found");
+    expect(blocked.value.violations).toHaveLength(1);
   });
 
   test("filters by ADR ID", async () => {

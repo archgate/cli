@@ -25,6 +25,8 @@ export interface ReportSummary {
       message: string;
       file?: string;
       line?: number;
+      endLine?: number;
+      endColumn?: number;
       fix?: string;
       severity: Severity;
     }>;
@@ -91,6 +93,8 @@ export function buildSummary(
         message: v.message,
         file: v.file,
         line: v.line,
+        endLine: v.endLine,
+        endColumn: v.endColumn,
         fix: v.fix,
         severity: v.severity,
       })),

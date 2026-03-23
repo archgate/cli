@@ -31,9 +31,9 @@ export function registerCheckCommand(program: Command) {
         process.exit(1);
       }
 
-      let loadedAdrs;
+      let loadResults;
       try {
-        loadedAdrs = await loadRuleAdrs(projectRoot, opts.adr);
+        loadResults = await loadRuleAdrs(projectRoot, opts.adr);
       } catch (err) {
         logError(
           err instanceof Error ? err.message : `Failed to load rules: ${err}`
@@ -43,7 +43,7 @@ export function registerCheckCommand(program: Command) {
 
       const useJson = opts.json || (!opts.ci && isAgentContext());
 
-      if (loadedAdrs.length === 0) {
+      if (loadResults.length === 0) {
         if (useJson) {
           console.log(
             formatJSON(
@@ -78,7 +78,7 @@ export function registerCheckCommand(program: Command) {
         filterFiles = [...filterFiles, ...piped];
       }
 
-      const result = await runChecks(projectRoot, loadedAdrs, {
+      const result = await runChecks(projectRoot, loadResults, {
         staged: opts.staged,
         files: filterFiles.length > 0 ? filterFiles : undefined,
       });

@@ -22,6 +22,9 @@ const RuleSetSchema = z.object({
     })
   ),
 });
+import { relative } from "node:path";
+
+import type { ViolationDetail } from "../formats/rules";
 import { logDebug, logError } from "../helpers/log";
 import { projectPaths } from "../helpers/paths";
 import { ensureRulesShim } from "../helpers/rules-shim";
@@ -32,13 +35,54 @@ export interface LoadedAdr {
   ruleSet: RuleSet;
 }
 
+export interface BlockedAdr {
+  adr: AdrDocument;
+  error: string;
+  violations: Array<{
+    message: string;
+    file: string;
+    line: number;
+    column: number;
+    endLine: number;
+    endColumn: number;
+  }>;
+}
+
+export type LoadResult =
+  | { type: "loaded"; value: LoadedAdr }
+  | { type: "blocked"; value: BlockedAdr };
+
+/** Convert a BlockedAdr into a RuleResult-shaped object for reporting. */
+export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
+  const id = b.adr.frontmatter.id;
+  return {
+    ruleId: "security-scan",
+    adrId: id,
+    description: "Rule file security scan",
+    violations: b.violations.map(
+      (v): ViolationDetail => ({
+        message: v.message,
+        file: relative(projectRoot, v.file).replaceAll("\\", "/"),
+        line: v.line,
+        endLine: v.endLine,
+        endColumn: v.endColumn,
+        severity: "error",
+        adrId: id,
+        ruleId: "security-scan",
+      })
+    ),
+    error: b.error,
+    durationMs: 0,
+  };
+}
+
 /**
  * Discover ADRs with rules: true and dynamically import their companion .rules.ts files.
  */
 export async function loadRuleAdrs(
   projectRoot: string,
   filterAdrId?: string
-): Promise<LoadedAdr[]> {
+): Promise<LoadResult[]> {
   const pp = projectPaths(projectRoot);
 
   // Ensure rules.d.ts exists so .rules.ts files get type checking
@@ -80,15 +124,43 @@ export async function loadRuleAdrs(
 
   // Phase 2: Verify companion files exist and import rule sets in parallel
   const ruleResults = await Promise.all(
-    ruleAdrs.map(async ({ file, adr }) => {
+    ruleAdrs.map(async ({ file, adr }): Promise<LoadResult> => {
       const baseName = basename(file, ".md");
       const rulesFile = join(adrsDir, `${baseName}.rules.ts`);
       const rulesFileExists = await Bun.file(rulesFile).exists();
 
       if (!rulesFileExists) {
-        throw new Error(
-          `ADR ${adr.frontmatter.id} has rules: true but no companion file found: ${rulesFile}`
-        );
+        // Find the "rules: true" line in the ADR file for precise highlighting
+        const adrPath = join(adrsDir, file);
+        const adrContent = await Bun.file(adrPath).text();
+        const adrLines = adrContent.split("\n");
+        let rulesLine = 1;
+        let rulesEndCol = 0;
+        for (let i = 0; i < adrLines.length; i++) {
+          const match = adrLines[i].match(/^rules:\s*true/);
+          if (match) {
+            rulesLine = i + 1;
+            rulesEndCol = adrLines[i].length;
+            break;
+          }
+        }
+        return {
+          type: "blocked",
+          value: {
+            adr,
+            error: `ADR ${adr.frontmatter.id} has rules: true but no companion file found`,
+            violations: [
+              {
+                message: `No companion .rules.ts file found. Create ${baseName}.rules.ts or set rules: false.`,
+                file: adrPath,
+                line: rulesLine,
+                column: 0,
+                endLine: rulesLine,
+                endColumn: rulesEndCol,
+              },
+            ],
+          },
+        };
       }
 
       // Security gate: scan rule source for banned patterns before executing.
@@ -101,9 +173,21 @@ export async function loadRuleAdrs(
         for (const v of scanViolations) {
           logError(`${rulesFile}:${v.line}:${v.column} - ${v.message}`);
         }
-        throw new Error(
-          `ADR ${adr.frontmatter.id}: rule file blocked by security scanner (${scanViolations.length} violation${scanViolations.length === 1 ? "" : "s"})`
-        );
+        return {
+          type: "blocked",
+          value: {
+            adr,
+            error: `ADR ${adr.frontmatter.id}: rule file blocked by security scanner (${scanViolations.length} violation${scanViolations.length === 1 ? "" : "s"})`,
+            violations: scanViolations.map((v) => ({
+              message: v.message,
+              file: rulesFile,
+              line: v.line,
+              column: v.column,
+              endLine: v.endLine,
+              endColumn: v.endColumn,
+            })),
+          },
+        };
       }
 
       // Cache-bust: Bun caches import() per-process, so append a timestamp
@@ -114,18 +198,23 @@ export async function loadRuleAdrs(
       const parsed = RuleSetSchema.safeParse(mod.default);
 
       if (!parsed.success) {
-        throw new Error(
-          `ADR ${adr.frontmatter.id}: companion file does not export a valid RuleSet as default`
-        );
+        return {
+          type: "blocked",
+          value: {
+            adr,
+            error: `ADR ${adr.frontmatter.id}: companion file does not export a valid RuleSet as default`,
+            violations: [],
+          },
+        };
       }
 
       const ruleSet: RuleSet = parsed.data;
       logDebug(
         `Loaded ${Object.keys(ruleSet.rules).length} rules from ${adr.frontmatter.id}`
       );
-      return { adr, ruleSet };
+      return { type: "loaded", value: { adr, ruleSet } };
     })
   );
 
-  return ruleResults.filter((r): r is LoadedAdr => r !== null);
+  return ruleResults;
 }
