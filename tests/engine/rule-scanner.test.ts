@@ -237,12 +237,17 @@ describe("scanRuleSource", () => {
   });
 
   describe("violation location", () => {
-    test("reports line and column numbers", () => {
+    test("reports line and column for simple case", () => {
       const source = `const x = 1;\neval("code");`;
       const violations = scanRuleSource(source);
       expect(violations).toHaveLength(1);
-      expect(violations[0].line).toBeGreaterThan(0);
-      expect(violations[0].column).toBeGreaterThanOrEqual(0);
+      expect(violations[0].line).toBe(2);
+      expect(violations[0].column).toBe(0);
+      expect(violations[0].endLine).toBe(2);
+      // endColumn covers the search text "eval(" = 5 chars
+      expect(violations[0].endColumn).toBe(5);
     });
   });
+
+  // Position remapping tests are in rule-scanner-positions.test.ts
 });

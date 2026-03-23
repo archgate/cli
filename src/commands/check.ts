@@ -68,14 +68,22 @@ export function registerCheckCommand(program: Command) {
         process.exit(0);
       }
 
-      // Collect file paths from arguments and/or stdin pipe
+      // Collect file paths from arguments and/or stdin pipe.
+      // Only read stdin when it's explicitly piped (e.g., `git diff --name-only | archgate check`).
+      // When spawned by editors or in a pipe chain where stdin is /dev/null or absent,
+      // attempting to read stdin blocks forever. Use a short timeout to detect this.
       let filterFiles: string[] = files ?? [];
       if (!process.stdin.isTTY) {
-        const stdin = await new Response(
-          process.stdin as unknown as ReadableStream
-        ).text();
-        const piped = stdin.trim().split(/\r?\n/).filter(Boolean);
-        filterFiles = [...filterFiles, ...piped];
+        try {
+          const stdin = await Promise.race([
+            Bun.stdin.text(),
+            Bun.sleep(100).then(() => ""),
+          ]);
+          const piped = stdin.trim().split(/\r?\n/).filter(Boolean);
+          filterFiles = [...filterFiles, ...piped];
+        } catch {
+          // stdin not readable — ignore
+        }
       }
 
       const result = await runChecks(projectRoot, loadResults, {
