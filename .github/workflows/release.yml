@@ -140,6 +140,8 @@ jobs:
       - name: Validate
         id: validate
         run: bun run validate
+      - name: Ensure main is up-to-date before release
+        run: git pull --rebase origin main
       - name: Release
         uses: TrigenSoftware/simple-release-action@v1
         with:

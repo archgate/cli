@@ -43,12 +43,12 @@ All linting, formatting, and validation MUST be invoked through `package.json` s
 
 **Required scripts**: Every `package.json` that contains lintable or formattable source code MUST define at minimum:
 
-| Script | Purpose |
-|--------|---------|
-| `lint` | Run the project's linter with project-specific flags |
-| `format` | Run the project's formatter in write mode |
-| `format:check` | Run the project's formatter in check mode (CI-safe) |
-| `validate` | Run the full validation suite (lint + format:check + typecheck + test + any other checks) |
+| Script         | Purpose                                                                                   |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `lint`         | Run the project's linter with project-specific flags                                      |
+| `format`       | Run the project's formatter in write mode                                                 |
+| `format:check` | Run the project's formatter in check mode (CI-safe)                                       |
+| `validate`     | Run the full validation suite (lint + format:check + typecheck + test + any other checks) |
 
 ## Do's and Don'ts
 
@@ -87,7 +87,7 @@ All linting, formatting, and validation MUST be invoked through `package.json` s
 ### Risks
 
 - **Missing scripts in new repositories**: A new Archgate repository might omit the required scripts, causing agents to fall back to direct invocation. **Mitigation:** The `archgate init` scaffolding MUST include these scripts in the generated `package.json`. Code review MUST verify their presence in any new `package.json` file.
-- **Script divergence across repos**: The `validate` script may have different steps in different repos (e.g., some include `bun run build:check`, others don't), creating inconsistent validation depth. **Mitigation:** This is acceptable — each repository's `validate` script reflects its specific needs. The invariant is that `bun run validate` always runs the *complete* set of checks for that repository.
+- **Script divergence across repos**: The `validate` script may have different steps in different repos (e.g., some include `bun run build:check`, others don't), creating inconsistent validation depth. **Mitigation:** This is acceptable — each repository's `validate` script reflects its specific needs. The invariant is that `bun run validate` always runs the _complete_ set of checks for that repository.
 
 ## Compliance and Enforcement
 
