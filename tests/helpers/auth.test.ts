@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,23 +12,34 @@ describe("auth", () => {
   let tempDir: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
+  let originalGitConfigNoSystem: string | undefined;
+  let originalGitConfigGlobal: string | undefined;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-auth-test-"));
     originalHome = Bun.env.HOME;
     originalUserProfile = Bun.env.USERPROFILE;
+    originalGitConfigNoSystem = Bun.env.GIT_CONFIG_NOSYSTEM;
+    originalGitConfigGlobal = Bun.env.GIT_CONFIG_GLOBAL;
     Bun.env.HOME = tempDir;
     Bun.env.USERPROFILE = tempDir;
+    // Isolate git credential operations from the system credential store.
+    Bun.env.GIT_CONFIG_NOSYSTEM = "1";
+    const emptyGitConfig = join(tempDir, ".gitconfig");
+    writeFileSync(emptyGitConfig, "");
+    Bun.env.GIT_CONFIG_GLOBAL = emptyGitConfig;
   });
 
   afterEach(() => {
     Bun.env.HOME = originalHome;
     Bun.env.USERPROFILE = originalUserProfile;
+    Bun.env.GIT_CONFIG_NOSYSTEM = originalGitConfigNoSystem;
+    Bun.env.GIT_CONFIG_GLOBAL = originalGitConfigGlobal;
     rmSync(tempDir, { recursive: true, force: true });
   });
 
   describe("saveCredentials / loadCredentials", () => {
-    test("round-trips credentials to ~/.archgate/credentials", async () => {
+    test("saves metadata without token and round-trips via git credential manager", async () => {
       const { saveCredentials, loadCredentials } =
         await import("../../src/helpers/credential-store");
 
@@ -38,14 +49,19 @@ describe("auth", () => {
         created_at: "2026-01-15",
       });
 
+      // Metadata file must not contain the token
+      const credPath = join(tempDir, ".archgate", "credentials");
+      const metadata = await Bun.file(credPath).json();
+      expect(metadata.token).toBeUndefined();
+      expect(metadata.github_user).toBe("testuser");
+
+      // With isolated git config (no credential helper), loadCredentials
+      // returns null because the token cannot be retrieved from the OS.
       const loaded = await loadCredentials();
-      expect(loaded).not.toBeNull();
-      expect(loaded!.token).toBe("ag_beta_abc123");
-      expect(loaded!.github_user).toBe("testuser");
-      expect(loaded!.created_at).toBe("2026-01-15");
+      expect(loaded).toBeNull();
     });
 
-    test("returns null when no credentials file exists", async () => {
+    test("returns null when no credentials exist anywhere", async () => {
       const { loadCredentials } =
         await import("../../src/helpers/credential-store");
 
@@ -92,6 +108,10 @@ describe("auth", () => {
       });
 
       await clearCredentials();
+
+      const credPath = join(tempDir, ".archgate", "credentials");
+      expect(await Bun.file(credPath).exists()).toBe(false);
+
       const loaded = await loadCredentials();
       expect(loaded).toBeNull();
     });

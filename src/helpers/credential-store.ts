@@ -1,18 +1,11 @@
 /**
  * credential-store.ts — Secure credential storage using git's native credential helpers.
  *
- * Stores archgate tokens in the user's configured git credential manager
- * (macOS Keychain, Windows Credential Manager, libsecret, etc.) using the
- * standard `git credential approve/fill/reject` protocol.
- *
- * This means:
- * - Tokens are encrypted at rest by the OS
- * - `git clone https://plugins.archgate.dev/archgate.git` works transparently
- *   (git retrieves the stored credentials automatically)
- * - No custom credential helper command needed — git already knows how to do this
- *
- * A lightweight JSON file at ~/.archgate/credentials stores non-sensitive
- * metadata (github_user, created_at) for `archgate login status` display.
+ * Tokens are stored in the OS credential manager (macOS Keychain, Windows
+ * Credential Manager, libsecret) via `git credential approve/fill/reject`.
+ * A lightweight JSON metadata file at ~/.archgate/credentials stores only
+ * non-sensitive data (github_user, created_at). Tokens are NEVER written
+ * to disk in plaintext.
  *
  * @see https://git-scm.com/docs/git-credential
  */
@@ -24,17 +17,12 @@ import { internalPath, createPathIfNotExists } from "./paths";
 
 const CREDENTIAL_HOST = "plugins.archgate.dev";
 const METADATA_FILE = "credentials";
+const CREDENTIAL_TIMEOUT_MS = 3_000;
 
-/**
- * Environment variables for git credential commands.
- * - GIT_TERMINAL_PROMPT=0 → suppress terminal prompts
- * - GCM_INTERACTIVE=never → suppress GUI prompts (Git Credential Manager on Windows)
- */
-const GIT_CREDENTIAL_ENV = {
-  ...Bun.env,
-  GIT_TERMINAL_PROMPT: "0",
-  GCM_INTERACTIVE: "never",
-};
+/** Build env for git credential commands at call time (not import time). */
+function gitCredentialEnv(): Record<string, string | undefined> {
+  return { ...Bun.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" };
+}
 
 export interface StoredCredentials {
   token: string;
@@ -42,60 +30,49 @@ export interface StoredCredentials {
   created_at: string;
 }
 
+/** Metadata file shape. Legacy files may have a `token` field (auto-migrated). */
+interface CredentialMetadata {
+  github_user: string;
+  created_at: string;
+  /** @deprecated Auto-migrated to git credential manager on load. */
+  token?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Git credential protocol helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Store credentials in the user's git credential manager.
- * Uses `git credential approve` which writes to the configured credential.helper.
- */
+function credentialInput(username?: string, password?: string): string {
+  const lines = ["protocol=https", `host=${CREDENTIAL_HOST}`];
+  if (username) lines.push(`username=${username}`);
+  if (password) lines.push(`password=${password}`);
+  lines.push("", "");
+  return lines.join("\n");
+}
+
 async function gitCredentialApprove(
   username: string,
   password: string
 ): Promise<boolean> {
-  const input = [
-    "protocol=https",
-    `host=${CREDENTIAL_HOST}`,
-    `username=${username}`,
-    `password=${password}`,
-    "",
-    "",
-  ].join("\n");
-
   const proc = Bun.spawn(["git", "credential", "approve"], {
-    stdin: new Blob([input]),
+    stdin: new Blob([credentialInput(username, password)]),
     stdout: "pipe",
     stderr: "pipe",
-    env: GIT_CREDENTIAL_ENV,
+    env: gitCredentialEnv(),
   });
   return (await proc.exited) === 0;
 }
 
-/** Timeout for git credential operations (3 seconds). */
-const CREDENTIAL_TIMEOUT_MS = 3_000;
-
-/**
- * Retrieve credentials from the user's git credential manager.
- * Uses `git credential fill` which reads from the configured credential.helper.
- *
- * GIT_TERMINAL_PROMPT=0 prevents git from prompting interactively.
- * A timeout guard prevents hangs when the credential manager is unresponsive.
- */
 async function gitCredentialFill(): Promise<{
   username: string;
   password: string;
 } | null> {
-  const input = ["protocol=https", `host=${CREDENTIAL_HOST}`, "", ""].join(
-    "\n"
-  );
-
   try {
     const proc = Bun.spawn(["git", "credential", "fill"], {
-      stdin: new Blob([input]),
+      stdin: new Blob([credentialInput()]),
       stdout: "pipe",
       stderr: "pipe",
-      env: GIT_CREDENTIAL_ENV,
+      env: gitCredentialEnv(),
     });
 
     const result = await Promise.race([
@@ -118,147 +95,190 @@ async function gitCredentialFill(): Promise<{
       if (line.startsWith("username=")) username = line.slice(9);
       if (line.startsWith("password=")) password = line.slice(9);
     }
-
     return username && password ? { username, password } : null;
   } catch {
     return null;
   }
 }
 
-/**
- * Remove credentials from the user's git credential manager.
- * Uses `git credential reject` which tells the configured helper to erase them.
- */
 async function gitCredentialReject(
   username: string,
   password: string
 ): Promise<void> {
-  const input = [
-    "protocol=https",
-    `host=${CREDENTIAL_HOST}`,
-    `username=${username}`,
-    `password=${password}`,
-    "",
-    "",
-  ].join("\n");
-
   const proc = Bun.spawn(["git", "credential", "reject"], {
-    stdin: new Blob([input]),
+    stdin: new Blob([credentialInput(username, password)]),
     stdout: "pipe",
     stderr: "pipe",
-    env: GIT_CREDENTIAL_ENV,
+    env: gitCredentialEnv(),
   });
   await proc.exited;
 }
 
 // ---------------------------------------------------------------------------
-// Metadata file (non-sensitive: github_user, created_at)
+// Metadata helpers
 // ---------------------------------------------------------------------------
 
 function metadataPath(): string {
   return internalPath(METADATA_FILE);
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Persist archgate credentials securely.
- *
- * - **Token** → git credential manager (encrypted at rest by the OS)
- * - **Metadata** (github_user, created_at) → `~/.archgate/credentials`
- *
- * After this, `git clone https://plugins.archgate.dev/archgate.git` will
- * automatically use the stored token — no credentials in the URL needed.
- */
-export async function saveCredentials(
-  credentials: StoredCredentials
-): Promise<void> {
-  // Store token in git credential manager
-  const stored = await gitCredentialApprove(
-    credentials.github_user,
-    credentials.token
-  );
-  if (stored) {
-    logDebug("Token stored in git credential manager");
-  } else {
-    logDebug("git credential approve failed — token may not be persisted");
+async function readMetadata(): Promise<CredentialMetadata | null> {
+  const file = Bun.file(metadataPath());
+  if (!(await file.exists())) return null;
+  try {
+    const data = (await file.json()) as CredentialMetadata;
+    return data.github_user ? data : null;
+  } catch {
+    logDebug("Failed to parse credentials file");
+    return null;
   }
+}
 
-  // Store metadata in ~/.archgate/credentials (for `login status` display).
-  // DEPRECATED: The token is also written to this file as a fallback for systems
-  // without a git credential manager. In the next major version, only metadata
-  // (github_user, created_at) will be written — the token field will be removed.
+async function writeMetadata(metadata: CredentialMetadata): Promise<void> {
   createPathIfNotExists(internalPath());
   const filePath = metadataPath();
-  await Bun.write(filePath, JSON.stringify(credentials, null, 2) + "\n");
+  const clean: CredentialMetadata = {
+    github_user: metadata.github_user,
+    created_at: metadata.created_at,
+  };
+  await Bun.write(filePath, JSON.stringify(clean, null, 2) + "\n");
   try {
     chmodSync(filePath, 0o600);
   } catch {
     // chmod may fail on Windows — NTFS uses ACLs instead
   }
-  logDebug("Credentials metadata saved to", filePath);
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+const CREDENTIAL_HELPER_HINT =
+  "Run `git config --global credential.helper` to check your configuration.";
+
+/**
+ * Persist archgate credentials securely.
+ *
+ * Token goes to the git credential manager; only non-sensitive metadata is
+ * written to disk. A verification round-trip confirms the token was actually
+ * persisted — `git credential approve` exits 0 even without a configured
+ * helper, silently storing nothing.
+ */
+export async function saveCredentials(
+  credentials: StoredCredentials
+): Promise<void> {
+  const stored = await gitCredentialApprove(
+    credentials.github_user,
+    credentials.token
+  );
+
+  if (stored) {
+    const verified = await gitCredentialFill();
+    if (verified) {
+      logDebug("Token verified in git credential manager");
+    } else {
+      logWarn(
+        "Token could not be verified in git credential manager.",
+        "Your credential helper may not persist credentials.",
+        CREDENTIAL_HELPER_HINT,
+        "Without a working credential helper, you will need to re-login after each session."
+      );
+    }
+  } else {
+    logWarn(
+      "git credential approve failed.",
+      "Your git credential helper may not be configured.",
+      CREDENTIAL_HELPER_HINT
+    );
+  }
+
+  await writeMetadata({
+    github_user: credentials.github_user,
+    created_at: credentials.created_at,
+  });
+  logDebug("Credentials metadata saved to", metadataPath());
 }
 
 /**
  * Load stored archgate credentials, or null if none exist.
  *
- * Reads the token from git's credential manager first, falling back to
- * the plaintext file for legacy installs.
+ * Token is always read from the git credential manager. If a legacy metadata
+ * file contains a plaintext token, it is auto-migrated to the credential
+ * manager and scrubbed from disk.
  */
 export async function loadCredentials(): Promise<StoredCredentials | null> {
-  const file = Bun.file(metadataPath());
-  if (!(await file.exists())) {
-    return null;
-  }
-
-  let data: StoredCredentials;
-  try {
-    data = (await file.json()) as StoredCredentials;
-    if (!data.github_user) return null;
-  } catch {
-    logDebug("Failed to parse credentials file");
-    return null;
-  }
-
-  // Try to load token from git credential manager
+  // Git credential manager is the authoritative token source — check it first
+  // so credentials survive even if the metadata file is gone (e.g. after upgrade).
   const gitCreds = await gitCredentialFill();
+  const metadata = await readMetadata();
+
   if (gitCreds) {
+    // Scrub legacy plaintext token from metadata file if present.
+    if (metadata?.token) await writeMetadata(metadata);
+
     return {
       token: gitCreds.password,
       github_user: gitCreds.username,
-      created_at: data.created_at,
+      created_at: metadata?.created_at ?? "",
     };
   }
 
-  // DEPRECATED: Fall back to token in the plaintext file (legacy storage).
-  // This fallback will be removed in the next major version. Users on systems
-  // without a git credential manager should run `archgate login refresh` to
-  // migrate their token to the credential manager.
-  if (!data.token) return null;
-  logWarn(
-    "Token loaded from plaintext file (deprecated).",
-    "Run `archgate login refresh` to migrate to secure credential storage."
-  );
-  return data;
+  // No git creds — attempt to migrate a legacy plaintext token.
+  if (metadata?.token) {
+    logWarn("Migrating plaintext token to git credential manager...");
+    const migrated = await gitCredentialApprove(
+      metadata.github_user,
+      metadata.token
+    );
+    if (migrated) {
+      const verified = await gitCredentialFill();
+      if (verified) {
+        logDebug("Legacy token migrated to git credential manager");
+        const { token } = metadata;
+        await writeMetadata(metadata);
+        return {
+          token,
+          github_user: metadata.github_user,
+          created_at: metadata.created_at,
+        };
+      }
+    }
+    logWarn(
+      "Could not migrate token to git credential manager.",
+      "Your credential helper may not be configured.",
+      "Run `archgate login refresh` to re-authenticate."
+    );
+    return null;
+  }
+
+  return null;
 }
 
 /**
  * Remove stored credentials (logout).
- *
- * Clears both the git credential manager and the metadata file.
+ * Clears both the git credential manager and the metadata file,
+ * including any legacy plaintext tokens.
  */
 export async function clearCredentials(): Promise<void> {
-  // Remove from git credential manager (need current credentials to reject)
   const gitCreds = await gitCredentialFill();
   if (gitCreds) {
     await gitCredentialReject(gitCreds.username, gitCreds.password);
     logDebug("Token removed from git credential manager");
   }
 
-  // Remove metadata file
-  if (await Bun.file(metadataPath()).exists()) {
+  const file = Bun.file(metadataPath());
+  if (await file.exists()) {
+    try {
+      const metadata = (await file.json()) as CredentialMetadata;
+      if (metadata.token && metadata.github_user) {
+        await gitCredentialReject(metadata.github_user, metadata.token);
+        logDebug(
+          "Legacy plaintext token also rejected from credential manager"
+        );
+      }
+    } catch {
+      // Metadata file is invalid — just delete it
+    }
     unlinkSync(metadataPath());
     logDebug("Credentials file removed");
   }
