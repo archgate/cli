@@ -164,16 +164,30 @@ export async function isCopilotCliAvailable(): Promise<boolean> {
  * Install the archgate plugin via the `copilot` CLI.
  *
  * Runs:
- *   copilot plugin install <authenticated-git-url>
+ *   copilot plugin marketplace add <vscode-marketplace-url>
+ *   copilot plugin install archgate@archgate
  *
  * Throws on failure so the caller can fall back to manual instructions.
  */
 export async function installCopilotPlugin(): Promise<void> {
-  const url = buildMarketplaceUrl();
+  const url = buildVscodeMarketplaceUrl();
   const cmd = (await resolveCommand("copilot")) ?? "copilot";
 
+  logDebug("Adding archgate marketplace to copilot CLI");
+  const addResult = await run([cmd, "plugin", "marketplace", "add", url]);
+  if (addResult.exitCode !== 0) {
+    throw new Error(
+      `copilot plugin marketplace add failed (exit ${addResult.exitCode})`
+    );
+  }
+
   logDebug("Installing archgate plugin via copilot CLI");
-  const installResult = await run([cmd, "plugin", "install", url]);
+  const installResult = await run([
+    cmd,
+    "plugin",
+    "install",
+    "archgate@archgate",
+  ]);
   if (installResult.exitCode !== 0) {
     throw new Error(
       `copilot plugin install failed (exit ${installResult.exitCode})`
