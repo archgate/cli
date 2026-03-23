@@ -19,23 +19,30 @@ Isso significa:
 
 As regras recebem um objeto `RuleContext` com operacoes de arquivo isoladas. Todos os metodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) sao restritos ao diretorio raiz do projeto -- travessia de caminho via `../`, caminhos absolutos e links simbolicos sao bloqueados e lancam um erro.
 
-Porem, como as regras sao modulos TypeScript padrao, elas tambem podem usar qualquer API do Bun/Node.js diretamente:
+Alem do sandbox de runtime, o Archgate executa um **scanner de seguranca por analise estatica** em cada arquivo `.rules.ts` antes de executa-lo. O scanner analisa a AST da regra e bloqueia arquivos que contenham padroes perigosos:
 
-| Capacidade                   | Via RuleContext       | Via chamadas diretas de API |
-| ---------------------------- | --------------------- | --------------------------- |
-| Ler arquivos no projeto      | Sim (isolado)         | Sim (sem restricao)         |
-| Ler arquivos fora do projeto | Bloqueado             | Sim (`Bun.file()`, `fs`)    |
-| Requisicoes de rede          | Nenhuma API fornecida | Sim (`fetch()`)             |
-| Executar subprocessos        | Nenhuma API fornecida | Sim (`Bun.spawn()`)         |
-| Variaveis de ambiente        | Nenhuma API fornecida | Sim (`process.env`)         |
+| Padrao                                                                    | Bloqueado |
+| ------------------------------------------------------------------------- | --------- |
+| Imports de `node:fs`, `child_process`, `net`, `http`, `vm`, etc.          | Sim       |
+| `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                       | Sim       |
+| `fetch()`                                                                 | Sim       |
+| `eval()`, `new Function()`                                                | Sim       |
+| Acesso computado a propriedades (`Bun[variavel]`, `globalThis[variavel]`) | Sim       |
+| `import()` dinamico com argumento nao-literal                             | Sim       |
+| Atribuicao a `globalThis` ou `process.env`                                | Sim       |
 
-O sandbox do `RuleContext` previne travessia de caminho acidental em regras bem-intencionadas. Ele nao protege contra codigo deliberadamente malicioso -- uma regra que importa `fs` diretamente pode contornar o sandbox.
+Se qualquer padrao proibido for encontrado, o arquivo de regra **nao e importado nem executado** e `archgate check` termina com erro.
+
+**Modulos seguros permitidos:** `node:path`, `node:url`, `node:util`, `node:crypto` -- sao modulos utilitarios sem capacidades de sistema de arquivos, rede ou processos.
+
+O scanner eleva a barreira de "trivial de explorar" para "requer ofuscacao deliberada que parece suspeita em code review." Regras bem-comportadas usam apenas os metodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saida.
 
 ### O que as regras nao podem fazer
 
 - **Escrever arquivos** -- a API do `RuleContext` e somente leitura. Regras reportam violacoes mas nao podem modificar o codebase.
 - **Escapar do timeout de 30 segundos** -- cada regra e encerrada apos 30 segundos de tempo de execucao.
 - **Afetar outras regras** -- regras de ADRs diferentes rodam em paralelo mas nao compartilham estado mutavel atraves da API de contexto.
+- **Usar APIs perigosas** -- o scanner de seguranca bloqueia imports de modulos do sistema (`fs`, `child_process`, `net`, etc.), APIs do Bun (`Bun.spawn`, `Bun.file`), acesso a rede (`fetch`) e geracao de codigo (`eval`, `new Function`). Arquivos de regra que contenham esses padroes sao rejeitados antes da execucao.
 
 ## Boas praticas para CI/CD
 
@@ -115,13 +122,11 @@ jobs:
 
 ### Revisando regras em novos repositorios
 
-Ao clonar ou fazer fork de um repositorio que usa Archgate, revise os arquivos `.archgate/adrs/*.rules.ts` antes de rodar `archgate check` pela primeira vez. Procure por:
+Ao clonar ou fazer fork de um repositorio que usa Archgate, o scanner de seguranca bloqueia automaticamente padroes perigosos em arquivos `.rules.ts`. Porem, voce ainda deve revisar os arquivos de regras antes de rodar `archgate check` pela primeira vez:
 
-- Imports de `fs`, `child_process`, `net` ou outros modulos do sistema
-- Chamadas a `fetch()`, `Bun.spawn()` ou `Bun.file()` fora da API do `RuleContext`
-- Codigo de nivel superior que executa no import (antes da funcao `check` ser chamada)
-
-Regras bem-comportadas usam apenas os metodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saida.
+- O scanner detecta uso explicito de APIs proibidas, mas ofuscacao sofisticada (ex: `Reflect.get(Bun, "spawn")`) pode contorna-lo
+- Codigo de nivel superior que executa no import (antes da funcao `check` ser chamada) ainda e executado se passar pelo scanner
+- Regras bem-comportadas usam apenas os metodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saida
 
 ### Credenciais
 

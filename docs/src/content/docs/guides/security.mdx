@@ -19,23 +19,30 @@ This means:
 
 Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../`, absolute paths, and symbolic links are blocked and throw an error.
 
-However, because rules are standard TypeScript modules, they can also use any Bun/Node.js API directly:
+In addition to the runtime sandbox, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. The scanner parses the rule's AST and blocks files that contain dangerous patterns:
 
-| Capability                 | Via RuleContext | Via direct API calls     |
-| -------------------------- | --------------- | ------------------------ |
-| Read files in project      | Yes (sandboxed) | Yes (unrestricted)       |
-| Read files outside project | Blocked         | Yes (`Bun.file()`, `fs`) |
-| Network requests           | No API provided | Yes (`fetch()`)          |
-| Spawn subprocesses         | No API provided | Yes (`Bun.spawn()`)      |
-| Environment variables      | No API provided | Yes (`process.env`)      |
+| Pattern                                                            | Blocked |
+| ------------------------------------------------------------------ | ------- |
+| Imports of `node:fs`, `child_process`, `net`, `http`, `vm`, etc.   | Yes     |
+| `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                | Yes     |
+| `fetch()`                                                          | Yes     |
+| `eval()`, `new Function()`                                         | Yes     |
+| Computed property access (`Bun[variable]`, `globalThis[variable]`) | Yes     |
+| Dynamic `import()` with non-literal argument                       | Yes     |
+| Assignment to `globalThis` or `process.env`                        | Yes     |
 
-The `RuleContext` sandbox prevents accidental path traversal in well-intentioned rules. It does not protect against deliberately malicious code -- a rule that imports `fs` directly can bypass the sandbox.
+If any banned pattern is found, the rule file is **not imported or executed** and `archgate check` exits with an error.
+
+**Safe modules that are allowed:** `node:path`, `node:url`, `node:util`, `node:crypto` -- these are utility modules with no filesystem, network, or process I/O capabilities.
+
+The scanner raises the bar from "trivial to exploit" to "requires deliberate obfuscation that looks suspicious in code review." Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output.
 
 ### What rules cannot do
 
 - **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
 - **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
 - **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
+- **Use dangerous APIs** -- the security scanner blocks imports of system modules (`fs`, `child_process`, `net`, etc.), Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), and code generation (`eval`, `new Function`). Rule files that contain these patterns are rejected before execution.
 
 ## CI/CD best practices
 
@@ -115,13 +122,11 @@ jobs:
 
 ### Reviewing rules in new repositories
 
-When cloning or forking a repository that uses Archgate, review the `.archgate/adrs/*.rules.ts` files before running `archgate check` for the first time. Look for:
+When cloning or forking a repository that uses Archgate, the security scanner automatically blocks dangerous patterns in `.rules.ts` files. However, you should still review rule files before running `archgate check` for the first time:
 
-- Imports of `fs`, `child_process`, `net`, or other system modules
-- Calls to `fetch()`, `Bun.spawn()`, or `Bun.file()` outside the `RuleContext` API
-- Top-level code that runs on import (before the `check` function is called)
-
-Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output.
+- The scanner catches explicit use of banned APIs, but sophisticated obfuscation (e.g., `Reflect.get(Bun, "spawn")`) may bypass it
+- Top-level code that runs on import (before the `check` function is called) is still executed if it passes the scanner
+- Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output
 
 ### Credentials
 
