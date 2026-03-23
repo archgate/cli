@@ -16,10 +16,13 @@ export interface ScanViolation {
   message: string;
   line: number;
   column: number;
+  endLine: number;
+  endColumn: number;
 }
 
 interface AstLoc {
   start: { line: number; column: number };
+  end: { line: number; column: number };
 }
 
 interface AstNode {
@@ -28,10 +31,12 @@ interface AstNode {
   [key: string]: unknown;
 }
 
-function loc(node: AstNode): { line: number; column: number } {
+function loc(node: AstNode) {
   return {
     line: node.loc?.start.line ?? 0,
     column: node.loc?.start.column ?? 0,
+    endLine: node.loc?.end.line ?? 0,
+    endColumn: node.loc?.end.column ?? 0,
   };
 }
 

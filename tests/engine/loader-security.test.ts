@@ -55,7 +55,10 @@ export default {
 `
     );
 
-    await expect(loadRuleAdrs(tempDir)).rejects.toThrow(
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    expect((results[0] as { value: { error: string } }).value.error).toContain(
       "blocked by security scanner"
     );
   });
@@ -78,7 +81,10 @@ export default {
 `
     );
 
-    await expect(loadRuleAdrs(tempDir)).rejects.toThrow(
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    expect((results[0] as { value: { error: string } }).value.error).toContain(
       "blocked by security scanner"
     );
   });
@@ -101,7 +107,10 @@ export default {
 `
     );
 
-    await expect(loadRuleAdrs(tempDir)).rejects.toThrow(
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    expect((results[0] as { value: { error: string } }).value.error).toContain(
       "blocked by security scanner"
     );
   });
@@ -124,7 +133,10 @@ export default {
 `
     );
 
-    await expect(loadRuleAdrs(tempDir)).rejects.toThrow(
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    expect((results[0] as { value: { error: string } }).value.error).toContain(
       "blocked by security scanner"
     );
   });
@@ -155,7 +167,11 @@ export default {
 
     const loaded = await loadRuleAdrs(tempDir);
     expect(loaded).toHaveLength(1);
-    expect(loaded[0].adr.frontmatter.id).toBe("SEC-005");
+    expect(loaded[0].type).toBe("loaded");
+    expect(
+      (loaded[0] as { value: { adr: { frontmatter: { id: string } } } }).value
+        .adr.frontmatter.id
+    ).toBe("SEC-005");
   });
 
   test("allows rule with safe imports (node:path)", async () => {

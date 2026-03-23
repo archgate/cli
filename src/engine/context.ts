@@ -245,9 +245,9 @@ export async function buildReviewContext(
 
   let checkSummary: ReportSummary | null = null;
   if (options?.runChecks) {
-    const loadedAdrs = await loadRuleAdrs(projectRoot);
-    if (loadedAdrs.length > 0) {
-      const checkResult = await runChecks(projectRoot, loadedAdrs, { staged });
+    const loadResults = await loadRuleAdrs(projectRoot);
+    if (loadResults.length > 0) {
+      const checkResult = await runChecks(projectRoot, loadResults, { staged });
       checkSummary = buildSummary(checkResult, { maxViolationsPerRule });
     } else {
       checkSummary = { ...EMPTY_SUMMARY };

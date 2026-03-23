@@ -275,10 +275,10 @@ archgate plugin install --editor cursor
 Executa todas as verificações automatizadas de conformidade com ADRs no codebase.
 
 ```bash
-archgate check [options]
+archgate check [options] [files...]
 ```
 
-Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts` complementar e reporta violações com caminhos de arquivo e números de linha.
+Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts` complementar e reporta violações com caminhos de arquivo e números de linha. Quando caminhos de arquivo são fornecidos como argumentos posicionais, apenas ADRs cujos padrões `files` correspondem a esses arquivos são executados.
 
 ### Opções
 
@@ -290,13 +290,19 @@ Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts`
 | `--adr <id>` | Verificar apenas regras de um ADR específico                           |
 | `--verbose`  | Mostrar regras aprovadas e informações de tempo                        |
 
+### Argumentos
+
+| Argumento    | Descrição                                                                                                                                            |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[files...]` | Caminhos de arquivo opcionais para limitar as verificações. Apenas ADRs cujos padrões `files` correspondem serão executados. Suporta pipe via stdin. |
+
 ### Códigos de saída
 
-| Código | Significado                                            |
-| ------ | ------------------------------------------------------ |
-| 0      | Todas as regras passaram. Nenhuma violação encontrada. |
-| 1      | Uma ou mais violações detectadas.                      |
-| 2      | Erro interno (ex.: ADR ou regra malformada).           |
+| Código | Significado                                                                          |
+| ------ | ------------------------------------------------------------------------------------ |
+| 0      | Todas as regras passaram. Nenhuma violação encontrada.                               |
+| 1      | Uma ou mais violações detectadas.                                                    |
+| 2      | Erro na execução de regra (ex.: regra malformada, bloqueio do scanner de segurança). |
 
 ### Exemplos
 
@@ -316,6 +322,18 @@ Verificar um único ADR:
 
 ```bash
 archgate check --adr ARCH-001
+```
+
+Verificar arquivos específicos (apenas ADRs correspondentes são executados):
+
+```bash
+archgate check src/foo.ts src/bar.ts
+```
+
+Pipe do git (verificar apenas arquivos alterados):
+
+```bash
+git diff --name-only | archgate check --json
 ```
 
 Obter saída JSON para integração com CI:
@@ -357,6 +375,9 @@ Quando `--json` é usado, a saída é um único objeto JSON:
         {
           "message": "Command file must export a register*Command function",
           "file": "src/commands/broken.ts",
+          "line": 1,
+          "endLine": 1,
+          "endColumn": 42,
           "severity": "error"
         }
       ],
@@ -366,6 +387,22 @@ Quando `--json` é usado, a saída é um único objeto JSON:
   "durationMs": 42
 }
 ```
+
+#### Campos de violação
+
+| Campo       | Tipo    | Descrição                                               |
+| ----------- | ------- | ------------------------------------------------------- |
+| `message`   | string  | Descrição da violação                                   |
+| `file`      | string? | Caminho relativo do arquivo                             |
+| `line`      | number? | Linha inicial (base 1)                                  |
+| `endLine`   | number? | Linha final (base 1) — para destaque preciso no editor  |
+| `endColumn` | number? | Coluna final (base 0) — para destaque preciso no editor |
+| `fix`       | string? | Correção sugerida (apenas orientação)                   |
+| `severity`  | string  | `"error"`, `"warning"` ou `"info"`                      |
+
+#### Arquivos de regra bloqueados
+
+Quando um arquivo de regra é bloqueado pelo scanner de segurança (ex.: usa `Bun.spawn()`) ou um arquivo `.rules.ts` complementar está ausente, o resultado aparece na saída JSON com `status: "error"` e `ruleId: "security-scan"`. As violações incluem o arquivo e a linha exata do código bloqueado (ou a linha `rules: true` no ADR para arquivos complementares ausentes).
 
 ---
 

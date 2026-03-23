@@ -214,16 +214,22 @@ interface ReportDetail {
   message: string;
   file?: string;
   line?: number;
+  endLine?: number;
+  endColumn?: number;
   fix?: string;
 }
 ```
 
-| Field     | Type     | Required | Description                             |
-| --------- | -------- | -------- | --------------------------------------- |
-| `message` | `string` | Yes      | Human-readable description of the issue |
-| `file`    | `string` | No       | File path where the issue was found     |
-| `line`    | `number` | No       | Line number in the file                 |
-| `fix`     | `string` | No       | Suggested fix or remediation action     |
+| Field       | Type     | Required | Description                                                         |
+| ----------- | -------- | -------- | ------------------------------------------------------------------- |
+| `message`   | `string` | Yes      | Human-readable description of the issue                             |
+| `file`      | `string` | No       | File path where the issue was found                                 |
+| `line`      | `number` | No       | Start line number (1-based)                                         |
+| `endLine`   | `number` | No       | End line number (1-based) — for precise editor range highlighting   |
+| `endColumn` | `number` | No       | End column number (0-based) — for precise editor range highlighting |
+| `fix`       | `string` | No       | Suggested fix or remediation action                                 |
+
+When `endLine` and `endColumn` are provided, editors (VS Code, Cursor) can highlight the exact expression that violates the rule, rather than the entire line. If omitted, the full line at `line` is highlighted.
 
 ---
 
@@ -274,20 +280,24 @@ interface ViolationDetail {
   message: string;
   file?: string;
   line?: number;
+  endLine?: number;
+  endColumn?: number;
   fix?: string;
   severity: Severity;
 }
 ```
 
-| Field      | Type       | Description                          |
-| ---------- | ---------- | ------------------------------------ |
-| `ruleId`   | `string`   | Rule ID from the `rules` object key  |
-| `adrId`    | `string`   | ADR ID from the frontmatter          |
-| `message`  | `string`   | Human-readable description           |
-| `file`     | `string?`  | File path where the issue was found  |
-| `line`     | `number?`  | Line number in the file              |
-| `fix`      | `string?`  | Suggested fix                        |
-| `severity` | `Severity` | Effective severity of this violation |
+| Field       | Type       | Description                                            |
+| ----------- | ---------- | ------------------------------------------------------ |
+| `ruleId`    | `string`   | Rule ID from the `rules` object key                    |
+| `adrId`     | `string`   | ADR ID from the frontmatter                            |
+| `message`   | `string`   | Human-readable description                             |
+| `file`      | `string?`  | File path where the issue was found                    |
+| `line`      | `number?`  | Start line number (1-based)                            |
+| `endLine`   | `number?`  | End line (1-based) — for precise editor highlighting   |
+| `endColumn` | `number?`  | End column (0-based) — for precise editor highlighting |
+| `fix`       | `string?`  | Suggested fix                                          |
+| `severity`  | `Severity` | Effective severity of this violation                   |
 
 ---
 
