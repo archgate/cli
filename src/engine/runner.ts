@@ -180,19 +180,40 @@ function createRuleContext(
 export async function runChecks(
   projectRoot: string,
   loadedAdrs: LoadedAdr[],
-  options: { staged?: boolean } = {}
+  options: { staged?: boolean; files?: string[] } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
   const changedFiles = options.staged ? await getStagedFiles(projectRoot) : [];
   const results: RuleResult[] = [];
 
+  // Resolve user-specified files to relative paths for intersection
+  let filterFiles: Set<string> | undefined;
+  if (options.files && options.files.length > 0) {
+    filterFiles = new Set(
+      options.files.map((f) => {
+        const absPath = safePath(projectRoot, f);
+        return relative(projectRoot, absPath).replaceAll("\\", "/");
+      })
+    );
+  }
+
   // Run ADRs in parallel
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
-      const scopedFiles = await resolveScopedFiles(
+      let scopedFiles = await resolveScopedFiles(
         projectRoot,
         adr.frontmatter.files
       );
+
+      // When files are specified, narrow scopedFiles to the intersection
+      if (filterFiles) {
+        scopedFiles = scopedFiles.filter((f) => filterFiles.has(f));
+      }
+
+      // Skip this ADR entirely if no specified files are in scope
+      if (filterFiles && scopedFiles.length === 0) {
+        return [];
+      }
 
       const adrRuleResults: RuleResult[] = [];
 
