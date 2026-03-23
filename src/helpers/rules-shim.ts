@@ -42,6 +42,29 @@ declare interface RuleReport {
   ): void;
 }
 
+declare interface PackageJson {
+  name?: string;
+  version?: string;
+  description?: string;
+  main?: string;
+  module?: string;
+  types?: string;
+  bin?: string | Record<string, string>;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  private?: boolean;
+  license?: string;
+  repository?: string | { type: string; url: string };
+  engines?: Record<string, string>;
+  files?: string[];
+  workspaces?: string[] | { packages: string[] };
+  catalog?: Record<string, string>;
+  [key: string]: unknown;
+}
+
 declare interface RuleContext {
   projectRoot: string;
   scopedFiles: string[];
@@ -50,6 +73,7 @@ declare interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   report: RuleReport;
 }
