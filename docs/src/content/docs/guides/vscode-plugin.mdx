@@ -43,6 +43,7 @@ If you are already logged in, this command:
 
 1. Creates the `.archgate/` governance directory (ADRs, lint rules)
 2. Adds the authenticated marketplace URL to your VS Code **user settings**
+3. Downloads and installs the Archgate VS Code extension (`.vsix`) if the `code` CLI is available
 
 The `chat.plugins.marketplaces` setting is application-scoped in VS Code, so it cannot be set per-workspace. The CLI automatically writes it to your user-level `settings.json`:
 
@@ -68,11 +69,14 @@ archgate plugin install --editor vscode
 
 The command creates or updates the following:
 
-| File                 | Scope | Purpose                                                |
-| -------------------- | ----- | ------------------------------------------------------ |
-| User `settings.json` | User  | `chat.plugins.marketplaces` with the authenticated URL |
+| File                 | Scope       | Purpose                                                |
+| -------------------- | ----------- | ------------------------------------------------------ |
+| User `settings.json` | User        | `chat.plugins.marketplaces` with the authenticated URL |
+| Archgate extension   | Application | VS Code extension installed via `.vsix`                |
 
 The user settings file is merged additively -- existing settings are never overwritten. VS Code's built-in default marketplaces (`github/copilot-plugins`, `github/awesome-copilot`) are preserved when the key is set for the first time.
+
+The VS Code extension is downloaded from the Archgate plugins service and installed via `code --install-extension`. If the `code` CLI is not available, manual installation instructions are printed.
 
 The user-level marketplace setting (added to your `settings.json`):
 
@@ -86,7 +90,19 @@ The user-level marketplace setting (added to your `settings.json`):
 
 ### Manual setup
 
-If you prefer not to let the CLI modify your user settings, you can add the marketplace URL manually. Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+If you prefer not to let the CLI modify your user settings, you can set things up manually:
+
+**Marketplace URL:** Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+
+**Extension:** Download and install the `.vsix` file directly:
+
+```bash
+curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
+code --install-extension archgate.vsix
+rm archgate.vsix
+```
+
+Replace `<token>` with your archgate token from `~/.archgate/credentials`.
 
 ## What the plugin provides
 

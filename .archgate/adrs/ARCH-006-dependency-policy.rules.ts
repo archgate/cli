@@ -12,9 +12,9 @@ export default {
     "no-unapproved-deps": {
       description: "Production dependencies must be on the approved list",
       async check(ctx) {
-        let pkg: { dependencies?: Record<string, string> };
+        let pkg;
         try {
-          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+          pkg = await ctx.readJSON("package.json");
         } catch {
           return; // No package.json — nothing to check
         }

@@ -7,9 +7,7 @@ export default {
         "softwareVersion in docs/astro.config.mjs must match package.json version",
       severity: "error",
       async check(ctx) {
-        const pkgJson = (await ctx.readJSON("package.json")) as {
-          version?: string;
-        };
+        const pkgJson = await ctx.readJSON("package.json");
         if (!pkgJson.version) return;
 
         let astroConfig: string;
@@ -38,10 +36,7 @@ export default {
         "optionalDependencies versions must match package.json version",
       severity: "error",
       async check(ctx) {
-        const pkgJson = (await ctx.readJSON("package.json")) as {
-          version?: string;
-          optionalDependencies?: Record<string, string>;
-        };
+        const pkgJson = await ctx.readJSON("package.json");
         if (!pkgJson.version || !pkgJson.optionalDependencies) return;
 
         for (const [dep, depVersion] of Object.entries(

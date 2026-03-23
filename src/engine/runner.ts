@@ -166,7 +166,7 @@ function createRuleContext(
       return Bun.file(absPath).text();
     },
 
-    readJSON(path: string): Promise<unknown> {
+    readJSON(path: string): Promise<any> {
       const absPath = safePath(projectRoot, path);
       return Bun.file(absPath).json();
     },
