@@ -1,3 +1,13 @@
+## [0.24.0](https://github.com/archgate/cli/compare/v0.23.2...v0.24.0) (2026-03-23)
+
+### Features
+
+* validate rule file syntax conventions ([#159](https://github.com/archgate/cli/issues/159)) ([f600f88](https://github.com/archgate/cli/commit/f600f887db5b6c6c14eca5b454b41685cb25f056))
+
+### Bug Fixes
+
+* **ci:** remove self-referencing archgate proto plugin ([#157](https://github.com/archgate/cli/issues/157)) ([66d71ac](https://github.com/archgate/cli/commit/66d71ac04c69405df29c6702bf987e0ba9a353cf))
+
 ## [0.23.2](https://github.com/archgate/cli/compare/v0.23.1...v0.23.2) (2026-03-23)
 
 ### Bug Fixes
