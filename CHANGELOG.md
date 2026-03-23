@@ -1,3 +1,14 @@
+## [0.25.0](https://github.com/archgate/cli/compare/v0.24.0...v0.25.0) (2026-03-23)
+
+### Features
+
+* add typed readJSON overload for package.json ([#162](https://github.com/archgate/cli/issues/162)) ([1240080](https://github.com/archgate/cli/commit/12400809c82523780f9af0ff63a4367a4a5cb0af))
+* add VS Code extension install via plugin install ([#161](https://github.com/archgate/cli/issues/161)) ([f71bd4d](https://github.com/archgate/cli/commit/f71bd4d6640e294c278b88de688088ed95d3b2c7))
+
+### Bug Fixes
+
+* remove plaintext token storage and fix upgrade losing login ([#160](https://github.com/archgate/cli/issues/160)) ([390ef9b](https://github.com/archgate/cli/commit/390ef9b4f7fc80bb205d3a8fa196a7c9cef19c31))
+
 ## [0.24.0](https://github.com/archgate/cli/compare/v0.23.2...v0.24.0) (2026-03-23)
 
 ### Features
