@@ -21,9 +21,9 @@ describe("plugin-install", () => {
   });
 
   describe("buildVscodeMarketplaceUrl", () => {
-    test("returns bare URL pointing to archgate-vscode.git", () => {
+    test("returns bare URL pointing to archgate/vscode.git", () => {
       const url = buildVscodeMarketplaceUrl();
-      expect(url).toBe("https://plugins.archgate.dev/archgate-vscode.git");
+      expect(url).toBe("https://plugins.archgate.dev/archgate/vscode.git");
     });
 
     test("does not contain @ (no embedded credentials)", () => {
@@ -31,11 +31,11 @@ describe("plugin-install", () => {
       expect(url).not.toContain("@");
     });
 
-    test("uses archgate-vscode.git repo (not archgate.git)", () => {
+    test("uses archgate/vscode.git path (not archgate.git)", () => {
       const vscodeUrl = buildVscodeMarketplaceUrl();
       const claudeUrl = buildMarketplaceUrl();
-      expect(vscodeUrl).toContain("archgate-vscode.git");
-      expect(claudeUrl).not.toContain("archgate-vscode.git");
+      expect(vscodeUrl).toContain("archgate/vscode.git");
+      expect(claudeUrl).not.toContain("archgate/vscode.git");
       expect(claudeUrl).toContain("archgate.git");
     });
   });
