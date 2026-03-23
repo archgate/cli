@@ -65,12 +65,15 @@ export function registerPluginInstallCommand(plugin: Command) {
               await installCopilotPlugin();
               logInfo(`Archgate plugin installed for ${label}.`);
             } else {
-              const url = buildMarketplaceUrl();
+              const url = buildVscodeMarketplaceUrl();
               logWarn(
                 "Copilot CLI not found. To install the plugin manually, run:"
               );
               console.log(
-                `  ${styleText("bold", "copilot plugin install")} ${url}`
+                `  ${styleText("bold", "copilot plugin marketplace add")} ${url}`
+              );
+              console.log(
+                `  ${styleText("bold", "copilot plugin install")} archgate@archgate`
               );
             }
             break;
