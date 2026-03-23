@@ -11,5 +11,4 @@ auto-clean = true
 shared-globals-dir = true
 
 [plugins.tools]
-archgate = "github://archgate/proto-plugin"
 gh = "https://raw.githubusercontent.com/appthrust/proto-toml-plugins/main/gh/plugin.toml"
