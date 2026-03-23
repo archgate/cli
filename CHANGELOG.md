@@ -1,3 +1,14 @@
+## [0.21.0](https://github.com/archgate/cli/compare/v0.20.0...v0.21.0) (2026-03-23)
+
+### Features
+
+* add security scanner for .rules.ts files ([#145](https://github.com/archgate/cli/issues/145)) ([1148af6](https://github.com/archgate/cli/commit/1148af622dd540611ecfe59f90b886869d931657))
+
+### Bug Fixes
+
+* copilot CLI plugin install uses wrong URL and command ([#143](https://github.com/archgate/cli/issues/143)) ([a5562c7](https://github.com/archgate/cli/commit/a5562c71216dea376c35141b1f5b62fc658b0e46))
+* use two-segment URL path for VS Code marketplace ([#146](https://github.com/archgate/cli/issues/146)) ([e995bd5](https://github.com/archgate/cli/commit/e995bd53ec6310e38b58b5bbd4f9eca63040f0e8))
+
 ## [0.20.0](https://github.com/archgate/cli/compare/v0.19.0...v0.20.0) (2026-03-22)
 
 ### Features
