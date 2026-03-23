@@ -5,6 +5,7 @@ import {
   buildVscodeMarketplaceUrl,
   isClaudeCliAvailable,
   isCopilotCliAvailable,
+  isVscodeCliAvailable,
 } from "../../src/helpers/plugin-install";
 
 describe("plugin-install", () => {
@@ -57,6 +58,13 @@ describe("plugin-install", () => {
       // copilot CLI is not expected to be installed in the test environment
       const result = await isCopilotCliAvailable();
       expect(result === true || result === false).toBe(true);
+    });
+  });
+
+  describe("isVscodeCliAvailable", () => {
+    test("returns a boolean", async () => {
+      const result = await isVscodeCliAvailable();
+      expect(typeof result).toBe("boolean");
     });
   });
 });
