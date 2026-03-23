@@ -72,13 +72,22 @@ export function writeAdr(dir: string, filename: string, content: string): void {
 
 /**
  * Write a companion .rules.ts file to the project's adrs directory.
+ * Automatically wraps the content with required syntax conventions
+ * (triple-slash reference + satisfies RuleSet) if missing.
  */
 export function writeRules(
   dir: string,
   filename: string,
   content: string
 ): void {
-  writeFileSync(join(dir, ".archgate", "adrs", filename), content);
+  let wrapped = content;
+  if (!content.includes("/// <reference")) {
+    wrapped = `/// <reference path="../rules.d.ts" />\n\n${wrapped}`;
+  }
+  if (!content.includes("satisfies RuleSet")) {
+    wrapped = wrapped.trimEnd().replace(/};\s*$/, "} satisfies RuleSet;\n");
+  }
+  writeFileSync(join(dir, ".archgate", "adrs", filename), wrapped);
 }
 
 /**
