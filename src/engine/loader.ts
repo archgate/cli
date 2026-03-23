@@ -55,10 +55,15 @@ export type LoadResult =
 /** Convert a BlockedAdr into a RuleResult-shaped object for reporting. */
 export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
   const id = b.adr.frontmatter.id;
+  const isSyntax = b.error.includes("syntax convention");
+  const ruleId = isSyntax ? "syntax-check" : "security-scan";
+  const description = isSyntax
+    ? "Rule file syntax conventions"
+    : "Rule file security scan";
   return {
-    ruleId: "security-scan",
+    ruleId,
     adrId: id,
-    description: "Rule file security scan",
+    description,
     violations: b.violations.map(
       (v): ViolationDetail => ({
         message: v.message,
@@ -68,12 +73,68 @@ export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
         endColumn: v.endColumn,
         severity: "error",
         adrId: id,
-        ruleId: "security-scan",
+        ruleId,
       })
     ),
     error: b.error,
     durationMs: 0,
   };
+}
+
+interface SyntaxViolation {
+  message: string;
+  line: number;
+  column: number;
+  endLine: number;
+  endColumn: number;
+}
+
+/**
+ * Check that a `.rules.ts` file follows the required syntax conventions:
+ * 1. Triple-slash reference directive: `/// <reference path="..." />`
+ *    pointing to `rules.d.ts` (provides ambient types without imports).
+ * 2. `satisfies RuleSet` on the default export (compile-time validation).
+ *
+ * These are authoring conventions that ensure rule files get proper
+ * type-checking and remain self-documenting.
+ */
+function checkRuleSyntax(source: string): SyntaxViolation[] {
+  const violations: SyntaxViolation[] = [];
+
+  // Check for triple-slash reference to rules.d.ts
+  const hasTripleSlash =
+    /^\/\/\/\s*<reference\s+path=["'][^"']*rules\.d\.ts["']\s*\/>$/m.test(
+      source
+    );
+  if (!hasTripleSlash) {
+    violations.push({
+      message:
+        'Missing triple-slash reference directive. Add /// <reference path="../rules.d.ts" /> at the top of the file.',
+      line: 1,
+      column: 0,
+      endLine: 1,
+      endColumn:
+        source.indexOf("\n") === -1 ? source.length : source.indexOf("\n"),
+    });
+  }
+
+  // Check for `satisfies RuleSet` on the default export
+  const hasSatisfies = /\bsatisfies\s+RuleSet\b/.test(source);
+  if (!hasSatisfies) {
+    // Point to the last line as a reasonable location for the missing satisfies
+    const lines = source.split("\n");
+    const lastLine = lines.length;
+    violations.push({
+      message:
+        "Missing `satisfies RuleSet` on default export. The export must use `} satisfies RuleSet;` for compile-time type validation.",
+      line: lastLine,
+      column: 0,
+      endLine: lastLine,
+      endColumn: lines[lastLine - 1]?.length ?? 0,
+    });
+  }
+
+  return violations;
 }
 
 /**
@@ -163,11 +224,33 @@ export async function loadRuleAdrs(
         };
       }
 
+      const ruleSource = await Bun.file(rulesFile).text();
+
+      // Syntax gate: ensure rule files follow the required conventions
+      // (triple-slash reference directive + `satisfies RuleSet`).
+      const syntaxViolations = checkRuleSyntax(ruleSource);
+      if (syntaxViolations.length > 0) {
+        return {
+          type: "blocked",
+          value: {
+            adr,
+            error: `ADR ${adr.frontmatter.id}: rule file has syntax convention violations (${syntaxViolations.length} violation${syntaxViolations.length === 1 ? "" : "s"})`,
+            violations: syntaxViolations.map((v) => ({
+              message: v.message,
+              file: rulesFile,
+              line: v.line,
+              column: v.column,
+              endLine: v.endLine,
+              endColumn: v.endColumn,
+            })),
+          },
+        };
+      }
+
       // Security gate: scan rule source for banned patterns before executing.
       // This blocks dangerous imports (node:fs, child_process), Bun APIs
       // (Bun.spawn, Bun.file), network access (fetch), eval, and obfuscation
       // patterns (computed property access, dynamic imports).
-      const ruleSource = await Bun.file(rulesFile).text();
       const scanViolations = scanRuleSource(ruleSource);
       if (scanViolations.length > 0) {
         return {

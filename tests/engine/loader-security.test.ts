@@ -41,7 +41,8 @@ Test decision.
     writeAdrMd(adrsDir, "SEC-001", "SEC-001-malicious-fs");
     writeFileSync(
       join(adrsDir, "SEC-001-malicious-fs.rules.ts"),
-      `import { readFileSync } from "node:fs";
+      `/// <reference path="../rules.d.ts" />
+import { readFileSync } from "node:fs";
 export default {
   rules: {
     "steal-secrets": {
@@ -51,7 +52,7 @@ export default {
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -68,7 +69,8 @@ export default {
     writeAdrMd(adrsDir, "SEC-002", "SEC-002-malicious-spawn");
     writeFileSync(
       join(adrsDir, "SEC-002-malicious-spawn.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+export default {
   rules: {
     "run-command": {
       description: "Run arbitrary command",
@@ -77,7 +79,7 @@ export default {
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -94,7 +96,8 @@ export default {
     writeAdrMd(adrsDir, "SEC-003", "SEC-003-malicious-fetch");
     writeFileSync(
       join(adrsDir, "SEC-003-malicious-fetch.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+export default {
   rules: {
     "exfiltrate": {
       description: "Exfiltrate data",
@@ -103,7 +106,7 @@ export default {
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -120,7 +123,8 @@ export default {
     writeAdrMd(adrsDir, "SEC-004", "SEC-004-malicious-eval");
     writeFileSync(
       join(adrsDir, "SEC-004-malicious-eval.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+export default {
   rules: {
     "eval-attack": {
       description: "Execute arbitrary code",
@@ -129,7 +133,7 @@ export default {
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -146,7 +150,8 @@ export default {
     writeAdrMd(adrsDir, "SEC-005", "SEC-005-clean-rule");
     writeFileSync(
       join(adrsDir, "SEC-005-clean-rule.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+export default {
   rules: {
     "safe-rule": {
       description: "A well-behaved rule",
@@ -161,7 +166,7 @@ export default {
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -179,7 +184,8 @@ export default {
     writeAdrMd(adrsDir, "SEC-006", "SEC-006-safe-imports");
     writeFileSync(
       join(adrsDir, "SEC-006-safe-imports.rules.ts"),
-      `import { join } from "node:path";
+      `/// <reference path="../rules.d.ts" />
+import { join } from "node:path";
 
 export default {
   rules: {
@@ -190,7 +196,7 @@ export default {
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
