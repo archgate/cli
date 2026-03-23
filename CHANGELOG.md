@@ -1,3 +1,9 @@
+## [0.23.1](https://github.com/archgate/cli/compare/v0.23.0...v0.23.1) (2026-03-23)
+
+### Bug Fixes
+
+* report blocked rules and range info in JSON output ([#152](https://github.com/archgate/cli/issues/152)) ([0acb40d](https://github.com/archgate/cli/commit/0acb40d24e701f652d920e48257b97980bca58fb))
+
 ## [0.23.0](https://github.com/archgate/cli/compare/v0.21.0...v0.23.0) (2026-03-23)
 
 ### Features
