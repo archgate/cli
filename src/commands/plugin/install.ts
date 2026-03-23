@@ -18,6 +18,7 @@ import {
   isCopilotCliAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
+import { configureVscodeSettings } from "../../helpers/vscode-settings";
 
 const editorOption = new Option("--editor <editor>", "target editor")
   .choices(["claude", "cursor", "vscode", "copilot"] as const)
@@ -94,6 +95,16 @@ export function registerPluginInstallCommand(plugin: Command) {
           }
 
           case "vscode": {
+            const url = buildVscodeMarketplaceUrl();
+            await configureVscodeSettings(
+              findProjectRoot() ?? process.cwd(),
+              url
+            );
+            logInfo(
+              `Archgate plugin configured for ${label}.`,
+              "Marketplace URL added to VS Code user settings."
+            );
+
             if (await isVscodeCliAvailable()) {
               await installVscodeExtension(credentials.token);
               logInfo(`Archgate extension installed for ${label}.`);
