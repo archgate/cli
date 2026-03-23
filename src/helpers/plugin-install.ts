@@ -19,7 +19,7 @@ const PLUGINS_API = "https://plugins.archgate.dev";
 const MARKETPLACE_URL = "https://plugins.archgate.dev/archgate.git";
 /** Base VS Code marketplace URL — credentials are provided by the git credential manager. */
 const VSCODE_MARKETPLACE_URL =
-  "https://plugins.archgate.dev/archgate-vscode.git";
+  "https://plugins.archgate.dev/archgate/vscode.git";
 
 /**
  * Run a command using Bun.spawn (cross-platform, no shell).

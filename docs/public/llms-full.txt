@@ -1831,7 +1831,7 @@ The Archgate VS Code plugin gives AI agents working in [VS Code](https://code.vi
 
 ## How it works
 
-VS Code supports **agent plugins** installed from git-based marketplaces. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate-vscode.git`. When you add this marketplace to your VS Code user settings, VS Code discovers and installs the plugin automatically.
+VS Code supports **agent plugins** installed from git-based marketplaces. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate/vscode.git`. When you add this marketplace to your VS Code user settings, VS Code discovers and installs the plugin automatically.
 
 The plugin is served in VS Code Copilot's native `.github/plugin/` manifest format, separate from the Claude Code `.claude-plugin/` format.
 
@@ -1899,7 +1899,7 @@ The user-level marketplace setting (added to your `settings.json`):
 ```json
 {
   "chat.plugins.marketplaces": [
-    "https://<github-user>:<token>@plugins.archgate.dev/archgate-vscode.git"
+    "https://<github-user>:<token>@plugins.archgate.dev/archgate/vscode.git"
   ]
 }
 ```
