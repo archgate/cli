@@ -146,27 +146,27 @@ describe("scanRuleSource position remapping", () => {
     // Mimics the real DATA-017 case: 2 comment lines at top push Bun.spawn
     // from transpiled line 12 to original line 18
     const lines = [
-      "// ADR: DATA-017 — Schema Migration Management",        // 1
-      "// Rule: Schema must be in sync with migrations",        // 2
-      "",                                                       // 3
-      "export default {",                                       // 4
-      "  rules: {",                                             // 5
-      '    "migration-sync": {',                                // 6
-      '      description: "Check",',                            // 7
-      "      async check(ctx) {",                               // 8
-      "        try {",                                          // 9
-      '          await ctx.readFile("drizzle.config.ts");',     // 10
-      "        } catch { return; }",                            // 11
-      "        try {",                                          // 12
-      "          const proc = Bun.spawn(",                      // 13
-      '            ["bun", "drizzle-kit", "check"],',           // 14
-      '            { cwd: ctx.projectRoot, stdout: "pipe" },',  // 15
-      "          );",                                           // 16
-      "        } catch {}",                                     // 17
-      "      },",                                               // 18
-      "    },",                                                 // 19
-      "  },",                                                   // 20
-      "};",                                                     // 21
+      "// ADR: DATA-017 — Schema Migration Management", // 1
+      "// Rule: Schema must be in sync with migrations", // 2
+      "", // 3
+      "export default {", // 4
+      "  rules: {", // 5
+      '    "migration-sync": {', // 6
+      '      description: "Check",', // 7
+      "      async check(ctx) {", // 8
+      "        try {", // 9
+      '          await ctx.readFile("drizzle.config.ts");', // 10
+      "        } catch { return; }", // 11
+      "        try {", // 12
+      "          const proc = Bun.spawn(", // 13
+      '            ["bun", "drizzle-kit", "check"],', // 14
+      '            { cwd: ctx.projectRoot, stdout: "pipe" },', // 15
+      "          );", // 16
+      "        } catch {}", // 17
+      "      },", // 18
+      "    },", // 19
+      "  },", // 20
+      "};", // 21
     ];
     const violations = scanRuleSource(lines.join("\n"));
     expect(violations).toHaveLength(1);

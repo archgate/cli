@@ -31,10 +31,7 @@ interface AstNode {
   [key: string]: unknown;
 }
 
-import {
-  remapViolations,
-  type RawViolation,
-} from "./source-positions";
+import { remapViolations, type RawViolation } from "./source-positions";
 
 /**
  * Scan a `.rules.ts` source string for banned patterns.
@@ -70,7 +67,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
           // (unlike the bare module string which buildNonCodeRanges marks as non-code).
           pushViolation(
             `Import of "${src}" is blocked in rule files. Use the RuleContext API instead.`,
-            `from "${src}"`,
+            `from "${src}"`
           );
         }
         break;
@@ -88,7 +85,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
         ) {
           pushViolation(
             `Bun.${prop.name}() is blocked in rule files. Use the RuleContext API instead.`,
-            `Bun.${prop.name}`,
+            `Bun.${prop.name}`
           );
         }
 
@@ -96,7 +93,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
         if (computed && (obj.name === "Bun" || obj.name === "globalThis")) {
           pushViolation(
             `Computed property access on ${obj.name} is blocked in rule files.`,
-            `${obj.name}[`,
+            `${obj.name}[`
           );
         }
         break;
@@ -109,13 +106,13 @@ export function scanRuleSource(source: string): ScanViolation[] {
         if (callee.name === "Function") {
           pushViolation(
             "Function() constructor is blocked in rule files.",
-            "Function(",
+            "Function("
           );
         }
         if (callee.name === "fetch") {
           pushViolation(
             "fetch() is blocked in rule files. Rules should not make network requests.",
-            "fetch(",
+            "fetch("
           );
         }
         break;
@@ -125,7 +122,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
         if (callee.name === "Function") {
           pushViolation(
             "new Function() is blocked in rule files.",
-            "new Function(",
+            "new Function("
           );
         }
         break;
@@ -135,7 +132,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
         if (src.type !== "Literal") {
           pushViolation(
             "Dynamic import() with non-literal argument is blocked in rule files.",
-            "import(",
+            "import("
           );
         }
         break;
@@ -149,7 +146,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
           if (left.object?.name === "globalThis") {
             pushViolation(
               "Mutating globalThis is blocked in rule files.",
-              "globalThis.",
+              "globalThis."
             );
           }
           if (
@@ -159,7 +156,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
             const target = `${left.object.name}.${left.property.name}`;
             pushViolation(
               `Mutating ${target} is blocked in rule files.`,
-              target,
+              target
             );
           }
         }

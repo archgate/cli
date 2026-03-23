@@ -94,10 +94,7 @@ function buildNonCodeRanges(source: string): Array<[number, number]> {
 /**
  * Check if a character offset falls inside any non-code range.
  */
-function isInNonCode(
-  offset: number,
-  ranges: Array<[number, number]>,
-): boolean {
+function isInNonCode(offset: number, ranges: Array<[number, number]>): boolean {
   for (const [start, end] of ranges) {
     if (offset >= start && offset < end) return true;
     if (start > offset) break; // ranges are sorted by start
@@ -112,7 +109,7 @@ function isInNonCode(
 function findCodeOccurrences(
   source: string,
   needle: string,
-  nonCodeRanges: Array<[number, number]>,
+  nonCodeRanges: Array<[number, number]>
 ): SourcePos[] {
   const results: SourcePos[] = [];
   let idx = 0;
@@ -159,7 +156,7 @@ function findCodeOccurrences(
  */
 export function remapViolations(
   original: string,
-  rawViolations: RawViolation[],
+  rawViolations: RawViolation[]
 ): Array<{ message: string } & SourcePos> {
   const nonCodeRanges = buildNonCodeRanges(original);
   const occurrenceCache = new Map<string, SourcePos[]>();
@@ -167,11 +164,7 @@ export function remapViolations(
   return rawViolations.map((rv) => {
     let positions = occurrenceCache.get(rv.searchText);
     if (!positions) {
-      positions = findCodeOccurrences(
-        original,
-        rv.searchText,
-        nonCodeRanges,
-      );
+      positions = findCodeOccurrences(original, rv.searchText, nonCodeRanges);
       occurrenceCache.set(rv.searchText, positions);
     }
 

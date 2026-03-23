@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { remapViolations, type RawViolation } from "../../src/engine/source-positions";
+import {
+  remapViolations,
+  type RawViolation,
+} from "../../src/engine/source-positions";
 
 /**
  * Tests for the source position remapping module.

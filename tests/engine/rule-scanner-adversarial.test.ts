@@ -208,7 +208,7 @@ describe("scanRuleSource adversarial position mapping", () => {
   });
 
   test("minified code on single line reports correct column", () => {
-    const source = 'const a=1;const b=2;Bun.spawn([]);const c=3;';
+    const source = "const a=1;const b=2;Bun.spawn([]);const c=3;";
     const violations = scanRuleSource(source);
     expect(violations).toHaveLength(1);
     expect(violations[0].line).toBe(1);
