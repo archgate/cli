@@ -31,14 +31,10 @@ interface AstNode {
   [key: string]: unknown;
 }
 
-function loc(node: AstNode) {
-  return {
-    line: node.loc?.start.line ?? 0,
-    column: node.loc?.start.column ?? 0,
-    endLine: node.loc?.end.line ?? 0,
-    endColumn: node.loc?.end.column ?? 0,
-  };
-}
+import {
+  remapViolations,
+  type RawViolation,
+} from "./source-positions";
 
 /**
  * Scan a `.rules.ts` source string for banned patterns.
@@ -53,7 +49,15 @@ export function scanRuleSource(source: string): ScanViolation[] {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
   const js = transpiler.transformSync(source);
   const ast = parseModule(js, { next: true, loc: true, module: true });
-  const violations: ScanViolation[] = [];
+  const rawViolations: RawViolation[] = [];
+
+  /** Track how many times each searchText has been seen, to match by occurrence. */
+  const seenCounts = new Map<string, number>();
+  function pushViolation(message: string, searchText: string) {
+    const count = seenCounts.get(searchText) ?? 0;
+    seenCounts.set(searchText, count + 1);
+    rawViolations.push({ message, searchText, occurrence: count });
+  }
 
   function walk(node: AstNode): void {
     if (!node || typeof node !== "object") return;
@@ -62,10 +66,12 @@ export function scanRuleSource(source: string): ScanViolation[] {
       case "ImportDeclaration": {
         const src = (node.source as { value: string }).value;
         if (BANNED_MODULES.test(src) || src === "bun") {
-          violations.push({
-            message: `Import of "${src}" is blocked in rule files. Use the RuleContext API instead.`,
-            ...loc(node),
-          });
+          // Use `from "module"` as search anchor — `from` is in code context
+          // (unlike the bare module string which buildNonCodeRanges marks as non-code).
+          pushViolation(
+            `Import of "${src}" is blocked in rule files. Use the RuleContext API instead.`,
+            `from "${src}"`,
+          );
         }
         break;
       }
@@ -80,62 +86,57 @@ export function scanRuleSource(source: string): ScanViolation[] {
           !computed &&
           BLOCKED_BUN_PROPS.has(prop.name ?? "")
         ) {
-          violations.push({
-            message: `Bun.${prop.name}() is blocked in rule files. Use the RuleContext API instead.`,
-            ...loc(node),
-          });
+          pushViolation(
+            `Bun.${prop.name}() is blocked in rule files. Use the RuleContext API instead.`,
+            `Bun.${prop.name}`,
+          );
         }
 
         // Block computed access: Bun[x], globalThis[x]
         if (computed && (obj.name === "Bun" || obj.name === "globalThis")) {
-          violations.push({
-            message: `Computed property access on ${obj.name} is blocked in rule files.`,
-            ...loc(node),
-          });
+          pushViolation(
+            `Computed property access on ${obj.name} is blocked in rule files.`,
+            `${obj.name}[`,
+          );
         }
         break;
       }
       case "CallExpression": {
         const callee = node.callee as AstNode & { name?: string };
         if (callee.name === "eval") {
-          violations.push({
-            message: "eval() is blocked in rule files.",
-            ...loc(node),
-          });
+          pushViolation("eval() is blocked in rule files.", "eval(");
         }
         if (callee.name === "Function") {
-          violations.push({
-            message: "Function() constructor is blocked in rule files.",
-            ...loc(node),
-          });
+          pushViolation(
+            "Function() constructor is blocked in rule files.",
+            "Function(",
+          );
         }
         if (callee.name === "fetch") {
-          violations.push({
-            message:
-              "fetch() is blocked in rule files. Rules should not make network requests.",
-            ...loc(node),
-          });
+          pushViolation(
+            "fetch() is blocked in rule files. Rules should not make network requests.",
+            "fetch(",
+          );
         }
         break;
       }
       case "NewExpression": {
         const callee = node.callee as AstNode & { name?: string };
         if (callee.name === "Function") {
-          violations.push({
-            message: "new Function() is blocked in rule files.",
-            ...loc(node),
-          });
+          pushViolation(
+            "new Function() is blocked in rule files.",
+            "new Function(",
+          );
         }
         break;
       }
       case "ImportExpression": {
         const src = node.source as AstNode;
         if (src.type !== "Literal") {
-          violations.push({
-            message:
-              "Dynamic import() with non-literal argument is blocked in rule files.",
-            ...loc(node),
-          });
+          pushViolation(
+            "Dynamic import() with non-literal argument is blocked in rule files.",
+            "import(",
+          );
         }
         break;
       }
@@ -146,20 +147,20 @@ export function scanRuleSource(source: string): ScanViolation[] {
         };
         if (left.type === "MemberExpression") {
           if (left.object?.name === "globalThis") {
-            violations.push({
-              message: "Mutating globalThis is blocked in rule files.",
-              ...loc(node),
-            });
+            pushViolation(
+              "Mutating globalThis is blocked in rule files.",
+              "globalThis.",
+            );
           }
           if (
             left.object?.name === "process" &&
             left.property?.name === "env"
           ) {
             const target = `${left.object.name}.${left.property.name}`;
-            violations.push({
-              message: `Mutating ${target} is blocked in rule files.`,
-              ...loc(node),
-            });
+            pushViolation(
+              `Mutating ${target} is blocked in rule files.`,
+              target,
+            );
           }
         }
         break;
@@ -185,5 +186,5 @@ export function scanRuleSource(source: string): ScanViolation[] {
   }
 
   walk(ast as unknown as AstNode);
-  return violations;
+  return remapViolations(source, rawViolations);
 }

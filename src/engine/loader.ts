@@ -25,7 +25,7 @@ const RuleSetSchema = z.object({
 import { relative } from "node:path";
 
 import type { ViolationDetail } from "../formats/rules";
-import { logDebug, logError } from "../helpers/log";
+import { logDebug } from "../helpers/log";
 import { projectPaths } from "../helpers/paths";
 import { ensureRulesShim } from "../helpers/rules-shim";
 import { scanRuleSource } from "./rule-scanner";
@@ -170,9 +170,6 @@ export async function loadRuleAdrs(
       const ruleSource = await Bun.file(rulesFile).text();
       const scanViolations = scanRuleSource(ruleSource);
       if (scanViolations.length > 0) {
-        for (const v of scanViolations) {
-          logError(`${rulesFile}:${v.line}:${v.column} - ${v.message}`);
-        }
         return {
           type: "blocked",
           value: {
