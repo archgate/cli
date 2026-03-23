@@ -1,3 +1,9 @@
+## [0.23.2](https://github.com/archgate/cli/compare/v0.23.1...v0.23.2) (2026-03-23)
+
+### Bug Fixes
+
+* correct scanner positions, suppress stderr noise, and fix stdin hang ([#155](https://github.com/archgate/cli/issues/155)) ([387b318](https://github.com/archgate/cli/commit/387b318edd8945faa86f89c9450599678da6d199))
+
 ## [0.23.1](https://github.com/archgate/cli/compare/v0.23.0...v0.23.1) (2026-03-23)
 
 ### Bug Fixes
