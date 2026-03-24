@@ -2,6 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { initProject } from "../../src/helpers/init-project";
 import { safeRmSync } from "../test-utils";
 import { runCli, createTempProject } from "./cli-harness";
 
@@ -80,11 +81,13 @@ describe("init integration", () => {
   });
 
   test("init is idempotent — second run succeeds and does not duplicate example ADR", async () => {
-    await runCli(["init", "--editor", "claude"], tempDir, isolatedEnv());
+    // First init via direct call (avoids a second subprocess cold-start on Windows CI)
+    await initProject(tempDir, { editor: "claude" });
 
     const adrsDir = join(tempDir, ".archgate", "adrs");
     const adrsBefore = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
 
+    // Second init via CLI — the actual idempotency assertion
     const result = await runCli(
       ["init", "--editor", "claude"],
       tempDir,
