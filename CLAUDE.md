@@ -54,7 +54,7 @@ The npm package is a **thin shim** — it contains only `bin/archgate.cjs` and `
 - Commands export `register*Command(program)`, handle I/O only — no business logic
 - OS: macOS, Linux, and Windows
 - Output: `styleText()` from `node:util`; `--json` for machine-readable; auto-compact JSON in agent contexts (non-TTY, non-CI); no emoji
-- Exit codes: 0 = success, 1 = violation, 2 = internal error
+- Exit codes: 0 = success, 1 = violation, 2 = internal error, 130 = user cancellation (SIGINT)
 - Deps: minimal; prefer Bun built-ins (see ARCH-006)
 
 ## Toolchain

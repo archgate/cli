@@ -54,8 +54,9 @@ export default {
       },
     },
     "exit-code-convention": {
-      description: "Process.exit should use codes 0, 1, or 2 only",
+      description: "Process.exit should use codes 0, 1, 2, or 130 only",
       async check(ctx) {
+        const allowedCodes = new Set([0, 1, 2, 130]);
         const matches = await Promise.all(
           ctx.scopedFiles.map((file) =>
             ctx.grep(file, /process\.exit\((\d+)\)/)
@@ -66,9 +67,9 @@ export default {
             const codeMatch = m.content.match(/process\.exit\((\d+)\)/);
             if (codeMatch) {
               const code = Number(codeMatch[1]);
-              if (code !== 0 && code !== 1 && code !== 2) {
+              if (!allowedCodes.has(code)) {
                 ctx.report.violation({
-                  message: `Exit code ${code} is not standard. Use 0 (success), 1 (failure), or 2 (internal error)`,
+                  message: `Exit code ${code} is not standard. Use 0 (success), 1 (failure), 2 (internal error), or 130 (user cancellation/SIGINT)`,
                   file: m.file,
                   line: m.line,
                 });
