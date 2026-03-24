@@ -6,6 +6,7 @@
  * credential helpers (macOS Keychain, Windows Credential Manager, libsecret).
  */
 
+import { logDebug } from "./log";
 import { SignupRequiredError, isSignupRequiredError } from "./signup";
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,7 @@ type DeviceTokenResponse =
  * The user will be shown the `user_code` and asked to visit `verification_uri`.
  */
 export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
+  logDebug("Requesting device code from:", GITHUB_DEVICE_CODE_URL);
   const response = await fetch(GITHUB_DEVICE_CODE_URL, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/json" },
@@ -72,12 +74,15 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
   });
 
   if (!response.ok) {
+    logDebug("Device code request failed, status:", response.status);
     throw new Error(
       `GitHub device code request failed (HTTP ${response.status})`
     );
   }
 
-  return (await response.json()) as DeviceCodeResponse;
+  const data = (await response.json()) as DeviceCodeResponse;
+  logDebug("Device code received, expires in:", data.expires_in, "seconds");
+  return data;
 }
 
 /**
@@ -91,6 +96,10 @@ export async function pollForAccessToken(
 ): Promise<string> {
   const deadline = Date.now() + expiresIn * 1000;
   let pollInterval = interval;
+  logDebug(
+    "Starting device code polling, deadline:",
+    new Date(deadline).toISOString()
+  );
 
   /* oxlint-disable no-await-in-loop -- sequential polling is required by RFC 8628 */
   while (Date.now() < deadline) {
@@ -117,15 +126,18 @@ export async function pollForAccessToken(
     const data = (await response.json()) as DeviceTokenResponse;
 
     if ("access_token" in data) {
+      logDebug("Access token received");
       return data.access_token;
     }
 
     if ("error" in data) {
       if (data.error === "authorization_pending") {
+        logDebug("Authorization pending, retrying in", pollInterval, "seconds");
         continue;
       }
       if (data.error === "slow_down") {
         pollInterval += 5;
+        logDebug("Slow down requested, new interval:", pollInterval, "seconds");
         continue;
       }
       // expired_token, access_denied, or other terminal error
@@ -150,6 +162,7 @@ export interface GitHubUserInfo {
 export async function getGitHubUser(
   accessToken: string
 ): Promise<GitHubUserInfo> {
+  logDebug("Fetching GitHub user info");
   const response = await fetch("https://api.github.com/user", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -169,6 +182,7 @@ export async function getGitHubUser(
   if (!data.login) {
     throw new Error("GitHub API did not return a username");
   }
+  logDebug("GitHub user:", data.login);
   return { login: data.login, email: data.email ?? null };
 }
 
@@ -181,6 +195,7 @@ export async function getGitHubUser(
  * via POST /api/token/claim on the plugins service.
  */
 export async function claimArchgateToken(githubToken: string): Promise<string> {
+  logDebug("Claiming archgate token from:", `${PLUGINS_API}/api/token/claim`);
   const response = await fetch(`${PLUGINS_API}/api/token/claim`, {
     method: "POST",
     headers: {
@@ -210,5 +225,6 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
   if (!data.token) {
     throw new Error("Plugins service did not return a token");
   }
+  logDebug("Archgate token claimed successfully");
   return data.token;
 }

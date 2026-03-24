@@ -14,7 +14,7 @@ import {
   claimArchgateToken,
 } from "./auth";
 import { saveCredentials } from "./credential-store";
-import { logError, logInfo } from "./log";
+import { logDebug, logError, logInfo } from "./log";
 import { SignupRequiredError, requestSignup } from "./signup";
 
 export interface LoginFlowOptions {
@@ -44,7 +44,12 @@ export async function runLoginFlow(
 ): Promise<LoginFlowResult> {
   logInfo("Authenticating with GitHub...\n");
 
+  logDebug("Starting login flow");
   const deviceCode = await requestDeviceCode();
+  logDebug(
+    "Device code received, verification URI:",
+    deviceCode.verification_uri
+  );
   console.log(
     `Open ${styleText("bold", deviceCode.verification_uri)} in your browser`
   );
@@ -67,8 +72,10 @@ export async function runLoginFlow(
   let archgateToken: string;
   try {
     archgateToken = await claimArchgateToken(githubToken);
+    logDebug("Token claimed successfully");
   } catch (err) {
     if (!(err instanceof SignupRequiredError)) throw err;
+    logDebug("Signup required — starting signup flow");
 
     console.log(
       `\nYour GitHub account ${styleText("bold", githubUser)} is not yet registered.`

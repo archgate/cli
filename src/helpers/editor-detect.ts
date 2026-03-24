@@ -9,6 +9,7 @@ import inquirer from "inquirer";
 
 import { EDITOR_LABELS } from "./init-project";
 import type { EditorTarget } from "./init-project";
+import { logDebug } from "./log";
 import { resolveCommand } from "./platform";
 import {
   isClaudeCliAvailable,
@@ -28,6 +29,7 @@ export interface DetectedEditor {
  * Runs all checks in parallel for speed.
  */
 export async function detectEditors(): Promise<DetectedEditor[]> {
+  logDebug("Detecting available editor CLIs");
   const [claude, cursor, vscode, copilot] = await Promise.all([
     isClaudeCliAvailable(),
     resolveCommand("cursor").then((r) => r !== null),
@@ -35,6 +37,7 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
     isCopilotCliAvailable(),
   ]);
 
+  logDebug("Editor detection:", { claude, cursor, vscode, copilot });
   return [
     { id: "claude" as const, label: EDITOR_LABELS.claude, available: claude },
     { id: "cursor" as const, label: EDITOR_LABELS.cursor, available: cursor },

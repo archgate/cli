@@ -2,6 +2,8 @@
  * signup.ts — Archgate plugins platform signup for unregistered users.
  */
 
+import { logDebug } from "./log";
+
 const PLUGINS_API = "https://plugins.archgate.dev";
 
 /**
@@ -43,6 +45,7 @@ export async function requestSignup(
   useCase: string,
   editor: string = "claude-code"
 ): Promise<SignupResult> {
+  logDebug("Submitting signup request for:", github);
   const response = await fetch(`${PLUGINS_API}/api/signup`, {
     method: "POST",
     headers: {
@@ -56,9 +59,11 @@ export async function requestSignup(
   });
 
   if (response.status !== 201) {
+    logDebug("Signup request failed, status:", response.status);
     return { ok: false, token: null };
   }
 
   const data = (await response.json().catch(() => ({}))) as { token?: string };
+  logDebug("Signup successful, token provided:", Boolean(data.token));
   return { ok: true, token: data.token ?? null };
 }
