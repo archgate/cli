@@ -17,7 +17,7 @@ import * as Sentry from "@sentry/node-core/light";
 
 import packageJson from "../../package.json";
 import { detectInstallMethod } from "./install-info";
-import { logDebug } from "./log";
+import { logDebug, registerBreadcrumbHook } from "./log";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
 
@@ -117,6 +117,13 @@ export function initSentry(): void {
     });
 
     initialized = true;
+
+    // Connect log helpers to Sentry breadcrumbs so logDebug/logError/logWarn
+    // calls are captured in the breadcrumb trail for error reports.
+    registerBreadcrumbHook((category, message, level) => {
+      addBreadcrumb(category, message, undefined, level);
+    });
+
     logDebug("Sentry initialized");
   } catch {
     logDebug("Sentry init failed (silently ignored)");
