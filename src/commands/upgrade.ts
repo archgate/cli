@@ -11,7 +11,7 @@ import {
   getManualInstallHint,
   replaceBinary,
 } from "../helpers/binary-upgrade";
-import { logError } from "../helpers/log";
+import { logDebug, logError } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
 import { trackUpgradeResult } from "../helpers/telemetry";
@@ -114,10 +114,15 @@ async function detectLocalPm(): Promise<{
 
 async function getGlobalBinDir(cmd: string[]): Promise<string | null> {
   try {
+    logDebug("Getting global bin dir:", cmd.join(" "));
     const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
     const stdout = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
-    if (exitCode !== 0) return null;
+    if (exitCode !== 0) {
+      logDebug("Global bin dir command failed, exit code:", exitCode);
+      return null;
+    }
+    logDebug("Global bin dir:", stdout.trim());
     return stdout.trim() || null;
   } catch {
     return null;
@@ -125,21 +130,32 @@ async function getGlobalBinDir(cmd: string[]): Promise<string | null> {
 }
 
 async function detectInstallMethod(): Promise<InstallMethod> {
+  logDebug("Detecting install method, execPath:", process.execPath);
+
   if (isBinaryInstall()) {
+    logDebug("Install method: binary");
     return { type: "binary", binaryPath: process.execPath };
   }
 
   if (isProtoInstall()) {
     const protoCmd = (await resolveCommand("proto")) ?? "proto";
+    logDebug("Install method: proto, cmd:", protoCmd);
     return { type: "proto", protoCmd };
   }
 
   if (isLocalInstall()) {
     const local = await detectLocalPm();
-    if (local) return { type: "local", ...local };
+    if (local) {
+      logDebug("Install method: local, pm:", local.cmd);
+      return { type: "local", ...local };
+    }
   }
 
   const binaryPath = process.execPath;
+  logDebug(
+    "Checking package managers:",
+    PACKAGE_MANAGERS.map((pm) => pm.name).join(", ")
+  );
 
   const candidates = await Promise.all(
     PACKAGE_MANAGERS.map(async (pm) => {
@@ -147,6 +163,14 @@ async function detectInstallMethod(): Promise<InstallMethod> {
       if (!resolved) return null;
       const globalBinCmd = [resolved, ...pm.globalBinCmd.slice(1)];
       const binDir = await getGlobalBinDir(globalBinCmd);
+      logDebug(
+        "PM candidate:",
+        pm.name,
+        "resolved:",
+        resolved,
+        "binDir:",
+        binDir
+      );
       return { pm, resolved, binDir };
     })
   );
@@ -156,6 +180,7 @@ async function detectInstallMethod(): Promise<InstallMethod> {
   );
 
   if (match) {
+    logDebug("Install method: package-manager, matched:", match.pm.name);
     return {
       type: "package-manager",
       cmd: match.resolved,
@@ -164,6 +189,7 @@ async function detectInstallMethod(): Promise<InstallMethod> {
     };
   }
 
+  logDebug("Install method: package-manager (fallback to npm)");
   const npmCandidate = candidates.find((c) => c?.pm.name === "npm");
   const npm = PACKAGE_MANAGERS.find((pm) => pm.name === "npm")!;
   return {
@@ -175,6 +201,7 @@ async function detectInstallMethod(): Promise<InstallMethod> {
 }
 
 async function upgradeBinary(tag: string): Promise<void> {
+  logDebug("Upgrading via binary download for tag:", tag);
   const artifact = getArtifactInfo();
   if (!artifact) {
     logError(
@@ -184,9 +211,12 @@ async function upgradeBinary(tag: string): Promise<void> {
     process.exit(1);
   }
 
+  logDebug("Artifact:", artifact.name, "ext:", artifact.ext);
   const hint = getManualInstallHint();
   try {
     const newBinaryPath = await downloadReleaseBinary(tag, artifact);
+    logDebug("Downloaded binary to:", newBinaryPath);
+    logDebug("Replacing binary:", process.execPath);
     replaceBinary(process.execPath, newBinaryPath);
   } catch (err) {
     logError(
@@ -201,8 +231,10 @@ async function runExternalUpgrade(
   cmd: string[],
   manualHint: string
 ): Promise<void> {
+  logDebug("Running external upgrade:", cmd.join(" "));
   const proc = Bun.spawn(cmd, { stdout: "inherit", stderr: "inherit" });
   const exitCode = await proc.exited;
+  logDebug("External upgrade exit code:", exitCode);
 
   if (exitCode !== 0) {
     logError(
@@ -222,6 +254,7 @@ export function registerUpgradeCommand(program: Command) {
         console.log("Checking for latest Archgate release...");
 
         const tag = await fetchLatestGitHubVersion();
+        logDebug("GitHub latest tag:", tag ?? "(null)");
         if (!tag) {
           logError(
             "Failed to fetch release info from GitHub.",
@@ -233,6 +266,7 @@ export function registerUpgradeCommand(program: Command) {
         const packageJson = await import("../../package.json");
         const currentVersion = packageJson.default.version;
         const latestVersion = tag.replace(/^v/, "");
+        logDebug("Version comparison:", currentVersion, "vs", latestVersion);
         const order = semver.order(currentVersion, latestVersion);
 
         if (order === null) {
@@ -250,6 +284,7 @@ export function registerUpgradeCommand(program: Command) {
         console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
 
         const method = await detectInstallMethod();
+        logDebug("Upgrade method:", method.type);
 
         if (method.type === "binary") {
           await upgradeBinary(tag);

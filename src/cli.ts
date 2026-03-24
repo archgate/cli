@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { semver } from "bun";
 
 import packageJson from "../package.json";
@@ -15,7 +15,7 @@ import { registerSessionContextCommand } from "./commands/session-context/index"
 import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { installGit } from "./helpers/git";
-import { logError } from "./helpers/log";
+import { type LogLevel, logError, setLogLevel } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
 import { getPlatformInfo, isSupportedPlatform } from "./helpers/platform";
 import {
@@ -66,14 +66,22 @@ async function main() {
   initSentry();
   initTelemetry();
 
+  const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
+    .choices(["error", "warn", "info", "debug"] as const)
+    .default("info" as const);
+
   const program = new Command()
     .name("archgate")
     .version(packageJson.version)
-    .description("AI governance for software development");
+    .description("AI governance for software development")
+    .addOption(logLevelOption);
 
   // Track command execution for Sentry breadcrumbs and PostHog analytics
   let commandStartTime = 0;
   program.hook("preAction", (thisCommand) => {
+    // Apply log level from global option before any command runs
+    const rootOpts = program.opts();
+    setLogLevel(rootOpts.logLevel as LogLevel);
     const fullCommand = getFullCommandName(thisCommand);
     addBreadcrumb("command", `Running: ${fullCommand}`);
     // Collect which options were used (presence only, no values)

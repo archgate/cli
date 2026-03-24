@@ -68,14 +68,19 @@ const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/release
  * Returns the tag (e.g. "v0.13.1") or null on failure.
  */
 export async function fetchLatestGitHubVersion(): Promise<string | null> {
+  logDebug("Fetching latest release from:", GITHUB_RELEASES_API);
   const response = await fetch(GITHUB_RELEASES_API, {
     headers: { "User-Agent": "archgate-cli" },
     signal: AbortSignal.timeout(15_000),
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    logDebug("GitHub API response not ok, status:", response.status);
+    return null;
+  }
 
   const data = (await response.json()) as GitHubRelease;
+  logDebug("Latest release tag:", data.tag_name ?? "(none)");
   return data.tag_name ?? null;
 }
 
@@ -95,6 +100,7 @@ export async function downloadReleaseBinary(
   const archiveUrl = `${baseUrl}/${artifact.name}${artifact.ext}`;
   const checksumUrl = `${baseUrl}/${artifact.name}${artifact.ext}.sha256`;
 
+  logDebug("Downloading binary from:", archiveUrl);
   const response = await fetch(archiveUrl, {
     headers: { "User-Agent": "archgate-cli" },
     signal: AbortSignal.timeout(60_000),
@@ -105,6 +111,7 @@ export async function downloadReleaseBinary(
   }
 
   const buffer = await response.arrayBuffer();
+  logDebug("Downloaded", Math.round(buffer.byteLength / 1024), "KB");
 
   // Verify SHA256 checksum when available (releases after this change)
   try {
@@ -135,6 +142,7 @@ export async function downloadReleaseBinary(
   }
   const tmpDir = mkdtempSync(join(tmpdir(), "archgate-upgrade-"));
   const archivePath = join(tmpDir, `archgate${artifact.ext}`);
+  logDebug("Extracting archive to:", tmpDir);
 
   await Bun.write(archivePath, buffer);
 
@@ -204,6 +212,7 @@ export function replaceBinary(
   currentPath: string,
   newBinaryPath: string
 ): void {
+  logDebug("Replacing binary:", currentPath, "with:", newBinaryPath);
   if (isWindows()) {
     const oldPath = currentPath + ".old";
 
