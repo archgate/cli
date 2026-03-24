@@ -22,13 +22,14 @@ The three-tier exit code model provides a simple contract that covers all CLI us
 
 ## Decision
 
-Use three exit codes with clear semantics:
+Use four exit codes with clear semantics:
 
-| Exit Code | Meaning          | When to Use                                                                   |
-| --------- | ---------------- | ----------------------------------------------------------------------------- |
-| `0`       | Success          | Operation completed successfully                                              |
-| `1`       | Expected failure | Invalid input, missing config, ADR violations found, operation cannot proceed |
-| `2`       | Internal error   | Bugs, unhandled exceptions, unexpected crashes                                |
+| Exit Code | Meaning           | When to Use                                                                   |
+| --------- | ----------------- | ----------------------------------------------------------------------------- |
+| `0`       | Success           | Operation completed successfully                                              |
+| `1`       | Expected failure  | Invalid input, missing config, ADR violations found, operation cannot proceed |
+| `2`       | Internal error    | Bugs, unhandled exceptions, unexpected crashes                                |
+| `130`     | User cancellation | User pressed Ctrl+C / SIGINT during an interactive prompt                     |
 
 **Error output conventions:**
 
@@ -48,6 +49,7 @@ Use three exit codes with clear semantics:
 - Provide actionable suggestions in error messages
 - Write errors to stderr (via `logError()`), not stdout
 - **Commands that don't require `.archgate/` SHOULD fall back to `process.cwd()`** when `findProjectRoot()` returns null — e.g., `session-context` reads from `~/.claude/projects/` and uses `process.cwd()` as its path key when no project is found
+- **Handle `ExitPromptError` from Inquirer as user cancellation** — catch it in the top-level error boundary and exit with code 130 (SIGINT convention) without logging an error or sending to Sentry
 
 ### Don't
 
@@ -56,7 +58,8 @@ Use three exit codes with clear semantics:
 - Don't use `console.error()` directly — use `logError()` for consistent formatting
 - Don't use `console.log()` or `console.warn()` directly in helper or engine files — use `logInfo()` or `logWarn()` (command files are the I/O layer and may use console directly)
 - Don't exit with code 0 when an operation fails
-- Don't use exit codes other than 0, 1, or 2
+- Don't use exit codes other than 0, 1, 2, or 130
+- Don't send user-cancellation errors (e.g., `ExitPromptError` from Inquirer) to Sentry — filter them in `beforeSend`
 
 ## Implementation Pattern
 
@@ -133,7 +136,7 @@ try {
 
 - **Archgate rule** `ARCH-002/use-log-error`: Scans all source files (excluding `helpers/log.ts` and test files) for `console.error()` usage and flags violations. Severity: `error`.
 - **Archgate rule** `ARCH-002/use-log-helpers`: Scans helper and engine files for direct `console.log()`, `console.warn()`, or `console.info()` usage. Excludes `helpers/log.ts` (canonical implementation), `engine/reporter.ts` (check output system), `helpers/login-flow.ts` (interactive device flow UI), and test files. Command files are exempt since they are the I/O layer. Severity: `error`.
-- **Archgate rule** `ARCH-002/exit-code-convention`: Scans all source files for `process.exit()` calls and verifies the exit code is 0, 1, or 2. Severity: `error`.
+- **Archgate rule** `ARCH-002/exit-code-convention`: Scans all source files for `process.exit()` calls and verifies the exit code is 0, 1, 2, or 130. Severity: `error`.
 
 ### Manual Enforcement
 

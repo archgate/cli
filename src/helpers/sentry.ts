@@ -74,8 +74,24 @@ export function initSentry(): void {
       dsn: SENTRY_DSN,
       release: cliVersion,
       environment: Bun.env.NODE_ENV ?? "production",
+      // Disable sending events in test environments
+      enabled: Bun.env.NODE_ENV !== "test",
       // Do not send default PII (hostnames, IPs, etc.)
       sendDefaultPii: false,
+      // Drop user-initiated prompt cancellations (Ctrl+C)
+      beforeSend(event) {
+        const values = event.exception?.values;
+        if (
+          values?.some(
+            (v) =>
+              v.type === "ExitPromptError" ||
+              v.value?.includes("force closed the prompt with SIGINT")
+          )
+        ) {
+          return null;
+        }
+        return event;
+      },
       // Set the anonymous install ID as the user
       initialScope: {
         user: { id: getInstallId() },

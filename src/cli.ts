@@ -135,6 +135,11 @@ function getFullCommandName(command: Command): string {
 }
 
 main().catch(async (err: unknown) => {
+  // User pressed Ctrl+C during an Inquirer prompt — exit silently
+  if (err instanceof Error && err.name === "ExitPromptError") {
+    process.exit(130);
+  }
+
   captureException(err, { command: "main" });
   await Promise.all([flushTelemetry(), flushSentry()]);
   logError(String(err));
