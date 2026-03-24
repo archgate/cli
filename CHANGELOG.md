@@ -1,3 +1,14 @@
+## [0.26.0](https://github.com/archgate/cli/compare/v0.25.1...v0.26.0) (2026-03-24)
+
+### Features
+
+* add doctor command and auto-detect editors ([#166](https://github.com/archgate/cli/issues/166)) ([ec5be2a](https://github.com/archgate/cli/commit/ec5be2a27346737a17b1574d845a3cd942e0e3c3))
+* add global --log-level option ([#170](https://github.com/archgate/cli/issues/170)) ([972028e](https://github.com/archgate/cli/commit/972028e3b3928358925c334635b67a2661b9d99e))
+
+### Bug Fixes
+
+* filter Sentry noise from tests and user cancellations ([#169](https://github.com/archgate/cli/issues/169)) ([2c988b6](https://github.com/archgate/cli/commit/2c988b6616bf509870e91abb11edcba7abce1c5b))
+
 ## [0.25.1](https://github.com/archgate/cli/compare/v0.25.0...v0.25.1) (2026-03-24)
 
 ### Bug Fixes
