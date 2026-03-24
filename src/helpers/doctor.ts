@@ -5,18 +5,15 @@
  * without exposing sensitive data (tokens, paths with usernames are truncated).
  */
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import packageJson from "../../package.json";
 import { loadCredentials } from "./credential-store";
+import { detectEditors } from "./editor-detect";
+import { detectInstallMethod, getProjectContext } from "./install-info";
 import { internalPath } from "./paths";
 import { getPlatformInfo, resolveCommand } from "./platform";
-import {
-  isClaudeCliAvailable,
-  isCopilotCliAvailable,
-  isVscodeCliAvailable,
-} from "./plugin-install";
 import { isTelemetryEnabled } from "./telemetry-config";
 
 // ---------------------------------------------------------------------------
@@ -63,68 +60,6 @@ export interface DoctorReport {
 }
 
 // ---------------------------------------------------------------------------
-// Install method detection
-// ---------------------------------------------------------------------------
-
-function detectInstallMethod(): string {
-  const execPath = process.execPath;
-  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "";
-  const protoHome = Bun.env.PROTO_HOME ?? `${home}/.proto`;
-
-  if (execPath.startsWith(`${home}/.archgate/bin`)) return "binary";
-  if (execPath.startsWith(`${protoHome}/tools/archgate`)) return "proto";
-  if (execPath.includes("node_modules")) return "local";
-  return "global-pm";
-}
-
-// ---------------------------------------------------------------------------
-// Project scanning
-// ---------------------------------------------------------------------------
-
-interface ProjectInfo {
-  hasProject: boolean;
-  adrCount: number;
-  adrWithRulesCount: number;
-  domains: string[];
-}
-
-function scanProject(): ProjectInfo {
-  const adrsDir = join(process.cwd(), ".archgate", "adrs");
-  const hasProject = existsSync(adrsDir);
-
-  if (!hasProject) {
-    return {
-      hasProject: false,
-      adrCount: 0,
-      adrWithRulesCount: 0,
-      domains: [],
-    };
-  }
-
-  try {
-    const entries = readdirSync(adrsDir);
-    const mdFiles = entries.filter((f) => f.endsWith(".md"));
-    const rulesFiles = entries.filter((f) => f.endsWith(".rules.ts"));
-
-    // Extract unique domains from ADR filenames (prefix before first dash+digits)
-    const domainSet = new Set<string>();
-    for (const f of mdFiles) {
-      const match = f.match(/^([A-Z]+)-\d+/);
-      if (match) domainSet.add(match[1]);
-    }
-
-    return {
-      hasProject: true,
-      adrCount: mdFiles.length,
-      adrWithRulesCount: rulesFiles.length,
-      domains: [...domainSet].sort(),
-    };
-  } catch {
-    return { hasProject: true, adrCount: 0, adrWithRulesCount: 0, domains: [] };
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Integration detection
 // ---------------------------------------------------------------------------
 
@@ -155,20 +90,18 @@ function detectIntegrations(): IntegrationInfo {
 
 export async function runDoctor(): Promise<DoctorReport> {
   const platform = getPlatformInfo();
-  const projectInfo = scanProject();
+  const projectCtx = getProjectContext();
   const integrations = detectIntegrations();
   const configDir = internalPath();
 
   // Run async checks in parallel
-  const [claudeCli, cursorCli, vscodeCli, copilotCli, gitCmd, credentials] =
-    await Promise.all([
-      isClaudeCliAvailable(),
-      resolveCommand("cursor").then((r) => r !== null),
-      isVscodeCliAvailable(),
-      isCopilotCliAvailable(),
-      resolveCommand("git").then((r) => r !== null),
-      loadCredentials(),
-    ]);
+  const [editors, gitCmd, credentials] = await Promise.all([
+    detectEditors(),
+    resolveCommand("git").then((r) => r !== null),
+    loadCredentials(),
+  ]);
+
+  const editorMap = Object.fromEntries(editors.map((e) => [e.id, e.available]));
 
   return {
     system: {
@@ -189,16 +122,16 @@ export async function runDoctor(): Promise<DoctorReport> {
       logged_in: credentials !== null,
     },
     project: {
-      has_project: projectInfo.hasProject,
-      adr_count: projectInfo.adrCount,
-      adr_with_rules_count: projectInfo.adrWithRulesCount,
-      domains: projectInfo.domains,
+      has_project: projectCtx.hasProject,
+      adr_count: projectCtx.adrCount,
+      adr_with_rules_count: projectCtx.adrWithRulesCount,
+      domains: projectCtx.domains,
     },
     editors: {
-      claude_cli: claudeCli,
-      cursor_cli: cursorCli,
-      vscode_cli: vscodeCli,
-      copilot_cli: copilotCli,
+      claude_cli: Boolean(editorMap.claude),
+      cursor_cli: Boolean(editorMap.cursor),
+      vscode_cli: Boolean(editorMap.vscode),
+      copilot_cli: Boolean(editorMap.copilot),
       git: gitCmd,
     },
     integrations: {

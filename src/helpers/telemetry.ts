@@ -12,11 +12,10 @@
  * See https://cli.archgate.dev/reference/telemetry for the full privacy policy.
  */
 
-import { existsSync, readdirSync } from "node:fs";
-
 import { PostHog } from "posthog-node";
 
 import packageJson from "../../package.json";
+import { detectInstallMethod, getProjectContext } from "./install-info";
 import { logDebug } from "./log";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
@@ -41,61 +40,12 @@ let initialized = false;
 let distinctId = "";
 
 // ---------------------------------------------------------------------------
-// Install method detection (cached)
-// ---------------------------------------------------------------------------
-
-let cachedInstallMethod: string | null = null;
-
-function detectInstallMethod(): string {
-  if (cachedInstallMethod) return cachedInstallMethod;
-  const execPath = process.execPath;
-  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "";
-  const protoHome = Bun.env.PROTO_HOME ?? `${home}/.proto`;
-
-  if (execPath.startsWith(`${home}/.archgate/bin`))
-    cachedInstallMethod = "binary";
-  else if (execPath.startsWith(`${protoHome}/tools/archgate`))
-    cachedInstallMethod = "proto";
-  else if (execPath.includes("node_modules")) cachedInstallMethod = "local";
-  else cachedInstallMethod = "global-pm";
-  return cachedInstallMethod;
-}
-
-// ---------------------------------------------------------------------------
-// Project context (computed once per process, lazily)
-// ---------------------------------------------------------------------------
-
-let cachedProjectContext: Record<string, unknown> | null = null;
-
-function getProjectContext(): Record<string, unknown> {
-  if (cachedProjectContext) return cachedProjectContext;
-  const adrsDir = `${process.cwd()}/.archgate/adrs`;
-  const hasProject = existsSync(adrsDir);
-  let adrCount = 0;
-  let adrWithRulesCount = 0;
-  if (hasProject) {
-    try {
-      const entries = readdirSync(adrsDir);
-      adrCount = entries.filter((f) => f.endsWith(".md")).length;
-      adrWithRulesCount = entries.filter((f) => f.endsWith(".rules.ts")).length;
-    } catch {
-      // Silently ignore — directory may not be readable
-    }
-  }
-  cachedProjectContext = {
-    has_project: hasProject,
-    adr_count: adrCount,
-    adr_with_rules_count: adrWithRulesCount,
-  };
-  return cachedProjectContext;
-}
-
-// ---------------------------------------------------------------------------
 // Shared properties (computed once per process)
 // ---------------------------------------------------------------------------
 
 function getCommonProperties(): Record<string, unknown> {
   const { runtime, isWSL } = getPlatformInfo();
+  const ctx = getProjectContext();
   return {
     cli_version: packageJson.version,
     os: runtime,
@@ -105,7 +55,9 @@ function getCommonProperties(): Record<string, unknown> {
     is_tty: Boolean(process.stdout.isTTY),
     is_wsl: isWSL,
     install_method: detectInstallMethod(),
-    ...getProjectContext(),
+    has_project: ctx.hasProject,
+    adr_count: ctx.adrCount,
+    adr_with_rules_count: ctx.adrWithRulesCount,
     // Signal PostHog to resolve geo then discard the IP
     $ip: null,
   };
@@ -280,8 +232,6 @@ export function _resetTelemetry(): void {
   client = null;
   initialized = false;
   distinctId = "";
-  cachedInstallMethod = null;
-  cachedProjectContext = null;
 }
 
 /** Get the PostHog client instance. For testing only. */

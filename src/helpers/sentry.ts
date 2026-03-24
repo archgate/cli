@@ -13,13 +13,11 @@
  * are wrapped to never affect CLI behavior or exit codes.
  */
 
-import { join } from "node:path";
-
 import * as Sentry from "@sentry/node-core/light";
 
 import packageJson from "../../package.json";
+import { detectInstallMethod } from "./install-info";
 import { logDebug } from "./log";
-import { internalPath } from "./paths";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
 
@@ -41,32 +39,11 @@ const SENTRY_DSN =
  * The path to the archgate executable or script.
  * - Compiled binary: process.execPath IS the archgate binary
  * - bun run / bunx: Bun.main is the entry script (src/cli.ts or similar)
- * - proto: process.argv[1] points to the shim
  */
 function getArchgatePath(): string {
-  // When compiled, process.execPath is the archgate binary itself
-  // (not the bun runtime). Detect by checking if execPath contains "bun".
   const execPath = process.execPath;
   if (!execPath.includes("bun")) return execPath;
-
-  // When running via `bun run`, Bun.main is the entry script
   return Bun.main;
-}
-
-function detectInstallMethod(): string {
-  const archgatePath = getArchgatePath();
-  const binDir = internalPath("bin");
-
-  if (archgatePath.startsWith(binDir)) return "binary";
-
-  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
-  const protoHome = Bun.env.PROTO_HOME ?? join(home, ".proto");
-  const protoToolDir = join(protoHome, "tools", "archgate");
-  if (archgatePath.startsWith(protoToolDir)) return "proto";
-
-  if (archgatePath.includes("node_modules")) return "local";
-
-  return "package-manager";
 }
 
 // ---------------------------------------------------------------------------
