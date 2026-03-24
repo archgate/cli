@@ -1,25 +1,43 @@
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
+import {
+  detectEditors,
+  promptSingleEditorSelection,
+} from "../../helpers/editor-detect";
+import type { EditorTarget } from "../../helpers/init-project";
 import { logError } from "../../helpers/log";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
 } from "../../helpers/plugin-install";
 
-const editorOption = new Option("--editor <editor>", "target editor")
-  .choices(["claude", "vscode", "copilot"] as const)
-  .default("claude" as const);
+const editorOption = new Option(
+  "--editor <editor>",
+  "target editor (omit to auto-detect and select)"
+).choices(["claude", "vscode", "copilot"] as const);
 
 export function registerPluginUrlCommand(plugin: Command) {
   plugin
     .command("url")
     .description("Print the plugin repository URL for manual configuration")
     .addOption(editorOption)
-    .action((opts) => {
+    .action(async (opts) => {
       try {
+        let editor: EditorTarget;
+        if (opts.editor) {
+          editor = opts.editor;
+        } else if (process.stdin.isTTY) {
+          const detected = (await detectEditors()).filter(
+            (e) => e.id !== "cursor"
+          );
+          editor = await promptSingleEditorSelection(detected);
+        } else {
+          editor = "claude";
+        }
+
         const url =
-          opts.editor === "vscode"
+          editor === "vscode"
             ? buildVscodeMarketplaceUrl()
             : buildMarketplaceUrl();
 

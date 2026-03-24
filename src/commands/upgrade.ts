@@ -14,6 +14,7 @@ import {
 import { logError } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
+import { trackUpgradeResult } from "../helpers/telemetry";
 
 type InstallMethod =
   | { type: "binary"; binaryPath: string }
@@ -56,18 +57,18 @@ const PACKAGE_MANAGERS: PackageManager[] = [
 ];
 
 function isBinaryInstall(): boolean {
-  const binDir = internalPath("bin");
-  return process.execPath.startsWith(binDir);
+  return process.execPath.startsWith(internalPath("bin"));
 }
 
 function getProtoHome(): string {
-  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
-  return Bun.env.PROTO_HOME ?? join(home, ".proto");
+  return (
+    Bun.env.PROTO_HOME ??
+    join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~", ".proto")
+  );
 }
 
 function isProtoInstall(): boolean {
-  const protoToolDir = join(getProtoHome(), "tools", "archgate");
-  return process.execPath.startsWith(protoToolDir);
+  return process.execPath.startsWith(join(getProtoHome(), "tools", "archgate"));
 }
 
 function isLocalInstall(): boolean {
@@ -180,26 +181,16 @@ async function upgradeBinary(tag: string): Promise<void> {
       `Unsupported platform: ${getPlatformInfo().runtime}/${process.arch}`,
       "archgate supports darwin/arm64, linux/x64, and win32/x64."
     );
-    process.exit(2);
-  }
-
-  const hint = getManualInstallHint();
-  let newBinaryPath: string;
-  try {
-    newBinaryPath = await downloadReleaseBinary(tag, artifact);
-  } catch (err) {
-    logError(
-      "Failed to download the latest release.",
-      `${err instanceof Error ? err.message : String(err)}\nTry running \`${hint}\` manually.`
-    );
     process.exit(1);
   }
 
+  const hint = getManualInstallHint();
   try {
+    const newBinaryPath = await downloadReleaseBinary(tag, artifact);
     replaceBinary(process.execPath, newBinaryPath);
   } catch (err) {
     logError(
-      "Failed to replace the binary.",
+      "Failed to upgrade binary.",
       `${err instanceof Error ? err.message : String(err)}\nTry running \`${hint}\` manually.`
     );
     process.exit(1);
@@ -274,8 +265,21 @@ export function registerUpgradeCommand(program: Command) {
           );
         }
 
+        trackUpgradeResult({
+          from_version: currentVersion,
+          to_version: latestVersion,
+          install_method: method.type,
+          success: true,
+        });
+
         console.log(`Archgate upgraded to ${latestVersion} successfully.`);
       } catch (err) {
+        trackUpgradeResult({
+          from_version: "unknown",
+          to_version: "unknown",
+          install_method: "unknown",
+          success: false,
+        });
         logError(err instanceof Error ? err.message : String(err));
         process.exit(1);
       }

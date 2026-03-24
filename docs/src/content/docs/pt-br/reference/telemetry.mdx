@@ -11,11 +11,20 @@ O Archgate coleta **dados de uso anônimos** para nos ajudar a entender como a C
 
 Quando você executa um comando do Archgate, registramos:
 
-- **Nome do comando** e **flags utilizadas** (ex: `check --json`, não os valores das flags)
-- **Código de saída** (0, 1 ou 2) e **duração da execução**
-- **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI, detecção de TTY
+- **Nome do comando** e **quais flags foram usadas** (ex: `check --json` — apenas a presença da flag, nunca valores)
+- **Código de saída** (0, 1 ou 2) e **duração da execução** (milissegundos)
+- **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI, detecção de TTY, detecção de WSL
+- **Contexto de instalação**: como a CLI foi instalada (binário, proto, dependência local ou gerenciador de pacotes global)
+- **Contexto do projeto**: se existe um projeto Archgate no diretório atual, quantas ADRs possui e quantas têm regras automatizadas
 - **Localização aproximada**: país e região (resolvidos no servidor a partir do seu IP, que é descartado em seguida — veja [Anonimização de IP](#anonimização-de-ip))
 - **ID de instalação anônimo**: um UUID aleatório gerado na primeira execução — não derivado de nenhum dado pessoal
+
+Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `command_completed`), comandos específicos enviam eventos enriquecidos:
+
+- **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado e se filtros foram aplicados — sem caminhos de arquivo ou conteúdo de violação
+- **`init`**: escolha do editor, se o plugin foi instalado e se o projeto já existia
+- **`upgrade`**: transição de versão (de → para), método de instalação e sucesso/falha
+- **`login`**: subcomando usado (login, logout, refresh, status) e sucesso/falha
 
 ### Rastreamento de erros (Sentry)
 
