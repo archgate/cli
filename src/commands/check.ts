@@ -6,11 +6,13 @@ import {
   reportJSON,
   reportCI,
   getExitCode,
+  buildSummary,
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
 import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
+import { trackCheckResult } from "../helpers/telemetry";
 
 export function registerCheckCommand(program: Command) {
   program
@@ -91,6 +93,9 @@ export function registerCheckCommand(program: Command) {
         files: filterFiles.length > 0 ? filterFiles : undefined,
       });
 
+      // Determine output format for telemetry
+      const outputFormat = opts.ci ? "ci" : useJson ? "json" : "console";
+
       if (opts.ci) {
         reportCI(result);
       } else if (useJson) {
@@ -98,6 +103,22 @@ export function registerCheckCommand(program: Command) {
       } else {
         reportConsole(result, opts.verbose ?? false);
       }
+
+      // Track aggregate check results (no file paths or violation content)
+      const summary = buildSummary(result);
+      trackCheckResult({
+        total_rules: summary.total,
+        passed: summary.passed,
+        failed: summary.failed,
+        warnings: summary.warnings,
+        errors: summary.errors,
+        rule_errors: summary.ruleErrors,
+        pass: summary.pass,
+        output_format: outputFormat,
+        used_staged: Boolean(opts.staged),
+        used_file_filter: filterFiles.length > 0,
+        used_adr_filter: Boolean(opts.adr),
+      });
 
       process.exit(getExitCode(result));
     });

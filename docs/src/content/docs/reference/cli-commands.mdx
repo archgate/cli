@@ -1,6 +1,6 @@
 ---
 title: CLI Commands
-description: "Complete reference for all Archgate CLI commands: init, check, adr create, adr list, adr show, adr update, login, review-context, and more."
+description: "Complete reference for all Archgate CLI commands: init, check, adr, login, plugin, review-context, session-context, upgrade, doctor, clean, and telemetry."
 ---
 
 ## Global options
@@ -648,6 +648,68 @@ archgate upgrade
 Checking for latest Archgate release...
 Upgrading 0.3.0 -> 0.4.0...
 Archgate upgraded to 0.4.0 successfully.
+```
+
+---
+
+## archgate doctor
+
+Check the system environment, installation method, and editor integrations. Useful for diagnosing configuration issues and sharing debug context in bug reports.
+
+```bash
+archgate doctor [options]
+```
+
+### Options
+
+| Option   | Description             |
+| -------- | ----------------------- |
+| `--json` | Machine-readable output |
+
+### Output sections
+
+- **System** — OS, architecture, WSL detection, Bun and Node versions
+- **Archgate** — CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
+- **Project** — Whether an `.archgate/` project exists, ADR count, domains
+- **Editor CLIs** — Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
+- **Project Integrations** — Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+
+### Example
+
+```bash
+archgate doctor
+```
+
+```
+System
+  OS:           win32/x64
+  Bun:          1.3.11
+  Node:         v24.3.0
+
+Archgate
+  Version:      0.25.1
+  Install:      binary
+  Exec path:    /home/user/.archgate/bin/archgate
+  Config dir:   /home/user/.archgate OK
+  Telemetry:    enabled
+  Logged in:    yes
+
+Project
+  ADRs:         5 (3 with rules)
+  Domains:      ARCH, GEN
+
+Editor CLIs
+  claude:       OK
+  cursor:       MISSING
+  code (vscode):OK
+  copilot:      MISSING
+  git:          OK
+
+Project Integrations
+  Claude:       OK (.claude/settings.local.json)
+  Cursor:       MISSING (.cursor/rules/archgate-governance.mdc)
+  VS Code:      OK (.vscode/settings.json)
+  Copilot:      MISSING (.github/copilot/instructions.md)
 ```
 
 ---

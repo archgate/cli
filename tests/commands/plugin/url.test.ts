@@ -19,13 +19,13 @@ describe("registerPluginUrlCommand", () => {
     expect(sub.description()).toBeTruthy();
   });
 
-  test("accepts --editor option with default 'claude'", () => {
+  test("accepts --editor option without default (auto-detect when omitted)", () => {
     const program = new Command();
     registerPluginUrlCommand(program);
     const sub = program.commands.find((c) => c.name() === "url")!;
     const editorOpt = sub.options.find((o) => o.long === "--editor");
     expect(editorOpt).toBeDefined();
-    expect(editorOpt!.defaultValue).toBe("claude");
+    expect(editorOpt!.defaultValue).toBeUndefined();
   });
 
   test("--editor option restricts choices to valid editors", () => {

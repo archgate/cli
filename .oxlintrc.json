@@ -5,6 +5,7 @@
     "perf": "error"
   },
   "rules": {
+    "max-lines": ["error", { "max": 500 }],
     "max-lines-per-function": "off",
     "max-nested-callbacks": "off",
     "max-depth": "off",

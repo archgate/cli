@@ -3534,6 +3534,68 @@ Archgate upgraded to 0.4.0 successfully.
 
 ---
 
+## archgate doctor
+
+Check the system environment, installation method, and editor integrations. Useful for diagnosing configuration issues and sharing debug context in bug reports.
+
+```bash
+archgate doctor [options]
+```
+
+### Options
+
+| Option   | Description             |
+| -------- | ----------------------- |
+| `--json` | Machine-readable output |
+
+### Output sections
+
+- **System** — OS, architecture, WSL detection, Bun and Node versions
+- **Archgate** — CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
+- **Project** — Whether an `.archgate/` project exists, ADR count, domains
+- **Editor CLIs** — Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
+- **Project Integrations** — Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+
+### Example
+
+```bash
+archgate doctor
+```
+
+```
+System
+  OS:           win32/x64
+  Bun:          1.3.11
+  Node:         v24.3.0
+
+Archgate
+  Version:      0.25.1
+  Install:      binary
+  Exec path:    /home/user/.archgate/bin/archgate
+  Config dir:   /home/user/.archgate OK
+  Telemetry:    enabled
+  Logged in:    yes
+
+Project
+  ADRs:         5 (3 with rules)
+  Domains:      ARCH, GEN
+
+Editor CLIs
+  claude:       OK
+  cursor:       MISSING
+  code (vscode):OK
+  copilot:      MISSING
+  git:          OK
+
+Project Integrations
+  Claude:       OK (.claude/settings.local.json)
+  Cursor:       MISSING (.cursor/rules/archgate-governance.mdc)
+  VS Code:      OK (.vscode/settings.json)
+  Copilot:      MISSING (.github/copilot/instructions.md)
+```
+
+---
+
 ## archgate clean
 
 Remove the CLI cache directory.
@@ -3880,11 +3942,20 @@ Archgate collects **anonymous usage data** to help us understand how the CLI is 
 
 When you run an Archgate command, we record:
 
-- **Command name** and **flags used** (e.g., `check --json`, not flag values)
-- **Exit code** (0, 1, or 2) and **execution duration**
-- **Environment**: OS, architecture, Bun version, Archgate version, CI detection, TTY detection
+- **Command name** and **which flags were used** (e.g., `check --json` — only flag presence, never flag values)
+- **Exit code** (0, 1, or 2) and **execution duration** (milliseconds)
+- **Environment**: OS, architecture, Bun version, Archgate version, CI detection, TTY detection, WSL detection
+- **Install context**: how the CLI was installed (binary, proto, local dev dependency, or global package manager)
+- **Project context**: whether an Archgate project exists in the current directory, how many ADRs it has, and how many have automated rules
 - **Coarse location**: country and region (resolved server-side from your IP, then the IP is discarded — see [IP anonymization](#ip-anonymization))
 - **Anonymous install ID**: a random UUID generated on first run — not derived from any personal data
+
+In addition to the general command lifecycle events (`command_executed` / `command_completed`), specific commands send enriched outcome events:
+
+- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, and whether filters were applied — no file paths or violation content
+- **`init`**: editor choice, whether the plugin was installed, and whether the project already existed
+- **`upgrade`**: version transition (from → to), install method, and success/failure
+- **`login`**: subcommand used (login, logout, refresh, status) and success/failure
 
 ### Error tracking (Sentry)
 

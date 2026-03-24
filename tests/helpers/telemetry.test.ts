@@ -81,6 +81,68 @@ describe("telemetry", () => {
     });
   });
 
+  describe("trackCheckResult", () => {
+    test("captures check_completed event without throwing", async () => {
+      const { initTelemetry, trackCheckResult } =
+        await import("../../src/helpers/telemetry");
+
+      initTelemetry();
+      trackCheckResult({
+        total_rules: 5,
+        passed: 4,
+        failed: 1,
+        warnings: 2,
+        errors: 1,
+        rule_errors: 0,
+        pass: false,
+        output_format: "console",
+        used_staged: false,
+        used_file_filter: false,
+        used_adr_filter: false,
+      });
+    });
+  });
+
+  describe("trackInitResult", () => {
+    test("captures init_completed event without throwing", async () => {
+      const { initTelemetry, trackInitResult } =
+        await import("../../src/helpers/telemetry");
+
+      initTelemetry();
+      trackInitResult({
+        editor: "claude",
+        plugin_installed: true,
+        plugin_auto_installed: true,
+        had_existing_project: false,
+      });
+    });
+  });
+
+  describe("trackUpgradeResult", () => {
+    test("captures upgrade_completed event without throwing", async () => {
+      const { initTelemetry, trackUpgradeResult } =
+        await import("../../src/helpers/telemetry");
+
+      initTelemetry();
+      trackUpgradeResult({
+        from_version: "0.24.0",
+        to_version: "0.25.0",
+        install_method: "binary",
+        success: true,
+      });
+    });
+  });
+
+  describe("trackLoginResult", () => {
+    test("captures login_completed event without throwing", async () => {
+      const { initTelemetry, trackLoginResult } =
+        await import("../../src/helpers/telemetry");
+
+      initTelemetry();
+      trackLoginResult({ subcommand: "login", success: true });
+    });
+  });
+
   describe("flushTelemetry", () => {
     test("flushes without throwing when initialized", async () => {
       const { initTelemetry, flushTelemetry } =
