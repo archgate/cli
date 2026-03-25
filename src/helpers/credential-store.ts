@@ -19,9 +19,27 @@ import { internalPath } from "./paths";
 const CREDENTIAL_HOST = "plugins.archgate.dev";
 const CREDENTIAL_TIMEOUT_MS = 3_000;
 
-/** Build env for git credential commands at call time (not import time). */
+/**
+ * Build env for git credential commands at call time (not import time).
+ *
+ * Suppresses ALL interactive prompts — terminal, GUI, and askpass — across
+ * platforms and Git Credential Manager (GCM) versions:
+ *
+ * - GIT_TERMINAL_PROMPT=0  — git's own terminal prompt
+ * - GCM_INTERACTIVE=never  — GCM interactive mode (terminal + GUI)
+ * - GCM_GUI_PROMPT=false   — GCM GUI-only prompt (Windows toast/dialog)
+ * - GIT_ASKPASS=""          — external askpass program
+ * - SSH_ASKPASS=""          — SSH askpass fallback (some helpers reuse it)
+ */
 function gitCredentialEnv(): Record<string, string | undefined> {
-  return { ...Bun.env, GIT_TERMINAL_PROMPT: "0", GCM_INTERACTIVE: "never" };
+  return {
+    ...Bun.env,
+    GIT_TERMINAL_PROMPT: "0",
+    GCM_INTERACTIVE: "never",
+    GCM_GUI_PROMPT: "false",
+    GIT_ASKPASS: "",
+    SSH_ASKPASS: "",
+  };
 }
 
 export interface StoredCredentials {
