@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 "use strict";
 
-const { execFileSync } = require("child_process");
+const { execFileSync, execSync } = require("child_process");
 const https = require("https");
 const zlib = require("zlib");
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
 
-function getPlatformPackageName() {
+function getArtifactName() {
   const { platform, arch } = process;
   if (platform === "darwin" && arch === "arm64") return "archgate-darwin-arm64";
   if (platform === "linux" && arch === "x64") return "archgate-linux-x64";
@@ -21,6 +22,10 @@ function getBinaryName() {
   return process.platform === "win32" ? "archgate.exe" : "archgate";
 }
 
+function getCacheDir() {
+  return path.join(os.homedir(), ".archgate", "bin");
+}
+
 function getPackageVersion() {
   const pkg = JSON.parse(
     fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")
@@ -29,34 +34,20 @@ function getPackageVersion() {
 }
 
 function getBinaryPath() {
-  const pkgName = getPlatformPackageName();
   const binaryName = getBinaryName();
-
-  // 1. Try the platform-specific optional dependency (normal path).
-  try {
-    const pkgDir = path.dirname(require.resolve(`${pkgName}/package.json`));
-    const binaryPath = path.join(pkgDir, "bin", binaryName);
-    if (fs.existsSync(binaryPath)) return binaryPath;
-  } catch {
-    /* platform package not installed */
-  }
-
-  // 2. Fallback: binary downloaded into our own bin/ by postinstall or a
-  //    previous on-demand download.
-  const fallbackPath = path.join(__dirname, binaryName);
-  if (fs.existsSync(fallbackPath)) return fallbackPath;
-
+  const cachePath = path.join(getCacheDir(), binaryName);
+  if (fs.existsSync(cachePath)) return cachePath;
   return null;
 }
 
 // ---------------------------------------------------------------------------
-// On-demand download from the npm registry
+// On-demand download from GitHub Releases
 // ---------------------------------------------------------------------------
 
 function fetchWithRedirects(url) {
   return new Promise((resolve, reject) => {
     https
-      .get(url, (res) => {
+      .get(url, { headers: { "User-Agent": "archgate-cli" } }, (res) => {
         if (
           res.statusCode >= 300 &&
           res.statusCode < 400 &&
@@ -82,74 +73,106 @@ function stripNulls(str) {
 }
 
 /**
- * Download the platform-specific npm package tarball and extract the binary.
+ * Download the platform binary from GitHub Releases and cache it.
  * Returns the path to the downloaded binary.
  */
 async function downloadBinary() {
-  const pkgName = getPlatformPackageName();
+  const artifactName = getArtifactName();
   const version = getPackageVersion();
   const binaryName = getBinaryName();
+  const isWin = process.platform === "win32";
+  const ext = isWin ? "zip" : "tar.gz";
 
-  const url = `https://registry.npmjs.org/${pkgName}/-/${pkgName}-${version}.tgz`;
-  console.error(
-    `archgate: binary not found, downloading ${pkgName}@${version}...`
-  );
+  const url = `https://github.com/archgate/cli/releases/download/v${version}/${artifactName}.${ext}`;
+  console.error(`archgate: binary not found, downloading v${version}...`);
 
-  const res = await fetchWithRedirects(url);
+  const cacheDir = getCacheDir();
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const destPath = path.join(cacheDir, binaryName);
 
-  const binDir = __dirname;
-  const destPath = path.join(binDir, binaryName);
-
-  return new Promise((resolve, reject) => {
-    const gunzip = zlib.createGunzip();
+  if (isWin) {
+    // Download zip to temp file, extract with PowerShell
+    const res = await fetchWithRedirects(url);
     const chunks = [];
-    const expectedSuffix = `bin/${binaryName}`;
-    let found = false;
-
-    res.pipe(gunzip);
-    gunzip.on("data", (chunk) => chunks.push(chunk));
-    gunzip.on("end", () => {
-      const data = Buffer.concat(chunks);
-      let offset = 0;
-
-      while (offset + 512 <= data.length) {
-        const header = data.subarray(offset, offset + 512);
-        offset += 512;
-
-        // Empty header block signals end of archive
-        if (header.every((b) => b === 0)) break;
-
-        let name = stripNulls(header.subarray(0, 100).toString("utf8"));
-        const prefix = stripNulls(header.subarray(345, 500).toString("utf8"));
-        if (prefix) name = `${prefix}/${name}`;
-
-        const sizeStr = stripNulls(
-          header.subarray(124, 136).toString("utf8")
-        ).trim();
-        const size = parseInt(sizeStr, 8) || 0;
-        const blocks = Math.ceil(size / 512);
-        const fileData = data.subarray(offset, offset + size);
-        offset += blocks * 512;
-
-        if (name.endsWith(expectedSuffix)) {
-          fs.writeFileSync(destPath, fileData, { mode: 0o755 });
-          found = true;
-          break;
-        }
-      }
-
-      if (found) {
-        console.error(`archgate: binary downloaded successfully.`);
-        resolve(destPath);
-      } else {
-        reject(
-          new Error(`Could not find ${expectedSuffix} in tarball from ${url}`)
-        );
-      }
+    await new Promise((resolve, reject) => {
+      res.on("data", (chunk) => chunks.push(chunk));
+      res.on("end", resolve);
+      res.on("error", reject);
     });
+    const tmpZip = path.join(cacheDir, "archgate-download.zip");
+    const tmpExtract = path.join(cacheDir, "archgate-extract");
+    fs.writeFileSync(tmpZip, Buffer.concat(chunks));
+    try {
+      fs.mkdirSync(tmpExtract, { recursive: true });
+      execSync(
+        `powershell -NoProfile -Command "Expand-Archive -Path '${tmpZip}' -DestinationPath '${tmpExtract}' -Force"`,
+        { stdio: "pipe" }
+      );
+      const extractedBinary = path.join(tmpExtract, binaryName);
+      if (!fs.existsSync(extractedBinary)) {
+        throw new Error(`Binary ${binaryName} not found in zip archive`);
+      }
+      fs.copyFileSync(extractedBinary, destPath);
+    } finally {
+      try { fs.unlinkSync(tmpZip); } catch { /* cleanup */ }
+      try { fs.rmSync(tmpExtract, { recursive: true, force: true }); } catch { /* cleanup */ }
+    }
+  } else {
+    // Download tar.gz, extract binary using inline tar parser
+    const res = await fetchWithRedirects(url);
+    await new Promise((resolve, reject) => {
+      const gunzip = zlib.createGunzip();
+      const chunks = [];
 
-    gunzip.on("error", reject);
-  });
+      res.pipe(gunzip);
+      gunzip.on("data", (chunk) => chunks.push(chunk));
+      gunzip.on("end", () => {
+        const data = Buffer.concat(chunks);
+        let offset = 0;
+        let found = false;
+
+        while (offset + 512 <= data.length) {
+          const header = data.subarray(offset, offset + 512);
+          offset += 512;
+
+          if (header.every((b) => b === 0)) break;
+
+          let name = stripNulls(header.subarray(0, 100).toString("utf8"));
+          const prefix = stripNulls(
+            header.subarray(345, 500).toString("utf8")
+          );
+          if (prefix) name = `${prefix}/${name}`;
+
+          const sizeStr = stripNulls(
+            header.subarray(124, 136).toString("utf8")
+          ).trim();
+          const size = parseInt(sizeStr, 8) || 0;
+          const blocks = Math.ceil(size / 512);
+          const fileData = data.subarray(offset, offset + size);
+          offset += blocks * 512;
+
+          if (name === binaryName || name.endsWith(`/${binaryName}`)) {
+            fs.writeFileSync(destPath, fileData, { mode: 0o755 });
+            found = true;
+            break;
+          }
+        }
+
+        if (found) {
+          resolve();
+        } else {
+          reject(
+            new Error(`Could not find ${binaryName} in archive from ${url}`)
+          );
+        }
+      });
+
+      gunzip.on("error", reject);
+    });
+  }
+
+  console.error(`archgate: binary downloaded successfully.`);
+  return destPath;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,15 +182,14 @@ async function downloadBinary() {
 async function main() {
   let binary = getBinaryPath();
 
-  // If the binary is missing (optional dep skipped AND postinstall blocked),
-  // download it on-demand from the npm registry.
+  // If the binary is missing, download it on-demand from GitHub Releases.
   if (!binary) {
     try {
       binary = await downloadBinary();
     } catch (err) {
       console.error(
         `archgate: failed to download binary: ${err.message}\n` +
-          `Try reinstalling: npm install archgate`
+          `Visit https://cli.archgate.dev/getting-started/installation/ for alternative install methods.`
       );
       process.exit(2);
     }

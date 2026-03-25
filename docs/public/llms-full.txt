@@ -210,13 +210,13 @@ pnpm check:adrs
 
 Archgate ships pre-built binaries for the following platforms:
 
-| Platform | Architecture | Package                 |
+| Platform | Architecture | Artifact                |
 | -------- | ------------ | ----------------------- |
 | macOS    | arm64        | `archgate-darwin-arm64` |
 | Linux    | x86_64       | `archgate-linux-x64`    |
 | Windows  | x86_64       | `archgate-win32-x64`    |
 
-The correct binary is installed automatically as an `optionalDependency` when you install `archgate`.
+The correct binary is downloaded automatically from GitHub Releases on first run and cached to `~/.archgate/bin/`.
 
 ## Verify installation
 
