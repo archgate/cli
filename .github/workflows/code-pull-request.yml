@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate Code
+    name: Lint, Test & Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -60,3 +60,33 @@ jobs:
         with:
           path: /home/runner/.bun/install/cache
           key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
+
+  smoke-windows:
+    name: Smoke Test (Windows)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/smoke-test-windows.yml
+
+  smoke-linux:
+    name: Smoke Test (Linux)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/smoke-test-linux.yml
+
+  # Gate job — single required status check for branch protection.
+  status:
+    name: Validate Code
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [validate, smoke-windows, smoke-linux]
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.validate.result }}" != "success" ]] || \
+             [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
+             [[ "${{ needs.smoke-linux.result }}" != "success" ]]; then
+            echo "::error::One or more jobs failed:"
+            echo "  validate: ${{ needs.validate.result }}"
+            echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
+            echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
+            exit 1
+          fi
+          echo "All checks passed."
