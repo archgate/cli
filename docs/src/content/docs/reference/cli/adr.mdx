@@ -1,0 +1,147 @@
+---
+title: archgate adr
+description: "Create, list, show, and update Architecture Decision Records."
+---
+
+## archgate adr create
+
+Create a new ADR interactively or via flags.
+
+```bash
+archgate adr create [options]
+```
+
+When run without `--title` and `--domain`, the command prompts interactively for the domain, title, and optional file patterns. When both `--title` and `--domain` are provided, it runs non-interactively.
+
+The ADR ID is auto-generated with the domain prefix and the next available sequence number (e.g., `ARCH-002`, `BE-001`).
+
+### Options
+
+| Option               | Description                                                           |
+| -------------------- | --------------------------------------------------------------------- |
+| `--title <title>`    | ADR title (skip interactive prompt)                                   |
+| `--domain <domain>`  | ADR domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | File patterns, comma-separated                                        |
+| `--body <markdown>`  | Full ADR body markdown (skip template)                                |
+| `--rules`            | Set `rules: true` in frontmatter                                      |
+| `--json`             | Output as JSON                                                        |
+
+### Examples
+
+Interactive mode:
+
+```bash
+archgate adr create
+```
+
+Non-interactive mode:
+
+```bash
+archgate adr create \
+  --title "API Response Envelope" \
+  --domain backend \
+  --files "src/api/**/*.ts" \
+  --rules
+```
+
+---
+
+## archgate adr list
+
+List all ADRs in the project.
+
+```bash
+archgate adr list [options]
+```
+
+### Options
+
+| Option              | Description      |
+| ------------------- | ---------------- |
+| `--json`            | Output as JSON   |
+| `--domain <domain>` | Filter by domain |
+
+### Examples
+
+List all ADRs in table format:
+
+```bash
+archgate adr list
+```
+
+```
+ID          Domain        Rules  Title
+────────────────────────────────────────────────────────
+ARCH-001    architecture  true   Command Structure
+ARCH-002    architecture  true   Error Handling
+BE-001      backend       true   API Response Envelope
+```
+
+List ADRs as JSON:
+
+```bash
+archgate adr list --json
+```
+
+Filter by domain:
+
+```bash
+archgate adr list --domain backend
+```
+
+---
+
+## archgate adr show
+
+Print a specific ADR by ID.
+
+```bash
+archgate adr show <id>
+```
+
+Prints the full ADR content (frontmatter and body) to stdout.
+
+### Arguments
+
+| Argument | Description                         |
+| -------- | ----------------------------------- |
+| `<id>`   | ADR ID (e.g., `ARCH-001`, `BE-003`) |
+
+### Example
+
+```bash
+archgate adr show ARCH-001
+```
+
+---
+
+## archgate adr update
+
+Update an existing ADR by ID.
+
+```bash
+archgate adr update --id <id> --body <markdown> [options]
+```
+
+Replaces the ADR body with the provided markdown. Frontmatter fields (`--title`, `--domain`, `--files`, `--rules`) are updated only when explicitly passed; otherwise the existing values are preserved.
+
+### Options
+
+| Option               | Required | Description                                                           |
+| -------------------- | -------- | --------------------------------------------------------------------- |
+| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                   |
+| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                    |
+| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                         |
+| `--domain <domain>`  | No       | New domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)    |
+| `--rules`            | No       | Set `rules: true` in frontmatter                                      |
+| `--json`             | No       | Output as JSON                                                        |
+
+### Example
+
+```bash
+archgate adr update \
+  --id ARCH-001 \
+  --title "Updated Command Structure" \
+  --body "## Context\n\nUpdated context..."
+```

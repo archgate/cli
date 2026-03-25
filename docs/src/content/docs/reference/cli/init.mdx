@@ -1,0 +1,51 @@
+---
+title: archgate init
+description: "Initialize Archgate governance in the current project."
+---
+
+Initialize Archgate governance in the current project.
+
+```bash
+archgate init [options]
+```
+
+Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
+
+## Options
+
+| Option              | Default  | Description                                                               |
+| ------------------- | -------- | ------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`, `vscode`, `copilot`) |
+| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`)      |
+
+When `--install-plugin` is passed, the CLI installs the Archgate plugin for the selected editor. If the flag is omitted, the CLI auto-detects: it installs the plugin when valid credentials exist (from a previous `archgate login`) and skips otherwise.
+
+## Plugin installation behavior
+
+**Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
+
+**Cursor:** The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory.
+
+## Output
+
+```
+Initialized Archgate governance in /path/to/project
+  adrs/          - architecture decision records
+  lint/          - linter-specific rules
+  .claude/       - Claude Code settings configured
+
+Archgate plugin installed for Claude Code.
+```
+
+When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
+
+## Generated structure
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```

@@ -1,0 +1,51 @@
+---
+title: archgate session-context
+description: "Read AI editor session transcripts for the project."
+---
+
+Read AI editor session transcripts for the project. Useful for auditing what an AI agent did during a coding session.
+
+```bash
+archgate session-context <subcommand> [options]
+```
+
+## Subcommands
+
+### archgate session-context claude-code
+
+Read the Claude Code session transcript for the project.
+
+```bash
+archgate session-context claude-code [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+
+### archgate session-context cursor
+
+Read the Cursor agent session transcript for the project.
+
+```bash
+archgate session-context cursor [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+| `--session-id <id>` | Specific session UUID to read            |
+
+## Examples
+
+Read the latest Claude Code session:
+
+```bash
+archgate session-context claude-code
+```
+
+Read a specific Cursor session:
+
+```bash
+archgate session-context cursor --session-id abc123
+```

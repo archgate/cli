@@ -1,0 +1,33 @@
+---
+title: Comandos da CLI
+description: "Referência completa de todos os comandos da CLI do Archgate: init, check, adr, login, plugin, review-context, session-context, upgrade, doctor, clean e telemetria."
+---
+
+## Opções globais
+
+Estas opções estão disponíveis em todos os comandos:
+
+| Opção             | Descrição                          |
+| ----------------- | ---------------------------------- |
+| `--version`, `-V` | Exibe a versão do Archgate         |
+| `--help`, `-h`    | Mostra ajuda para qualquer comando |
+
+```bash
+archgate --version
+archgate check --help
+```
+
+## Comandos
+
+| Comando                                          | Descrição                                                |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| [`archgate login`](./login/)                     | Autenticar com o GitHub                                  |
+| [`archgate init`](./init/)                       | Inicializar a governança do Archgate                     |
+| [`archgate plugin`](./plugin/)                   | Gerenciar plugins de editor                              |
+| [`archgate check`](./check/)                     | Executar verificações de conformidade com ADRs           |
+| [`archgate adr`](./adr/)                         | Criar, listar, exibir e atualizar ADRs                   |
+| [`archgate review-context`](./review-context/)   | Pré-computar contexto de revisão para CI/integrações     |
+| [`archgate session-context`](./session-context/) | Ler transcrições de sessão de editores de IA             |
+| [`archgate upgrade`](./upgrade/)                 | Atualizar o Archgate para a versão mais recente          |
+| [`archgate doctor`](./doctor/)                   | Verificar ambiente do sistema e integrações com editores |
+| [`archgate clean`](./clean/)                     | Remover o diretório de cache da CLI                      |

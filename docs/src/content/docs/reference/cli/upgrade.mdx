@@ -1,0 +1,24 @@
+---
+title: archgate upgrade
+description: "Upgrade Archgate to the latest version via npm."
+---
+
+Upgrade Archgate to the latest version via npm.
+
+```bash
+archgate upgrade
+```
+
+Checks the npm registry for the latest published version. If a newer version is available, runs `npm install -g archgate@latest` to upgrade. If already up-to-date, prints a message and exits.
+
+## Example
+
+```bash
+archgate upgrade
+```
+
+```
+Checking for latest Archgate release...
+Upgrading 0.3.0 -> 0.4.0...
+Archgate upgraded to 0.4.0 successfully.
+```
