@@ -1,3 +1,9 @@
+## [0.26.1](https://github.com/archgate/cli/compare/v0.26.0...v0.26.1) (2026-03-25)
+
+### Bug Fixes
+
+* show manual install commands on failure, split CLI docs ([#171](https://github.com/archgate/cli/issues/171)) ([91544c4](https://github.com/archgate/cli/commit/91544c43412d85dcb8609c435df3cb0cecddc526))
+
 ## [0.26.0](https://github.com/archgate/cli/compare/v0.25.1...v0.26.0) (2026-03-24)
 
 ### Features
