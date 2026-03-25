@@ -1,0 +1,24 @@
+---
+title: archgate review-context
+description: "Pré-computa o contexto de revisão com briefings de ADRs para arquivos alterados."
+---
+
+Pré-computa o contexto de revisão com briefings de ADRs para arquivos alterados. Projetado para integrações de CI e plugins de editor que precisam de um resumo de quais ADRs se aplicam aos arquivos sendo alterados.
+
+```bash
+archgate review-context [options]
+```
+
+## Opções
+
+| Opção               | Descrição                                |
+| ------------------- | ---------------------------------------- |
+| `--staged`          | Incluir apenas arquivos no git stage     |
+| `--run-checks`      | Incluir resultados de verificação de ADR |
+| `--domain <domain>` | Filtrar por um único domínio             |
+
+## Exemplo
+
+```bash
+archgate review-context --staged
+```

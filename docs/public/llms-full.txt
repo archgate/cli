@@ -2883,412 +2883,9 @@ ADRs that fail validation are skipped by `archgate check` and reported as errors
 
 ---
 
-## Reference: CLI Commands
+## Reference: archgate adr
 
-Source: https://cli.archgate.dev/reference/cli-commands/
-
-## Global options
-
-These options are available on all commands:
-
-| Option            | Description                |
-| ----------------- | -------------------------- |
-| `--version`, `-V` | Print the Archgate version |
-| `--help`, `-h`    | Show help for any command  |
-
-```bash
-archgate --version
-archgate check --help
-```
-
----
-
-## archgate login
-
-Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, VS Code, Copilot CLI, or Cursor), and use case, then registers you before completing the login.
-
-```bash
-archgate login
-```
-
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. Non-sensitive metadata (username, date) is saved to `~/.archgate/credentials`.
-
-If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
-
-Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
-
-Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate.
-
-### Subcommands
-
-| Subcommand               | Description                               |
-| ------------------------ | ----------------------------------------- |
-| `archgate login`         | Authenticate (skips if already logged in) |
-| `archgate login status`  | Show current authentication status        |
-| `archgate login logout`  | Remove stored credentials                 |
-| `archgate login refresh` | Re-authenticate and claim a new token     |
-
-### Examples
-
-Log in for the first time:
-
-```bash
-archgate login
-```
-
-```
-Authenticating with GitHub...
-
-Open https://github.com/login/device in your browser
-and enter the code: ABCD-1234
-
-Waiting for authorization...
-GitHub user: yourname
-
-Your GitHub account yourname is not yet registered.
-Let's sign you up now.
-
-Email: you@example.com
-Editor: Claude Code
-Use case: Enforcing ADRs in our monorepo
-
-Submitting signup request...
-Claiming archgate plugin token...
-
-Authenticated as yourname. Plugin access is now available.
-Run `archgate init` to set up a project with the archgate plugin.
-```
-
-If the project already has `.archgate/adrs/`, the final line reads:
-
-```
-Run `archgate check` to validate your project against its ADRs.
-```
-
-### Troubleshooting
-
-#### TLS/corporate proxy errors
-
-If `archgate login` fails with a TLS certificate error (common behind corporate proxies), point your runtime at your organization's CA bundle using the `NODE_EXTRA_CA_CERTS` environment variable.
-
-On macOS/Linux:
-
-```bash
-export NODE_EXTRA_CA_CERTS=/path/to/your-corporate-ca.pem
-archgate login
-```
-
-On Windows (PowerShell):
-
-```powershell
-$env:NODE_EXTRA_CA_CERTS = "C:\path\to\your-corporate-ca.pem"
-archgate login
-```
-
-On Windows (cmd):
-
-```cmd
-set NODE_EXTRA_CA_CERTS=C:\path\to\your-corporate-ca.pem
-archgate login
-```
-
-On Windows (Git Bash):
-
-```bash
-export NODE_EXTRA_CA_CERTS=/c/path/to/your-corporate-ca.pem
-archgate login
-```
-
-Ask your IT team for the correct certificate path if you are unsure.
-
-Check login status:
-
-```bash
-archgate login status
-```
-
-```
-Logged in as yourname (since 2026-02-28)
-```
-
-Log out:
-
-```bash
-archgate login logout
-```
-
-Re-authenticate:
-
-```bash
-archgate login refresh
-```
-
----
-
-## archgate init
-
-Initialize Archgate governance in the current project.
-
-```bash
-archgate init [options]
-```
-
-Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
-
-### Options
-
-| Option              | Default  | Description                                                               |
-| ------------------- | -------- | ------------------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`, `vscode`, `copilot`) |
-| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`)      |
-
-When `--install-plugin` is passed, the CLI installs the Archgate plugin for the selected editor. If the flag is omitted, the CLI auto-detects: it installs the plugin when valid credentials exist (from a previous `archgate login`) and skips otherwise.
-
-### Plugin installation behavior
-
-**Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
-
-**Cursor:** The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory.
-
-### Output
-
-```
-Initialized Archgate governance in /path/to/project
-  adrs/          - architecture decision records
-  lint/          - linter-specific rules
-  .claude/       - Claude Code settings configured
-
-Archgate plugin installed for Claude Code.
-```
-
-When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
-
-### Generated structure
-
-```
-.archgate/
-  adrs/
-    ARCH-001-example.md          # Example ADR
-    ARCH-001-example.rules.ts    # Example rules file
-  lint/
-    archgate.config.ts           # Archgate configuration
-```
-
----
-
-## archgate plugin
-
-Manage Archgate editor plugins independently of `archgate init`.
-
-```bash
-archgate plugin <subcommand> [options]
-```
-
-Use `archgate plugin` to install plugins or retrieve the authenticated repository URL on projects that have already been initialized.
-
-### Subcommands
-
-#### archgate plugin url
-
-Print the plugin repository URL for manual tool configuration.
-
-```bash
-archgate plugin url [options]
-```
-
-| Option              | Default  | Description                                             |
-| ------------------- | -------- | ------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
-
-The URL can be used to manually configure editor tools. Credentials are provided automatically by your git credential manager (stored during `archgate login`). For example, to add the Archgate marketplace in Claude Code:
-
-```bash
-claude plugin marketplace add "$(archgate plugin url)"
-claude plugin install archgate@archgate
-```
-
-For VS Code, the URL points to a separate plugin repository:
-
-```bash
-archgate plugin url --editor vscode
-```
-
-#### archgate plugin install
-
-Install the Archgate plugin for the specified editor on an already-initialized project.
-
-```bash
-archgate plugin install [options]
-```
-
-| Option              | Default  | Description                                             |
-| ------------------- | -------- | ------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
-
-Installation behavior varies by editor:
-
-- **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
-- **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
-- **Cursor:** Downloads and extracts the plugin bundle into `.cursor/`.
-- **VS Code:** Adds the marketplace URL to VS Code user settings and installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
-
-### Examples
-
-Get the plugin URL for manual configuration:
-
-```bash
-archgate plugin url
-```
-
-Install the plugin for Claude Code:
-
-```bash
-archgate plugin install
-```
-
-Install the plugin for Cursor:
-
-```bash
-archgate plugin install --editor cursor
-```
-
----
-
-## archgate check
-
-Run all automated ADR compliance checks against the codebase.
-
-```bash
-archgate check [options] [files...]
-```
-
-Loads every ADR with `rules: true` in its frontmatter, executes the companion `.rules.ts` file, and reports violations with file paths and line numbers. When file paths are provided as positional arguments, only ADRs whose `files` patterns match those files are executed.
-
-### Options
-
-| Option       | Description                                               |
-| ------------ | --------------------------------------------------------- |
-| `--staged`   | Only check git-staged files (useful for pre-commit hooks) |
-| `--json`     | Machine-readable JSON output                              |
-| `--ci`       | GitHub Actions annotation format                          |
-| `--adr <id>` | Only check rules from a specific ADR                      |
-| `--verbose`  | Show passing rules and timing info                        |
-
-### Arguments
-
-| Argument     | Description                                                                                                     |
-| ------------ | --------------------------------------------------------------------------------------------------------------- |
-| `[files...]` | Optional file paths to scope checks to. Only ADRs whose `files` patterns match will run. Supports stdin piping. |
-
-### Exit codes
-
-| Code | Meaning                                                              |
-| ---- | -------------------------------------------------------------------- |
-| 0    | All rules pass. No violations found.                                 |
-| 1    | One or more violations detected.                                     |
-| 2    | Rule execution error (e.g., malformed rule, security scanner block). |
-
-### Examples
-
-Check the entire project:
-
-```bash
-archgate check
-```
-
-Check only staged files before committing:
-
-```bash
-archgate check --staged
-```
-
-Check a single ADR:
-
-```bash
-archgate check --adr ARCH-001
-```
-
-Check specific files (only matching ADRs run):
-
-```bash
-archgate check src/foo.ts src/bar.ts
-```
-
-Pipe from git (check only changed files):
-
-```bash
-git diff --name-only | archgate check --json
-```
-
-Get JSON output for CI integration:
-
-```bash
-archgate check --json
-```
-
-Get GitHub Actions annotations:
-
-```bash
-archgate check --ci
-```
-
-### JSON output format
-
-When `--json` is used, the output is a single JSON object:
-
-```json
-{
-  "pass": false,
-  "total": 4,
-  "passed": 3,
-  "failed": 1,
-  "warnings": 0,
-  "errors": 1,
-  "infos": 0,
-  "ruleErrors": 0,
-  "truncated": false,
-  "results": [
-    {
-      "adrId": "ARCH-001",
-      "ruleId": "register-function-export",
-      "description": "Command file must export a register*Command function",
-      "status": "fail",
-      "totalViolations": 1,
-      "shownViolations": 1,
-      "violations": [
-        {
-          "message": "Command file must export a register*Command function",
-          "file": "src/commands/broken.ts",
-          "line": 1,
-          "endLine": 1,
-          "endColumn": 42,
-          "severity": "error"
-        }
-      ],
-      "durationMs": 12
-    }
-  ],
-  "durationMs": 42
-}
-```
-
-#### Violation fields
-
-| Field       | Type    | Description                                            |
-| ----------- | ------- | ------------------------------------------------------ |
-| `message`   | string  | What the violation is                                  |
-| `file`      | string? | Relative file path                                     |
-| `line`      | number? | Start line (1-based)                                   |
-| `endLine`   | number? | End line (1-based) — for precise editor highlighting   |
-| `endColumn` | number? | End column (0-based) — for precise editor highlighting |
-| `fix`       | string? | Suggested fix (guidance only)                          |
-| `severity`  | string  | `"error"`, `"warning"`, or `"info"`                    |
-
-#### Blocked rule files
-
-When a rule file is blocked by the security scanner (e.g., uses `Bun.spawn()`) or a companion `.rules.ts` file is missing, the result appears in the JSON output with `status: "error"` and `ruleId: "security-scan"`. Violations include the exact file and line of the blocked code (or the `rules: true` line in the ADR for missing companions).
-
----
+Source: https://cli.archgate.dev/reference/cli/adr/
 
 ## archgate adr create
 
@@ -3435,106 +3032,171 @@ archgate adr update \
 
 ---
 
-## archgate review-context
+## Reference: archgate check
 
-Pre-compute review context with ADR briefings for changed files. Designed for CI and editor plugin integrations that need a summary of which ADRs apply to the files being changed.
+Source: https://cli.archgate.dev/reference/cli/check/
+
+Run all automated ADR compliance checks against the codebase.
 
 ```bash
-archgate review-context [options]
+archgate check [options] [files...]
 ```
 
-### Options
+Loads every ADR with `rules: true` in its frontmatter, executes the companion `.rules.ts` file, and reports violations with file paths and line numbers. When file paths are provided as positional arguments, only ADRs whose `files` patterns match those files are executed.
 
-| Option              | Description                          |
-| ------------------- | ------------------------------------ |
-| `--staged`          | Only include git-staged files        |
-| `--run-checks`      | Include ADR compliance check results |
-| `--domain <domain>` | Filter to a single domain            |
+## Options
 
-### Example
+| Option       | Description                                               |
+| ------------ | --------------------------------------------------------- |
+| `--staged`   | Only check git-staged files (useful for pre-commit hooks) |
+| `--json`     | Machine-readable JSON output                              |
+| `--ci`       | GitHub Actions annotation format                          |
+| `--adr <id>` | Only check rules from a specific ADR                      |
+| `--verbose`  | Show passing rules and timing info                        |
+
+## Arguments
+
+| Argument     | Description                                                                                                     |
+| ------------ | --------------------------------------------------------------------------------------------------------------- |
+| `[files...]` | Optional file paths to scope checks to. Only ADRs whose `files` patterns match will run. Supports stdin piping. |
+
+## Exit codes
+
+| Code | Meaning                                                              |
+| ---- | -------------------------------------------------------------------- |
+| 0    | All rules pass. No violations found.                                 |
+| 1    | One or more violations detected.                                     |
+| 2    | Rule execution error (e.g., malformed rule, security scanner block). |
+
+## Examples
+
+Check the entire project:
 
 ```bash
-archgate review-context --staged
+archgate check
+```
+
+Check only staged files before committing:
+
+```bash
+archgate check --staged
+```
+
+Check a single ADR:
+
+```bash
+archgate check --adr ARCH-001
+```
+
+Check specific files (only matching ADRs run):
+
+```bash
+archgate check src/foo.ts src/bar.ts
+```
+
+Pipe from git (check only changed files):
+
+```bash
+git diff --name-only | archgate check --json
+```
+
+Get JSON output for CI integration:
+
+```bash
+archgate check --json
+```
+
+Get GitHub Actions annotations:
+
+```bash
+archgate check --ci
+```
+
+## JSON output format
+
+When `--json` is used, the output is a single JSON object:
+
+```json
+{
+  "pass": false,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-001",
+      "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Command file must export a register*Command function",
+          "file": "src/commands/broken.ts",
+          "line": 1,
+          "endLine": 1,
+          "endColumn": 42,
+          "severity": "error"
+        }
+      ],
+      "durationMs": 12
+    }
+  ],
+  "durationMs": 42
+}
+```
+
+### Violation fields
+
+| Field       | Type    | Description                                             |
+| ----------- | ------- | ------------------------------------------------------- |
+| `message`   | string  | What the violation is                                   |
+| `file`      | string? | Relative file path                                      |
+| `line`      | number? | Start line (1-based)                                    |
+| `endLine`   | number? | End line (1-based) -- for precise editor highlighting   |
+| `endColumn` | number? | End column (0-based) -- for precise editor highlighting |
+| `fix`       | string? | Suggested fix (guidance only)                           |
+| `severity`  | string  | `"error"`, `"warning"`, or `"info"`                     |
+
+### Blocked rule files
+
+When a rule file is blocked by the security scanner (e.g., uses `Bun.spawn()`) or a companion `.rules.ts` file is missing, the result appears in the JSON output with `status: "error"` and `ruleId: "security-scan"`. Violations include the exact file and line of the blocked code (or the `rules: true` line in the ADR for missing companions).
+
+---
+
+## Reference: archgate clean
+
+Source: https://cli.archgate.dev/reference/cli/clean/
+
+Remove the CLI cache directory.
+
+```bash
+archgate clean
+```
+
+Removes `~/.archgate/`, which stores cached data such as update check timestamps. Safe to run at any time -- the directory is recreated automatically when needed.
+
+## Example
+
+```bash
+archgate clean
+```
+
+```
+/home/user/.archgate cleaned up
 ```
 
 ---
 
-## archgate session-context
+## Reference: archgate doctor
 
-Read AI editor session transcripts for the project. Useful for auditing what an AI agent did during a coding session.
-
-```bash
-archgate session-context <subcommand> [options]
-```
-
-### Subcommands
-
-#### archgate session-context claude-code
-
-Read the Claude Code session transcript for the project.
-
-```bash
-archgate session-context claude-code [options]
-```
-
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200) |
-
-#### archgate session-context cursor
-
-Read the Cursor agent session transcript for the project.
-
-```bash
-archgate session-context cursor [options]
-```
-
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200) |
-| `--session-id <id>` | Specific session UUID to read            |
-
-### Examples
-
-Read the latest Claude Code session:
-
-```bash
-archgate session-context claude-code
-```
-
-Read a specific Cursor session:
-
-```bash
-archgate session-context cursor --session-id abc123
-```
-
----
-
-## archgate upgrade
-
-Upgrade Archgate to the latest version via npm.
-
-```bash
-archgate upgrade
-```
-
-Checks the npm registry for the latest published version. If a newer version is available, runs `npm install -g archgate@latest` to upgrade. If already up-to-date, prints a message and exits.
-
-### Example
-
-```bash
-archgate upgrade
-```
-
-```
-Checking for latest Archgate release...
-Upgrading 0.3.0 -> 0.4.0...
-Archgate upgraded to 0.4.0 successfully.
-```
-
----
-
-## archgate doctor
+Source: https://cli.archgate.dev/reference/cli/doctor/
 
 Check the system environment, installation method, and editor integrations. Useful for diagnosing configuration issues and sharing debug context in bug reports.
 
@@ -3542,21 +3204,21 @@ Check the system environment, installation method, and editor integrations. Usef
 archgate doctor [options]
 ```
 
-### Options
+## Options
 
 | Option   | Description             |
 | -------- | ----------------------- |
 | `--json` | Machine-readable output |
 
-### Output sections
+## Output sections
 
-- **System** — OS, architecture, WSL detection, Bun and Node versions
-- **Archgate** — CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
-- **Project** — Whether an `.archgate/` project exists, ADR count, domains
-- **Editor CLIs** — Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
-- **Project Integrations** — Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+- **System** -- OS, architecture, WSL detection, Bun and Node versions
+- **Archgate** -- CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
+- **Project** -- Whether an `.archgate/` project exists, ADR count, domains
+- **Editor CLIs** -- Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
+- **Project Integrations** -- Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
 
-### Example
+## Example
 
 ```bash
 archgate doctor
@@ -3596,24 +3258,399 @@ Project Integrations
 
 ---
 
-## archgate clean
+## Reference: CLI Commands
 
-Remove the CLI cache directory.
+Source: https://cli.archgate.dev/reference/cli/
+
+## Global options
+
+These options are available on all commands:
+
+| Option            | Description                |
+| ----------------- | -------------------------- |
+| `--version`, `-V` | Print the Archgate version |
+| `--help`, `-h`    | Show help for any command  |
 
 ```bash
-archgate clean
+archgate --version
+archgate check --help
 ```
 
-Removes `~/.archgate/`, which stores cached data such as update check timestamps. Safe to run at any time -- the directory is recreated automatically when needed.
+## Commands
 
-### Example
+| Command                                          | Description                                           |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| [`archgate login`](./login/)                     | Authenticate with GitHub                              |
+| [`archgate init`](./init/)                       | Initialize Archgate governance                        |
+| [`archgate plugin`](./plugin/)                   | Manage editor plugins                                 |
+| [`archgate check`](./check/)                     | Run ADR compliance checks                             |
+| [`archgate adr`](./adr/)                         | Create, list, show, and update ADRs                   |
+| [`archgate review-context`](./review-context/)   | Pre-compute review context for CI/editor integrations |
+| [`archgate session-context`](./session-context/) | Read AI editor session transcripts                    |
+| [`archgate upgrade`](./upgrade/)                 | Upgrade Archgate to the latest version                |
+| [`archgate doctor`](./doctor/)                   | Check system environment and editor integrations      |
+| [`archgate clean`](./clean/)                     | Remove the CLI cache directory                        |
+
+---
+
+## Reference: archgate init
+
+Source: https://cli.archgate.dev/reference/cli/init/
+
+Initialize Archgate governance in the current project.
 
 ```bash
-archgate clean
+archgate init [options]
+```
+
+Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
+
+## Options
+
+| Option              | Default  | Description                                                               |
+| ------------------- | -------- | ------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`, `vscode`, `copilot`) |
+| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`)      |
+
+When `--install-plugin` is passed, the CLI installs the Archgate plugin for the selected editor. If the flag is omitted, the CLI auto-detects: it installs the plugin when valid credentials exist (from a previous `archgate login`) and skips otherwise.
+
+## Plugin installation behavior
+
+**Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
+
+**Cursor:** The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory.
+
+## Output
+
+```
+Initialized Archgate governance in /path/to/project
+  adrs/          - architecture decision records
+  lint/          - linter-specific rules
+  .claude/       - Claude Code settings configured
+
+Archgate plugin installed for Claude Code.
+```
+
+When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
+
+## Generated structure
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```
+
+---
+
+## Reference: archgate login
+
+Source: https://cli.archgate.dev/reference/cli/login/
+
+Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, VS Code, Copilot CLI, or Cursor), and use case, then registers you before completing the login.
+
+```bash
+archgate login
+```
+
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. Non-sensitive metadata (username, date) is saved to `~/.archgate/credentials`.
+
+If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
+
+Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
+
+Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate.
+
+## Subcommands
+
+| Subcommand               | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `archgate login`         | Authenticate (skips if already logged in) |
+| `archgate login status`  | Show current authentication status        |
+| `archgate login logout`  | Remove stored credentials                 |
+| `archgate login refresh` | Re-authenticate and claim a new token     |
+
+## Examples
+
+Log in for the first time:
+
+```bash
+archgate login
 ```
 
 ```
-/home/user/.archgate cleaned up
+Authenticating with GitHub...
+
+Open https://github.com/login/device in your browser
+and enter the code: ABCD-1234
+
+Waiting for authorization...
+GitHub user: yourname
+
+Your GitHub account yourname is not yet registered.
+Let's sign you up now.
+
+Email: you@example.com
+Editor: Claude Code
+Use case: Enforcing ADRs in our monorepo
+
+Submitting signup request...
+Claiming archgate plugin token...
+
+Authenticated as yourname. Plugin access is now available.
+Run `archgate init` to set up a project with the archgate plugin.
+```
+
+If the project already has `.archgate/adrs/`, the final line reads:
+
+```
+Run `archgate check` to validate your project against its ADRs.
+```
+
+## Troubleshooting
+
+### TLS/corporate proxy errors
+
+If `archgate login` fails with a TLS certificate error (common behind corporate proxies), point your runtime at your organization's CA bundle using the `NODE_EXTRA_CA_CERTS` environment variable.
+
+On macOS/Linux:
+
+```bash
+export NODE_EXTRA_CA_CERTS=/path/to/your-corporate-ca.pem
+archgate login
+```
+
+On Windows (PowerShell):
+
+```powershell
+$env:NODE_EXTRA_CA_CERTS = "C:\path\to\your-corporate-ca.pem"
+archgate login
+```
+
+On Windows (cmd):
+
+```cmd
+set NODE_EXTRA_CA_CERTS=C:\path\to\your-corporate-ca.pem
+archgate login
+```
+
+On Windows (Git Bash):
+
+```bash
+export NODE_EXTRA_CA_CERTS=/c/path/to/your-corporate-ca.pem
+archgate login
+```
+
+Ask your IT team for the correct certificate path if you are unsure.
+
+Check login status:
+
+```bash
+archgate login status
+```
+
+```
+Logged in as yourname (since 2026-02-28)
+```
+
+Log out:
+
+```bash
+archgate login logout
+```
+
+Re-authenticate:
+
+```bash
+archgate login refresh
+```
+
+---
+
+## Reference: archgate plugin
+
+Source: https://cli.archgate.dev/reference/cli/plugin/
+
+Manage Archgate editor plugins independently of `archgate init`.
+
+```bash
+archgate plugin <subcommand> [options]
+```
+
+Use `archgate plugin` to install plugins or retrieve the authenticated repository URL on projects that have already been initialized.
+
+## Subcommands
+
+### archgate plugin url
+
+Print the plugin repository URL for manual tool configuration.
+
+```bash
+archgate plugin url [options]
+```
+
+| Option              | Default  | Description                                             |
+| ------------------- | -------- | ------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
+
+The URL can be used to manually configure editor tools. Credentials are provided automatically by your git credential manager (stored during `archgate login`). For example, to add the Archgate marketplace in Claude Code:
+
+```bash
+claude plugin marketplace add "$(archgate plugin url)"
+claude plugin install archgate@archgate
+```
+
+For VS Code, the URL points to a separate plugin repository:
+
+```bash
+archgate plugin url --editor vscode
+```
+
+### archgate plugin install
+
+Install the Archgate plugin for the specified editor on an already-initialized project.
+
+```bash
+archgate plugin install [options]
+```
+
+| Option              | Default  | Description                                             |
+| ------------------- | -------- | ------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`) |
+
+Installation behavior varies by editor:
+
+- **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
+- **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
+- **Cursor:** Downloads and extracts the plugin bundle into `.cursor/`.
+- **VS Code:** Adds the marketplace URL to VS Code user settings and installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
+
+## Examples
+
+Get the plugin URL for manual configuration:
+
+```bash
+archgate plugin url
+```
+
+Install the plugin for Claude Code:
+
+```bash
+archgate plugin install
+```
+
+Install the plugin for Cursor:
+
+```bash
+archgate plugin install --editor cursor
+```
+
+---
+
+## Reference: archgate review-context
+
+Source: https://cli.archgate.dev/reference/cli/review-context/
+
+Pre-compute review context with ADR briefings for changed files. Designed for CI and editor plugin integrations that need a summary of which ADRs apply to the files being changed.
+
+```bash
+archgate review-context [options]
+```
+
+## Options
+
+| Option              | Description                          |
+| ------------------- | ------------------------------------ |
+| `--staged`          | Only include git-staged files        |
+| `--run-checks`      | Include ADR compliance check results |
+| `--domain <domain>` | Filter to a single domain            |
+
+## Example
+
+```bash
+archgate review-context --staged
+```
+
+---
+
+## Reference: archgate session-context
+
+Source: https://cli.archgate.dev/reference/cli/session-context/
+
+Read AI editor session transcripts for the project. Useful for auditing what an AI agent did during a coding session.
+
+```bash
+archgate session-context <subcommand> [options]
+```
+
+## Subcommands
+
+### archgate session-context claude-code
+
+Read the Claude Code session transcript for the project.
+
+```bash
+archgate session-context claude-code [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+
+### archgate session-context cursor
+
+Read the Cursor agent session transcript for the project.
+
+```bash
+archgate session-context cursor [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+| `--session-id <id>` | Specific session UUID to read            |
+
+## Examples
+
+Read the latest Claude Code session:
+
+```bash
+archgate session-context claude-code
+```
+
+Read a specific Cursor session:
+
+```bash
+archgate session-context cursor --session-id abc123
+```
+
+---
+
+## Reference: archgate upgrade
+
+Source: https://cli.archgate.dev/reference/cli/upgrade/
+
+Upgrade Archgate to the latest version via npm.
+
+```bash
+archgate upgrade
+```
+
+Checks the npm registry for the latest published version. If a newer version is available, runs `npm install -g archgate@latest` to upgrade. If already up-to-date, prints a message and exits.
+
+## Example
+
+```bash
+archgate upgrade
+```
+
+```
+Checking for latest Archgate release...
+Upgrading 0.3.0 -> 0.4.0...
+Archgate upgraded to 0.4.0 successfully.
 ```
 
 ---

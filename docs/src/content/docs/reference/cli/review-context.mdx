@@ -1,0 +1,24 @@
+---
+title: archgate review-context
+description: "Pre-compute review context with ADR briefings for changed files."
+---
+
+Pre-compute review context with ADR briefings for changed files. Designed for CI and editor plugin integrations that need a summary of which ADRs apply to the files being changed.
+
+```bash
+archgate review-context [options]
+```
+
+## Options
+
+| Option              | Description                          |
+| ------------------- | ------------------------------------ |
+| `--staged`          | Only include git-staged files        |
+| `--run-checks`      | Include ADR compliance check results |
+| `--domain <domain>` | Filter to a single domain            |
+
+## Example
+
+```bash
+archgate review-context --staged
+```
