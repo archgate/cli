@@ -1,3 +1,9 @@
+## [0.26.2](https://github.com/archgate/cli/compare/v0.26.1...v0.26.2) (2026-03-25)
+
+### Bug Fixes
+
+* suppress all GCM interactive prompts in credential store ([#176](https://github.com/archgate/cli/issues/176)) ([5d9bd33](https://github.com/archgate/cli/commit/5d9bd333180d1769dd887fbdeda5b8c46ad27efa))
+
 ## [0.26.1](https://github.com/archgate/cli/compare/v0.26.0...v0.26.1) (2026-03-25)
 
 ### Bug Fixes
