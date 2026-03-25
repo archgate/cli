@@ -21,13 +21,13 @@ The Archgate CLI needs a public documentation site for users, contributors, and 
 - **VitePress (Vue-based)** — A fast, Vue-powered documentation generator. While lighter than Docusaurus, it still requires a framework runtime (Vue) and has less flexibility for custom content than Astro. Its Markdown extensions are proprietary rather than standard MDX.
 - **Starlight (Astro-based)** — An Astro integration purpose-built for documentation sites. It uses standard MDX, runs under Bun via `bunx --bun astro`, produces static HTML with zero client-side JavaScript by default, and provides built-in search (Pagefind), sidebar navigation, and dark mode. Its component-based architecture allows embedding interactive elements without framework lock-in.
 
-For Archgate, Starlight is the natural choice: it aligns with the project's Bun-first toolchain ([ARCH-006](./ARCH-006-dependency-policy.md)), produces a fast static site suitable for GitHub Pages, and its MDX format is familiar to TypeScript developers who already write Archgate rules.
+For Archgate, Starlight is the natural choice: it aligns with the project's Bun-first toolchain ([ARCH-006](./ARCH-006-dependency-policy.md)), produces a fast static site, and its MDX format is familiar to TypeScript developers who already write Archgate rules.
 
 ## Decision
 
-The documentation site MUST be an Astro 5 / Starlight project in the `docs/` directory, deployed to `cli.archgate.dev` via GitHub Pages. The docs site is a **separate concern** from the CLI codebase — it has its own `package.json`, `tsconfig.json`, `bun.lock`, and build pipeline. It does NOT participate in the CLI's `bun run validate` pipeline.
+The documentation site MUST be an Astro 5 / Starlight project in the `docs/` directory. The docs site is a **separate concern** from the CLI codebase — it has its own `package.json`, `tsconfig.json`, `bun.lock`, and build pipeline. It does NOT participate in the CLI's `bun run validate` pipeline. Deployment is handled externally via Cloudflare Pages and is not managed by this repository.
 
-**Scope:** This ADR covers the documentation site's structure, tooling, content organization, and deployment. It does NOT cover the content itself (what to document) — that is an editorial decision, not an architectural one.
+**Scope:** This ADR covers the documentation site's structure, tooling, and content organization. It does NOT cover the content itself (what to document) — that is an editorial decision, not an architectural one.
 
 **Technical stack:**
 
@@ -35,7 +35,6 @@ The documentation site MUST be an Astro 5 / Starlight project in the `docs/` dir
 - **Content format:** MDX files in `docs/src/content/docs/`
 - **Content API:** Astro 5 Content Layer with `docsLoader()` and `docsSchema()` in `docs/src/content.config.ts`
 - **Build runtime:** Bun (`bunx --bun astro build`)
-- **Deployment:** GitHub Actions → GitHub Pages (custom domain via `CNAME` in `docs/public/`)
 - **TypeScript:** Extends `astro/tsconfigs/strict` (separate from CLI tsconfig)
 
 **Sidebar structure** follows five categories:
@@ -69,7 +68,6 @@ No CLI source dependencies (commander, zod, etc.) are permitted in `docs/package
 - **DO** use the Astro 5 Content Layer API with `docsLoader()` and `docsSchema()` in `docs/src/content.config.ts`
 - **DO** keep `docs/package.json` private with only `astro`, `@astrojs/starlight`, and `sharp` as dependencies
 - **DO** use `bunx --bun astro` for all Astro commands (`dev`, `build`, `preview`) to run under the Bun runtime
-- **DO** place the `CNAME` file in `docs/public/` for GitHub Pages custom domain resolution
 - **DO** use root convenience scripts (`docs:dev`, `docs:build`, `docs:preview`) when running docs commands from the repository root
 - **DO** escape curly braces in MDX when showing template syntax (e.g., `adr://\{id\}`) — MDX interprets bare `{}` as JavaScript expressions
 - **DO** add new pages to both the file system AND the sidebar configuration in `docs/astro.config.mjs`
@@ -81,7 +79,6 @@ No CLI source dependencies (commander, zod, etc.) are permitted in `docs/package
 - **DON'T** share `tsconfig.json` with the CLI project — the docs site uses `astro/tsconfigs/strict`, the CLI uses its own TypeScript configuration
 - **DON'T** use bare `{}` in MDX content — always escape as `\{\}` when showing literal curly braces in prose or code fence labels
 - **DON'T** add CLI source dependencies (`@commander-js/extra-typings`, `zod`, `@modelcontextprotocol/sdk`, `inquirer`) to `docs/package.json`
-- **DON'T** modify the `deploy-docs.yml` workflow to use Node instead of Bun — the project standardizes on Bun for all build tooling
 - **DON'T** create content files outside `docs/src/content/docs/` — Starlight expects this exact directory structure via `docsLoader()`
 - **DON'T** use auto-generated content collections — Astro 5 requires an explicit `docs/src/content.config.ts` with `docsLoader()` and `docsSchema()`
 - **DON'T** install `docs/` dependencies from the repository root — always `cd docs && bun install` or use the `docs:*` convenience scripts
@@ -97,7 +94,6 @@ docs/
   tsconfig.json             # Extends astro/tsconfigs/strict
   bun.lock                  # Docs-specific lockfile
   public/
-    CNAME                   # cli.archgate.dev
   src/
     content.config.ts       # Astro 5 Content Layer registration
     content/
@@ -188,7 +184,7 @@ The resource URI format is `adr://\{id\}`.
 - **Consistent with CLI toolchain** — Built with Bun (`bunx --bun astro`), aligning with the project's Bun-first philosophy established in [ARCH-006](./ARCH-006-dependency-policy.md)
 - **AI-friendly structure** — AI agents can reference well-structured MDX pages for accurate code generation and understanding of how to interact with Archgate
 - **Zero client-side JavaScript** — Astro renders static HTML by default; the docs site loads instantly without framework hydration overhead
-- **Automatic deployment** — The `deploy-docs.yml` workflow deploys on every merge to `main` that touches `docs/`, with no manual steps
+- **Portable output** — `bunx --bun astro build` produces a `docs/dist/` directory of static HTML that can be deployed anywhere
 
 ### Negative
 
@@ -202,8 +198,6 @@ The resource URI format is `adr://\{id\}`.
   - **Mitigation:** Dependencies are pinned to major versions (`astro@^5`, `@astrojs/starlight@^0.34`). Upgrades are performed explicitly with full build verification. Astro follows semver and publishes migration guides for major releases.
 - **Documentation drift from source code** — Reference pages (CLI Commands, Rule API, ADR Schema) may fall out of sync as the CLI evolves.
   - **Mitigation:** The "DO keep reference pages accurate to CLI source code" rule requires docs updates in the same PR that changes CLI APIs. Code reviewers MUST verify this during review.
-- **GitHub Pages deployment failures** — Build or deployment failures in `deploy-docs.yml` may leave stale documentation live.
-  - **Mitigation:** The workflow uses `workflow_dispatch` for manual re-deployment. Build failures are visible in the Actions tab. The docs build is isolated from CLI CI, so docs failures never block CLI releases.
 
 ## Compliance and Enforcement
 
@@ -226,19 +220,9 @@ Code reviewers MUST verify during docs PRs:
 5. No CLI source dependencies are added to `docs/package.json`
 6. The docs build succeeds locally (`bun run docs:build`) before merging
 
-### Deployment
-
-The `deploy-docs.yml` GitHub Actions workflow handles deployment:
-
-- **Trigger:** Push to `main` with changes in `docs/**`, or manual `workflow_dispatch`
-- **Build:** `moonrepo/setup-toolchain@v0` → `bun install --frozen-lockfile` → `bunx --bun astro build`
-- **Deploy:** `actions/upload-pages-artifact@v3` + `actions/deploy-pages@v4` to GitHub Pages
-- **Custom domain:** `docs/public/CNAME` contains `cli.archgate.dev`
-
 ## References
 
 - [Astro documentation](https://docs.astro.build) — Framework reference
 - [Starlight documentation](https://starlight.astro.build) — Documentation integration reference
 - [ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md) — Bun-first toolchain philosophy that extends to the docs build
 - [GEN-002 — Documentation Internationalization](./GEN-002-docs-i18n.md) — i18n governance and 1:1 page parity rules
-- [deploy-docs.yml](../../.github/workflows/deploy-docs.yml) — GitHub Actions deployment workflow
