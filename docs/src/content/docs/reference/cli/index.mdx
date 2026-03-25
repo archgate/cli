@@ -1,0 +1,33 @@
+---
+title: CLI Commands
+description: "Complete reference for all Archgate CLI commands: init, check, adr, login, plugin, review-context, session-context, upgrade, doctor, clean, and telemetry."
+---
+
+## Global options
+
+These options are available on all commands:
+
+| Option            | Description                |
+| ----------------- | -------------------------- |
+| `--version`, `-V` | Print the Archgate version |
+| `--help`, `-h`    | Show help for any command  |
+
+```bash
+archgate --version
+archgate check --help
+```
+
+## Commands
+
+| Command                                          | Description                                           |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| [`archgate login`](./login/)                     | Authenticate with GitHub                              |
+| [`archgate init`](./init/)                       | Initialize Archgate governance                        |
+| [`archgate plugin`](./plugin/)                   | Manage editor plugins                                 |
+| [`archgate check`](./check/)                     | Run ADR compliance checks                             |
+| [`archgate adr`](./adr/)                         | Create, list, show, and update ADRs                   |
+| [`archgate review-context`](./review-context/)   | Pre-compute review context for CI/editor integrations |
+| [`archgate session-context`](./session-context/) | Read AI editor session transcripts                    |
+| [`archgate upgrade`](./upgrade/)                 | Upgrade Archgate to the latest version                |
+| [`archgate doctor`](./doctor/)                   | Check system environment and editor integrations      |
+| [`archgate clean`](./clean/)                     | Remove the CLI cache directory                        |

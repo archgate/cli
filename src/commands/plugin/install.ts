@@ -140,6 +140,50 @@ export function registerPluginInstallCommand(plugin: Command) {
             `Failed to install plugin for ${label}.`,
             err instanceof Error ? err.message : String(err)
           );
+
+          // Show manual install commands so the user can retry themselves
+          switch (editor) {
+            case "claude": {
+              const url = buildMarketplaceUrl();
+              logInfo("To install the plugin manually, run:");
+              console.log(
+                `  ${styleText("bold", "claude plugin marketplace add")} ${url}`
+              );
+              console.log(
+                `  ${styleText("bold", "claude plugin install")} archgate@archgate`
+              );
+              break;
+            }
+            case "copilot": {
+              const url = buildVscodeMarketplaceUrl();
+              logInfo("To install the plugin manually, run:");
+              console.log(
+                `  ${styleText("bold", "copilot plugin marketplace add")} ${url}`
+              );
+              console.log(
+                `  ${styleText("bold", "copilot plugin install")} archgate@archgate`
+              );
+              break;
+            }
+            case "cursor": {
+              logInfo(
+                "To install the plugin manually, download it from the archgate dashboard."
+              );
+              break;
+            }
+            case "vscode": {
+              logInfo("To install the extension manually, run:");
+              console.log(
+                `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
+              );
+              console.log(
+                `  ${styleText("bold", "code")} --install-extension archgate.vsix`
+              );
+              console.log(`  rm archgate.vsix`);
+              break;
+            }
+          }
+
           process.exit(1);
         }
       }
