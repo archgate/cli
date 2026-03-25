@@ -8,32 +8,12 @@
 
 const path = require("path");
 const fs = require("fs");
-
-const PACKAGE_NAME_MAP = {
-  "darwin-arm64": "archgate-darwin-arm64",
-  "linux-x64": "archgate-linux-x64",
-  "win32-x64": "archgate-win32-x64",
-};
+const os = require("os");
 
 function isBinaryPresent() {
-  const key = `${process.platform}-${process.arch}`;
-  const pkgName = PACKAGE_NAME_MAP[key];
-  if (!pkgName) return true; // unsupported platform — skip silently
-
   const binaryName = process.platform === "win32" ? "archgate.exe" : "archgate";
-
-  // Check optional dependency
-  try {
-    const pkgDir = path.dirname(require.resolve(`${pkgName}/package.json`));
-    if (fs.existsSync(path.join(pkgDir, "bin", binaryName))) return true;
-  } catch {
-    /* not installed */
-  }
-
-  // Check local fallback
-  if (fs.existsSync(path.join(__dirname, "..", "bin", binaryName))) return true;
-
-  return false;
+  const cachePath = path.join(os.homedir(), ".archgate", "bin", binaryName);
+  return fs.existsSync(cachePath);
 }
 
 if (!isBinaryPresent()) {
