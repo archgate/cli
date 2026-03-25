@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate Code
+    name: Lint, Test & Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -60,3 +60,254 @@ jobs:
         with:
           path: /home/runner/.bun/install/cache
           key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
+
+  smoke-windows:
+    name: Smoke Test (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Format check
+        run: bun run format:check
+
+      - name: Tests
+        run: bun test --timeout 60000
+
+      - name: Build Windows binary
+        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
+
+      - name: Smoke test binary
+        shell: pwsh
+        run: |
+          $binary = "dist/archgate-smoke-test.exe"
+          if (-not (Test-Path $binary)) {
+            Write-Error "Binary not found at $binary"
+            exit 1
+          }
+          $output = & $binary --version 2>&1
+          Write-Host "archgate version: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+
+      - name: Smoke test binary from install dir
+        shell: pwsh
+        run: |
+          # Simulate binary install at %APPDATA%\archgate\
+          $installDir = Join-Path $env:APPDATA "archgate"
+          New-Item -Path $installDir -ItemType Directory -Force | Out-Null
+          Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $installDir "archgate.exe")
+          $output = & (Join-Path $installDir "archgate.exe") --version 2>&1
+          Write-Host "archgate version from binary install dir: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+          Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Smoke test binary from proto dir
+        shell: pwsh
+        run: |
+          # Simulate proto install at ~/.proto/tools/archgate/<version>/
+          $protoDir = Join-Path $env:USERPROFILE ".proto" "tools" "archgate" "0.0.0"
+          New-Item -Path $protoDir -ItemType Directory -Force | Out-Null
+          Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $protoDir "archgate.exe")
+          $output = & (Join-Path $protoDir "archgate.exe") --version 2>&1
+          Write-Host "archgate version from proto dir: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+          Remove-Item -Path (Join-Path $env:USERPROFILE ".proto") -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Smoke test binary from node_modules
+        shell: pwsh
+        run: |
+          # Simulate local dev dependency install
+          $projectDir = Join-Path $env:TEMP "archgate-local-smoke"
+          $binDir = Join-Path $projectDir "node_modules" ".bin"
+          New-Item -Path $binDir -ItemType Directory -Force | Out-Null
+          Set-Content -Path (Join-Path $projectDir "package.json") -Value "{}"
+          Set-Content -Path (Join-Path $projectDir "bun.lock") -Value ""
+          Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $binDir "archgate.exe")
+          $output = & (Join-Path $binDir "archgate.exe") --version 2>&1
+          Write-Host "archgate version from node_modules: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+          Remove-Item -Path $projectDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Smoke test install.ps1
+        shell: pwsh
+        env:
+          ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
+          if (-not $env:ARCHGATE_VERSION) {
+            $release = gh release view --json tagName --jq .tagName 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $release) {
+              Write-Host "::warning::No releases found, skipping install.ps1 smoke test"
+              exit 0
+            }
+            $env:ARCHGATE_VERSION = $release
+          }
+          Write-Host "Testing install.ps1 with version $env:ARCHGATE_VERSION"
+
+          $installDir = Join-Path $env:TEMP "archgate-smoke-install-$(Get-Random)"
+          $env:ARCHGATE_INSTALL_DIR = $installDir
+
+          # Run installer non-interactively (Read-Host returns empty → defaults to adding PATH)
+          & "$env:GITHUB_WORKSPACE\install.ps1"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "install.ps1 exited with code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Verify binary was installed
+          $exe = Join-Path $installDir "archgate.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "archgate.exe not found at $exe after install"
+            exit 1
+          }
+
+          $output = & $exe --version 2>&1
+          Write-Host "Installed archgate version: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Installed binary exited with code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Cleanup
+          Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
+
+  smoke-linux:
+    name: Smoke Test (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Linux binary
+        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
+
+      - name: Smoke test binary
+        run: |
+          chmod +x dist/archgate-smoke-test
+          output=$(dist/archgate-smoke-test --version 2>&1)
+          echo "archgate version: $output"
+
+      - name: Smoke test binary from ~/.archgate/bin/
+        run: |
+          mkdir -p ~/.archgate/bin
+          cp dist/archgate-smoke-test ~/.archgate/bin/archgate
+          chmod +x ~/.archgate/bin/archgate
+          output=$(~/.archgate/bin/archgate --version 2>&1)
+          echo "archgate version from binary install dir: $output"
+          rm -rf ~/.archgate/bin
+
+      - name: Smoke test binary from proto dir
+        run: |
+          mkdir -p ~/.proto/tools/archgate/0.0.0
+          cp dist/archgate-smoke-test ~/.proto/tools/archgate/0.0.0/archgate
+          chmod +x ~/.proto/tools/archgate/0.0.0/archgate
+          output=$(~/.proto/tools/archgate/0.0.0/archgate --version 2>&1)
+          echo "archgate version from proto dir: $output"
+          rm -rf ~/.proto/tools/archgate
+
+      - name: Smoke test binary from node_modules
+        run: |
+          project_dir=$(mktemp -d)
+          mkdir -p "$project_dir/node_modules/.bin"
+          echo '{}' > "$project_dir/package.json"
+          touch "$project_dir/bun.lock"
+          cp dist/archgate-smoke-test "$project_dir/node_modules/.bin/archgate"
+          chmod +x "$project_dir/node_modules/.bin/archgate"
+          output=$("$project_dir/node_modules/.bin/archgate" --version 2>&1)
+          echo "archgate version from node_modules: $output"
+          rm -rf "$project_dir"
+
+      - name: Smoke test install.sh
+        env:
+          ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
+          if [ -z "$ARCHGATE_VERSION" ]; then
+            ARCHGATE_VERSION="$(gh release view --json tagName --jq .tagName 2>/dev/null || true)"
+            if [ -z "$ARCHGATE_VERSION" ]; then
+              echo "::warning::No releases found, skipping install.sh smoke test"
+              exit 0
+            fi
+            export ARCHGATE_VERSION
+          fi
+          echo "Testing install.sh with version $ARCHGATE_VERSION"
+
+          export ARCHGATE_INSTALL_DIR="$(mktemp -d)"
+
+          # Run installer (no TTY in CI → skips PATH prompt automatically)
+          sh install.sh
+
+          # Verify binary was installed
+          if [ ! -f "$ARCHGATE_INSTALL_DIR/archgate" ]; then
+            echo "::error::archgate binary not found at $ARCHGATE_INSTALL_DIR/archgate after install"
+            exit 1
+          fi
+
+          output="$("$ARCHGATE_INSTALL_DIR/archgate" --version 2>&1)"
+          echo "Installed archgate version: $output"
+
+          # Cleanup
+          rm -rf "$ARCHGATE_INSTALL_DIR"
+
+  # Gate job — this is the single required status check for branch protection.
+  # It passes only when ALL jobs above succeed.
+  status:
+    name: Validate Code
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [validate, smoke-windows, smoke-linux]
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.validate.result }}" != "success" ]] || \
+             [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
+             [[ "${{ needs.smoke-linux.result }}" != "success" ]]; then
+            echo "::error::One or more jobs failed:"
+            echo "  validate: ${{ needs.validate.result }}"
+            echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
+            echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
+            exit 1
+          fi
+          echo "All checks passed."
