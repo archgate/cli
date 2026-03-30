@@ -1443,7 +1443,12 @@ archgate init --editor cursor
 
 The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
 
-If you have logged in via `archgate login`, the init command also downloads and installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow.
+If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow.
+
+The plugin is distributed in two ways:
+
+1. **Cursor Team Marketplace** -- The plugin is published to a git-based team marketplace repository. After installation, Cursor discovers it from the team marketplace URL printed by the CLI.
+2. **VS Code Extension (VSIX)** -- A `.vsix` extension is installed into Cursor via the `cursor --install-extension` command.
 
 To explicitly install the plugin:
 
@@ -1452,7 +1457,7 @@ archgate login              # one-time setup
 archgate init --editor cursor --install-plugin
 ```
 
-The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory. It includes agent rules and skill definitions.
+The `archgate plugin install --editor cursor` command installs the VS Code extension via `cursor` CLI if available and prints the team marketplace URL; it prints manual instructions otherwise.
 
 To install or reinstall the plugin on an already-initialized project:
 
@@ -1472,30 +1477,31 @@ Without the plugin, `archgate init --editor cursor` still configures a basic gov
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Cursor. Each is invoked as a slash command with the `/ag-` prefix. The agent orchestrates the governance workflow, invoking skills as needed.
+The plugin adds an agent and role-based skills to Cursor. Cursor's plugin system handles namespacing, so skills use their direct names without a prefix.
 
 ### Agent
 
-| Slash command   | Purpose                                                                     |
-| --------------- | --------------------------------------------------------------------------- |
-| `/ag-developer` | General development agent that reads ADRs before coding and validates after |
+| Name        | Purpose                                                                     |
+| ----------- | --------------------------------------------------------------------------- |
+| `developer` | General development agent that reads ADRs before coding and validates after |
 
-The `/ag-developer` agent orchestrates the skills below automatically as part of its workflow.
+The `developer` agent orchestrates the skills below automatically as part of its workflow.
 
 ### Skills
 
-| Slash command         | Purpose                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `/ag-architect`       | Validates code changes against all project ADRs for structural compliance             |
-| `/ag-quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
-| `/ag-adr-author`      | Creates and edits ADRs following project conventions                                  |
-| `/ag-onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+| Name              | Purpose                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| `architect`       | Validates code changes against all project ADRs for structural compliance             |
+| `quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+| `cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide         |
 
-These are the same agent and skills available in the Claude Code plugin (`archgate:developer`, `archgate:architect`, etc.), adapted for Cursor's slash command interface with the `ag-` prefix.
+These are the same agent and skills available in the Claude Code plugin (`archgate:developer`, `archgate:architect`, etc.), adapted for Cursor's plugin system.
 
 ## Initial setup with onboard
 
-After installing the plugin, run `/ag-onboard` in your project once. This skill:
+After installing the plugin, run the `onboard` skill in your project once. This skill:
 
 1. Explores your codebase structure (directories, key files, package configuration)
 2. Interviews you about your team's conventions, constraints, and architectural decisions
@@ -1508,17 +1514,17 @@ The onboard skill is designed to run once per project. After onboarding, the oth
 
 ### With the plugin
 
-The `/ag-developer` skill follows a structured workflow for every coding task:
+The `developer` agent follows a structured workflow for every coding task:
 
-1. **Read applicable ADRs** -- The agent calls `review_context` to see which ADRs apply to the files being changed. It does not write code until it has read the applicable ADRs.
+1. **Read applicable ADRs** -- The agent runs `archgate review-context` to see which ADRs apply to the files being changed. It does not write code until it has read the applicable ADRs.
 
 2. **Write code following ADR constraints** -- The agent implements changes following the Do's and Don'ts from the applicable ADRs.
 
-3. **Run compliance checks** -- The agent runs `archgate check` to execute automated rules. Any violations are fixed before proceeding.
+3. **Run compliance checks** -- The agent runs `archgate check --staged` to execute automated rules. Any violations are fixed before proceeding.
 
-4. **Architect review** -- The agent invokes `/ag-architect` to validate structural ADR compliance beyond what automated rules catch.
+4. **Architect review** -- The agent invokes the `architect` skill to validate structural ADR compliance beyond what automated rules catch.
 
-5. **Capture learnings** -- The agent invokes `/ag-quality-manager` to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
+5. **Capture learnings** -- The agent invokes the `quality-manager` skill to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
 
 ### Without the plugin
 
@@ -1546,15 +1552,15 @@ This behavior is consistent regardless of how the developer phrases the request.
 
 ## When to use each agent or skill
 
-| Scenario                                     | Slash command         |
-| -------------------------------------------- | --------------------- |
-| Starting a new project with Archgate         | `/ag-onboard`         |
-| Day-to-day coding tasks                      | `/ag-developer`       |
-| Reviewing a PR for ADR compliance            | `/ag-architect`       |
-| Noticing a recurring pattern worth codifying | `/ag-quality-manager` |
-| Creating or editing an ADR                   | `/ag-adr-author`      |
+| Scenario                                     | Skill             |
+| -------------------------------------------- | ----------------- |
+| Starting a new project with Archgate         | `onboard`         |
+| Day-to-day coding tasks                      | `developer`       |
+| Reviewing a PR for ADR compliance            | `architect`       |
+| Noticing a recurring pattern worth codifying | `quality-manager` |
+| Creating or editing an ADR                   | `adr-author`      |
 
-The `/ag-developer` agent orchestrates the skills automatically -- it invokes `/ag-architect` and `/ag-quality-manager` as part of its workflow. Most of the time, you only need to use `/ag-developer` directly.
+The `developer` agent orchestrates the skills automatically -- it invokes `architect` and `quality-manager` as part of its workflow. Most of the time, you only need to use `developer` directly.
 
 ## Governance rule
 
@@ -1571,10 +1577,10 @@ The command accepts two optional flags:
 
 ## Tips for effective usage
 
-- **Use `/ag-developer` for coding tasks.** It orchestrates the full read-validate-capture workflow automatically.
-- **Run `/ag-onboard` once per project.** It sets up your initial ADRs based on your actual codebase and conventions.
-- **Use `/ag-architect` for PR reviews.** It validates structural compliance beyond what automated rules catch.
-- **Use `/ag-quality-manager` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
+- **Use the `developer` skill for coding tasks.** It orchestrates the full read-validate-capture workflow automatically.
+- **Run `onboard` once per project.** It sets up your initial ADRs based on your actual codebase and conventions.
+- **Use `architect` for PR reviews.** It validates structural compliance beyond what automated rules catch.
+- **Use `quality-manager` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
 - **Commit the `.cursor/` directory.** This ensures every team member gets the same governance configuration when they clone the repository.
 - **Keep ADR rules files up to date.** The agent enforces what the rules check for -- if a rule is missing, the violation will not be caught.
 
@@ -3316,7 +3322,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
 
-**Cursor:** The plugin bundle is downloaded from `plugins.archgate.dev` and extracted into the `.cursor/` directory.
+**Cursor:** If the `cursor` CLI is on your PATH, the VS Code extension is installed automatically via `cursor --install-extension`. The team marketplace URL is printed for manual plugin discovery.
 
 ## Output
 
@@ -3523,7 +3529,7 @@ Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
 - **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
-- **Cursor:** Downloads and extracts the plugin bundle into `.cursor/`.
+- **Cursor:** Installs the VS Code extension via `cursor` CLI if available and prints the team marketplace URL; prints manual instructions otherwise.
 - **VS Code:** Adds the marketplace URL to VS Code user settings and installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
 
 ## Examples
