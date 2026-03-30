@@ -16,7 +16,7 @@ describe("readCursorSession", () => {
   const encodedProject = projectRoot
     .replaceAll("/", "-")
     .replaceAll("\\", "-")
-    .replaceAll(":", "-")
+    .replaceAll(":", "")
     .replaceAll(".", "-");
   let transcriptsDir: string;
 
