@@ -55,6 +55,34 @@ describe("encodeProjectPath", () => {
       )
     ).toBe("E--archgate-cli--claude-worktrees-fancy-prancing-sedgewick");
   });
+
+  test("cursor target strips colons instead of replacing with dashes", async () => {
+    expect(await encodeProjectPath("C:\\Users\\user\\project", "cursor")).toBe(
+      "C-Users-user-project"
+    );
+  });
+
+  test("cursor target handles mixed slashes", async () => {
+    expect(await encodeProjectPath("C:\\Users/user\\project", "cursor")).toBe(
+      "C-Users-user-project"
+    );
+  });
+
+  test("cursor target encodes Windows worktree path", async () => {
+    expect(
+      await encodeProjectPath(
+        "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick",
+        "cursor"
+      )
+    ).toBe("E-archgate-cli--claude-worktrees-fancy-prancing-sedgewick");
+  });
+
+  test("cursor target produces same result as default for Unix paths", async () => {
+    const unixPath = "/home/user/project";
+    expect(await encodeProjectPath(unixPath, "cursor")).toBe(
+      await encodeProjectPath(unixPath)
+    );
+  });
 });
 
 describe("readClaudeCodeSession", () => {

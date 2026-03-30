@@ -2,24 +2,34 @@ import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
+import type { EditorTarget } from "./init-project";
 import { isWSL, toWindowsPath } from "./platform";
 
 /**
  * Encode a project root path into the directory name used by Claude/Cursor
  * for storing session files under `~/.claude/projects/` or `~/.cursor/projects/`.
  *
- * Replaces path separators (`\`, `/`), drive-letter colons (`:`), and dots (`.`)
- * with dashes (`-`) to match the encoding Claude Code and Cursor use internally.
+ * Replaces path separators (`\`, `/`) and dots (`.`) with dashes (`-`).
+ * Drive-letter colons (`:`) are handled per-tool: Claude Code replaces them
+ * with dashes while Cursor strips them entirely.
  *
- * Examples:
+ * Examples (target = "claude", the default):
  * - `/home/user/project`          → `-home-user-project`
  * - `C:\Users\user\project`       → `C--Users-user-project`
  * - `E:\foo\.claude\worktrees\x`  → `E--foo--claude-worktrees-x`
  *
+ * Examples (target = "cursor"):
+ * - `/home/user/project`          → `-home-user-project`
+ * - `C:\Users\user\project`       → `C-Users-user-project`
+ * - `E:\foo\.claude\worktrees\x`  → `E-foo--claude-worktrees-x`
+ *
  * In WSL, converts to the Windows path first so the encoded name matches
  * what the Windows-side editor uses.
  */
-export async function encodeProjectPath(projectRoot: string): Promise<string> {
+export async function encodeProjectPath(
+  projectRoot: string,
+  target?: EditorTarget
+): Promise<string> {
   let raw = projectRoot;
   if (isWSL()) {
     const winPath = await toWindowsPath(projectRoot);
@@ -27,10 +37,11 @@ export async function encodeProjectPath(projectRoot: string): Promise<string> {
       raw = winPath;
     }
   }
+  const colonReplacement = target === "cursor" ? "" : "-";
   return raw
     .replaceAll("\\", "-")
     .replaceAll("/", "-")
-    .replaceAll(":", "-")
+    .replaceAll(":", colonReplacement)
     .replaceAll(".", "-");
 }
 
@@ -177,7 +188,10 @@ export async function readCursorSession(
   options?: ReadCursorSessionOptions
 ): Promise<CursorSessionResult> {
   const limit = options?.maxEntries ?? 200;
-  const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
+  const encodedPath = await encodeProjectPath(
+    projectRoot ?? process.cwd(),
+    "cursor"
+  );
   const transcriptsDir = join(
     homedir(),
     ".cursor",
