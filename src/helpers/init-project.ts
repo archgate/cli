@@ -264,7 +264,11 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "copilot") {
-    const { isCopilotCliAvailable, installCopilotPlugin, buildMarketplaceUrl } =
+    const {
+      isCopilotCliAvailable,
+      installCopilotPlugin,
+      buildVscodeMarketplaceUrl,
+    } =
       await import("./plugin-install");
 
     if (await isCopilotCliAvailable()) {
@@ -276,7 +280,7 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       }
     }
 
-    const url = buildMarketplaceUrl();
+    const url = buildVscodeMarketplaceUrl();
     return { installed: true, detail: url };
   }
 
