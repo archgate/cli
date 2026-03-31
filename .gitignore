@@ -20,9 +20,6 @@ coverage
 # OS files
 .DS_Store
 
-# Local MCP config
-.mcp.json
-
 # Claude Code worktrees
 .claude/worktrees
 

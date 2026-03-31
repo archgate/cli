@@ -149,7 +149,7 @@ export default defineConfig({
           attrs: {
             name: "keywords",
             content:
-              "archgate, architecture decision records, ADR, executable rules, code governance, AI governance, TypeScript rules, CLI, compliance automation, MCP server",
+              "archgate, architecture decision records, ADR, executable rules, code governance, AI governance, TypeScript rules, CLI, compliance automation",
           },
         },
         // ── JSON-LD: WebSite ──────────────────────────────────────

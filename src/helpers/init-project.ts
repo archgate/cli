@@ -112,7 +112,7 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
   // Plugin installation (optional — requires stored credentials)
   let plugin: PluginResult | undefined;
   if (options?.installPlugin) {
-    plugin = await tryInstallPlugin(projectRoot, editor);
+    plugin = await tryInstallPlugin(editor);
   }
 
   return {
@@ -226,10 +226,7 @@ async function ensureEslintrcOverride(projectRoot: string): Promise<void> {
  * Attempt to install the archgate plugin using stored credentials.
  * Returns null-safe result — never throws.
  */
-async function tryInstallPlugin(
-  projectRoot: string,
-  editor: EditorTarget
-): Promise<PluginResult> {
+async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   const { loadCredentials } = await import("./credential-store");
   const credentials = await loadCredentials();
   if (!credentials) {
@@ -237,13 +234,23 @@ async function tryInstallPlugin(
   }
 
   if (editor === "cursor") {
-    const { installCursorPlugin } = await import("./plugin-install");
-    const files = await installCursorPlugin(projectRoot, credentials.token);
-    return {
-      installed: true,
-      autoInstalled: true,
-      detail: `Extracted ${files.length} files to .cursor/`,
-    };
+    const {
+      isCursorCliAvailable,
+      installCursorPlugin,
+      buildCursorMarketplaceUrl,
+    } = await import("./plugin-install");
+
+    if (await isCursorCliAvailable()) {
+      try {
+        await installCursorPlugin(credentials.token);
+        return { installed: true, autoInstalled: true };
+      } catch {
+        // Fall through to manual instructions
+      }
+    }
+
+    const url = buildCursorMarketplaceUrl();
+    return { installed: true, detail: url };
   }
 
   if (editor === "vscode") {

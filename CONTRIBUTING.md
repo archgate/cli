@@ -95,7 +95,6 @@ src/
 ├── commands/
 │   ├── init.ts             # Project initialization
 │   ├── check.ts            # ADR compliance checks
-│   ├── mcp.ts              # MCP server
 │   ├── upgrade.ts          # CLI upgrade
 │   ├── clean.ts            # Clean cache
 │   └── adr/
@@ -121,16 +120,6 @@ src/
 │   ├── claude-settings.ts  # Claude plugin settings
 │   ├── git.ts              # Git availability checks
 │   └── getParentFolderName.ts  # Project name extraction
-└── mcp/
-    ├── server.ts           # MCP server setup
-    ├── resources.ts        # adr://{id} resource template
-    └── tools/
-        ├── index.ts        # Tool registration
-        ├── check.ts        # check tool
-        ├── list-adrs.ts    # list_adrs tool
-        ├── review-context.ts   # review_context tool
-        ├── claude-code-session-context.ts  # claude_code_session_context tool
-        └── cursor-session-context.ts  # cursor_session_context tool
 tests/                      # Mirrors src/ structure
 .archgate/adrs/             # Self-governance ADRs
 ```

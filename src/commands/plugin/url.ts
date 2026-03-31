@@ -8,6 +8,7 @@ import {
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError } from "../../helpers/log";
 import {
+  buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
 } from "../../helpers/plugin-install";
@@ -15,7 +16,7 @@ import {
 const editorOption = new Option(
   "--editor <editor>",
   "target editor (omit to auto-detect and select)"
-).choices(["claude", "vscode", "copilot"] as const);
+).choices(["claude", "cursor", "vscode", "copilot"] as const);
 
 export function registerPluginUrlCommand(plugin: Command) {
   plugin
@@ -28,18 +29,18 @@ export function registerPluginUrlCommand(plugin: Command) {
         if (opts.editor) {
           editor = opts.editor;
         } else if (process.stdin.isTTY) {
-          const detected = (await detectEditors()).filter(
-            (e) => e.id !== "cursor"
-          );
+          const detected = await detectEditors();
           editor = await promptSingleEditorSelection(detected);
         } else {
           editor = "claude";
         }
 
         const url =
-          editor === "vscode"
-            ? buildVscodeMarketplaceUrl()
-            : buildMarketplaceUrl();
+          editor === "cursor"
+            ? buildCursorMarketplaceUrl()
+            : editor === "vscode"
+              ? buildVscodeMarketplaceUrl()
+              : buildMarketplaceUrl();
 
         console.log(url);
       } catch (err) {
