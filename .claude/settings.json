@@ -1,4 +1,5 @@
 {
+  "attribution": { "commit": "", "pr": "" },
   "permissions": {
     "allow": [
       "Bash(oxfmt *)",
@@ -18,7 +19,6 @@
       "Grep"
     ]
   },
-  "attribution": { "commit": "", "pr": "" },
   "hooks": {
     "PreToolUse": [
       {
@@ -44,5 +44,6 @@
         ]
       }
     ]
-  }
+  },
+  "enabledPlugins": { "sentry@claude-plugins-official": true }
 }

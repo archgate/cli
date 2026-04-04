@@ -47,14 +47,14 @@ Zod schemas are the single source of truth. Types derived via `z.infer<>` — ne
 
 ## npm Distribution
 
-The npm package is a **thin shim** — it contains only `bin/archgate.cjs` and `scripts/postinstall.cjs`. The postinstall script downloads the prebuilt platform binary. All runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary via `bun build --compile`, so they belong in `devDependencies`, not `dependencies`. The `optionalDependencies` (archgate-darwin-arm64, etc.) are platform-specific binary packages synced to the CLI version by `.simple-release.js` during release.
+The npm package is a **thin shim** — it contains only `bin/archgate.cjs` and `scripts/postinstall.cjs`. The shim downloads the platform binary from GitHub Releases on first run and caches it to `~/.archgate/bin/`. All runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary via `bun build --compile`, so they belong in `devDependencies`, not `dependencies`.
 
 ## Conventions
 
 - Commands export `register*Command(program)`, handle I/O only — no business logic
 - OS: macOS, Linux, and Windows
 - Output: `styleText()` from `node:util`; `--json` for machine-readable; auto-compact JSON in agent contexts (non-TTY, non-CI); no emoji
-- Exit codes: 0 = success, 1 = violation, 2 = internal error
+- Exit codes: 0 = success, 1 = violation, 2 = internal error, 130 = user cancellation (SIGINT)
 - Deps: minimal; prefer Bun built-ins (see ARCH-006)
 
 ## Toolchain

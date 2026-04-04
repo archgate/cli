@@ -28,14 +28,16 @@ describe("loadRuleAdrs", () => {
   function writeRulesTs(adrsDir: string, baseName: string) {
     writeFileSync(
       join(adrsDir, `${baseName}.rules.ts`),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+
+export default {
   rules: {
     "sample-rule": {
       description: "Sample rule",
       async check(ctx) {},
     },
   },
-};
+} satisfies RuleSet;
 `
     );
   }
@@ -102,5 +104,101 @@ describe("loadRuleAdrs", () => {
     rmSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
     const loaded = await loadRuleAdrs(tempDir);
     expect(loaded).toHaveLength(0);
+  });
+
+  test("returns blocked result when triple-slash reference is missing", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    copyFileSync(
+      join(fixturesDir, "TEST-001-sample.md"),
+      join(adrsDir, "TEST-001-sample.md")
+    );
+    writeFileSync(
+      join(adrsDir, "TEST-001-sample.rules.ts"),
+      `export default {
+  rules: {
+    "sample-rule": {
+      description: "Sample rule",
+      async check(ctx) {},
+    },
+  },
+} satisfies RuleSet;
+`
+    );
+
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    const blocked = results[0] as Extract<
+      (typeof results)[0],
+      { type: "blocked" }
+    >;
+    expect(blocked.value.error).toContain("syntax convention");
+    expect(blocked.value.violations).toHaveLength(1);
+    expect(blocked.value.violations[0].message).toContain(
+      "triple-slash reference"
+    );
+  });
+
+  test("returns blocked result when satisfies RuleSet is missing", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    copyFileSync(
+      join(fixturesDir, "TEST-001-sample.md"),
+      join(adrsDir, "TEST-001-sample.md")
+    );
+    writeFileSync(
+      join(adrsDir, "TEST-001-sample.rules.ts"),
+      `/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "sample-rule": {
+      description: "Sample rule",
+      async check(ctx) {},
+    },
+  },
+};
+`
+    );
+
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    const blocked = results[0] as Extract<
+      (typeof results)[0],
+      { type: "blocked" }
+    >;
+    expect(blocked.value.error).toContain("syntax convention");
+    expect(blocked.value.violations).toHaveLength(1);
+    expect(blocked.value.violations[0].message).toContain("satisfies RuleSet");
+  });
+
+  test("returns blocked with two violations when both conventions are missing", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    copyFileSync(
+      join(fixturesDir, "TEST-001-sample.md"),
+      join(adrsDir, "TEST-001-sample.md")
+    );
+    writeFileSync(
+      join(adrsDir, "TEST-001-sample.rules.ts"),
+      `export default {
+  rules: {
+    "sample-rule": {
+      description: "Sample rule",
+      async check(ctx) {},
+    },
+  },
+};
+`
+    );
+
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    const blocked = results[0] as Extract<
+      (typeof results)[0],
+      { type: "blocked" }
+    >;
+    expect(blocked.value.error).toContain("2 violations");
+    expect(blocked.value.violations).toHaveLength(2);
   });
 });

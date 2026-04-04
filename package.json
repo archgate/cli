@@ -1,6 +1,6 @@
 {
   "name": "archgate",
-  "version": "0.23.1",
+  "version": "0.27.0",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "keywords": [
     "adr",
@@ -52,33 +52,28 @@
     "test": "bun test --timeout 60000",
     "test:watch": "bun test --watch --timeout 60000",
     "typecheck": "tsc --build",
-    "validate": "bun run lint && bun run typecheck && bun run format:check && bun test && bun run check && bun run build:check"
+    "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run build:check"
   },
   "devDependencies": {
     "@commander-js/extra-typings": "14.0.0",
     "@commitlint/cli": "20.5.0",
     "@commitlint/config-conventional": "20.5.0",
-    "@commitlint/cz-commitlint": "20.5.0",
-    "@sentry/node-core": "10.45.0",
+    "@commitlint/cz-commitlint": "20.5.1",
+    "@sentry/node-core": "10.47.0",
     "@simple-release/npm": "2.3.0",
     "@types/bun": "1.3.11",
     "commitizen": "4.3.1",
     "conventional-changelog": "7.2.0",
-    "conventional-changelog-angular": "8.3.0",
+    "conventional-changelog-angular": "8.3.1",
     "inquirer": "13.3.2",
     "meriyah": "7.1.0",
-    "oxfmt": "0.41.0",
-    "oxlint": "1.56.0",
-    "posthog-node": "5.28.5",
+    "oxfmt": "0.43.0",
+    "oxlint": "1.58.0",
+    "posthog-node": "5.28.11",
     "zod": "4.3.6"
   },
   "peerDependencies": {
-    "typescript": "^5"
-  },
-  "optionalDependencies": {
-    "archgate-darwin-arm64": "0.23.1",
-    "archgate-linux-x64": "0.23.1",
-    "archgate-win32-x64": "0.23.1"
+    "typescript": "^5 || ^6.0.0"
   },
   "readme": "README.md"
 }

@@ -149,7 +149,7 @@ export default defineConfig({
           attrs: {
             name: "keywords",
             content:
-              "archgate, architecture decision records, ADR, executable rules, code governance, AI governance, TypeScript rules, CLI, compliance automation, MCP server",
+              "archgate, architecture decision records, ADR, executable rules, code governance, AI governance, TypeScript rules, CLI, compliance automation",
           },
         },
         // ── JSON-LD: WebSite ──────────────────────────────────────
@@ -177,7 +177,7 @@ export default defineConfig({
             applicationCategory: "DeveloperApplication",
             applicationSubCategory: "Code Governance",
             operatingSystem: "macOS, Linux, Windows",
-            softwareVersion: "0.23.1",
+            softwareVersion: "0.27.0",
             license: "https://github.com/archgate/cli/blob/main/LICENSE",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
             url: "https://cli.archgate.dev",
@@ -225,7 +225,28 @@ export default defineConfig({
         {
           label: "Reference",
           items: [
-            { label: "CLI Commands", slug: "reference/cli-commands" },
+            {
+              label: "CLI Commands",
+              items: [
+                { label: "Overview", slug: "reference/cli" },
+                { label: "archgate login", slug: "reference/cli/login" },
+                { label: "archgate init", slug: "reference/cli/init" },
+                { label: "archgate plugin", slug: "reference/cli/plugin" },
+                { label: "archgate check", slug: "reference/cli/check" },
+                { label: "archgate adr", slug: "reference/cli/adr" },
+                {
+                  label: "archgate review-context",
+                  slug: "reference/cli/review-context",
+                },
+                {
+                  label: "archgate session-context",
+                  slug: "reference/cli/session-context",
+                },
+                { label: "archgate upgrade", slug: "reference/cli/upgrade" },
+                { label: "archgate doctor", slug: "reference/cli/doctor" },
+                { label: "archgate clean", slug: "reference/cli/clean" },
+              ],
+            },
             { label: "Rule API", slug: "reference/rule-api" },
             { label: "ADR Schema", slug: "reference/adr-schema" },
             { label: "Telemetry", slug: "reference/telemetry" },
@@ -235,6 +256,11 @@ export default defineConfig({
           label: "Examples",
           collapsed: true,
           autogenerate: { directory: "examples" },
+        },
+        {
+          label: "Studies",
+          collapsed: true,
+          autogenerate: { directory: "studies" },
         },
       ],
     }),

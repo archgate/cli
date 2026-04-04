@@ -6,6 +6,7 @@ import { loadCredentials, clearCredentials } from "../helpers/credential-store";
 import { logError, logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
+import { trackLoginResult } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 export function registerLoginCommand(program: Command) {
@@ -26,12 +27,14 @@ export function registerLoginCommand(program: Command) {
       }
 
       const result = await runLoginFlow();
+      trackLoginResult({ subcommand: "login", success: result.ok });
       if (result.ok) {
         printNextStep();
       } else {
         process.exit(1);
       }
     } catch (err) {
+      trackLoginResult({ subcommand: "login", success: false });
       if (isTlsError(err)) {
         logError(tlsHintMessage());
         process.exit(1);
@@ -45,13 +48,17 @@ export function registerLoginCommand(program: Command) {
     .command("status")
     .description("Show current authentication status")
     .action(async () => {
-      const creds = await loadCredentials();
-      if (creds) {
-        console.log(
-          `Logged in as ${styleText("bold", creds.github_user)} (since ${creds.created_at})`
-        );
-      } else {
-        console.log("Not logged in. Run `archgate login` to authenticate.");
+      try {
+        const creds = await loadCredentials();
+        trackLoginResult({ subcommand: "status", success: creds !== null });
+        if (creds) {
+          console.log(`Logged in as ${styleText("bold", creds.github_user)}.`);
+        } else {
+          console.log("Not logged in. Run `archgate login` to authenticate.");
+        }
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
       }
     });
 
@@ -59,8 +66,14 @@ export function registerLoginCommand(program: Command) {
     .command("logout")
     .description("Remove stored credentials")
     .action(async () => {
-      await clearCredentials();
-      console.log("Logged out successfully.");
+      try {
+        await clearCredentials();
+        trackLoginResult({ subcommand: "logout", success: true });
+        console.log("Logged out successfully.");
+      } catch (err) {
+        logError(err instanceof Error ? err.message : String(err));
+        process.exit(1);
+      }
     });
 
   login
@@ -70,12 +83,14 @@ export function registerLoginCommand(program: Command) {
       try {
         await clearCredentials();
         const result = await runLoginFlow();
+        trackLoginResult({ subcommand: "refresh", success: result.ok });
         if (result.ok) {
           printNextStep();
         } else {
           process.exit(1);
         }
       } catch (err) {
+        trackLoginResult({ subcommand: "refresh", success: false });
         if (isTlsError(err)) {
           logError(tlsHintMessage());
           process.exit(1);

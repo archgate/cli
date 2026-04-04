@@ -26,9 +26,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Patterns & Fixes
 
-- **`McpServer` event loop retention on Linux** — `new McpServer()` from `@modelcontextprotocol/sdk` creates an `AjvJsonSchemaValidator` (backed by `ajv` + `ajv-formats`) that keeps Bun's event loop alive on Linux after tests complete, causing `bun test` to hang for 30+ minutes. macOS drains the event loop fine — this is a Linux-CI-only failure. Fix: manage server lifecycle in `beforeEach`/`afterEach` and call `await server.close()` in `afterEach`. Also captured in ARCH-005 Don'ts.
 - **`git commit` in temp repos requires local identity** — CI runners have no global `user.email`/`user.name` configured. Any test that runs `git commit` on a temp repo MUST call `git config user.email` and `git config user.name` locally after `git init`. Fails with a cryptic `ShellPromise` error in CI; passes locally. Also captured in ARCH-005 Do's.
-- **Bun import cache-busting**: Bun caches `import()` per-process. For long-running processes (MCP server), append `?t=${Date.now()}` to the import path to force re-reading from disk. Applied in `src/engine/loader.ts`.
 - **Never use `bunx prettier` directly** — Always use `bun run format` (to fix) or `bun run format:check` (to verify). Using `bunx prettier` can fail or use a different version than the project's devDependency. The same applies to all dev tools: prefer `bun run <script>` over `bunx <tool>` when a package.json script exists.
 - **`Bun.Glob.match()` triggers oxlint `prefer-regexp-test`** — `Bun.Glob.match()` returns a boolean (not a RegExp), but oxlint can't tell. Suppress with `// oxlint-disable-next-line prefer-regexp-test -- Bun.Glob.match() returns boolean, not RegExp`.
 - **oxlint `no-negated-condition`** — Always write ternaries with the positive condition first: `x === null ? A : B` not `x !== null ? B : A`. Applies to both `if/else` blocks and ternary expressions.
@@ -38,6 +36,9 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - **npm `main` field always gets included in publish** — `"main"` in `package.json` is always included in `npm publish` regardless of the `files` array. If the package doesn't need a default entry point (only sub-path exports like `./rules`), remove `main` entirely to avoid bundling the CLI entry point into the npm package.
 - **`CHANGELOG.md` is auto-generated — exclude from Prettier** — `CHANGELOG.md` is written by `TrigenSoftware/simple-release-action` during the release PR workflow. It is committed directly and never formatted by Prettier. It MUST be in `.prettierignore`; otherwise `bun run format:check` (part of `bun run validate`) will fail on the release PR. Do not attempt to run prettier on it post-commit.
 - **`mock.module("node:fetch", ...)` does NOT intercept `globalThis.fetch` in Bun** — Bun's runtime fetch is `globalThis.fetch`, not the `node:fetch` module. Using `mock.module` silently fails; the real network is hit. Always mock fetch by assigning `globalThis.fetch = mockFn as unknown as typeof fetch` directly, and restore via `mock.restore()` in `afterEach`. TypeScript type cast: `as never` is insufficient for the `typeof fetch` type (which includes `preconnect`) — always use `as unknown as typeof fetch`. Also captured in ARCH-005 Don'ts.
+- **Git credential tests need system-level isolation on Windows** — Overriding `Bun.env.HOME` is NOT sufficient to isolate `git credential fill/approve` calls in tests. Windows Credential Manager is a system-level API, not file-based. Tests MUST set `Bun.env.GIT_CONFIG_NOSYSTEM = "1"` and `Bun.env.GIT_CONFIG_GLOBAL = <path-to-empty-file>` to prevent git from reading the real credential helper config. Without this, tests on machines with stored credentials will pick up real tokens.
+- **GCM prompt suppression requires 5 env vars** — `GIT_TERMINAL_PROMPT=0` alone does NOT prevent Git Credential Manager (GCM) from showing GUI prompts on Windows or askpass prompts on Linux. The full set for `gitCredentialEnv()` in `src/helpers/credential-store.ts` is: `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GCM_GUI_PROMPT=false`, `GIT_ASKPASS=""`, `SSH_ASKPASS=""`. Omitting any one can trigger unexpected prompts in editor contexts where the CLI runs as a subprocess.
+- **Module-level `{ ...Bun.env }` captures env at import time** — Spreading `Bun.env` into a module-level constant freezes the env snapshot. Tests that override `Bun.env.HOME` after import won't affect the constant. Fix: use a function that returns `{ ...Bun.env, ... }` on each call so it picks up test-time overrides. Applied in `src/helpers/credential-store.ts`.
 
 ## Validation Pipeline
 
@@ -51,21 +52,9 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Distribution / Packaging
 
-- **npm binary distribution (Sentry pattern)** — Binaries are distributed as platform npm packages (`archgate-darwin-arm64`, `archgate-linux-x64`) listed as `optionalDependencies` of the main `archgate` package. Main package has a `bin` field pointing to `bin/archgate.cjs`.
+- **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs` + `scripts/postinstall.cjs`). On first run, the shim downloads the platform binary from GitHub Releases and caches it to `~/.archgate/bin/`. No platform-specific npm packages.
 - **`.cjs` extension is mandatory** — Root `package.json` has `"type": "module"`. Any Node.js CJS wrapper script placed at the package root MUST use `.cjs`, not `.js`, or Node.js will attempt to parse it as ESM and fail.
-- **Platform package version placeholder** — Platform `package.json` files start at version `0.0.0`. CI runs `npm version "$VERSION" --no-git-tag-version` inside the package directory before publishing.
-- **Gitignore and prettierignore rules** — `packages/*/bin/archgate` is gitignored (binary injected by CI); `packages/*/bin/` is prettier-ignored (binary files must not be formatted).
-- **npm OIDC publishing** — Uses `id-token: write` permission + `actions/setup-node@v4` with `registry-url: 'https://registry.npmjs.org'`. No `NODE_AUTH_TOKEN` secret needed for OIDC trusted publishing — matches the pattern in `release.yml`.
 
 ## Telemetry Strategy
 
 - [Telemetry & Analytics Strategy](project_telemetry_strategy.md) — Decisions on PostHog analytics, Sentry error tracking, plugin surveys (2026-03-22)
-
-## MCP Tools Structure
-
-- MCP tools live in `src/mcp/tools/` — one file per tool (check, list-adrs, review-context, claude-code-session-context, cursor-session-context)
-- ADR CRUD moved to CLI: `archgate adr create`, `archgate adr update`, `archgate init` (no longer MCP tools)
-- `src/mcp/tools/index.ts` composes all registrations via `registerTools()` (contains real logic, not a barrel per ARCH-004)
-- `src/mcp/server.ts` imports from `./tools/index`
-- `src/mcp/resources.ts` registers `adr://{id}` resource template via `ResourceTemplate` (uses `variables.id` for matching)
-- `src/engine/context.ts` provides shared review context logic (section extraction, file-to-ADR matching, `buildReviewContext()`)

@@ -40,14 +40,16 @@ rules: true
     );
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-001-passing.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+
+export default {
   rules: {
     "always-pass": {
       description: "Always passes",
       async check() {},
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -74,7 +76,9 @@ files: ["src/**/*.ts"]
     );
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-002-failing.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+
+export default {
   rules: {
     "no-console": {
       description: "No console.log",
@@ -92,7 +96,7 @@ files: ["src/**/*.ts"]
       },
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 
@@ -117,14 +121,16 @@ rules: true
     );
     writeFileSync(
       join(tempDir, ".archgate", "adrs", "TEST-003-filter.rules.ts"),
-      `export default {
+      `/// <reference path="../rules.d.ts" />
+
+export default {
   rules: {
     "filtered": {
       description: "Filtered rule",
       async check() {},
     },
   },
-};
+} satisfies RuleSet;
 `
     );
 

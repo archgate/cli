@@ -11,11 +11,10 @@ on:
 
 permissions:
   contents: write
-  id-token: write
 
 jobs:
-  build-and-publish:
-    name: Build and publish ${{ matrix.artifact }}
+  build:
+    name: Build ${{ matrix.artifact }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -57,29 +56,6 @@ jobs:
       - name: Build binary
         run: |
           bun build src/cli.ts --compile --bytecode --minify --target ${{ matrix.target }} --outfile dist/${{ matrix.artifact }}
-
-      - name: Copy binary into npm package (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          VERSION="${TAG#v}"
-          cp dist/${{ matrix.artifact }} packages/${{ matrix.artifact }}/bin/${{ matrix.binary_name }}
-          chmod +x packages/${{ matrix.artifact }}/bin/${{ matrix.binary_name }}
-          cd packages/${{ matrix.artifact }}
-          npm version "$VERSION" --no-git-tag-version
-
-      - name: Copy binary into npm package (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $tag = "${{ github.event.release.tag_name || inputs.tag }}"
-          $version = $tag -replace '^v', ''
-          Copy-Item "dist/${{ matrix.artifact }}.exe" "packages/${{ matrix.artifact }}/bin/${{ matrix.binary_name }}"
-          Set-Location "packages/${{ matrix.artifact }}"
-          npm version "$version" --no-git-tag-version
-
-      - name: Publish platform package
-        run: npm publish ./packages/${{ matrix.artifact }} --access public --provenance
 
       - name: Prepare release asset (Unix)
         if: runner.os != 'Windows'

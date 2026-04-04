@@ -1,3 +1,70 @@
+## [0.27.0](https://github.com/archgate/cli/compare/v0.26.2...v0.27.0) (2026-03-31)
+
+### Features
+
+* native Cursor plugin support via marketplace and VSIX install ([#182](https://github.com/archgate/cli/issues/182)) ([bc7a120](https://github.com/archgate/cli/commit/bc7a120829b52fa3fbf7e30575fd1ec10154385d))
+
+### Bug Fixes
+
+* use correct path encoding for Cursor session-context on Windows ([#181](https://github.com/archgate/cli/issues/181)) ([9e531ee](https://github.com/archgate/cli/commit/9e531eef4278b2e1ad1ecab515dc06f5673c70ca))
+* use VS Code marketplace URL in copilot init fallback ([#186](https://github.com/archgate/cli/issues/186)) ([e0187f9](https://github.com/archgate/cli/commit/e0187f99a778c9f8eec5a1a42ac7e9892fe59b8a))
+
+## [0.26.2](https://github.com/archgate/cli/compare/v0.26.1...v0.26.2) (2026-03-25)
+
+### Bug Fixes
+
+* suppress all GCM interactive prompts in credential store ([#176](https://github.com/archgate/cli/issues/176)) ([5d9bd33](https://github.com/archgate/cli/commit/5d9bd333180d1769dd887fbdeda5b8c46ad27efa))
+
+## [0.26.1](https://github.com/archgate/cli/compare/v0.26.0...v0.26.1) (2026-03-25)
+
+### Bug Fixes
+
+* show manual install commands on failure, split CLI docs ([#171](https://github.com/archgate/cli/issues/171)) ([91544c4](https://github.com/archgate/cli/commit/91544c43412d85dcb8609c435df3cb0cecddc526))
+
+## [0.26.0](https://github.com/archgate/cli/compare/v0.25.1...v0.26.0) (2026-03-24)
+
+### Features
+
+* add doctor command and auto-detect editors ([#166](https://github.com/archgate/cli/issues/166)) ([ec5be2a](https://github.com/archgate/cli/commit/ec5be2a27346737a17b1574d845a3cd942e0e3c3))
+* add global --log-level option ([#170](https://github.com/archgate/cli/issues/170)) ([972028e](https://github.com/archgate/cli/commit/972028e3b3928358925c334635b67a2661b9d99e))
+
+### Bug Fixes
+
+* filter Sentry noise from tests and user cancellations ([#169](https://github.com/archgate/cli/issues/169)) ([2c988b6](https://github.com/archgate/cli/commit/2c988b6616bf509870e91abb11edcba7abce1c5b))
+
+## [0.25.1](https://github.com/archgate/cli/compare/v0.25.0...v0.25.1) (2026-03-24)
+
+### Bug Fixes
+
+* avoid Windows CI timeout in init idempotency test ([#164](https://github.com/archgate/cli/issues/164)) ([8fdbe29](https://github.com/archgate/cli/commit/8fdbe29b3dc07a8ccc733820c5d2ab888dcdd786))
+
+## [0.25.0](https://github.com/archgate/cli/compare/v0.24.0...v0.25.0) (2026-03-23)
+
+### Features
+
+* add typed readJSON overload for package.json ([#162](https://github.com/archgate/cli/issues/162)) ([1240080](https://github.com/archgate/cli/commit/12400809c82523780f9af0ff63a4367a4a5cb0af))
+* add VS Code extension install via plugin install ([#161](https://github.com/archgate/cli/issues/161)) ([f71bd4d](https://github.com/archgate/cli/commit/f71bd4d6640e294c278b88de688088ed95d3b2c7))
+
+### Bug Fixes
+
+* remove plaintext token storage and fix upgrade losing login ([#160](https://github.com/archgate/cli/issues/160)) ([390ef9b](https://github.com/archgate/cli/commit/390ef9b4f7fc80bb205d3a8fa196a7c9cef19c31))
+
+## [0.24.0](https://github.com/archgate/cli/compare/v0.23.2...v0.24.0) (2026-03-23)
+
+### Features
+
+* validate rule file syntax conventions ([#159](https://github.com/archgate/cli/issues/159)) ([f600f88](https://github.com/archgate/cli/commit/f600f887db5b6c6c14eca5b454b41685cb25f056))
+
+### Bug Fixes
+
+* **ci:** remove self-referencing archgate proto plugin ([#157](https://github.com/archgate/cli/issues/157)) ([66d71ac](https://github.com/archgate/cli/commit/66d71ac04c69405df29c6702bf987e0ba9a353cf))
+
+## [0.23.2](https://github.com/archgate/cli/compare/v0.23.1...v0.23.2) (2026-03-23)
+
+### Bug Fixes
+
+* correct scanner positions, suppress stderr noise, and fix stdin hang ([#155](https://github.com/archgate/cli/issues/155)) ([387b318](https://github.com/archgate/cli/commit/387b318edd8945faa86f89c9450599678da6d199))
+
 ## [0.23.1](https://github.com/archgate/cli/compare/v0.23.0...v0.23.1) (2026-03-23)
 
 ### Bug Fixes

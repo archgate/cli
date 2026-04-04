@@ -32,7 +32,11 @@ describe("check command security", () => {
 
   function writeAdrAndRule(id: string, ruleCode: string): void {
     writeFileSync(join(adrsDir, `${id}-sec.md`), adrTemplate(id));
-    writeFileSync(join(adrsDir, `${id}-sec.rules.ts`), ruleCode);
+    // Wrap rule code with required syntax conventions
+    const wrapped =
+      `/// <reference path="../rules.d.ts" />\n\n` +
+      ruleCode.trimEnd().replace(/};\s*$/, "} satisfies RuleSet;\n");
+    writeFileSync(join(adrsDir, `${id}-sec.rules.ts`), wrapped);
   }
 
   test("blocks readFile path traversal via on-disk rule", async () => {

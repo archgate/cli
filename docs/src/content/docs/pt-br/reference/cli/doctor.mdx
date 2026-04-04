@@ -1,0 +1,62 @@
+---
+title: archgate doctor
+description: "Verifica o ambiente do sistema, o método de instalação e as integrações com editores."
+---
+
+Verifica o ambiente do sistema, o método de instalação e as integrações com editores. Útil para diagnosticar problemas de configuração e compartilhar contexto de depuração em relatórios de bugs.
+
+```bash
+archgate doctor [options]
+```
+
+## Opções
+
+| Opção    | Descrição                 |
+| -------- | ------------------------- |
+| `--json` | Saída legível por máquina |
+
+## Seções da saída
+
+- **System** -- SO, arquitetura, detecção de WSL, versões do Bun e Node
+- **Archgate** -- Versão da CLI, método de instalação (binary, proto, local, global-pm), diretório de configuração, status de telemetria e login
+- **Project** -- Se existe um projeto `.archgate/`, contagem de ADRs, domínios
+- **Editor CLIs** -- Se `claude`, `cursor`, `code` (VS Code), `copilot` e `git` estão disponíveis no PATH
+- **Project Integrations** -- Se os arquivos de plugin específicos de cada editor existem no projeto atual (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+
+## Exemplo
+
+```bash
+archgate doctor
+```
+
+```
+System
+  OS:           win32/x64
+  Bun:          1.3.11
+  Node:         v24.3.0
+
+Archgate
+  Version:      0.25.1
+  Install:      binary
+  Exec path:    /home/user/.archgate/bin/archgate
+  Config dir:   /home/user/.archgate OK
+  Telemetry:    enabled
+  Logged in:    yes
+
+Project
+  ADRs:         5 (3 with rules)
+  Domains:      ARCH, GEN
+
+Editor CLIs
+  claude:       OK
+  cursor:       MISSING
+  code (vscode):OK
+  copilot:      MISSING
+  git:          OK
+
+Project Integrations
+  Claude:       OK (.claude/settings.local.json)
+  Cursor:       MISSING (.cursor/rules/archgate-governance.mdc)
+  VS Code:      OK (.vscode/settings.json)
+  Copilot:      MISSING (.github/copilot/instructions.md)
+```

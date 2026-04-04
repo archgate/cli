@@ -1,10 +1,13 @@
 /** Git file-listing utilities for ADR scope resolution and change detection. */
 
+import { logDebug } from "../helpers/log";
+
 /**
  * Run a git command using Bun.spawn (cross-platform, no shell).
  * Bun.$ hangs on Windows due to pipe handling issues — this is the safe alternative.
  */
 async function runGit(args: string[], cwd: string): Promise<string> {
+  logDebug("Running: git", args.join(" "));
   const proc = Bun.spawn(["git", ...args], {
     cwd,
     stdout: "pipe",
@@ -27,8 +30,11 @@ export async function getGitTrackedFiles(
       ["ls-files", "--cached", "--others", "--exclude-standard"],
       projectRoot
     );
-    return new Set(result.trim().split("\n").filter(Boolean));
+    const files = new Set(result.trim().split("\n").filter(Boolean));
+    logDebug("Git tracked files:", files.size);
+    return files;
   } catch {
+    logDebug("Git tracked files lookup failed (not a git repo?)");
     return null;
   }
 }
@@ -54,7 +60,14 @@ export async function resolveScopedFiles(
     })
   );
 
-  return [...new Set(results.flat())].sort();
+  const all = [...new Set(results.flat())].sort();
+  logDebug(
+    "Scoped files resolved:",
+    all.length,
+    "from patterns:",
+    patterns.join(", ")
+  );
+  return all;
 }
 
 /** Get changed files from git staging area. */
@@ -64,8 +77,11 @@ export async function getStagedFiles(projectRoot: string): Promise<string[]> {
       ["diff", "--cached", "--name-only"],
       projectRoot
     );
-    return result.trim().split("\n").filter(Boolean);
+    const files = result.trim().split("\n").filter(Boolean);
+    logDebug("Staged files:", files.length);
+    return files;
   } catch {
+    logDebug("Failed to get staged files (not a git repo?)");
     return [];
   }
 }
@@ -82,8 +98,10 @@ export async function getChangedFiles(projectRoot: string): Promise<string[]> {
       ...staged.trim().split("\n").filter(Boolean),
       ...unstaged.trim().split("\n").filter(Boolean),
     ]);
+    logDebug("Changed files (staged + unstaged):", all.size);
     return [...all].sort();
   } catch {
+    logDebug("Failed to get changed files (not a git repo?)");
     return [];
   }
 }

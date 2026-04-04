@@ -1,0 +1,51 @@
+---
+title: archgate init
+description: "Inicializa a governança do Archgate no projeto atual."
+---
+
+Inicializa a governança do Archgate no projeto atual.
+
+```bash
+archgate init [options]
+```
+
+Cria o diretório `.archgate/` com um ADR de exemplo, arquivo de regras complementar e configuração do linter. Opcionalmente configura a integração com o editor para fluxos de trabalho com agentes de IA e instala o plugin de editor do Archgate.
+
+## Opções
+
+| Opção               | Padrão   | Descrição                                                                   |
+| ------------------- | -------- | --------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Integração de editor a configurar (`claude`, `cursor`, `vscode`, `copilot`) |
+| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` prévio)    |
+
+Quando `--install-plugin` é passado, a CLI instala o plugin do Archgate para o editor selecionado. Se a flag for omitida, a CLI faz detecção automática: instala o plugin quando existem credenciais válidas (de um `archgate login` anterior) e pula caso contrário.
+
+## Comportamento de instalação do plugin
+
+**Claude Code:** Se a CLI `claude` estiver no seu PATH, o plugin é instalado automaticamente via `claude plugin marketplace add` e `claude plugin install`. Se a CLI `claude` não for encontrada, o comando exibe os comandos de instalação manual.
+
+**Cursor:** Se a CLI `cursor` estiver no seu PATH, a extensão VS Code é instalada automaticamente via `cursor --install-extension`. A URL do team marketplace é impressa para descoberta manual do plugin.
+
+## Saída
+
+```
+Initialized Archgate governance in /path/to/project
+  adrs/          - architecture decision records
+  lint/          - linter-specific rules
+  .claude/       - Claude Code settings configured
+
+Archgate plugin installed for Claude Code.
+```
+
+Quando `--editor cursor` é usado, a saída mostra `.cursor/` em vez de `.claude/`.
+
+## Estrutura gerada
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```

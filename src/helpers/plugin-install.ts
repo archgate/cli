@@ -1,16 +1,9 @@
-/**
- * plugin-install.ts — Download and install the archgate plugin for supported editors.
- *
- * - Claude Code: auto-installs via `claude` CLI, or prints manual commands as fallback
- * - VS Code:     marketplace URL for manual user-settings configuration (application-scoped)
- * - Copilot CLI:  auto-installs via `copilot` CLI, or prints manual commands as fallback
- * - Cursor:      downloads cursor.tar.gz from the plugins service and extracts it
- */
+/** Download and install the archgate plugin for supported editors. */
 
-import { mkdirSync, unlinkSync } from "node:fs";
-import { join } from "node:path";
+import { unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
+import { internalPath } from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -20,6 +13,9 @@ const MARKETPLACE_URL = "https://plugins.archgate.dev/archgate.git";
 /** Base VS Code marketplace URL — credentials are provided by the git credential manager. */
 const VSCODE_MARKETPLACE_URL =
   "https://plugins.archgate.dev/archgate/vscode.git";
+/** Cursor Team Marketplace URL — credentials are provided by the git credential manager. */
+const CURSOR_MARKETPLACE_URL =
+  "https://plugins.archgate.dev/archgate/cursor.git";
 
 /**
  * Run a command using Bun.spawn (cross-platform, no shell).
@@ -60,11 +56,27 @@ export function buildVscodeMarketplaceUrl(): string {
 }
 
 /**
+ * Get the Cursor Team Marketplace URL for plugin installation.
+ * Credentials are provided by the git credential manager (no tokens in URLs).
+ */
+export function buildCursorMarketplaceUrl(): string {
+  return CURSOR_MARKETPLACE_URL;
+}
+
+/**
  * Check whether the `claude` CLI is available on the system PATH.
  * On WSL, also checks for `claude.exe` (Windows-side installation).
  */
 export async function isClaudeCliAvailable(): Promise<boolean> {
   const resolved = await resolveCommand("claude");
+  return resolved !== null;
+}
+
+/**
+ * Check whether the `cursor` CLI is available on the system PATH.
+ */
+export async function isCursorCliAvailable(): Promise<boolean> {
+  const resolved = await resolveCommand("cursor");
   return resolved !== null;
 }
 
@@ -104,18 +116,15 @@ export async function installClaudePlugin(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Cursor — download and extract plugin bundle
+// Shared — authenticated asset download
 // ---------------------------------------------------------------------------
 
-/**
- * Download the cursor.tar.gz from the plugins service and extract it to the project root.
- * Creates/overwrites .cursor/ folder contents with the pre-built agent and skills.
- */
-export async function installCursorPlugin(
-  projectRoot: string,
+/** Download a plugin asset from the plugins API with Bearer auth. */
+async function downloadPluginAsset(
+  path: string,
   token: string
-): Promise<string[]> {
-  const response = await fetch(`${PLUGINS_API}/api/cursor`, {
+): Promise<ArrayBuffer> {
+  const response = await fetch(`${PLUGINS_API}${path}`, {
     headers: { Authorization: `Bearer ${token}`, "User-Agent": "archgate-cli" },
     signal: AbortSignal.timeout(30_000),
     redirect: "error",
@@ -123,28 +132,47 @@ export async function installCursorPlugin(
 
   if (response.status === 401) {
     throw new Error(
-      "Plugin download unauthorized. Your token may have expired — run `archgate login refresh`."
+      "Download unauthorized. Your token may have expired — run `archgate login refresh`."
     );
   }
-
   if (!response.ok) {
     throw new Error(
-      `Plugin download failed (HTTP ${response.status}). Try again later.`
+      `Download failed (HTTP ${response.status}). Try again later.`
     );
   }
 
-  const tarGzBuffer = await response.arrayBuffer();
+  return response.arrayBuffer();
+}
 
+// ---------------------------------------------------------------------------
+// Cursor — download .vsix and install via `cursor` CLI
+// ---------------------------------------------------------------------------
+
+/** Install the archgate VS Code extension in Cursor via `cursor --install-extension`. */
+export async function installCursorPlugin(token: string): Promise<void> {
+  const vsixPath = internalPath("archgate.vsix");
+  const buffer = await downloadPluginAsset("/api/vscode", token);
   logDebug(
-    `Downloaded cursor plugin archive (${Math.round(tarGzBuffer.byteLength / 1024)} KB)`
+    `Downloaded VS Code extension (${Math.round(buffer.byteLength / 1024)} KB)`
   );
+  await Bun.write(vsixPath, buffer);
 
-  const extractedFiles = await extractTarGz(
-    new Uint8Array(tarGzBuffer),
-    projectRoot
-  );
-
-  return extractedFiles;
+  try {
+    const cursorCmd = (await resolveCommand("cursor")) ?? "cursor";
+    logDebug("Installing VS Code extension in Cursor via cursor CLI");
+    const result = await run([cursorCmd, "--install-extension", vsixPath]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `cursor --install-extension failed (exit ${result.exitCode})`
+      );
+    }
+  } finally {
+    try {
+      unlinkSync(vsixPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -196,66 +224,39 @@ export async function installCopilotPlugin(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Shared — tar extraction helper
+// VS Code — download .vsix and install via `code` CLI
 // ---------------------------------------------------------------------------
 
 /**
- * Validate that tar archive entries do not escape the destination directory
- * via path traversal ("..") or absolute paths.
+ * Check whether the `code` CLI is available on the system PATH.
+ * On WSL, also checks for `code.exe` (Windows-side installation).
  */
-function validateTarEntries(entries: string[]): void {
-  for (const entry of entries) {
-    const normalized = entry.replaceAll("\\", "/");
-    if (
-      normalized.startsWith("/") ||
-      normalized.includes("../") ||
-      normalized === ".."
-    ) {
-      throw new Error(
-        `Unsafe path in plugin archive: "${entry}" — aborting extraction`
-      );
-    }
-  }
+export async function isVscodeCliAvailable(): Promise<boolean> {
+  const resolved = await resolveCommand("code");
+  return resolved !== null;
 }
 
-/**
- * Extract a .tar.gz buffer to a destination directory.
- * Uses system tar (available on macOS, Linux, and Windows 10+).
- * Validates archive entries before extraction to prevent path traversal.
- */
-async function extractTarGz(
-  data: Uint8Array,
-  destDir: string
-): Promise<string[]> {
-  // Write the archive to a temporary file
-  const tmpArchive = join(destDir, ".archgate-cursor-plugin.tar.gz");
-  await Bun.write(tmpArchive, data);
+/** Download the .vsix from the plugins service and install via `code` CLI. */
+export async function installVscodeExtension(token: string): Promise<void> {
+  const vsixPath = internalPath("archgate.vsix");
+  const buffer = await downloadPluginAsset("/api/vscode", token);
+  logDebug(
+    `Downloaded VS Code extension (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(vsixPath, buffer);
 
   try {
-    mkdirSync(destDir, { recursive: true });
-
-    // List entries first and validate before extracting
-    const listResult = await run(["tar", "-tzf", tmpArchive]);
-    const files = listResult.stdout
-      .split("\n")
-      .map((f) => f.trim())
-      .filter(Boolean);
-
-    validateTarEntries(files);
-
-    // Extract only after validation passes
-    const result = await run(["tar", "-xzf", tmpArchive, "-C", destDir]);
-
+    const codeCmd = (await resolveCommand("code")) ?? "code";
+    logDebug("Installing VS Code extension via code CLI");
+    const result = await run([codeCmd, "--install-extension", vsixPath]);
     if (result.exitCode !== 0) {
       throw new Error(
-        `Failed to extract plugin archive (tar exit code ${result.exitCode})`
+        `code --install-extension failed (exit ${result.exitCode})`
       );
     }
-
-    return files;
   } finally {
     try {
-      unlinkSync(tmpArchive);
+      unlinkSync(vsixPath);
     } catch {
       // Ignore cleanup errors
     }

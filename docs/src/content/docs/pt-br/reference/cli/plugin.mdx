@@ -1,0 +1,78 @@
+---
+title: archgate plugin
+description: "Gerencia os plugins de editor do Archgate independentemente do archgate init."
+---
+
+Gerencia os plugins de editor do Archgate independentemente do `archgate init`.
+
+```bash
+archgate plugin <subcomando> [options]
+```
+
+Use `archgate plugin` para instalar plugins ou obter a URL autenticada do repositório em projetos que já foram inicializados.
+
+## Subcomandos
+
+### archgate plugin url
+
+Exibe a URL do repositório de plugins para configuração manual de ferramentas.
+
+```bash
+archgate plugin url [options]
+```
+
+| Opção               | Padrão   | Descrição                                             |
+| ------------------- | -------- | ----------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`) |
+
+A URL pode ser usada para configurar manualmente as ferramentas do editor. As credenciais são fornecidas automaticamente pelo seu gerenciador de credenciais git (armazenadas durante `archgate login`). Por exemplo, para adicionar o marketplace do Archgate no Claude Code:
+
+```bash
+claude plugin marketplace add "$(archgate plugin url)"
+claude plugin install archgate@archgate
+```
+
+Para o VS Code, a URL aponta para um repositório de plugin separado:
+
+```bash
+archgate plugin url --editor vscode
+```
+
+### archgate plugin install
+
+Instala o plugin do Archgate para o editor especificado em um projeto já inicializado.
+
+```bash
+archgate plugin install [options]
+```
+
+| Opção               | Padrão   | Descrição                                             |
+| ------------------- | -------- | ----------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`) |
+
+O comportamento de instalação varia por editor:
+
+- **Claude Code:** Instala automaticamente via CLI `claude` se disponível; exibe comandos manuais caso contrário.
+- **Copilot CLI:** Instala automaticamente via CLI `copilot` se disponível; exibe comandos manuais caso contrário.
+- **Cursor:** Instala a extensão VS Code via CLI `cursor` se disponível e exibe a URL do team marketplace; exibe instruções manuais caso contrário.
+- **VS Code:** Adiciona a URL do marketplace nas configurações de usuário do VS Code e instala a extensão VS Code (`.vsix`) via CLI `code` se disponível; exibe instruções manuais caso contrário.
+
+## Exemplos
+
+Obter a URL do plugin para configuração manual:
+
+```bash
+archgate plugin url
+```
+
+Instalar o plugin para o Claude Code:
+
+```bash
+archgate plugin install
+```
+
+Instalar o plugin para o Cursor:
+
+```bash
+archgate plugin install --editor cursor
+```

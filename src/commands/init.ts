@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
@@ -5,10 +7,12 @@ import { Option } from "@commander-js/extra-typings";
 import inquirer from "inquirer";
 
 import { loadCredentials } from "../helpers/credential-store";
+import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
 import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
+import { trackInitResult } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
@@ -26,9 +30,10 @@ const SIGNUP_EDITORS: Record<EditorTarget, string> = {
   copilot: "copilot-cli",
 };
 
-const editorOption = new Option("--editor <editor>", "editor integration")
-  .choices(["claude", "cursor", "vscode", "copilot"] as const)
-  .default("claude" as const);
+const editorOption = new Option(
+  "--editor <editor>",
+  "editor integration (omit to auto-detect and select)"
+).choices(["claude", "cursor", "vscode", "copilot"] as const);
 
 export function registerInitCommand(program: Command) {
   program
@@ -41,6 +46,20 @@ export function registerInitCommand(program: Command) {
     )
     .action(async (opts) => {
       try {
+        // Resolve editors: explicit flag, interactive prompt, or default
+        let editors: EditorTarget[];
+        if (opts.editor) {
+          editors = [opts.editor];
+        } else if (process.stdin.isTTY) {
+          const detected = await detectEditors();
+          editors = await promptEditorSelection(detected);
+        } else {
+          editors = ["claude"];
+        }
+
+        const hadExistingProject = existsSync(
+          join(process.cwd(), ".archgate", "adrs")
+        );
         let hasCredentials = (await loadCredentials()) !== null;
 
         // If no credentials and --install-plugin not explicitly set, offer to log in
@@ -62,7 +81,7 @@ export function registerInitCommand(program: Command) {
 
           if (wantPlugin) {
             const result = await runLoginFlow({
-              editor: SIGNUP_EDITORS[opts.editor],
+              editor: SIGNUP_EDITORS[editors[0]],
             });
             hasCredentials = result.ok;
           }
@@ -70,37 +89,50 @@ export function registerInitCommand(program: Command) {
 
         const installPlugin = opts.installPlugin ?? hasCredentials;
 
-        const result = await initProject(process.cwd(), {
-          editor: opts.editor,
-          installPlugin,
-        });
+        // Run init for each selected editor (sequential for ordered output)
+        for (const editor of editors) {
+          // oxlint-disable-next-line no-await-in-loop -- sequential init with per-editor output
+          const result = await initProject(process.cwd(), {
+            editor,
+            installPlugin,
+          });
 
-        const label = EDITOR_LABELS[opts.editor];
-        const dir = EDITOR_DIRS[opts.editor];
+          const label = EDITOR_LABELS[editor];
+          const dir = EDITOR_DIRS[editor];
 
-        console.log(`Initialized Archgate governance in ${result.projectRoot}`);
-        console.log(`  adrs/          - architecture decision records`);
-        console.log(`  lint/          - linter-specific rules`);
-        console.log(`  ${dir.padEnd(13)}- ${label} settings configured`);
-
-        // Plugin install output
-        if (result.plugin?.installed) {
-          console.log("");
-          if (result.plugin.autoInstalled) {
-            logInfo(`Archgate plugin installed for ${label}.`);
-            if (result.plugin.detail) {
-              console.log(`  ${result.plugin.detail}`);
-            }
-          } else {
-            // CLI not found for this editor — show manual commands
-            printManualInstructions(opts.editor, result.plugin.detail);
+          if (editors.indexOf(editor) === 0) {
+            console.log(
+              `Initialized Archgate governance in ${result.projectRoot}`
+            );
+            console.log(`  adrs/          - architecture decision records`);
+            console.log(`  lint/          - linter-specific rules`);
           }
-        } else if (installPlugin) {
-          // User wanted plugin but no credentials
-          logWarn(
-            "Plugin not installed — not logged in.",
-            "Run `archgate login` first, then re-run `archgate init --install-plugin`."
-          );
+          console.log(`  ${dir.padEnd(13)}- ${label} settings configured`);
+
+          // Plugin install output
+          if (result.plugin?.installed) {
+            console.log("");
+            if (result.plugin.autoInstalled) {
+              logInfo(`Archgate plugin installed for ${label}.`);
+              if (result.plugin.detail) {
+                console.log(`  ${result.plugin.detail}`);
+              }
+            } else {
+              printManualInstructions(editor, result.plugin.detail);
+            }
+          } else if (installPlugin && editors.indexOf(editor) === 0) {
+            logWarn(
+              "Plugin not installed — not logged in.",
+              "Run `archgate login` first, then re-run `archgate init --install-plugin`."
+            );
+          }
+
+          trackInitResult({
+            editor,
+            plugin_installed: Boolean(result.plugin?.installed),
+            plugin_auto_installed: Boolean(result.plugin?.autoInstalled),
+            had_existing_project: hadExistingProject,
+          });
         }
       } catch (err) {
         if (isTlsError(err)) {

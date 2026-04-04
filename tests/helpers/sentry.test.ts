@@ -7,21 +7,29 @@ describe("sentry", () => {
   let tempDir: string;
   let originalHome: string | undefined;
   let originalTelemetryEnv: string | undefined;
+  let originalNodeEnv: string | undefined;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-sentry-test-"));
-    originalHome = process.env.HOME;
-    originalTelemetryEnv = process.env.ARCHGATE_TELEMETRY;
-    process.env.HOME = tempDir;
-    delete process.env.ARCHGATE_TELEMETRY;
+    originalHome = Bun.env.HOME;
+    originalTelemetryEnv = Bun.env.ARCHGATE_TELEMETRY;
+    originalNodeEnv = Bun.env.NODE_ENV;
+    Bun.env.HOME = tempDir;
+    Bun.env.NODE_ENV = "test";
+    delete Bun.env.ARCHGATE_TELEMETRY;
   });
 
   afterEach(async () => {
-    process.env.HOME = originalHome;
+    Bun.env.HOME = originalHome;
     if (originalTelemetryEnv === undefined) {
-      delete process.env.ARCHGATE_TELEMETRY;
+      delete Bun.env.ARCHGATE_TELEMETRY;
     } else {
-      process.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
+      Bun.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
+    }
+    if (originalNodeEnv === undefined) {
+      delete Bun.env.NODE_ENV;
+    } else {
+      Bun.env.NODE_ENV = originalNodeEnv;
     }
     rmSync(tempDir, { recursive: true, force: true });
 
@@ -42,7 +50,7 @@ describe("sentry", () => {
     });
 
     test("does not initialize when telemetry is disabled", async () => {
-      process.env.ARCHGATE_TELEMETRY = "0";
+      Bun.env.ARCHGATE_TELEMETRY = "0";
 
       const { initSentry, captureException } =
         await import("../../src/helpers/sentry");

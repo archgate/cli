@@ -20,9 +20,6 @@ coverage
 # OS files
 .DS_Store
 
-# Local MCP config
-.mcp.json
-
 # Claude Code worktrees
 .claude/worktrees
 
@@ -33,9 +30,6 @@ coverage
 # Package manager
 *.tgz
 .npm
-
-# Platform package binaries (injected by CI)
-packages/*/bin/archgate
 
 # Docs site build artifacts
 docs/.astro/

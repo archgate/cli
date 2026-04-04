@@ -19,7 +19,12 @@ archgate init --editor cursor
 O plugin para Cursor está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
 :::
 
-Se você fez login via `archgate login`, o comando init também baixa e instala o plugin Archgate para o Cursor. O plugin fornece regras de agente pré-configuradas e skills que dão ao agente de IA do Cursor um fluxo de governança completo.
+Se você fez login via `archgate login`, o comando init também instala o plugin Archgate para o Cursor. O plugin fornece regras de agente pré-configuradas e skills que dão ao agente de IA do Cursor um fluxo de governança completo.
+
+O plugin é distribuído de duas formas:
+
+1. **Cursor Team Marketplace** -- O plugin é publicado em um repositório team marketplace baseado em git. Após a instalação, o Cursor o descobre a partir da URL do team marketplace impressa pela CLI.
+2. **Extensão VS Code (VSIX)** -- Uma extensão `.vsix` é instalada no Cursor via o comando `cursor --install-extension`.
 
 Para instalar o plugin explicitamente:
 
@@ -28,7 +33,7 @@ archgate login              # configuração única
 archgate init --editor cursor --install-plugin
 ```
 
-O pacote do plugin é baixado de `plugins.archgate.dev` e extraído no diretório `.cursor/`. Ele inclui regras de agente e definições de skills.
+O comando `archgate plugin install --editor cursor` instala a extensão VS Code via CLI `cursor` se disponível e exibe a URL do team marketplace; exibe instruções manuais caso contrário.
 
 Para instalar ou reinstalar o plugin em um projeto já inicializado:
 
@@ -48,30 +53,31 @@ Sem o plugin, `archgate init --editor cursor` ainda configura uma regra de gover
 
 ## O que o plugin oferece
 
-O plugin adiciona um agente e skills baseadas em papéis ao Cursor. Cada um é invocado como um slash command com o prefixo `/ag-`. O agente orquestra o fluxo de governança, invocando skills conforme necessário.
+O plugin adiciona um agente e skills baseadas em papéis ao Cursor. O sistema de plugins do Cursor gerencia o namespacing, então as skills usam seus nomes diretos sem prefixo.
 
 ### Agente
 
-| Slash command   | Propósito                                                                      |
-| --------------- | ------------------------------------------------------------------------------ |
-| `/ag-developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+| Nome        | Propósito                                                                      |
+| ----------- | ------------------------------------------------------------------------------ |
+| `developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
 
-O agente `/ag-developer` orquestra as skills abaixo automaticamente como parte do seu fluxo.
+O agente `developer` orquestra as skills abaixo automaticamente como parte do seu fluxo.
 
 ### Skills
 
-| Slash command         | Propósito                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------ |
-| `/ag-architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
-| `/ag-quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
-| `/ag-adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
-| `/ag-onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+| Nome              | Propósito                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| `architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
+| `quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
+| `adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
+| `onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+| `cli-reference`   | Referência interna para agentes de IA com o guia completo de comandos CLI do Archgate      |
 
-Esses são o mesmo agente e skills disponíveis no plugin para Claude Code (`archgate:developer`, `archgate:architect`, etc.), adaptados para a interface de slash commands do Cursor com o prefixo `ag-`.
+Esses são o mesmo agente e skills disponíveis no plugin para Claude Code (`archgate:developer`, `archgate:architect`, etc.), adaptados para o sistema de plugins do Cursor.
 
 ## Configuração inicial com onboard
 
-Após instalar o plugin, execute `/ag-onboard` no seu projeto uma vez. Essa skill:
+Após instalar o plugin, execute a skill `onboard` no seu projeto uma vez. Essa skill:
 
 1. Explora a estrutura do seu codebase (diretórios, arquivos-chave, configuração de pacotes)
 2. Entrevista você sobre as convenções, restrições e decisões arquiteturais da sua equipe
@@ -84,17 +90,17 @@ A skill de onboard foi projetada para ser executada uma vez por projeto. Após o
 
 ### Com o plugin
 
-O agente `/ag-developer` segue um fluxo estruturado para cada tarefa de codificação:
+O agente `developer` segue um fluxo estruturado para cada tarefa de codificação:
 
 1. **Ler os ADRs aplicáveis** -- O agente executa `archgate review-context` para ver quais ADRs se aplicam aos arquivos sendo alterados. Ele não escreve código até ter lido os ADRs aplicáveis.
 
 2. **Escrever código seguindo as restrições dos ADRs** -- O agente implementa as alterações seguindo as seções Do's and Don'ts dos ADRs aplicáveis.
 
-3. **Executar verificações de conformidade** -- O agente executa `archgate check` para rodar as regras automatizadas. Qualquer violação é corrigida antes de prosseguir.
+3. **Executar verificações de conformidade** -- O agente executa `archgate check --staged` para rodar as regras automatizadas. Qualquer violação é corrigida antes de prosseguir.
 
-4. **Revisão do arquiteto** -- O agente invoca `/ag-architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
+4. **Revisão do arquiteto** -- O agente invoca a skill `architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
 
-5. **Capturar aprendizados** -- O agente invoca `/ag-quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs ou atualizações em existentes.
+5. **Capturar aprendizados** -- O agente invoca a skill `quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs ou atualizações em existentes.
 
 ### Sem o plugin
 
@@ -122,15 +128,15 @@ Esse comportamento é consistente independentemente de como o desenvolvedor form
 
 ## Quando usar cada agente ou skill
 
-| Cenário                                                 | Slash command         |
-| ------------------------------------------------------- | --------------------- |
-| Iniciando um novo projeto com Archgate                  | `/ag-onboard`         |
-| Tarefas de codificação do dia a dia                     | `/ag-developer`       |
-| Revisando um PR para conformidade com ADRs              | `/ag-architect`       |
-| Percebendo um padrão recorrente que vale ser codificado | `/ag-quality-manager` |
-| Criando ou editando um ADR                              | `/ag-adr-author`      |
+| Cenário                                                 | Skill             |
+| ------------------------------------------------------- | ----------------- |
+| Iniciando um novo projeto com Archgate                  | `onboard`         |
+| Tarefas de codificação do dia a dia                     | `developer`       |
+| Revisando um PR para conformidade com ADRs              | `architect`       |
+| Percebendo um padrão recorrente que vale ser codificado | `quality-manager` |
+| Criando ou editando um ADR                              | `adr-author`      |
 
-O agente `/ag-developer` orquestra as skills automaticamente -- ele invoca `/ag-architect` e `/ag-quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa usar `/ag-developer` diretamente.
+O agente `developer` orquestra as skills automaticamente -- ele invoca `architect` e `quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa usar `developer` diretamente.
 
 ## Regra de governança
 
@@ -138,9 +144,9 @@ A regra de governança em `.cursor/rules/archgate-governance.mdc` usa `alwaysApp
 
 ## Dicas para uso eficaz
 
-- **Use `/ag-developer` para tarefas de codificação.** Ele orquestra todo o fluxo de leitura-validação-captura automaticamente.
-- **Execute `/ag-onboard` uma vez por projeto.** Ele configura seus ADRs iniciais com base no seu codebase e convenções reais.
-- **Use `/ag-architect` para revisões de PR.** Ele valida a conformidade estrutural além do que as regras automatizadas capturam.
-- **Use `/ag-quality-manager` após resolver problemas complexos.** Ele captura aprendizados para que os mesmos erros não se repitam.
+- **Use a skill `developer` para tarefas de codificação.** Ela orquestra todo o fluxo de leitura-validação-captura automaticamente.
+- **Execute `onboard` uma vez por projeto.** Ela configura seus ADRs iniciais com base no seu codebase e convenções reais.
+- **Use `architect` para revisões de PR.** Ela valida a conformidade estrutural além do que as regras automatizadas capturam.
+- **Use `quality-manager` após resolver problemas complexos.** Ela captura aprendizados para que os mesmos erros não se repitam.
 - **Faça commit do diretório `.cursor/`.** Isso garante que cada membro da equipe receba a mesma configuração de governança ao clonar o repositório.
 - **Mantenha os arquivos de regras dos ADRs atualizados.** O agente aplica o que as regras verificam -- se uma regra estiver faltando, a violação não será detectada.

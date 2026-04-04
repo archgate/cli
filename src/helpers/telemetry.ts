@@ -15,6 +15,7 @@
 import { PostHog } from "posthog-node";
 
 import packageJson from "../../package.json";
+import { detectInstallMethod, getProjectContext } from "./install-info";
 import { logDebug } from "./log";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
@@ -43,7 +44,8 @@ let distinctId = "";
 // ---------------------------------------------------------------------------
 
 function getCommonProperties(): Record<string, unknown> {
-  const { runtime } = getPlatformInfo();
+  const { runtime, isWSL } = getPlatformInfo();
+  const ctx = getProjectContext();
   return {
     cli_version: packageJson.version,
     os: runtime,
@@ -51,6 +53,11 @@ function getCommonProperties(): Record<string, unknown> {
     bun_version: Bun.version,
     is_ci: Boolean(Bun.env.CI),
     is_tty: Boolean(process.stdout.isTTY),
+    is_wsl: isWSL,
+    install_method: detectInstallMethod(),
+    has_project: ctx.hasProject,
+    adr_count: ctx.adrCount,
+    adr_with_rules_count: ctx.adrWithRulesCount,
     // Signal PostHog to resolve geo then discard the IP
     $ip: null,
   };
@@ -111,7 +118,8 @@ export function trackEvent(
 }
 
 /**
- * Track a CLI command invocation.
+ * Track a CLI command invocation with the options used.
+ * Option values are reduced to booleans/presence — no user data is sent.
  */
 export function trackCommand(
   command: string,
@@ -133,6 +141,60 @@ export function trackCommandResult(
     exit_code: exitCode,
     duration_ms: durationMs,
   });
+}
+
+/**
+ * Track the outcome of `archgate check`.
+ * Captures aggregate counts — no file paths or violation content.
+ */
+export function trackCheckResult(properties: {
+  total_rules: number;
+  passed: number;
+  failed: number;
+  warnings: number;
+  errors: number;
+  rule_errors: number;
+  pass: boolean;
+  output_format: "console" | "json" | "ci";
+  used_staged: boolean;
+  used_file_filter: boolean;
+  used_adr_filter: boolean;
+}): void {
+  trackEvent("check_completed", properties);
+}
+
+/**
+ * Track the outcome of `archgate init`.
+ */
+export function trackInitResult(properties: {
+  editor: string;
+  plugin_installed: boolean;
+  plugin_auto_installed: boolean;
+  had_existing_project: boolean;
+}): void {
+  trackEvent("init_completed", properties);
+}
+
+/**
+ * Track the outcome of `archgate upgrade`.
+ */
+export function trackUpgradeResult(properties: {
+  from_version: string;
+  to_version: string;
+  install_method: string;
+  success: boolean;
+}): void {
+  trackEvent("upgrade_completed", properties);
+}
+
+/**
+ * Track the outcome of `archgate login`.
+ */
+export function trackLoginResult(properties: {
+  subcommand: "login" | "logout" | "refresh" | "status";
+  success: boolean;
+}): void {
+  trackEvent("login_completed", properties);
 }
 
 /**

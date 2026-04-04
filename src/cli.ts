@@ -1,11 +1,12 @@
 #!/usr/bin/env bun
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { semver } from "bun";
 
 import packageJson from "../package.json";
 import { registerAdrCommand } from "./commands/adr/index";
 import { registerCheckCommand } from "./commands/check";
 import { registerCleanCommand } from "./commands/clean";
+import { registerDoctorCommand } from "./commands/doctor";
 import { registerInitCommand } from "./commands/init";
 import { registerLoginCommand } from "./commands/login";
 import { registerPluginCommand } from "./commands/plugin/index";
@@ -14,9 +15,9 @@ import { registerSessionContextCommand } from "./commands/session-context/index"
 import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { installGit } from "./helpers/git";
-import { logError } from "./helpers/log";
+import { type LogLevel, logError, setLogLevel } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
-import { isSupportedPlatform } from "./helpers/platform";
+import { getPlatformInfo, isSupportedPlatform } from "./helpers/platform";
 import {
   addBreadcrumb,
   captureException,
@@ -31,16 +32,30 @@ import {
 } from "./helpers/telemetry";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
+// Pre-main environment guards — these are user-facing errors (exit 1), not bugs.
+// The Bun check must throw (logError requires Bun APIs). The rest use logError
+// for clean output.
 if (typeof Bun === "undefined")
   throw new Error(
     "You need to run `archgate` with Bun. Do `bunx archgate [command]`"
   );
 
-if (!semver.satisfies(Bun.version, ">=1.2.21"))
-  throw new Error("You need to update Bun to version 1.2.21 or higher");
+if (!semver.satisfies(Bun.version, ">=1.2.21")) {
+  logError(
+    "You need to update Bun to version 1.2.21 or higher.",
+    `Current version: ${Bun.version}`
+  );
+  process.exit(1);
+}
 
-if (!isSupportedPlatform())
-  throw new Error("Archgate only supports macOS, Linux, and Windows");
+if (!isSupportedPlatform()) {
+  const { runtime } = getPlatformInfo();
+  logError(
+    "Archgate only supports macOS, Linux, and Windows.",
+    `Detected platform: ${runtime}/${process.arch}`
+  );
+  process.exit(1);
+}
 
 createPathIfNotExists(paths.cacheFolder);
 
@@ -51,17 +66,32 @@ async function main() {
   initSentry();
   initTelemetry();
 
+  const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
+    .choices(["error", "warn", "info", "debug"] as const)
+    .default("info" as const);
+
   const program = new Command()
     .name("archgate")
     .version(packageJson.version)
-    .description("AI governance for software development");
+    .description("AI governance for software development")
+    .addOption(logLevelOption);
 
   // Track command execution for Sentry breadcrumbs and PostHog analytics
   let commandStartTime = 0;
   program.hook("preAction", (thisCommand) => {
+    // Apply log level from global option before any command runs
+    const rootOpts = program.opts();
+    setLogLevel(rootOpts.logLevel as LogLevel);
     const fullCommand = getFullCommandName(thisCommand);
     addBreadcrumb("command", `Running: ${fullCommand}`);
-    trackCommand(fullCommand);
+    // Collect which options were used (presence only, no values)
+    const opts = thisCommand.opts() as Record<string, unknown>;
+    const optionFlags: Record<string, boolean> = {};
+    for (const key of Object.keys(opts)) {
+      const val = opts[key];
+      optionFlags[`opt_${key}`] = val !== undefined && val !== false;
+    }
+    trackCommand(fullCommand, optionFlags);
     commandStartTime = performance.now();
   });
 
@@ -80,6 +110,7 @@ async function main() {
   registerPluginCommand(program);
   registerUpgradeCommand(program);
   registerCleanCommand(program);
+  registerDoctorCommand(program);
   registerTelemetryCommand(program);
 
   const isUpgrade = process.argv.includes("upgrade");
@@ -112,6 +143,11 @@ function getFullCommandName(command: Command): string {
 }
 
 main().catch(async (err: unknown) => {
+  // User pressed Ctrl+C during an Inquirer prompt — exit silently
+  if (err instanceof Error && err.name === "ExitPromptError") {
+    process.exit(130);
+  }
+
   captureException(err, { command: "main" });
   await Promise.all([flushTelemetry(), flushSentry()]);
   logError(String(err));
