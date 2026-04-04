@@ -1,24 +1,16 @@
-name: Smoke Test
+name: Smoke Test (Windows)
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
+  workflow_call:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   windows:
-    name: Windows Smoke Test
+    name: Windows
     runs-on: windows-latest
     timeout-minutes: 15
-    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -65,7 +57,6 @@ jobs:
       - name: Smoke test binary from install dir
         shell: pwsh
         run: |
-          # Simulate binary install at %APPDATA%\archgate\
           $installDir = Join-Path $env:APPDATA "archgate"
           New-Item -Path $installDir -ItemType Directory -Force | Out-Null
           Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $installDir "archgate.exe")
@@ -80,7 +71,6 @@ jobs:
       - name: Smoke test binary from proto dir
         shell: pwsh
         run: |
-          # Simulate proto install at ~/.proto/tools/archgate/<version>/
           $protoDir = Join-Path $env:USERPROFILE ".proto" "tools" "archgate" "0.0.0"
           New-Item -Path $protoDir -ItemType Directory -Force | Out-Null
           Copy-Item "dist/archgate-smoke-test.exe" (Join-Path $protoDir "archgate.exe")
@@ -95,7 +85,6 @@ jobs:
       - name: Smoke test binary from node_modules
         shell: pwsh
         run: |
-          # Simulate local dev dependency install
           $projectDir = Join-Path $env:TEMP "archgate-local-smoke"
           $binDir = Join-Path $projectDir "node_modules" ".bin"
           New-Item -Path $binDir -ItemType Directory -Force | Out-Null
@@ -116,7 +105,6 @@ jobs:
           ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
           if (-not $env:ARCHGATE_VERSION) {
             $release = gh release view --json tagName --jq .tagName 2>$null
             if ($LASTEXITCODE -ne 0 -or -not $release) {
@@ -130,14 +118,12 @@ jobs:
           $installDir = Join-Path $env:TEMP "archgate-smoke-install-$(Get-Random)"
           $env:ARCHGATE_INSTALL_DIR = $installDir
 
-          # Run installer non-interactively (Read-Host returns empty → defaults to adding PATH)
           & "$env:GITHUB_WORKSPACE\install.ps1"
           if ($LASTEXITCODE -ne 0) {
             Write-Error "install.ps1 exited with code $LASTEXITCODE"
             exit 1
           }
 
-          # Verify binary was installed
           $exe = Join-Path $installDir "archgate.exe"
           if (-not (Test-Path $exe)) {
             Write-Error "archgate.exe not found at $exe after install"
@@ -151,95 +137,4 @@ jobs:
             exit 1
           }
 
-          # Cleanup
           Remove-Item -Path $installDir -Recurse -Force -ErrorAction SilentlyContinue
-
-  linux:
-    name: Linux Smoke Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event.pull_request.draft == false
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: moonrepo/setup-toolchain@v0
-        with:
-          auto-install: true
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build Linux binary
-        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
-
-      - name: Smoke test binary
-        run: |
-          chmod +x dist/archgate-smoke-test
-          output=$(dist/archgate-smoke-test --version 2>&1)
-          echo "archgate version: $output"
-
-      - name: Smoke test binary from ~/.archgate/bin/
-        run: |
-          mkdir -p ~/.archgate/bin
-          cp dist/archgate-smoke-test ~/.archgate/bin/archgate
-          chmod +x ~/.archgate/bin/archgate
-          output=$(~/.archgate/bin/archgate --version 2>&1)
-          echo "archgate version from binary install dir: $output"
-          rm -rf ~/.archgate/bin
-
-      - name: Smoke test binary from proto dir
-        run: |
-          mkdir -p ~/.proto/tools/archgate/0.0.0
-          cp dist/archgate-smoke-test ~/.proto/tools/archgate/0.0.0/archgate
-          chmod +x ~/.proto/tools/archgate/0.0.0/archgate
-          output=$(~/.proto/tools/archgate/0.0.0/archgate --version 2>&1)
-          echo "archgate version from proto dir: $output"
-          rm -rf ~/.proto/tools/archgate
-
-      - name: Smoke test binary from node_modules
-        run: |
-          project_dir=$(mktemp -d)
-          mkdir -p "$project_dir/node_modules/.bin"
-          echo '{}' > "$project_dir/package.json"
-          touch "$project_dir/bun.lock"
-          cp dist/archgate-smoke-test "$project_dir/node_modules/.bin/archgate"
-          chmod +x "$project_dir/node_modules/.bin/archgate"
-          output=$("$project_dir/node_modules/.bin/archgate" --version 2>&1)
-          echo "archgate version from node_modules: $output"
-          rm -rf "$project_dir"
-
-      - name: Smoke test install.sh
-        env:
-          ARCHGATE_VERSION: ${{ vars.LATEST_RELEASE_TAG || '' }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Resolve version: use ARCHGATE_VERSION if set, otherwise query GitHub
-          if [ -z "$ARCHGATE_VERSION" ]; then
-            ARCHGATE_VERSION="$(gh release view --json tagName --jq .tagName 2>/dev/null || true)"
-            if [ -z "$ARCHGATE_VERSION" ]; then
-              echo "::warning::No releases found, skipping install.sh smoke test"
-              exit 0
-            fi
-            export ARCHGATE_VERSION
-          fi
-          echo "Testing install.sh with version $ARCHGATE_VERSION"
-
-          export ARCHGATE_INSTALL_DIR="$(mktemp -d)"
-
-          # Run installer (no TTY in CI → skips PATH prompt automatically)
-          sh install.sh
-
-          # Verify binary was installed
-          if [ ! -f "$ARCHGATE_INSTALL_DIR/archgate" ]; then
-            echo "::error::archgate binary not found at $ARCHGATE_INSTALL_DIR/archgate after install"
-            exit 1
-          fi
-
-          output="$("$ARCHGATE_INSTALL_DIR/archgate" --version 2>&1)"
-          echo "Installed archgate version: $output"
-
-          # Cleanup
-          rm -rf "$ARCHGATE_INSTALL_DIR"

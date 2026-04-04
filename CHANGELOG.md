@@ -1,3 +1,20 @@
+## [0.27.0](https://github.com/archgate/cli/compare/v0.26.2...v0.27.0) (2026-03-31)
+
+### Features
+
+* native Cursor plugin support via marketplace and VSIX install ([#182](https://github.com/archgate/cli/issues/182)) ([bc7a120](https://github.com/archgate/cli/commit/bc7a120829b52fa3fbf7e30575fd1ec10154385d))
+
+### Bug Fixes
+
+* use correct path encoding for Cursor session-context on Windows ([#181](https://github.com/archgate/cli/issues/181)) ([9e531ee](https://github.com/archgate/cli/commit/9e531eef4278b2e1ad1ecab515dc06f5673c70ca))
+* use VS Code marketplace URL in copilot init fallback ([#186](https://github.com/archgate/cli/issues/186)) ([e0187f9](https://github.com/archgate/cli/commit/e0187f99a778c9f8eec5a1a42ac7e9892fe59b8a))
+
+## [0.26.2](https://github.com/archgate/cli/compare/v0.26.1...v0.26.2) (2026-03-25)
+
+### Bug Fixes
+
+* suppress all GCM interactive prompts in credential store ([#176](https://github.com/archgate/cli/issues/176)) ([5d9bd33](https://github.com/archgate/cli/commit/5d9bd333180d1769dd887fbdeda5b8c46ad27efa))
+
 ## [0.26.1](https://github.com/archgate/cli/compare/v0.26.0...v0.26.1) (2026-03-25)
 
 ### Bug Fixes
