@@ -257,6 +257,11 @@ export default defineConfig({
           collapsed: true,
           autogenerate: { directory: "examples" },
         },
+        {
+          label: "Studies",
+          collapsed: true,
+          autogenerate: { directory: "studies" },
+        },
       ],
     }),
   ],
