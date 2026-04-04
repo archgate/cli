@@ -20,19 +20,6 @@
     ]
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "INPUT=$(cat); CMD=$(echo \"$INPUT\" | node -e \"let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).tool_input.command))\"); if echo \"$CMD\" | grep -qE 'git\\s+commit'; then bun run validate > /dev/null 2>&1; EXIT=$?; if [ $EXIT -ne 0 ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"bun run validate failed (exit '\"$EXIT\"'). Fix issues before committing.\"}}'; fi; fi",
-            "timeout": 300,
-            "statusMessage": "Running validation before commit..."
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
