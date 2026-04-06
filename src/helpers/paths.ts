@@ -4,11 +4,25 @@ import { join, dirname } from "node:path";
 
 import { logDebug } from "./log";
 
+/**
+ * Resolves the user home directory for ~/.archgate paths.
+ * Ignores empty env and the literal string "undefined" (mis-set env / tooling bugs)
+ * so path.join does not create a ./undefined/.archgate tree under cwd.
+ */
+function archgateHomeDir(): string {
+  const fromEnv = Bun.env.HOME ?? Bun.env.USERPROFILE;
+  if (
+    typeof fromEnv === "string" &&
+    fromEnv.length > 0 &&
+    fromEnv !== "undefined"
+  ) {
+    return fromEnv;
+  }
+  return homedir();
+}
+
 export function internalPath(...path: string[]) {
-  // Use Bun.env.HOME/USERPROFILE first (testable via env override),
-  // fall back to os.homedir() which handles platform-specific resolution.
-  const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? homedir();
-  const internalFolder = join(home, ".archgate");
+  const internalFolder = join(archgateHomeDir(), ".archgate");
   return join(internalFolder, ...path);
 }
 
