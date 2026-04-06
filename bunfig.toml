@@ -5,4 +5,4 @@ exact = true
 saveTextLockfile = true
 
 [test]
-preload = ["tests/preload.ts"]
+preload = ["./tests/preload.ts"]
