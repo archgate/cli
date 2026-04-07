@@ -1,0 +1,251 @@
+---
+title: "Study: Sentry PR Friction and ADR Standardization"
+description: "A 90-day pull request study of getsentry/sentry showing where review back-and-forth clusters and which ADRs/rules could reduce repeat discussion."
+---
+
+# Study: Sentry PR Friction and ADR Standardization
+
+## Objective
+
+This study evaluates where review back-and-forth is concentrated in [`getsentry/sentry`](https://github.com/getsentry/sentry) and identifies which Architecture Decision Records (ADRs) plus enforceable rules could reduce repeated discussion cycles.
+
+The goal is not to remove human review. The goal is to move repeated and predictable review debates into explicit decisions and machine-checkable policy.
+
+## Full study
+
+Read the canonical publication (methodology, metrics, ADR index) at:
+
+- [**Sentry PR review friction — overview**](https://studies.archgate.dev/studies/sentry-pr-review-friction/) — same content as the [`archgate/studies`](https://github.com/archgate/studies) narrative pages
+
+## Scope and method
+
+Aligned with the live study’s [methodology](https://studies.archgate.dev/studies/sentry-pr-review-friction/methodology/):
+
+| Dataset | Count |
+| -------- | ------ |
+| Merged PRs | 500 |
+| Closed-unmerged PRs | 500 |
+| Open PRs sampled | 251 |
+| Deep comment analysis | 60 high-friction PRs (50 merged + 10 closed-unmerged) |
+| Comments collected | 965 total (604 non-bot) |
+
+Data is collected via the GitHub API (see the methodology page for exact `gh` commands, friction scoring, and limitations).
+
+### Reproducibility and peer review
+
+Everything below is audited in **[`archgate/studies`](https://github.com/archgate/studies)**:
+
+| What | Where on GitHub |
+| ---- | ---------------- |
+| Method script and generated artifacts | [`studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction) (e.g. [`analyze_sentry_prs.py`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/analyze_sentry_prs.py), [`output/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/output)) |
+| Theme dictionary (deterministic coding) | [`theme_dictionary.json`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/theme_dictionary.json) |
+| Published site source (MDX) | [`src/content/docs/studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/src/content/docs/studies/sentry-pr-review-friction) |
+| ADR proposals and companion rules | [`proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs) and [`proposed-lint-rules/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-lint-rules) |
+
+### Metrics used
+
+- Review events per PR
+- Share of PRs with repeated formal change requests
+- Median/p75/p90 time-to-merge
+- Large-PR vs small-PR friction delta
+- Theme frequency in high-friction discussion threads
+
+## Baseline findings (summary)
+
+Figures here track the **[published study overview](https://studies.archgate.dev/studies/sentry-pr-review-friction/)** (90-day window ending April 2026). See that page and [baseline metrics](https://studies.archgate.dev/studies/sentry-pr-review-friction/baseline/) for full tables.
+
+### Important coverage caveat
+
+Merged PRs alone can miss **decision ambiguity**: high-discussion PRs closed without merge, and **stale** open PRs. The live study includes closed-unmerged and open cohorts; see [Abandoned PRs](https://studies.archgate.dev/studies/sentry-pr-review-friction/abandoned/).
+
+### Repo-wide friction profile
+
+- **Median time-to-merge:** ~`4.98h`; **P90** ~`70.54h` (~14× median)
+- **PR size is the strongest friction predictor:** large PRs (≥10 files or ≥400 churn) hit the high-friction quartile **~57%** of the time vs **~10%** for tiny PRs
+
+A low formal `CHANGES_REQUESTED` rate does not mean low rework—many loops stay in comment threads.
+
+### Size matters (merged PRs)
+
+- **Large PRs** (threshold above): median TTM **~22.5h**
+- **Tiny PRs:** median TTM **~1.7h**
+
+Large PRs are a minority but dominate review drag.
+
+### Domains, scope, and themes
+
+The study breaks down friction by domain, commit title scope (`feat` vs `fix`, etc.), and discussion themes from **604 non-bot comments** across **60** high-friction PRs—see [themes](https://studies.archgate.dev/studies/sentry-pr-review-friction/themes/) and [friction map](https://studies.archgate.dev/studies/sentry-pr-review-friction/friction-map/).
+
+## Abandoned and stale PRs
+
+The analysis includes **500** closed-unmerged PRs and **251** open PRs (with 14+ / 30+ day staleness), per the [methodology](https://studies.archgate.dev/studies/sentry-pr-review-friction/methodology/).
+
+From the published overview:
+
+- **12** closed-unmerged PRs (**2.4%**) had **≥10** discussion items; those **abandoned** cases show **~2×** median TTM and **~2.5×** median review events vs merged high-friction PRs
+- **92** open PRs are stale **14+** days; **33** stale **30+** days (most-discussed stale example: **55** review events)
+
+If you only measure merged PRs, governance can look healthier than it is. Treat closed-unmerged and stale-open cohorts as first-class metrics—details on [**Abandoned PRs**](https://studies.archgate.dev/studies/sentry-pr-review-friction/abandoned/).
+
+## High-Friction PR Examples
+
+These examples illustrate where discussion loops tend to repeat:
+
+- [#111160](https://github.com/getsentry/sentry/pull/111160)  
+  `43` review events, `114.8h` time-to-merge
+- [#111192](https://github.com/getsentry/sentry/pull/111192)  
+  `25` review events, `144.2h` time-to-merge
+- [#111306](https://github.com/getsentry/sentry/pull/111306)  
+  `23` review events, `75.2h` time-to-merge
+- [#111454](https://github.com/getsentry/sentry/pull/111454)  
+  `20` review events
+- [#110956](https://github.com/getsentry/sentry/pull/110956)  
+  `18` review events, `187.1h` time-to-merge
+
+## What Gets Repeated in Review
+
+From the high-friction deep dive, repeated discussions clustered around:
+
+- **API/contract semantics** (`13/15` high-friction PRs)
+- **Type/nullability and error-path handling** (`13/15`)
+- **UX/flow behavior invariants** (`10/15`)
+- **Test evidence expectations** (`9/15`)
+- **Performance/reliability edge cases** (`5/15`)
+- **Permission/security guardrails** (`3/15`)
+- **Scope splitting and follow-up boundaries** (`4/15`)
+
+These are exactly the kinds of team decisions that ADRs can encode and rules can enforce.
+
+## Proposed ADR Pack for Sentry
+
+The evidence-backed proposal set—with Markdown ADRs, companion `.rules.ts` files, and lint artifacts—is indexed on the study site at [**ADR proposals**](https://studies.archgate.dev/studies/sentry-pr-review-friction/adr-proposals/) and in [`archgate/studies` under `proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs).
+
+The narrative below is prioritized by expected review-friction reduction.
+
+## 1) ADR: PR Slice Boundaries and Risk Budget
+
+**Problem:** Large or mixed-scope PRs create long comment threads and delayed merge cycles.  
+**Decision:** Enforce decomposition triggers before review begins.
+
+### Candidate rules
+
+- Fail or warn when PR crosses both frontend and backend without explicit exception rationale.
+- Warn/fail if churn or file count exceeds a threshold unless marked as approved exception.
+- Require linked follow-up issue for intentionally deferred work.
+
+### Why this helps
+
+It moves "please split this PR" from review-time negotiation to pre-review policy.
+
+## 2) ADR: API Contract Evolution Protocol
+
+**Problem:** Repeated back-and-forth on response shape, behavior changes, and backward compatibility.  
+**Decision:** Contract-impact changes must include compatibility declaration and rollout plan.
+
+### Candidate rules
+
+- If API surface is touched, PR body must include an **API impact** section.
+- Require compatibility type: `none`, `backward-compatible`, or `breaking`.
+- Require migration notes when compatibility is not `none`.
+
+### Why this helps
+
+It removes ambiguity around "is this a contract change?" and "what is the blast radius?"
+
+## 3) ADR: Test Evidence Matrix by Change Type
+
+**Problem:** Reviewers repeatedly ask for test depth and risk proof.  
+**Decision:** Define mandatory evidence per change class.
+
+### Candidate rules
+
+- Feature changes touching API + UI require both backend and frontend evidence.
+- Security/permission changes require positive and negative authorization tests.
+- Behavior flow changes require flow-level test or an explicit exception note.
+
+### Why this helps
+
+It standardizes proof requirements before reviewers need to ask.
+
+## 4) ADR: UI/Flow Behavioral Invariants
+
+**Problem:** Many comments resolve around navigation, state transitions, and user-flow correctness.  
+**Decision:** Flow-changing PRs must state and validate behavioral invariants.
+
+### Candidate rules
+
+- Require "before/after behavior" section for flow-related components.
+- Require screenshot/video evidence for significant UX flow changes.
+- Require explicit empty-state/error-state handling declaration.
+
+### Why this helps
+
+It converts subjective UX review loops into explicit behavior contracts.
+
+## 5) ADR: Permission and Reliability Guardrails
+
+**Problem:** Late review catches around auth checks, memory safety, and reliability edges.  
+**Decision:** Codify non-negotiable protections for sensitive paths.
+
+### Candidate rules
+
+- Endpoint changes in sensitive domains require explicit permission check declaration.
+- Detect known anti-patterns in short-circuit auth logic.
+- Flag memory-risky operations in provider/integration code paths.
+
+### Why this helps
+
+It reduces avoidable late-stage risk comments and critical fixes.
+
+## Prioritization Matrix (Impact vs Effort)
+
+| ADR                                   | Expected impact on review friction | Implementation effort | Priority |
+| ------------------------------------- | ---------------------------------- | --------------------- | -------- |
+| PR Slice Boundaries and Risk Budget   | High                               | Low-Medium            | P0       |
+| API Contract Evolution Protocol       | High                               | Medium                | P0       |
+| Test Evidence Matrix                  | High                               | Low                   | P0       |
+| UI/Flow Behavioral Invariants         | Medium-High                        | Medium                | P1       |
+| Permission and Reliability Guardrails | Medium-High                        | Medium-High           | P1       |
+
+## Suggested Enforcement Rollout
+
+### Phase 1: Template + lightweight CI gate (fastest ROI)
+
+- Expand PR template with required sections:
+  - change type
+  - API impact
+  - test evidence matrix
+  - risk and rollback notes
+  - follow-up issue links
+- Add CI check to fail if required sections are missing based on changed file patterns.
+
+### Phase 2: Scope and size policy
+
+- Add PR-slicing thresholds (file count/churn and cross-domain checks).
+- Introduce exception labels with mandatory rationale.
+
+### Phase 3: Deeper static checks
+
+- Add targeted checks for auth guardrails, nullability/error-path handling, and common reliability pitfalls.
+
+## KPI Targets (to validate ADR value)
+
+Track before/after for at least 6 weeks:
+
+- p90 review events per PR
+- share of PRs with >10 review events
+- median time-to-merge for large PRs
+- share of PRs missing required evidence sections
+- frequency of review comments that map to already-governed ADR topics
+
+Reasonable initial targets:
+
+- `20-35%` reduction in high-friction review-event volume
+- `15-25%` reduction in large-PR median time-to-merge
+- clear decline in repeated policy-level review comments
+
+## Key Takeaway
+
+The main inefficiency is not code quality in general. It is repeated decision-making during review for issues that are predictable and standardizable.
+
+For Sentry-like scale, Archgate-style ADRs plus rule enforcement are a strong fit for moving these recurring debates out of PR threads and into explicit, reusable governance.
