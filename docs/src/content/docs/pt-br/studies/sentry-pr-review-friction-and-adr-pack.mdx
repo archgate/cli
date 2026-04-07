@@ -1,0 +1,251 @@
+---
+title: "Estudo: atrito em PRs do Sentry e padronização de ADRs"
+description: "Estudo de 90 dias sobre pull requests em getsentry/sentry: onde o vai-e-volta de review se concentra e quais ADRs/regras podem reduzir discussões repetidas."
+---
+
+# Estudo: atrito em PRs do Sentry e padronização de ADRs
+
+## Objetivo
+
+Este estudo avalia onde o vai-e-volta de review se concentra em [`getsentry/sentry`](https://github.com/getsentry/sentry) e identifica quais Architecture Decision Records (ADRs) e regras aplicáveis podem reduzir ciclos de discussão repetidos.
+
+O objetivo não é eliminar revisão humana, e sim levar debates repetitivos e previsíveis para decisões explícitas e política verificável por máquina.
+
+## Estudo completo
+
+Leia a publicação canônica (metodologia, métricas, índice de ADRs) em:
+
+- [**Visão geral — atrito em PRs do Sentry**](https://studies.archgate.dev/studies/sentry-pr-review-friction/) — mesmo conteúdo que as páginas narrativas em [`archgate/studies`](https://github.com/archgate/studies)
+
+## Escopo e método
+
+Alinhado à [metodologia](https://studies.archgate.dev/studies/sentry-pr-review-friction/methodology/) do estudo publicado:
+
+| Conjunto de dados          | Contagem                                           |
+| -------------------------- | -------------------------------------------------- |
+| PRs mesclados              | 500                                                |
+| PRs fechados sem merge     | 500                                                |
+| PRs abertos amostrados     | 251                                                |
+| Análise profunda de coment | 60 PRs de alto atrito (50 mesclados + 10 fechados) |
+| Comentários coletados      | 965 no total (604 não-bot)                         |
+
+Os dados vêm da API do GitHub (veja a página de metodologia para comandos `gh` exatos, pontuação de atrito e limitações).
+
+### Reprodutibilidade e revisão por pares
+
+Tudo abaixo está auditado em **[`archgate/studies`](https://github.com/archgate/studies)**:
+
+| O quê                                    | Onde no GitHub                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Script e artefatos gerados               | [`studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction) (ex.: [`analyze_sentry_prs.py`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/analyze_sentry_prs.py), [`output/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/output)) |
+| Dicionário de temas (codificação)        | [`theme_dictionary.json`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/theme_dictionary.json)                                                                                                                                                                                                                                     |
+| Fonte do site publicado (MDX)            | [`src/content/docs/studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/src/content/docs/studies/sentry-pr-review-friction)                                                                                                                                                                                                            |
+| Propostas de ADR e regras complementares | [`proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs) e [`proposed-lint-rules/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-lint-rules)                                                                                                                    |
+
+### Métricas usadas
+
+- Eventos de review por PR
+- Parcela de PRs com pedidos formais repetidos de alteração
+- Mediana/p75/p90 de tempo até merge
+- Diferença de atrito entre PRs grandes e pequenos
+- Frequência de temas em threads de alto atrito
+
+## Achados de linha de base (resumo)
+
+Os números acompanham a **[visão geral publicada](https://studies.archgate.dev/studies/sentry-pr-review-friction/)** (janela de 90 dias terminando em abril de 2026). Tabelas completas em [métricas de linha de base](https://studies.archgate.dev/studies/sentry-pr-review-friction/baseline/).
+
+### Ressalva de cobertura
+
+Só PRs mesclados podem omitir **ambiguidade de decisão**: PRs com muita discussão fechados sem merge e PRs abertos **estagnados**. O estudo publicado inclui coortes fechadas e abertas; veja [PRs abandonados](https://studies.archgate.dev/studies/sentry-pr-review-friction/abandoned/).
+
+### Perfil de atrito no repositório
+
+- **Tempo mediano até merge:** ~`4.98h`; **P90** ~`70.54h` (~14× a mediana)
+- **Tamanho do PR é o principal preditor de atrito:** PRs grandes (≥10 arquivos ou ≥400 de churn) entram no quartil de alto atrito em **~57%** dos casos vs **~10%** para PRs minúsculos
+
+Uma taxa baixa de `CHANGES_REQUESTED` formal não significa pouco retrabalho—muitos ciclos ficam nos comentários.
+
+### Tamanho importa (PRs mesclados)
+
+- **PRs grandes** (limiar acima): TTM mediano **~22.5h**
+- **PRs minúsculos:** TTM mediano **~1.7h**
+
+PRs grandes são minoria, mas dominam o custo de review.
+
+### Domínios, escopo e temas
+
+O estudo detalha atrito por domínio, escopo do título do commit (`feat` vs `fix`, etc.) e temas de discussão a partir de **604 comentários não-bot** em **60** PRs de alto atrito—veja [temas](https://studies.archgate.dev/studies/sentry-pr-review-friction/themes/) e [mapa de atrito](https://studies.archgate.dev/studies/sentry-pr-review-friction/friction-map/).
+
+## PRs abandonados e estagnados
+
+A análise inclui **500** PRs fechados sem merge e **251** PRs abertos (estagnação 14+ / 30+ dias), conforme a [metodologia](https://studies.archgate.dev/studies/sentry-pr-review-friction/methodology/).
+
+Na visão geral publicada:
+
+- **12** PRs fechados sem merge (**2.4%**) tinham **≥10** itens de discussão; esses casos **abandonados** mostram **~2×** TTM mediano e **~2.5×** eventos de review vs PRs mesclados de alto atrito
+- **92** PRs abertos estagnados há **14+** dias; **33** há **30+** dias (exemplo estagnado mais discutido: **55** eventos de review)
+
+Se você mede só PRs mesclados, a governança pode parecer mais saudável do que é. Trate coortes fechadas sem merge e abertas estagnadas como métricas de primeira classe—detalhes em [**PRs abandonados**](https://studies.archgate.dev/studies/sentry-pr-review-friction/abandoned/).
+
+## Exemplos de PRs de alto atrito
+
+Estes exemplos ilustram onde os ciclos de discussão tendem a se repetir:
+
+- [#111160](https://github.com/getsentry/sentry/pull/111160)  
+  `43` eventos de review, `114.8h` até merge
+- [#111192](https://github.com/getsentry/sentry/pull/111192)  
+  `25` eventos de review, `144.2h` até merge
+- [#111306](https://github.com/getsentry/sentry/pull/111306)  
+  `23` eventos de review, `75.2h` até merge
+- [#111454](https://github.com/getsentry/sentry/pull/111454)  
+  `20` eventos de review
+- [#110956](https://github.com/getsentry/sentry/pull/110956)  
+  `18` eventos de review, `187.1h` até merge
+
+## O que se repete no review
+
+Na análise profunda de alto atrito, discussões repetidas se concentraram em:
+
+- **Semântica de API/contrato** (`13/15` PRs de alto atrito)
+- **Tipo/nullabilidade e tratamento de erro** (`13/15`)
+- **Invariantes de UX/fluxo** (`10/15`)
+- **Expectativas de evidência de teste** (`9/15`)
+- **Casos extremos de desempenho/confiabilidade** (`5/15`)
+- **Barreiras de permissão/segurança** (`3/15`)
+- **Divisão de escopo e limites de follow-up** (`4/15`)
+
+São exatamente decisões de equipe que ADRs podem codificar e regras podem fazer cumprir.
+
+## Pacote de ADRs proposto para o Sentry
+
+O conjunto fundamentado em evidências—com ADRs em Markdown, arquivos `.rules.ts` e artefatos de lint—está indexado no site do estudo em [**Propostas de ADR**](https://studies.archgate.dev/studies/sentry-pr-review-friction/adr-proposals/) e em [`archgate/studies` em `proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs).
+
+A narrativa abaixo está priorizada pela redução esperada de atrito em review.
+
+## 1) ADR: limites de fatia de PR e orçamento de risco
+
+**Problema:** PRs grandes ou de escopo misto geram threads longas e ciclos de merge lentos.  
+**Decisão:** Impor gatilhos de decomposição antes do review começar.
+
+### Regras candidatas
+
+- Falhar ou avisar quando o PR cruza frontend e backend sem justificativa explícita de exceção.
+- Avisar/falhar se churn ou contagem de arquivos exceder limiar, salvo exceção aprovada.
+- Exigir issue de follow-up vinculada para trabalho adiado de propósito.
+
+### Por que ajuda
+
+Move “por favor divida este PR” de negociação no review para política pré-review.
+
+## 2) ADR: protocolo de evolução de contrato de API
+
+**Problema:** Vai-e-volta repetido sobre formato de resposta, mudanças de comportamento e compatibilidade.  
+**Decisão:** Mudanças com impacto em contrato devem declarar compatibilidade e plano de rollout.
+
+### Regras candidatas
+
+- Se a superfície de API for tocada, o corpo do PR deve incluir seção **impacto na API**.
+- Exigir tipo de compatibilidade: `none`, `backward-compatible` ou `breaking`.
+- Exigir notas de migração quando compatibilidade não for `none`.
+
+### Por que ajuda
+
+Remove ambiguidade sobre “isso muda contrato?” e “qual é o raio de explosão?”.
+
+## 3) ADR: matriz de evidência de teste por tipo de mudança
+
+**Problema:** Revisores pedem repetidamente profundidade de teste e prova de risco.  
+**Decisão:** Definir evidência obrigatória por classe de mudança.
+
+### Regras candidatas
+
+- Mudanças de feature que tocam API + UI exigem evidência backend e frontend.
+- Mudanças de segurança/permissão exigem testes de autorização positivos e negativos.
+- Mudanças de fluxo de comportamento exigem teste de fluxo ou nota de exceção explícita.
+
+### Por que ajuda
+
+Padroniza requisitos de prova antes de o revisor precisar pedir.
+
+## 4) ADR: invariantes comportamentais de UI/fluxo
+
+**Problema:** Muitos comentários giram em torno de navegação, transições de estado e correção de fluxo do usuário.  
+**Decisão:** PRs que mudam fluxo devem declarar e validar invariantes comportamentais.
+
+### Regras candidatas
+
+- Exigir seção “comportamento antes/depois” para componentes relacionados a fluxo.
+- Exigir screenshot/vídeo para mudanças significativas de UX.
+- Exigir declaração explícita de tratamento de estado vazio/erro.
+
+### Por que ajuda
+
+Converte loops subjetivos de review de UX em contratos de comportamento explícitos.
+
+## 5) ADR: barreiras de permissão e confiabilidade
+
+**Problema:** Review tardio pega checagens de auth, segurança de memória e bordas de confiabilidade.  
+**Decisão:** Codificar proteções inegociáveis para caminhos sensíveis.
+
+### Regras candidatas
+
+- Mudanças de endpoint em domínios sensíveis exigem declaração explícita de checagem de permissão.
+- Detectar antipadrões conhecidos em lógica de auth em curto-circuito.
+- Sinalizar operações de risco de memória em código de provider/integração.
+
+### Por que ajuda
+
+Reduz comentários de risco evitáveis em estágio tardio e correções críticas.
+
+## Matriz de priorização (impacto vs esforço)
+
+| ADR                                         | Impacto esperado no atrito de review | Esforço de implementação | Prioridade |
+| ------------------------------------------- | ------------------------------------ | ------------------------ | ---------- |
+| Limites de fatia de PR e orçamento de risco | Alto                                 | Baixo–médio              | P0         |
+| Protocolo de evolução de contrato de API    | Alto                                 | Médio                    | P0         |
+| Matriz de evidência de teste                | Alto                                 | Baixo                    | P0         |
+| Invariantes comportamentais de UI/fluxo     | Médio–alto                           | Médio                    | P1         |
+| Barreiras de permissão e confiabilidade     | Médio–alto                           | Médio–alto               | P1         |
+
+## Rollout sugerido de enforcement
+
+### Fase 1: template + gate leve em CI (maior ROI rápido)
+
+- Expandir template de PR com seções obrigatórias:
+  - tipo de mudança
+  - impacto na API
+  - matriz de evidência de teste
+  - risco e rollback
+  - links de issues de follow-up
+- Adicionar checagem em CI que falha se seções obrigatórias faltarem conforme padrões de arquivo alterados.
+
+### Fase 2: política de escopo e tamanho
+
+- Limiares de divisão de PR (contagem de arquivos/churn e checagens cross-domain).
+- Rótulos de exceção com justificativa obrigatória.
+
+### Fase 3: checagens estáticas mais profundas
+
+- Checagens direcionadas para barreiras de auth, nullabilidade/caminhos de erro e armadilhas comuns de confiabilidade.
+
+## Metas de KPI (para validar valor dos ADRs)
+
+Acompanhar antes/depois por pelo menos 6 semanas:
+
+- p90 de eventos de review por PR
+- parcela de PRs com >10 eventos de review
+- tempo mediano até merge para PRs grandes
+- parcela de PRs sem seções de evidência obrigatórias
+- frequência de comentários de review que mapeiam para tópicos já governados por ADR
+
+Metas iniciais razoáveis:
+
+- redução de `20–35%` no volume de eventos de review de alto atrito
+- redução de `15–25%` no tempo mediano até merge de PRs grandes
+- declínio claro em comentários de review repetidos de política
+
+## Conclusão principal
+
+A principal ineficiência não é qualidade de código em geral. É **tomada de decisão repetida no review** para problemas previsíveis e padronizáveis.
+
+Em escala tipo Sentry, ADRs no estilo Archgate mais enforcement de regras são um bom encaixe para tirar esses debates recorrentes das threads de PR e colocá-los em governança explícita e reutilizável.

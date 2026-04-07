@@ -21,13 +21,13 @@ Read the canonical publication (methodology, metrics, ADR index) at:
 
 Aligned with the live study’s [methodology](https://studies.archgate.dev/studies/sentry-pr-review-friction/methodology/):
 
-| Dataset | Count |
-| -------- | ------ |
-| Merged PRs | 500 |
-| Closed-unmerged PRs | 500 |
-| Open PRs sampled | 251 |
+| Dataset               | Count                                                 |
+| --------------------- | ----------------------------------------------------- |
+| Merged PRs            | 500                                                   |
+| Closed-unmerged PRs   | 500                                                   |
+| Open PRs sampled      | 251                                                   |
 | Deep comment analysis | 60 high-friction PRs (50 merged + 10 closed-unmerged) |
-| Comments collected | 965 total (604 non-bot) |
+| Comments collected    | 965 total (604 non-bot)                               |
 
 Data is collected via the GitHub API (see the methodology page for exact `gh` commands, friction scoring, and limitations).
 
@@ -35,12 +35,12 @@ Data is collected via the GitHub API (see the methodology page for exact `gh` co
 
 Everything below is audited in **[`archgate/studies`](https://github.com/archgate/studies)**:
 
-| What | Where on GitHub |
-| ---- | ---------------- |
-| Method script and generated artifacts | [`studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction) (e.g. [`analyze_sentry_prs.py`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/analyze_sentry_prs.py), [`output/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/output)) |
-| Theme dictionary (deterministic coding) | [`theme_dictionary.json`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/theme_dictionary.json) |
-| Published site source (MDX) | [`src/content/docs/studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/src/content/docs/studies/sentry-pr-review-friction) |
-| ADR proposals and companion rules | [`proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs) and [`proposed-lint-rules/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-lint-rules) |
+| What                                    | Where on GitHub                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Method script and generated artifacts   | [`studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction) (e.g. [`analyze_sentry_prs.py`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/analyze_sentry_prs.py), [`output/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/output)) |
+| Theme dictionary (deterministic coding) | [`theme_dictionary.json`](https://github.com/archgate/studies/blob/main/studies/sentry-pr-review-friction/theme_dictionary.json)                                                                                                                                                                                                                                     |
+| Published site source (MDX)             | [`src/content/docs/studies/sentry-pr-review-friction/`](https://github.com/archgate/studies/tree/main/src/content/docs/studies/sentry-pr-review-friction)                                                                                                                                                                                                            |
+| ADR proposals and companion rules       | [`proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs) and [`proposed-lint-rules/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-lint-rules)                                                                                                                  |
 
 ### Metrics used
 
