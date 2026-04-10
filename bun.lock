@@ -15,10 +15,10 @@
         "commitizen": "4.3.1",
         "conventional-changelog": "7.2.0",
         "conventional-changelog-angular": "8.3.1",
-        "inquirer": "13.3.2",
+        "inquirer": "13.4.0",
         "meriyah": "7.1.0",
-        "oxfmt": "0.43.0",
-        "oxlint": "1.58.0",
+        "oxfmt": "0.44.0",
+        "oxlint": "1.59.0",
         "posthog-node": "5.28.11",
         "zod": "4.3.6",
       },
@@ -72,37 +72,37 @@
 
     "@conventional-changelog/git-client": ["@conventional-changelog/git-client@2.6.0", "", { "dependencies": { "@simple-libs/child-process-utils": "^1.0.0", "@simple-libs/stream-utils": "^1.2.0", "semver": "^7.5.2" }, "peerDependencies": { "conventional-commits-filter": "^5.0.0", "conventional-commits-parser": "^6.3.0" }, "optionalPeers": ["conventional-commits-filter", "conventional-commits-parser"] }, "sha512-T+uPDciKf0/ioNNDpMGc8FDsehJClZP0yR3Q5MN6wE/Y/1QZ7F+80OgznnTCOlMEG4AV0LvH2UJi3C/nBnaBUg=="],
 
-    "@inquirer/ansi": ["@inquirer/ansi@2.0.4", "", {}, "sha512-DpcZrQObd7S0R/U3bFdkcT5ebRwbTTC4D3tCc1vsJizmgPLxNJBo+AAFmrZwe8zk30P2QzgzGWZ3Q9uJwWuhIg=="],
+    "@inquirer/ansi": ["@inquirer/ansi@2.0.5", "", {}, "sha512-doc2sWgJpbFQ64UflSVd17ibMGDuxO1yKgOgLMwavzESnXjFWJqUeG8saYosqKpHp4kWiM5x1nXvEjbpx90gzw=="],
 
-    "@inquirer/checkbox": ["@inquirer/checkbox@5.1.2", "", { "dependencies": { "@inquirer/ansi": "^2.0.4", "@inquirer/core": "^11.1.7", "@inquirer/figures": "^2.0.4", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-PubpMPO2nJgMufkoB3P2wwxNXEMUXnBIKi/ACzDUYfaoPuM7gSTmuxJeMscoLVEsR4qqrCMf5p0SiYGWnVJ8kw=="],
+    "@inquirer/checkbox": ["@inquirer/checkbox@5.1.3", "", { "dependencies": { "@inquirer/ansi": "^2.0.5", "@inquirer/core": "^11.1.8", "@inquirer/figures": "^2.0.5", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-+G7I8CT+EHv/hasNfUl3P37DVoMoZfpA+2FXmM54dA8MxYle1YqucxbacxHalw1iAFSdKNEDTGNV7F+j1Ldqcg=="],
 
-    "@inquirer/confirm": ["@inquirer/confirm@6.0.10", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-tiNyA73pgpQ0FQ7axqtoLUe4GDYjNCDcVsbgcA5anvwg2z6i+suEngLKKJrWKJolT//GFPZHwN30binDIHgSgQ=="],
+    "@inquirer/confirm": ["@inquirer/confirm@6.0.11", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-pTpHjg0iEIRMYV/7oCZUMf27/383E6Wyhfc/MY+AVQGEoUobffIYWOK9YLP2XFRGz/9i6WlTQh1CkFVIo2Y7XA=="],
 
-    "@inquirer/core": ["@inquirer/core@11.1.7", "", { "dependencies": { "@inquirer/ansi": "^2.0.4", "@inquirer/figures": "^2.0.4", "@inquirer/type": "^4.0.4", "cli-width": "^4.1.0", "fast-wrap-ansi": "^0.2.0", "mute-stream": "^3.0.0", "signal-exit": "^4.1.0" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-1BiBNDk9btIwYIzNZpkikIHXWeNzNncJePPqwDyVMhXhD1ebqbpn1mKGctpoqAbzywZfdG0O4tvmsGIcOevAPQ=="],
+    "@inquirer/core": ["@inquirer/core@11.1.8", "", { "dependencies": { "@inquirer/ansi": "^2.0.5", "@inquirer/figures": "^2.0.5", "@inquirer/type": "^4.0.5", "cli-width": "^4.1.0", "fast-wrap-ansi": "^0.2.0", "mute-stream": "^3.0.0", "signal-exit": "^4.1.0" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-/u+yJk2pOKNDOh1ZgdUH2RQaRx6OOH4I0uwL95qPvTFTIL38YBsuSC4r1yXBB3Q6JvNqFFc202gk0Ew79rrcjA=="],
 
-    "@inquirer/editor": ["@inquirer/editor@5.0.10", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/external-editor": "^2.0.4", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-VJx4XyaKea7t8hEApTw5dxeIyMtWXre2OiyJcICCRZI4hkoHsMoCnl/KbUnJJExLbH9csLLHMVR144ZhFE1CwA=="],
+    "@inquirer/editor": ["@inquirer/editor@5.1.0", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/external-editor": "^3.0.0", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-6wlkYl65Qfayy48gPCfU4D7li6KCAGN79mLXa/tYHZH99OfZ820yY+HA+DgE88r8YwwgeuY6PQgNqMeK6LuMmw=="],
 
-    "@inquirer/expand": ["@inquirer/expand@5.0.10", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-fC0UHJPXsTRvY2fObiwuQYaAnHrp3aDqfwKUJSdfpgv18QUG054ezGbaRNStk/BKD5IPijeMKWej8VV8O5Q/eQ=="],
+    "@inquirer/expand": ["@inquirer/expand@5.0.12", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-vOfrB33b7YIZfDauXS8vNNz2Z86FozTZLIt7e+7/dCaPJ1RXZsHCuI9TlcERzEUq57vkM+UdnBgxP0rFd23JYQ=="],
 
-    "@inquirer/external-editor": ["@inquirer/external-editor@2.0.4", "", { "dependencies": { "chardet": "^2.1.1", "iconv-lite": "^0.7.2" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-Prenuv9C1PHj2Itx0BcAOVBTonz02Hc2Nd2DbU67PdGUaqn0nPCnV34oDyyoaZHnmfRxkpuhh/u51ThkrO+RdA=="],
+    "@inquirer/external-editor": ["@inquirer/external-editor@3.0.0", "", { "dependencies": { "chardet": "^2.1.1", "iconv-lite": "^0.7.2" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-lDSwMgg+M5rq6JKBYaJwSX6T9e/HK2qqZ1oxmOwn4AQoJE5D+7TumsxLGC02PWS//rkIVqbZv3XA3ejsc9FYvg=="],
 
-    "@inquirer/figures": ["@inquirer/figures@2.0.4", "", {}, "sha512-eLBsjlS7rPS3WEhmOmh1znQ5IsQrxWzxWDxO51e4urv+iVrSnIHbq4zqJIOiyNdYLa+BVjwOtdetcQx1lWPpiQ=="],
+    "@inquirer/figures": ["@inquirer/figures@2.0.5", "", {}, "sha512-NsSs4kzfm12lNetHwAn3GEuH317IzpwrMCbOuMIVytpjnJ90YYHNwdRgYGuKmVxwuIqSgqk3M5qqQt1cDk0tGQ=="],
 
-    "@inquirer/input": ["@inquirer/input@5.0.10", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-nvZ6qEVeX/zVtZ1dY2hTGDQpVGD3R7MYPLODPgKO8Y+RAqxkrP3i/3NwF3fZpLdaMiNuK0z2NaYIx9tPwiSegQ=="],
+    "@inquirer/input": ["@inquirer/input@5.0.11", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-twUWidn4ocPO8qi6fRM7tNWt7W1FOnOZqQ+/+PsfLUacMR5rFLDPK9ql0nBPwxi0oELbo8T5NhRs8B2+qQEqFQ=="],
 
-    "@inquirer/number": ["@inquirer/number@4.0.10", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-Ht8OQstxiS3APMGjHV0aYAjRAysidWdwurWEo2i8yI5xbhOBWqizT0+MU1S2GCcuhIBg+3SgWVjEoXgfhY+XaA=="],
+    "@inquirer/number": ["@inquirer/number@4.0.11", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-Vscmim9TCksQsfjPtka/JwPUcbLhqWYrgfPf1cHrCm24X/F2joFwnageD50yMKsaX14oNGOyKf/RNXAFkNjWpA=="],
 
-    "@inquirer/password": ["@inquirer/password@5.0.10", "", { "dependencies": { "@inquirer/ansi": "^2.0.4", "@inquirer/core": "^11.1.7", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-QbNyvIE8q2GTqKLYSsA8ATG+eETo+m31DSR0+AU7x3d2FhaTWzqQek80dj3JGTo743kQc6mhBR0erMjYw5jQ0A=="],
+    "@inquirer/password": ["@inquirer/password@5.0.11", "", { "dependencies": { "@inquirer/ansi": "^2.0.5", "@inquirer/core": "^11.1.8", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-9KZFeRaNHIcejtPb0wN4ddFc7EvobVoAFa049eS3LrDZFxI8O7xUXiITEOinBzkZFAIwY5V4yzQae/QfO9cbbg=="],
 
-    "@inquirer/prompts": ["@inquirer/prompts@8.3.2", "", { "dependencies": { "@inquirer/checkbox": "^5.1.2", "@inquirer/confirm": "^6.0.10", "@inquirer/editor": "^5.0.10", "@inquirer/expand": "^5.0.10", "@inquirer/input": "^5.0.10", "@inquirer/number": "^4.0.10", "@inquirer/password": "^5.0.10", "@inquirer/rawlist": "^5.2.6", "@inquirer/search": "^4.1.6", "@inquirer/select": "^5.1.2" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-yFroiSj2iiBFlm59amdTvAcQFvWS6ph5oKESls/uqPBect7rTU2GbjyZO2DqxMGuIwVA8z0P4K6ViPcd/cp+0w=="],
+    "@inquirer/prompts": ["@inquirer/prompts@8.4.1", "", { "dependencies": { "@inquirer/checkbox": "^5.1.3", "@inquirer/confirm": "^6.0.11", "@inquirer/editor": "^5.1.0", "@inquirer/expand": "^5.0.12", "@inquirer/input": "^5.0.11", "@inquirer/number": "^4.0.11", "@inquirer/password": "^5.0.11", "@inquirer/rawlist": "^5.2.7", "@inquirer/search": "^4.1.7", "@inquirer/select": "^5.1.3" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-AH5xPQ997K7e0F0vulPlteIHke2awMkFi8F0dBemrDfmvtPmHJo82mdHbONC4F/t8d1NHwrbI5cGVI+RbLWdoQ=="],
 
-    "@inquirer/rawlist": ["@inquirer/rawlist@5.2.6", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-jfw0MLJ5TilNsa9zlJ6nmRM0ZFVZhhTICt4/6CU2Dv1ndY7l3sqqo1gIYZyMMDw0LvE1u1nzJNisfHEhJIxq5w=="],
+    "@inquirer/rawlist": ["@inquirer/rawlist@5.2.7", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-AqRMiD9+uE1lskDPrdqHwrV/EUmxKEBLX44SR7uxK3vD2413AmVfE5EQaPeNzYf5Pq5SitHJDYUFVF0poIr09w=="],
 
-    "@inquirer/search": ["@inquirer/search@4.1.6", "", { "dependencies": { "@inquirer/core": "^11.1.7", "@inquirer/figures": "^2.0.4", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-3/6kTRae98hhDevENScy7cdFEuURnSpM3JbBNg8yfXLw88HgTOl+neUuy/l9W0No5NzGsLVydhBzTIxZP7yChQ=="],
+    "@inquirer/search": ["@inquirer/search@4.1.7", "", { "dependencies": { "@inquirer/core": "^11.1.8", "@inquirer/figures": "^2.0.5", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-1y7+0N65AWk5RdlXH/Kn13txf3IjIQ7OEfhCEkDTU+h5wKMLq8DUF3P6z+/kLSxDGDtQT1dRBWEUC3o/VvImsQ=="],
 
-    "@inquirer/select": ["@inquirer/select@5.1.2", "", { "dependencies": { "@inquirer/ansi": "^2.0.4", "@inquirer/core": "^11.1.7", "@inquirer/figures": "^2.0.4", "@inquirer/type": "^4.0.4" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-kTK8YIkHV+f02y7bWCh7E0u2/11lul5WepVTclr3UMBtBr05PgcZNWfMa7FY57ihpQFQH/spLMHTcr0rXy50tA=="],
+    "@inquirer/select": ["@inquirer/select@5.1.3", "", { "dependencies": { "@inquirer/ansi": "^2.0.5", "@inquirer/core": "^11.1.8", "@inquirer/figures": "^2.0.5", "@inquirer/type": "^4.0.5" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-zYyqWgGQi3NhBcNq4Isc5rB3oEdQEh1Q/EcAnOW0FK4MpnXWkvSBYgA4cYrTM4A9UB573omouZbnL9JJ74Mq3A=="],
 
-    "@inquirer/type": ["@inquirer/type@4.0.4", "", { "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-PamArxO3cFJZoOzspzo6cxVlLeIftyBsZw/S9bKY5DzxqJVZgjoj1oP8d0rskKtp7sZxBycsoer1g6UeJV1BBA=="],
+    "@inquirer/type": ["@inquirer/type@4.0.5", "", { "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-aetVUNeKNc/VriqXlw1NRSW0zhMBB0W4bNbWRJgzRl/3d0QNDQFfk0GO5SDdtjMZVg6o8ZKEiadd7SCCzoOn5Q=="],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.1", "", {}, "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="],
 
@@ -116,81 +116,81 @@
 
     "@opentelemetry/semantic-conventions": ["@opentelemetry/semantic-conventions@1.40.0", "", {}, "sha512-cifvXDhcqMwwTlTK04GBNeIe7yyo28Mfby85QXFe1Yk8nmi36Ab/5UQwptOx84SsoGNRg+EVSjwzfSZMy6pmlw=="],
 
-    "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.43.0", "", { "os": "android", "cpu": "arm" }, "sha512-CgU2s+/9hHZgo0IxVxrbMPrMj+tJ6VM3mD7Mr/4oiz4FNTISLoCvRmB5nk4wAAle045RtRjd86m673jwPyb1OQ=="],
+    "@oxfmt/binding-android-arm-eabi": ["@oxfmt/binding-android-arm-eabi@0.44.0", "", { "os": "android", "cpu": "arm" }, "sha512-5UvghMd9SA/yvKTWCAxMAPXS1d2i054UeOf4iFjZjfayTwCINcC3oaSXjtbZfCaEpxgJod7XiOjTtby5yEv/BQ=="],
 
-    "@oxfmt/binding-android-arm64": ["@oxfmt/binding-android-arm64@0.43.0", "", { "os": "android", "cpu": "arm64" }, "sha512-T9OfRwjA/EdYxAqbvR7TtqLv5nIrwPXuCtTwOHtS7aR9uXyn74ZYgzgTo6/ZwvTq9DY4W+DsV09hB2EXgn9EbA=="],
+    "@oxfmt/binding-android-arm64": ["@oxfmt/binding-android-arm64@0.44.0", "", { "os": "android", "cpu": "arm64" }, "sha512-IVudM1BWfvrYO++Khtzr8q9n5Rxu7msUvoFMqzGJVdX7HfUXUDHwaH2zHZNB58svx2J56pmCUzophyaPFkcG/A=="],
 
-    "@oxfmt/binding-darwin-arm64": ["@oxfmt/binding-darwin-arm64@0.43.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-o3i49ZUSJWANzXMAAVY1wnqb65hn4JVzwlRQ5qfcwhRzIA8lGVaud31Q3by5ALHPrksp5QEaKCQF9aAS3TXpZA=="],
+    "@oxfmt/binding-darwin-arm64": ["@oxfmt/binding-darwin-arm64@0.44.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-eWCLAIKAHfx88EqEP1Ga2yz7qVcqDU5lemn4xck+07bH182hDdprOHjbogyk0In1Djys3T0/pO2JepFnRJ41Mg=="],
 
-    "@oxfmt/binding-darwin-x64": ["@oxfmt/binding-darwin-x64@0.43.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-vWECzzCFkb0kK6jaHjbtC5sC3adiNWtqawFCxhpvsWlzVeKmv5bNvkB4nux+o4JKWTpHCM57NDK/MeXt44txmA=="],
+    "@oxfmt/binding-darwin-x64": ["@oxfmt/binding-darwin-x64@0.44.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-eHTBznHLM49++dwz07MblQ2cOXyIgeedmE3Wgy4ptUESj38/qYZyRi1MPwC9olQJWssMeY6WI3UZ7YmU5ggvyQ=="],
 
-    "@oxfmt/binding-freebsd-x64": ["@oxfmt/binding-freebsd-x64@0.43.0", "", { "os": "freebsd", "cpu": "x64" }, "sha512-rgz8JpkKiI/umOf7fl9gwKyQasC8bs5SYHy6g7e4SunfLBY3+8ATcD5caIg8KLGEtKFm5ujKaH8EfjcmnhzTLg=="],
+    "@oxfmt/binding-freebsd-x64": ["@oxfmt/binding-freebsd-x64@0.44.0", "", { "os": "freebsd", "cpu": "x64" }, "sha512-jLMmbj0u0Ft43QpkUVr/0v1ZfQCGWAvU+WznEHcN3wZC/q6ox7XeSJtk9P36CCpiDSUf3sGnzbIuG1KdEMEDJQ=="],
 
-    "@oxfmt/binding-linux-arm-gnueabihf": ["@oxfmt/binding-linux-arm-gnueabihf@0.43.0", "", { "os": "linux", "cpu": "arm" }, "sha512-nWYnF3vIFzT4OM1qL/HSf1Yuj96aBuKWSaObXHSWliwAk2rcj7AWd6Lf7jowEBQMo4wCZVnueIGw/7C4u0KTBQ=="],
+    "@oxfmt/binding-linux-arm-gnueabihf": ["@oxfmt/binding-linux-arm-gnueabihf@0.44.0", "", { "os": "linux", "cpu": "arm" }, "sha512-n+A/u/ByK1qV8FVGOwyaSpw5NPNl0qlZfgTBqHeGIqr8Qzq1tyWZ4lAaxPoe5mZqE3w88vn3+jZtMxriHPE7tg=="],
 
-    "@oxfmt/binding-linux-arm-musleabihf": ["@oxfmt/binding-linux-arm-musleabihf@0.43.0", "", { "os": "linux", "cpu": "arm" }, "sha512-sFg+NWJbLfupYTF4WELHAPSnLPOn1jiDZ33Z1jfDnTaA+cC3iB35x0FMMZTFdFOz3icRIArncwCcemJFGXu6TQ=="],
+    "@oxfmt/binding-linux-arm-musleabihf": ["@oxfmt/binding-linux-arm-musleabihf@0.44.0", "", { "os": "linux", "cpu": "arm" }, "sha512-5eax+FkxyCqAi3Rw0mrZFr7+KTt/XweFsbALR+B5ljWBLBl8nHe4ADrUnb1gLEfQCJLl+Ca5FIVD4xEt95AwIw=="],
 
-    "@oxfmt/binding-linux-arm64-gnu": ["@oxfmt/binding-linux-arm64-gnu@0.43.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-MelWqv68tX6wZEILDrTc9yewiGXe7im62+5x0bNXlCYFOZdA+VnYiJfAihbROsZ5fm90p9C3haFrqjj43XnlAA=="],
+    "@oxfmt/binding-linux-arm64-gnu": ["@oxfmt/binding-linux-arm64-gnu@0.44.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-58l8JaHxSGOmOMOG2CIrNsnkRJAj0YcHQCmvNACniOa/vd1iRHhlPajczegzS5jwMENlqgreyiTR9iNlke8qCw=="],
 
-    "@oxfmt/binding-linux-arm64-musl": ["@oxfmt/binding-linux-arm64-musl@0.43.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-ROaWfYh+6BSJ1Arwy5ujijTlwnZetxDxzBpDc1oBR4d7rfrPBqzeyjd5WOudowzQUgyavl2wEpzn1hw3jWcqLA=="],
+    "@oxfmt/binding-linux-arm64-musl": ["@oxfmt/binding-linux-arm64-musl@0.44.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-AlObQIXyVRZ96LbtVljtFq0JqH5B92NU+BQeDFrXWBUWlCKAM0wF5GLfIhCLT5kQ3Sl+U0YjRJ7Alqj5hGQaCg=="],
 
-    "@oxfmt/binding-linux-ppc64-gnu": ["@oxfmt/binding-linux-ppc64-gnu@0.43.0", "", { "os": "linux", "cpu": "ppc64" }, "sha512-PJRs/uNxmFipJJ8+SyKHh7Y7VZIKQicqrrBzvfyM5CtKi8D7yZKTwUOZV3ffxmiC2e7l1SDJpkBEOyue5NAFsg=="],
+    "@oxfmt/binding-linux-ppc64-gnu": ["@oxfmt/binding-linux-ppc64-gnu@0.44.0", "", { "os": "linux", "cpu": "ppc64" }, "sha512-YcFE8/q/BbrCiIiM5piwbkA6GwJc5QqhMQp2yDrqQ2fuVkZ7CInb1aIijZ/k8EXc72qXMSwKpVlBv1w/MsGO/A=="],
 
-    "@oxfmt/binding-linux-riscv64-gnu": ["@oxfmt/binding-linux-riscv64-gnu@0.43.0", "", { "os": "linux", "cpu": "none" }, "sha512-j6biGAgzIhj+EtHXlbNumvwG7XqOIdiU4KgIWRXAEj/iUbHKukKW8eXa4MIwpQwW1YkxovduKtzEAPnjlnAhVQ=="],
+    "@oxfmt/binding-linux-riscv64-gnu": ["@oxfmt/binding-linux-riscv64-gnu@0.44.0", "", { "os": "linux", "cpu": "none" }, "sha512-eOdzs6RqkRzuqNHUX5C8ISN5xfGh4xDww8OEd9YAmc3OWN8oAe5bmlIqQ+rrHLpv58/0BuU48bxkhnIGjA/ATQ=="],
 
-    "@oxfmt/binding-linux-riscv64-musl": ["@oxfmt/binding-linux-riscv64-musl@0.43.0", "", { "os": "linux", "cpu": "none" }, "sha512-RYWxAcslKxvy7yri24Xm9cmD0RiANaiEPs007EFG6l9h1ChM69Q5SOzACaCoz4Z9dEplnhhneeBaTWMEdpgIbA=="],
+    "@oxfmt/binding-linux-riscv64-musl": ["@oxfmt/binding-linux-riscv64-musl@0.44.0", "", { "os": "linux", "cpu": "none" }, "sha512-YBgNTxntD/QvlFUfgvh8bEdwOhXiquX8gaofZJAwYa/Xp1S1DQrFVZEeck7GFktr24DztsSp8N8WtWCBwxs0Hw=="],
 
-    "@oxfmt/binding-linux-s390x-gnu": ["@oxfmt/binding-linux-s390x-gnu@0.43.0", "", { "os": "linux", "cpu": "s390x" }, "sha512-DT6Q8zfQQy3jxpezAsBACEHNUUixKSYTwdXeXojNHe4DQOoxjPdjr3Szu6BRNjxLykZM/xMNmp9ElOIyDppwtw=="],
+    "@oxfmt/binding-linux-s390x-gnu": ["@oxfmt/binding-linux-s390x-gnu@0.44.0", "", { "os": "linux", "cpu": "s390x" }, "sha512-GLIh1R6WHWshl/i4QQDNgj0WtT25aRO4HNUWEoitxiywyRdhTFmFEYT2rXlcl9U6/26vhmOqG5cRlMLG3ocaIA=="],
 
-    "@oxfmt/binding-linux-x64-gnu": ["@oxfmt/binding-linux-x64-gnu@0.43.0", "", { "os": "linux", "cpu": "x64" }, "sha512-R8Yk7iYcuZORXmCfFZClqbDxRZgZ9/HEidUuBNdoX8Ptx07cMePnMVJ/woB84lFIDjh2ROHVaOP40Ds3rBXFqg=="],
+    "@oxfmt/binding-linux-x64-gnu": ["@oxfmt/binding-linux-x64-gnu@0.44.0", "", { "os": "linux", "cpu": "x64" }, "sha512-gZOpgTlOsLcLfAF9qgpTr7FIIFSKnQN3hDf/0JvQ4CIwMY7h+eilNjxq/CorqvYcEOu+LRt1W4ZS7KccEHLOdA=="],
 
-    "@oxfmt/binding-linux-x64-musl": ["@oxfmt/binding-linux-x64-musl@0.43.0", "", { "os": "linux", "cpu": "x64" }, "sha512-F2YYqyvnQNvi320RWZNAvsaWEHwmW3k4OwNJ1hZxRKXupY63expbBaNp6jAgvYs7y/g546vuQnGHQuCBhslhLQ=="],
+    "@oxfmt/binding-linux-x64-musl": ["@oxfmt/binding-linux-x64-musl@0.44.0", "", { "os": "linux", "cpu": "x64" }, "sha512-1CyS9JTB+pCUFYFI6pkQGGZaT/AY5gnhHVrQQLhFba6idP9AzVYm1xbdWfywoldTYvjxQJV6x4SuduCIfP3W+A=="],
 
-    "@oxfmt/binding-openharmony-arm64": ["@oxfmt/binding-openharmony-arm64@0.43.0", "", { "os": "none", "cpu": "arm64" }, "sha512-OE6TdietLXV3F6c7pNIhx/9YC1/2YFwjU9DPc/fbjxIX19hNIaP1rS0cFjCGJlGX+cVJwIKWe8Mos+LdQ1yAJw=="],
+    "@oxfmt/binding-openharmony-arm64": ["@oxfmt/binding-openharmony-arm64@0.44.0", "", { "os": "none", "cpu": "arm64" }, "sha512-bmEv70Ak6jLr1xotCbF5TxIKjsmQaiX+jFRtnGtfA03tJPf6VG3cKh96S21boAt3JZc+Vjx8PYcDuLj39vM2Pw=="],
 
-    "@oxfmt/binding-win32-arm64-msvc": ["@oxfmt/binding-win32-arm64-msvc@0.43.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-0nWK6a7pGkbdoypfVicmV9k/N1FwjPZENoqhlTU+5HhZnAhpIO3za30nEE33u6l6tuy9OVfpdXUqxUgZ+4lbZw=="],
+    "@oxfmt/binding-win32-arm64-msvc": ["@oxfmt/binding-win32-arm64-msvc@0.44.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-yWzB+oCpSnP/dmw85eFLAT5o35Ve5pkGS2uF/UCISpIwDqf1xa7OpmtomiqY/Vzg8VyvMbuf6vroF2khF/+1Vg=="],
 
-    "@oxfmt/binding-win32-ia32-msvc": ["@oxfmt/binding-win32-ia32-msvc@0.43.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-9aokTR4Ft+tRdvgN/pKzSkVy2ksc4/dCpDm9L/xFrbIw0yhLtASLbvoG/5WOTUh/BRPPnfGTsWznEqv0dlOmhA=="],
+    "@oxfmt/binding-win32-ia32-msvc": ["@oxfmt/binding-win32-ia32-msvc@0.44.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-TcWpo18xEIE3AmIG2kpr3kz5IEhQgnx0lazl2+8L+3eTopOAUevQcmlr4nhguImNWz0OMeOZrYZOhJNCf16nlQ=="],
 
-    "@oxfmt/binding-win32-x64-msvc": ["@oxfmt/binding-win32-x64-msvc@0.43.0", "", { "os": "win32", "cpu": "x64" }, "sha512-4bPgdQux2ZLWn3bf2TTXXMHcJB4lenmuxrLqygPmvCJ104Yqzj1UctxSRzR31TiJ4MLaG22RK8dUsVpJtrCz5g=="],
+    "@oxfmt/binding-win32-x64-msvc": ["@oxfmt/binding-win32-x64-msvc@0.44.0", "", { "os": "win32", "cpu": "x64" }, "sha512-oj8aLkPJZppIM4CMQNsyir9ybM1Xw/CfGPTSsTnzpVGyljgfbdP0EVUlURiGM0BDrmw5psQ6ArmGCcUY/yABaQ=="],
 
-    "@oxlint/binding-android-arm-eabi": ["@oxlint/binding-android-arm-eabi@1.58.0", "", { "os": "android", "cpu": "arm" }, "sha512-1T7UN3SsWWxpWyWGn1cT3ASNJOo+pI3eUkmEl7HgtowapcV8kslYpFQcYn431VuxghXakPNlbjRwhqmR37PFOg=="],
+    "@oxlint/binding-android-arm-eabi": ["@oxlint/binding-android-arm-eabi@1.59.0", "", { "os": "android", "cpu": "arm" }, "sha512-etYDw/UaEv936AQUd/CRMBVd+e+XuuU6wC+VzOv1STvsTyZenLChepLWqLtnyTTp4YMlM22ypzogDDwqYxv5cg=="],
 
-    "@oxlint/binding-android-arm64": ["@oxlint/binding-android-arm64@1.58.0", "", { "os": "android", "cpu": "arm64" }, "sha512-GryzujxuiRv2YFF7bRy8mKcxlbuAN+euVUtGJt9KKbLT8JBUIosamVhcthLh+VEr6KE6cjeVMAQxKAzJcoN7dg=="],
+    "@oxlint/binding-android-arm64": ["@oxlint/binding-android-arm64@1.59.0", "", { "os": "android", "cpu": "arm64" }, "sha512-TgLc7XVLKH2a4h8j3vn1MDjfK33i9MY60f/bKhRGWyVzbk5LCZ4X01VZG7iHrMmi5vYbAp8//Ponigx03CLsdw=="],
 
-    "@oxlint/binding-darwin-arm64": ["@oxlint/binding-darwin-arm64@1.58.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-7/bRSJIwl4GxeZL9rPZ11anNTyUO9epZrfEJH/ZMla3+/gbQ6xZixh9nOhsZ0QwsTW7/5J2A/fHbD1udC5DQQA=="],
+    "@oxlint/binding-darwin-arm64": ["@oxlint/binding-darwin-arm64@1.59.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-DXyFPf5ZKldMLloRHx/B9fsxsiTQomaw7cmEW3YIJko2HgCh+GUhp9gGYwHrqlLJPsEe3dYj9JebjX92D3j3AA=="],
 
-    "@oxlint/binding-darwin-x64": ["@oxlint/binding-darwin-x64@1.58.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-EqdtJSiHweS2vfILNrpyJ6HUwpEq2g7+4Zx1FPi4hu3Hu7tC3znF6ufbXO8Ub2LD4mGgznjI7kSdku9NDD1Mkg=="],
+    "@oxlint/binding-darwin-x64": ["@oxlint/binding-darwin-x64@1.59.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-LgvrsdgVLX1qWqIEmNsSmMXJhpAWdtUQ0M+oR0CySwi+9IHWyOGuIL8w8+u/kbZNMyZr4WUyYB5i0+D+AKgkLg=="],
 
-    "@oxlint/binding-freebsd-x64": ["@oxlint/binding-freebsd-x64@1.58.0", "", { "os": "freebsd", "cpu": "x64" }, "sha512-VQt5TH4M42mY20F545G637RKxV/yjwVtKk2vfXuazfReSIiuvWBnv+FVSvIV5fKVTJNjt3GSJibh6JecbhGdBw=="],
+    "@oxlint/binding-freebsd-x64": ["@oxlint/binding-freebsd-x64@1.59.0", "", { "os": "freebsd", "cpu": "x64" }, "sha512-bOJhqX/ny4hrFuTPlyk8foSRx/vLRpxJh0jOOKN2NWW6FScXHPAA5rQbrwdQPcgGB5V8Ua51RS03fke8ssBcug=="],
 
-    "@oxlint/binding-linux-arm-gnueabihf": ["@oxlint/binding-linux-arm-gnueabihf@1.58.0", "", { "os": "linux", "cpu": "arm" }, "sha512-fBYcj4ucwpAtjJT3oeBdFBYKvNyjRSK+cyuvBOTQjh0jvKp4yeA4S/D0IsCHus/VPaNG5L48qQkh+Vjy3HL2/Q=="],
+    "@oxlint/binding-linux-arm-gnueabihf": ["@oxlint/binding-linux-arm-gnueabihf@1.59.0", "", { "os": "linux", "cpu": "arm" }, "sha512-vVUXxYMF9trXCsz4m9H6U0IjehosVHxBzVgJUxly1uz4W1PdDyicaBnpC0KRXsHYretLVe+uS9pJy8iM57Kujw=="],
 
-    "@oxlint/binding-linux-arm-musleabihf": ["@oxlint/binding-linux-arm-musleabihf@1.58.0", "", { "os": "linux", "cpu": "arm" }, "sha512-0BeuFfwlUHlJ1xpEdSD1YO3vByEFGPg36uLjK1JgFaxFb4W6w17F8ET8sz5cheZ4+x5f2xzdnRrrWv83E3Yd8g=="],
+    "@oxlint/binding-linux-arm-musleabihf": ["@oxlint/binding-linux-arm-musleabihf@1.59.0", "", { "os": "linux", "cpu": "arm" }, "sha512-TULQW8YBPGRWg5yZpFPL54HLOnJ3/HiX6VenDPi6YfxB/jlItwSMFh3/hCeSNbh+DAMaE1Py0j5MOaivHkI/9Q=="],
 
-    "@oxlint/binding-linux-arm64-gnu": ["@oxlint/binding-linux-arm64-gnu@1.58.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-TXlZgnPTlxrQzxG9ZXU7BNwx1Ilrr17P3GwZY0If2EzrinqRH3zXPc3HrRcBJgcsoZNMuNL5YivtkJYgp467UQ=="],
+    "@oxlint/binding-linux-arm64-gnu": ["@oxlint/binding-linux-arm64-gnu@1.59.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-Gt54Y4eqSgYJ90xipm24xeyaPV854706o/kiT8oZvUt3VDY7qqxdqyGqchMaujd87ib+/MXvnl9WkK8Cc1BExg=="],
 
-    "@oxlint/binding-linux-arm64-musl": ["@oxlint/binding-linux-arm64-musl@1.58.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-zSoYRo5dxHLcUx93Stl2hW3hSNjPt99O70eRVWt5A1zwJ+FPjeCCANCD2a9R4JbHsdcl11TIQOjyigcRVOH2mw=="],
+    "@oxlint/binding-linux-arm64-musl": ["@oxlint/binding-linux-arm64-musl@1.59.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-3CtsKp7NFB3OfqQzbuAecrY7GIZeiv7AD+xutU4tefVQzlfmTI7/ygWLrvkzsDEjTlMq41rYHxgsn6Yh8tybmA=="],
 
-    "@oxlint/binding-linux-ppc64-gnu": ["@oxlint/binding-linux-ppc64-gnu@1.58.0", "", { "os": "linux", "cpu": "ppc64" }, "sha512-NQ0U/lqxH2/VxBYeAIvMNUK1y0a1bJ3ZicqkF2c6wfakbEciP9jvIE4yNzCFpZaqeIeRYaV7AVGqEO1yrfVPjA=="],
+    "@oxlint/binding-linux-ppc64-gnu": ["@oxlint/binding-linux-ppc64-gnu@1.59.0", "", { "os": "linux", "cpu": "ppc64" }, "sha512-K0diOpT3ncDmOfl9I1HuvpEsAuTxkts0VYwIv/w6Xiy9CdwyPBVX88Ga9l8VlGgMrwBMnSY4xIvVlVY/fkQk7Q=="],
 
-    "@oxlint/binding-linux-riscv64-gnu": ["@oxlint/binding-linux-riscv64-gnu@1.58.0", "", { "os": "linux", "cpu": "none" }, "sha512-X9J+kr3gIC9FT8GuZt0ekzpNUtkBVzMVU4KiKDSlocyQuEgi3gBbXYN8UkQiV77FTusLDPsovjo95YedHr+3yg=="],
+    "@oxlint/binding-linux-riscv64-gnu": ["@oxlint/binding-linux-riscv64-gnu@1.59.0", "", { "os": "linux", "cpu": "none" }, "sha512-xAU7+QDU6kTJJ7mJLOGgo7oOjtAtkKyFZ0Yjdb5cEo3DiCCPFLvyr08rWiQh6evZ7RiUTf+o65NY/bqttzJiQQ=="],
 
-    "@oxlint/binding-linux-riscv64-musl": ["@oxlint/binding-linux-riscv64-musl@1.58.0", "", { "os": "linux", "cpu": "none" }, "sha512-CDze3pi1OO3Wvb/QsXjmLEY4XPKGM6kIo82ssNOgmcl1IdndF9VSGAE38YLhADWmOac7fjqhBw82LozuUVxD0Q=="],
+    "@oxlint/binding-linux-riscv64-musl": ["@oxlint/binding-linux-riscv64-musl@1.59.0", "", { "os": "linux", "cpu": "none" }, "sha512-KUmZmKlTTyauOnvUNVxK7G40sSSx0+w5l1UhaGsC6KPpOYHenx2oqJTnabmpLJicok7IC+3Y6fXAUOMyexaeJQ=="],
 
-    "@oxlint/binding-linux-s390x-gnu": ["@oxlint/binding-linux-s390x-gnu@1.58.0", "", { "os": "linux", "cpu": "s390x" }, "sha512-b/89glbxFaEAcA6Uf1FvCNecBJEgcUTsV1quzrqXM/o4R1M4u+2KCVuyGCayN2UpsRWtGGLb+Ver0tBBpxaPog=="],
+    "@oxlint/binding-linux-s390x-gnu": ["@oxlint/binding-linux-s390x-gnu@1.59.0", "", { "os": "linux", "cpu": "s390x" }, "sha512-4usRxC8gS0PGdkHnRmwJt/4zrQNZyk6vL0trCxwZSsAKM+OxhB8nKiR+mhjdBbl8lbMh2gc3bZpNN/ik8c4c2A=="],
 
-    "@oxlint/binding-linux-x64-gnu": ["@oxlint/binding-linux-x64-gnu@1.58.0", "", { "os": "linux", "cpu": "x64" }, "sha512-0/yYpkq9VJFCEcuRlrViGj8pJUFFvNS4EkEREaN7CB1EcLXJIaVSSa5eCihwBGXtOZxhnblWgxks9juRdNQI7w=="],
+    "@oxlint/binding-linux-x64-gnu": ["@oxlint/binding-linux-x64-gnu@1.59.0", "", { "os": "linux", "cpu": "x64" }, "sha512-s/rNE2gDmbwAOOP493xk2X7M8LZfI1LJFSSW1+yanz3vuQCFPiHkx4GY+O1HuLUDtkzGlhtMrIcxxzyYLv308w=="],
 
-    "@oxlint/binding-linux-x64-musl": ["@oxlint/binding-linux-x64-musl@1.58.0", "", { "os": "linux", "cpu": "x64" }, "sha512-hr6FNvmcAXiH+JxSvaJ4SJ1HofkdqEElXICW9sm3/Rd5eC3t7kzvmLyRAB3NngKO2wzXRCAm4Z/mGWfrsS4X8w=="],
+    "@oxlint/binding-linux-x64-musl": ["@oxlint/binding-linux-x64-musl@1.59.0", "", { "os": "linux", "cpu": "x64" }, "sha512-+yYj1udJa2UvvIUmEm0IcKgc0UlPMgz0nsSTvkPL2y6n0uU5LgIHSwVu4AHhrve6j9BpVSoRksnz8c9QcvITJA=="],
 
-    "@oxlint/binding-openharmony-arm64": ["@oxlint/binding-openharmony-arm64@1.58.0", "", { "os": "none", "cpu": "arm64" }, "sha512-R+O368VXgRql1K6Xar+FEo7NEwfo13EibPMoTv3sesYQedRXd6m30Dh/7lZMxnrQVFfeo4EOfYIP4FpcgWQNHg=="],
+    "@oxlint/binding-openharmony-arm64": ["@oxlint/binding-openharmony-arm64@1.59.0", "", { "os": "none", "cpu": "arm64" }, "sha512-bUplUb48LYsB3hHlQXP2ZMOenpieWoOyppLAnnAhuPag3MGPnt+7caxE3w/Vl9wpQsTA3gzLntQi9rxWrs7Xqg=="],
 
-    "@oxlint/binding-win32-arm64-msvc": ["@oxlint/binding-win32-arm64-msvc@1.58.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-Q0FZiAY/3c4YRj4z3h9K1PgaByrifrfbBoODSeX7gy97UtB7pySPUQfC2B/GbxWU6k7CzQrRy5gME10PltLAFQ=="],
+    "@oxlint/binding-win32-arm64-msvc": ["@oxlint/binding-win32-arm64-msvc@1.59.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-/HLsLuz42rWl7h7ePdmMTpHm2HIDmPtcEMYgm5BBEHiEiuNOrzMaUpd2z7UnNni5LGN9obJy2YoAYBLXQwazrA=="],
 
-    "@oxlint/binding-win32-ia32-msvc": ["@oxlint/binding-win32-ia32-msvc@1.58.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-Y8FKBABrSPp9H0QkRLHDHOSUgM/309a3IvOVgPcVxYcX70wxJrk608CuTg7w+C6vEd724X5wJoNkBcGYfH7nNQ=="],
+    "@oxlint/binding-win32-ia32-msvc": ["@oxlint/binding-win32-ia32-msvc@1.59.0", "", { "os": "win32", "cpu": "ia32" }, "sha512-rUPy+JnanpPwV/aJCPnxAD1fW50+XPI0VkWr7f0vEbqcdsS8NpB24Rw6RsS7SdpFv8Dw+8ugCwao5nCFbqOUSg=="],
 
-    "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.58.0", "", { "os": "win32", "cpu": "x64" }, "sha512-bCn5rbiz5My+Bj7M09sDcnqW0QJyINRVxdZ65x1/Y2tGrMwherwK/lpk+HRQCKvXa8pcaQdF5KY5j54VGZLwNg=="],
+    "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.59.0", "", { "os": "win32", "cpu": "x64" }, "sha512-xkE7puteDS/vUyRngLXW0t8WgdWoS/tfxXjhP/P7SMqPDx+hs44SpssO3h3qmTqECYEuXBUPzcAw5257Ka+ofA=="],
 
     "@posthog/core": ["@posthog/core@1.24.6", "", {}, "sha512-9WkcRKqmXSWIJcca6m3VwA9YbFd4HiG2hKEtDq6FcwEHlvfDhQQUZ5/sJZ47Fw8OtyNMHQ6rW4+COttk4Bg5NQ=="],
 
@@ -392,7 +392,7 @@
 
     "ini": ["ini@4.1.1", "", {}, "sha512-QQnnxNyfvmHFIsj7gkPcYymR8Jdw/o7mp5ZFihxn6h8Ci6fh3Dx4E1gPjpQEpIuPo9XVNY/ZUwh4BPMjGyL01g=="],
 
-    "inquirer": ["inquirer@13.3.2", "", { "dependencies": { "@inquirer/ansi": "^2.0.4", "@inquirer/core": "^11.1.7", "@inquirer/prompts": "^8.3.2", "@inquirer/type": "^4.0.4", "mute-stream": "^3.0.0", "run-async": "^4.0.6", "rxjs": "^7.8.2" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-bh/OjBGxNR9qvfQj1n5bxtIF58mbOTp2InN5dKuwUK03dXcDGFsjlDinQRuXMZ4EGiJaFieUWHCAaxH2p7iUBw=="],
+    "inquirer": ["inquirer@13.4.0", "", { "dependencies": { "@inquirer/ansi": "^2.0.5", "@inquirer/core": "^11.1.8", "@inquirer/prompts": "^8.4.0", "@inquirer/type": "^4.0.5", "mute-stream": "^3.0.0", "run-async": "^4.0.6", "rxjs": "^7.8.2" }, "peerDependencies": { "@types/node": ">=18" }, "optionalPeers": ["@types/node"] }, "sha512-/RH0u1Jk6kI7hv07SIhYRxuLwKySNLs/QNUsrOtvz+EqixkB3WVtpgNPqQuQ7fqSKSp5dv5f2H0ZXOvSQU7JTg=="],
 
     "is-arrayish": ["is-arrayish@0.2.1", "", {}, "sha512-zz06S8t0ozoDXMG+ube26zeCTNXcKIPJZJi8hBrF4idCLms4CG9QtK7qBl1boi5ODzFpjswb5JPmHCbMpjaYzg=="],
 
@@ -484,9 +484,9 @@
 
     "os-tmpdir": ["os-tmpdir@1.0.2", "", {}, "sha512-D2FR03Vir7FIu45XBY20mTb+/ZSWB00sjU9jdQXt83gDrI4Ztz5Fs7/yy74g2N5SVQY4xY1qDr4rNddwYRVX0g=="],
 
-    "oxfmt": ["oxfmt@0.43.0", "", { "dependencies": { "tinypool": "2.1.0" }, "optionalDependencies": { "@oxfmt/binding-android-arm-eabi": "0.43.0", "@oxfmt/binding-android-arm64": "0.43.0", "@oxfmt/binding-darwin-arm64": "0.43.0", "@oxfmt/binding-darwin-x64": "0.43.0", "@oxfmt/binding-freebsd-x64": "0.43.0", "@oxfmt/binding-linux-arm-gnueabihf": "0.43.0", "@oxfmt/binding-linux-arm-musleabihf": "0.43.0", "@oxfmt/binding-linux-arm64-gnu": "0.43.0", "@oxfmt/binding-linux-arm64-musl": "0.43.0", "@oxfmt/binding-linux-ppc64-gnu": "0.43.0", "@oxfmt/binding-linux-riscv64-gnu": "0.43.0", "@oxfmt/binding-linux-riscv64-musl": "0.43.0", "@oxfmt/binding-linux-s390x-gnu": "0.43.0", "@oxfmt/binding-linux-x64-gnu": "0.43.0", "@oxfmt/binding-linux-x64-musl": "0.43.0", "@oxfmt/binding-openharmony-arm64": "0.43.0", "@oxfmt/binding-win32-arm64-msvc": "0.43.0", "@oxfmt/binding-win32-ia32-msvc": "0.43.0", "@oxfmt/binding-win32-x64-msvc": "0.43.0" }, "bin": { "oxfmt": "bin/oxfmt" } }, "sha512-KTYNG5ISfHSdmeZ25Xzb3qgz9EmQvkaGAxgBY/p38+ZiAet3uZeu7FnMwcSQJg152Qwl0wnYAxDc+Z/H6cvrwA=="],
+    "oxfmt": ["oxfmt@0.44.0", "", { "dependencies": { "tinypool": "2.1.0" }, "optionalDependencies": { "@oxfmt/binding-android-arm-eabi": "0.44.0", "@oxfmt/binding-android-arm64": "0.44.0", "@oxfmt/binding-darwin-arm64": "0.44.0", "@oxfmt/binding-darwin-x64": "0.44.0", "@oxfmt/binding-freebsd-x64": "0.44.0", "@oxfmt/binding-linux-arm-gnueabihf": "0.44.0", "@oxfmt/binding-linux-arm-musleabihf": "0.44.0", "@oxfmt/binding-linux-arm64-gnu": "0.44.0", "@oxfmt/binding-linux-arm64-musl": "0.44.0", "@oxfmt/binding-linux-ppc64-gnu": "0.44.0", "@oxfmt/binding-linux-riscv64-gnu": "0.44.0", "@oxfmt/binding-linux-riscv64-musl": "0.44.0", "@oxfmt/binding-linux-s390x-gnu": "0.44.0", "@oxfmt/binding-linux-x64-gnu": "0.44.0", "@oxfmt/binding-linux-x64-musl": "0.44.0", "@oxfmt/binding-openharmony-arm64": "0.44.0", "@oxfmt/binding-win32-arm64-msvc": "0.44.0", "@oxfmt/binding-win32-ia32-msvc": "0.44.0", "@oxfmt/binding-win32-x64-msvc": "0.44.0" }, "bin": { "oxfmt": "bin/oxfmt" } }, "sha512-lnncqvHewyRvaqdrnntVIrZV2tEddz8lbvPsQzG/zlkfvgZkwy0HP1p/2u1aCDToeg1jb9zBpbJdfkV73Itw+w=="],
 
-    "oxlint": ["oxlint@1.58.0", "", { "optionalDependencies": { "@oxlint/binding-android-arm-eabi": "1.58.0", "@oxlint/binding-android-arm64": "1.58.0", "@oxlint/binding-darwin-arm64": "1.58.0", "@oxlint/binding-darwin-x64": "1.58.0", "@oxlint/binding-freebsd-x64": "1.58.0", "@oxlint/binding-linux-arm-gnueabihf": "1.58.0", "@oxlint/binding-linux-arm-musleabihf": "1.58.0", "@oxlint/binding-linux-arm64-gnu": "1.58.0", "@oxlint/binding-linux-arm64-musl": "1.58.0", "@oxlint/binding-linux-ppc64-gnu": "1.58.0", "@oxlint/binding-linux-riscv64-gnu": "1.58.0", "@oxlint/binding-linux-riscv64-musl": "1.58.0", "@oxlint/binding-linux-s390x-gnu": "1.58.0", "@oxlint/binding-linux-x64-gnu": "1.58.0", "@oxlint/binding-linux-x64-musl": "1.58.0", "@oxlint/binding-openharmony-arm64": "1.58.0", "@oxlint/binding-win32-arm64-msvc": "1.58.0", "@oxlint/binding-win32-ia32-msvc": "1.58.0", "@oxlint/binding-win32-x64-msvc": "1.58.0" }, "peerDependencies": { "oxlint-tsgolint": ">=0.18.0" }, "optionalPeers": ["oxlint-tsgolint"], "bin": { "oxlint": "bin/oxlint" } }, "sha512-t4s9leczDMqlvOSjnbCQe7gtoLkWgBGZ7sBdCJ9EOj5IXFSG/X7OAzK4yuH4iW+4cAYe8kLFbC8tuYMwWZm+Cg=="],
+    "oxlint": ["oxlint@1.59.0", "", { "optionalDependencies": { "@oxlint/binding-android-arm-eabi": "1.59.0", "@oxlint/binding-android-arm64": "1.59.0", "@oxlint/binding-darwin-arm64": "1.59.0", "@oxlint/binding-darwin-x64": "1.59.0", "@oxlint/binding-freebsd-x64": "1.59.0", "@oxlint/binding-linux-arm-gnueabihf": "1.59.0", "@oxlint/binding-linux-arm-musleabihf": "1.59.0", "@oxlint/binding-linux-arm64-gnu": "1.59.0", "@oxlint/binding-linux-arm64-musl": "1.59.0", "@oxlint/binding-linux-ppc64-gnu": "1.59.0", "@oxlint/binding-linux-riscv64-gnu": "1.59.0", "@oxlint/binding-linux-riscv64-musl": "1.59.0", "@oxlint/binding-linux-s390x-gnu": "1.59.0", "@oxlint/binding-linux-x64-gnu": "1.59.0", "@oxlint/binding-linux-x64-musl": "1.59.0", "@oxlint/binding-openharmony-arm64": "1.59.0", "@oxlint/binding-win32-arm64-msvc": "1.59.0", "@oxlint/binding-win32-ia32-msvc": "1.59.0", "@oxlint/binding-win32-x64-msvc": "1.59.0" }, "peerDependencies": { "oxlint-tsgolint": ">=0.18.0" }, "optionalPeers": ["oxlint-tsgolint"], "bin": { "oxlint": "bin/oxlint" } }, "sha512-0xBLeGGjP4vD9pygRo8iuOkOzEU1MqOnfiOl7KYezL/QvWL8NUg6n03zXc7ZVqltiOpUxBk2zgHI3PnRIEdAvw=="],
 
     "parent-module": ["parent-module@1.0.1", "", { "dependencies": { "callsites": "^3.0.0" } }, "sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g=="],
 
