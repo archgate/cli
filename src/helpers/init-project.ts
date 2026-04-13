@@ -5,6 +5,7 @@ import { generateExampleAdr } from "./adr-templates";
 import { configureClaudeSettings } from "./claude-settings";
 import { configureCopilotSettings } from "./copilot-settings";
 import { configureCursorSettings } from "./cursor-settings";
+import { logDebug } from "./log";
 import { createPathIfNotExists, projectPaths } from "./paths";
 import { writeRulesShim } from "./rules-shim";
 import { configureVscodeSettings } from "./vscode-settings";
@@ -230,7 +231,11 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   const { loadCredentials } = await import("./credential-store");
   const credentials = await loadCredentials();
   if (!credentials) {
-    return { installed: false };
+    return {
+      installed: false,
+      detail:
+        "No stored credentials found; plugin installation was not attempted.",
+    };
   }
 
   if (editor === "cursor") {
@@ -244,8 +249,9 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       try {
         await installCursorPlugin(credentials.token);
         return { installed: true, autoInstalled: true };
-      } catch {
+      } catch (error) {
         // Fall through to manual instructions
+        logDebug("Failed to auto-install Cursor plugin:", error);
       }
     }
 
@@ -274,8 +280,9 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       try {
         await installCopilotPlugin();
         return { installed: true, autoInstalled: true };
-      } catch {
+      } catch (error) {
         // Fall through to manual instructions
+        logDebug("Failed to auto-install Copilot plugin:", error);
       }
     }
 
@@ -291,8 +298,9 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
     try {
       await installClaudePlugin();
       return { installed: true, autoInstalled: true };
-    } catch {
+    } catch (error) {
       // Fall through to manual instructions
+      logDebug("Failed to auto-install Claude plugin:", error);
     }
   }
 
