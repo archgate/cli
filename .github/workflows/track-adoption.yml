@@ -1,0 +1,137 @@
+name: Track adoption
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # daily at 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  track:
+    name: Emit per-repo adoption events
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Search GitHub for .archgate/ folders
+        id: search
+        env:
+          # Classic PAT with `public_repo` scope. The default GITHUB_TOKEN is an
+          # app-installation token and is not guaranteed to work against the
+          # code-search API, which requires a user account.
+          GH_TOKEN: ${{ secrets.GH_SEARCH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Code search is capped at 1000 results per query. If we ever approach
+          # that, re-shard (e.g. by language or owner) before the count saturates.
+          repos_json=$(gh search code 'path:.archgate/' \
+            --limit 1000 \
+            --json repository \
+            --jq '
+              [.[].repository]
+              | map(select(.isPrivate == false))
+              | unique_by(.nameWithOwner)
+              | map({
+                  full_name: .nameWithOwner,
+                  owner: (.nameWithOwner | split("/")[0]),
+                  name: (.nameWithOwner | split("/")[1]),
+                  url: .url,
+                  is_fork: .isFork
+                })
+            ')
+
+          repo_count=$(jq 'length' <<< "$repos_json")
+          file_count=$(gh api -X GET search/code -f q='path:.archgate/' --jq '.total_count')
+
+          echo "repo_count=$repo_count" >> "$GITHUB_OUTPUT"
+          {
+            echo "repos_json<<EOF"
+            echo "$repos_json"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::notice::Found $repo_count public repos ($file_count file matches)"
+
+          # GitHub code search caps results at 1000 per query. Beyond that, the
+          # repo count plateaus silently. Warn early so we shard before saturating.
+          if [ "$file_count" -ge 1000 ]; then
+            echo "::error::File match count is ${file_count} — AT the 1000-result search cap. Repo discovery is now incomplete; shard the query (see comment above) before trusting this data."
+          elif [ "$file_count" -ge 800 ]; then
+            echo "::warning::File match count is ${file_count} — approaching the 1000-result search cap. Plan query sharding before we saturate."
+          fi
+
+      - name: Send per-repo events to PostHog
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST || 'https://eu.i.posthog.com' }}
+          REPOS_JSON: ${{ steps.search.outputs.repos_json }}
+        run: |
+          set -euo pipefail
+
+          date_utc=$(date -u +%Y-%m-%d)
+          timestamp="${date_utc}T$(date -u +%H:%M:%SZ)"
+
+          # Deterministic UUIDv5 per (event, UTC date, repo). PostHog dedupes
+          # events that share a uuid with a previously-ingested event, so a
+          # second workflow run on the same day (e.g. manual dispatch after
+          # the cron) is a no-op at ingestion.
+          uuids_json=$(python3 - "$date_utc" <<'PY'
+          import json, os, sys, uuid
+          date = sys.argv[1]
+          repos = json.loads(os.environ["REPOS_JSON"])
+          out = {
+              r["full_name"]: str(
+                  uuid.uuid5(
+                      uuid.NAMESPACE_URL,
+                      f"archgate_repo_seen:{date}:{r['full_name']}",
+                  )
+              )
+              for r in repos
+          }
+          print(json.dumps(out))
+          PY
+          )
+
+          # One event per repo, batched into a single PostHog call.
+          # distinct_id = "owner/name" makes each repo a "person" in PostHog,
+          # so first-seen / last-seen and per-repo timelines come for free.
+          # $set populates the person properties so the Persons view is useful.
+          payload=$(jq -n \
+            --arg api_key "$POSTHOG_API_KEY" \
+            --arg timestamp "$timestamp" \
+            --argjson repos "$REPOS_JSON" \
+            --argjson uuids "$uuids_json" \
+            '{
+              api_key: $api_key,
+              batch: ($repos | map({
+                event: "archgate_repo_seen",
+                distinct_id: .full_name,
+                uuid: $uuids[.full_name],
+                timestamp: $timestamp,
+                properties: {
+                  owner: .owner,
+                  name: .name,
+                  full_name: .full_name,
+                  url: .url,
+                  is_fork: .is_fork,
+                  "$lib": "github-actions",
+                  "$set": {
+                    owner: .owner,
+                    name: .name,
+                    full_name: .full_name,
+                    url: .url,
+                    is_fork: .is_fork
+                  }
+                }
+              }))
+            }')
+
+          curl -fsS -X POST "$POSTHOG_HOST/batch/" \
+            -H "Content-Type: application/json" \
+            --data-binary "$payload"
