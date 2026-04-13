@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   track:
-    name: Count .archgate adopters on GitHub
+    name: Emit per-repo adoption events
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -33,48 +33,71 @@ jobs:
           repos_json=$(gh search code 'path:.archgate/' \
             --limit 1000 \
             --json repository \
-            --jq '[.[] | select(.repository.isPrivate == false) | .repository.nameWithOwner] | unique')
+            --jq '
+              [.[].repository]
+              | map(select(.isPrivate == false))
+              | unique_by(.nameWithOwner)
+              | map({
+                  full_name: .nameWithOwner,
+                  owner: (.nameWithOwner | split("/")[0]),
+                  name: (.nameWithOwner | split("/")[1]),
+                  url: .url,
+                  is_fork: .isFork
+                })
+            ')
 
           repo_count=$(jq 'length' <<< "$repos_json")
-          file_count=$(gh api -X GET search/code -f q='path:.archgate/' --jq '.total_count')
-
           echo "repo_count=$repo_count" >> "$GITHUB_OUTPUT"
-          echo "file_count=$file_count" >> "$GITHUB_OUTPUT"
           {
             echo "repos_json<<EOF"
             echo "$repos_json"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          echo "::notice::Found $repo_count public repos ($file_count file matches)"
+          echo "::notice::Found $repo_count public repos"
 
-      - name: Send event to PostHog
+      - name: Send per-repo events to PostHog
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST || 'https://eu.i.posthog.com' }}
-          REPO_COUNT: ${{ steps.search.outputs.repo_count }}
-          FILE_COUNT: ${{ steps.search.outputs.file_count }}
           REPOS_JSON: ${{ steps.search.outputs.repos_json }}
         run: |
           set -euo pipefail
 
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # One event per repo, batched into a single PostHog call.
+          # distinct_id = "owner/name" makes each repo a "person" in PostHog,
+          # so first-seen / last-seen and per-repo timelines come for free.
+          # $set populates the person properties so the Persons view is useful.
           payload=$(jq -n \
             --arg api_key "$POSTHOG_API_KEY" \
-            --argjson repo_count "$REPO_COUNT" \
-            --argjson file_count "$FILE_COUNT" \
+            --arg timestamp "$timestamp" \
             --argjson repos "$REPOS_JSON" \
             '{
               api_key: $api_key,
-              event: "github_repos_count",
-              distinct_id: "archgate-github-tracker",
-              properties: {
-                repo_count: $repo_count,
-                file_count: $file_count,
-                repos: $repos,
-                "$lib": "github-actions"
-              }
+              batch: ($repos | map({
+                event: "archgate_repo_seen",
+                distinct_id: .full_name,
+                timestamp: $timestamp,
+                properties: {
+                  owner: .owner,
+                  name: .name,
+                  full_name: .full_name,
+                  url: .url,
+                  is_fork: .is_fork,
+                  "$lib": "github-actions",
+                  "$set": {
+                    owner: .owner,
+                    name: .name,
+                    full_name: .full_name,
+                    url: .url,
+                    is_fork: .is_fork
+                  }
+                }
+              }))
             }')
 
-          curl -fsS -X POST "$POSTHOG_HOST/i/v0/e/" \
+          curl -fsS -X POST "$POSTHOG_HOST/batch/" \
             -H "Content-Type: application/json" \
             --data-binary "$payload"
