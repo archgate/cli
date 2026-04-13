@@ -47,6 +47,8 @@ jobs:
             ')
 
           repo_count=$(jq 'length' <<< "$repos_json")
+          file_count=$(gh api -X GET search/code -f q='path:.archgate/' --jq '.total_count')
+
           echo "repo_count=$repo_count" >> "$GITHUB_OUTPUT"
           {
             echo "repos_json<<EOF"
@@ -54,7 +56,15 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-          echo "::notice::Found $repo_count public repos"
+          echo "::notice::Found $repo_count public repos ($file_count file matches)"
+
+          # GitHub code search caps results at 1000 per query. Beyond that, the
+          # repo count plateaus silently. Warn early so we shard before saturating.
+          if [ "$file_count" -ge 1000 ]; then
+            echo "::error::File match count is ${file_count} — AT the 1000-result search cap. Repo discovery is now incomplete; shard the query (see comment above) before trusting this data."
+          elif [ "$file_count" -ge 800 ]; then
+            echo "::warning::File match count is ${file_count} — approaching the 1000-result search cap. Plan query sharding before we saturate."
+          fi
 
       - name: Send per-repo events to PostHog
         env:
