@@ -64,7 +64,29 @@ jobs:
         run: |
           set -euo pipefail
 
-          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          date_utc=$(date -u +%Y-%m-%d)
+          timestamp="${date_utc}T$(date -u +%H:%M:%SZ)"
+
+          # Deterministic UUIDv5 per (event, UTC date, repo). PostHog dedupes
+          # events that share a uuid with a previously-ingested event, so a
+          # second workflow run on the same day (e.g. manual dispatch after
+          # the cron) is a no-op at ingestion.
+          uuids_json=$(python3 - "$date_utc" <<'PY'
+          import json, os, sys, uuid
+          date = sys.argv[1]
+          repos = json.loads(os.environ["REPOS_JSON"])
+          out = {
+              r["full_name"]: str(
+                  uuid.uuid5(
+                      uuid.NAMESPACE_URL,
+                      f"archgate_repo_seen:{date}:{r['full_name']}",
+                  )
+              )
+              for r in repos
+          }
+          print(json.dumps(out))
+          PY
+          )
 
           # One event per repo, batched into a single PostHog call.
           # distinct_id = "owner/name" makes each repo a "person" in PostHog,
@@ -74,11 +96,13 @@ jobs:
             --arg api_key "$POSTHOG_API_KEY" \
             --arg timestamp "$timestamp" \
             --argjson repos "$REPOS_JSON" \
+            --argjson uuids "$uuids_json" \
             '{
               api_key: $api_key,
               batch: ($repos | map({
                 event: "archgate_repo_seen",
                 distinct_id: .full_name,
+                uuid: $uuids[.full_name],
                 timestamp: $timestamp,
                 properties: {
                   owner: .owner,
