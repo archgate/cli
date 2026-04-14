@@ -9,6 +9,7 @@
  * Registered via `components: { Head }` in astro.config.mjs.
  */
 import Default from "@astrojs/starlight/components/Head.astro";
+import Analytics from "./Analytics.astro";
 
 const route = Astro.locals.starlightRoute;
 const siteUrl =
@@ -172,3 +173,5 @@ const articleLd =
 {articleLd && (
   <script type="application/ld+json" set:html={JSON.stringify(articleLd)} />
 )}
+
+<Analytics />
