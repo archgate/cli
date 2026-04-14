@@ -1,3 +1,13 @@
+## [0.28.0](https://github.com/archgate/cli/compare/v0.27.0...v0.28.0) (2026-04-14)
+
+### Features
+
+* **telemetry:** fix command/exit-code tracking and enrich events ([#206](https://github.com/archgate/cli/issues/206)) ([d798061](https://github.com/archgate/cli/commit/d798061f76f890fa4b75e0559d874fb6e406c7c9))
+
+### Bug Fixes
+
+* address valid AI quality findings ([#202](https://github.com/archgate/cli/issues/202)) ([8c63cd6](https://github.com/archgate/cli/commit/8c63cd6154fe2049d911802d1ac155b55fc6acc4))
+
 ## [0.27.0](https://github.com/archgate/cli/compare/v0.26.2...v0.27.0) (2026-03-31)
 
 ### Features
