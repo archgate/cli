@@ -9,6 +9,7 @@
  * Registered via `components: { Head }` in astro.config.mjs.
  */
 import Default from "@astrojs/starlight/components/Head.astro";
+import Analytics from "./Analytics.astro";
 
 const route = Astro.locals.starlightRoute;
 const siteUrl =
@@ -173,13 +174,4 @@ const articleLd =
   <script type="application/ld+json" set:html={JSON.stringify(articleLd)} />
 )}
 
-{/* PostHog web analytics — bundled via Astro so the SDK init ships as a static asset */}
-<script>
-  import posthog from "posthog-js";
-  posthog.init("phc_gSnjpsvRfQggmgeXUgbevbG0SULK5rT9gTZ8m3yjknv", {
-    api_host: "https://n.archgate.dev",
-    ui_host: "https://eu.posthog.com",
-    defaults: "2026-01-30",
-    person_profiles: "identified_only",
-  });
-</script>
+<Analytics />
