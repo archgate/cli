@@ -30,28 +30,27 @@ Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `comm
 
 ## Identidade do repositório
 
-Por padrão, o Archgate envia um `repo_id` **com hash** em todo evento para que possamos contar repositórios distintos usando a CLI sem aprender seus nomes. A URL remota bruta, o owner e o nome do repositório **não** são incluídos no fluxo comum de eventos.
+O Archgate envia um `repo_id` **com hash** em todo evento para que possamos contar repositórios distintos usando a CLI sem aprender seus nomes. A URL remota bruta, o owner e o nome do repositório **não** são incluídos no fluxo comum de eventos.
 
 Em `archgate init`, um evento `project_initialized` único é enviado. Se — e somente se — o repositório for confirmado como **público** no GitHub, GitLab, Bitbucket ou Azure DevOps (via consulta não autenticada à API do host), esse evento também inclui `remote_url`, `repo_owner` e `repo_name`. Isso nos permite ver quais repositórios públicos estão adotando o Archgate sem jamais expor os privados.
 
 **O que nunca é compartilhado:**
 
-- Repositórios privados (a consulta retorna 404 ou `private: true`)
+- Repositórios privados (a consulta retorna 404, 401 ou `private: true`)
 - Hosts Git auto-hospedados (a verificação pula esses completamente)
 - Repositórios em que a consulta expira, é limitada por rate-limit ou não retorna uma resposta pública definitiva
 
-**Opt-out** (para repos públicos onde você ainda prefere ficar anônimo):
+**Não quer o evento de forma alguma?** Desative a telemetria por completo — o evento `project_initialized` é suprimido junto com todos os outros:
 
 ```bash
-# Flag por invocação
-archgate init --no-share-repo-identity
+# Por shell / por invocação
+export ARCHGATE_TELEMETRY=0
 
-# Ou via variável de ambiente — aplica-se a toda invocação
-export ARCHGATE_SHARE_REPO_IDENTITY=0
-archgate init
+# Ou persistentemente
+archgate telemetry disable
 ```
 
-Valores de opt-out aceitos: `0`, `false`, `no`, `off` (sem diferenciação de maiúsculas/minúsculas).
+Veja [Como desativar](#como-desativar) abaixo para detalhes completos.
 
 ### Rastreamento de erros (Sentry)
 

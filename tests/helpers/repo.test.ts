@@ -12,21 +12,13 @@ import {
 } from "../../src/helpers/repo";
 
 describe("repo helper", () => {
-  let originalEnv: string | undefined;
   let originalCwd: string;
 
   beforeEach(() => {
-    originalEnv = process.env.ARCHGATE_SHARE_REPO_IDENTITY;
     originalCwd = process.cwd();
-    delete process.env.ARCHGATE_SHARE_REPO_IDENTITY;
   });
 
   afterEach(() => {
-    if (originalEnv === undefined) {
-      delete process.env.ARCHGATE_SHARE_REPO_IDENTITY;
-    } else {
-      process.env.ARCHGATE_SHARE_REPO_IDENTITY = originalEnv;
-    }
     process.chdir(originalCwd);
     _resetRepoContextCache();
   });
@@ -140,39 +132,19 @@ describe("repo helper", () => {
   });
 
   describe("shouldShareRepoIdentity", () => {
-    test("shares identity for confirmed public repos by default (opt-out)", () => {
-      expect(shouldShareRepoIdentity(undefined, true)).toBe(true);
+    test("shares identity for confirmed-public repos", () => {
+      expect(shouldShareRepoIdentity(true)).toBe(true);
     });
 
-    test("does NOT share for private repos even when flag is absent", () => {
-      expect(shouldShareRepoIdentity(undefined, false)).toBe(false);
+    test("does NOT share for private repos", () => {
+      expect(shouldShareRepoIdentity(false)).toBe(false);
     });
 
-    test("does NOT share when public status is unknown (self-hosted/error)", () => {
-      expect(shouldShareRepoIdentity(undefined, null)).toBe(false);
-    });
-
-    test("honors explicit opt-out via --no-share-repo-identity even when public", () => {
-      expect(shouldShareRepoIdentity(false, true)).toBe(false);
-    });
-
-    test("explicit true does not override the public check", () => {
-      // Passing flag=true for a private repo must still refuse to share —
-      // identity sharing requires BOTH user consent AND a confirmed public
-      // repository. This is a safety invariant.
-      expect(shouldShareRepoIdentity(true, false)).toBe(false);
-      expect(shouldShareRepoIdentity(true, null)).toBe(false);
-    });
-
-    test("honors the env var opt-out", () => {
-      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "0";
-      expect(shouldShareRepoIdentity(undefined, true)).toBe(false);
-
-      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "off";
-      expect(shouldShareRepoIdentity(undefined, true)).toBe(false);
-
-      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "false";
-      expect(shouldShareRepoIdentity(undefined, true)).toBe(false);
+    test("does NOT share when public status is unknown (self-hosted/error/rate-limited)", () => {
+      // `null` is the probe's "couldn't determine" signal — we must never
+      // fall through to sharing on a "maybe". Users who want zero events
+      // disable telemetry itself; there's no identity-specific opt-out.
+      expect(shouldShareRepoIdentity(null)).toBe(false);
     });
   });
 

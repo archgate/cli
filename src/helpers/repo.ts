@@ -141,28 +141,17 @@ export async function getRepoContext(): Promise<RepoContext> {
  * Should the CLI include owner / name / full remote URL in the
  * `project_initialized` event?
  *
- * Default: share iff the repo is confirmed public on a recognised host.
- * This is an opt-out — users who want to stay anonymous even for a public
- * repo pass `--no-share-repo-identity` (which becomes `flag === false` in
- * Commander) or set `ARCHGATE_SHARE_REPO_IDENTITY=0`.
+ * Rule: share iff the repository is confirmed public on a recognised host.
+ * Private, unknown, and self-hosted repos always return false.
  *
- * Private, unknown, and self-hosted repos always return false regardless
- * of the flag — identity sharing requires both user consent AND a confirmed
- * public repository.
+ * There's no identity-specific opt-out knob — if a user doesn't want *any*
+ * telemetry, including the identity event, they disable telemetry itself
+ * (`ARCHGATE_TELEMETRY=0` or `archgate telemetry disable`). The whole event
+ * is then suppressed upstream. Adding a separate identity opt-out would be
+ * redundant and asymmetric with how every other field is gated.
  */
-export function shouldShareRepoIdentity(
-  flag: boolean | undefined,
-  repoPublic: boolean | null
-): boolean {
-  if (flag === false) return false;
-  if (isEnvIdentityDisabled()) return false;
+export function shouldShareRepoIdentity(repoPublic: boolean | null): boolean {
   return repoPublic === true;
-}
-
-function isEnvIdentityDisabled(): boolean {
-  const env = Bun.env.ARCHGATE_SHARE_REPO_IDENTITY;
-  if (env === undefined) return false;
-  return ["0", "false", "no", "off"].includes(env.toLowerCase());
 }
 
 // ---------------------------------------------------------------------------

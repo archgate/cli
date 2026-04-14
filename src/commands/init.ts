@@ -50,10 +50,6 @@ export function registerInitCommand(program: Command) {
       "--install-plugin",
       "install the archgate plugin (requires prior `archgate login`)"
     )
-    .option(
-      "--no-share-repo-identity",
-      "opt out of including remote owner/name in the one-time project_initialized event (default: share only if the repo is confirmed public)"
-    )
     .action(async (opts) => {
       try {
         // Resolve editors: explicit flag, interactive prompt, or default
@@ -148,18 +144,13 @@ export function registerInitCommand(program: Command) {
         // One-time `project_initialized` event. The hashed `repo_id` ships in
         // every event already via the common props; this richer event is the
         // only place the raw remote URL / owner / name appear, and only for
-        // repos we can confirm public via the host's unauthenticated API.
-        //
-        // Commander turns `--no-share-repo-identity` into
-        // `opts.shareRepoIdentity === false`; absent or `true` means "auto
-        // (share iff public)". We also honor ARCHGATE_SHARE_REPO_IDENTITY=0
-        // as a user-wide opt-out — see shouldShareRepoIdentity.
+        // repositories we can confirm public via the host's unauthenticated
+        // API. Users who don't want the event at all disable telemetry
+        // (`ARCHGATE_TELEMETRY=0` / `archgate telemetry disable`) — no
+        // identity-specific knob is needed on top of that.
         const repo = await getRepoContext();
         const repoPublic = await isPublicRepo(repo);
-        const shareIdentity = shouldShareRepoIdentity(
-          opts.shareRepoIdentity,
-          repoPublic
-        );
+        const shareIdentity = shouldShareRepoIdentity(repoPublic);
         trackProjectInitialized({
           editors,
           editor_primary: editors[0],
