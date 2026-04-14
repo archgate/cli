@@ -8,11 +8,17 @@ import inquirer from "inquirer";
 
 import { loadCredentials } from "../helpers/credential-store";
 import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
+import { exitWith } from "../helpers/exit";
 import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
-import { trackInitResult } from "../helpers/telemetry";
+import {
+  getRepoContext,
+  isPublicRepo,
+  shouldShareRepoIdentity,
+} from "../helpers/repo";
+import { trackInitResult, trackProjectInitialized } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
@@ -134,13 +140,41 @@ export function registerInitCommand(program: Command) {
             had_existing_project: hadExistingProject,
           });
         }
+
+        // One-time `project_initialized` event. The hashed `repo_id` ships in
+        // every event already via the common props; this richer event is the
+        // only place the raw remote URL / owner / name appear, and only for
+        // repositories we can confirm public via the host's unauthenticated
+        // API. Users who don't want the event at all disable telemetry
+        // (`ARCHGATE_TELEMETRY=0` / `archgate telemetry disable`) — no
+        // identity-specific knob is needed on top of that.
+        const repo = await getRepoContext();
+        const repoPublic = await isPublicRepo(repo);
+        const shareIdentity = shouldShareRepoIdentity(repoPublic);
+        trackProjectInitialized({
+          editors,
+          editor_primary: editors[0],
+          plugin_installed: installPlugin,
+          had_existing_project: hadExistingProject,
+          identity_shared: shareIdentity,
+          repo_host: repo.host,
+          repo_is_git: repo.isGit,
+          repo_public: repoPublic,
+          ...(shareIdentity
+            ? {
+                remote_url: repo.remoteUrl,
+                repo_owner: repo.owner,
+                repo_name: repo.name,
+              }
+            : {}),
+        });
       } catch (err) {
         if (isTlsError(err)) {
           logError(tlsHintMessage());
-          process.exit(1);
+          await exitWith(1);
         }
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

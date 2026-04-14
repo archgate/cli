@@ -34,10 +34,12 @@ describe("install-info", () => {
       expect(ctx.domains.length).toBeGreaterThan(0);
     });
 
-    test("result is cached across calls", () => {
+    test("returns equal (not identical) contexts across calls", () => {
+      // getProjectContext is no longer cached — each call re-reads the
+      // filesystem so post-init events reflect newly-created ADRs.
       const first = getProjectContext();
       const second = getProjectContext();
-      expect(first).toBe(second);
+      expect(first).toEqual(second);
     });
 
     test("domains are sorted alphabetically", () => {

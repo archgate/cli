@@ -14,6 +14,7 @@ import { registerReviewContextCommand } from "./commands/review-context";
 import { registerSessionContextCommand } from "./commands/session-context/index";
 import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
+import { beginCommand, exitWith, finalizeCommand } from "./helpers/exit";
 import { installGit } from "./helpers/git";
 import { type LogLevel, logError, setLogLevel } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
@@ -28,7 +29,6 @@ import {
   flushTelemetry,
   initTelemetry,
   trackCommand,
-  trackCommandResult,
 } from "./helpers/telemetry";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
@@ -62,9 +62,11 @@ createPathIfNotExists(paths.cacheFolder);
 async function main() {
   await installGit();
 
-  // Initialize error tracking and telemetry (no-ops if opted out)
+  // Initialize error tracking and telemetry (no-ops if opted out).
+  // Telemetry resolves repo context asynchronously — we don't block on it;
+  // any events emitted before it finishes simply won't carry repo_id.
   initSentry();
-  initTelemetry();
+  void initTelemetry();
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
     .choices(["error", "warn", "info", "debug"] as const)
@@ -76,29 +78,39 @@ async function main() {
     .description("AI governance for software development")
     .addOption(logLevelOption);
 
-  // Track command execution for Sentry breadcrumbs and PostHog analytics
-  let commandStartTime = 0;
-  program.hook("preAction", (thisCommand) => {
+  // Track command execution for Sentry breadcrumbs and PostHog analytics.
+  //
+  // Commander invokes the hook callback with (hookedCommand, actionCommand);
+  // the second arg is the actual subcommand being executed. We use the action
+  // command so `adr create` etc. resolves correctly instead of always "root".
+  program.hook("preAction", (_hookedCommand, actionCommand) => {
     // Apply log level from global option before any command runs
     const rootOpts = program.opts();
     setLogLevel(rootOpts.logLevel as LogLevel);
-    const fullCommand = getFullCommandName(thisCommand);
+    const fullCommand = getFullCommandName(actionCommand);
     addBreadcrumb("command", `Running: ${fullCommand}`);
     // Collect which options were used (presence only, no values)
-    const opts = thisCommand.opts() as Record<string, unknown>;
+    const opts = actionCommand.opts() as Record<string, unknown>;
     const optionFlags: Record<string, boolean> = {};
+    const optionsUsed: string[] = [];
     for (const key of Object.keys(opts)) {
       const val = opts[key];
-      optionFlags[`opt_${key}`] = val !== undefined && val !== false;
+      const used = val !== undefined && val !== false;
+      optionFlags[`opt_${key}`] = used;
+      if (used) optionsUsed.push(key);
     }
-    trackCommand(fullCommand, optionFlags);
-    commandStartTime = performance.now();
+    const depth = fullCommand === "root" ? 0 : fullCommand.split(" ").length;
+    trackCommand(fullCommand, {
+      ...optionFlags,
+      command_depth: depth,
+      options_used: optionsUsed,
+    });
+    beginCommand(fullCommand);
   });
 
-  program.hook("postAction", (thisCommand) => {
-    const fullCommand = getFullCommandName(thisCommand);
-    const durationMs = Math.round(performance.now() - commandStartTime);
-    trackCommandResult(fullCommand, 0, durationMs);
+  program.hook("postAction", (_hookedCommand, actionCommand) => {
+    const fullCommand = getFullCommandName(actionCommand);
+    finalizeCommand(fullCommand, 0, "success");
   });
 
   registerInitCommand(program);
@@ -128,16 +140,22 @@ async function main() {
 /**
  * Reconstruct the full command name from Commander's command chain.
  * E.g., "adr create" from the "create" subcommand of "adr".
+ *
+ * Typed against the loose Commander "unknown opts" shape because it's called
+ * from the `preAction` / `postAction` hook callback, where Commander gives us
+ * a `CommandUnknownOpts`, not the narrowly-typed `Command<[], {}, {}>`.
  */
-function getFullCommandName(command: Command): string {
+function getFullCommandName(
+  command: { name(): string; parent: unknown } | null
+): string {
   const parts: string[] = [];
-  let current: Command | null = command;
+  let current = command;
   while (current) {
     const name = current.name();
     if (name && name !== "archgate") {
       parts.unshift(name);
     }
-    current = current.parent as Command | null;
+    current = current.parent as typeof command;
   }
   return parts.join(" ") || "root";
 }
@@ -145,11 +163,29 @@ function getFullCommandName(command: Command): string {
 main().catch(async (err: unknown) => {
   // User pressed Ctrl+C during an Inquirer prompt — exit silently
   if (err instanceof Error && err.name === "ExitPromptError") {
-    process.exit(130);
+    await exitWith(130, { outcome: "cancelled" });
   }
 
   captureException(err, { command: "main" });
-  await Promise.all([flushTelemetry(), flushSentry()]);
   logError(String(err));
-  process.exit(2);
+  await exitWith(2, {
+    outcome: "internal_error",
+    errorKind: classifyErrorKind(err),
+  });
 });
+
+/**
+ * Classify an error into a high-level bucket for telemetry.
+ * Returns a short tag — never the raw error message.
+ */
+function classifyErrorKind(err: unknown): string {
+  if (!(err instanceof Error)) return "unknown";
+  const name = err.name || "Error";
+  const msg = err.message || "";
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/i.test(msg)) return "network";
+  if (/certificate|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(msg)) return "tls";
+  if (/EACCES|EPERM/.test(msg)) return "permission";
+  if (name === "SyntaxError") return "syntax";
+  if (name === "TypeError") return "type";
+  return name;
+}

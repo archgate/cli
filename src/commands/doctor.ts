@@ -4,6 +4,7 @@ import type { Command } from "@commander-js/extra-typings";
 
 import type { DoctorReport } from "../helpers/doctor";
 import { runDoctor } from "../helpers/doctor";
+import { exitWith } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 
@@ -97,7 +98,7 @@ export function registerDoctorCommand(program: Command) {
         }
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

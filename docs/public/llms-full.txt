@@ -3984,19 +3984,45 @@ Archgate collects **anonymous usage data** to help us understand how the CLI is 
 When you run an Archgate command, we record:
 
 - **Command name** and **which flags were used** (e.g., `check --json` — only flag presence, never flag values)
-- **Exit code** (0, 1, or 2) and **execution duration** (milliseconds)
-- **Environment**: OS, architecture, Bun version, Archgate version, CI detection, TTY detection, WSL detection
+- **Exit code** (0, 1, 2, or 130) and **execution duration** (milliseconds), plus a short **outcome** tag (`success`, `user_error`, `internal_error`, `cancelled`)
+- **Environment**: OS, architecture, Bun version, Archgate version, CI detection (including provider: GitHub Actions / GitLab CI / CircleCI / etc.), TTY detection, WSL detection, shell (bash, zsh, pwsh...), and locale
 - **Install context**: how the CLI was installed (binary, proto, local dev dependency, or global package manager)
-- **Project context**: whether an Archgate project exists in the current directory, how many ADRs it has, and how many have automated rules
+- **Project context**: whether an Archgate project exists in the current directory, how many ADRs it has, how many have automated rules, and how many distinct ADR domains are used
+- **Repo context** (non-identifying): whether the current directory is a git repository, the host bucket (`github` / `gitlab` / `bitbucket` / `azure-devops` / `other`), a **hashed `repo_id`** (SHA-256 of the normalized remote URL, truncated to 16 hex characters — not reversible), and the default branch name
 - **Coarse location**: country and region (resolved server-side from your IP, then the IP is discarded — see [IP anonymization](#ip-anonymization))
 - **Anonymous install ID**: a random UUID generated on first run — not derived from any personal data
 
 In addition to the general command lifecycle events (`command_executed` / `command_completed`), specific commands send enriched outcome events:
 
-- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, and whether filters were applied — no file paths or violation content
-- **`init`**: editor choice, whether the plugin was installed, and whether the project already existed
-- **`upgrade`**: version transition (from → to), install method, and success/failure
-- **`login`**: subcommand used (login, logout, refresh, status) and success/failure
+- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration — no file paths or violation content
+- **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket, this event also carries the remote URL, owner, and repo name — see [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **`upgrade`**: version transition (from → to), install method, success/failure, and an optional failure reason
+- **`login`**: subcommand used (login, logout, refresh, status), success/failure, and a failure bucket (`network`, `tls`, `denied`, `other`) when it fails
+- **`telemetry_preference_changed`**: fires once when you enable or disable telemetry, so we can understand opt-out rates
+
+## Repo identity
+
+Archgate sends a **hashed** `repo_id` with every event so we can count distinct repositories using the CLI without learning their names. The raw remote URL, owner, and repository name are **not** included in the common event stream.
+
+On `archgate init`, a one-time `project_initialized` event is emitted. If — and only if — the repository is confirmed **public** on GitHub, GitLab, Bitbucket, or Azure DevOps (via an unauthenticated API probe against the host), that event additionally includes `remote_url`, `repo_owner`, and `repo_name`. This lets us see which public repositories are adopting Archgate without ever exposing private ones.
+
+**What's never shared:**
+
+- Private repositories (API probe returns 404, 401, or `private: true`)
+- Self-hosted Git hosts (the probe skips these entirely)
+- Repositories where the probe times out, is rate-limited, or otherwise fails to return a definitive public answer
+
+**Don't want the event at all?** Disable telemetry entirely — the whole `project_initialized` event is then suppressed along with everything else:
+
+```bash
+# Per-shell / per-invocation
+export ARCHGATE_TELEMETRY=0
+
+# Or persistently
+archgate telemetry disable
+```
+
+See [How to opt out](#how-to-opt-out) below for the full details.
 
 ### Error tracking (Sentry)
 
@@ -4008,8 +4034,8 @@ When the CLI crashes (exit code 2), we send:
 
 ## What we do NOT collect
 
-- **No personal information**: no usernames, emails, IP addresses, or GitHub identifiers
-- **No file content**: no ADR content, source code, project names, or file paths
+- **No personal information**: no usernames, emails, or IP addresses. GitHub / GitLab / Bitbucket owner/repository names are only sent on the one-time `project_initialized` event for repositories that are confirmed public by their host — see [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **No file content**: no ADR content, source code, or file paths
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No flag values**: we record that `--json` was used, not what the JSON output contained
 - **No network activity**: no URLs, API keys, or tokens

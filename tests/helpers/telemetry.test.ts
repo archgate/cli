@@ -7,13 +7,18 @@ describe("telemetry", () => {
   let tempDir: string;
   let originalHome: string | undefined;
   let originalTelemetryEnv: string | undefined;
+  let originalNodeEnv: string | undefined;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-telemetry-test-"));
     originalHome = process.env.HOME;
     originalTelemetryEnv = process.env.ARCHGATE_TELEMETRY;
+    originalNodeEnv = process.env.NODE_ENV;
     process.env.HOME = tempDir;
     delete process.env.ARCHGATE_TELEMETRY;
+    // NODE_ENV=test keeps trackEvent from sending real events to the prod
+    // PostHog project. See ARCH-005 for the equivalent Sentry convention.
+    process.env.NODE_ENV = "test";
   });
 
   afterEach(async () => {
@@ -22,6 +27,11 @@ describe("telemetry", () => {
       delete process.env.ARCHGATE_TELEMETRY;
     } else {
       process.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
+    }
+    if (originalNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = originalNodeEnv;
     }
     rmSync(tempDir, { recursive: true, force: true });
 
@@ -37,7 +47,7 @@ describe("telemetry", () => {
       const { initTelemetry, _getClient } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       expect(_getClient()).not.toBeNull();
     });
 
@@ -47,7 +57,7 @@ describe("telemetry", () => {
       const { initTelemetry, _getClient } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       expect(_getClient()).toBeNull();
     });
   });
@@ -57,8 +67,9 @@ describe("telemetry", () => {
       const { initTelemetry, trackEvent } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
-      // Should not throw — events are queued internally by the SDK
+      await initTelemetry();
+      // Should not throw — events are queued internally by the SDK (and
+      // suppressed entirely in test mode by trackEvent itself)
       trackEvent("command_executed", { command: "check" });
     });
 
@@ -75,7 +86,7 @@ describe("telemetry", () => {
       const { initTelemetry, trackCommand } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       // Should not throw
       trackCommand("adr create", { json: true });
     });
@@ -86,7 +97,7 @@ describe("telemetry", () => {
       const { initTelemetry, trackCheckResult } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       trackCheckResult({
         total_rules: 5,
         passed: 4,
@@ -108,7 +119,7 @@ describe("telemetry", () => {
       const { initTelemetry, trackInitResult } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       trackInitResult({
         editor: "claude",
         plugin_installed: true,
@@ -123,7 +134,7 @@ describe("telemetry", () => {
       const { initTelemetry, trackUpgradeResult } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       trackUpgradeResult({
         from_version: "0.24.0",
         to_version: "0.25.0",
@@ -138,8 +149,57 @@ describe("telemetry", () => {
       const { initTelemetry, trackLoginResult } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
       trackLoginResult({ subcommand: "login", success: true });
+    });
+  });
+
+  describe("trackProjectInitialized", () => {
+    test("captures project_initialized event without throwing", async () => {
+      const { initTelemetry, trackProjectInitialized } =
+        await import("../../src/helpers/telemetry");
+
+      await initTelemetry();
+      trackProjectInitialized({
+        editors: ["claude"],
+        editor_primary: "claude",
+        plugin_installed: false,
+        had_existing_project: false,
+        identity_shared: false,
+        repo_host: "github",
+        repo_is_git: true,
+        repo_public: null,
+      });
+    });
+
+    test("accepts identity fields when sharing", async () => {
+      const { initTelemetry, trackProjectInitialized } =
+        await import("../../src/helpers/telemetry");
+
+      await initTelemetry();
+      trackProjectInitialized({
+        editors: ["claude"],
+        editor_primary: "claude",
+        plugin_installed: false,
+        had_existing_project: false,
+        identity_shared: true,
+        repo_host: "github",
+        repo_is_git: true,
+        repo_public: true,
+        remote_url: "https://github.com/archgate/cli.git",
+        repo_owner: "archgate",
+        repo_name: "cli",
+      });
+    });
+  });
+
+  describe("trackTelemetryPreferenceChange", () => {
+    test("captures telemetry_preference_changed event without throwing", async () => {
+      const { initTelemetry, trackTelemetryPreferenceChange } =
+        await import("../../src/helpers/telemetry");
+
+      await initTelemetry();
+      trackTelemetryPreferenceChange({ enabled: false });
     });
   });
 
@@ -148,7 +208,7 @@ describe("telemetry", () => {
       const { initTelemetry, flushTelemetry } =
         await import("../../src/helpers/telemetry");
 
-      initTelemetry();
+      await initTelemetry();
 
       // Flush with no pending events — should resolve quickly
       await flushTelemetry();

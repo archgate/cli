@@ -1,6 +1,7 @@
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
+import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
@@ -27,13 +28,14 @@ export function registerCursorSessionContextCommand(parent: Command) {
 
         if (!result.ok) {
           logError(result.error);
-          process.exit(1);
+          await exitWith(1);
+          return;
         }
 
         console.log(formatJSON(result.data));
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

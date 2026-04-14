@@ -8,6 +8,7 @@ import {
   detectEditors,
   promptEditorSelection,
 } from "../../helpers/editor-detect";
+import { exitWith } from "../../helpers/exit";
 import { EDITOR_LABELS } from "../../helpers/init-project";
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
@@ -122,7 +123,8 @@ export function registerPluginInstallCommand(plugin: Command) {
           "Not logged in.",
           "Run `archgate login` first to authenticate."
         );
-        process.exit(1);
+        await exitWith(1);
+        return;
       }
 
       // Resolve editors: explicit flag, interactive prompt, or default
@@ -191,7 +193,8 @@ export function registerPluginInstallCommand(plugin: Command) {
             }
           }
 
-          process.exit(1);
+          // oxlint-disable-next-line no-await-in-loop -- exit immediately on first editor failure
+          await exitWith(1);
         }
       }
     });

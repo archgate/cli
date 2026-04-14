@@ -11,6 +11,7 @@ import {
   getManualInstallHint,
   replaceBinary,
 } from "../helpers/binary-upgrade";
+import { exitWith } from "../helpers/exit";
 import { logDebug, logError } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
@@ -208,7 +209,8 @@ async function upgradeBinary(tag: string): Promise<void> {
       `Unsupported platform: ${getPlatformInfo().runtime}/${process.arch}`,
       "archgate supports darwin/arm64, linux/x64, and win32/x64."
     );
-    process.exit(1);
+    await exitWith(1);
+    return;
   }
 
   logDebug("Artifact:", artifact.name, "ext:", artifact.ext);
@@ -223,7 +225,7 @@ async function upgradeBinary(tag: string): Promise<void> {
       "Failed to upgrade binary.",
       `${err instanceof Error ? err.message : String(err)}\nTry running \`${hint}\` manually.`
     );
-    process.exit(1);
+    await exitWith(1);
   }
 }
 
@@ -241,7 +243,7 @@ async function runExternalUpgrade(
       "Failed to install the latest version.",
       `Try running \`${manualHint}\` manually.`
     );
-    process.exit(1);
+    await exitWith(1);
   }
 }
 
@@ -260,7 +262,8 @@ export function registerUpgradeCommand(program: Command) {
             "Failed to fetch release info from GitHub.",
             "Check your network connection."
           );
-          process.exit(1);
+          await exitWith(1);
+          return;
         }
 
         const packageJson = await import("../../package.json");
@@ -273,12 +276,14 @@ export function registerUpgradeCommand(program: Command) {
           logError(
             `Could not compare versions: ${currentVersion} vs ${latestVersion}`
           );
-          process.exit(2);
+          await exitWith(2);
+          return;
         }
 
         if (order >= 0) {
           console.log(`Archgate is already up-to-date (${currentVersion}).`);
-          process.exit(0);
+          await exitWith(0);
+          return;
         }
 
         console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
@@ -316,7 +321,7 @@ export function registerUpgradeCommand(program: Command) {
           success: false,
         });
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import type { Command } from "@commander-js/extra-typings";
 
+import { exitWith } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 
@@ -19,7 +20,7 @@ export function registerCleanCommand(program: Command) {
   program
     .command("clean")
     .description("Clean the CLI temp files")
-    .action(() => {
+    .action(async () => {
       const destinationPath = internalPath();
 
       if (!existsSync(destinationPath)) {
@@ -49,7 +50,7 @@ export function registerCleanCommand(program: Command) {
           `Failed to clean ${destinationPath}.`,
           error instanceof Error ? error.message : String(error)
         );
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }
