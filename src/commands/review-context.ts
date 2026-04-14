@@ -3,6 +3,7 @@ import { Option } from "@commander-js/extra-typings";
 
 import { buildReviewContext } from "../engine/context";
 import { ADR_DOMAINS } from "../formats/adr";
+import { exitWith } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
@@ -27,7 +28,8 @@ export function registerReviewContextCommand(program: Command) {
         logError(
           "No archgate project found. Run 'archgate init' to create one."
         );
-        process.exit(1);
+        await exitWith(1);
+        return;
       }
 
       try {
@@ -40,7 +42,7 @@ export function registerReviewContextCommand(program: Command) {
         console.log(formatJSON(context));
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

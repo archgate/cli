@@ -8,11 +8,13 @@ import inquirer from "inquirer";
 
 import { loadCredentials } from "../helpers/credential-store";
 import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
+import { exitWith } from "../helpers/exit";
 import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
-import { trackInitResult } from "../helpers/telemetry";
+import { getRepoContext, shouldShareRepoIdentity } from "../helpers/repo";
+import { trackInitResult, trackProjectInitialized } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
@@ -43,6 +45,10 @@ export function registerInitCommand(program: Command) {
     .option(
       "--install-plugin",
       "install the archgate plugin (requires prior `archgate login`)"
+    )
+    .option(
+      "--share-repo-identity",
+      "include git remote owner/name in the one-time telemetry event (opt-in)"
     )
     .action(async (opts) => {
       try {
@@ -134,13 +140,36 @@ export function registerInitCommand(program: Command) {
             had_existing_project: hadExistingProject,
           });
         }
+
+        // One-time `project_initialized` event. The hashed `repo_id` ships in
+        // every event already via the common props; this richer event is the
+        // only place the raw remote URL / owner / name appear, and only when
+        // the user opts in.
+        const repo = await getRepoContext();
+        const shareIdentity = shouldShareRepoIdentity(opts.shareRepoIdentity);
+        trackProjectInitialized({
+          editors,
+          editor_primary: editors[0],
+          plugin_installed: installPlugin,
+          had_existing_project: hadExistingProject,
+          identity_shared: shareIdentity,
+          repo_host: repo.host,
+          repo_is_git: repo.isGit,
+          ...(shareIdentity
+            ? {
+                remote_url: repo.remoteUrl,
+                repo_owner: repo.owner,
+                repo_name: repo.name,
+              }
+            : {}),
+        });
       } catch (err) {
         if (isTlsError(err)) {
           logError(tlsHintMessage());
-          process.exit(1);
+          await exitWith(1);
         }
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

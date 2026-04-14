@@ -6,6 +6,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
 import { ADR_DOMAINS, parseAdr, type AdrDocument } from "../../formats/adr";
+import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
@@ -37,7 +38,8 @@ export function registerAdrListCommand(adr: Command) {
       const projectRoot = findProjectRoot();
       if (!projectRoot) {
         logError("No .archgate/ directory found. Run `archgate init` first.");
-        process.exit(1);
+        await exitWith(1);
+        return;
       }
 
       try {
@@ -101,7 +103,7 @@ export function registerAdrListCommand(adr: Command) {
         }
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

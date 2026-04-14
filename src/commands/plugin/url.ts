@@ -5,6 +5,7 @@ import {
   detectEditors,
   promptSingleEditorSelection,
 } from "../../helpers/editor-detect";
+import { exitWith } from "../../helpers/exit";
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError } from "../../helpers/log";
 import {
@@ -45,7 +46,7 @@ export function registerPluginUrlCommand(plugin: Command) {
         console.log(url);
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

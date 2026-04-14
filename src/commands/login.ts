@@ -3,6 +3,7 @@ import { styleText } from "node:util";
 import type { Command } from "@commander-js/extra-typings";
 
 import { loadCredentials, clearCredentials } from "../helpers/credential-store";
+import { exitWith } from "../helpers/exit";
 import { logError, logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
@@ -31,16 +32,21 @@ export function registerLoginCommand(program: Command) {
       if (result.ok) {
         printNextStep();
       } else {
-        process.exit(1);
+        await exitWith(1);
       }
     } catch (err) {
-      trackLoginResult({ subcommand: "login", success: false });
+      const failureReason = isTlsError(err) ? "tls" : "other";
+      trackLoginResult({
+        subcommand: "login",
+        success: false,
+        failure_reason: failureReason,
+      });
       if (isTlsError(err)) {
         logError(tlsHintMessage());
-        process.exit(1);
+        await exitWith(1);
       }
       logError(err instanceof Error ? err.message : String(err));
-      process.exit(1);
+      await exitWith(1);
     }
   });
 
@@ -58,7 +64,7 @@ export function registerLoginCommand(program: Command) {
         }
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 
@@ -72,7 +78,7 @@ export function registerLoginCommand(program: Command) {
         console.log("Logged out successfully.");
       } catch (err) {
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 
@@ -87,16 +93,21 @@ export function registerLoginCommand(program: Command) {
         if (result.ok) {
           printNextStep();
         } else {
-          process.exit(1);
+          await exitWith(1);
         }
       } catch (err) {
-        trackLoginResult({ subcommand: "refresh", success: false });
+        const failureReason = isTlsError(err) ? "tls" : "other";
+        trackLoginResult({
+          subcommand: "refresh",
+          success: false,
+          failure_reason: failureReason,
+        });
         if (isTlsError(err)) {
           logError(tlsHintMessage());
-          process.exit(1);
+          await exitWith(1);
         }
         logError(err instanceof Error ? err.message : String(err));
-        process.exit(1);
+        await exitWith(1);
       }
     });
 }

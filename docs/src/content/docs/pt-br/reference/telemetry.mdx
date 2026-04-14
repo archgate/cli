@@ -12,19 +12,40 @@ O Archgate coleta **dados de uso anônimos** para nos ajudar a entender como a C
 Quando você executa um comando do Archgate, registramos:
 
 - **Nome do comando** e **quais flags foram usadas** (ex: `check --json` — apenas a presença da flag, nunca valores)
-- **Código de saída** (0, 1 ou 2) e **duração da execução** (milissegundos)
-- **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI, detecção de TTY, detecção de WSL
+- **Código de saída** (0, 1, 2 ou 130) e **duração da execução** (milissegundos), além de um **tag de desfecho** resumida (`success`, `user_error`, `internal_error`, `cancelled`)
+- **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI (incluindo provedor: GitHub Actions / GitLab CI / CircleCI / etc.), detecção de TTY, detecção de WSL, shell (bash, zsh, pwsh...) e locale
 - **Contexto de instalação**: como a CLI foi instalada (binário, proto, dependência local ou gerenciador de pacotes global)
-- **Contexto do projeto**: se existe um projeto Archgate no diretório atual, quantas ADRs possui e quantas têm regras automatizadas
+- **Contexto do projeto**: se existe um projeto Archgate no diretório atual, quantas ADRs possui, quantas têm regras automatizadas e quantos domínios distintos de ADR estão em uso
+- **Contexto do repositório** (não identificável): se o diretório atual é um repositório git, o bucket do host (`github` / `gitlab` / `bitbucket` / `other`), um **`repo_id` com hash** (SHA-256 da URL remota normalizada, truncado em 16 caracteres hex — não reversível) e o nome do branch padrão
 - **Localização aproximada**: país e região (resolvidos no servidor a partir do seu IP, que é descartado em seguida — veja [Anonimização de IP](#anonimização-de-ip))
 - **ID de instalação anônimo**: um UUID aleatório gerado na primeira execução — não derivado de nenhum dado pessoal
 
 Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `command_completed`), comandos específicos enviam eventos enriquecidos:
 
-- **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado e se filtros foram aplicados — sem caminhos de arquivo ou conteúdo de violação
-- **`init`**: escolha do editor, se o plugin foi instalado e se o projeto já existia
-- **`upgrade`**: transição de versão (de → para), método de instalação e sucesso/falha
-- **`login`**: subcomando usado (login, logout, refresh, status) e sucesso/falha
+- **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado, se filtros foram aplicados, arquivos analisados, duração de carregamento, duração da verificação — sem caminhos de arquivo ou conteúdo de violação
+- **`init`**: escolha do editor, se o plugin foi instalado, se o projeto já existia. Um evento separado `project_initialized` é enviado uma única vez, contendo o bucket do host do repositório e o flag `repo_is_git`. Ao optar pelo compartilhamento (veja [Identidade do repositório](#identidade-do-repositório)), esse evento também leva URL remota, owner e nome do repositório.
+- **`upgrade`**: transição de versão (de → para), método de instalação, sucesso/falha e uma razão de falha opcional
+- **`login`**: subcomando usado (login, logout, refresh, status), sucesso/falha e um bucket de falha (`network`, `tls`, `denied`, `other`) quando falha
+- **`telemetry_preference_changed`**: disparado uma vez quando você ativa ou desativa a telemetria, para que possamos entender as taxas de opt-out
+
+## Identidade do repositório
+
+Por padrão, o Archgate envia um `repo_id` **com hash** em todo evento para que possamos contar repositórios distintos usando a CLI sem aprender seus nomes. A URL remota bruta, o owner e o nome do repositório **não** são incluídos no fluxo comum de eventos.
+
+Se você quiser nos ajudar a ver exatamente quais repositórios públicos estão adotando o Archgate, você pode optar pelo compartilhamento. Quando habilitado, o evento `project_initialized` único (emitido por `archgate init`) leva `remote_url`, `repo_owner` e `repo_name`. Nenhum outro evento é afetado.
+
+Opções de opt-in:
+
+```bash
+# Flag por invocação
+archgate init --share-repo-identity
+
+# Ou via variável de ambiente
+export ARCHGATE_SHARE_REPO_IDENTITY=1
+archgate init
+```
+
+Valores aceitos: `1`, `true`, `yes`, `on` (sem diferenciação de maiúsculas/minúsculas).
 
 ### Rastreamento de erros (Sentry)
 
@@ -36,8 +57,8 @@ Quando a CLI falha (código de saída 2), enviamos:
 
 ## O que NÃO coletamos
 
-- **Nenhuma informação pessoal**: nenhum nome de usuário, email, endereço IP ou identificador do GitHub
-- **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR, código-fonte, nome de projeto ou caminho de arquivo
+- **Nenhuma informação pessoal**: nenhum nome de usuário, email ou endereço IP. Owners e nomes de repositórios do GitHub só são incluídos quando você faz opt-in via `--share-repo-identity` ou `ARCHGATE_SHARE_REPO_IDENTITY=1` (veja [Identidade do repositório](#identidade-do-repositório))
+- **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR, código-fonte ou caminho de arquivo
 - **Nenhum contexto de IA**: nada de interações com agentes, prompts ou conteúdo gerado por IA
 - **Nenhum valor de flag**: registramos que `--json` foi usado, não o conteúdo da saída JSON
 - **Nenhuma atividade de rede**: nenhuma URL, chave de API ou token

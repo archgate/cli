@@ -55,7 +55,7 @@ export function detectInstallMethod(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Project context (cached)
+// Project context
 // ---------------------------------------------------------------------------
 
 export interface ProjectContext {
@@ -65,26 +65,27 @@ export interface ProjectContext {
   domains: string[];
 }
 
-let cachedProjectContext: ProjectContext | null = null;
-
 /**
  * Scan the current working directory for an archgate project.
- * Results are cached per process.
+ *
+ * This used to be cached per process, but the cache was a source of stale
+ * data: if the first call happened BEFORE `archgate init` created the project
+ * (during the Commander `preAction` hook), the post-init `init_completed`
+ * event reused the pre-init snapshot and incorrectly reported
+ * `has_project=false, adr_count=0`. The read is a single `readdirSync` —
+ * cheap enough to re-run on every event, and worth it for accuracy.
  */
 export function getProjectContext(): ProjectContext {
-  if (cachedProjectContext) return cachedProjectContext;
-
   const adrsDir = join(process.cwd(), ".archgate", "adrs");
   const hasProject = existsSync(adrsDir);
 
   if (!hasProject) {
-    cachedProjectContext = {
+    return {
       hasProject: false,
       adrCount: 0,
       adrWithRulesCount: 0,
       domains: [],
     };
-    return cachedProjectContext;
   }
 
   try {
@@ -98,22 +99,15 @@ export function getProjectContext(): ProjectContext {
       if (match) domainSet.add(match[1]);
     }
 
-    cachedProjectContext = {
+    return {
       hasProject: true,
       adrCount: mdFiles.length,
       adrWithRulesCount: rulesFiles.length,
       domains: [...domainSet].sort(),
     };
   } catch {
-    cachedProjectContext = {
-      hasProject: true,
-      adrCount: 0,
-      adrWithRulesCount: 0,
-      domains: [],
-    };
+    return { hasProject: true, adrCount: 0, adrWithRulesCount: 0, domains: [] };
   }
-
-  return cachedProjectContext;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,5 +117,4 @@ export function getProjectContext(): ProjectContext {
 /** Reset all caches. For testing only. */
 export function _resetInstallInfoCaches(): void {
   cachedInstallMethod = null;
-  cachedProjectContext = null;
 }

@@ -9,6 +9,7 @@ import {
   buildSummary,
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
+import { exitWith } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
@@ -30,18 +31,22 @@ export function registerCheckCommand(program: Command) {
         logError(
           "No archgate project found. Run 'archgate init' to create one."
         );
-        process.exit(1);
+        await exitWith(1);
+        return;
       }
 
       let loadResults;
+      const loadStart = performance.now();
       try {
         loadResults = await loadRuleAdrs(projectRoot, opts.adr);
       } catch (err) {
         logError(
           err instanceof Error ? err.message : `Failed to load rules: ${err}`
         );
-        process.exit(1);
+        await exitWith(1);
+        return;
       }
+      const loadDurationMs = Math.round(performance.now() - loadStart);
 
       const useJson = opts.json || (!opts.ci && isAgentContext());
 
@@ -67,7 +72,7 @@ export function registerCheckCommand(program: Command) {
         } else {
           console.log("  No rules to check.");
         }
-        process.exit(0);
+        await exitWith(0);
       }
 
       // Collect file paths from arguments and/or stdin pipe.
@@ -118,8 +123,13 @@ export function registerCheckCommand(program: Command) {
         used_staged: Boolean(opts.staged),
         used_file_filter: filterFiles.length > 0,
         used_adr_filter: Boolean(opts.adr),
+        files_scanned: filterFiles.length,
+        load_duration_ms: loadDurationMs,
+        check_duration_ms: Math.round(result.totalDurationMs),
       });
 
-      process.exit(getExitCode(result));
+      const exitCode = getExitCode(result);
+      // Only 0, 1, and 2 are emitted by getExitCode()
+      await exitWith(exitCode as 0 | 1 | 2);
     });
 }
