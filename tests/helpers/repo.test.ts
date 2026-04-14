@@ -71,6 +71,52 @@ describe("repo helper", () => {
       expect(parsed.name).toBe("bar");
     });
 
+    test("parses Azure DevOps HTTPS URLs (modern dev.azure.com)", () => {
+      const parsed = parseRemoteUrl(
+        "https://dev.azure.com/myorg/myproject/_git/myrepo"
+      );
+      expect(parsed.host).toBe("azure-devops");
+      // owner encodes both organization and project
+      expect(parsed.owner).toBe("myorg/myproject");
+      expect(parsed.name).toBe("myrepo");
+      expect(parsed.normalized).toBe("dev.azure.com/myorg/myproject/myrepo");
+    });
+
+    test("parses Azure DevOps SSH URLs (ssh.dev.azure.com:v3/...)", () => {
+      const parsed = parseRemoteUrl(
+        "git@ssh.dev.azure.com:v3/myorg/myproject/myrepo"
+      );
+      expect(parsed.host).toBe("azure-devops");
+      expect(parsed.owner).toBe("myorg/myproject");
+      expect(parsed.name).toBe("myrepo");
+    });
+
+    test("parses legacy Azure DevOps visualstudio.com URLs", () => {
+      const parsed = parseRemoteUrl(
+        "https://myorg.visualstudio.com/myproject/_git/myrepo"
+      );
+      expect(parsed.host).toBe("azure-devops");
+      expect(parsed.owner).toBe("myorg/myproject");
+      expect(parsed.name).toBe("myrepo");
+      // Legacy host normalises to dev.azure.com so the same repo via both
+      // URL shapes produces the same repo_id.
+      expect(parsed.normalized).toBe("dev.azure.com/myorg/myproject/myrepo");
+    });
+
+    test("Azure DevOps HTTPS, SSH, and visualstudio.com hash to the same repo_id", () => {
+      const https = parseRemoteUrl(
+        "https://dev.azure.com/myorg/myproject/_git/myrepo"
+      );
+      const ssh = parseRemoteUrl(
+        "git@ssh.dev.azure.com:v3/myorg/myproject/myrepo"
+      );
+      const vs = parseRemoteUrl(
+        "https://myorg.visualstudio.com/myproject/_git/myrepo"
+      );
+      expect(https.normalized).toBe(ssh.normalized);
+      expect(ssh.normalized).toBe(vs.normalized);
+    });
+
     test("returns all-null on garbage input", () => {
       const parsed = parseRemoteUrl("not a url");
       expect(parsed.host).toBeNull();
@@ -94,23 +140,39 @@ describe("repo helper", () => {
   });
 
   describe("shouldShareRepoIdentity", () => {
-    test("defaults to false", () => {
-      expect(shouldShareRepoIdentity()).toBe(false);
+    test("shares identity for confirmed public repos by default (opt-out)", () => {
+      expect(shouldShareRepoIdentity(undefined, true)).toBe(true);
     });
 
-    test("honors the explicit CLI flag", () => {
-      expect(shouldShareRepoIdentity(true)).toBe(true);
+    test("does NOT share for private repos even when flag is absent", () => {
+      expect(shouldShareRepoIdentity(undefined, false)).toBe(false);
     });
 
-    test("honors the env override", () => {
-      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "1";
-      expect(shouldShareRepoIdentity()).toBe(true);
+    test("does NOT share when public status is unknown (self-hosted/error)", () => {
+      expect(shouldShareRepoIdentity(undefined, null)).toBe(false);
+    });
 
-      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "yes";
-      expect(shouldShareRepoIdentity()).toBe(true);
+    test("honors explicit opt-out via --no-share-repo-identity even when public", () => {
+      expect(shouldShareRepoIdentity(false, true)).toBe(false);
+    });
 
+    test("explicit true does not override the public check", () => {
+      // Passing flag=true for a private repo must still refuse to share —
+      // identity sharing requires BOTH user consent AND a confirmed public
+      // repository. This is a safety invariant.
+      expect(shouldShareRepoIdentity(true, false)).toBe(false);
+      expect(shouldShareRepoIdentity(true, null)).toBe(false);
+    });
+
+    test("honors the env var opt-out", () => {
       process.env.ARCHGATE_SHARE_REPO_IDENTITY = "0";
-      expect(shouldShareRepoIdentity()).toBe(false);
+      expect(shouldShareRepoIdentity(undefined, true)).toBe(false);
+
+      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "off";
+      expect(shouldShareRepoIdentity(undefined, true)).toBe(false);
+
+      process.env.ARCHGATE_SHARE_REPO_IDENTITY = "false";
+      expect(shouldShareRepoIdentity(undefined, true)).toBe(false);
     });
   });
 

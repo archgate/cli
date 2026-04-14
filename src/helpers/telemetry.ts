@@ -277,13 +277,13 @@ export function trackInitResult(properties: {
 }
 
 /**
- * Track the opt-in `project_initialized` event on `archgate init`.
+ * Track the `project_initialized` event on `archgate init`.
  *
- * Unlike `init_completed`, this event carries repo identity when the user
- * opts in via `--share-repo-identity` or `ARCHGATE_SHARE_REPO_IDENTITY=1`.
- * The hashed `repo_id` is always included (same shape as every other event);
- * the raw `remote_url`, `owner`, `name` are only present when identity
- * sharing is enabled.
+ * Identity (raw remote URL / owner / name) ships only when the repo is
+ * confirmed public on a recognised host AND the user has not opted out via
+ * `--no-share-repo-identity` or `ARCHGATE_SHARE_REPO_IDENTITY=0`. The hashed
+ * `repo_id` is always included via common properties — it lets us count
+ * repos without learning names.
  */
 export function trackProjectInitialized(properties: {
   editors: string[];
@@ -294,6 +294,11 @@ export function trackProjectInitialized(properties: {
   /** Repo host as classified by `parseRemoteUrl`; null if no remote. */
   repo_host: string | null;
   repo_is_git: boolean;
+  /**
+   * Public-visibility probe: `true`/`false` if determined via the host API,
+   * `null` for self-hosted, unknown, network failure, or rate-limited.
+   */
+  repo_public: boolean | null;
   /** Only populated when `identity_shared` is true. */
   remote_url?: string | null;
   repo_owner?: string | null;

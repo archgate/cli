@@ -16,14 +16,14 @@ Quando você executa um comando do Archgate, registramos:
 - **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI (incluindo provedor: GitHub Actions / GitLab CI / CircleCI / etc.), detecção de TTY, detecção de WSL, shell (bash, zsh, pwsh...) e locale
 - **Contexto de instalação**: como a CLI foi instalada (binário, proto, dependência local ou gerenciador de pacotes global)
 - **Contexto do projeto**: se existe um projeto Archgate no diretório atual, quantas ADRs possui, quantas têm regras automatizadas e quantos domínios distintos de ADR estão em uso
-- **Contexto do repositório** (não identificável): se o diretório atual é um repositório git, o bucket do host (`github` / `gitlab` / `bitbucket` / `other`), um **`repo_id` com hash** (SHA-256 da URL remota normalizada, truncado em 16 caracteres hex — não reversível) e o nome do branch padrão
+- **Contexto do repositório** (não identificável): se o diretório atual é um repositório git, o bucket do host (`github` / `gitlab` / `bitbucket` / `azure-devops` / `other`), um **`repo_id` com hash** (SHA-256 da URL remota normalizada, truncado em 16 caracteres hex — não reversível) e o nome do branch padrão
 - **Localização aproximada**: país e região (resolvidos no servidor a partir do seu IP, que é descartado em seguida — veja [Anonimização de IP](#anonimização-de-ip))
 - **ID de instalação anônimo**: um UUID aleatório gerado na primeira execução — não derivado de nenhum dado pessoal
 
 Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `command_completed`), comandos específicos enviam eventos enriquecidos:
 
 - **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado, se filtros foram aplicados, arquivos analisados, duração de carregamento, duração da verificação — sem caminhos de arquivo ou conteúdo de violação
-- **`init`**: escolha do editor, se o plugin foi instalado, se o projeto já existia. Um evento separado `project_initialized` é enviado uma única vez, contendo o bucket do host do repositório e o flag `repo_is_git`. Ao optar pelo compartilhamento (veja [Identidade do repositório](#identidade-do-repositório)), esse evento também leva URL remota, owner e nome do repositório.
+- **`init`**: escolha do editor, se o plugin foi instalado, se o projeto já existia. Um evento separado `project_initialized` é enviado uma única vez, contendo o bucket do host do repositório, `repo_is_git` e um flag `repo_public`. Para repositórios confirmados como públicos no GitHub / GitLab / Bitbucket, esse evento também leva URL remota, owner e nome do repositório — veja [Identidade do repositório](#identidade-do-repositório). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
 - **`upgrade`**: transição de versão (de → para), método de instalação, sucesso/falha e uma razão de falha opcional
 - **`login`**: subcomando usado (login, logout, refresh, status), sucesso/falha e um bucket de falha (`network`, `tls`, `denied`, `other`) quando falha
 - **`telemetry_preference_changed`**: disparado uma vez quando você ativa ou desativa a telemetria, para que possamos entender as taxas de opt-out
@@ -32,20 +32,26 @@ Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `comm
 
 Por padrão, o Archgate envia um `repo_id` **com hash** em todo evento para que possamos contar repositórios distintos usando a CLI sem aprender seus nomes. A URL remota bruta, o owner e o nome do repositório **não** são incluídos no fluxo comum de eventos.
 
-Se você quiser nos ajudar a ver exatamente quais repositórios públicos estão adotando o Archgate, você pode optar pelo compartilhamento. Quando habilitado, o evento `project_initialized` único (emitido por `archgate init`) leva `remote_url`, `repo_owner` e `repo_name`. Nenhum outro evento é afetado.
+Em `archgate init`, um evento `project_initialized` único é enviado. Se — e somente se — o repositório for confirmado como **público** no GitHub, GitLab, Bitbucket ou Azure DevOps (via consulta não autenticada à API do host), esse evento também inclui `remote_url`, `repo_owner` e `repo_name`. Isso nos permite ver quais repositórios públicos estão adotando o Archgate sem jamais expor os privados.
 
-Opções de opt-in:
+**O que nunca é compartilhado:**
+
+- Repositórios privados (a consulta retorna 404 ou `private: true`)
+- Hosts Git auto-hospedados (a verificação pula esses completamente)
+- Repositórios em que a consulta expira, é limitada por rate-limit ou não retorna uma resposta pública definitiva
+
+**Opt-out** (para repos públicos onde você ainda prefere ficar anônimo):
 
 ```bash
 # Flag por invocação
-archgate init --share-repo-identity
+archgate init --no-share-repo-identity
 
-# Ou via variável de ambiente
-export ARCHGATE_SHARE_REPO_IDENTITY=1
+# Ou via variável de ambiente — aplica-se a toda invocação
+export ARCHGATE_SHARE_REPO_IDENTITY=0
 archgate init
 ```
 
-Valores aceitos: `1`, `true`, `yes`, `on` (sem diferenciação de maiúsculas/minúsculas).
+Valores de opt-out aceitos: `0`, `false`, `no`, `off` (sem diferenciação de maiúsculas/minúsculas).
 
 ### Rastreamento de erros (Sentry)
 
@@ -57,7 +63,7 @@ Quando a CLI falha (código de saída 2), enviamos:
 
 ## O que NÃO coletamos
 
-- **Nenhuma informação pessoal**: nenhum nome de usuário, email ou endereço IP. Owners e nomes de repositórios do GitHub só são incluídos quando você faz opt-in via `--share-repo-identity` ou `ARCHGATE_SHARE_REPO_IDENTITY=1` (veja [Identidade do repositório](#identidade-do-repositório))
+- **Nenhuma informação pessoal**: nenhum nome de usuário, email ou endereço IP. Owners e nomes de repositórios no GitHub / GitLab / Bitbucket só são enviados no evento único `project_initialized` para repositórios confirmados como públicos pelo host — veja [Identidade do repositório](#identidade-do-repositório). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
 - **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR, código-fonte ou caminho de arquivo
 - **Nenhum contexto de IA**: nada de interações com agentes, prompts ou conteúdo gerado por IA
 - **Nenhum valor de flag**: registramos que `--json` foi usado, não o conteúdo da saída JSON

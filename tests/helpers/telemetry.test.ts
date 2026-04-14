@@ -168,6 +168,27 @@ describe("telemetry", () => {
         identity_shared: false,
         repo_host: "github",
         repo_is_git: true,
+        repo_public: null,
+      });
+    });
+
+    test("accepts identity fields when sharing", async () => {
+      const { initTelemetry, trackProjectInitialized } =
+        await import("../../src/helpers/telemetry");
+
+      await initTelemetry();
+      trackProjectInitialized({
+        editors: ["claude"],
+        editor_primary: "claude",
+        plugin_installed: false,
+        had_existing_project: false,
+        identity_shared: true,
+        repo_host: "github",
+        repo_is_git: true,
+        repo_public: true,
+        remote_url: "https://github.com/archgate/cli.git",
+        repo_owner: "archgate",
+        repo_name: "cli",
       });
     });
   });

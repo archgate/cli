@@ -13,7 +13,11 @@ import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
-import { getRepoContext, shouldShareRepoIdentity } from "../helpers/repo";
+import {
+  getRepoContext,
+  isPublicRepo,
+  shouldShareRepoIdentity,
+} from "../helpers/repo";
 import { trackInitResult, trackProjectInitialized } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
@@ -47,8 +51,8 @@ export function registerInitCommand(program: Command) {
       "install the archgate plugin (requires prior `archgate login`)"
     )
     .option(
-      "--share-repo-identity",
-      "include git remote owner/name in the one-time telemetry event (opt-in)"
+      "--no-share-repo-identity",
+      "opt out of including remote owner/name in the one-time project_initialized event (default: share only if the repo is confirmed public)"
     )
     .action(async (opts) => {
       try {
@@ -143,10 +147,19 @@ export function registerInitCommand(program: Command) {
 
         // One-time `project_initialized` event. The hashed `repo_id` ships in
         // every event already via the common props; this richer event is the
-        // only place the raw remote URL / owner / name appear, and only when
-        // the user opts in.
+        // only place the raw remote URL / owner / name appear, and only for
+        // repos we can confirm public via the host's unauthenticated API.
+        //
+        // Commander turns `--no-share-repo-identity` into
+        // `opts.shareRepoIdentity === false`; absent or `true` means "auto
+        // (share iff public)". We also honor ARCHGATE_SHARE_REPO_IDENTITY=0
+        // as a user-wide opt-out — see shouldShareRepoIdentity.
         const repo = await getRepoContext();
-        const shareIdentity = shouldShareRepoIdentity(opts.shareRepoIdentity);
+        const repoPublic = await isPublicRepo(repo);
+        const shareIdentity = shouldShareRepoIdentity(
+          opts.shareRepoIdentity,
+          repoPublic
+        );
         trackProjectInitialized({
           editors,
           editor_primary: editors[0],
@@ -155,6 +168,7 @@ export function registerInitCommand(program: Command) {
           identity_shared: shareIdentity,
           repo_host: repo.host,
           repo_is_git: repo.isGit,
+          repo_public: repoPublic,
           ...(shareIdentity
             ? {
                 remote_url: repo.remoteUrl,

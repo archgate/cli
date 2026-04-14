@@ -2,17 +2,17 @@
  * repo.ts — Detect the git repository context for telemetry enrichment.
  *
  * Every event carries:
- *   - `repo_host`: "github" | "gitlab" | "bitbucket" | "other" | null
+ *   - `repo_host`: "github" | "gitlab" | "bitbucket" | "azure-devops" | "other" | null
  *   - `repo_id`: sha256 hash of the normalized remote URL, truncated to 16
  *     hex chars. Stable per repo, but non-reversible — you can count distinct
  *     repos using the CLI without learning any identity.
  *   - `repo_is_git`: whether the CWD is a git working tree at all
  *   - `git_default_branch`: best-effort "main" / "master" / etc.
  *
- * The raw remote URL and parsed owner/name are *not* sent by default — they
- * only reach PostHog via the opt-in `project_initialized` event when the user
- * sets `ARCHGATE_SHARE_REPO_IDENTITY=1` or passes `--share-repo-identity`
- * to `archgate init`. See {@link shouldShareRepoIdentity}.
+ * The raw remote URL and parsed owner/name are *only* sent on the one-time
+ * `project_initialized` event, and *only* when the repository is confirmed
+ * public via the host's unauthenticated API. See `repo-probe.ts` for that
+ * logic; this module stays local-only (git + URL parsing).
  *
  * Cached per-process because the git remote and default branch are effectively
  * immutable over the lifetime of a single CLI invocation.
@@ -21,12 +21,26 @@
 import { createHash } from "node:crypto";
 
 import { logDebug } from "./log";
+import {
+  _resetPublicProbeCache,
+  _setPublicProbeForTest,
+  isPublicRepo,
+} from "./repo-probe";
+
+// Re-export the public-visibility probe so commands / telemetry can import
+// everything repo-related from one place.
+export { isPublicRepo, _setPublicProbeForTest };
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type RepoHost = "github" | "gitlab" | "bitbucket" | "other";
+export type RepoHost =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "azure-devops"
+  | "other";
 
 export interface RepoContext {
   /** True if the CWD sits inside a git working tree. */
@@ -45,9 +59,8 @@ export interface RepoContext {
   repoId: string | null;
   /**
    * Raw `remote.origin.url` string. Present here so callers with explicit
-   * user consent (the opt-in `project_initialized` event) can include it;
-   * NEVER sent with common properties. The hashed `repoId` is the field
-   * used for passive per-repo analytics.
+   * user consent (the `project_initialized` event on a confirmed-public
+   * repo) can include it; NEVER sent with common properties.
    */
   remoteUrl: string | null;
   /**
@@ -55,6 +68,14 @@ export interface RepoContext {
    * the repo has no remote HEAD configured.
    */
   defaultBranch: string | null;
+}
+
+export interface ParsedRemote {
+  host: RepoHost | null;
+  owner: string | null;
+  name: string | null;
+  /** Canonical form used for hashing — lowercase host, `owner/name`, no suffix. */
+  normalized: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -117,36 +138,47 @@ export async function getRepoContext(): Promise<RepoContext> {
 }
 
 /**
- * Should the CLI include owner / name / full remote URL in the opt-in
- * `project_initialized` event? Opt-in via env var or CLI flag.
+ * Should the CLI include owner / name / full remote URL in the
+ * `project_initialized` event?
+ *
+ * Default: share iff the repo is confirmed public on a recognised host.
+ * This is an opt-out — users who want to stay anonymous even for a public
+ * repo pass `--no-share-repo-identity` (which becomes `flag === false` in
+ * Commander) or set `ARCHGATE_SHARE_REPO_IDENTITY=0`.
+ *
+ * Private, unknown, and self-hosted repos always return false regardless
+ * of the flag — identity sharing requires both user consent AND a confirmed
+ * public repository.
  */
-export function shouldShareRepoIdentity(flag?: boolean): boolean {
-  if (flag) return true;
+export function shouldShareRepoIdentity(
+  flag: boolean | undefined,
+  repoPublic: boolean | null
+): boolean {
+  if (flag === false) return false;
+  if (isEnvIdentityDisabled()) return false;
+  return repoPublic === true;
+}
+
+function isEnvIdentityDisabled(): boolean {
   const env = Bun.env.ARCHGATE_SHARE_REPO_IDENTITY;
   if (env === undefined) return false;
-  return ["1", "true", "yes", "on"].includes(env.toLowerCase());
+  return ["0", "false", "no", "off"].includes(env.toLowerCase());
 }
 
 // ---------------------------------------------------------------------------
 // Parsing
 // ---------------------------------------------------------------------------
 
-export interface ParsedRemote {
-  host: RepoHost | null;
-  owner: string | null;
-  name: string | null;
-  /** Canonical form used for hashing — lowercase host, `owner/name`, no suffix. */
-  normalized: string | null;
-}
-
 /**
  * Parse a git remote URL into host + owner + name.
  *
  * Handles:
- *   - `https://github.com/foo/bar.git`
- *   - `git@github.com:foo/bar.git`
- *   - `ssh://git@gitlab.com/foo/bar`
+ *   - GitHub / GitLab / Bitbucket HTTPS and SCP-style SSH URLs
  *   - GitLab subgroups (`gitlab.com/foo/sub/bar` → owner=`foo/sub`, name=`bar`)
+ *   - Azure DevOps (`dev.azure.com`) HTTPS and SSH URLs, including the
+ *     `_git` path infix and the `v3` SSH prefix
+ *   - Legacy Azure DevOps `{org}.visualstudio.com` URLs where the org is
+ *     encoded in the subdomain rather than the path
  */
 export function parseRemoteUrl(raw: string): ParsedRemote {
   const trimmed = raw.trim();
@@ -175,27 +207,47 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
     return { host: null, owner: null, name: null, normalized: null };
   }
 
+  const lowerHost = host.toLowerCase();
+  const classified = classifyHost(lowerHost);
+
   // Strip trailing .git, .git/, or /
   path = path.replace(/\.git\/?$/, "").replace(/\/$/, "");
-  const segments = path.split("/").filter(Boolean);
+  let segments = path.split("/").filter(Boolean);
+
+  // Azure DevOps URL quirks:
+  //   - HTTPS  (modern):  /{org}/{project}/_git/{repo}
+  //   - HTTPS  (legacy):  /{project}/_git/{repo} on {org}.visualstudio.com
+  //   - SSH    (v3 path): v3/{org}/{project}/{repo}
+  // Strip the structural markers (`_git`, `v3`) and, for legacy URLs, pull
+  // the org out of the subdomain.
+  if (classified === "azure-devops") {
+    segments = segments.filter((s) => s !== "_git" && s !== "v3");
+
+    const vsHostMatch = lowerHost.match(/^([^.]+)\.visualstudio\.com$/);
+    if (vsHostMatch && !segments.some((s) => s === vsHostMatch[1])) {
+      segments = [vsHostMatch[1], ...segments];
+    }
+  }
+
   if (segments.length < 2) {
-    return {
-      host: classifyHost(host),
-      owner: null,
-      name: null,
-      normalized: null,
-    };
+    return { host: classified, owner: null, name: null, normalized: null };
   }
 
   const name = segments.at(-1)!;
   const owner = segments.slice(0, -1).join("/");
-  const lowerHost = host.toLowerCase();
+
+  // Normalize the host for hashing. Azure DevOps URLs come in three shapes
+  // (HTTPS `dev.azure.com`, SSH `ssh.dev.azure.com`, legacy
+  // `{org}.visualstudio.com`) — all three should hash to the same repo_id,
+  // so collapse them onto a single canonical host string.
+  const normalizedHost =
+    classified === "azure-devops" ? "dev.azure.com" : lowerHost;
 
   return {
-    host: classifyHost(lowerHost),
+    host: classified,
     owner,
     name,
-    normalized: `${lowerHost}/${owner.toLowerCase()}/${name.toLowerCase()}`,
+    normalized: `${normalizedHost}/${owner.toLowerCase()}/${name.toLowerCase()}`,
   };
 }
 
@@ -204,6 +256,13 @@ function classifyHost(hostname: string): RepoHost {
   if (h === "github.com" || h.endsWith(".github.com")) return "github";
   if (h === "gitlab.com" || h.endsWith(".gitlab.com")) return "gitlab";
   if (h === "bitbucket.org" || h.endsWith(".bitbucket.org")) return "bitbucket";
+  if (
+    h === "dev.azure.com" ||
+    h === "ssh.dev.azure.com" ||
+    h.endsWith(".visualstudio.com")
+  ) {
+    return "azure-devops";
+  }
   return "other";
 }
 
@@ -287,7 +346,12 @@ function emptyContext(isGit: boolean): RepoContext {
 // Testing helpers
 // ---------------------------------------------------------------------------
 
-/** Reset the cached context. For testing only. */
+/**
+ * Reset the cached context AND the public-probe cache. For testing only —
+ * most tests only need one or the other, but resetting both here keeps the
+ * test setup boilerplate small.
+ */
 export function _resetRepoContextCache(): void {
   cached = null;
+  _resetPublicProbeCache();
 }
