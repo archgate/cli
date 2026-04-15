@@ -17,7 +17,7 @@ archgate adr create
 
 You will be prompted for:
 
-1. **Domain** -- one of `backend`, `frontend`, `data`, `architecture`, or `general`
+1. **Domain** -- one of the built-in `backend`, `frontend`, `data`, `architecture`, or `general`, plus any [custom domains](/concepts/domains/#custom-domains) the project has registered via `archgate adr domain add`
 2. **Title** -- a short, descriptive name for the decision
 3. **File patterns** -- optional comma-separated globs that scope rule checking (e.g., `src/commands/**/*.ts`)
 
@@ -36,7 +36,7 @@ Available flags:
 | Flag              | Description                                            |
 | ----------------- | ------------------------------------------------------ |
 | `--title <title>` | ADR title (required for non-interactive mode)          |
-| `--domain <name>` | Domain: backend, frontend, data, architecture, general |
+| `--domain <name>` | Domain name (built-in or [custom](/concepts/domains/#custom-domains))  |
 | `--files <globs>` | Comma-separated file patterns for rule scoping         |
 | `--rules`         | Set `rules: true` in frontmatter                       |
 | `--body <md>`     | Full ADR body markdown (skip template)                 |
@@ -303,7 +303,7 @@ The `--id` and `--body` flags are required. All other frontmatter fields (`--tit
 
 6. **Write rules for decisions that can be checked automatically.** If a rule can catch a violation before code review, set `rules: true` and write a companion `.rules.ts` file. See the [Writing Rules](/guides/writing-rules/) guide.
 
-7. **Use domain prefixes to organize.** The domain field (`backend`, `frontend`, `data`, `architecture`, `general`) determines the ID prefix and helps filter ADRs by area.
+7. **Use domain prefixes to organize.** The domain field determines the ID prefix and helps filter ADRs by area. Prefer the five built-ins (`backend`, `frontend`, `data`, `architecture`, `general`); register a [custom domain](/concepts/domains/#custom-domains) only when none of them is a genuine fit.
 
 :::tip[Let AI agents write ADRs for you]
 The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include an ADR Author skill that creates and updates ADRs following your project's conventions. The Quality Manager skill also proposes new ADRs when it detects recurring patterns. [Sign up for beta access](https://plugins.archgate.dev).

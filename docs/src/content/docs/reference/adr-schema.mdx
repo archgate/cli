@@ -25,7 +25,7 @@ files: ["src/commands/**/*.ts"]
 | -------- | ---------- | -------- | ---------------------------------------------------------------------------------- |
 | `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`). |
 | `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                           |
-| `domain` | `enum`     | Yes      | Domain category. One of: `backend`, `frontend`, `data`, `architecture`, `general`. |
+| `domain` | `string`   | Yes      | A registered domain name in lowercase kebab-case. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains are those registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
 | `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.           |
 | `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                           |
 
@@ -42,6 +42,8 @@ A short, descriptive name for the architectural decision. Displayed in `archgate
 ### domain
 
 Groups related ADRs together. The domain also determines the ID prefix used by `archgate adr create`.
+
+Projects can extend the built-in set with custom domains via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Custom domain → prefix mappings live in `.archgate/config.json` and are merged with the built-ins at read time.
 
 ### rules
 
@@ -67,6 +69,8 @@ files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 
 Each domain maps to a prefix used in the ADR ID convention.
 
+### Built-in domains
+
 | Domain         | Prefix | Example ID |
 | -------------- | ------ | ---------- |
 | `backend`      | `BE`   | `BE-001`   |
@@ -76,6 +80,12 @@ Each domain maps to a prefix used in the ADR ID convention.
 | `general`      | `GEN`  | `GEN-001`  |
 
 The `archgate adr create` command uses this mapping to auto-generate IDs.
+
+### Custom domains
+
+Projects can register additional domain → prefix mappings via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Once registered, custom domains behave like built-ins: `archgate adr create --domain <name>` auto-generates IDs using the associated prefix, and ADRs with custom domains parse cleanly.
+
+See the [Domains concept page](/concepts/domains/) for guidance on when to introduce a custom domain.
 
 ---
 
@@ -262,14 +272,16 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: Required
 ```
 
-### Invalid enum values
+### Invalid domain format
 
-If `domain` is not one of the valid values:
+If `domain` is not a valid kebab-case identifier (e.g., has uppercase letters or spaces):
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - domain: Invalid enum value. Expected 'backend' | 'frontend' | 'data' | 'architecture' | 'general', received 'security'
+  - domain: domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')
 ```
+
+Note: the parser accepts any name that matches the kebab-case pattern. Whether a specific name is "known" to the project — and therefore has a prefix that `archgate adr create` can use — depends on the built-in set plus any custom domains registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Creating an ADR with an unregistered domain name fails with a "Unknown ADR domain" error that suggests running `archgate adr domain add`.
 
 ### Type mismatches
 

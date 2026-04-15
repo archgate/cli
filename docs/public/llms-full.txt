@@ -465,7 +465,7 @@ Every ADR document starts with a YAML frontmatter block between `---` delimiters
 | -------- | ------------ | -------- | ---------------------------------------------------------------- |
 | `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                    |
 | `title`  | string       | Yes      | Human-readable title of the decision                             |
-| `domain` | enum         | Yes      | One of: `backend`, `frontend`, `data`, `architecture`, `general` |
+| `domain` | string       | Yes      | Registered domain name. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. [Custom domains](/concepts/domains/#custom-domains) can be added via `archgate adr domain add`. |
 | `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                |
 | `files`  | string array | No       | Glob patterns that scope which files the rules check             |
 
@@ -690,6 +690,43 @@ When deciding which domain an ADR belongs to, consider who needs to follow it:
 - If it is a process or convention rather than a technical decision, use `general`.
 
 When in doubt between `architecture` and a specific domain, prefer the more specific domain. Reserve `architecture` for decisions that genuinely cut across boundaries.
+
+## Custom Domains
+
+When the built-in five are a genuine mismatch for a category of decisions — for example, `security`, `ml-ops`, or `compliance` — you can register a custom domain via the CLI:
+
+```bash
+# See what's currently recognised in this project
+archgate adr domain list
+
+# Register a new domain with its ID prefix
+archgate adr domain add security SEC
+
+# Remove a custom domain (built-ins cannot be removed)
+archgate adr domain remove security
+```
+
+Custom domain → prefix mappings persist in `.archgate/config.json` and are merged with the built-ins at read time. A registered custom domain behaves exactly like a built-in: `archgate adr create --domain security` auto-generates IDs like `SEC-001`, and `archgate adr list --domain security` filters to those ADRs.
+
+### Naming rules
+
+- **Name** — lowercase kebab-case, 2–32 characters (e.g., `security`, `ml-ops`, `compliance`).
+- **Prefix** — uppercase letters, digits, or underscores, 2–10 characters (e.g., `SEC`, `MLOPS`, `COMP`).
+- Custom names and prefixes cannot collide with built-ins or any other custom entry.
+
+### When to prefer a built-in
+
+The built-in five are deliberately opinionated. Before registering a custom domain, check whether the decision can be folded under an existing one:
+
+- A decision about auth middleware usually fits under `backend`, even if the motivation is security.
+- A decision about schema versioning usually fits under `data`, even if the motivation is compliance.
+- A decision that spans multiple technical areas usually fits under `architecture`.
+
+Reach for a custom domain only when none of the built-ins is a genuine fit — for example, when you have a dedicated team or compliance regime that needs its own governance surface.
+
+### AI agent guidance
+
+When using the Archgate editor plugin to author ADRs, agents are instructed to default to the built-in domains and to ask before introducing a custom one. They'll surface the merged list via `archgate adr domain list` and only register a new domain after confirming with you that no built-in fits.
 
 ---
 
@@ -2010,7 +2047,7 @@ archgate adr create
 
 You will be prompted for:
 
-1. **Domain** -- one of `backend`, `frontend`, `data`, `architecture`, or `general`
+1. **Domain** -- one of the built-in `backend`, `frontend`, `data`, `architecture`, or `general`, plus any [custom domains](/concepts/domains/#custom-domains) the project has registered via `archgate adr domain add`
 2. **Title** -- a short, descriptive name for the decision
 3. **File patterns** -- optional comma-separated globs that scope rule checking (e.g., `src/commands/**/*.ts`)
 
@@ -2029,7 +2066,7 @@ Available flags:
 | Flag              | Description                                            |
 | ----------------- | ------------------------------------------------------ |
 | `--title <title>` | ADR title (required for non-interactive mode)          |
-| `--domain <name>` | Domain: backend, frontend, data, architecture, general |
+| `--domain <name>` | Domain name (built-in or [custom](/concepts/domains/#custom-domains))  |
 | `--files <globs>` | Comma-separated file patterns for rule scoping         |
 | `--rules`         | Set `rules: true` in frontmatter                       |
 | `--body <md>`     | Full ADR body markdown (skip template)                 |
@@ -2296,7 +2333,7 @@ The `--id` and `--body` flags are required. All other frontmatter fields (`--tit
 
 6. **Write rules for decisions that can be checked automatically.** If a rule can catch a violation before code review, set `rules: true` and write a companion `.rules.ts` file. See the [Writing Rules](/guides/writing-rules/) guide.
 
-7. **Use domain prefixes to organize.** The domain field (`backend`, `frontend`, `data`, `architecture`, `general`) determines the ID prefix and helps filter ADRs by area.
+7. **Use domain prefixes to organize.** The domain field determines the ID prefix and helps filter ADRs by area. Prefer the five built-ins (`backend`, `frontend`, `data`, `architecture`, `general`); register a [custom domain](/concepts/domains/#custom-domains) only when none of them is a genuine fit.
 
 The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include an ADR Author skill that creates and updates ADRs following your project's conventions. The Quality Manager skill also proposes new ADRs when it detects recurring patterns. [Sign up for beta access](https://plugins.archgate.dev).
 
@@ -2628,7 +2665,7 @@ files: ["src/commands/**/*.ts"]
 | -------- | ---------- | -------- | ---------------------------------------------------------------------------------- |
 | `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`). |
 | `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                           |
-| `domain` | `enum`     | Yes      | Domain category. One of: `backend`, `frontend`, `data`, `architecture`, `general`. |
+| `domain` | `string`   | Yes      | A registered domain name in lowercase kebab-case. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains are those registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
 | `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.           |
 | `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                           |
 
@@ -2645,6 +2682,8 @@ A short, descriptive name for the architectural decision. Displayed in `archgate
 ### domain
 
 Groups related ADRs together. The domain also determines the ID prefix used by `archgate adr create`.
+
+Projects can extend the built-in set with custom domains via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Custom domain → prefix mappings live in `.archgate/config.json` and are merged with the built-ins at read time.
 
 ### rules
 
@@ -2670,6 +2709,8 @@ files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 
 Each domain maps to a prefix used in the ADR ID convention.
 
+### Built-in domains
+
 | Domain         | Prefix | Example ID |
 | -------------- | ------ | ---------- |
 | `backend`      | `BE`   | `BE-001`   |
@@ -2679,6 +2720,12 @@ Each domain maps to a prefix used in the ADR ID convention.
 | `general`      | `GEN`  | `GEN-001`  |
 
 The `archgate adr create` command uses this mapping to auto-generate IDs.
+
+### Custom domains
+
+Projects can register additional domain → prefix mappings via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Once registered, custom domains behave like built-ins: `archgate adr create --domain <name>` auto-generates IDs using the associated prefix, and ADRs with custom domains parse cleanly.
+
+See the [Domains concept page](/concepts/domains/) for guidance on when to introduce a custom domain.
 
 ---
 
@@ -2865,14 +2912,16 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: Required
 ```
 
-### Invalid enum values
+### Invalid domain format
 
-If `domain` is not one of the valid values:
+If `domain` is not a valid kebab-case identifier (e.g., has uppercase letters or spaces):
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - domain: Invalid enum value. Expected 'backend' | 'frontend' | 'data' | 'architecture' | 'general', received 'security'
+  - domain: domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')
 ```
+
+Note: the parser accepts any name that matches the kebab-case pattern. Whether a specific name is "known" to the project — and therefore has a prefix that `archgate adr create` can use — depends on the built-in set plus any custom domains registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Creating an ADR with an unregistered domain name fails with a "Unknown ADR domain" error that suggests running `archgate adr domain add`.
 
 ### Type mismatches
 
@@ -2908,7 +2957,7 @@ The ADR ID is auto-generated with the domain prefix and the next available seque
 | Option               | Description                                                           |
 | -------------------- | --------------------------------------------------------------------- |
 | `--title <title>`    | ADR title (skip interactive prompt)                                   |
-| `--domain <domain>`  | ADR domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--domain <domain>`  | ADR domain. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains must first be registered via [`archgate adr domain add`](#archgate-adr-domain). |
 | `--files <patterns>` | File patterns, comma-separated                                        |
 | `--body <markdown>`  | Full ADR body markdown (skip template)                                |
 | `--rules`            | Set `rules: true` in frontmatter                                      |
@@ -3020,7 +3069,7 @@ Replaces the ADR body with the provided markdown. Frontmatter fields (`--title`,
 | `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                   |
 | `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                    |
 | `--title <title>`    | No       | New ADR title (preserves existing if omitted)                         |
-| `--domain <domain>`  | No       | New domain (`backend`, `frontend`, `data`, `architecture`, `general`) |
+| `--domain <domain>`  | No       | New domain. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains must first be registered via [`archgate adr domain add`](#archgate-adr-domain). |
 | `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)    |
 | `--rules`            | No       | Set `rules: true` in frontmatter                                      |
 | `--json`             | No       | Output as JSON                                                        |
@@ -3032,6 +3081,69 @@ archgate adr update \
   --id ARCH-001 \
   --title "Updated Command Structure" \
   --body "## Context\n\nUpdated context..."
+```
+
+---
+
+## archgate adr domain
+
+Manage custom ADR domains. Custom domains are name → ID-prefix mappings persisted in `.archgate/config.json` and merged with the five built-ins (`backend`, `frontend`, `data`, `architecture`, `general`) at read time.
+
+Use this command when a decision doesn't cleanly fit any built-in domain. Before registering a new one, check whether the decision can be folded under an existing domain — built-ins are the default and a custom domain should only be introduced when no built-in is a genuine fit.
+
+```bash
+archgate adr domain <subcommand> [options]
+```
+
+### Subcommands
+
+| Subcommand                                | Description                                                     |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| `archgate adr domain list`                | Show all merged (built-in + custom) domains and their prefixes  |
+| `archgate adr domain add <name> <prefix>` | Register a custom domain                                        |
+| `archgate adr domain remove <name>`       | Unregister a custom domain (built-ins cannot be removed)        |
+
+### Naming rules
+
+- `<name>` — lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
+- `<prefix>` — uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
+- Custom names and prefixes cannot collide with built-ins or with any other custom entry.
+
+### Options
+
+| Option   | Applies to      | Description    |
+| -------- | --------------- | -------------- |
+| `--json` | all subcommands | Output as JSON |
+
+### Examples
+
+List built-in and custom domains:
+
+```bash
+archgate adr domain list
+```
+
+```
+Domain          Prefix    Source
+────────────────────────────────
+architecture    ARCH      default
+backend         BE        default
+data            DATA      default
+frontend        FE        default
+general         GEN       default
+security        SEC       custom
+```
+
+Register a custom domain:
+
+```bash
+archgate adr domain add security SEC
+```
+
+Remove a custom domain:
+
+```bash
+archgate adr domain remove security
 ```
 
 ---

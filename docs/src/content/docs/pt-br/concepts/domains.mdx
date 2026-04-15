@@ -94,3 +94,40 @@ Ao decidir a qual domínio um ADR pertence, considere quem precisa segui-lo:
 - Se é um processo ou convenção em vez de uma decisão técnica, use `general`.
 
 Em caso de dúvida entre `architecture` e um domínio específico, prefira o domínio mais específico. Reserve `architecture` para decisões que genuinamente cruzam fronteiras.
+
+## Domínios Personalizados
+
+Quando os cinco domínios integrados realmente não encaixam uma categoria de decisões — por exemplo, `security`, `ml-ops` ou `compliance` — você pode registrar um domínio personalizado via CLI:
+
+```bash
+# Ver o conjunto reconhecido atualmente neste projeto
+archgate adr domain list
+
+# Registrar um novo domínio com seu prefixo de ID
+archgate adr domain add security SEC
+
+# Remover um domínio personalizado (integrados não podem ser removidos)
+archgate adr domain remove security
+```
+
+Os mapeamentos de domínio personalizado → prefixo persistem em `.archgate/config.json` e são mesclados com os integrados no momento da leitura. Um domínio personalizado registrado se comporta exatamente como um integrado: `archgate adr create --domain security` gera IDs como `SEC-001`, e `archgate adr list --domain security` filtra esses ADRs.
+
+### Regras de nomenclatura
+
+- **Nome** — kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`, `compliance`).
+- **Prefixo** — letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`, `COMP`).
+- Nomes e prefixos personalizados não podem colidir com integrados ou com qualquer outro personalizado.
+
+### Quando preferir um integrado
+
+Os cinco integrados são deliberadamente opinativos. Antes de registrar um domínio personalizado, verifique se a decisão pode ser agrupada sob um existente:
+
+- Uma decisão sobre middleware de autenticação geralmente cabe em `backend`, mesmo que a motivação seja de segurança.
+- Uma decisão sobre versionamento de schema geralmente cabe em `data`, mesmo que a motivação seja de compliance.
+- Uma decisão que abrange múltiplas áreas técnicas geralmente cabe em `architecture`.
+
+Recorra a um domínio personalizado apenas quando nenhum dos integrados for uma opção genuína — por exemplo, quando você tem uma equipe dedicada ou um regime de compliance que precisa de sua própria superfície de governança.
+
+### Orientação para agentes de IA
+
+Ao usar o plugin de editor do Archgate para criar ADRs, os agentes são instruídos a priorizar os domínios integrados e a perguntar antes de introduzir um personalizado. Eles mostrarão a lista mesclada via `archgate adr domain list` e só registrarão um novo domínio depois de confirmar com você que nenhum integrado serve.

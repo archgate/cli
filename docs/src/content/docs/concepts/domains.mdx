@@ -94,3 +94,40 @@ When deciding which domain an ADR belongs to, consider who needs to follow it:
 - If it is a process or convention rather than a technical decision, use `general`.
 
 When in doubt between `architecture` and a specific domain, prefer the more specific domain. Reserve `architecture` for decisions that genuinely cut across boundaries.
+
+## Custom Domains
+
+When the built-in five are a genuine mismatch for a category of decisions — for example, `security`, `ml-ops`, or `compliance` — you can register a custom domain via the CLI:
+
+```bash
+# See what's currently recognised in this project
+archgate adr domain list
+
+# Register a new domain with its ID prefix
+archgate adr domain add security SEC
+
+# Remove a custom domain (built-ins cannot be removed)
+archgate adr domain remove security
+```
+
+Custom domain → prefix mappings persist in `.archgate/config.json` and are merged with the built-ins at read time. A registered custom domain behaves exactly like a built-in: `archgate adr create --domain security` auto-generates IDs like `SEC-001`, and `archgate adr list --domain security` filters to those ADRs.
+
+### Naming rules
+
+- **Name** — lowercase kebab-case, 2–32 characters (e.g., `security`, `ml-ops`, `compliance`).
+- **Prefix** — uppercase letters, digits, or underscores, 2–10 characters (e.g., `SEC`, `MLOPS`, `COMP`).
+- Custom names and prefixes cannot collide with built-ins or any other custom entry.
+
+### When to prefer a built-in
+
+The built-in five are deliberately opinionated. Before registering a custom domain, check whether the decision can be folded under an existing one:
+
+- A decision about auth middleware usually fits under `backend`, even if the motivation is security.
+- A decision about schema versioning usually fits under `data`, even if the motivation is compliance.
+- A decision that spans multiple technical areas usually fits under `architecture`.
+
+Reach for a custom domain only when none of the built-ins is a genuine fit — for example, when you have a dedicated team or compliance regime that needs its own governance surface.
+
+### AI agent guidance
+
+When using the Archgate editor plugin to author ADRs, agents are instructed to default to the built-in domains and to ask before introducing a custom one. They'll surface the merged list via `archgate adr domain list` and only register a new domain after confirming with you that no built-in fits.

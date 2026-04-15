@@ -51,7 +51,7 @@ Every ADR document starts with a YAML frontmatter block between `---` delimiters
 | -------- | ------------ | -------- | ---------------------------------------------------------------- |
 | `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                    |
 | `title`  | string       | Yes      | Human-readable title of the decision                             |
-| `domain` | enum         | Yes      | One of: `backend`, `frontend`, `data`, `architecture`, `general` |
+| `domain` | string       | Yes      | Registered domain name. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. [Custom domains](/concepts/domains/#custom-domains) can be added via `archgate adr domain add`. |
 | `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                |
 | `files`  | string array | No       | Glob patterns that scope which files the rules check             |
 

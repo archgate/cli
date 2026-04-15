@@ -51,7 +51,7 @@ Todo documento ADR começa com um bloco de frontmatter YAML entre delimitadores 
 | -------- | ------------ | ----------- | --------------------------------------------------------------- |
 | `id`     | string       | Sim         | Identificador único como `ARCH-001` ou `BE-003`                 |
 | `title`  | string       | Sim         | Título legível da decisão                                       |
-| `domain` | enum         | Sim         | Um de: `backend`, `frontend`, `data`, `architecture`, `general` |
+| `domain` | string       | Sim         | Nome de domínio registrado. Integrados: `backend`, `frontend`, `data`, `architecture`, `general`. [Domínios personalizados](/pt-br/concepts/domains/#domínios-personalizados) podem ser adicionados via `archgate adr domain add`. |
 | `rules`  | boolean      | Sim         | Se este ADR tem um arquivo `.rules.ts` complementar             |
 | `files`  | string array | Não         | Padrões glob que definem quais arquivos as regras verificam     |
 
