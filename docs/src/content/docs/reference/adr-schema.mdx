@@ -21,13 +21,13 @@ files: ["src/commands/**/*.ts"]
 
 ### Fields
 
-| Field    | Type       | Required | Description                                                                        |
-| -------- | ---------- | -------- | ---------------------------------------------------------------------------------- |
-| `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`). |
-| `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                           |
+| Field    | Type       | Required | Description                                                                                                                                                                                                                          |
+| -------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`).                                                                                                                                                   |
+| `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                                                                                                                                                                             |
 | `domain` | `string`   | Yes      | A registered domain name in lowercase kebab-case. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains are those registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
-| `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.           |
-| `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                           |
+| `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.                                                                                                                                                             |
+| `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                                                                                                                                                                             |
 
 ### id
 

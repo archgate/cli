@@ -17,7 +17,7 @@ archgate adr create
 
 Você será solicitado a fornecer:
 
-1. **Domain** -- um dos integrados `backend`, `frontend`, `data`, `architecture` ou `general`, mais quaisquer [domínios personalizados](/pt-br/concepts/domains/#domínios-personalizados) que o projeto tenha registrado via `archgate adr domain add`
+1. **Domain** -- um dos integrados `backend`, `frontend`, `data`, `architecture` ou `general`, mais quaisquer [domínios personalizados](/concepts/domains/#domínios-personalizados) que o projeto tenha registrado via `archgate adr domain add`
 2. **Title** -- um nome curto e descritivo para a decisão
 3. **File patterns** -- globs opcionais separados por vírgula que delimitam o escopo da verificação de regras (ex.: `src/commands/**/*.ts`)
 
@@ -33,14 +33,14 @@ archgate adr create --title "API Response Format" --domain backend --files "src/
 
 Flags disponíveis:
 
-| Flag              | Descrição                                                      |
-| ----------------- | -------------------------------------------------------------- |
-| `--title <title>` | Título do ADR (obrigatório no modo não-interativo)             |
-| `--domain <name>` | Nome do domínio (integrado ou [personalizado](/pt-br/concepts/domains/#domínios-personalizados)) |
-| `--files <globs>` | Padrões de arquivo separados por vírgula para escopo de regras |
-| `--rules`         | Define `rules: true` no frontmatter                            |
-| `--body <md>`     | Corpo completo do ADR em markdown (pula o template)            |
-| `--json`          | Exibe o resultado como JSON                                    |
+| Flag              | Descrição                                                                                  |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| `--title <title>` | Título do ADR (obrigatório no modo não-interativo)                                         |
+| `--domain <name>` | Nome do domínio (integrado ou [personalizado](/concepts/domains/#domínios-personalizados)) |
+| `--files <globs>` | Padrões de arquivo separados por vírgula para escopo de regras                             |
+| `--rules`         | Define `rules: true` no frontmatter                                                        |
+| `--body <md>`     | Corpo completo do ADR em markdown (pula o template)                                        |
+| `--json`          | Exibe o resultado como JSON                                                                |
 
 ## O template gerado
 
@@ -303,7 +303,7 @@ As flags `--id` e `--body` são obrigatórias. Todos os outros campos do frontma
 
 6. **Escreva regras para decisões que podem ser verificadas automaticamente.** Se uma regra consegue detectar uma violação antes da revisão de código, defina `rules: true` e escreva um arquivo `.rules.ts` complementar. Veja o guia [Escrevendo Regras](/guides/writing-rules/).
 
-7. **Use prefixos de domínio para organizar.** O campo domain determina o prefixo do ID e ajuda a filtrar ADRs por área. Prefira os cinco integrados (`backend`, `frontend`, `data`, `architecture`, `general`); registre um [domínio personalizado](/pt-br/concepts/domains/#domínios-personalizados) apenas quando nenhum deles for uma opção genuína.
+7. **Use prefixos de domínio para organizar.** O campo domain determina o prefixo do ID e ajuda a filtrar ADRs por área. Prefira os cinco integrados (`backend`, `frontend`, `data`, `architecture`, `general`); registre um [domínio personalizado](/concepts/domains/#domínios-personalizados) apenas quando nenhum deles for uma opção genuína.
 
 :::tip[Deixe agentes de IA escreverem ADRs para você]
 Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) incluem uma skill de ADR Author que cria e atualiza ADRs seguindo as convenções do seu projeto. A skill Quality Manager também propõe novos ADRs quando detecta padrões recorrentes. [Inscreva-se para acesso beta](https://plugins.archgate.dev).

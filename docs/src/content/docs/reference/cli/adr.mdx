@@ -17,14 +17,14 @@ The ADR ID is auto-generated with the domain prefix and the next available seque
 
 ### Options
 
-| Option               | Description                                                           |
-| -------------------- | --------------------------------------------------------------------- |
-| `--title <title>`    | ADR title (skip interactive prompt)                                   |
+| Option               | Description                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--title <title>`    | ADR title (skip interactive prompt)                                                                                                                                             |
 | `--domain <domain>`  | ADR domain. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains must first be registered via [`archgate adr domain add`](#archgate-adr-domain). |
-| `--files <patterns>` | File patterns, comma-separated                                        |
-| `--body <markdown>`  | Full ADR body markdown (skip template)                                |
-| `--rules`            | Set `rules: true` in frontmatter                                      |
-| `--json`             | Output as JSON                                                        |
+| `--files <patterns>` | File patterns, comma-separated                                                                                                                                                  |
+| `--body <markdown>`  | Full ADR body markdown (skip template)                                                                                                                                          |
+| `--rules`            | Set `rules: true` in frontmatter                                                                                                                                                |
+| `--json`             | Output as JSON                                                                                                                                                                  |
 
 ### Examples
 
@@ -127,15 +127,15 @@ Replaces the ADR body with the provided markdown. Frontmatter fields (`--title`,
 
 ### Options
 
-| Option               | Required | Description                                                           |
-| -------------------- | -------- | --------------------------------------------------------------------- |
-| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                   |
-| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                    |
-| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                         |
+| Option               | Required | Description                                                                                                                                                                     |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                                                                                                                             |
+| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                                                                                                                              |
+| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                                                                                                                                   |
 | `--domain <domain>`  | No       | New domain. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains must first be registered via [`archgate adr domain add`](#archgate-adr-domain). |
-| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)    |
-| `--rules`            | No       | Set `rules: true` in frontmatter                                      |
-| `--json`             | No       | Output as JSON                                                        |
+| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)                                                                                                              |
+| `--rules`            | No       | Set `rules: true` in frontmatter                                                                                                                                                |
+| `--json`             | No       | Output as JSON                                                                                                                                                                  |
 
 ### Example
 
@@ -160,11 +160,11 @@ archgate adr domain <subcommand> [options]
 
 ### Subcommands
 
-| Subcommand                                | Description                                                     |
-| ----------------------------------------- | --------------------------------------------------------------- |
-| `archgate adr domain list`                | Show all merged (built-in + custom) domains and their prefixes  |
-| `archgate adr domain add <name> <prefix>` | Register a custom domain                                        |
-| `archgate adr domain remove <name>`       | Unregister a custom domain (built-ins cannot be removed)        |
+| Subcommand                                | Description                                                    |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `archgate adr domain list`                | Show all merged (built-in + custom) domains and their prefixes |
+| `archgate adr domain add <name> <prefix>` | Register a custom domain                                       |
+| `archgate adr domain remove <name>`       | Unregister a custom domain (built-ins cannot be removed)       |
 
 ### Naming rules
 

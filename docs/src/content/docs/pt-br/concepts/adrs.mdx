@@ -47,13 +47,13 @@ O prefixo vem do domínio do ADR (veja [Domínios](/concepts/domains/)). O núme
 
 Todo documento ADR começa com um bloco de frontmatter YAML entre delimitadores `---`. O frontmatter é o metadado legível por máquina que o Archgate usa para carregar, filtrar e definir o escopo das regras.
 
-| Campo    | Tipo         | Obrigatório | Descrição                                                       |
-| -------- | ------------ | ----------- | --------------------------------------------------------------- |
-| `id`     | string       | Sim         | Identificador único como `ARCH-001` ou `BE-003`                 |
-| `title`  | string       | Sim         | Título legível da decisão                                       |
-| `domain` | string       | Sim         | Nome de domínio registrado. Integrados: `backend`, `frontend`, `data`, `architecture`, `general`. [Domínios personalizados](/pt-br/concepts/domains/#domínios-personalizados) podem ser adicionados via `archgate adr domain add`. |
-| `rules`  | boolean      | Sim         | Se este ADR tem um arquivo `.rules.ts` complementar             |
-| `files`  | string array | Não         | Padrões glob que definem quais arquivos as regras verificam     |
+| Campo    | Tipo         | Obrigatório | Descrição                                                                                                                                                                                                                    |
+| -------- | ------------ | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | string       | Sim         | Identificador único como `ARCH-001` ou `BE-003`                                                                                                                                                                              |
+| `title`  | string       | Sim         | Título legível da decisão                                                                                                                                                                                                    |
+| `domain` | string       | Sim         | Nome de domínio registrado. Integrados: `backend`, `frontend`, `data`, `architecture`, `general`. [Domínios personalizados](/concepts/domains/#domínios-personalizados) podem ser adicionados via `archgate adr domain add`. |
+| `rules`  | boolean      | Sim         | Se este ADR tem um arquivo `.rules.ts` complementar                                                                                                                                                                          |
+| `files`  | string array | Não         | Padrões glob que definem quais arquivos as regras verificam                                                                                                                                                                  |
 
 O campo `files` é opcional. Quando presente, restringe a execução das regras apenas aos arquivos que correspondem aos globs fornecidos. Quando ausente, as regras são executadas contra todos os arquivos do projeto. Por exemplo, `files: ["src/commands/**/*.ts"]` limita as verificações apenas aos arquivos de comando.
 

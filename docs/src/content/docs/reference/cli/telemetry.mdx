@@ -1,0 +1,74 @@
+---
+title: archgate telemetry
+description: "Manage anonymous usage data collection for the Archgate CLI."
+---
+
+Manage anonymous usage data collection for the Archgate CLI. Telemetry is opt-out: enabled by default, never captures personally identifiable information, and anonymizes the client IP server-side.
+
+```bash
+archgate telemetry <subcommand>
+```
+
+See [CLI telemetry](/reference/telemetry/) for the full privacy policy, the list of events emitted, and how telemetry interacts with `ARCHGATE_TELEMETRY=0` and CI environments.
+
+## Subcommands
+
+| Subcommand                   | Description                                         |
+| ---------------------------- | --------------------------------------------------- |
+| `archgate telemetry status`  | Show whether telemetry is enabled for this CLI user |
+| `archgate telemetry enable`  | Enable anonymous usage data collection              |
+| `archgate telemetry disable` | Disable anonymous usage data collection             |
+
+All three subcommands read and write `~/.archgate/config.json`, which persists the opt-in state and the anonymous install ID used as the telemetry `distinct_id`.
+
+## Examples
+
+Check the current state:
+
+```bash
+archgate telemetry status
+```
+
+```
+Telemetry is enabled.
+Anonymous usage data helps improve Archgate. No personal information is collected.
+
+To disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+Learn more: https://cli.archgate.dev/reference/telemetry
+```
+
+Disable telemetry:
+
+```bash
+archgate telemetry disable
+```
+
+```
+Telemetry disabled. No usage data will be collected.
+```
+
+Re-enable telemetry:
+
+```bash
+archgate telemetry enable
+```
+
+```
+Telemetry enabled. Thank you for helping improve Archgate.
+```
+
+## Environment variable override
+
+Setting `ARCHGATE_TELEMETRY=0` (or `false`, `no`, `off`, case-insensitive) disables telemetry for a single invocation regardless of the persisted state. Use this in CI or shared environments where you want opt-out without mutating the user's config:
+
+```bash
+ARCHGATE_TELEMETRY=0 archgate check
+```
+
+`archgate telemetry status` detects the override and reports:
+
+```
+Telemetry is disabled (ARCHGATE_TELEMETRY environment variable).
+```
+
+When the override is in effect, running `archgate telemetry enable` persists the opt-in but prints a note that the env var continues to disable telemetry until it is unset.
