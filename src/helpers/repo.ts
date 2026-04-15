@@ -105,11 +105,13 @@ export async function getRepoContext(): Promise<RepoContext> {
     return cached;
   }
 
-  const remoteUrl = await runGitCapture(
-    ["config", "--get", "remote.origin.url"],
-    cwd
-  );
-  const defaultBranch = await resolveDefaultBranch(cwd);
+  // Run the remaining probes concurrently — they're independent and the
+  // dominant cost on Windows is serial subprocess spawn (~25ms each), not
+  // the git work itself.
+  const [remoteUrl, defaultBranch] = await Promise.all([
+    runGitCapture(["config", "--get", "remote.origin.url"], cwd),
+    resolveDefaultBranch(cwd),
+  ]);
 
   if (!remoteUrl) {
     cached = {
@@ -301,18 +303,21 @@ async function runGitCheck(args: string[], cwd: string): Promise<boolean> {
 }
 
 async function resolveDefaultBranch(cwd: string): Promise<string | null> {
-  // Prefer the remote HEAD symbolic ref (e.g., `origin/main`)
-  const symRef = await runGitCapture(
-    ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
-    cwd
-  );
+  // Fire the preferred lookup (remote HEAD symbolic ref) and the fallback
+  // (currently-checked-out branch) in parallel. The fallback subprocess is
+  // cheap and lets us hide its spawn cost behind the other concurrent git
+  // calls — serial, it was the tail on the "no remote HEAD" path.
+  const [symRef, currentBranch] = await Promise.all([
+    runGitCapture(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd),
+    runGitCapture(["rev-parse", "--abbrev-ref", "HEAD"], cwd),
+  ]);
   if (symRef) {
     const slash = symRef.indexOf("/");
     return slash >= 0 ? symRef.slice(slash + 1) : symRef;
   }
-  // Fallback: whatever branch is currently checked out. Not strictly the
-  // "default" branch, but better than null for a single-user local repo.
-  return runGitCapture(["rev-parse", "--abbrev-ref", "HEAD"], cwd);
+  // Fallback: not strictly the "default" branch, but better than null for
+  // a single-user local repo.
+  return currentBranch;
 }
 
 // ---------------------------------------------------------------------------
