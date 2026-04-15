@@ -461,13 +461,13 @@ The prefix comes from the ADR's domain (see [Domains](/concepts/domains/)). The 
 
 Every ADR document starts with a YAML frontmatter block between `---` delimiters. The frontmatter is the machine-readable metadata that Archgate uses to load, filter, and scope rules.
 
-| Field    | Type         | Required | Description                                                      |
-| -------- | ------------ | -------- | ---------------------------------------------------------------- |
-| `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                    |
-| `title`  | string       | Yes      | Human-readable title of the decision                             |
+| Field    | Type         | Required | Description                                                                                                                                                                                  |
+| -------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                                                                                                                                                |
+| `title`  | string       | Yes      | Human-readable title of the decision                                                                                                                                                         |
 | `domain` | string       | Yes      | Registered domain name. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. [Custom domains](/concepts/domains/#custom-domains) can be added via `archgate adr domain add`. |
-| `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                |
-| `files`  | string array | No       | Glob patterns that scope which files the rules check             |
+| `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                                                                                                                                            |
+| `files`  | string array | No       | Glob patterns that scope which files the rules check                                                                                                                                         |
 
 The `files` field is optional. When present, it restricts rule execution to only the files matching the given globs. When absent, rules run against all project files. For example, `files: ["src/commands/**/*.ts"]` limits checks to command files only.
 
@@ -2063,14 +2063,14 @@ archgate adr create --title "API Response Format" --domain backend --files "src/
 
 Available flags:
 
-| Flag              | Description                                            |
-| ----------------- | ------------------------------------------------------ |
-| `--title <title>` | ADR title (required for non-interactive mode)          |
-| `--domain <name>` | Domain name (built-in or [custom](/concepts/domains/#custom-domains))  |
-| `--files <globs>` | Comma-separated file patterns for rule scoping         |
-| `--rules`         | Set `rules: true` in frontmatter                       |
-| `--body <md>`     | Full ADR body markdown (skip template)                 |
-| `--json`          | Output the result as JSON                              |
+| Flag              | Description                                                           |
+| ----------------- | --------------------------------------------------------------------- |
+| `--title <title>` | ADR title (required for non-interactive mode)                         |
+| `--domain <name>` | Domain name (built-in or [custom](/concepts/domains/#custom-domains)) |
+| `--files <globs>` | Comma-separated file patterns for rule scoping                        |
+| `--rules`         | Set `rules: true` in frontmatter                                      |
+| `--body <md>`     | Full ADR body markdown (skip template)                                |
+| `--json`          | Output the result as JSON                                             |
 
 ## The generated template
 
@@ -2661,13 +2661,13 @@ files: ["src/commands/**/*.ts"]
 
 ### Fields
 
-| Field    | Type       | Required | Description                                                                        |
-| -------- | ---------- | -------- | ---------------------------------------------------------------------------------- |
-| `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`). |
-| `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                           |
+| Field    | Type       | Required | Description                                                                                                                                                                                                                          |
+| -------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`).                                                                                                                                                   |
+| `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                                                                                                                                                                             |
 | `domain` | `string`   | Yes      | A registered domain name in lowercase kebab-case. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains are those registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
-| `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.           |
-| `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                           |
+| `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.                                                                                                                                                             |
+| `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                                                                                                                                                                             |
 
 ### id
 
@@ -2954,14 +2954,14 @@ The ADR ID is auto-generated with the domain prefix and the next available seque
 
 ### Options
 
-| Option               | Description                                                           |
-| -------------------- | --------------------------------------------------------------------- |
-| `--title <title>`    | ADR title (skip interactive prompt)                                   |
+| Option               | Description                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--title <title>`    | ADR title (skip interactive prompt)                                                                                                                                             |
 | `--domain <domain>`  | ADR domain. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains must first be registered via [`archgate adr domain add`](#archgate-adr-domain). |
-| `--files <patterns>` | File patterns, comma-separated                                        |
-| `--body <markdown>`  | Full ADR body markdown (skip template)                                |
-| `--rules`            | Set `rules: true` in frontmatter                                      |
-| `--json`             | Output as JSON                                                        |
+| `--files <patterns>` | File patterns, comma-separated                                                                                                                                                  |
+| `--body <markdown>`  | Full ADR body markdown (skip template)                                                                                                                                          |
+| `--rules`            | Set `rules: true` in frontmatter                                                                                                                                                |
+| `--json`             | Output as JSON                                                                                                                                                                  |
 
 ### Examples
 
@@ -3064,15 +3064,15 @@ Replaces the ADR body with the provided markdown. Frontmatter fields (`--title`,
 
 ### Options
 
-| Option               | Required | Description                                                           |
-| -------------------- | -------- | --------------------------------------------------------------------- |
-| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                   |
-| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                    |
-| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                         |
+| Option               | Required | Description                                                                                                                                                                     |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--id <id>`          | Yes      | ADR ID to update (e.g., `ARCH-001`)                                                                                                                                             |
+| `--body <markdown>`  | Yes      | Full replacement ADR body markdown                                                                                                                                              |
+| `--title <title>`    | No       | New ADR title (preserves existing if omitted)                                                                                                                                   |
 | `--domain <domain>`  | No       | New domain. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains must first be registered via [`archgate adr domain add`](#archgate-adr-domain). |
-| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)    |
-| `--rules`            | No       | Set `rules: true` in frontmatter                                      |
-| `--json`             | No       | Output as JSON                                                        |
+| `--files <patterns>` | No       | New file patterns, comma-separated (preserves existing if omitted)                                                                                                              |
+| `--rules`            | No       | Set `rules: true` in frontmatter                                                                                                                                                |
+| `--json`             | No       | Output as JSON                                                                                                                                                                  |
 
 ### Example
 
@@ -3097,11 +3097,11 @@ archgate adr domain <subcommand> [options]
 
 ### Subcommands
 
-| Subcommand                                | Description                                                     |
-| ----------------------------------------- | --------------------------------------------------------------- |
-| `archgate adr domain list`                | Show all merged (built-in + custom) domains and their prefixes  |
-| `archgate adr domain add <name> <prefix>` | Register a custom domain                                        |
-| `archgate adr domain remove <name>`       | Unregister a custom domain (built-ins cannot be removed)        |
+| Subcommand                                | Description                                                    |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `archgate adr domain list`                | Show all merged (built-in + custom) domains and their prefixes |
+| `archgate adr domain add <name> <prefix>` | Register a custom domain                                       |
+| `archgate adr domain remove <name>`       | Unregister a custom domain (built-ins cannot be removed)       |
 
 ### Naming rules
 
@@ -3742,6 +3742,82 @@ Read a specific Cursor session:
 ```bash
 archgate session-context cursor --session-id abc123
 ```
+
+---
+
+## Reference: archgate telemetry
+
+Source: https://cli.archgate.dev/reference/cli/telemetry/
+
+Manage anonymous usage data collection for the Archgate CLI. Telemetry is opt-out: enabled by default, never captures personally identifiable information, and anonymizes the client IP server-side.
+
+```bash
+archgate telemetry <subcommand>
+```
+
+See [CLI telemetry](/reference/telemetry/) for the full privacy policy, the list of events emitted, and how telemetry interacts with `ARCHGATE_TELEMETRY=0` and CI environments.
+
+## Subcommands
+
+| Subcommand                   | Description                                         |
+| ---------------------------- | --------------------------------------------------- |
+| `archgate telemetry status`  | Show whether telemetry is enabled for this CLI user |
+| `archgate telemetry enable`  | Enable anonymous usage data collection              |
+| `archgate telemetry disable` | Disable anonymous usage data collection             |
+
+All three subcommands read and write `~/.archgate/config.json`, which persists the opt-in state and the anonymous install ID used as the telemetry `distinct_id`.
+
+## Examples
+
+Check the current state:
+
+```bash
+archgate telemetry status
+```
+
+```
+Telemetry is enabled.
+Anonymous usage data helps improve Archgate. No personal information is collected.
+
+To disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+Learn more: https://cli.archgate.dev/reference/telemetry
+```
+
+Disable telemetry:
+
+```bash
+archgate telemetry disable
+```
+
+```
+Telemetry disabled. No usage data will be collected.
+```
+
+Re-enable telemetry:
+
+```bash
+archgate telemetry enable
+```
+
+```
+Telemetry enabled. Thank you for helping improve Archgate.
+```
+
+## Environment variable override
+
+Setting `ARCHGATE_TELEMETRY=0` (or `false`, `no`, `off`, case-insensitive) disables telemetry for a single invocation regardless of the persisted state. Use this in CI or shared environments where you want opt-out without mutating the user's config:
+
+```bash
+ARCHGATE_TELEMETRY=0 archgate check
+```
+
+`archgate telemetry status` detects the override and reports:
+
+```
+Telemetry is disabled (ARCHGATE_TELEMETRY environment variable).
+```
+
+When the override is in effect, running `archgate telemetry enable` persists the opt-in but prints a note that the env var continues to disable telemetry until it is unset.
 
 ---
 
