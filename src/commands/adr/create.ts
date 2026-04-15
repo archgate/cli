@@ -1,24 +1,26 @@
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
 import inquirer from "inquirer";
 
-import { ADR_DOMAINS, type AdrDomain } from "../../formats/adr";
+import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
-
-const domainOption = new Option("--domain <domain>", "ADR domain").choices(
-  ADR_DOMAINS
-);
+import {
+  getAllDomainNames,
+  resolveDomainPrefix,
+} from "../../helpers/project-config";
 
 export function registerAdrCreateCommand(adr: Command) {
   adr
     .command("create")
     .description("Create a new ADR")
     .option("--title <title>", "ADR title (skip interactive prompt)")
-    .addOption(domainOption)
+    .option(
+      "--domain <domain>",
+      "ADR domain (built-in or registered via `archgate domain add`)"
+    )
     .option("--files <patterns>", "File patterns, comma-separated")
     .option("--body <markdown>", "Full ADR body markdown (skip template)")
     .option("--rules", "Set rules: true in frontmatter")
@@ -51,13 +53,14 @@ export function registerAdrCreateCommand(adr: Command) {
             : undefined;
           body = opts.body;
         } else {
+          const choices = getAllDomainNames(projectRoot);
           // Interactive mode
           const answers = await inquirer.prompt([
             {
               type: "list",
               name: "domain",
               message: "Domain:",
-              choices: ADR_DOMAINS.map((d) => ({ name: d, value: d })),
+              choices: choices.map((d) => ({ name: d, value: d })),
             },
             {
               type: "input",
@@ -83,9 +86,12 @@ export function registerAdrCreateCommand(adr: Command) {
             : undefined;
         }
 
+        const prefix = resolveDomainPrefix(projectRoot, domain);
+
         const result = await createAdrFile(paths.adrsDir, {
           title,
           domain,
+          prefix,
           files,
           body,
           rules: opts.rules,

@@ -1,17 +1,10 @@
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
 
 import { buildReviewContext } from "../engine/context";
-import { ADR_DOMAINS } from "../formats/adr";
 import { exitWith } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
-
-const domainOption = new Option(
-  "--domain <domain>",
-  "filter to a single domain"
-).choices(ADR_DOMAINS);
 
 export function registerReviewContextCommand(program: Command) {
   program
@@ -21,7 +14,7 @@ export function registerReviewContextCommand(program: Command) {
     )
     .option("--staged", "Only include git-staged files")
     .option("--run-checks", "Include ADR compliance check results")
-    .addOption(domainOption)
+    .option("--domain <domain>", "Filter to a single domain")
     .action(async (opts) => {
       const projectRoot = findProjectRoot();
       if (!projectRoot) {
