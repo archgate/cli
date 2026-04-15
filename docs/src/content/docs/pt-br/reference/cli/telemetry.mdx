@@ -1,0 +1,74 @@
+---
+title: archgate telemetry
+description: "Gerencia a coleta anônima de dados de uso da CLI Archgate."
+---
+
+Gerencia a coleta anônima de dados de uso da CLI Archgate. A telemetria é opt-out: habilitada por padrão, nunca captura informações pessoalmente identificáveis e anonimiza o IP do cliente no lado do servidor.
+
+```bash
+archgate telemetry <subcommand>
+```
+
+Veja [Telemetria da CLI](/reference/telemetry/) para a política de privacidade completa, a lista de eventos emitidos e como a telemetria interage com `ARCHGATE_TELEMETRY=0` e ambientes CI.
+
+## Subcomandos
+
+| Subcomando                   | Descrição                                                       |
+| ---------------------------- | --------------------------------------------------------------- |
+| `archgate telemetry status`  | Mostra se a telemetria está habilitada para este usuário da CLI |
+| `archgate telemetry enable`  | Habilita a coleta anônima de dados de uso                       |
+| `archgate telemetry disable` | Desabilita a coleta anônima de dados de uso                     |
+
+Os três subcomandos leem e gravam em `~/.archgate/config.json`, que persiste o estado de opt-in e o ID de instalação anônimo usado como `distinct_id` da telemetria.
+
+## Exemplos
+
+Verificar o estado atual:
+
+```bash
+archgate telemetry status
+```
+
+```
+Telemetry is enabled.
+Anonymous usage data helps improve Archgate. No personal information is collected.
+
+To disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+Learn more: https://cli.archgate.dev/reference/telemetry
+```
+
+Desabilitar a telemetria:
+
+```bash
+archgate telemetry disable
+```
+
+```
+Telemetry disabled. No usage data will be collected.
+```
+
+Reabilitar a telemetria:
+
+```bash
+archgate telemetry enable
+```
+
+```
+Telemetry enabled. Thank you for helping improve Archgate.
+```
+
+## Variável de ambiente para override
+
+Definir `ARCHGATE_TELEMETRY=0` (ou `false`, `no`, `off`, case-insensitive) desabilita a telemetria para uma única invocação, independentemente do estado persistido. Use isso em CI ou ambientes compartilhados onde você quer opt-out sem alterar a configuração do usuário:
+
+```bash
+ARCHGATE_TELEMETRY=0 archgate check
+```
+
+`archgate telemetry status` detecta o override e reporta:
+
+```
+Telemetry is disabled (ARCHGATE_TELEMETRY environment variable).
+```
+
+Quando o override está em efeito, executar `archgate telemetry enable` persiste o opt-in mas imprime uma nota de que a variável de ambiente continua desabilitando a telemetria até ser removida.

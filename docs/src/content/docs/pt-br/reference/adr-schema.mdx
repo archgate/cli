@@ -21,13 +21,13 @@ files: ["src/commands/**/*.ts"]
 
 ### Campos
 
-| Campo    | Tipo       | Obrigatório | Descrição                                                                              |
-| -------- | ---------- | ----------- | -------------------------------------------------------------------------------------- |
-| `id`     | `string`   | Sim         | Identificador único. Não pode ser vazio. Convenção: `PREFIX-NNN` (ex.: `ARCH-001`).    |
-| `title`  | `string`   | Sim         | Título legível da decisão. Não pode ser vazio.                                         |
-| `domain` | `enum`     | Sim         | Categoria de domínio. Um de: `backend`, `frontend`, `data`, `architecture`, `general`. |
-| `rules`  | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificações automatizadas. |
-| `files`  | `string[]` | Não         | Padrões glob que definem o escopo de quais arquivos as regras se aplicam.              |
+| Campo    | Tipo       | Obrigatório | Descrição                                                                                                                                                                                                                                           |
+| -------- | ---------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | `string`   | Sim         | Identificador único. Não pode ser vazio. Convenção: `PREFIX-NNN` (ex.: `ARCH-001`).                                                                                                                                                                 |
+| `title`  | `string`   | Sim         | Título legível da decisão. Não pode ser vazio.                                                                                                                                                                                                      |
+| `domain` | `string`   | Sim         | Nome de domínio registrado em kebab-case minúsculo. Integrados: `backend`, `frontend`, `data`, `architecture`, `general`. Domínios personalizados são aqueles registrados via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
+| `rules`  | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificações automatizadas.                                                                                                                                                              |
+| `files`  | `string[]` | Não         | Padrões glob que definem o escopo de quais arquivos as regras se aplicam.                                                                                                                                                                           |
 
 ### id
 
@@ -42,6 +42,8 @@ Um nome curto e descritivo para a decisão arquitetural. Exibido na saída de `a
 ### domain
 
 Agrupa ADRs relacionados. O domínio também determina o prefixo do ID usado por `archgate adr create`.
+
+Projetos podem estender o conjunto integrado com domínios personalizados via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Os mapeamentos de domínio → prefixo personalizados ficam em `.archgate/config.json` e são mesclados com os integrados no momento da leitura.
 
 ### rules
 
@@ -67,6 +69,8 @@ files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 
 Cada domínio mapeia para um prefixo usado na convenção de ID do ADR.
 
+### Domínios integrados
+
 | Domínio        | Prefixo | ID de Exemplo |
 | -------------- | ------- | ------------- |
 | `backend`      | `BE`    | `BE-001`      |
@@ -76,6 +80,12 @@ Cada domínio mapeia para um prefixo usado na convenção de ID do ADR.
 | `general`      | `GEN`   | `GEN-001`     |
 
 O comando `archgate adr create` usa esse mapeamento para gerar IDs automaticamente.
+
+### Domínios personalizados
+
+Projetos podem registrar mapeamentos adicionais de domínio → prefixo via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Uma vez registrados, domínios personalizados se comportam como integrados: `archgate adr create --domain <nome>` gera IDs automaticamente usando o prefixo associado, e ADRs com domínios personalizados são analisados sem erros.
+
+Veja a [página de conceitos de Domínios](/concepts/domains/) para orientação sobre quando introduzir um domínio personalizado.
 
 ---
 
@@ -262,14 +272,16 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: Required
 ```
 
-### Valores de enum inválidos
+### Formato de domain inválido
 
-Se `domain` não for um dos valores válidos:
+Se `domain` não for um identificador kebab-case válido (ex.: tem letras maiúsculas ou espaços):
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - domain: Invalid enum value. Expected 'backend' | 'frontend' | 'data' | 'architecture' | 'general', received 'security'
+  - domain: domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')
 ```
+
+Observação: o parser aceita qualquer nome que corresponda ao padrão kebab-case. Se um nome específico é "conhecido" pelo projeto — e portanto tem um prefixo que `archgate adr create` pode usar — depende do conjunto integrado mais quaisquer domínios personalizados registrados via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Criar um ADR com um nome de domínio não registrado falha com um erro "Unknown ADR domain" que sugere executar `archgate adr domain add`.
 
 ### Incompatibilidade de tipos
 

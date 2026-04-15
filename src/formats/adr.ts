@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+import { DOMAIN_NAME_PATTERN } from "./project-config";
+
+/**
+ * Built-in domains shipped with every project. Custom domains can be
+ * registered via `archgate domain add` and live in `.archgate/config.json`.
+ * Validation against the merged (defaults ∪ custom) set happens at the
+ * command/helper layer via `resolveDomainPrefix` in `helpers/project-config`.
+ */
 export const ADR_DOMAINS = [
   "backend",
   "frontend",
@@ -8,9 +16,9 @@ export const ADR_DOMAINS = [
   "general",
 ] as const;
 
-export type AdrDomain = (typeof ADR_DOMAINS)[number];
+export type AdrDomain = string;
 
-export const DOMAIN_PREFIXES: Record<AdrDomain, string> = {
+export const DOMAIN_PREFIXES: Record<(typeof ADR_DOMAINS)[number], string> = {
   backend: "BE",
   frontend: "FE",
   data: "DATA",
@@ -21,7 +29,14 @@ export const DOMAIN_PREFIXES: Record<AdrDomain, string> = {
 export const AdrFrontmatterSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
-  domain: z.enum(ADR_DOMAINS),
+  domain: z
+    .string()
+    .min(2)
+    .max(32)
+    .regex(
+      DOMAIN_NAME_PATTERN,
+      "domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')"
+    ),
   rules: z.boolean(),
   files: z.array(z.string()).optional(),
 });

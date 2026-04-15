@@ -1,10 +1,10 @@
 ---
 id: BAD-001
 title: Bad Domain ADR
-domain: invalid-domain
+domain: Invalid Domain
 rules: false
 ---
 
 # Bad Domain
 
-This ADR has an invalid domain value.
+This ADR has an invalid domain value (uppercase and space).

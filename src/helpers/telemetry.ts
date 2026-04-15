@@ -345,6 +345,28 @@ export function trackTelemetryPreferenceChange(properties: {
 }
 
 /**
+ * Track registration of a custom ADR domain. The domain name and prefix are
+ * architectural category labels (e.g. "security" / "SEC"), not user data —
+ * capturing them lets us see which categories repos adopt outside the
+ * built-in five and informs whether to promote any to defaults.
+ */
+export function trackCustomDomainAdded(properties: {
+  domain_name: string;
+  prefix: string;
+  total_custom_domains: number;
+}): void {
+  trackEvent("custom_domain_added", properties);
+}
+
+export function trackCustomDomainRemoved(properties: {
+  domain_name: string;
+  prefix: string;
+  total_custom_domains: number;
+}): void {
+  trackEvent("custom_domain_removed", properties);
+}
+
+/**
  * Flush pending events to PostHog. Call before process exit to ensure
  * events are delivered.
  */

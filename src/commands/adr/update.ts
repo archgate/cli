@@ -1,16 +1,11 @@
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
 
-import { ADR_DOMAINS } from "../../formats/adr";
 import { updateAdrFile } from "../../helpers/adr-writer";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
-
-const domainOption = new Option("--domain <domain>", "new ADR domain").choices(
-  ADR_DOMAINS
-);
+import { resolveDomainPrefix } from "../../helpers/project-config";
 
 export function registerAdrUpdateCommand(adr: Command) {
   adr
@@ -19,7 +14,10 @@ export function registerAdrUpdateCommand(adr: Command) {
     .requiredOption("--id <id>", "ADR ID to update (e.g., ARCH-001)")
     .requiredOption("--body <markdown>", "Full replacement ADR body markdown")
     .option("--title <title>", "New ADR title (preserves existing if omitted)")
-    .addOption(domainOption)
+    .option(
+      "--domain <domain>",
+      "New ADR domain (built-in or registered via `archgate domain add`)"
+    )
     .option(
       "--files <patterns>",
       "New file patterns, comma-separated (preserves existing if omitted)"
@@ -43,6 +41,12 @@ export function registerAdrUpdateCommand(adr: Command) {
         : undefined;
 
       try {
+        if (opts.domain) {
+          // Validate the domain against the merged config now so users get
+          // a clear error instead of a stale prefix mismatch later.
+          resolveDomainPrefix(projectRoot, opts.domain);
+        }
+
         const result = await updateAdrFile(paths.adrsDir, {
           id: opts.id,
           body: opts.body,

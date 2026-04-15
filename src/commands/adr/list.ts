@@ -3,9 +3,8 @@ import { join } from "node:path";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
 
-import { ADR_DOMAINS, parseAdr, type AdrDocument } from "../../formats/adr";
+import { parseAdr, type AdrDocument } from "../../formats/adr";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
@@ -31,9 +30,7 @@ export function registerAdrListCommand(adr: Command) {
     .command("list")
     .description("List all ADRs")
     .option("--json", "Output as JSON")
-    .addOption(
-      new Option("--domain <domain>", "Filter by domain").choices(ADR_DOMAINS)
-    )
+    .option("--domain <domain>", "Filter by domain")
     .action(async (options) => {
       const projectRoot = findProjectRoot();
       if (!projectRoot) {

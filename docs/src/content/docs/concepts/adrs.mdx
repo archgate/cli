@@ -47,13 +47,13 @@ The prefix comes from the ADR's domain (see [Domains](/concepts/domains/)). The 
 
 Every ADR document starts with a YAML frontmatter block between `---` delimiters. The frontmatter is the machine-readable metadata that Archgate uses to load, filter, and scope rules.
 
-| Field    | Type         | Required | Description                                                      |
-| -------- | ------------ | -------- | ---------------------------------------------------------------- |
-| `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                    |
-| `title`  | string       | Yes      | Human-readable title of the decision                             |
-| `domain` | enum         | Yes      | One of: `backend`, `frontend`, `data`, `architecture`, `general` |
-| `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                |
-| `files`  | string array | No       | Glob patterns that scope which files the rules check             |
+| Field    | Type         | Required | Description                                                                                                                                                                                  |
+| -------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                                                                                                                                                |
+| `title`  | string       | Yes      | Human-readable title of the decision                                                                                                                                                         |
+| `domain` | string       | Yes      | Registered domain name. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. [Custom domains](/concepts/domains/#custom-domains) can be added via `archgate adr domain add`. |
+| `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                                                                                                                                            |
+| `files`  | string array | No       | Glob patterns that scope which files the rules check                                                                                                                                         |
 
 The `files` field is optional. When present, it restricts rule execution to only the files matching the given globs. When absent, rules run against all project files. For example, `files: ["src/commands/**/*.ts"]` limits checks to command files only.
 

@@ -73,18 +73,28 @@ export interface CreateAdrResult {
 
 /**
  * Create an ADR file on disk.
+ * `prefix` overrides the built-in DOMAIN_PREFIXES lookup — callers that
+ * support custom domains should resolve it via `resolveDomainPrefix` from
+ * `helpers/project-config` and pass it explicitly.
  */
 export async function createAdrFile(
   adrsDir: string,
   opts: {
     title: string;
     domain: AdrDomain;
+    prefix?: string;
     files?: string[];
     body?: string;
     rules?: boolean;
   }
 ): Promise<CreateAdrResult> {
-  const prefix = DOMAIN_PREFIXES[opts.domain];
+  const prefix =
+    opts.prefix ?? DOMAIN_PREFIXES[opts.domain as keyof typeof DOMAIN_PREFIXES];
+  if (!prefix) {
+    throw new Error(
+      `No prefix registered for domain '${opts.domain}'. Pass opts.prefix or register via \`archgate domain add\`.`
+    );
+  }
   const id = getNextId(adrsDir, prefix);
   const slug = slugify(opts.title);
   const content = buildAdrContent({ id, ...opts });
