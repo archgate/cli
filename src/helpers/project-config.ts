@@ -8,7 +8,6 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
 
 import {
   DOMAIN_PREFIXES as DEFAULT_DOMAIN_PREFIXES,
@@ -21,12 +20,12 @@ import {
   type ProjectConfig,
 } from "../formats/project-config";
 import { logDebug } from "./log";
-import { createPathIfNotExists } from "./paths";
+import { createPathIfNotExists, projectPath, projectPaths } from "./paths";
 
 const CONFIG_FILE = "config.json";
 
 function configPath(projectRoot: string): string {
-  return join(projectRoot, ".archgate", CONFIG_FILE);
+  return projectPath(projectRoot, CONFIG_FILE);
 }
 
 const EMPTY_CONFIG: ProjectConfig = { domains: {} };
@@ -64,7 +63,7 @@ export async function saveProjectConfig(
   config: ProjectConfig
 ): Promise<void> {
   const path = configPath(projectRoot);
-  createPathIfNotExists(dirname(path));
+  createPathIfNotExists(projectPaths(projectRoot).root);
   await Bun.write(path, JSON.stringify(config, null, 2) + "\n");
   logDebug("Project config saved:", path);
 }
