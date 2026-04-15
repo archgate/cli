@@ -12,6 +12,9 @@ on:
 permissions:
   contents: write
 
+env:
+  ARCHGATE_TELEMETRY: "0"
+
 jobs:
   build:
     name: Build ${{ matrix.artifact }}

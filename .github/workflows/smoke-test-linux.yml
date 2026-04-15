@@ -6,6 +6,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ARCHGATE_TELEMETRY: "0"
+
 jobs:
   linux:
     name: Linux
