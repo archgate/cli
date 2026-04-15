@@ -139,8 +139,10 @@ function getCommonProperties(): Record<string, unknown> {
  * If telemetry is disabled, this is a no-op and all subsequent calls are too.
  *
  * Returns a promise that resolves once the async repo-context lookup is done.
- * Callers can safely `trackEvent()` before awaiting — events emitted during
- * the window before repo resolution just won't include `repo_id` / `repo_host`.
+ * Callers should `await` before emitting events so every event carries
+ * `repo_id` / `repo_host` — emitting before the await resolves means the
+ * event ships without repo identity. The repo lookup runs a handful of git
+ * subprocesses (cached per-process), so the added startup latency is small.
  */
 export function initTelemetry(): Promise<void> {
   if (!isTelemetryEnabled()) {

@@ -63,10 +63,12 @@ async function main() {
   await installGit();
 
   // Initialize error tracking and telemetry (no-ops if opted out).
-  // Telemetry resolves repo context asynchronously — we don't block on it;
-  // any events emitted before it finishes simply won't carry repo_id.
+  // Await telemetry so the repo context is resolved before the preAction
+  // hook fires `command_executed` — otherwise that event always lands
+  // without `repo_id`. The repo lookup is a few cached git subprocesses
+  // (~5–20ms on a cold run) and runs exactly once per invocation.
   initSentry();
-  void initTelemetry();
+  await initTelemetry();
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
     .choices(["error", "warn", "info", "debug"] as const)
