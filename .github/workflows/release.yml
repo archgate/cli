@@ -18,6 +18,9 @@ permissions:
   pull-requests: write
   statuses: write
 
+env:
+  ARCHGATE_TELEMETRY: "0"
+
 jobs:
   check:
     runs-on: ubuntu-latest
