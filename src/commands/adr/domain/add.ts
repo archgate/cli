@@ -1,11 +1,11 @@
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
-import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
-import { addCustomDomain } from "../../helpers/project-config";
-import { trackCustomDomainAdded } from "../../helpers/telemetry";
+import { exitWith } from "../../../helpers/exit";
+import { logError } from "../../../helpers/log";
+import { formatJSON, isAgentContext } from "../../../helpers/output";
+import { findProjectRoot } from "../../../helpers/paths";
+import { addCustomDomain } from "../../../helpers/project-config";
+import { trackCustomDomainAdded } from "../../../helpers/telemetry";
 
 export function registerDomainAddCommand(domain: Command) {
   domain

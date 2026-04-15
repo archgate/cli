@@ -2,11 +2,11 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
-import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
-import { listDomainEntries } from "../../helpers/project-config";
+import { exitWith } from "../../../helpers/exit";
+import { logError } from "../../../helpers/log";
+import { formatJSON, isAgentContext } from "../../../helpers/output";
+import { findProjectRoot } from "../../../helpers/paths";
+import { listDomainEntries } from "../../../helpers/project-config";
 
 export function registerDomainListCommand(domain: Command) {
   domain

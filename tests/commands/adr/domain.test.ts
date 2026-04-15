@@ -5,15 +5,15 @@ import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-import { registerDomainCommand } from "../../src/commands/domain/index";
+import { registerDomainCommand } from "../../../src/commands/adr/domain/index";
 
 function makeProgram(): Command {
-  const root = new Command("archgate").exitOverride();
-  registerDomainCommand(root);
-  return root;
+  const adr = new Command("adr").exitOverride();
+  registerDomainCommand(adr);
+  return adr;
 }
 
-describe("domain command", () => {
+describe("adr domain command", () => {
   let tempDir: string;
   let originalCwd: string;
   let logSpy: ReturnType<typeof spyOn>;
@@ -42,7 +42,7 @@ describe("domain command", () => {
 
   test("domain list shows built-in domains even with no config", async () => {
     const program = makeProgram();
-    await program.parseAsync(["node", "archgate", "domain", "list"]);
+    await program.parseAsync(["node", "adr", "domain", "list"]);
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
@@ -54,7 +54,7 @@ describe("domain command", () => {
     const program = makeProgram();
     await program.parseAsync([
       "node",
-      "archgate",
+      "adr",
       "domain",
       "add",
       "security",
@@ -70,7 +70,7 @@ describe("domain command", () => {
 
     logSpy.mockClear();
     const program2 = makeProgram();
-    await program2.parseAsync(["node", "archgate", "domain", "list", "--json"]);
+    await program2.parseAsync(["node", "adr", "domain", "list", "--json"]);
     const raw = logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("");
     const parsed = JSON.parse(raw);
     const sec = (parsed as Array<{ domain: string; source: string }>).find(
@@ -82,32 +82,18 @@ describe("domain command", () => {
   test("domain add rejects built-in names", async () => {
     const program = makeProgram();
     await expect(
-      program.parseAsync([
-        "node",
-        "archgate",
-        "domain",
-        "add",
-        "backend",
-        "BE2",
-      ])
+      program.parseAsync(["node", "adr", "domain", "add", "backend", "BE2"])
     ).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   test("domain remove deletes a custom entry", async () => {
     const p1 = makeProgram();
-    await p1.parseAsync([
-      "node",
-      "archgate",
-      "domain",
-      "add",
-      "security",
-      "SEC",
-    ]);
+    await p1.parseAsync(["node", "adr", "domain", "add", "security", "SEC"]);
 
     logSpy.mockClear();
     const p2 = makeProgram();
-    await p2.parseAsync(["node", "archgate", "domain", "remove", "security"]);
+    await p2.parseAsync(["node", "adr", "domain", "remove", "security"]);
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
@@ -117,13 +103,13 @@ describe("domain command", () => {
   test("domain remove refuses built-in domains", async () => {
     const program = makeProgram();
     await expect(
-      program.parseAsync(["node", "archgate", "domain", "remove", "backend"])
+      program.parseAsync(["node", "adr", "domain", "remove", "backend"])
     ).rejects.toThrow("process.exit");
   });
 
   test("domain remove on missing entry reports not-registered", async () => {
     const program = makeProgram();
-    await program.parseAsync(["node", "archgate", "domain", "remove", "ghost"]);
+    await program.parseAsync(["node", "adr", "domain", "remove", "ghost"]);
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");

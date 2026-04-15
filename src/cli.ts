@@ -7,7 +7,6 @@ import { registerAdrCommand } from "./commands/adr/index";
 import { registerCheckCommand } from "./commands/check";
 import { registerCleanCommand } from "./commands/clean";
 import { registerDoctorCommand } from "./commands/doctor";
-import { registerDomainCommand } from "./commands/domain/index";
 import { registerInitCommand } from "./commands/init";
 import { registerLoginCommand } from "./commands/login";
 import { registerPluginCommand } from "./commands/plugin/index";
@@ -117,7 +116,6 @@ async function main() {
   registerInitCommand(program);
   registerLoginCommand(program);
   registerAdrCommand(program);
-  registerDomainCommand(program);
   registerCheckCommand(program);
   registerReviewContextCommand(program);
   registerSessionContextCommand(program);

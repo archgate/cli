@@ -1,14 +1,14 @@
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
-import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
+import { exitWith } from "../../../helpers/exit";
+import { logError } from "../../../helpers/log";
+import { formatJSON, isAgentContext } from "../../../helpers/output";
+import { findProjectRoot } from "../../../helpers/paths";
 import {
   loadProjectConfig,
   removeCustomDomain,
-} from "../../helpers/project-config";
-import { trackCustomDomainRemoved } from "../../helpers/telemetry";
+} from "../../../helpers/project-config";
+import { trackCustomDomainRemoved } from "../../../helpers/telemetry";
 
 export function registerDomainRemoveCommand(domain: Command) {
   domain
