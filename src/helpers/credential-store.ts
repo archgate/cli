@@ -84,17 +84,26 @@ async function gitCredentialFill(): Promise<{
       env: gitCredentialEnv(),
     });
 
+    // The timeout MUST be cancelled when the spawn wins the race —
+    // `Bun.sleep` / `setTimeout` both keep the event loop alive for
+    // their full duration, which used to add 3s of latency to
+    // commands that call `loadCredentials()` (e.g. `archgate doctor`).
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race([
       (async () => {
         const stdout = await new Response(proc.stdout).text();
         const exitCode = await proc.exited;
         return { stdout, exitCode };
       })(),
-      Bun.sleep(CREDENTIAL_TIMEOUT_MS).then(() => {
-        proc.kill();
-        return null;
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => {
+          proc.kill();
+          resolve(null);
+        }, CREDENTIAL_TIMEOUT_MS);
       }),
-    ]);
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
 
     if (!result || result.exitCode !== 0) return null;
 

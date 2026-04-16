@@ -239,11 +239,14 @@ export async function runChecks(
         );
 
         try {
+          // Cancel the timeout when the rule resolves first — otherwise the
+          // timer keeps the event loop alive even after checks complete.
+          let timer: ReturnType<typeof setTimeout> | undefined;
           // oxlint-disable-next-line no-await-in-loop -- rules within an ADR run sequentially
           await Promise.race([
             ruleConfig.check(ctx),
             new Promise<never>((_, reject) => {
-              setTimeout(
+              timer = setTimeout(
                 () =>
                   reject(
                     new Error(
@@ -253,7 +256,9 @@ export async function runChecks(
                 RULE_TIMEOUT_MS
               );
             }),
-          ]);
+          ]).finally(() => {
+            if (timer) clearTimeout(timer);
+          });
 
           adrRuleResults.push({
             ruleId,

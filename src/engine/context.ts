@@ -1,11 +1,6 @@
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
-
-import { parseAdr } from "../formats/adr";
 import type { AdrDocument, AdrDomain } from "../formats/adr";
-import { projectPaths } from "../helpers/paths";
 import { getChangedFiles, getStagedFiles } from "./git-files";
-import { loadRuleAdrs } from "./loader";
+import { loadRuleAdrs, parseAllAdrs } from "./loader";
 import type { ReportSummary } from "./reporter";
 import { buildSummary } from "./reporter";
 import { runChecks } from "./runner";
@@ -171,30 +166,14 @@ export function matchFilesToAdrs(
   return results.sort((a, b) => a.domain.localeCompare(b.domain));
 }
 
-/** Load all ADR documents (not just those with rules) from the project. */
+/**
+ * Load all ADR documents (not just those with rules) from the project.
+ * Shares the per-process parse cache with `loadRuleAdrs` so
+ * `review-context --run-checks` only reads the ADR directory once.
+ */
 async function loadAllAdrs(projectRoot: string): Promise<AdrDocument[]> {
-  const pp = projectPaths(projectRoot);
-
-  let files: string[];
-  try {
-    files = readdirSync(pp.adrsDir).filter((f) => f.endsWith(".md"));
-  } catch {
-    return [];
-  }
-
-  const results = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const filePath = join(pp.adrsDir, file);
-        const content = await Bun.file(filePath).text();
-        return parseAdr(content, filePath);
-      } catch {
-        return null;
-      }
-    })
-  );
-
-  return results.filter((adr): adr is AdrDocument => adr !== null);
+  const parsed = await parseAllAdrs(projectRoot);
+  return parsed.map((e) => e.adr);
 }
 
 const EMPTY_SUMMARY: ReportSummary = {

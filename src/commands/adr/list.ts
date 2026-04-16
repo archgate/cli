@@ -1,29 +1,13 @@
-import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { parseAdr, type AdrDocument } from "../../formats/adr";
+import { parseAllAdrs } from "../../engine/loader";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot, projectPaths } from "../../helpers/paths";
-
-async function loadAdrs(adrsDir: string): Promise<AdrDocument[]> {
-  const files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
-  const results = await Promise.all(
-    files.map(async (file) => {
-      try {
-        const content = await Bun.file(join(adrsDir, file)).text();
-        return parseAdr(content, file);
-      } catch {
-        return null;
-      }
-    })
-  );
-  return results.filter((r): r is AdrDocument => r !== null);
-}
 
 export function registerAdrListCommand(adr: Command) {
   adr
@@ -47,16 +31,15 @@ export function registerAdrListCommand(adr: Command) {
           return;
         }
 
-        const files = readdirSync(paths.adrsDir).filter((f) =>
-          f.endsWith(".md")
-        );
+        // parseAllAdrs is cached per-process and shared with the check /
+        // review-context engines, so we don't need a separate readdir pass
+        // to bail early on empty dirs.
+        const adrs = (await parseAllAdrs(projectRoot)).map((e) => e.adr);
 
-        if (files.length === 0) {
+        if (adrs.length === 0) {
           console.log("No ADRs found.");
           return;
         }
-
-        const adrs = await loadAdrs(paths.adrsDir);
 
         // Filter by domain if specified
         const filtered = options.domain

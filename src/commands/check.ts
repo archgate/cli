@@ -101,16 +101,20 @@ export function registerCheckCommand(program: Command) {
       // Determine output format for telemetry
       const outputFormat = opts.ci ? "ci" : useJson ? "json" : "console";
 
+      // Build the summary once and share it with the reporters, telemetry,
+      // and exit-code resolver. Previously each of those built its own
+      // summary — 3 walks over the same result set.
+      const summary = buildSummary(result);
+
       if (opts.ci) {
-        reportCI(result);
+        reportCI(result, summary);
       } else if (useJson) {
-        reportJSON(result, opts.json ? true : undefined);
+        reportJSON(result, opts.json ? true : undefined, summary);
       } else {
-        reportConsole(result, opts.verbose ?? false);
+        reportConsole(result, opts.verbose ?? false, summary);
       }
 
       // Track aggregate check results (no file paths or violation content)
-      const summary = buildSummary(result);
       trackCheckResult({
         total_rules: summary.total,
         passed: summary.passed,
@@ -128,7 +132,7 @@ export function registerCheckCommand(program: Command) {
         check_duration_ms: Math.round(result.totalDurationMs),
       });
 
-      const exitCode = getExitCode(result);
+      const exitCode = getExitCode(result, summary);
       // Only 0, 1, and 2 are emitted by getExitCode()
       await exitWith(exitCode as 0 | 1 | 2);
     });

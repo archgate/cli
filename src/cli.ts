@@ -63,12 +63,15 @@ async function main() {
   await installGit();
 
   // Initialize error tracking and telemetry (no-ops if opted out).
+  //
+  // Both SDKs are lazy-loaded via dynamic `import()` inside these functions,
+  // so the `ARCHGATE_TELEMETRY=0` path skips the parse/init cost entirely.
+  //
   // Await telemetry so the repo context is resolved before the preAction
   // hook fires `command_executed` — otherwise that event always lands
-  // without `repo_id`. The repo lookup is a few cached git subprocesses
-  // (~5–20ms on a cold run) and runs exactly once per invocation.
-  initSentry();
-  await initTelemetry();
+  // without `repo_id` (see PR #211). The two init calls run concurrently,
+  // so the wall-clock cost is bounded by whichever is slowest.
+  await Promise.all([initSentry(), initTelemetry()]);
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
     .choices(["error", "warn", "info", "debug"] as const)
@@ -137,6 +140,11 @@ async function main() {
 
   // Flush telemetry and error tracking before exit
   await Promise.all([flushTelemetry(), flushSentry()]);
+
+  // Belt-and-braces: force exit so any stray handle left by a third-party
+  // SDK (posthog-node, @sentry/node-core, etc.) can't linger and make the
+  // CLI feel laggy. All flushes above have already completed.
+  process.exit(0);
 }
 
 /**
