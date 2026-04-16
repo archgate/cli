@@ -1,3 +1,18 @@
+## [0.29.0](https://github.com/archgate/cli/compare/v0.28.0...v0.29.0) (2026-04-16)
+
+### Features
+
+* **adr:** support custom domains via `archgate domain` commands ([#212](https://github.com/archgate/cli/issues/212)) ([2717763](https://github.com/archgate/cli/commit/271776347a8f35e5ef812e1612f6d2638c8e8dfa))
+* **docs:** add PostHog web analytics ([#208](https://github.com/archgate/cli/issues/208)) ([0502ecd](https://github.com/archgate/cli/commit/0502ecd6d9f2da11c56d43daa25318d5d845beda))
+
+### Bug Fixes
+
+* **telemetry:** await initTelemetry so command_executed carries repo_id ([#211](https://github.com/archgate/cli/issues/211)) ([4ffbb70](https://github.com/archgate/cli/commit/4ffbb706029f370e7f277c764a5aba602a6d7e76))
+
+### Performance Improvements
+
+* **cli:** remove 3s exit tail and trim startup overhead ([#213](https://github.com/archgate/cli/issues/213)) ([9e442d6](https://github.com/archgate/cli/commit/9e442d60bb4d87c0b86d072301481a943bca4954)), closes [#6](https://github.com/archgate/cli/issues/6) [#211](https://github.com/archgate/cli/issues/211)
+
 ## [0.28.0](https://github.com/archgate/cli/compare/v0.27.0...v0.28.0) (2026-04-14)
 
 ### Features
