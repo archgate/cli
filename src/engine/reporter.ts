@@ -120,10 +120,14 @@ export function buildSummary(
 
 /**
  * Output results in console format with colors.
+ * Accepts an optional pre-built summary to avoid walking the results twice
+ * when the caller already computed one (e.g. for telemetry).
  */
-export function reportConsole(result: CheckResult, verbose: boolean): void {
-  const summary = buildSummary(result);
-
+export function reportConsole(
+  result: CheckResult,
+  verbose: boolean,
+  summary: ReportSummary = buildSummary(result)
+): void {
   for (const r of summary.results) {
     const prefix = `${r.adrId}/${r.ruleId}`;
 
@@ -204,17 +208,21 @@ export function reportConsole(result: CheckResult, verbose: boolean): void {
  * @param forcePretty - When true, always pretty-print (e.g., explicit --json flag).
  *                      When omitted, format is auto-detected based on TTY/CI context.
  */
-export function reportJSON(result: CheckResult, forcePretty?: boolean): void {
-  const summary = buildSummary(result);
+export function reportJSON(
+  result: CheckResult,
+  forcePretty?: boolean,
+  summary: ReportSummary = buildSummary(result)
+): void {
   console.log(formatJSON(summary, forcePretty));
 }
 
 /**
  * Output results as GitHub Actions annotations.
  */
-export function reportCI(result: CheckResult): void {
-  const summary = buildSummary(result);
-
+export function reportCI(
+  result: CheckResult,
+  summary: ReportSummary = buildSummary(result)
+): void {
   for (const r of summary.results) {
     if (r.error) {
       console.log(
@@ -246,9 +254,21 @@ export function reportCI(result: CheckResult): void {
 
 /**
  * Determine the exit code from check results.
- * 0 = pass, 1 = violations, 2 = rule execution errors
+ * 0 = pass, 1 = violations, 2 = rule execution errors.
+ *
+ * Prefer calling this with a pre-built summary — `check.ts` already computes
+ * one for telemetry, and walking `result.results` a second time here is pure
+ * duplication.
  */
-export function getExitCode(result: CheckResult): number {
+export function getExitCode(
+  result: CheckResult,
+  summary?: ReportSummary
+): number {
+  if (summary) {
+    if (summary.ruleErrors > 0) return 2;
+    if (summary.failed > 0) return 1;
+    return 0;
+  }
   const hasErrors = result.results.some((r) => r.error);
   if (hasErrors) return 2;
 

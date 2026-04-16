@@ -99,19 +99,25 @@ export async function getRepoContext(): Promise<RepoContext> {
   if (cached) return cached;
 
   const cwd = process.cwd();
-  const isGit = await runGitCheck(["rev-parse", "--is-inside-work-tree"], cwd);
+
+  // Fire all four git probes concurrently. On Windows each subprocess costs
+  // ~25ms, so running them in parallel instead of gating on
+  // `rev-parse --is-inside-work-tree` saves one serial spawn on the happy
+  // path. In a non-git directory the extras exit non-zero quickly and their
+  // results are discarded.
+  const [isGit, remoteUrl, symRef, currentBranch] = await Promise.all([
+    runGitCheck(["rev-parse", "--is-inside-work-tree"], cwd),
+    runGitCapture(["config", "--get", "remote.origin.url"], cwd),
+    runGitCapture(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd),
+    runGitCapture(["rev-parse", "--abbrev-ref", "HEAD"], cwd),
+  ]);
+
   if (!isGit) {
     cached = emptyContext(false);
     return cached;
   }
 
-  // Run the remaining probes concurrently — they're independent and the
-  // dominant cost on Windows is serial subprocess spawn (~25ms each), not
-  // the git work itself.
-  const [remoteUrl, defaultBranch] = await Promise.all([
-    runGitCapture(["config", "--get", "remote.origin.url"], cwd),
-    resolveDefaultBranch(cwd),
-  ]);
+  const defaultBranch = pickDefaultBranch(symRef, currentBranch);
 
   if (!remoteUrl) {
     cached = {
@@ -137,6 +143,22 @@ export async function getRepoContext(): Promise<RepoContext> {
     defaultBranch,
   };
   return cached;
+}
+
+/**
+ * Pick the most informative default-branch signal: prefer the remote HEAD
+ * symbolic ref (e.g. `origin/main` → `main`), fall back to the currently
+ * checked-out branch.
+ */
+function pickDefaultBranch(
+  symRef: string | null,
+  currentBranch: string | null
+): string | null {
+  if (symRef) {
+    const slash = symRef.indexOf("/");
+    return slash >= 0 ? symRef.slice(slash + 1) : symRef;
+  }
+  return currentBranch;
 }
 
 /**
@@ -300,24 +322,6 @@ async function runGitCheck(args: string[], cwd: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-async function resolveDefaultBranch(cwd: string): Promise<string | null> {
-  // Fire the preferred lookup (remote HEAD symbolic ref) and the fallback
-  // (currently-checked-out branch) in parallel. The fallback subprocess is
-  // cheap and lets us hide its spawn cost behind the other concurrent git
-  // calls — serial, it was the tail on the "no remote HEAD" path.
-  const [symRef, currentBranch] = await Promise.all([
-    runGitCapture(["symbolic-ref", "--short", "refs/remotes/origin/HEAD"], cwd),
-    runGitCapture(["rev-parse", "--abbrev-ref", "HEAD"], cwd),
-  ]);
-  if (symRef) {
-    const slash = symRef.indexOf("/");
-    return slash >= 0 ? symRef.slice(slash + 1) : symRef;
-  }
-  // Fallback: not strictly the "default" branch, but better than null for
-  // a single-user local repo.
-  return currentBranch;
 }
 
 // ---------------------------------------------------------------------------

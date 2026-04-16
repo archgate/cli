@@ -33,7 +33,10 @@ export async function checkForUpdatesIfNeeded(
 
     logDebug("Checking for updates...");
 
-    const tag = await fetchLatestGitHubVersion();
+    // Use a tight 5s timeout for the opportunistic background check so a
+    // slow network never extends exit time. The full 15s default is
+    // reserved for the explicit `archgate upgrade` path.
+    const tag = await fetchLatestGitHubVersion(5_000);
     if (!tag) {
       logDebug("Update check failed — could not fetch latest GitHub release");
       return null;

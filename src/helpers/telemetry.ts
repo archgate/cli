@@ -14,7 +14,7 @@
 
 import { basename } from "node:path";
 
-import { PostHog } from "posthog-node";
+import type { PostHog } from "posthog-node";
 
 import packageJson from "../../package.json";
 import { detectInstallMethod, getProjectContext } from "./install-info";
@@ -92,15 +92,28 @@ function detectLocale(): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// Shared properties (recomputed per event for freshness)
+// Shared properties
 // ---------------------------------------------------------------------------
 
-function getCommonProperties(): Record<string, unknown> {
-  const { runtime, isWSL } = getPlatformInfo();
-  const ctx = getProjectContext();
-  const repo = repoContextSnapshot;
+/**
+ * Cache of the slow-changing portion of the common event properties. Platform
+ * detection, install-method detection, CI detection, and locale resolution
+ * are all effectively constant for the lifetime of a CLI invocation, so we
+ * compute them once and reuse across events.
+ *
+ * The project context and repo snapshot are intentionally NOT cached here:
+ *   - project context changes when `archgate init` creates the directory
+ *     mid-command, so we always re-read it.
+ *   - repo context lives in `repoContextSnapshot` which is written by
+ *     `initTelemetry`.
+ */
+let staticPropertiesSnapshot: Record<string, unknown> | null = null;
 
-  return {
+function getStaticProperties(): Record<string, unknown> {
+  if (staticPropertiesSnapshot) return staticPropertiesSnapshot;
+
+  const { runtime, isWSL } = getPlatformInfo();
+  staticPropertiesSnapshot = {
     // --- CLI / runtime ---
     cli_version: packageJson.version,
     os: runtime,
@@ -114,7 +127,21 @@ function getCommonProperties(): Record<string, unknown> {
     is_wsl: isWSL,
     shell: detectShell(),
     locale: detectLocale(),
-    // --- Project ---
+    // --- Geo privacy ---
+    // Signal PostHog to resolve geo then discard the IP
+    $ip: null,
+  };
+  return staticPropertiesSnapshot;
+}
+
+function getCommonProperties(): Record<string, unknown> {
+  const ctx = getProjectContext();
+  const repo = repoContextSnapshot;
+
+  return {
+    ...getStaticProperties(),
+    // --- Project (re-read every event; `archgate init` can mutate this
+    //     mid-invocation, and the read is a single readdirSync) ---
     has_project: ctx.hasProject,
     adr_count: ctx.adrCount,
     adr_with_rules_count: ctx.adrWithRulesCount,
@@ -124,9 +151,6 @@ function getCommonProperties(): Record<string, unknown> {
     repo_host: repo?.host ?? null,
     repo_id: repo?.repoId ?? null,
     git_default_branch: repo?.defaultBranch ?? null,
-    // --- Geo privacy ---
-    // Signal PostHog to resolve geo then discard the IP
-    $ip: null,
   };
 }
 
@@ -144,15 +168,29 @@ function getCommonProperties(): Record<string, unknown> {
  * event ships without repo identity. The repo lookup runs a handful of git
  * subprocesses (cached per-process), so the added startup latency is small.
  */
-export function initTelemetry(): Promise<void> {
+export async function initTelemetry(): Promise<void> {
   if (!isTelemetryEnabled()) {
     logDebug("Telemetry disabled — skipping init");
-    return Promise.resolve();
+    return;
   }
 
   distinctId = getInstallId();
 
+  // Kick off the repo-context resolution in parallel with the dynamic SDK
+  // import. The caller awaits this whole function before `command_executed`
+  // is emitted (see PR #211) so the snapshot lands before the first event.
+  const repoContextPromise = getRepoContext()
+    .then((ctx) => {
+      repoContextSnapshot = ctx;
+    })
+    .catch((err) => {
+      logDebug("Repo context resolution failed (ignored):", String(err));
+    });
+
   try {
+    // Lazy-load the PostHog SDK so the `ARCHGATE_TELEMETRY=0` path never pays
+    // the module-parse cost (noticeable on cold starts / WSL).
+    const { PostHog } = await import("posthog-node");
     client = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
       // Disable polling for feature flags — we don't use them in the CLI
@@ -167,15 +205,7 @@ export function initTelemetry(): Promise<void> {
     logDebug("Telemetry init failed (silently ignored)");
   }
 
-  // Resolve the repo context asynchronously. The result lands in module state
-  // so subsequent events pick it up without blocking the CLI startup path.
-  return getRepoContext()
-    .then((ctx) => {
-      repoContextSnapshot = ctx;
-    })
-    .catch((err) => {
-      logDebug("Repo context resolution failed (ignored):", String(err));
-    });
+  await repoContextPromise;
 }
 
 /**
@@ -375,13 +405,23 @@ export async function flushTelemetry(timeoutMs = 3000): Promise<void> {
 
   try {
     logDebug("Flushing telemetry events");
-    // Race shutdown against a timeout to prevent hanging on exit
-    await Promise.race([
-      client.shutdown(),
-      new Promise<void>((resolve) => {
-        setTimeout(resolve, timeoutMs);
-      }),
-    ]);
+    // Race shutdown against a timeout to prevent hanging on exit.
+    //
+    // The timeout MUST be cancelled when shutdown wins — a dangling
+    // `setTimeout` keeps the Bun/Node event loop alive for its full
+    // duration, which used to add 3s of latency to every command that
+    // exited via `main()` returning naturally (instead of `process.exit`).
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        client.shutdown(),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     logDebug("Telemetry flushed");
   } catch {
     // Silently ignore — telemetry must never affect CLI behavior
@@ -402,6 +442,7 @@ export function _resetTelemetry(): void {
   initialized = false;
   distinctId = "";
   repoContextSnapshot = null;
+  staticPropertiesSnapshot = null;
 }
 
 /** Get the PostHog client instance. For testing only. */

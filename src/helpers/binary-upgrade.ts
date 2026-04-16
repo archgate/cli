@@ -66,12 +66,20 @@ const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/release
 /**
  * Fetch the latest version tag from GitHub Releases.
  * Returns the tag (e.g. "v0.13.1") or null on failure.
+ *
+ * @param timeoutMs Request timeout. Use a short value (e.g. 5s) for the
+ *                  opportunistic background update check at CLI startup so
+ *                  a slow network never delays the user's command. The
+ *                  longer default (15s) is reserved for the explicit
+ *                  `archgate upgrade` path where the user is waiting for it.
  */
-export async function fetchLatestGitHubVersion(): Promise<string | null> {
+export async function fetchLatestGitHubVersion(
+  timeoutMs = 15_000
+): Promise<string | null> {
   logDebug("Fetching latest release from:", GITHUB_RELEASES_API);
   const response = await fetch(GITHUB_RELEASES_API, {
     headers: { "User-Agent": "archgate-cli" },
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   if (!response.ok) {

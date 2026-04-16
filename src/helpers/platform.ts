@@ -217,10 +217,15 @@ export async function resolveCommand(name: string): Promise<string | null> {
         stdout: "pipe",
         stderr: "pipe",
       });
+      // Timer MUST be cleared when the spawn wins — a dangling
+      // `setTimeout` keeps the event loop alive for its full duration.
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<"timeout">((resolve) => {
-        setTimeout(() => resolve("timeout"), 3000);
+        timer = setTimeout(() => resolve("timeout"), 3000);
       });
-      const result = await Promise.race([proc.exited, timeout]);
+      const result = await Promise.race([proc.exited, timeout]).finally(() => {
+        if (timer) clearTimeout(timer);
+      });
       if (result === "timeout") {
         proc.kill();
         return null;

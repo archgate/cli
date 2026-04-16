@@ -109,8 +109,8 @@ export default {
 }
 
 /**
- * Write rules.d.ts to the .archgate/ directory.
- * Always overwrites — idempotent.
+ * Write rules.d.ts to the .archgate/ directory, unconditionally.
+ * Use this when you want to guarantee a fresh write (e.g. init).
  */
 export async function writeRulesShim(projectRoot: string): Promise<void> {
   const dtsPath = projectPath(projectRoot, "rules.d.ts");
@@ -119,7 +119,24 @@ export async function writeRulesShim(projectRoot: string): Promise<void> {
 }
 
 /**
- * Alias for writeRulesShim — always overwrites to ensure freshness
- * when the CLI version changes.
+ * Ensure rules.d.ts exists and is up-to-date. Skips the disk write when the
+ * on-disk content already matches — `archgate check` calls this every run,
+ * and the content only changes when the CLI version changes.
  */
-export const ensureRulesShim = writeRulesShim;
+export async function ensureRulesShim(projectRoot: string): Promise<void> {
+  const dtsPath = projectPath(projectRoot, "rules.d.ts");
+  const expected = generateRulesDts();
+
+  try {
+    const existing = await Bun.file(dtsPath).text();
+    if (existing === expected) {
+      logDebug("Rules type definitions up-to-date:", dtsPath);
+      return;
+    }
+  } catch {
+    // File missing or unreadable — fall through to the write.
+  }
+
+  await Bun.write(dtsPath, expected);
+  logDebug("Rules type definitions written:", dtsPath);
+}

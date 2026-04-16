@@ -13,7 +13,7 @@
  * are wrapped to never affect CLI behavior or exit codes.
  */
 
-import * as Sentry from "@sentry/node-core/light";
+import type * as SentryNs from "@sentry/node-core/light";
 
 import packageJson from "../../package.json";
 import { detectInstallMethod } from "./install-info";
@@ -51,6 +51,7 @@ function getArchgatePath(): string {
 // ---------------------------------------------------------------------------
 
 let initialized = false;
+let Sentry: typeof SentryNs | null = null;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -59,8 +60,11 @@ let initialized = false;
 /**
  * Initialize Sentry error tracking. Call once at CLI startup.
  * No-op if telemetry is disabled.
+ *
+ * Returns a promise so the Sentry SDK can be lazy-loaded — the ~600KB module
+ * is skipped entirely when `ARCHGATE_TELEMETRY=0`, shaving cold-start time.
  */
-export function initSentry(): void {
+export async function initSentry(): Promise<void> {
   if (!isTelemetryEnabled()) {
     logDebug("Sentry disabled — telemetry is off");
     return;
@@ -70,6 +74,8 @@ export function initSentry(): void {
   const { runtime } = getPlatformInfo();
 
   try {
+    // Lazy-load so the disabled-telemetry path never pays the parse cost.
+    Sentry = await import("@sentry/node-core/light");
     Sentry.init({
       dsn: SENTRY_DSN,
       release: cliVersion,
@@ -146,7 +152,7 @@ export function addBreadcrumb(
   data?: Record<string, unknown>,
   level: "debug" | "info" | "warning" | "error" = "info"
 ): void {
-  if (!initialized) return;
+  if (!initialized || !Sentry) return;
 
   try {
     Sentry.addBreadcrumb({
@@ -171,7 +177,7 @@ export function captureException(
   error: unknown,
   context?: Record<string, unknown>
 ): void {
-  if (!initialized) return;
+  if (!initialized || !Sentry) return;
 
   try {
     Sentry.captureException(error, { contexts: { cli: context } });
@@ -187,10 +193,22 @@ export function captureException(
  * @param timeoutMs Maximum time to wait for flush (default: 2000ms)
  */
 export async function flushSentry(timeoutMs = 2000): Promise<void> {
-  if (!initialized) return;
+  if (!initialized || !Sentry) return;
 
   try {
-    await Sentry.flush(timeoutMs);
+    // Defense-in-depth: race Sentry.flush against our own cancellable timer
+    // so a stuck flush can never keep the event loop alive past `timeoutMs`.
+    // Sentry manages its own internal timers, but this guards against any
+    // leaked socket / handle in the SDK.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Sentry.flush(timeoutMs),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs + 100);
+      }),
+    ]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
     logDebug("Sentry flushed");
   } catch {
     logDebug("Sentry flush failed (silently ignored)");
@@ -203,8 +221,9 @@ export async function flushSentry(timeoutMs = 2000): Promise<void> {
 
 /** Reset Sentry state. For testing only. */
 export function _resetSentry(): void {
-  if (initialized) {
+  if (initialized && Sentry) {
     Sentry.close();
   }
   initialized = false;
+  Sentry = null;
 }

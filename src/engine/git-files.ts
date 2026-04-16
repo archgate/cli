@@ -21,22 +21,44 @@ async function runGit(args: string[], cwd: string): Promise<string> {
   return text;
 }
 
+/**
+ * Cache of tracked-files lookups per project root. `archgate check` calls
+ * `resolveScopedFiles` once per ADR — without this cache that's N spawns of
+ * `git ls-files` (one per ADR) instead of 1, which adds ~25ms × N on Windows.
+ * The in-memory lifetime matches the process; file changes during a single
+ * CLI invocation are not expected.
+ */
+const trackedFilesCache = new Map<string, Promise<Set<string> | null>>();
+
 /** Get all git-tracked (non-ignored) files in the project. */
-export async function getGitTrackedFiles(
+export function getGitTrackedFiles(
   projectRoot: string
 ): Promise<Set<string> | null> {
-  try {
-    const result = await runGit(
-      ["ls-files", "--cached", "--others", "--exclude-standard"],
-      projectRoot
-    );
-    const files = new Set(result.trim().split("\n").filter(Boolean));
-    logDebug("Git tracked files:", files.size);
-    return files;
-  } catch {
-    logDebug("Git tracked files lookup failed (not a git repo?)");
-    return null;
-  }
+  const cached = trackedFilesCache.get(projectRoot);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    try {
+      const result = await runGit(
+        ["ls-files", "--cached", "--others", "--exclude-standard"],
+        projectRoot
+      );
+      const files = new Set(result.trim().split("\n").filter(Boolean));
+      logDebug("Git tracked files:", files.size);
+      return files;
+    } catch {
+      logDebug("Git tracked files lookup failed (not a git repo?)");
+      return null;
+    }
+  })();
+
+  trackedFilesCache.set(projectRoot, promise);
+  return promise;
+}
+
+/** Reset the tracked-files cache. For testing only. */
+export function _resetGitFilesCache(): void {
+  trackedFilesCache.clear();
 }
 
 /** Resolve scoped files for an ADR based on its files globs. Respects .gitignore. */

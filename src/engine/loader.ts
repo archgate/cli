@@ -137,6 +137,67 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
   return violations;
 }
 
+export interface ParsedAdrEntry {
+  file: string;
+  adr: AdrDocument;
+}
+
+/**
+ * Process-level cache of `readdir + read + parse` for each project root.
+ * `archgate review-context --run-checks` used to parse every ADR twice
+ * (once for briefings, once for rule loading); the cache lets both paths
+ * share the I/O. `archgate check` + `adr list` benefit too.
+ *
+ * Cache lifetime is per-process — consistent with other per-invocation
+ * caches in this codebase (git ls-files, repo context, install method).
+ */
+const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
+
+/** Reset the parsed-ADRs cache. For testing only. */
+export function _resetAdrParseCache(): void {
+  parsedAdrsCache.clear();
+}
+
+/**
+ * Read and parse every ADR markdown file in the project, caching the result
+ * per-process. Returns entries in directory order. Unparseable files are
+ * silently skipped (logged at debug level).
+ */
+export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
+  const cached = parsedAdrsCache.get(projectRoot);
+  if (cached) return cached;
+
+  const pp = projectPaths(projectRoot);
+  const adrsDir = pp.adrsDir;
+
+  const promise = (async () => {
+    let files: string[];
+    try {
+      files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
+    } catch {
+      return [];
+    }
+
+    const parsed = await Promise.all(
+      files.map(async (file): Promise<ParsedAdrEntry | null> => {
+        const filePath = join(adrsDir, file);
+        try {
+          const content = await Bun.file(filePath).text();
+          return { file, adr: parseAdr(content, filePath) };
+        } catch (err) {
+          logDebug(`Skipping unparseable ADR: ${filePath}`, err);
+          return null;
+        }
+      })
+    );
+
+    return parsed.filter((e): e is ParsedAdrEntry => e !== null);
+  })();
+
+  parsedAdrsCache.set(projectRoot, promise);
+  return promise;
+}
+
 /**
  * Discover ADRs with rules: true and dynamically import their companion .rules.ts files.
  */
@@ -152,36 +213,15 @@ export async function loadRuleAdrs(
 
   const adrsDir = pp.adrsDir;
 
-  let files: string[];
-  try {
-    files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
-  } catch {
-    return [];
-  }
-
-  // Phase 1: Read and parse all ADR files in parallel
-  const parsedAdrs = await Promise.all(
-    files.map(async (file) => {
-      const filePath = join(adrsDir, file);
-      try {
-        const content = await Bun.file(filePath).text();
-        return { file, adr: parseAdr(content, filePath) };
-      } catch (err) {
-        logDebug(`Skipping unparseable ADR: ${filePath}`, err);
-        return null;
-      }
-    })
-  );
+  // Phase 1: Read and parse all ADR files in parallel (cached per process)
+  const parsedAdrs = await parseAllAdrs(projectRoot);
 
   // Filter to ADRs that have rules enabled
-  const ruleAdrs = parsedAdrs.filter(
-    (entry): entry is NonNullable<typeof entry> => {
-      if (entry === null) return false;
-      if (!entry.adr.frontmatter.rules) return false;
-      if (filterAdrId && entry.adr.frontmatter.id !== filterAdrId) return false;
-      return true;
-    }
-  );
+  const ruleAdrs = parsedAdrs.filter((entry) => {
+    if (!entry.adr.frontmatter.rules) return false;
+    if (filterAdrId && entry.adr.frontmatter.id !== filterAdrId) return false;
+    return true;
+  });
 
   // Phase 2: Verify companion files exist and import rule sets in parallel
   const ruleResults = await Promise.all(
