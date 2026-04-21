@@ -12,7 +12,7 @@ import { exitWith } from "../../helpers/exit";
 import { EDITOR_LABELS } from "../../helpers/init-project";
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
-import { findProjectRoot } from "../../helpers/paths";
+import { findProjectRoot, opencodeAgentsDir } from "../../helpers/paths";
 import {
   buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
@@ -20,6 +20,7 @@ import {
   installClaudePlugin,
   installCopilotPlugin,
   installCursorPlugin,
+  installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
   isCopilotCliAvailable,
@@ -31,7 +32,7 @@ import { configureVscodeSettings } from "../../helpers/vscode-settings";
 const editorOption = new Option(
   "--editor <editor>",
   "target editor (omit to auto-detect and select)"
-).choices(["claude", "cursor", "vscode", "copilot"] as const);
+).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
 
 async function installForEditor(
   editor: EditorTarget,
@@ -82,6 +83,14 @@ async function installForEditor(
           `  2. Add the Team Marketplace: ${buildCursorMarketplaceUrl()}`
         );
       }
+      break;
+    }
+    case "opencode": {
+      await installOpencodePlugin(token);
+      logInfo(
+        `Archgate agents installed for ${label}.`,
+        `Target directory: ${opencodeAgentsDir()}`
+      );
       break;
     }
     case "vscode": {
@@ -189,6 +198,16 @@ export function registerPluginInstallCommand(plugin: Command) {
                 `  ${styleText("bold", "code")} --install-extension archgate.vsix`
               );
               console.log(`  rm archgate.vsix`);
+              break;
+            }
+            case "opencode": {
+              logInfo(
+                "Retry the install, or refresh your credentials if they have expired:"
+              );
+              console.log(`  ${styleText("bold", "archgate login refresh")}`);
+              console.log(
+                `  ${styleText("bold", "archgate plugin install --editor opencode")}`
+              );
               break;
             }
           }

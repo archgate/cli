@@ -38,6 +38,7 @@ describe("registerPluginInstallCommand", () => {
       "cursor",
       "vscode",
       "copilot",
+      "opencode",
     ]);
   });
 });

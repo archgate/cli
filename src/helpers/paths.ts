@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
 import { logDebug } from "./log";
+import { isWindows } from "./platform";
 
 /**
  * Resolves the user home directory for ~/.archgate paths.
@@ -24,6 +25,42 @@ function archgateHomeDir(): string {
 export function internalPath(...path: string[]) {
   const internalFolder = join(archgateHomeDir(), ".archgate");
   return join(internalFolder, ...path);
+}
+
+/**
+ * Accept an env-var value only when it is a non-empty string that isn't the
+ * literal "undefined". Mirrors the defensive handling in `archgateHomeDir()`
+ * — shells and tooling sometimes surface an unset variable as the string
+ * "undefined", which would otherwise leak into the resolved path.
+ */
+function usableEnv(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  if (value.length === 0 || value === "undefined") return null;
+  return value;
+}
+
+/**
+ * Resolve the opencode user-scope agents directory.
+ *
+ * Opencode loads per-user agents from a platform-specific config directory:
+ * - Windows: `%APPDATA%\opencode\agents` (fallback: `<home>/AppData/Roaming/opencode/agents`)
+ * - Linux/macOS: `$XDG_CONFIG_HOME/opencode/agents` (fallback: `<home>/.config/opencode/agents`)
+ *
+ * The path is resolved at call time, not cached — tests override `HOME` /
+ * `APPDATA` per-test and expect the helper to pick up the override.
+ */
+export function opencodeAgentsDir(): string {
+  const home = archgateHomeDir();
+
+  if (isWindows()) {
+    const appData = usableEnv(Bun.env.APPDATA);
+    const base = appData ?? join(home, "AppData", "Roaming");
+    return join(base, "opencode", "agents");
+  }
+
+  const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
+  const base = xdg ?? join(home, ".config");
+  return join(base, "opencode", "agents");
 }
 
 export const paths = { cacheFolder: internalPath("cache") } as const;

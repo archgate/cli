@@ -1,9 +1,9 @@
 /** Download and install the archgate plugin for supported editors. */
 
-import { unlinkSync } from "node:fs";
+import { mkdirSync, unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
-import { internalPath } from "./paths";
+import { internalPath, opencodeAgentsDir } from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -169,6 +169,64 @@ export async function installCursorPlugin(token: string): Promise<void> {
   } finally {
     try {
       unlinkSync(vsixPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// opencode — download agent bundle into user-scope agents dir
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether the `opencode` CLI is available on the system PATH.
+ * On WSL, also checks for `opencode.exe` (Windows-side installation).
+ */
+export async function isOpencodeCliAvailable(): Promise<boolean> {
+  const resolved = await resolveCommand("opencode");
+  return resolved !== null;
+}
+
+/**
+ * Install the archgate opencode agents into the user-scope agents directory.
+ *
+ * Opencode has no plugin marketplace — agents are plain markdown files.
+ * Archgate ships them as an authenticated tarball at `/api/opencode`. The
+ * tarball contains `archgate-*.md` files at its root which extract directly
+ * into the resolved `opencodeAgentsDir()`.
+ *
+ * The extraction uses `tar` via `Bun.spawn` (ARCH-007) — `tar` is available
+ * on macOS, Linux, and modern Windows (bsdtar ships with Windows 10+).
+ *
+ * Throws on download or extraction failure so callers can surface a manual
+ * retry hint.
+ */
+export async function installOpencodePlugin(token: string): Promise<void> {
+  const tarballPath = internalPath("archgate-opencode.tar.gz");
+  const agentsDir = opencodeAgentsDir();
+
+  const buffer = await downloadPluginAsset("/api/opencode", token);
+  logDebug(
+    `Downloaded opencode agent bundle (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(tarballPath, buffer);
+
+  try {
+    // Ensure target dir exists — tar will write files, but it won't create
+    // the enclosing `<config>/opencode/agents/` path.
+    mkdirSync(agentsDir, { recursive: true });
+
+    logDebug(`Extracting opencode agents into ${agentsDir}`);
+    const result = await run(["tar", "-xzf", tarballPath, "-C", agentsDir]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `tar -xzf failed (exit ${result.exitCode}) while extracting opencode agents`
+      );
+    }
+  } finally {
+    try {
+      unlinkSync(tarballPath);
     } catch {
       // Ignore cleanup errors
     }

@@ -6,17 +6,27 @@ import { configureClaudeSettings } from "./claude-settings";
 import { configureCopilotSettings } from "./copilot-settings";
 import { configureCursorSettings } from "./cursor-settings";
 import { logDebug } from "./log";
-import { createPathIfNotExists, projectPaths } from "./paths";
+import {
+  createPathIfNotExists,
+  opencodeAgentsDir,
+  projectPaths,
+} from "./paths";
 import { writeRulesShim } from "./rules-shim";
 import { configureVscodeSettings } from "./vscode-settings";
 
-export type EditorTarget = "claude" | "cursor" | "vscode" | "copilot";
+export type EditorTarget =
+  | "claude"
+  | "cursor"
+  | "vscode"
+  | "copilot"
+  | "opencode";
 
 export const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
   cursor: "Cursor",
   vscode: "VS Code",
   copilot: "Copilot CLI",
+  opencode: "opencode",
 };
 
 export interface InitOptions {
@@ -146,6 +156,12 @@ async function configureEditorSettings(
     }
     case "copilot":
       return configureCopilotSettings(projectRoot);
+    case "opencode":
+      // Opencode agent files are user-scope and written by `tryInstallPlugin`
+      // after authenticating against the plugins service. Nothing lands in
+      // the project tree — return the resolved user-scope path so the init
+      // summary has something meaningful to print.
+      return opencodeAgentsDir();
     default:
       return configureClaudeSettings(projectRoot);
   }
@@ -267,6 +283,28 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       autoInstalled: true,
       detail: "Marketplace URL added to VS Code user settings",
     };
+  }
+
+  if (editor === "opencode") {
+    const { installOpencodePlugin } = await import("./plugin-install");
+
+    try {
+      await installOpencodePlugin(credentials.token);
+      return {
+        installed: true,
+        autoInstalled: true,
+        detail: opencodeAgentsDir(),
+      };
+    } catch (error) {
+      // Surface as a non-auto install so init routes through
+      // `printManualInstructions("opencode", detail)`, which prints a
+      // retry hint to the user.
+      logDebug("Failed to install opencode agent bundle:", error);
+      return {
+        installed: true,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   if (editor === "copilot") {
