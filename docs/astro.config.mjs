@@ -218,6 +218,10 @@ export default defineConfig({
             { label: "VS Code Plugin", slug: "guides/vscode-plugin" },
             { label: "Copilot CLI Plugin", slug: "guides/copilot-cli-plugin" },
             { label: "Cursor Integration", slug: "guides/cursor-integration" },
+            {
+              label: "opencode Integration",
+              slug: "guides/opencode-integration",
+            },
             { label: "Pre-commit Hooks", slug: "guides/pre-commit-hooks" },
             { label: "Security", slug: "guides/security" },
           ],

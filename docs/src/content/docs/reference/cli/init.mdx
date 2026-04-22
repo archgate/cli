@@ -13,10 +13,10 @@ Creates the `.archgate/` directory with an example ADR, companion rules file, an
 
 ## Options
 
-| Option              | Default  | Description                                                               |
-| ------------------- | -------- | ------------------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`, `vscode`, `copilot`) |
-| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`)      |
+| Option              | Default  | Description                                                                           |
+| ------------------- | -------- | ------------------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor integration to configure (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| `--install-plugin`  | auto     | Install the Archgate editor plugin (requires prior `archgate login`)                  |
 
 When `--install-plugin` is passed, the CLI installs the Archgate plugin for the selected editor. If the flag is omitted, the CLI auto-detects: it installs the plugin when valid credentials exist (from a previous `archgate login`) and skips otherwise.
 
@@ -25,6 +25,8 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 **Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
 
 **Cursor:** If the `cursor` CLI is on your PATH, the VS Code extension is installed automatically via `cursor --install-extension`. The team marketplace URL is printed for manual plugin discovery.
+
+**opencode:** The CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`~/.config/opencode/agents/` on POSIX, `%APPDATA%\opencode\agents\` on Windows). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Output
 

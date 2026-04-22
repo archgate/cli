@@ -1,0 +1,132 @@
+---
+title: Integração com opencode
+description: Integre o Archgate com o opencode para desenvolvimento assistido por IA com governança arquitetural. Configure agentes e subagentes para conformidade ADR.
+---
+
+O Archgate se integra com o [opencode](https://opencode.ai) para oferecer aos agentes de IA um fluxo de governança estruturado. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
+
+## Configuração
+
+Execute `archgate init` com a flag `--editor opencode` para configurar a integração com o opencode no seu projeto:
+
+```bash
+archgate init --editor opencode
+```
+
+:::note[Acesso beta necessário]
+O bundle de agentes do opencode está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
+:::
+
+Diferente das integrações com Claude Code ou Cursor, os agentes do opencode **não são gravados na árvore do seu projeto**. Em vez disso, são instalados no escopo do usuário -- portanto vivem na sua máquina, não no repositório, e ficam disponíveis em todos os projetos que você abrir com o opencode.
+
+| Plataforma    | Local de instalação          |
+| ------------- | ---------------------------- |
+| Linux / macOS | `~/.config/opencode/agents/` |
+| Windows       | `%APPDATA%\opencode\agents\` |
+
+### Instalação autenticada
+
+Se você fez login via `archgate login`, o comando init também baixa e instala o bundle de agentes Archgate para o opencode. O bundle fornece um agente primário pré-configurado e quatro subagentes que dão à IA do opencode um fluxo de governança completo.
+
+Para instalar os agentes explicitamente:
+
+```bash
+archgate login                                   # configuração única
+archgate init --editor opencode --install-plugin
+```
+
+Para instalar ou reinstalar em um projeto já inicializado:
+
+```bash
+archgate plugin install --editor opencode
+```
+
+O passo de instalação baixa um tarball autenticado do serviço de plugins do Archgate e extrai os cinco arquivos de agente `archgate-*.md` no diretório de escopo do usuário do opencode.
+
+### Arquivos gerados (escopo do usuário)
+
+| Arquivo                                         | Propósito                                                                          |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `<opencode-agents>/archgate-developer.md`       | Agente primário (selecionável com Tab) que executa o fluxo ADR completo            |
+| `<opencode-agents>/archgate-architect.md`       | Subagente que valida mudanças de código contra todos os ADRs do projeto            |
+| `<opencode-agents>/archgate-quality-manager.md` | Subagente que captura aprendizados e propõe novos ADRs                             |
+| `<opencode-agents>/archgate-adr-author.md`      | Subagente que cria e edita ADRs seguindo as convenções do projeto                  |
+| `<opencode-agents>/archgate-cli-reference.md`   | Subagente de referência interna com o guia de comandos da CLI do Archgate (oculto) |
+
+`.archgate/adrs/` e `.archgate/lint/` continuam sendo criados no seu projeto normalmente -- apenas os arquivos de agente específicos do opencode ficam fora da árvore do projeto.
+
+## O que o bundle oferece
+
+O prefixo `archgate-` evita colisão com agentes opencode criados pelo usuário no mesmo diretório. Os subagentes são invocados através da sintaxe de `@-menção` do opencode.
+
+### Agente primário
+
+| Nome                 | Propósito                                                                  |
+| -------------------- | -------------------------------------------------------------------------- |
+| `archgate-developer` | Agente de desenvolvimento geral que lê ADRs antes de codar e valida depois |
+
+O agente `archgate-developer` orquestra os subagentes abaixo automaticamente como parte do seu fluxo.
+
+### Subagentes
+
+| Nome                       | Propósito                                                                              |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `archgate-architect`       | Valida mudanças de código contra todos os ADRs do projeto para conformidade estrutural |
+| `archgate-quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                |
+| `archgate-adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                    |
+| `archgate-cli-reference`   | Referência interna para agentes de IA com o guia completo de comandos da CLI Archgate  |
+
+São os mesmos papéis disponíveis no plugin para Claude Code, adaptados para o modelo nativo primário/subagente do opencode.
+
+## Como funciona na prática
+
+Selecione `archgate-developer` como seu agente primário (use a tecla Tab no opencode) ao iniciar uma tarefa de codificação. O agente segue um fluxo estruturado para cada mudança:
+
+1. **Ler os ADRs aplicáveis** -- O agente executa `archgate review-context` para ver quais ADRs se aplicam aos arquivos sendo alterados. Ele não escreve código antes de ler os ADRs aplicáveis.
+
+2. **Escrever código seguindo as restrições dos ADRs** -- O agente implementa as mudanças seguindo os Do's e Don'ts dos ADRs aplicáveis.
+
+3. **Executar verificações de conformidade** -- O agente executa `archgate check` para executar regras automáticas. Quaisquer violações são corrigidas antes de prosseguir.
+
+4. **Revisão do architect** -- O agente menciona `@archgate-architect` para validar a conformidade estrutural dos ADRs além do que as regras automáticas detectam.
+
+5. **Capturar aprendizados** -- O agente menciona `@archgate-quality-manager` para revisar o trabalho e identificar padrões que vale a pena capturar como novos ADRs ou atualizações aos existentes.
+
+## Recusa orientada por ADR
+
+Quando `archgate-developer` encontra uma tarefa que exigiria violar um ADR, ele recusa e explica qual ADR seria violado. Em seguida, sugere como alcançar o mesmo objetivo permanecendo em conformidade.
+
+Por exemplo, se um desenvolvedor pedir ao agente para adicionar `chalk` como dependência em um projeto governado por um ADR de política de dependências, o agente irá:
+
+1. Recusar, citando o ADR e a lista aprovada de dependências
+2. Sugerir usar a alternativa aprovada
+3. Oferecer-se para implementar a tarefa usando a abordagem conforme
+
+Esse comportamento é consistente independentemente de como o desenvolvedor formula o pedido. ADRs são tratados como restrições obrigatórias, não sugestões.
+
+## Quando usar cada agente ou subagente
+
+| Cenário                                       | Agente / Subagente              |
+| --------------------------------------------- | ------------------------------- |
+| Tarefas diárias de codificação                | `archgate-developer` (primário) |
+| Revisar uma mudança para conformidade com ADR | `@archgate-architect`           |
+| Notar um padrão recorrente que vale codificar | `@archgate-quality-manager`     |
+| Criar ou editar um ADR                        | `@archgate-adr-author`          |
+
+O agente `archgate-developer` orquestra os subagentes automaticamente -- ele menciona `@archgate-architect` e `@archgate-quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa selecionar `archgate-developer` e deixá-lo executar.
+
+## Escopo do usuário vs. escopo do projeto
+
+O bundle do opencode vive no seu diretório opencode de escopo do usuário em vez de em `.opencode/` dentro do projeto. Consequências:
+
+- **Uma instalação por máquina.** `archgate plugin install --editor opencode` instala o bundle globalmente. Todo projeto que você abrir com o opencode enxerga os mesmos agentes `archgate-*`.
+- **Seu repositório permanece limpo.** Nenhuma pasta `.opencode/` é criada por `archgate init`. Membros da equipe que queiram os agentes executam seu próprio `archgate plugin install --editor opencode`.
+- **Upgrades são globais.** Re-executar `archgate plugin install --editor opencode` sobrescreve os arquivos existentes com o bundle mais recente.
+
+## Dicas para uso efetivo
+
+- **Selecione `archgate-developer` no início das sessões de codificação.** Ele orquestra o fluxo completo de leitura-validação-captura automaticamente.
+- **Use `@archgate-architect` para revisões.** Ele valida a conformidade estrutural além do que as regras automáticas detectam.
+- **Use `@archgate-quality-manager` depois de resolver problemas complicados.** Ele captura aprendizados para que os mesmos erros não sejam repetidos.
+- **Mantenha os arquivos de regras dos ADRs atualizados.** O agente impõe o que as regras verificam -- se uma regra está faltando, a violação não será detectada.
+- **Re-execute `archgate plugin install --editor opencode` para atualizar.** O serviço retorna o bundle de agentes mais recente em cada download autenticado.
