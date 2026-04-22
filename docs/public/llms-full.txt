@@ -1604,10 +1604,12 @@ The opencode agent bundle is currently in beta. Run `archgate login` to sign up 
 
 Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead — so they live on your machine, not in your repository, and are available across every project you open with opencode.
 
-| Platform      | Install location             |
-| ------------- | ---------------------------- |
-| Linux / macOS | `~/.config/opencode/agents/` |
-| Windows       | `%APPDATA%\opencode\agents\` |
+opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/agents/` when that variable is set, and falls back to `$HOME/.config/opencode/agents/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\agents\`, not under `%APPDATA%`:
+
+| Platform      | Install location                               |
+| ------------- | ---------------------------------------------- |
+| Linux / macOS | `~/.config/opencode/agents/`                   |
+| Windows       | `C:\Users\<username>\.config\opencode\agents\` |
 
 ### Authenticated install
 
@@ -3456,7 +3458,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Cursor:** If the `cursor` CLI is on your PATH, the VS Code extension is installed automatically via `cursor --install-extension`. The team marketplace URL is printed for manual plugin discovery.
 
-**opencode:** The CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`~/.config/opencode/agents/` on POSIX, `%APPDATA%\opencode\agents\` on Windows). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
+**opencode:** The CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows — opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Output
 

@@ -3,7 +3,6 @@ import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 
 import { logDebug } from "./log";
-import { isWindows } from "./platform";
 
 /**
  * Resolves the user home directory for ~/.archgate paths.
@@ -42,24 +41,19 @@ function usableEnv(value: string | undefined): string | null {
 /**
  * Resolve the opencode user-scope agents directory.
  *
- * Opencode loads per-user agents from a platform-specific config directory:
- * - Windows: `%APPDATA%\opencode\agents` (fallback: `<home>/AppData/Roaming/opencode/agents`)
- * - Linux/macOS: `$XDG_CONFIG_HOME/opencode/agents` (fallback: `<home>/.config/opencode/agents`)
+ * Opencode uses the `xdg-basedir` package to locate its config root. That
+ * package reads `$XDG_CONFIG_HOME` when set and otherwise falls back to
+ * `~/.config` on **all platforms** — including Windows, where the resolved
+ * path is `C:\Users\<user>\.config\opencode\agents` rather than anything
+ * under `%APPDATA%`. We mirror the same resolution here so the CLI writes
+ * to the exact directory opencode reads from.
  *
  * The path is resolved at call time, not cached — tests override `HOME` /
- * `APPDATA` per-test and expect the helper to pick up the override.
+ * `XDG_CONFIG_HOME` per-test and expect the helper to pick up the override.
  */
 export function opencodeAgentsDir(): string {
-  const home = archgateHomeDir();
-
-  if (isWindows()) {
-    const appData = usableEnv(Bun.env.APPDATA);
-    const base = appData ?? join(home, "AppData", "Roaming");
-    return join(base, "opencode", "agents");
-  }
-
   const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
-  const base = xdg ?? join(home, ".config");
+  const base = xdg ?? join(archgateHomeDir(), ".config");
   return join(base, "opencode", "agents");
 }
 

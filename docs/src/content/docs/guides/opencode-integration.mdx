@@ -19,10 +19,12 @@ The opencode agent bundle is currently in beta. Run `archgate login` to sign up 
 
 Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead — so they live on your machine, not in your repository, and are available across every project you open with opencode.
 
-| Platform      | Install location             |
-| ------------- | ---------------------------- |
-| Linux / macOS | `~/.config/opencode/agents/` |
-| Windows       | `%APPDATA%\opencode\agents\` |
+opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/agents/` when that variable is set, and falls back to `$HOME/.config/opencode/agents/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\agents\`, not under `%APPDATA%`:
+
+| Platform      | Install location                               |
+| ------------- | ---------------------------------------------- |
+| Linux / macOS | `~/.config/opencode/agents/`                   |
+| Windows       | `C:\Users\<username>\.config\opencode\agents\` |
 
 ### Authenticated install
 

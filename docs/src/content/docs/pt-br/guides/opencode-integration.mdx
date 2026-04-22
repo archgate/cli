@@ -19,10 +19,12 @@ O bundle de agentes do opencode está atualmente em beta. Execute `archgate logi
 
 Diferente das integrações com Claude Code ou Cursor, os agentes do opencode **não são gravados na árvore do seu projeto**. Em vez disso, são instalados no escopo do usuário -- portanto vivem na sua máquina, não no repositório, e ficam disponíveis em todos os projetos que você abrir com o opencode.
 
-| Plataforma    | Local de instalação          |
-| ------------- | ---------------------------- |
-| Linux / macOS | `~/.config/opencode/agents/` |
-| Windows       | `%APPDATA%\opencode\agents\` |
+O opencode usa a convenção XDG Base Directory em todas as plataformas (via o pacote `xdg-basedir`), então o local de instalação é `$XDG_CONFIG_HOME/opencode/agents/` quando essa variável está definida e `$HOME/.config/opencode/agents/` caso contrário. Isso significa que instalações no Windows ficam em `C:\Users\<usuario>\.config\opencode\agents\`, não em `%APPDATA%`:
+
+| Plataforma    | Local de instalação                           |
+| ------------- | --------------------------------------------- |
+| Linux / macOS | `~/.config/opencode/agents/`                  |
+| Windows       | `C:\Users\<usuario>\.config\opencode\agents\` |
 
 ### Instalação autenticada
 

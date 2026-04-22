@@ -82,3 +82,5 @@ Editor integrations share the `EditorTarget` union. Adding a new editor requires
 7. Tests that assert the exact choice list: `tests/commands/plugin/install.test.ts`, `tests/commands/plugin/url.test.ts`, and `tests/helpers/editor-detect.test.ts` (length + id order)
 
 User-scope editors (e.g., opencode) write to a path resolved in `paths.ts` rather than the project tree — `configureEditorSettings` returns that path for the init summary and the real work happens in `tryInstallPlugin`.
+
+**Match the target editor's actual path resolution — don't assume Windows conventions.** opencode uses the `xdg-basedir` npm package, which falls back to `~/.config` on **all platforms** (including Windows, where it resolves to `C:\Users\<user>\.config\…`, not `%APPDATA%\…`). `opencodeAgentsDir()` must mirror that exact logic or the CLI writes files the editor can't find. When adding a user-scope editor, verify the editor's path helper in its source before writing the resolver.
