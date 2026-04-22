@@ -26,7 +26,7 @@ Quando `--install-plugin` é passado, a CLI instala o plugin do Archgate para o 
 
 **Cursor:** Se a CLI `cursor` estiver no seu PATH, a extensão VS Code é instalada automaticamente via `cursor --install-extension`. A URL do team marketplace é impressa para descoberta manual do plugin.
 
-**opencode:** A CLI baixa um tarball autenticado de arquivos de agente do serviço de plugins do Archgate e o extrai no diretório de agentes opencode do escopo do usuário (`$XDG_CONFIG_HOME/opencode/agents/`, com fallback para `$HOME/.config/opencode/agents/` em qualquer plataforma, inclusive Windows -- o opencode usa paths XDG via `xdg-basedir` e não lê `%APPDATA%`). Nenhum arquivo é gravado na árvore do projeto. Veja o [guia de integração com opencode](/guides/opencode-integration/) para detalhes.
+**opencode:** Requer que a CLI `opencode` esteja no seu PATH -- se não estiver, a instalação é pulada e uma mensagem pede que você instale o opencode primeiro. Quando presente, a CLI baixa um tarball autenticado de arquivos de agente do serviço de plugins do Archgate e o extrai no diretório de agentes opencode do escopo do usuário (`$XDG_CONFIG_HOME/opencode/agents/`, com fallback para `$HOME/.config/opencode/agents/` em qualquer plataforma, inclusive Windows -- o opencode usa paths XDG via `xdg-basedir` e não lê `%APPDATA%`). Nenhum arquivo é gravado na árvore do projeto. Veja o [guia de integração com opencode](/guides/opencode-integration/) para detalhes.
 
 ## Saída
 

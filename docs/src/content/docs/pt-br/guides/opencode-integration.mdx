@@ -28,7 +28,11 @@ O opencode usa a convenção XDG Base Directory em todas as plataformas (via o p
 
 ### Instalação autenticada
 
-Se você fez login via `archgate login`, o comando init também baixa e instala o bundle de agentes Archgate para o opencode. O bundle fornece um agente primário pré-configurado e quatro subagentes que dão à IA do opencode um fluxo de governança completo.
+:::caution[O opencode precisa estar instalado primeiro]
+A instalação só é executada quando a CLI `opencode` está no seu PATH. O Archgate precisa confirmar que o opencode está presente antes de gravar arquivos no diretório de configuração do escopo do usuário -- caso contrário, os agentes ficariam em um local que ninguém lê. Instale o opencode em [opencode.ai](https://opencode.ai/docs/) primeiro, depois re-execute `archgate init --editor opencode` ou `archgate plugin install --editor opencode`.
+:::
+
+Se você fez login via `archgate login` **e** o `opencode` está no seu PATH, o comando init também baixa e instala o bundle de agentes Archgate para o opencode. O bundle fornece um agente primário pré-configurado e quatro subagentes que dão à IA do opencode um fluxo de governança completo.
 
 Para instalar os agentes explicitamente:
 

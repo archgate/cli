@@ -203,18 +203,29 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
       break;
     case "opencode":
-      // Opencode install happens via the plugins service; if we land here the
-      // download/extract failed. `detail` carries the error message.
-      logWarn(
-        "Failed to install opencode agents.",
-        detail ?? "Check your credentials and retry."
-      );
-      console.log(
-        `  Retry with: ${styleText("bold", "archgate plugin install --editor opencode")}`
-      );
-      console.log(
-        `  If the token has expired: ${styleText("bold", "archgate login refresh")}`
-      );
+      // `cli-not-found` is the sentinel set by `tryInstallPlugin` in
+      // init-project.ts when the `opencode` binary is not on PATH. All other
+      // values are error messages from a failed download/extract.
+      if (detail === "cli-not-found") {
+        logWarn(
+          "opencode CLI not found on PATH — skipping agent install.",
+          "Install opencode from https://opencode.ai/docs/, then run:"
+        );
+        console.log(
+          `  ${styleText("bold", "archgate plugin install --editor opencode")}`
+        );
+      } else {
+        logWarn(
+          "Failed to install opencode agents.",
+          detail ?? "Check your credentials and retry."
+        );
+        console.log(
+          `  Retry with: ${styleText("bold", "archgate plugin install --editor opencode")}`
+        );
+        console.log(
+          `  If the token has expired: ${styleText("bold", "archgate login refresh")}`
+        );
+      }
       break;
     default:
       // cursor/vscode auto-install — should not reach here

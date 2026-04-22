@@ -1613,7 +1613,9 @@ opencode uses the XDG Base Directory convention on every platform (via the `xdg-
 
 ### Authenticated install
 
-If you have logged in via `archgate login`, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full governance workflow.
+The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory — otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
+
+If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full governance workflow.
 
 To explicitly install the agents:
 
@@ -3458,7 +3460,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Cursor:** If the `cursor` CLI is on your PATH, the VS Code extension is installed automatically via `cursor --install-extension`. The team marketplace URL is printed for manual plugin discovery.
 
-**opencode:** The CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows — opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
+**opencode:** Requires the `opencode` CLI to be on your PATH — if it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows — opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Output
 
@@ -3667,7 +3669,7 @@ Installation behavior varies by editor:
 - **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
 - **Cursor:** Installs the VS Code extension via `cursor` CLI if available and prints the team marketplace URL; prints manual instructions otherwise.
 - **VS Code:** Adds the marketplace URL to VS Code user settings and installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
-- **opencode:** Downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" — opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
+- **opencode:** Requires the `opencode` CLI to be on PATH — skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" — opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Examples
 

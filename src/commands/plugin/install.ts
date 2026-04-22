@@ -25,6 +25,7 @@ import {
   isClaudeCliAvailable,
   isCopilotCliAvailable,
   isCursorCliAvailable,
+  isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
 import { configureVscodeSettings } from "../../helpers/vscode-settings";
@@ -86,6 +87,19 @@ async function installForEditor(
       break;
     }
     case "opencode": {
+      // Writing agent files to `~/.config/opencode/agents/` is only useful
+      // if opencode is actually installed. Skip the install and surface a
+      // clear message otherwise, matching every other editor's guard.
+      if (!(await isOpencodeCliAvailable())) {
+        logWarn(
+          "opencode CLI not found on PATH — skipping agent install.",
+          "Install opencode from https://opencode.ai/docs/, then re-run:"
+        );
+        console.log(
+          `  ${styleText("bold", "archgate plugin install --editor opencode")}`
+        );
+        break;
+      }
       await installOpencodePlugin(token);
       logInfo(
         `Archgate agents installed for ${label}.`,
