@@ -26,6 +26,10 @@ const EDITOR_DIRS: Record<EditorTarget, string> = {
   cursor: ".cursor/",
   vscode: ".vscode/",
   copilot: ".github/copilot/",
+  // Opencode agents install to a user-scope directory, not the project tree.
+  // Shown as a shorthand in the init summary; the resolved absolute path is
+  // printed via `result.plugin.detail` when the install succeeds.
+  opencode: "(user-scope)",
 };
 
 /** Map init editor flags to signup editor identifiers. */
@@ -34,12 +38,13 @@ const SIGNUP_EDITORS: Record<EditorTarget, string> = {
   cursor: "cursor",
   vscode: "vscode",
   copilot: "copilot-cli",
+  opencode: "opencode",
 };
 
 const editorOption = new Option(
   "--editor <editor>",
   "editor integration (omit to auto-detect and select)"
-).choices(["claude", "cursor", "vscode", "copilot"] as const);
+).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
 
 export function registerInitCommand(program: Command) {
   program
@@ -196,6 +201,31 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
     case "copilot":
       logWarn("Copilot CLI not found. To install the plugin manually, run:");
       console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
+      break;
+    case "opencode":
+      // `cli-not-found` is the sentinel set by `tryInstallPlugin` in
+      // init-project.ts when the `opencode` binary is not on PATH. All other
+      // values are error messages from a failed download/extract.
+      if (detail === "cli-not-found") {
+        logWarn(
+          "opencode CLI not found on PATH — skipping agent install.",
+          "Install opencode from https://opencode.ai/docs/, then run:"
+        );
+        console.log(
+          `  ${styleText("bold", "archgate plugin install --editor opencode")}`
+        );
+      } else {
+        logWarn(
+          "Failed to install opencode agents.",
+          detail ?? "Check your credentials and retry."
+        );
+        console.log(
+          `  Retry with: ${styleText("bold", "archgate plugin install --editor opencode")}`
+        );
+        console.log(
+          `  If the token has expired: ${styleText("bold", "archgate login refresh")}`
+        );
+      }
       break;
     default:
       // cursor/vscode auto-install — should not reach here

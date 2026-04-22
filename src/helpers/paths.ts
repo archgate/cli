@@ -26,6 +26,37 @@ export function internalPath(...path: string[]) {
   return join(internalFolder, ...path);
 }
 
+/**
+ * Accept an env-var value only when it is a non-empty string that isn't the
+ * literal "undefined". Mirrors the defensive handling in `archgateHomeDir()`
+ * — shells and tooling sometimes surface an unset variable as the string
+ * "undefined", which would otherwise leak into the resolved path.
+ */
+function usableEnv(value: string | undefined): string | null {
+  if (typeof value !== "string") return null;
+  if (value.length === 0 || value === "undefined") return null;
+  return value;
+}
+
+/**
+ * Resolve the opencode user-scope agents directory.
+ *
+ * Opencode uses the `xdg-basedir` package to locate its config root. That
+ * package reads `$XDG_CONFIG_HOME` when set and otherwise falls back to
+ * `~/.config` on **all platforms** — including Windows, where the resolved
+ * path is `C:\Users\<user>\.config\opencode\agents` rather than anything
+ * under `%APPDATA%`. We mirror the same resolution here so the CLI writes
+ * to the exact directory opencode reads from.
+ *
+ * The path is resolved at call time, not cached — tests override `HOME` /
+ * `XDG_CONFIG_HOME` per-test and expect the helper to pick up the override.
+ */
+export function opencodeAgentsDir(): string {
+  const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
+  const base = xdg ?? join(archgateHomeDir(), ".config");
+  return join(base, "opencode", "agents");
+}
+
 export const paths = { cacheFolder: internalPath("cache") } as const;
 
 export function projectPath(projectRoot: string, ...path: string[]) {

@@ -13,10 +13,10 @@ Cria o diretório `.archgate/` com um ADR de exemplo, arquivo de regras compleme
 
 ## Opções
 
-| Opção               | Padrão   | Descrição                                                                   |
-| ------------------- | -------- | --------------------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Integração de editor a configurar (`claude`, `cursor`, `vscode`, `copilot`) |
-| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` prévio)    |
+| Opção               | Padrão   | Descrição                                                                               |
+| ------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Integração de editor a configurar (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| `--install-plugin`  | auto     | Instalar o plugin de editor do Archgate (requer `archgate login` prévio)                |
 
 Quando `--install-plugin` é passado, a CLI instala o plugin do Archgate para o editor selecionado. Se a flag for omitida, a CLI faz detecção automática: instala o plugin quando existem credenciais válidas (de um `archgate login` anterior) e pula caso contrário.
 
@@ -25,6 +25,8 @@ Quando `--install-plugin` é passado, a CLI instala o plugin do Archgate para o 
 **Claude Code:** Se a CLI `claude` estiver no seu PATH, o plugin é instalado automaticamente via `claude plugin marketplace add` e `claude plugin install`. Se a CLI `claude` não for encontrada, o comando exibe os comandos de instalação manual.
 
 **Cursor:** Se a CLI `cursor` estiver no seu PATH, a extensão VS Code é instalada automaticamente via `cursor --install-extension`. A URL do team marketplace é impressa para descoberta manual do plugin.
+
+**opencode:** Requer que a CLI `opencode` esteja no seu PATH -- se não estiver, a instalação é pulada e uma mensagem pede que você instale o opencode primeiro. Quando presente, a CLI baixa um tarball autenticado de arquivos de agente do serviço de plugins do Archgate e o extrai no diretório de agentes opencode do escopo do usuário (`$XDG_CONFIG_HOME/opencode/agents/`, com fallback para `$HOME/.config/opencode/agents/` em qualquer plataforma, inclusive Windows -- o opencode usa paths XDG via `xdg-basedir` e não lê `%APPDATA%`). Nenhum arquivo é gravado na árvore do projeto. Veja o [guia de integração com opencode](/guides/opencode-integration/) para detalhes.
 
 ## Saída
 

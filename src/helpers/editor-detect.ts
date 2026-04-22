@@ -14,6 +14,7 @@ import { resolveCommand } from "./platform";
 import {
   isClaudeCliAvailable,
   isCopilotCliAvailable,
+  isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "./plugin-install";
 
@@ -30,14 +31,15 @@ export interface DetectedEditor {
  */
 export async function detectEditors(): Promise<DetectedEditor[]> {
   logDebug("Detecting available editor CLIs");
-  const [claude, cursor, vscode, copilot] = await Promise.all([
+  const [claude, cursor, vscode, copilot, opencode] = await Promise.all([
     isClaudeCliAvailable(),
     resolveCommand("cursor").then((r) => r !== null),
     isVscodeCliAvailable(),
     isCopilotCliAvailable(),
+    isOpencodeCliAvailable(),
   ]);
 
-  logDebug("Editor detection:", { claude, cursor, vscode, copilot });
+  logDebug("Editor detection:", { claude, cursor, vscode, copilot, opencode });
   return [
     { id: "claude" as const, label: EDITOR_LABELS.claude, available: claude },
     { id: "cursor" as const, label: EDITOR_LABELS.cursor, available: cursor },
@@ -46,6 +48,11 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
       id: "copilot" as const,
       label: EDITOR_LABELS.copilot,
       available: copilot,
+    },
+    {
+      id: "opencode" as const,
+      label: EDITOR_LABELS.opencode,
+      available: opencode,
     },
   ];
 }

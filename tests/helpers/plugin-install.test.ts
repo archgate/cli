@@ -5,6 +5,7 @@ import {
   buildVscodeMarketplaceUrl,
   isClaudeCliAvailable,
   isCopilotCliAvailable,
+  isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../src/helpers/plugin-install";
 
@@ -64,6 +65,13 @@ describe("plugin-install", () => {
   describe("isVscodeCliAvailable", () => {
     test("returns a boolean", async () => {
       const result = await isVscodeCliAvailable();
+      expect(typeof result).toBe("boolean");
+    });
+  });
+
+  describe("isOpencodeCliAvailable", () => {
+    test("returns a boolean", async () => {
+      const result = await isOpencodeCliAvailable();
       expect(typeof result).toBe("boolean");
     });
   });

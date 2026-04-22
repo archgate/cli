@@ -68,3 +68,19 @@ The CLI dogfoods itself — see `.archgate/adrs/` for the full list of ADRs and 
 ## ADR Format
 
 YAML frontmatter (`id`, `title`, `domain`, `rules`, optional `files`). Sections: Context, Decision, Do's and Don'ts, Consequences, Compliance, References. Companion `.rules.ts` exports a plain object `satisfies RuleSet`.
+
+## Adding a New Editor Target
+
+Editor integrations share the `EditorTarget` union. Adding a new editor requires coordinated edits — missing any one breaks detection, init, or tests:
+
+1. `src/helpers/init-project.ts` — extend `EditorTarget` union, `EDITOR_LABELS`, the `configureEditorSettings` switch, and (when authenticated install applies) the `tryInstallPlugin` branch
+2. `src/helpers/plugin-install.ts` — add `is<Editor>CliAvailable()` and any install/download helper
+3. `src/helpers/editor-detect.ts` — append to the `Promise.all` and the returned array
+4. `src/commands/init.ts` — extend `EDITOR_DIRS`, `SIGNUP_EDITORS`, the `--editor` `.choices([...] as const)`, and `printManualInstructions`
+5. `src/commands/plugin/install.ts` — extend `.choices([...] as const)` and add a case to `installForEditor` + the manual-instructions `catch`
+6. `src/commands/plugin/url.ts` — extend `.choices([...] as const)` and branch before the URL ternary
+7. Tests that assert the exact choice list: `tests/commands/plugin/install.test.ts`, `tests/commands/plugin/url.test.ts`, and `tests/helpers/editor-detect.test.ts` (length + id order)
+
+User-scope editors (e.g., opencode) write to a path resolved in `paths.ts` rather than the project tree — `configureEditorSettings` returns that path for the init summary and the real work happens in `tryInstallPlugin`.
+
+**Match the target editor's actual path resolution — don't assume Windows conventions.** opencode uses the `xdg-basedir` npm package, which falls back to `~/.config` on **all platforms** (including Windows, where it resolves to `C:\Users\<user>\.config\…`, not `%APPDATA%\…`). `opencodeAgentsDir()` must mirror that exact logic or the CLI writes files the editor can't find. When adding a user-scope editor, verify the editor's path helper in its source before writing the resolver.

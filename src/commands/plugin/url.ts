@@ -17,7 +17,7 @@ import {
 const editorOption = new Option(
   "--editor <editor>",
   "target editor (omit to auto-detect and select)"
-).choices(["claude", "cursor", "vscode", "copilot"] as const);
+).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
 
 export function registerPluginUrlCommand(plugin: Command) {
   plugin
@@ -34,6 +34,16 @@ export function registerPluginUrlCommand(plugin: Command) {
           editor = await promptSingleEditorSelection(detected);
         } else {
           editor = "claude";
+        }
+
+        if (editor === "opencode") {
+          // Opencode has no marketplace URL — agents are installed via the
+          // authenticated plugins service. Point the user at the command
+          // that performs the install instead of printing an empty line.
+          console.log(
+            "N/A — run `archgate plugin install --editor opencode` (authenticated install)."
+          );
+          return;
         }
 
         const url =
