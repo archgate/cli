@@ -1,3 +1,9 @@
+## [0.30.0](https://github.com/archgate/cli/compare/v0.29.0...v0.30.0) (2026-04-23)
+
+### Features
+
+* **init:** add opencode as a fifth editor target ([#217](https://github.com/archgate/cli/issues/217)) ([58f8aaa](https://github.com/archgate/cli/commit/58f8aaab48da7f1d27a7b5678560e28dd05f3468))
+
 ## [0.29.0](https://github.com/archgate/cli/compare/v0.28.0...v0.29.0) (2026-04-16)
 
 ### Features
