@@ -73,7 +73,10 @@ export async function resolveScopedFiles(
     patterns.map(async (pattern) => {
       const glob = new Bun.Glob(pattern);
       const files: string[] = [];
-      for await (const file of glob.scan({ cwd: projectRoot, dot: false })) {
+      // dot: true so ADR `files:` globs can target dot-prefixed source dirs
+      // like `.github/`, `.husky/`, `.vscode/`. The git-tracked-files filter
+      // below already excludes ignored files. See archgate/cli#222.
+      for await (const file of glob.scan({ cwd: projectRoot, dot: true })) {
         const normalized = file.replaceAll("\\", "/");
         if (trackedFiles && !trackedFiles.has(normalized)) continue;
         files.push(normalized);

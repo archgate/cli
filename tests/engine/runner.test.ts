@@ -182,6 +182,80 @@ describe("runChecks", () => {
     expect(foundFiles).toContain("src/b.ts");
   });
 
+  // Regression: archgate/cli#222 — ctx.glob() must match dot-prefixed source
+  // dirs like `.github/`, `.husky/`, `.vscode/`. Bun.Glob with `dot: false`
+  // silently drops these matches on Windows, turning rules targeting
+  // `.github/workflows/*.yml` into no-ops on local Windows runs while still
+  // working on Linux CI.
+  test("glob matches dot-prefixed directories (regression archgate/cli#222)", async () => {
+    mkdirSync(join(tempDir, ".github", "workflows"), { recursive: true });
+    writeFileSync(join(tempDir, ".github", "workflows", "release.yml"), "");
+    writeFileSync(join(tempDir, ".github", "workflows", "ci.yml"), "");
+
+    let exactMatch: string[] = [];
+    let starMatch: string[] = [];
+    let recursiveMatch: string[] = [];
+
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "dot-glob-test": {
+            description: "Test dot-prefixed glob",
+            async check(ctx) {
+              exactMatch = await ctx.glob(".github/workflows/release.yml");
+              starMatch = await ctx.glob(".github/workflows/*.yml");
+              recursiveMatch = await ctx.glob(".github/**/*.yml");
+            },
+          },
+        },
+      }
+    );
+
+    await runChecks(tempDir, [loaded]);
+    expect(exactMatch).toEqual([".github/workflows/release.yml"]);
+    expect(starMatch).toContain(".github/workflows/release.yml");
+    expect(starMatch).toContain(".github/workflows/ci.yml");
+    expect(recursiveMatch).toContain(".github/workflows/release.yml");
+    expect(recursiveMatch).toContain(".github/workflows/ci.yml");
+  });
+
+  test("grepFiles matches dot-prefixed directories (regression archgate/cli#222)", async () => {
+    mkdirSync(join(tempDir, ".github", "workflows"), { recursive: true });
+    writeFileSync(
+      join(tempDir, ".github", "workflows", "release.yml"),
+      "name: release\non: push\n"
+    );
+
+    let matches: Array<{
+      file: string;
+      line: number;
+      column: number;
+      content: string;
+    }> = [];
+
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "dot-grep-test": {
+            description: "Test grepFiles dot-prefix",
+            async check(ctx) {
+              matches = await ctx.grepFiles(
+                /release/,
+                ".github/workflows/*.yml"
+              );
+            },
+          },
+        },
+      }
+    );
+
+    await runChecks(tempDir, [loaded]);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].file).toBe(".github/workflows/release.yml");
+  });
+
   test("grepFiles helper works in rule context", async () => {
     writeFileSync(join(tempDir, "src", "a.ts"), 'const x = "hello";\n');
     writeFileSync(join(tempDir, "src", "b.ts"), "const y = 42;\n");
