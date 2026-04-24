@@ -103,7 +103,10 @@ function createRuleContext(
       safeGlob(pattern);
       const g = new Bun.Glob(pattern);
       const results: string[] = [];
-      for await (const file of g.scan({ cwd: projectRoot, dot: false })) {
+      // dot: true so rules can target dot-prefixed paths like `.github/`,
+      // `.husky/`, `.vscode/` — first-class source dirs in code repos.
+      // See https://github.com/archgate/cli/issues/222.
+      for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
         results.push(file.replaceAll("\\", "/"));
       }
       return results.sort();
@@ -135,7 +138,9 @@ function createRuleContext(
       const g = new Bun.Glob(fileGlob);
       const allMatches: GrepMatch[] = [];
 
-      for await (const file of g.scan({ cwd: projectRoot, dot: false })) {
+      // dot: true to match dot-prefixed source dirs (`.github/`, etc.).
+      // See https://github.com/archgate/cli/issues/222.
+      for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
         const normalized = file.replaceAll("\\", "/");
         const absPath = safePath(projectRoot, file);
         try {

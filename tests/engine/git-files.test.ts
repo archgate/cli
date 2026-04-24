@@ -93,5 +93,28 @@ describe("git-files", () => {
       expect(files).toContain("src/foo.ts");
       expect(files).not.toContain("src/bar.md");
     });
+
+    // Regression: archgate/cli#222 — ADR `files:` globs must match
+    // dot-prefixed source dirs like `.github/`. Bun.Glob with `dot: false`
+    // silently drops these on Windows, so ADRs scoped to `.github/**` had
+    // empty scopedFiles on Windows local-dev runs.
+    test("resolves dot-prefixed paths (regression archgate/cli#222)", async () => {
+      await git(["init"], tempDir);
+      mkdirSync(join(tempDir, ".github", "workflows"), { recursive: true });
+      writeFileSync(
+        join(tempDir, ".github", "workflows", "release.yml"),
+        "name: release\n"
+      );
+      writeFileSync(
+        join(tempDir, ".github", "workflows", "ci.yml"),
+        "name: ci\n"
+      );
+      await git(["add", "."], tempDir);
+      const files = await resolveScopedFiles(tempDir, [
+        ".github/workflows/*.yml",
+      ]);
+      expect(files).toContain(".github/workflows/release.yml");
+      expect(files).toContain(".github/workflows/ci.yml");
+    });
   });
 });
