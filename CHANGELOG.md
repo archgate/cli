@@ -1,3 +1,9 @@
+## [0.30.1](https://github.com/archgate/cli/compare/v0.30.0...v0.30.1) (2026-04-26)
+
+### Bug Fixes
+
+* **engine:** match dot-prefixed dirs in ctx.glob() and ADR file scopes ([#223](https://github.com/archgate/cli/issues/223)) ([2b3eba4](https://github.com/archgate/cli/commit/2b3eba4dae00f6b035c3a7a84a93809fc6012eec)), closes [#222](https://github.com/archgate/cli/issues/222) [#222](https://github.com/archgate/cli/issues/222)
+
 ## [0.30.0](https://github.com/archgate/cli/compare/v0.29.0...v0.30.0) (2026-04-23)
 
 ### Features
