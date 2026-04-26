@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -78,13 +80,32 @@ jobs:
           Remove-Item "archgate.exe"
           (Get-FileHash "${{ matrix.artifact }}.zip" -Algorithm SHA256).Hash.ToLower() + "  ${{ matrix.artifact }}.zip" | Out-File -Encoding ascii "${{ matrix.artifact }}.zip.sha256"
 
+      - name: Attest build provenance (Unix)
+        if: runner.os != 'Windows'
+        id: attest-unix
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
+        with:
+          subject-path: ${{ matrix.artifact }}.tar.gz
+
+      - name: Attest build provenance (Windows)
+        if: runner.os == 'Windows'
+        id: attest-win
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
+        with:
+          subject-path: ${{ matrix.artifact }}.zip
+
       - name: Upload release asset (Unix)
         if: runner.os != 'Windows'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          gh release upload "$TAG" "${{ matrix.artifact }}.tar.gz" "${{ matrix.artifact }}.tar.gz.sha256" --clobber
+          cp "${{ steps.attest-unix.outputs.bundle-path }}" "${{ matrix.artifact }}.tar.gz.sigstore.json"
+          gh release upload "$TAG" \
+            "${{ matrix.artifact }}.tar.gz" \
+            "${{ matrix.artifact }}.tar.gz.sha256" \
+            "${{ matrix.artifact }}.tar.gz.sigstore.json" \
+            --clobber
 
       - name: Upload release asset (Windows)
         if: runner.os == 'Windows'
@@ -93,4 +114,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "${{ github.event.release.tag_name || inputs.tag }}"
-          gh release upload $tag "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" --clobber
+          Copy-Item "${{ steps.attest-win.outputs.bundle-path }}" "${{ matrix.artifact }}.zip.sigstore.json"
+          gh release upload $tag "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" "${{ matrix.artifact }}.zip.sigstore.json" --clobber
