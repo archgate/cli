@@ -9,8 +9,7 @@ on:
         description: "Release tag to build (e.g. v0.1.0)"
         required: true
 
-permissions:
-  contents: write
+permissions: {}
 
 env:
   ARCHGATE_TELEMETRY: "0"
@@ -19,6 +18,8 @@ jobs:
   build:
     name: Build ${{ matrix.artifact }}
     timeout-minutes: 15
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:

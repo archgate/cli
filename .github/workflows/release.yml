@@ -11,12 +11,7 @@ concurrency:
   group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
-permissions:
-  actions: write
-  contents: write
-  id-token: write
-  pull-requests: write
-  statuses: write
+permissions: {}
 
 env:
   ARCHGATE_TELEMETRY: "0"
@@ -26,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Context check
+    permissions:
+      contents: read
     outputs:
       continue: ${{ steps.check.outputs.continue }}
       workflow: ${{ steps.check.outputs.workflow }}
@@ -64,6 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Pull request
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+      statuses: write
     needs: check
     if: needs.check.outputs.workflow == 'pull-request'
     steps:
@@ -114,6 +116,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     name: Release
+    permissions:
+      contents: write
+      id-token: write
     needs: check
     if: needs.check.outputs.workflow == 'release'
     steps:

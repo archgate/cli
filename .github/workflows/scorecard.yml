@@ -11,9 +11,6 @@ on:
 
 permissions: read-all
 
-env:
-  ARCHGATE_TELEMETRY: "0"
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
