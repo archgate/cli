@@ -18,7 +18,7 @@
         "meriyah": "7.1.0",
         "oxfmt": "0.46.0",
         "oxlint": "1.61.0",
-        "posthog-node": "5.29.5",
+        "posthog-node": "5.29.6",
         "zod": "4.3.6",
       },
       "peerDependencies": {
@@ -187,7 +187,7 @@
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.61.0", "", { "os": "win32", "cpu": "x64" }, "sha512-0xgSiyeqDLDZxXoe9CVJrOx3TUVsfyoOY7cNi03JbItNcC9WCZqrSNdrAbHONxhSPaVh/lzfnDcON1RqSUMhHw=="],
 
-    "@posthog/core": ["@posthog/core@1.26.0", "", {}, "sha512-q6pSkW7V9RC3rIXjJBo7IBXOH2KPJEh8o+xIcSqw7QD4vq7OYVzTJfUIvkD38+sm54RG/61/3QaPdpQZkDnOyg=="],
+    "@posthog/core": ["@posthog/core@1.27.0", "", {}, "sha512-09IQgr7BocTrETbYVNQx5Dq06xsCItXbxYO8dpHIE4rEcDvWiIv3/4zEaVzsKrCI1cSLds3d5sgBGaEfh7RScA=="],
 
     "@sentry/core": ["@sentry/core@10.49.0", "", {}, "sha512-UaFeum3LUM1mB0d67jvKnqId1yWQjyqmaDV6kWngG03x+jqXb08tJdGpSoxjXZe13jFBbiBL/wKDDYIK7rCK4g=="],
 
@@ -369,7 +369,7 @@
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
-    "posthog-node": ["posthog-node@5.29.5", "", { "dependencies": { "@posthog/core": "1.26.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-mxM8+mXHHMgBKp8f4EhR5TR96tGJ9IqgYa4bPzKgSUW2uxL2vu9AVEz8dusbc913BXPRrDjw4fp+q/PoSsuQFQ=="],
+    "posthog-node": ["posthog-node@5.29.6", "", { "dependencies": { "@posthog/core": "1.27.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-x77Ps+vLn2QgJ+i1wfFnAd+VVoMY1ZxpwV8un+jKRJUU/57zX8sInDyCaG8x08dlBd5Bys+xKtIV7uNJsUOFJw=="],
 
     "require-directory": ["require-directory@2.1.1", "", {}, "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q=="],
 
