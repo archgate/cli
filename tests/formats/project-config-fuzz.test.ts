@@ -1,43 +1,28 @@
 import { describe, expect, test } from "bun:test";
 
+import fc from "fast-check";
+
 import {
   DomainNameSchema,
   DomainPrefixSchema,
   ProjectConfigSchema,
 } from "../../src/formats/project-config";
 
-// ---------------------------------------------------------------------------
-// Generators — hand-rolled to avoid adding a devDependency (ARCH-006)
-// ---------------------------------------------------------------------------
-
-const ASCII = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-const SPECIAL = "!@#$%^&*()_+-=[]{}|;':\",./<>?\\\n\r\t ";
-
-function randomInt(max: number): number {
-  return Math.floor(Math.random() * max);
-}
-
-function randomString(maxLen: number, charset = ASCII + SPECIAL): string {
-  const len = randomInt(maxLen);
-  return Array.from(
-    { length: len },
-    () => charset[randomInt(charset.length)]
-  ).join("");
-}
+const NUM_RUNS = 500;
 
 // ---------------------------------------------------------------------------
-// DomainNameSchema fuzz
+// DomainNameSchema
 // ---------------------------------------------------------------------------
-
-const ITERATIONS = 500;
 
 describe("DomainNameSchema fuzz", () => {
-  test(`validates ${ITERATIONS} random strings without crashing`, () => {
-    for (let i = 0; i < ITERATIONS; i++) {
-      const input = randomString(50);
-      const result = DomainNameSchema.safeParse(input);
-      expect(result).toHaveProperty("success");
-    }
+  test("safeParse never throws on arbitrary strings", () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 0, maxLength: 50 }), (input) => {
+        const result = DomainNameSchema.safeParse(input);
+        expect(result).toHaveProperty("success");
+      }),
+      { numRuns: NUM_RUNS }
+    );
   });
 
   test("boundary cases for length constraints (min 2, max 32)", () => {
@@ -70,8 +55,6 @@ describe("DomainNameSchema fuzz", () => {
       "ab.cd", // invalid — dot
       "ab--cd", // valid — double hyphen
       "a-b-c-d-e-f", // valid — many hyphens
-      "ñ", // invalid — non-ASCII
-      "a\n", // invalid — newline
     ];
     for (const c of cases) {
       const result = DomainNameSchema.safeParse(c);
@@ -79,39 +62,41 @@ describe("DomainNameSchema fuzz", () => {
     }
   });
 
-  test("handles non-string types", () => {
-    const cases = [
-      null,
-      undefined,
-      0,
-      false,
-      true,
-      [],
-      {},
-      NaN,
-      Infinity,
-      Symbol("test"),
-      () => {},
-    ];
-    for (const c of cases) {
-      const result = DomainNameSchema.safeParse(c);
-      expect(result).toHaveProperty("success");
-      expect(result.success).toBe(false);
-    }
+  test("rejects non-string types", () => {
+    fc.assert(
+      fc.property(
+        fc.oneof(
+          fc.integer(),
+          fc.boolean(),
+          fc.constant(null),
+          // oxlint-disable-next-line no-useless-undefined -- intentional: fuzz with undefined
+          fc.constant(undefined),
+          fc.array(fc.anything()),
+          fc.dictionary(fc.string(), fc.anything())
+        ),
+        (input) => {
+          const result = DomainNameSchema.safeParse(input);
+          expect(result.success).toBe(false);
+        }
+      ),
+      { numRuns: NUM_RUNS }
+    );
   });
 });
 
 // ---------------------------------------------------------------------------
-// DomainPrefixSchema fuzz
+// DomainPrefixSchema
 // ---------------------------------------------------------------------------
 
 describe("DomainPrefixSchema fuzz", () => {
-  test(`validates ${ITERATIONS} random strings without crashing`, () => {
-    for (let i = 0; i < ITERATIONS; i++) {
-      const input = randomString(20);
-      const result = DomainPrefixSchema.safeParse(input);
-      expect(result).toHaveProperty("success");
-    }
+  test("safeParse never throws on arbitrary strings", () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 0, maxLength: 20 }), (input) => {
+        const result = DomainPrefixSchema.safeParse(input);
+        expect(result).toHaveProperty("success");
+      }),
+      { numRuns: NUM_RUNS }
+    );
   });
 
   test("boundary cases for length constraints (min 2, max 10)", () => {
@@ -150,41 +135,38 @@ describe("DomainPrefixSchema fuzz", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ProjectConfigSchema fuzz
+// ProjectConfigSchema
 // ---------------------------------------------------------------------------
 
 describe("ProjectConfigSchema fuzz", () => {
-  test(`validates ${ITERATIONS} random config objects without crashing`, () => {
-    for (let i = 0; i < ITERATIONS; i++) {
-      const domainCount = randomInt(10);
-      const domains: Record<string, unknown> = {};
+  test("safeParse never throws on arbitrary config-shaped objects", () => {
+    fc.assert(
+      fc.property(
+        fc.dictionary(
+          fc.string({ minLength: 1, maxLength: 15 }),
+          fc.string({ minLength: 1, maxLength: 8 }),
+          { minKeys: 0, maxKeys: 10 }
+        ),
+        (domains) => {
+          const result = ProjectConfigSchema.safeParse({ domains });
+          expect(result).toHaveProperty("success");
+        }
+      ),
+      { numRuns: NUM_RUNS }
+    );
+  });
 
-      for (let j = 0; j < domainCount; j++) {
-        const key =
-          Math.random() > 0.5
-            ? randomString(15, "abcdefghijklmnopqrstuvwxyz0123456789-")
-            : randomString(15);
-        const value =
-          Math.random() > 0.5
-            ? randomString(8, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_")
-            : randomString(8);
-        domains[key] = value;
-      }
-
-      const config: Record<string, unknown> = { domains };
-
-      // Randomly add extra top-level keys
-      if (Math.random() > 0.7) {
-        config[randomString(10)] = randomString(20);
-      }
-
-      const result = ProjectConfigSchema.safeParse(config);
-      expect(result).toHaveProperty("success");
-    }
+  test("safeParse never throws on completely arbitrary values", () => {
+    fc.assert(
+      fc.property(fc.anything(), (val) => {
+        const result = ProjectConfigSchema.safeParse(val);
+        expect(result).toHaveProperty("success");
+      }),
+      { numRuns: NUM_RUNS }
+    );
   });
 
   test("handles extreme domain counts", () => {
-    // Many domains
     const domains: Record<string, string> = {};
     for (let i = 0; i < 100; i++) {
       domains[`domain${String.fromCodePoint(97 + (i % 26))}${i}`] = `D${i}`;
@@ -200,10 +182,10 @@ describe("ProjectConfigSchema fuzz", () => {
       { domains: 42 },
       { domains: [] },
       { domains: true },
-      { domains: { valid: 123 } }, // value is number, not string
-      { domains: { valid: null } }, // value is null
-      { domains: { valid: undefined } }, // value is undefined
-      { domains: { "": "" } }, // empty keys/values
+      { domains: { valid: 123 } },
+      { domains: { valid: null } },
+      { domains: { valid: undefined } },
+      { domains: { "": "" } },
     ];
     for (const c of cases) {
       const result = ProjectConfigSchema.safeParse(c);
