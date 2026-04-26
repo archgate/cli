@@ -9,7 +9,7 @@ Autentique-se com o GitHub para acessar os plugins de editor do Archgate. Se voc
 archgate login
 ```
 
-Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena ambos em `~/.archgate/credentials`.
+Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena-o de forma segura no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager ou libsecret no Linux) via `git credential approve`. Nenhuma credencial é gravada em disco como arquivo de texto.
 
 Se sua conta do GitHub ainda não estiver cadastrada, a CLI solicita seu email, editor preferido e caso de uso, e realiza o cadastro automaticamente.
 

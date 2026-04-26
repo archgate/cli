@@ -130,11 +130,10 @@ Ao clonar ou fazer fork de um repositório que usa Archgate, o scanner de segura
 
 ### Credenciais
 
-O comando `archgate login` armazena um token de autenticação em `~/.archgate/credentials` com permissões de arquivo somente para o proprietário (`0600` em Unix). Este token é usado para instalação de plugins e nunca é enviado a terceiros além do serviço de plugins do Archgate.
+O comando `archgate login` armazena seu token de autenticação no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager ou libsecret no Linux) via `git credential approve`. Nenhuma credencial é gravada em disco como arquivo de texto. O token é usado para instalação de plugins e nunca é enviado a terceiros além do serviço de plugins do Archgate.
 
-- Não commite `~/.archgate/credentials` no controle de versão.
 - Não exponha o token em logs de CI. Comandos de instalação de plugins passam credenciais via URLs autenticadas para o git, que podem aparecer em listagens de processos. Evite rodar `archgate plugin install` com logging verbose em ambientes de CI compartilhados.
-- Para revogar acesso, rode `archgate logout` ou delete `~/.archgate/credentials`.
+- Para revogar acesso, rode `archgate login logout`.
 
 ### Integridade da atualização
 

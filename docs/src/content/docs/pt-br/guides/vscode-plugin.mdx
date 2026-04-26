@@ -29,7 +29,7 @@ Autentique-se com sua conta do GitHub para obter um token do plugin:
 archgate login
 ```
 
-Isso inicia um GitHub Device Flow. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas em `~/.archgate/credentials`.
+Isso inicia um GitHub Device Flow. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas de forma segura no gerenciador de credenciais do sistema operacional via `git credential approve`.
 
 ### 2. Inicialize seu projeto com o plugin
 
@@ -92,7 +92,7 @@ A configuração do marketplace no nível de usuário (adicionada ao seu `settin
 
 Se preferir não deixar o CLI modificar suas configurações, você pode configurar manualmente:
 
-**URL do marketplace:** Abra o JSON de configurações de usuário do VS Code (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") e adicione a entrada `chat.plugins.marketplaces` mostrada acima. Você pode encontrar sua URL autenticada executando `archgate login` e verificando `~/.archgate/credentials`.
+**URL do marketplace:** Abra o JSON de configurações de usuário do VS Code (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") e adicione a entrada `chat.plugins.marketplaces` mostrada acima. Você pode encontrar sua URL autenticada executando `archgate plugin url vscode`.
 
 **Extensão:** Baixe e instale o arquivo `.vsix` diretamente:
 
@@ -102,7 +102,7 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Substitua `<token>` pelo seu token archgate de `~/.archgate/credentials`.
+Substitua `<token>` pelo seu token archgate (obtenha-o via `archgate plugin url vscode`).
 
 ## O que o plugin oferece
 

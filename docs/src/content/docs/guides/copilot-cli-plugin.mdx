@@ -23,7 +23,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -65,7 +65,7 @@ If the `copilot` CLI is not found during `archgate init`, you can install the pl
 copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
 ```
 
-You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+You can find your authenticated URL by running `archgate plugin url copilot`.
 
 ## What the plugin provides
 

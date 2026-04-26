@@ -156,9 +156,51 @@ git push origin feature/your-feature-name
 
 7. **Submit a pull request** to the main repository
 
+## Developer Certificate of Origin (DCO)
+
+This project uses the [Developer Certificate of Origin (DCO)](https://developercertificate.org/) to ensure that contributors have the right to submit their contributions under the project's [Apache 2.0 license](LICENSE.md).
+
+**All commits must include a `Signed-off-by` line** with your real name and email address, certifying that you have the right to submit the work under the project's license:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+### How to sign off
+
+Add the `-s` (or `--signoff`) flag to your `git commit` command:
+
+```bash
+git commit -s -m "feat: your feature description"
+```
+
+This automatically appends the `Signed-off-by` line using the name and email from your git configuration. To set these:
+
+```bash
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+```
+
+### Fixing unsigned commits
+
+If you forget to sign off, you can amend your most recent commit:
+
+```bash
+git commit --amend -s --no-edit
+```
+
+For multiple unsigned commits, use an interactive rebase:
+
+```bash
+git rebase --signoff HEAD~N  # where N is the number of commits to sign
+```
+
+**Pull requests with unsigned commits will fail the DCO check in CI and cannot be merged.**
+
 ## Guidelines
 
 - **Read the ADRs first** — all code changes must comply with the project's Architecture Decision Records
+- **Sign your commits** — all commits must include a `Signed-off-by` line (see DCO section above)
 - Follow the existing code style and conventions
 - Write clear, descriptive commit messages using [Conventional Commits](https://www.conventionalcommits.org/)
 - Add tests for new functionality when applicable

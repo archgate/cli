@@ -9,7 +9,7 @@ Authenticate with GitHub to access Archgate editor plugins. If you are not regis
 archgate login
 ```
 
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. Non-sensitive metadata (username, date) is saved to `~/.archgate/credentials`.
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
 
 If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
 
