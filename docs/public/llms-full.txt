@@ -1219,7 +1219,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -1355,7 +1355,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -1397,7 +1397,7 @@ If the `copilot` CLI is not found during `archgate init`, you can install the pl
 copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
 ```
 
-You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+You can find your authenticated URL by running `archgate plugin url copilot`.
 
 ## What the plugin provides
 
@@ -1984,11 +1984,10 @@ When cloning or forking a repository that uses Archgate, the security scanner au
 
 ### Credentials
 
-The `archgate login` command stores an authentication token at `~/.archgate/credentials` with owner-only file permissions (`0600` on Unix). This token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
+The `archgate login` command stores your authentication token in the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
 
-- Do not commit `~/.archgate/credentials` to version control.
 - Do not share the token in CI logs. Plugin installation commands pass credentials via authenticated URLs to git, which may appear in process listings. Avoid running `archgate plugin install` with verbose logging in shared CI environments.
-- To revoke access, run `archgate logout` or delete `~/.archgate/credentials`.
+- To revoke access, run `archgate login logout`.
 
 ### Self-update integrity
 
@@ -2026,7 +2025,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored in `~/.archgate/credentials`.
+This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -2089,7 +2088,7 @@ The user-level marketplace setting (added to your `settings.json`):
 
 If you prefer not to let the CLI modify your user settings, you can set things up manually:
 
-**Marketplace URL:** Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate login` and checking `~/.archgate/credentials`.
+**Marketplace URL:** Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate plugin url vscode`.
 
 **Extension:** Download and install the `.vsix` file directly:
 
@@ -2099,7 +2098,7 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Replace `<token>` with your archgate token from `~/.archgate/credentials`.
+Replace `<token>` with your archgate token (retrieve it via `archgate plugin url vscode`).
 
 ## What the plugin provides
 
@@ -3610,7 +3609,7 @@ Authenticate with GitHub to access Archgate editor plugins. If you are not regis
 archgate login
 ```
 
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. Non-sensitive metadata (username, date) is saved to `~/.archgate/credentials`.
+Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
 
 If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
 
