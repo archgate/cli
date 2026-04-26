@@ -2,7 +2,7 @@
 
 > **Last updated:** April 2026 | **Current version:** v0.30.1
 
-This document describes what Archgate intends to build, improve, and explicitly *not* pursue over the next 12 months. It is reviewed quarterly.
+This document describes what Archgate intends to build, improve, and explicitly _not_ pursue over the next 12 months. It is reviewed quarterly.
 
 ## Vision
 

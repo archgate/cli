@@ -25,15 +25,15 @@ Archgate does **not**:
 
 ### 1.2 Threat Categories
 
-| ID | Threat | Severity | Likelihood | Description |
-|----|--------|----------|------------|-------------|
-| T1 | Malicious `.rules.ts` files | High | Medium | A rule file could attempt to access the filesystem, network, or execute arbitrary commands |
-| T2 | Supply chain attack via dependencies | High | Low | A compromised dependency could inject malicious code into the CLI binary |
-| T3 | Tampered binary during install/upgrade | High | Low | A man-in-the-middle attack could serve a modified binary |
-| T4 | Credential theft | Medium | Low | An attacker with local access could attempt to extract the authentication token from the OS credential manager |
-| T5 | Path traversal in rule context | Medium | Medium | A rule could attempt to read files outside the project directory |
-| T6 | Denial of service via rules | Low | Medium | A rule could consume excessive resources (CPU, memory, time) |
-| T7 | Injection via ADR content | Low | Low | Malformed ADR frontmatter could cause unexpected behavior during parsing |
+| ID  | Threat                                 | Severity | Likelihood | Description                                                                                                    |
+| --- | -------------------------------------- | -------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
+| T1  | Malicious `.rules.ts` files            | High     | Medium     | A rule file could attempt to access the filesystem, network, or execute arbitrary commands                     |
+| T2  | Supply chain attack via dependencies   | High     | Low        | A compromised dependency could inject malicious code into the CLI binary                                       |
+| T3  | Tampered binary during install/upgrade | High     | Low        | A man-in-the-middle attack could serve a modified binary                                                       |
+| T4  | Credential theft                       | Medium   | Low        | An attacker with local access could attempt to extract the authentication token from the OS credential manager |
+| T5  | Path traversal in rule context         | Medium   | Medium     | A rule could attempt to read files outside the project directory                                               |
+| T6  | Denial of service via rules            | Low      | Medium     | A rule could consume excessive resources (CPU, memory, time)                                                   |
+| T7  | Injection via ADR content              | Low      | Low        | Malformed ADR frontmatter could cause unexpected behavior during parsing                                       |
 
 ### 1.3 Threat Actors
 
@@ -132,37 +132,37 @@ Two independent layers protect against malicious rules:
 
 ### 4.1 Injection Attacks
 
-| Vector | Countermeasure |
-|--------|---------------|
-| Command injection | No shell execution. Process spawning uses explicit argument arrays, not string concatenation. |
-| Path traversal | `RuleContext` rejects `../`, absolute paths, and symlinks before any file read. |
-| YAML injection | ADR frontmatter is parsed by a YAML library and validated through Zod schemas. No `eval` or template interpolation on YAML content. |
+| Vector                          | Countermeasure                                                                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Command injection               | No shell execution. Process spawning uses explicit argument arrays, not string concatenation.                                       |
+| Path traversal                  | `RuleContext` rejects `../`, absolute paths, and symlinks before any file read.                                                     |
+| YAML injection                  | ADR frontmatter is parsed by a YAML library and validated through Zod schemas. No `eval` or template interpolation on YAML content. |
 | Regex denial of service (ReDoS) | User-provided patterns in `grep`/`grepFiles` are passed to Bun's native regex engine with the 30-second rule timeout as a backstop. |
 
 ### 4.2 Supply Chain Risks
 
-| Risk | Countermeasure |
-|------|---------------|
-| Compromised npm dependency | Minimal dependency tree. All dependencies are `devDependencies` bundled at build time. `bun.lock` pinned. |
-| Tampered binary download | `archgate upgrade` verifies SHA256 checksums of downloaded binaries before extraction. Mismatches abort the upgrade. |
-| Malicious GitHub Actions | All Actions in CI workflows use pinned commit SHAs (not floating tags). OpenSSF Scorecard runs weekly. |
-| Typosquatting | The `archgate` npm package name is registered and controlled by the project. |
+| Risk                       | Countermeasure                                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Compromised npm dependency | Minimal dependency tree. All dependencies are `devDependencies` bundled at build time. `bun.lock` pinned.            |
+| Tampered binary download   | `archgate upgrade` verifies SHA256 checksums of downloaded binaries before extraction. Mismatches abort the upgrade. |
+| Malicious GitHub Actions   | All Actions in CI workflows use pinned commit SHAs (not floating tags). OpenSSF Scorecard runs weekly.               |
+| Typosquatting              | The `archgate` npm package name is registered and controlled by the project.                                         |
 
 ### 4.3 Information Disclosure
 
-| Risk | Countermeasure |
-|------|---------------|
-| Credential leakage | Authentication tokens are stored in the OS credential manager (macOS Keychain, Windows Credential Manager, Linux secret service) — never written to disk as plain text. Tokens are never logged. Plugin install passes credentials via authenticated git URLs (not command-line arguments visible in `ps`). |
-| Source code exposure | Rules are read-only. `archgate check` output contains only violation messages (file paths and line numbers), not file contents. |
-| Error messages | Error output uses `logError()` (ARCH-002) which writes structured messages to stderr. Stack traces are only shown with `--verbose`. |
+| Risk                 | Countermeasure                                                                                                                                                                                                                                                                                              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Credential leakage   | Authentication tokens are stored in the OS credential manager (macOS Keychain, Windows Credential Manager, Linux secret service) — never written to disk as plain text. Tokens are never logged. Plugin install passes credentials via authenticated git URLs (not command-line arguments visible in `ps`). |
+| Source code exposure | Rules are read-only. `archgate check` output contains only violation messages (file paths and line numbers), not file contents.                                                                                                                                                                             |
+| Error messages       | Error output uses `logError()` (ARCH-002) which writes structured messages to stderr. Stack traces are only shown with `--verbose`.                                                                                                                                                                         |
 
 ### 4.4 Availability
 
-| Risk | Countermeasure |
-|------|---------------|
-| Runaway rules | 30-second wall-clock timeout per rule. Rules from different ADRs run in parallel but share no mutable state. |
-| Large file processing | `RuleContext.readFile()` operates on individual files within the project scope. Glob patterns respect `.gitignore`. |
-| Binary download failures | The npm thin shim retries downloads and falls back to cached binaries in `~/.archgate/bin/`. |
+| Risk                     | Countermeasure                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Runaway rules            | 30-second wall-clock timeout per rule. Rules from different ADRs run in parallel but share no mutable state.        |
+| Large file processing    | `RuleContext.readFile()` operates on individual files within the project scope. Glob patterns respect `.gitignore`. |
+| Binary download failures | The npm thin shim retries downloads and falls back to cached binaries in `~/.archgate/bin/`.                        |
 
 ## 5. Verification
 

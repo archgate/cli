@@ -4,8 +4,8 @@ This document lists the maintainers of the Archgate CLI project and describes th
 
 ## Current Maintainers
 
-| Name | GitHub | Role | Scope |
-|------|--------|------|-------|
+| Name          | GitHub                                           | Role            | Scope                                                     |
+| ------------- | ------------------------------------------------ | --------------- | --------------------------------------------------------- |
 | Rhuan Barreto | [@rhuanbarreto](https://github.com/rhuanbarreto) | Lead Maintainer | Full project access (code, releases, infrastructure, DNS) |
 
 ## Becoming a Maintainer
@@ -25,14 +25,14 @@ The project maintains the following access continuity measures to ensure it can 
 
 ### Critical Access Points
 
-| Resource | Access Level | Backup Mechanism |
-|----------|-------------|------------------|
-| GitHub repository (admin) | Lead Maintainer | GitHub organization ownership with recovery contacts |
-| npm publishing (`archgate` package) | Lead Maintainer | npm organization with granular access tokens |
-| Domain (`archgate.dev`, `cli.archgate.dev`) | Lead Maintainer | Domain registrar account with recovery email |
-| Cloudflare Pages (docs hosting) | Lead Maintainer | Cloudflare account with recovery mechanisms |
-| Plugin distribution service (`plugins.archgate.dev`) | Lead Maintainer | Infrastructure documented in internal runbooks |
-| GitHub Actions secrets | Lead Maintainer | Documented in internal access registry |
+| Resource                                             | Access Level    | Backup Mechanism                                     |
+| ---------------------------------------------------- | --------------- | ---------------------------------------------------- |
+| GitHub repository (admin)                            | Lead Maintainer | GitHub organization ownership with recovery contacts |
+| npm publishing (`archgate` package)                  | Lead Maintainer | npm organization with granular access tokens         |
+| Domain (`archgate.dev`, `cli.archgate.dev`)          | Lead Maintainer | Domain registrar account with recovery email         |
+| Cloudflare Pages (docs hosting)                      | Lead Maintainer | Cloudflare account with recovery mechanisms          |
+| Plugin distribution service (`plugins.archgate.dev`) | Lead Maintainer | Infrastructure documented in internal runbooks       |
+| GitHub Actions secrets                               | Lead Maintainer | Documented in internal access registry               |
 
 ### Continuity Measures
 

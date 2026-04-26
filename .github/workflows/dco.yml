@@ -21,7 +21,31 @@ jobs:
     timeout-minutes: 5
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - name: DCO Check
-        uses: dkhamsing/check-dco@c0809e27f984c84beed1e7b7662e4b28aa1f1aa4 # v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check DCO sign-off
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.event.pull_request.head.sha }}"
+          failed=0
+
+          for sha in $(git rev-list "$base".."$head"); do
+            if ! git log -1 --format='%B' "$sha" | grep -qiE '^Signed-off-by: .+ <.+>'; then
+              echo "::error::Commit $sha is missing a DCO Signed-off-by line."
+              echo "  $(git log -1 --format='%s' "$sha")"
+              failed=1
+            fi
+          done
+
+          if [ "$failed" -eq 1 ]; then
+            echo ""
+            echo "All commits must include a Signed-off-by line."
+            echo "Use 'git commit -s' to sign, or 'git rebase --signoff HEAD~N' to fix existing commits."
+            echo "See: https://developercertificate.org/"
+            exit 1
+          fi
+
+          echo "All commits are signed off."
