@@ -155,8 +155,6 @@ jobs:
           echo "digests=$DIGESTS" >> "$GITHUB_OUTPUT"
 
   # SLSA provenance — generates .intoto.jsonl and uploads it to the release.
-  # Uses tag ref (not SHA) because slsa-verifier checks the builder identity
-  # against a known tag list; SHA refs would fail verification.
   provenance:
     name: SLSA provenance
     needs: combine-hashes
