@@ -1,3 +1,11 @@
+## [0.30.2](https://github.com/archgate/cli/compare/v0.30.1...v0.30.2) (2026-04-27)
+
+### Bug Fixes
+
+* **ci:** add DCO sign-off to release PR commits ([#239](https://github.com/archgate/cli/issues/239)) ([946e169](https://github.com/archgate/cli/commit/946e16979a3225e6d2e9353f869a9d89fa03bf8c))
+* **ci:** enable dco sign-off for renovate commits ([#234](https://github.com/archgate/cli/issues/234)) ([0397bc9](https://github.com/archgate/cli/commit/0397bc9fa439e7b8d6cb57ae75b5ed2fa3d82be2))
+* remove invalid dco option from renovate.json ([#238](https://github.com/archgate/cli/issues/238)) ([4603a84](https://github.com/archgate/cli/commit/4603a846cd2ec8eeca3a3c24f106d51f88e264c9))
+
 ## [0.30.1](https://github.com/archgate/cli/compare/v0.30.0...v0.30.1) (2026-04-26)
 
 ### Bug Fixes
