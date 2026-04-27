@@ -116,3 +116,56 @@ jobs:
           $tag = "${{ github.event.release.tag_name || inputs.tag }}"
           Copy-Item "${{ steps.attest-win.outputs.bundle-path }}" "${{ matrix.artifact }}.zip.sigstore.json"
           gh release upload $tag "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" "${{ matrix.artifact }}.zip.sigstore.json" --clobber
+
+      - name: Upload digest for SLSA provenance (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: digest-${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.tar.gz.sha256
+
+      - name: Upload digest for SLSA provenance (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: digest-${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip.sha256
+
+  combine-hashes:
+    name: Combine hashes for provenance
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      digests: ${{ steps.combine.outputs.digests }}
+    steps:
+      - name: Download all digest artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Combine digests
+        id: combine
+        run: |
+          echo "=== Individual digests ==="
+          cat *.sha256
+          echo ""
+          DIGESTS=$(cat *.sha256 | tr -d '\r' | base64 -w0)
+          echo "digests=$DIGESTS" >> "$GITHUB_OUTPUT"
+
+  # SLSA provenance — generates .intoto.jsonl and uploads it to the release.
+  # Uses tag ref (not SHA) because slsa-verifier checks the builder identity
+  # against a known tag list; SHA refs would fail verification.
+  provenance:
+    name: SLSA provenance
+    needs: combine-hashes
+    permissions:
+      actions: read
+      id-token: write
+      contents: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: "${{ needs.combine-hashes.outputs.digests }}"
+      upload-assets: true
+      upload-tag-name: ${{ github.event.release.tag_name || inputs.tag }}
