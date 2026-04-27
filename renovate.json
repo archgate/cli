@@ -1,4 +1,5 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>archgate/renovate-config"]
+  "extends": ["local>archgate/renovate-config"],
+  "dco": true
 }
