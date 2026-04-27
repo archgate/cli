@@ -84,6 +84,20 @@ jobs:
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
       - name: Install dependencies
         run: bun install --frozen-lockfile
+      - name: Install DCO sign-off hook
+        run: |
+          mkdir -p .git/hooks
+          cat > .git/hooks/prepare-commit-msg << 'HOOK'
+          #!/bin/sh
+          # Append DCO Signed-off-by trailer to release commits
+          if ! grep -qi "^Signed-off-by:" "$1"; then
+            name=$(git config user.name)
+            email=$(git config user.email)
+            echo "" >> "$1"
+            echo "Signed-off-by: $name <$email>" >> "$1"
+          fi
+          HOOK
+          chmod +x .git/hooks/prepare-commit-msg
       - name: Create or update pull request
         uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1
         with:
@@ -100,6 +114,22 @@ jobs:
             echo "No release branch found — nothing to validate"
             exit 0
           fi
+
+          # Verify DCO sign-off and set status
+          COMMIT_MSG=$(gh api repos/${{ github.repository }}/git/commits/$HEAD_SHA --jq '.message')
+          if echo "$COMMIT_MSG" | grep -qiE '^Signed-off-by: .+ <.+>'; then
+            DCO_STATE=success
+            DCO_DESC="All commits are signed off"
+          else
+            DCO_STATE=failure
+            DCO_DESC="Missing DCO Signed-off-by line"
+          fi
+
+          gh api repos/${{ github.repository }}/statuses/$HEAD_SHA \
+            -f state="$DCO_STATE" \
+            -f context="DCO Sign-off Check" \
+            -f description="$DCO_DESC" \
+            --silent
 
           gh workflow run code-pull-request.yml --ref release
           sleep 5
