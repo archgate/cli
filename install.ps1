@@ -109,50 +109,105 @@ if ($CurrentPath -notlike "*$InstallDir*") {
     Write-Host "Restart your terminal for the change to take effect in new sessions."
 }
 
-# --- Update Git Bash / MSYS2 shell profiles ---
+# --- Update shell profiles (Git Bash + PowerShell) ---
+#
+# These shells share the Windows ecosystem but each have their own profile
+# system. We detect existing profiles only (never create new ones) and
+# prompt once for the whole batch.
 
-$GitBashProfiles = @()
-foreach ($f in @("$HOME\.bashrc", "$HOME\.bash_profile", "$HOME\.profile")) {
-    if (Test-Path $f) {
-        $GitBashProfiles += $f
-        break
-    }
-}
+$ProfileUpdates = @()
 
+# Git Bash / MSYS2 - first matching rc file wins
 $InstallDirPosix = $InstallDir -replace '\\', '/'
 if ($InstallDirPosix -match '^([A-Za-z]):') {
     $InstallDirPosix = '/' + $Matches[1].ToLower() + $InstallDirPosix.Substring(2)
 }
-$PathLine = "export PATH=`"${InstallDirPosix}:`$PATH`""
+$BashLine = "export PATH=`"${InstallDirPosix}:`$PATH`""
+foreach ($f in @("$HOME\.bashrc", "$HOME\.bash_profile", "$HOME\.profile")) {
+    if (Test-Path $f) {
+        $ProfileUpdates += [pscustomobject]@{
+            Path  = $f
+            Line  = $BashLine
+            Label = "Git Bash"
+            Match = $InstallDirPosix
+        }
+        break
+    }
+}
 
+# PowerShell 5.1 (Windows PowerShell) and PowerShell 7+ have separate profile
+# paths and can coexist on the same machine - detect both. Use
+# GetFolderPath('MyDocuments') so OneDrive-redirected Documents folders work.
+try {
+    $DocsDir = [Environment]::GetFolderPath('MyDocuments')
+} catch {
+    $DocsDir = "$HOME\Documents"
+}
+$PSLine = "`$env:PATH = `"$InstallDir;`$env:PATH`""
+$PSProfileCandidates = @(
+    @{ Path = Join-Path $DocsDir "WindowsPowerShell\Microsoft.PowerShell_profile.ps1"; Label = "PowerShell 5.1" },
+    @{ Path = Join-Path $DocsDir "PowerShell\Microsoft.PowerShell_profile.ps1"; Label = "PowerShell 7+" }
+)
+foreach ($entry in $PSProfileCandidates) {
+    if (Test-Path $entry.Path) {
+        $ProfileUpdates += [pscustomobject]@{
+            Path  = $entry.Path
+            Line  = $PSLine
+            Label = $entry.Label
+            Match = $InstallDir
+        }
+    }
+}
+
+# Filter to profiles that don't already reference the install dir.
+# Read failures are warnings, not fatal - skip the file and continue.
 $NeedsUpdate = @()
-foreach ($f in $GitBashProfiles) {
-    if (-not (Select-String -Path $f -SimpleMatch $InstallDirPosix -Quiet)) {
-        $NeedsUpdate += $f
+foreach ($entry in $ProfileUpdates) {
+    try {
+        $alreadyHas = Select-String -Path $entry.Path -SimpleMatch $entry.Match -Quiet -ErrorAction Stop
+        if (-not $alreadyHas) {
+            $NeedsUpdate += $entry
+        }
+    } catch {
+        Write-Warning "Could not read $($entry.Path): $($_.Exception.Message)"
     }
 }
 
 if ($NeedsUpdate.Count -gt 0) {
     Write-Host ""
-    Write-Host "Detected Git Bash shell profiles to update:"
-    foreach ($f in $NeedsUpdate) {
-        Write-Host "  $f  ->  $PathLine"
+    Write-Host "Detected shell profiles to update:"
+    foreach ($entry in $NeedsUpdate) {
+        Write-Host "  [$($entry.Label)] $($entry.Path)"
+        Write-Host "      $($entry.Line)"
     }
     Write-Host ""
 
     $answer = Read-Host "Update these files now? [Y/n]"
     if ($answer -match '^[nN]') {
         Write-Host ""
-        Write-Host "Skipped. To add manually, append this line to your shell profile:"
-        Write-Host ""
-        Write-Host "  $PathLine"
+        Write-Host "Skipped. To add manually, append the corresponding line above to each profile."
     } else {
-        foreach ($f in $NeedsUpdate) {
-            Add-Content -Path $f -Value "`n# archgate`n$PathLine"
-            Write-Host "  Updated: $f"
+        $updated = 0
+        $failed = 0
+        foreach ($entry in $NeedsUpdate) {
+            try {
+                Add-Content -Path $entry.Path -Value "`n# archgate`n$($entry.Line)" -ErrorAction Stop
+                Write-Host "  Updated: $($entry.Path)"
+                $updated++
+            } catch {
+                Write-Warning "Failed to update $($entry.Path): $($_.Exception.Message)"
+                Write-Host "  Manually append to that file:"
+                Write-Host "      $($entry.Line)"
+                $failed++
+            }
         }
         Write-Host ""
-        Write-Host "Restart Git Bash for the change to take effect."
+        if ($updated -gt 0) {
+            Write-Host "Restart the relevant shell(s) for the change to take effect."
+        }
+        if ($failed -gt 0) {
+            Write-Host "$failed profile(s) could not be updated automatically - see warnings above."
+        }
     }
 }
 
