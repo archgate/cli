@@ -304,11 +304,11 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
 
     try {
       await installOpencodePlugin(credentials.token);
-      return {
-        installed: true,
-        autoInstalled: true,
-        detail: opencodeAgentsDir(),
-      };
+      // Intentionally omit `detail` — the resolved user-scope path is an
+      // implementation detail of the install. The init summary already shows
+      // an "(user-scope)" placeholder; surfacing the absolute path here is
+      // noise and leaks the user's home directory into stdout.
+      return { installed: true, autoInstalled: true };
     } catch (error) {
       // Surface as a non-auto install so init routes through
       // `printManualInstructions("opencode", detail)`, which prints a
