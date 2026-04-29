@@ -304,11 +304,7 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
 
     try {
       await installOpencodePlugin(credentials.token);
-      return {
-        installed: true,
-        autoInstalled: true,
-        detail: opencodeAgentsDir(),
-      };
+      return { installed: true, autoInstalled: true };
     } catch (error) {
       // Surface as a non-auto install so init routes through
       // `printManualInstructions("opencode", detail)`, which prints a
