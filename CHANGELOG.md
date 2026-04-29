@@ -1,3 +1,10 @@
+## [0.31.1](https://github.com/archgate/cli/compare/v0.31.0...v0.31.1) (2026-04-29)
+
+### Bug Fixes
+
+* **ci:** revert SLSA reusable workflow to tag pin ([#250](https://github.com/archgate/cli/issues/250)) ([f350bce](https://github.com/archgate/cli/commit/f350bce0a12ad82c89aa297cc411f7cecefd2c91)), closes [#245](https://github.com/archgate/cli/issues/245)
+* **ci:** use GH App token for release PR job to trigger CI naturally ([#252](https://github.com/archgate/cli/issues/252)) ([6c9acd0](https://github.com/archgate/cli/commit/6c9acd032b5434b1f6c9636df4336882e7f426e6)), closes [#131](https://github.com/archgate/cli/issues/131)
+
 ## [0.31.0](https://github.com/archgate/cli/compare/v0.30.2...v0.31.0) (2026-04-29)
 
 ### Features

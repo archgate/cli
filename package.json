@@ -1,6 +1,6 @@
 {
   "name": "archgate",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "keywords": [
     "adr",
