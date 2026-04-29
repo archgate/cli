@@ -62,15 +62,28 @@ jobs:
     timeout-minutes: 10
     name: Pull request
     permissions:
-      actions: write
-      contents: write
-      pull-requests: write
-      statuses: write
+      contents: read
     needs: check
     if: needs.check.outputs.workflow == 'pull-request'
     steps:
+      # Use a GitHub App installation token (not GITHUB_TOKEN) so the push to the
+      # release branch triggers downstream `pull_request` events on the release PR.
+      # GITHUB_TOKEN-authored pushes are intentionally muted by GitHub to prevent
+      # workflow recursion — that mute is what causes release PRs to land without
+      # the required `Validate Code` / `Lint, Test & Check` / `DCO Sign-off Check`
+      # status checks attached to the PR ref. With an App token, the synchronize
+      # event fires naturally and code-pull-request.yml + dco.yml run against
+      # refs/pull/N/head, producing checks that branch protection accepts.
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3
+        with:
+          app-id: ${{ secrets.GH_APP_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
         with:
           auto-install: true
@@ -102,46 +115,8 @@ jobs:
         uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1
         with:
           workflow: pull-request
-          github-token: ${{ github.token }}
+          github-token: ${{ steps.generate_token.outputs.token }}
           branch: release
-      - name: Run CI and set status checks on release PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          HEAD_SHA=$(gh api repos/${{ github.repository }}/git/ref/heads/release --jq '.object.sha' 2>/dev/null) || true
-
-          if [ -z "$HEAD_SHA" ]; then
-            echo "No release branch found — nothing to validate"
-            exit 0
-          fi
-
-          # Verify DCO sign-off and set status
-          COMMIT_MSG=$(gh api repos/${{ github.repository }}/git/commits/$HEAD_SHA --jq '.message')
-          if echo "$COMMIT_MSG" | grep -qiE '^Signed-off-by: .+ <.+>'; then
-            DCO_STATE=success
-            DCO_DESC="All commits are signed off"
-          else
-            DCO_STATE=failure
-            DCO_DESC="Missing DCO Signed-off-by line"
-          fi
-
-          gh api repos/${{ github.repository }}/statuses/$HEAD_SHA \
-            -f state="$DCO_STATE" \
-            -f context="DCO Sign-off Check" \
-            -f description="$DCO_DESC" \
-            --silent
-
-          gh workflow run code-pull-request.yml --ref release
-          sleep 5
-          RUN_ID=$(gh run list --branch release --workflow code-pull-request.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-          echo "Waiting for CI run $RUN_ID..."
-          gh run watch "$RUN_ID" --exit-status && STATUS=success || STATUS=failure
-
-          gh api repos/${{ github.repository }}/statuses/$HEAD_SHA \
-            -f state="$STATUS" \
-            -f context="Validate Code" \
-            -f description="CI $STATUS" \
-            --silent
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
