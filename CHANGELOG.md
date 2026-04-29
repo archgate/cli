@@ -1,3 +1,15 @@
+## [0.31.0](https://github.com/archgate/cli/compare/v0.30.2...v0.31.0) (2026-04-29)
+
+### Features
+
+* **installer:** detect and update PowerShell profiles on Windows ([#248](https://github.com/archgate/cli/issues/248)) ([3f142ce](https://github.com/archgate/cli/commit/3f142ce1d4bf62cd7b4f9c80d6155b8e9fdc7902))
+
+### Bug Fixes
+
+* **ci:** add SLSA provenance to release artifacts ([#243](https://github.com/archgate/cli/issues/243)) ([f80b942](https://github.com/archgate/cli/commit/f80b942155a8ff19616713e62024005a20f58959))
+* **ci:** pin SLSA reusable workflow by SHA ([#245](https://github.com/archgate/cli/issues/245)) ([92d4829](https://github.com/archgate/cli/commit/92d48299db4f5d6e36446a97130f2d95a77e077e)), closes [#13](https://github.com/archgate/cli/issues/13)
+* **init:** hide opencode user-scope path from init output ([#249](https://github.com/archgate/cli/issues/249)) ([7b04f04](https://github.com/archgate/cli/commit/7b04f04270d13167397c15ab191219dda4cf07b0))
+
 ## [0.30.2](https://github.com/archgate/cli/compare/v0.30.1...v0.30.2) (2026-04-27)
 
 ### Bug Fixes
