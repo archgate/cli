@@ -58,6 +58,11 @@ uses: owner/action@<40-char-sha> # <version>
 - Local workflow references (e.g., `uses: ./.github/workflows/smoke-test.yml`) — these reference the same repository and do not carry supply chain risk
 - Local composite actions (e.g., `uses: ./.github/actions/my-action`) — same repository, same trust boundary
 - Docker container references (e.g., `uses: docker://image:tag`) — governed by separate container image policies
+- The SLSA reusable workflow `slsa-framework/slsa-github-generator/.github/workflows/*` — see "Carved-out exceptions" below
+
+**Carved-out exceptions:**
+
+- **`slsa-framework/slsa-github-generator/.github/workflows/*`** — The SLSA generator's bootstrap script (`generate-builder.sh`) extracts the version from the workflow ref to download the prebuilt builder binary from a GitHub release. It explicitly rejects non-tag refs with `Invalid ref: ... Expected ref of the form refs/tags/vX.Y.Z`. This is documented upstream as [slsa-framework/slsa-github-generator#150](https://github.com/slsa-framework/slsa-github-generator/issues/150). The reusable workflow MUST therefore be referenced by tag (e.g., `@v2.1.0`). Trust is anchored in the SLSA project's own signing/verification chain rather than in SHA pinning at the call site. Confirmed empirically: pinning by SHA broke the `v0.31.0` release pipeline (run [25107195589](https://github.com/archgate/cli/actions/runs/25107195589)).
 
 **Version comment format:** The comment after the SHA MUST contain the human-readable version that the SHA corresponds to (e.g., `# v6`, `# v2.4.3`, `# v2.1.0`). This enables:
 
@@ -110,8 +115,8 @@ uses: owner/action@<40-char-sha> # <version>
   - **Mitigation**: Renovate is configured in the repository and understands SHA-pinned GitHub Action references. The `renovate.json` configuration includes GitHub Actions as an update target. Regular Renovate PRs ensure pins stay current.
 - **Incorrect SHA resolution**: A contributor might resolve the SHA for the wrong tag, or the tag might be an annotated tag whose SHA differs from the commit SHA.
   - **Mitigation**: The automated rule checks that all third-party `uses:` references match the `@<40-char-hex>` pattern. Code review MUST verify that the SHA matches the intended version by cross-referencing the action's releases page. For annotated tags, resolve the underlying commit via `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` and follow the `object` if `type` is `"tag"`.
-- **Reusable workflow compatibility**: Some reusable workflow providers (e.g., SLSA framework) have historically recommended tag references for verifier compatibility. SHA pinning may not be forward-compatible with all verification tools.
-  - **Mitigation**: The SLSA GitHub Generator v2.x explicitly supports SHA-based builder identity verification. Test SLSA provenance verification after pinning by running `slsa-verifier verify-artifact` against a release built with the SHA-pinned workflow.
+- **Reusable workflow compatibility**: Some reusable workflow providers cannot be referenced by SHA. The SLSA GitHub Generator (`slsa-framework/slsa-github-generator/.github/workflows/*`) is the known case for this project — its bootstrap script reads the workflow ref to fetch the prebuilt builder from a GitHub release and rejects non-tag refs (upstream issue [#150](https://github.com/slsa-framework/slsa-github-generator/issues/150)). This was confirmed empirically when the `v0.31.0` release failed after SHA pinning.
+  - **Mitigation**: The SLSA reusable workflow is carved out as a documented exception (see "Scope" above). It is referenced by tag (`@v2.1.0`). The automated `no-unpinned-actions` rule allowlists this specific path so the exception is enforced rather than being a silent gap. Any other provider claiming SHA pinning is unsupported MUST be evaluated on a case-by-case basis and added to the allowlist with an explicit justification before merging.
 
 ## Compliance and Enforcement
 
@@ -131,7 +136,9 @@ Code reviewers MUST verify:
 
 Local workflow and action references (`uses: ./.github/workflows/...` or `uses: ./.github/actions/...`) are exempt — they reference code in the same repository and are governed by the repository's own access controls. Docker container references (`uses: docker://...`) are also exempt from this ADR.
 
-No exceptions for third-party references. If an upstream provider claims SHA pinning is unsupported, escalate to the project maintainer for evaluation before merging.
+The SLSA reusable workflow (`slsa-framework/slsa-github-generator/.github/workflows/*`) is exempt because its bootstrap script requires a tag-format ref to fetch the builder binary; see "Carved-out exceptions" under Decision. The `no-unpinned-actions` rule explicitly allowlists this path.
+
+For any other third-party reference where an upstream provider claims SHA pinning is unsupported: escalate to the project maintainer, document the upstream limitation in this ADR's "Carved-out exceptions" list, and update the rule allowlist before merging. Silent exceptions are not permitted.
 
 ## References
 
