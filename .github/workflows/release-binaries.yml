@@ -162,7 +162,11 @@ jobs:
       actions: read
       id-token: write
       contents: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
+    # SLSA reusable workflow MUST be referenced by tag, not SHA — the generator's
+    # generate-builder.sh extracts the version from the ref to download the builder
+    # binary from a GitHub release and rejects non-tag refs. See CI-001 exception
+    # and slsa-framework/slsa-github-generator#150.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
     with:
       base64-subjects: "${{ needs.combine-hashes.outputs.digests }}"
       upload-assets: true
