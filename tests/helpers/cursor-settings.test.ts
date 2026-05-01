@@ -1,26 +1,9 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import {
-  ARCHGATE_CURSOR_RULE,
-  configureCursorSettings,
-} from "../../src/helpers/cursor-settings";
-
-describe("ARCHGATE_CURSOR_RULE", () => {
-  test("references CLI commands instead of MCP tools", () => {
-    expect(ARCHGATE_CURSOR_RULE).toContain("archgate review-context");
-    expect(ARCHGATE_CURSOR_RULE).toContain("archgate check --staged");
-    expect(ARCHGATE_CURSOR_RULE).toContain("archgate adr list");
-    expect(ARCHGATE_CURSOR_RULE).not.toContain("MCP tool");
-    expect(ARCHGATE_CURSOR_RULE).not.toContain("MCP");
-  });
-
-  test("has alwaysApply frontmatter", () => {
-    expect(ARCHGATE_CURSOR_RULE).toContain("alwaysApply: true");
-  });
-});
+import { configureCursorSettings } from "../../src/helpers/cursor-settings";
 
 describe("configureCursorSettings", () => {
   let tempDir: string;
@@ -33,32 +16,20 @@ describe("configureCursorSettings", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("creates .cursor/rules/ dir and governance rule file", async () => {
-    const rulePath = await configureCursorSettings(tempDir);
-
-    expect(existsSync(join(tempDir, ".cursor"))).toBe(true);
-    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(true);
-    expect(existsSync(rulePath)).toBe(true);
+  test("returns .cursor/ directory path (no files written)", async () => {
+    const result = await configureCursorSettings(tempDir);
+    expect(result).toBe(join(tempDir, ".cursor"));
   });
 
-  test("writes the governance rule file with correct content", async () => {
-    const rulePath = await configureCursorSettings(tempDir);
-
-    const content = await Bun.file(rulePath).text();
-    expect(content).toBe(ARCHGATE_CURSOR_RULE);
+  test("does not create .cursor/ directory", async () => {
+    const { existsSync } = await import("node:fs");
+    await configureCursorSettings(tempDir);
+    expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
   });
 
   test("does not create mcp.json", async () => {
+    const { existsSync } = await import("node:fs");
     await configureCursorSettings(tempDir);
-
     expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
-  });
-
-  test("returns correct absolute path to rules file", async () => {
-    const rulePath = await configureCursorSettings(tempDir);
-
-    expect(rulePath).toBe(
-      join(tempDir, ".cursor", "rules", "archgate-governance.mdc")
-    );
   });
 });

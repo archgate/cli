@@ -66,7 +66,7 @@ function printConsole(report: DoctorReport): void {
       `  Claude:       ${bool(integrations.claude_plugin)} (.claude/settings.local.json)`
     );
     console.log(
-      `  Cursor:       ${bool(integrations.cursor_plugin)} (.cursor/rules/archgate-governance.mdc)`
+      `  Cursor:       ${bool(integrations.cursor_plugin)} (VSIX extension with embedded plugin)`
     );
     console.log(
       `  VS Code:      ${bool(integrations.vscode_settings)} (.vscode/settings.json)`

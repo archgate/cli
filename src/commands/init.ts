@@ -23,7 +23,9 @@ import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
   claude: ".claude/",
-  cursor: ".cursor/",
+  // Cursor plugin is embedded in the VSIX extension — no project-level
+  // files are written. Shown as a label in the init summary.
+  cursor: "(VSIX)",
   vscode: ".vscode/",
   copilot: ".github/copilot/",
   // Opencode agents install to a user-scope directory, not the project tree.
@@ -227,8 +229,14 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
         );
       }
       break;
+    case "cursor":
+      logWarn(
+        "Cursor CLI not found. To install the plugin manually:",
+        "Open Cursor → Ctrl+Shift+P → 'Extensions: Install from VSIX...' and select the archgate .vsix file."
+      );
+      break;
     default:
-      // cursor/vscode auto-install — should not reach here
+      // vscode auto-install — should not reach here
       break;
   }
 }

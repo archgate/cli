@@ -14,7 +14,6 @@ import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot, opencodeAgentsDir } from "../../helpers/paths";
 import {
-  buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
@@ -78,10 +77,9 @@ async function installForEditor(
         await installCursorPlugin(token);
         logInfo(`Archgate extension installed for ${label}.`);
       } else {
-        logWarn("Cursor CLI not found. To install the plugin manually:");
-        console.log(`  1. Install the VS Code extension in Cursor`);
-        console.log(
-          `  2. Add the Team Marketplace: ${buildCursorMarketplaceUrl()}`
+        logWarn(
+          "Cursor CLI not found. To install the plugin manually:",
+          "Open Cursor → Ctrl+Shift+P → 'Extensions: Install from VSIX...' and select the archgate .vsix file."
         );
       }
       break;
@@ -197,10 +195,10 @@ export function registerPluginInstallCommand(plugin: Command) {
               break;
             }
             case "cursor": {
-              const url = buildCursorMarketplaceUrl();
-              logInfo("To install the plugin manually:");
-              console.log(`  1. Install the VS Code extension in Cursor`);
-              console.log(`  2. Add the Team Marketplace: ${url}`);
+              logInfo(
+                "To install the plugin manually:",
+                "Open Cursor → Ctrl+Shift+P → 'Extensions: Install from VSIX...' and select the archgate .vsix file."
+              );
               break;
             }
             case "vscode": {

@@ -74,9 +74,11 @@ function detectIntegrations(): IntegrationInfo {
   const cwd = process.cwd();
   return {
     claudePlugin: existsSync(join(cwd, ".claude", "settings.local.json")),
-    cursorPlugin: existsSync(
-      join(cwd, ".cursor", "rules", "archgate-governance.mdc")
-    ),
+    // The Cursor plugin is embedded inside the archgate VS Code extension
+    // (.vsix) and registered at runtime via registerPath(). There is no
+    // project-level file to detect — report true when the cursor CLI exists
+    // (prerequisite for VSIX installation).
+    cursorPlugin: false, // resolved async below
     vscodeSettings: existsSync(join(cwd, ".vscode", "settings.json")),
     copilotSettings: existsSync(
       join(cwd, ".github", "copilot", "instructions.md")
@@ -102,6 +104,10 @@ export async function runDoctor(): Promise<DoctorReport> {
   ]);
 
   const editorMap = Object.fromEntries(editors.map((e) => [e.id, e.available]));
+
+  // Cursor plugin is embedded in the VSIX — no project file to detect.
+  // Use cursor CLI availability as a proxy (prerequisite for install).
+  integrations.cursorPlugin = Boolean(editorMap.cursor);
 
   return {
     system: {

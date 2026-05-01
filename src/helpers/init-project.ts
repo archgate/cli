@@ -255,11 +255,8 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "cursor") {
-    const {
-      isCursorCliAvailable,
-      installCursorPlugin,
-      buildCursorMarketplaceUrl,
-    } = await import("./plugin-install");
+    const { isCursorCliAvailable, installCursorPlugin } =
+      await import("./plugin-install");
 
     if (await isCursorCliAvailable()) {
       try {
@@ -271,8 +268,8 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       }
     }
 
-    const url = buildCursorMarketplaceUrl();
-    return { installed: true, detail: url };
+    // No cursor CLI — manual VSIX install needed
+    return { installed: false, detail: "cursor-cli-not-found" };
   }
 
   if (editor === "vscode") {
