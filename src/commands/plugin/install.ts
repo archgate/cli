@@ -16,6 +16,7 @@ import { findProjectRoot, opencodeAgentsDir } from "../../helpers/paths";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
+  downloadVsix,
   installClaudePlugin,
   installCopilotPlugin,
   installCursorPlugin,
@@ -77,9 +78,11 @@ async function installForEditor(
         await installCursorPlugin(token);
         logInfo(`Archgate extension installed for ${label}.`);
       } else {
-        logWarn(
-          "Cursor CLI not found. To install the plugin manually:",
-          "Open Cursor → Ctrl+Shift+P → 'Extensions: Install from VSIX...' and select the archgate .vsix file."
+        const vsixPath = await downloadVsix(token);
+        logWarn("Cursor CLI not found. The VSIX has been downloaded:");
+        console.log(`  ${styleText("bold", vsixPath)}`);
+        console.log(
+          `  Open Cursor → Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select the file above`
         );
       }
       break;
@@ -195,9 +198,12 @@ export function registerPluginInstallCommand(plugin: Command) {
               break;
             }
             case "cursor": {
-              logInfo(
-                "To install the plugin manually:",
-                "Open Cursor → Ctrl+Shift+P → 'Extensions: Install from VSIX...' and select the archgate .vsix file."
+              logInfo("To install the plugin manually, run:");
+              console.log(
+                `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
+              );
+              console.log(
+                `  Then in Cursor: Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select archgate.vsix`
               );
               break;
             }

@@ -230,10 +230,19 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       }
       break;
     case "cursor":
-      logWarn(
-        "Cursor CLI not found. To install the plugin manually:",
-        "Open Cursor → Ctrl+Shift+P → 'Extensions: Install from VSIX...' and select the archgate .vsix file."
-      );
+      if (detail && !detail.startsWith("download")) {
+        // detail is the VSIX path or the error message from installCursorPlugin
+        logWarn("Cursor CLI not found. The VSIX has been downloaded:");
+        console.log(`  ${styleText("bold", detail)}`);
+        console.log(
+          `  Open Cursor → Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select the file above`
+        );
+      } else {
+        logWarn(
+          "Could not download the VSIX. Retry with:",
+          `  ${styleText("bold", "archgate plugin install --editor cursor")}`
+        );
+      }
       break;
     default:
       // vscode auto-install — should not reach here

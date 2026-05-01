@@ -255,7 +255,7 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "cursor") {
-    const { isCursorCliAvailable, installCursorPlugin } =
+    const { isCursorCliAvailable, installCursorPlugin, downloadVsix } =
       await import("./plugin-install");
 
     if (await isCursorCliAvailable()) {
@@ -263,13 +263,23 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
         await installCursorPlugin(credentials.token);
         return { installed: true, autoInstalled: true };
       } catch (error) {
-        // Fall through to manual instructions
+        // CLI install failed — VSIX is preserved on disk, error message has the path
         logDebug("Failed to auto-install Cursor plugin:", error);
+        return {
+          installed: true,
+          detail: error instanceof Error ? error.message : String(error),
+        };
       }
     }
 
-    // No cursor CLI — manual VSIX install needed
-    return { installed: false, detail: "cursor-cli-not-found" };
+    // No cursor CLI — download VSIX for manual install
+    try {
+      const vsixPath = await downloadVsix(credentials.token);
+      return { installed: true, detail: vsixPath };
+    } catch (error) {
+      logDebug("Failed to download Cursor VSIX:", error);
+      return { installed: false, detail: "download-failed" };
+    }
   }
 
   if (editor === "vscode") {
