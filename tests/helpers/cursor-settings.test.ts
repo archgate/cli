@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,20 +16,18 @@ describe("configureCursorSettings", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("returns .cursor/ directory path (no files written)", async () => {
-    const result = await configureCursorSettings(tempDir);
+  test("returns .cursor/ directory path (no files written)", () => {
+    const result = configureCursorSettings(tempDir);
     expect(result).toBe(join(tempDir, ".cursor"));
   });
 
-  test("does not create .cursor/ directory", async () => {
-    const { existsSync } = await import("node:fs");
-    await configureCursorSettings(tempDir);
+  test("does not create .cursor/ directory", () => {
+    configureCursorSettings(tempDir);
     expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
   });
 
-  test("does not create mcp.json", async () => {
-    const { existsSync } = await import("node:fs");
-    await configureCursorSettings(tempDir);
+  test("does not create mcp.json", () => {
+    configureCursorSettings(tempDir);
     expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
   });
 });

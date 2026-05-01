@@ -22,8 +22,6 @@ import { join } from "node:path";
  *
  * @returns Path to the `.cursor/` directory (for init summary display).
  */
-export async function configureCursorSettings(
-  projectRoot: string
-): Promise<string> {
+export function configureCursorSettings(projectRoot: string): string {
   return join(projectRoot, ".cursor");
 }
