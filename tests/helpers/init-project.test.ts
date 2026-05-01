@@ -67,19 +67,11 @@ describe("initProject", () => {
     );
   });
 
-  test("configures Cursor settings when editor is cursor", async () => {
+  test("configures Cursor settings when editor is cursor (no project files)", async () => {
     const result = await initProject(tempDir, { editor: "cursor" });
 
-    // Cursor rule should exist
-    const rulePath = join(
-      tempDir,
-      ".cursor",
-      "rules",
-      "archgate-governance.mdc"
-    );
-    expect(existsSync(rulePath)).toBe(true);
-
-    // MCP config should NOT exist (MCP removed)
+    // Cursor plugin is embedded in the VSIX — no project-level files written
+    expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
     expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
 
     // Claude settings should NOT exist
@@ -87,8 +79,8 @@ describe("initProject", () => {
       false
     );
 
-    // Result should point to cursor rule file
-    expect(result.editorSettingsPath).toBe(rulePath);
+    // Result should point to .cursor/ directory
+    expect(result.editorSettingsPath).toBe(join(tempDir, ".cursor"));
   });
 
   test("skips example ADR when ADRs already exist", async () => {

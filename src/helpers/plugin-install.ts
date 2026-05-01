@@ -148,7 +148,28 @@ async function downloadPluginAsset(
 // Cursor — download .vsix and install via `cursor` CLI
 // ---------------------------------------------------------------------------
 
-/** Install the archgate VS Code extension in Cursor via `cursor --install-extension`. */
+/**
+ * Download the archgate VSIX to `~/.archgate/archgate.vsix` without
+ * installing it. Returns the absolute path to the saved file. Used when
+ * the `cursor` CLI is not available so the user can install manually.
+ */
+export async function downloadVsix(token: string): Promise<string> {
+  const vsixPath = internalPath("archgate.vsix");
+  const buffer = await downloadPluginAsset("/api/vscode", token);
+  logDebug(
+    `Downloaded VS Code extension (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(vsixPath, buffer);
+  return vsixPath;
+}
+
+/**
+ * Install the archgate VS Code extension in Cursor via `cursor --install-extension`.
+ *
+ * On success the downloaded VSIX is cleaned up. On failure the VSIX is
+ * kept at `~/.archgate/archgate.vsix` so the user can install it manually
+ * via Cursor's "Extensions: Install from VSIX..." command.
+ */
 export async function installCursorPlugin(token: string): Promise<void> {
   const vsixPath = internalPath("archgate.vsix");
   const buffer = await downloadPluginAsset("/api/vscode", token);
@@ -157,21 +178,23 @@ export async function installCursorPlugin(token: string): Promise<void> {
   );
   await Bun.write(vsixPath, buffer);
 
+  const cursorCmd = (await resolveCommand("cursor")) ?? "cursor";
+  logDebug("Installing VS Code extension in Cursor via cursor CLI");
+  const result = await run([cursorCmd, "--install-extension", vsixPath]);
+  if (result.exitCode !== 0) {
+    // Keep the VSIX on disk so the user can install it manually
+    throw new Error(
+      `cursor --install-extension failed (exit ${result.exitCode}). ` +
+        `The VSIX was saved to ${vsixPath} — install it manually in Cursor: ` +
+        `Ctrl+Shift+P → "Extensions: Install from VSIX..."`
+    );
+  }
+
+  // Clean up only on success
   try {
-    const cursorCmd = (await resolveCommand("cursor")) ?? "cursor";
-    logDebug("Installing VS Code extension in Cursor via cursor CLI");
-    const result = await run([cursorCmd, "--install-extension", vsixPath]);
-    if (result.exitCode !== 0) {
-      throw new Error(
-        `cursor --install-extension failed (exit ${result.exitCode})`
-      );
-    }
-  } finally {
-    try {
-      unlinkSync(vsixPath);
-    } catch {
-      // Ignore cleanup errors
-    }
+    unlinkSync(vsixPath);
+  } catch {
+    // Ignore cleanup errors
   }
 }
 
@@ -294,7 +317,12 @@ export async function isVscodeCliAvailable(): Promise<boolean> {
   return resolved !== null;
 }
 
-/** Download the .vsix from the plugins service and install via `code` CLI. */
+/**
+ * Download the .vsix from the plugins service and install via `code` CLI.
+ *
+ * On success the downloaded VSIX is cleaned up. On failure the VSIX is
+ * kept at `~/.archgate/archgate.vsix` so the user can install it manually.
+ */
 export async function installVscodeExtension(token: string): Promise<void> {
   const vsixPath = internalPath("archgate.vsix");
   const buffer = await downloadPluginAsset("/api/vscode", token);
@@ -303,20 +331,22 @@ export async function installVscodeExtension(token: string): Promise<void> {
   );
   await Bun.write(vsixPath, buffer);
 
+  const codeCmd = (await resolveCommand("code")) ?? "code";
+  logDebug("Installing VS Code extension via code CLI");
+  const result = await run([codeCmd, "--install-extension", vsixPath]);
+  if (result.exitCode !== 0) {
+    // Keep the VSIX on disk so the user can install it manually
+    throw new Error(
+      `code --install-extension failed (exit ${result.exitCode}). ` +
+        `The VSIX was saved to ${vsixPath} — install it manually: ` +
+        `code --install-extension "${vsixPath}"`
+    );
+  }
+
+  // Clean up only on success
   try {
-    const codeCmd = (await resolveCommand("code")) ?? "code";
-    logDebug("Installing VS Code extension via code CLI");
-    const result = await run([codeCmd, "--install-extension", vsixPath]);
-    if (result.exitCode !== 0) {
-      throw new Error(
-        `code --install-extension failed (exit ${result.exitCode})`
-      );
-    }
-  } finally {
-    try {
-      unlinkSync(vsixPath);
-    } catch {
-      // Ignore cleanup errors
-    }
+    unlinkSync(vsixPath);
+  } catch {
+    // Ignore cleanup errors
   }
 }

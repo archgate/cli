@@ -14,9 +14,9 @@ import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot, opencodeAgentsDir } from "../../helpers/paths";
 import {
-  buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
+  downloadVsix,
   installClaudePlugin,
   installCopilotPlugin,
   installCursorPlugin,
@@ -78,10 +78,11 @@ async function installForEditor(
         await installCursorPlugin(token);
         logInfo(`Archgate extension installed for ${label}.`);
       } else {
-        logWarn("Cursor CLI not found. To install the plugin manually:");
-        console.log(`  1. Install the VS Code extension in Cursor`);
+        const vsixPath = await downloadVsix(token);
+        logWarn("Cursor CLI not found. The VSIX has been downloaded:");
+        console.log(`  ${styleText("bold", vsixPath)}`);
         console.log(
-          `  2. Add the Team Marketplace: ${buildCursorMarketplaceUrl()}`
+          `  Open Cursor → Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select the file above`
         );
       }
       break;
@@ -197,10 +198,13 @@ export function registerPluginInstallCommand(plugin: Command) {
               break;
             }
             case "cursor": {
-              const url = buildCursorMarketplaceUrl();
-              logInfo("To install the plugin manually:");
-              console.log(`  1. Install the VS Code extension in Cursor`);
-              console.log(`  2. Add the Team Marketplace: ${url}`);
+              logInfo("To install the plugin manually, run:");
+              console.log(
+                `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
+              );
+              console.log(
+                `  Then in Cursor: Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select archgate.vsix`
+              );
               break;
             }
             case "vscode": {

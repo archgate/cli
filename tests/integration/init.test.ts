@@ -53,7 +53,7 @@ describe("init integration", () => {
     );
   });
 
-  test("init with --editor cursor creates cursor rules directory and file", async () => {
+  test("init with --editor cursor does not create project-level files", async () => {
     const result = await runCli(
       ["init", "--editor", "cursor"],
       tempDir,
@@ -62,10 +62,11 @@ describe("init integration", () => {
 
     expect(result.exitCode).toBe(0);
 
-    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(true);
+    // Cursor plugin is embedded in the VSIX — no .cursor/ files written
+    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
     expect(
       existsSync(join(tempDir, ".cursor", "rules", "archgate-governance.mdc"))
-    ).toBe(true);
+    ).toBe(false);
   });
 
   test("init with --editor copilot creates copilot directory", async () => {
