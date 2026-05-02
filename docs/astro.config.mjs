@@ -254,6 +254,7 @@ export default defineConfig({
             { label: "Rule API", slug: "reference/rule-api" },
             { label: "ADR Schema", slug: "reference/adr-schema" },
             { label: "Telemetry", slug: "reference/telemetry" },
+            { label: "Privacy Policy", slug: "reference/privacy-policy" },
           ],
         },
         {

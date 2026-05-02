@@ -1,0 +1,36 @@
+---
+title: Política de Privacidade
+description: Como o Archgate trata seus dados, o que coletamos e seus direitos.
+---
+
+Para a Política de Privacidade completa do Archgate, acesse:
+
+**[archgate.dev/privacy-policy](https://archgate.dev/privacy-policy)**
+
+As seções abaixo resumem os pontos mais relevantes para usuários da CLI. A política canônica no site é a versão juridicamente vinculante.
+
+## Resumo para usuários da CLI
+
+### O que a CLI coleta
+
+O Archgate coleta **análises de uso anônimas** (via PostHog) e **relatórios de falha** (via Sentry) para melhorar a ferramenta. Nenhuma informação pessoal, código-fonte, conteúdo de arquivo ou prompts de IA são coletados pela CLI em si. Consulte a página de [Telemetria](/pt-br/reference/telemetry/) para um detalhamento completo de cada ponto de dados.
+
+### Serviço de Plugins do Archgate
+
+Quando você se cadastra via `archgate login`, o **Serviço de Plugins** (`plugins.archgate.dev`) coleta informações pessoais: seu **endereço de email**, **nome de usuário GitHub**, **escolha do editor** e uma **descrição do caso de uso**. Esses dados são usados para provisionar sua conta e enviar um email de boas-vindas. Os tokens de autenticação são armazenados como hashes SHA-256 em nossos servidores; na sua máquina, as credenciais são mantidas no gerenciador de credenciais do seu sistema operacional (nunca como arquivos de texto simples). Consulte a [política de privacidade completa](https://archgate.dev/privacy-policy) para detalhes completos.
+
+### Como desativar
+
+```bash
+# Variável de ambiente (imediato, por sessão ou no perfil do shell)
+export ARCHGATE_TELEMETRY=0
+
+# Ou persistentemente via CLI
+archgate telemetry disable
+```
+
+Nota: a desativação da telemetria desabilita as análises da CLI e os relatórios de falha. Ela não afeta os dados de conta do Serviço de Plugins, que são necessários para acesso aos plugins. Para excluir os dados da sua conta, entre em contato com [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
+### O que o site de documentação coleta
+
+Este site de documentação (`cli.archgate.dev`) usa [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/), um serviço de análise que prioriza a privacidade. O Cloudflare Web Analytics não usa cookies, não rastreia visitantes individuais e não coleta informações pessoais. Ele fornece apenas métricas agregadas de visualização de página e desempenho.
