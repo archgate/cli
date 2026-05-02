@@ -3991,6 +3991,44 @@ Archgate upgraded to 0.4.0 successfully.
 
 ---
 
+## Reference: Privacy Policy
+
+Source: https://cli.archgate.dev/reference/privacy-policy/
+
+For the full Archgate Privacy Policy, please visit:
+
+**[archgate.dev/privacy-policy](https://archgate.dev/privacy-policy)**
+
+The sections below summarize the most relevant points for CLI users. The canonical policy on the website is the legally binding version.
+
+## Summary for CLI users
+
+### What the CLI collects
+
+Archgate collects **anonymous usage analytics** (via PostHog) and **crash reports** (via Sentry) to improve the tool. No personal information, source code, file content, or AI prompts are ever collected by the CLI itself. See the [Telemetry](/reference/telemetry/) page for a detailed breakdown of every data point.
+
+### Archgate Plugins Service
+
+When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
+
+### How to opt out
+
+```bash
+# Environment variable (immediate, per-session or in shell profile)
+export ARCHGATE_TELEMETRY=0
+
+# Or persistently via the CLI
+archgate telemetry disable
+```
+
+Note: telemetry opt-out disables CLI analytics and crash reporting. It does not affect the Plugins Service account data, which is required for plugin access. To delete your account data, contact [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
+### What the docs site collects
+
+This documentation site (`cli.archgate.dev`) uses [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/), a privacy-first analytics service. Cloudflare Web Analytics does not use cookies, does not track individual visitors, and does not collect personal information. It provides aggregate page-view and performance metrics only.
+
+---
+
 ## Reference: Rule API
 
 Source: https://cli.archgate.dev/reference/rule-api/
@@ -4418,8 +4456,8 @@ The environment variable takes precedence over the CLI setting. If `ARCHGATE_TEL
 
 ## Where data is stored
 
-- **Analytics**: PostHog Cloud (US region). Data retained per PostHog's standard retention policy.
-- **Error tracking**: Sentry Cloud (US region). Error events retained for 90 days.
+- **Analytics**: PostHog Cloud (EU region). Data retained per PostHog's standard retention policy.
+- **Error tracking**: Sentry Cloud (EU region). Error events retained for 90 days.
 - **Local config**: `~/.archgate/config.json` stores your telemetry preference and anonymous install ID.
 
 ## Open source
