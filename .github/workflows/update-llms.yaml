@@ -47,4 +47,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7
         with:
           commit_message: "docs: regenerate llms-full.txt"
+          commit_options: "--signoff"
           file_pattern: docs/public/llms-full.txt
