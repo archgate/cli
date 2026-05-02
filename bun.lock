@@ -19,7 +19,7 @@
         "meriyah": "7.1.0",
         "oxfmt": "0.47.0",
         "oxlint": "1.62.0",
-        "posthog-node": "5.30.6",
+        "posthog-node": "5.30.8",
         "zod": "4.3.6",
       },
       "peerDependencies": {
@@ -188,9 +188,9 @@
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.62.0", "", { "os": "win32", "cpu": "x64" }, "sha512-6hMpyDWQ2zGA1OXFKBrdYMUveUCO8UJhkO6JdwZPd78xIdHZNhjx+pib+4fC2Cljuhjyl0QwA2F3df/bs4Bp6A=="],
 
-    "@posthog/core": ["@posthog/core@1.27.7", "", { "dependencies": { "@posthog/types": "1.372.3" } }, "sha512-6rzOZajUkhuezgPeF+ReMMly0D9oiwIZtMQrsJtZcS/mwi5OtvuYgxeaohgP9PKOhkK1c7cvGskX0Y2YUtBYCw=="],
+    "@posthog/core": ["@posthog/core@1.27.9", "", { "dependencies": { "@posthog/types": "1.372.5" } }, "sha512-7FFWWYWvRFxQqDXYzv8klCjk0Pox1IpuPr61eeOCBsKkmt6xvvHwH0jc3ObvwDXZj2NSAWg+V9N2E2F1ul2CRQ=="],
 
-    "@posthog/types": ["@posthog/types@1.372.3", "", {}, "sha512-4mkXC9AhsquJnvogWtWsCi+ReODj/jbK0d3fkwCNLLTOpaiAF125FJ6OJyRFax2u+dEKXAPA/dCTGx1S2WF0nw=="],
+    "@posthog/types": ["@posthog/types@1.372.5", "", {}, "sha512-6sYOISiHjfr50FNlFcd8Zw/zCDJzxRCdC7aZzwTCvJABEOLWf41kcsiozi2c3q1cNXYL018X7DAGkUukrNLVIw=="],
 
     "@sentry/core": ["@sentry/core@10.50.0", "", {}, "sha512-J4A+vzUO3adl0TkFCjaN1+4miamrjHiEIYuLHiuu1lmAjq5WIVw32ObvAh4yMwNtxyaEMosTrrh5M6f12XSJFg=="],
 
@@ -374,7 +374,7 @@
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
-    "posthog-node": ["posthog-node@5.30.6", "", { "dependencies": { "@posthog/core": "1.27.7" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-deZuSiLkpdEipiywkww1FhQoKpVVFmJP6SAVQcZcMbugTLwJRYSGjgm+qV0Y91xghf2yP6Nr5Plfl52i9Qj15Q=="],
+    "posthog-node": ["posthog-node@5.30.8", "", { "dependencies": { "@posthog/core": "1.27.9" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-9NLSgI/Mdlh/F4MAyP8S4BoHR+JjCgZlzZc0OlFovS5M3SVyydQBs9AZmGvFIpNUI+woGDbvyoPFv4l89BxOtw=="],
 
     "pure-rand": ["pure-rand@8.4.0", "", {}, "sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A=="],
 
