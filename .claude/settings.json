@@ -12,12 +12,17 @@
       "Bash(ls *)",
       "Bash(rm *)",
       "Bash(proto *)",
+      "Skill(archgate:architect)",
+      "Skill(archgate:quality-manager)",
+      "Skill(archgate:adr-author)",
+      "WebSearch",
       "Read",
       "Write",
       "Edit",
       "Glob",
       "Grep"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   },
   "hooks": {
     "PostToolUse": [
@@ -31,5 +36,6 @@
         ]
       }
     ]
-  }
+  },
+  "agent": "archgate:developer"
 }
