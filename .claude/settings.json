@@ -12,12 +12,17 @@
       "Bash(ls *)",
       "Bash(rm *)",
       "Bash(proto *)",
+      "Skill(archgate:architect)",
+      "Skill(archgate:quality-manager)",
+      "Skill(archgate:adr-author)",
+      "WebSearch",
       "Read",
       "Write",
       "Edit",
       "Glob",
       "Grep"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   },
   "hooks": {
     "PostToolUse": [
@@ -26,11 +31,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | xargs -I {} oxfmt --write {}"
+            "command": "jq -r '.tool_input.file_path' | xargs -I {} bunx oxfmt --write {}"
           }
         ]
       }
     ]
   },
-  "enabledPlugins": { "sentry@claude-plugins-official": true }
+  "agent": "archgate:developer"
 }
