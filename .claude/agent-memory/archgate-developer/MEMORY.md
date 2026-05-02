@@ -16,6 +16,10 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - **Pinned version** (`1.3.8`): Set in `.prototools`, referenced in ADR risk sections (ARCH-005, ARCH-006) and CLAUDE.md "Toolchain" section. This is the dev toolchain version.
 - These are intentionally different. When upgrading the pinned version, update `.prototools` + ADR risk sections + CLAUDE.md toolchain. Do NOT change the minimum unless a new Bun API is required.
 
+## Git Workflow
+
+- [Always commit with --signoff](feedback_git_signoff.md) — DCO CI check rejects commits without `Signed-off-by`
+
 ## Known Bugs
 
 - _(none currently)_
