@@ -26,11 +26,10 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | xargs -I {} oxfmt --write {}"
+            "command": "jq -r '.tool_input.file_path' | xargs -I {} bunx oxfmt --write {}"
           }
         ]
       }
     ]
-  },
-  "enabledPlugins": { "sentry@claude-plugins-official": true }
+  }
 }
