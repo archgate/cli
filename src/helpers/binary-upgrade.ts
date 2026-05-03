@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, renameSync, unlinkSync } from "node:fs";
+import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { logDebug } from "./log";
+import { internalPath } from "./paths";
 import { isWindows } from "./platform";
 
 // ---------------------------------------------------------------------------
@@ -213,8 +215,9 @@ export async function downloadReleaseBinary(
  * Replace the running binary with the new one.
  *
  * Unix: directly renames the new binary over the old one (OS handles inode unlinking).
- * Windows: renames the running exe to .old (allowed by the OS), moves the new one
- * into place, and spawns a detached cleanup process for the old file.
+ * Windows: renames the running exe to .old (allowed by the OS), then moves the
+ * new one into place.  The .old file is cleaned up on the next CLI startup via
+ * {@link cleanupStaleBinary}.
  */
 export function replaceBinary(
   currentPath: string,
@@ -234,15 +237,44 @@ export function replaceBinary(
     renameSync(currentPath, oldPath);
     renameSync(newBinaryPath, currentPath);
 
-    // Spawn detached cleanup — waits for this process to exit, then deletes the old file
-    Bun.spawn(["cmd", "/c", `ping -n 2 127.0.0.1 >nul & del "${oldPath}"`], {
-      stdout: "ignore",
-      stderr: "ignore",
-    });
+    // The .old file is still locked by the running process so it cannot be
+    // deleted right now.  cleanupStaleBinary() will remove it on the next
+    // CLI invocation when the file is guaranteed to be unlocked.
   } else {
     renameSync(newBinaryPath, currentPath);
     chmodSync(currentPath, 0o755);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Stale binary cleanup
+// ---------------------------------------------------------------------------
+
+/**
+ * Attempt to delete the leftover `.old` binary from a previous upgrade.
+ *
+ * On Windows, `replaceBinary()` renames the running exe to `.old` because the
+ * OS file-locks the running binary.  The `.old` file cannot be deleted during
+ * that same process — but it is guaranteed to be unlocked by the time the
+ * *next* CLI invocation starts.
+ *
+ * The cleanup is platform-agnostic: it resolves the correct binary name for
+ * the current platform and attempts to remove `<binary>.old` from the install
+ * directory.  On Unix the `.old` file is unlikely to exist (rename is atomic),
+ * but running the check everywhere keeps the logic unified.
+ *
+ * Call this once at CLI startup (fire-and-forget, no `await`).  Errors are
+ * silently swallowed — cleanup is best-effort and must never affect the
+ * user's command.
+ */
+export function cleanupStaleBinary(): Promise<void> {
+  const artifact = getArtifactInfo();
+  if (!artifact) return Promise.resolve();
+
+  const oldPath = internalPath("bin", `${artifact.binaryName}.old`);
+  return unlink(oldPath).catch(() => {
+    // File absent or still locked — nothing to do.
+  });
 }
 
 /**

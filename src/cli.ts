@@ -14,6 +14,7 @@ import { registerReviewContextCommand } from "./commands/review-context";
 import { registerSessionContextCommand } from "./commands/session-context/index";
 import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
+import { cleanupStaleBinary } from "./helpers/binary-upgrade";
 import { beginCommand, exitWith, finalizeCommand } from "./helpers/exit";
 import { installGit } from "./helpers/git";
 import { type LogLevel, logError, setLogLevel } from "./helpers/log";
@@ -58,6 +59,10 @@ if (!isSupportedPlatform()) {
 }
 
 createPathIfNotExists(paths.cacheFolder);
+
+// Fire-and-forget: remove leftover .old binary from a previous Windows upgrade.
+// No await — this must never block startup or affect the user's command.
+cleanupStaleBinary();
 
 async function main() {
   await installGit();
