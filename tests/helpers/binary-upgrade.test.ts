@@ -1,9 +1,16 @@
-import { describe, expect, test, mock, afterEach } from "bun:test";
-import { existsSync, mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { describe, expect, test, mock, beforeEach, afterEach } from "bun:test";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  cleanupStaleBinary,
   getArtifactInfo,
   getManualInstallHint,
   fetchLatestGitHubVersion,
@@ -141,5 +148,63 @@ describe("replaceBinary", () => {
     // verify chmod 755 was applied
     const mode = statSync(currentPath).mode & 0o777;
     expect(mode).toBe(0o755);
+  });
+
+  test("creates .old file on Windows", () => {
+    if (process.platform !== "win32") return;
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+    const currentPath = join(tmpDir, "archgate.exe");
+    const newBinaryPath = join(tmpDir, "archgate.exe.new");
+
+    writeFileSync(currentPath, "old binary content");
+    writeFileSync(newBinaryPath, "new binary content");
+
+    replaceBinary(currentPath, newBinaryPath);
+
+    expect(existsSync(currentPath)).toBe(true);
+    expect(existsSync(currentPath + ".old")).toBe(true);
+    expect(existsSync(newBinaryPath)).toBe(false);
+  });
+});
+
+describe("cleanupStaleBinary", () => {
+  let savedHome: string | undefined;
+
+  beforeEach(() => {
+    savedHome = Bun.env.HOME;
+  });
+
+  afterEach(() => {
+    Bun.env.HOME = savedHome;
+  });
+
+  test("deletes the .old binary when present", async () => {
+    const artifact = getArtifactInfo();
+    if (!artifact) return; // unsupported platform
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
+    Bun.env.HOME = tmpDir;
+
+    // Recreate the ~/.archgate/bin/ structure
+    const binDir = join(tmpDir, ".archgate", "bin");
+    mkdirSync(binDir, { recursive: true });
+    const oldPath = join(binDir, `${artifact.binaryName}.old`);
+    writeFileSync(oldPath, "stale binary");
+
+    await cleanupStaleBinary();
+
+    expect(existsSync(oldPath)).toBe(false);
+  });
+
+  test("resolves silently when no .old file exists", async () => {
+    const artifact = getArtifactInfo();
+    if (!artifact) return; // unsupported platform
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
+    Bun.env.HOME = tmpDir;
+
+    // No .old file — should not throw
+    await expect(cleanupStaleBinary()).resolves.toBeUndefined();
   });
 });
