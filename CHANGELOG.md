@@ -1,3 +1,13 @@
+## [0.32.0](https://github.com/archgate/cli/compare/v0.31.3...v0.32.0) (2026-05-04)
+
+### Features
+
+* add Sentry tunnel and route error tracking through s.archgate.dev ([#266](https://github.com/archgate/cli/issues/266)) ([38c6a82](https://github.com/archgate/cli/commit/38c6a82e2c3115856e67fc856d14f9035b3bb889))
+
+### Bug Fixes
+
+* suppress PostHog telemetry errors behind corporate proxies ([#264](https://github.com/archgate/cli/issues/264)) ([f130487](https://github.com/archgate/cli/commit/f130487841f00af6a9ff67d001c5591db86871c5))
+
 ## [0.31.3](https://github.com/archgate/cli/compare/v0.31.2...v0.31.3) (2026-05-04)
 
 ### Bug Fixes
