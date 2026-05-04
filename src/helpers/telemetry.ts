@@ -22,6 +22,7 @@ import { logDebug } from "./log";
 import { getPlatformInfo } from "./platform";
 import type { RepoContext } from "./repo";
 import { getRepoContext } from "./repo";
+import { captureException } from "./sentry";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
 
 // ---------------------------------------------------------------------------
@@ -33,7 +34,12 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
  * This key can only ingest events — it cannot read data or manage the project.
  */
 const POSTHOG_API_KEY = "phc_gSnjpsvRfQggmgeXUgbevbG0SULK5rT9gTZ8m3yjknv";
-const POSTHOG_HOST = "https://eu.i.posthog.com";
+/**
+ * Managed reverse-proxy for PostHog ingest. Routes through our own domain
+ * instead of hitting eu.i.posthog.com directly — better reputation with
+ * corporate proxies and ad-blockers, and lets us control the endpoint.
+ */
+const POSTHOG_HOST = "https://n.archgate.dev";
 
 // ---------------------------------------------------------------------------
 // State
@@ -196,7 +202,35 @@ export async function initTelemetry(): Promise<void> {
       // Disable polling for feature flags — we don't use them in the CLI
       disableGeoip: false,
       flushAt: 20,
-      flushInterval: 10_000,
+      // Disable automatic interval-based flushing. The CLI runs a single
+      // command and exits — we flush explicitly via `client.shutdown()` in
+      // `flushTelemetry()`. A 10s auto-flush timer is harmful: if the user
+      // is behind a corporate proxy with SSL inspection (self-signed cert),
+      // the timer fires mid-command and the PostHog SDK logs the TLS error
+      // via stderr, dumping an ugly stack trace into the CLI output.
+      flushInterval: 0,
+      // Wrap fetch so network / TLS errors never reach the PostHog SDK's
+      // internal logFlushError → stderr path. Telemetry is
+      // non-critical: silently dropping events is preferable to printing
+      // unactionable errors (e.g. SELF_SIGNED_CERT_IN_CHAIN behind a
+      // corporate proxy).
+      fetch: async (url, options) => {
+        try {
+          return await fetch(url, options);
+        } catch (err) {
+          logDebug("Telemetry fetch failed (silently ignored):", String(err));
+          // Report to Sentry so we can track how often users hit TLS /
+          // proxy / network issues — but never surface it to the user.
+          captureException(err, { source: "posthog-fetch", url: String(url) });
+          // Return a synthetic success so the SDK removes events from its
+          // queue instead of retrying into the same broken network path.
+          return {
+            status: 200,
+            text: () => Promise.resolve("ok"),
+            json: () => Promise.resolve({}),
+          };
+        }
+      },
     });
 
     initialized = true;
