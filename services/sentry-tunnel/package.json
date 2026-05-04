@@ -1,0 +1,10 @@
+{
+  "name": "@archgate/sentry-tunnel",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run server.ts",
+    "start": "bun run server.ts"
+  }
+}

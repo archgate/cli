@@ -31,6 +31,14 @@ import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
 const SENTRY_DSN =
   "https://bb693c2cbc4238dbcd6efac609062402@o4511085517340672.ingest.de.sentry.io/4511085521469520";
 
+/**
+ * Sentry tunnel — routes envelopes through our own domain instead of
+ * hitting ingest.de.sentry.io directly. Better reputation with corporate
+ * proxies and ad-blockers, matching the PostHog proxy at n.archgate.dev.
+ * The tunnel server lives in services/sentry-tunnel/ and runs on Railway.
+ */
+const SENTRY_TUNNEL = "https://s.archgate.dev/tunnel";
+
 // ---------------------------------------------------------------------------
 // Install method detection
 // ---------------------------------------------------------------------------
@@ -78,6 +86,7 @@ export async function initSentry(): Promise<void> {
     Sentry = await import("@sentry/node-core/light");
     Sentry.init({
       dsn: SENTRY_DSN,
+      tunnel: SENTRY_TUNNEL,
       release: cliVersion,
       environment: Bun.env.NODE_ENV ?? "production",
       // Disable sending events in test environments
