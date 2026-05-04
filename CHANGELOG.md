@@ -1,3 +1,9 @@
+## [0.31.3](https://github.com/archgate/cli/compare/v0.31.2...v0.31.3) (2026-05-04)
+
+### Bug Fixes
+
+* clean up stale .old binary at startup instead of via detached process ([#261](https://github.com/archgate/cli/issues/261)) ([621bb6b](https://github.com/archgate/cli/commit/621bb6b1b83f7dc32fb64cb85726e472eb399c67))
+
 ## [0.31.2](https://github.com/archgate/cli/compare/v0.31.1...v0.31.2) (2026-05-02)
 
 ### Bug Fixes
