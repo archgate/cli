@@ -1,3 +1,14 @@
+## [0.33.0](https://github.com/archgate/cli/compare/v0.32.0...v0.33.0) (2026-05-05)
+
+### Features
+
+* add session-context support for Copilot CLI and opencode ([#273](https://github.com/archgate/cli/issues/273)) ([03e9746](https://github.com/archgate/cli/commit/03e97464f221277aa34c0b31024cbb261d8416a4))
+
+### Bug Fixes
+
+* make multi-editor plugin installs independent of each other ([#270](https://github.com/archgate/cli/issues/270)) ([ffdb8e0](https://github.com/archgate/cli/commit/ffdb8e0ec476cc0c5038f4823691f06e7cf7596a))
+* show download progress and increase timeout during binary upgrade ([#272](https://github.com/archgate/cli/issues/272)) ([ed4776b](https://github.com/archgate/cli/commit/ed4776b1ca502fe66a3957e80998f0c500ea2bbf))
+
 ## [0.32.0](https://github.com/archgate/cli/compare/v0.31.3...v0.32.0) (2026-05-04)
 
 ### Features
