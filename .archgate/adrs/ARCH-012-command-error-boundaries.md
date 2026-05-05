@@ -39,6 +39,8 @@ The top-level `main().catch()` in `cli.ts` remains as a safety net for truly une
   try {
     // command logic
   } catch (err) {
+    // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
+    if (err instanceof Error && err.name === "ExitPromptError") throw err;
     logError(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
@@ -57,12 +59,14 @@ The top-level `main().catch()` in `cli.ts` remains as a safety net for truly une
 - Wrap every async command action body in a try-catch
 - Use `logError()` for error messages in the catch block
 - Exit with code 1 for expected failures
+- **Re-throw `ExitPromptError` in command error boundaries** — Commands that use Inquirer prompts (directly or via helpers like `promptEditorSelection`) MUST re-throw `ExitPromptError` from the catch block so `main().catch()` handles Ctrl+C with exit code 130. Pattern: `if (err instanceof Error && err.name === "ExitPromptError") throw err;`
 
 ### Don't
 
 - Don't rely on `main().catch()` as the only error handler for commands
 - Don't catch and silently swallow errors — always log them
 - Don't exit with code 2 in command catch blocks — that code is reserved for unexpected crashes
+- Don't catch `ExitPromptError` as a command failure — it represents user cancellation (Ctrl+C), not an error. Let it propagate to `main().catch()` for exit code 130 handling (see [ARCH-002](./ARCH-002-error-handling.md))
 
 ## Consequences
 

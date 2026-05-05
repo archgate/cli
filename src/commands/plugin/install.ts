@@ -135,104 +135,127 @@ async function installForEditor(
   }
 }
 
+function printManualInstructions(editor: EditorTarget): void {
+  switch (editor) {
+    case "claude": {
+      const url = buildMarketplaceUrl();
+      logInfo("To install the plugin manually, run:");
+      console.log(
+        `  ${styleText("bold", "claude plugin marketplace add")} ${url}`
+      );
+      console.log(
+        `  ${styleText("bold", "claude plugin install")} archgate@archgate`
+      );
+      break;
+    }
+    case "copilot": {
+      const url = buildVscodeMarketplaceUrl();
+      logInfo("To install the plugin manually, run:");
+      console.log(
+        `  ${styleText("bold", "copilot plugin marketplace add")} ${url}`
+      );
+      console.log(
+        `  ${styleText("bold", "copilot plugin install")} archgate@archgate`
+      );
+      break;
+    }
+    case "cursor": {
+      logInfo("To install the plugin manually, run:");
+      console.log(
+        `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
+      );
+      console.log(
+        `  Then in Cursor: Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select archgate.vsix`
+      );
+      break;
+    }
+    case "vscode": {
+      logInfo("To install the extension manually, run:");
+      console.log(
+        `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
+      );
+      console.log(
+        `  ${styleText("bold", "code")} --install-extension archgate.vsix`
+      );
+      console.log(`  rm archgate.vsix`);
+      break;
+    }
+    case "opencode": {
+      logInfo(
+        "Retry the install, or refresh your credentials if they have expired:"
+      );
+      console.log(`  ${styleText("bold", "archgate login refresh")}`);
+      console.log(
+        `  ${styleText("bold", "archgate plugin install --editor opencode")}`
+      );
+      break;
+    }
+  }
+}
+
 export function registerPluginInstallCommand(plugin: Command) {
   plugin
     .command("install")
     .description("Install the archgate plugin for the specified editor")
     .addOption(editorOption)
     .action(async (opts) => {
-      const credentials = await loadCredentials();
-      if (!credentials) {
-        logError(
-          "Not logged in.",
-          "Run `archgate login` first to authenticate."
-        );
-        await exitWith(1);
-        return;
-      }
-
-      // Resolve editors: explicit flag, interactive prompt, or default
-      let editors: EditorTarget[];
-      if (opts.editor) {
-        editors = [opts.editor];
-      } else if (process.stdin.isTTY) {
-        const detected = await detectEditors();
-        editors = await promptEditorSelection(detected);
-      } else {
-        editors = ["claude"];
-      }
-
-      for (const editor of editors) {
-        const label = EDITOR_LABELS[editor];
-        try {
-          // oxlint-disable-next-line no-await-in-loop -- sequential install with per-editor output
-          await installForEditor(editor, label, credentials.token);
-        } catch (err) {
+      try {
+        const credentials = await loadCredentials();
+        if (!credentials) {
           logError(
-            `Failed to install plugin for ${label}.`,
-            err instanceof Error ? err.message : String(err)
+            "Not logged in.",
+            "Run `archgate login` first to authenticate."
           );
+          await exitWith(1);
+          return;
+        }
 
-          // Show manual install commands so the user can retry themselves
-          switch (editor) {
-            case "claude": {
-              const url = buildMarketplaceUrl();
-              logInfo("To install the plugin manually, run:");
-              console.log(
-                `  ${styleText("bold", "claude plugin marketplace add")} ${url}`
-              );
-              console.log(
-                `  ${styleText("bold", "claude plugin install")} archgate@archgate`
-              );
-              break;
-            }
-            case "copilot": {
-              const url = buildVscodeMarketplaceUrl();
-              logInfo("To install the plugin manually, run:");
-              console.log(
-                `  ${styleText("bold", "copilot plugin marketplace add")} ${url}`
-              );
-              console.log(
-                `  ${styleText("bold", "copilot plugin install")} archgate@archgate`
-              );
-              break;
-            }
-            case "cursor": {
-              logInfo("To install the plugin manually, run:");
-              console.log(
-                `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
-              );
-              console.log(
-                `  Then in Cursor: Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select archgate.vsix`
-              );
-              break;
-            }
-            case "vscode": {
-              logInfo("To install the extension manually, run:");
-              console.log(
-                `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
-              );
-              console.log(
-                `  ${styleText("bold", "code")} --install-extension archgate.vsix`
-              );
-              console.log(`  rm archgate.vsix`);
-              break;
-            }
-            case "opencode": {
-              logInfo(
-                "Retry the install, or refresh your credentials if they have expired:"
-              );
-              console.log(`  ${styleText("bold", "archgate login refresh")}`);
-              console.log(
-                `  ${styleText("bold", "archgate plugin install --editor opencode")}`
-              );
-              break;
-            }
+        // Resolve editors: explicit flag, interactive prompt, or default
+        let editors: EditorTarget[];
+        if (opts.editor) {
+          editors = [opts.editor];
+        } else if (process.stdin.isTTY) {
+          const detected = await detectEditors();
+          editors = await promptEditorSelection(detected);
+        } else {
+          editors = ["claude"];
+        }
+
+        const failures: {
+          editor: EditorTarget;
+          label: string;
+          error: string;
+        }[] = [];
+
+        for (const editor of editors) {
+          const label = EDITOR_LABELS[editor];
+          try {
+            // oxlint-disable-next-line no-await-in-loop -- sequential install with per-editor output
+            await installForEditor(editor, label, credentials.token);
+          } catch (err) {
+            failures.push({
+              editor,
+              label,
+              error: err instanceof Error ? err.message : String(err),
+            });
           }
+        }
 
-          // oxlint-disable-next-line no-await-in-loop -- exit immediately on first editor failure
+        // Print all failures together at the end so they are easy to review
+        if (failures.length > 0) {
+          console.log();
+          for (const { editor, label, error } of failures) {
+            logError(`Failed to install plugin for ${label}.`, error);
+            printManualInstructions(editor);
+            console.log();
+          }
           await exitWith(1);
         }
+      } catch (err) {
+        // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
+        logError(err instanceof Error ? err.message : String(err));
+        await exitWith(1);
       }
     });
 }
