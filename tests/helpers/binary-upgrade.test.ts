@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  type DownloadProgressCallback,
   cleanupStaleBinary,
   getArtifactInfo,
   getManualInstallHint,
@@ -123,6 +124,113 @@ describe("downloadReleaseBinary", () => {
     await expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
       "Download failed (HTTP 404)"
     );
+  });
+
+  test("calls onProgress callback with streaming progress", async () => {
+    // Create a fake ReadableStream that yields two chunks
+    const chunk1 = new Uint8Array([1, 2, 3, 4]);
+    const chunk2 = new Uint8Array([5, 6, 7, 8, 9, 10]);
+    const totalSize = chunk1.byteLength + chunk2.byteLength;
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk1);
+        controller.enqueue(chunk2);
+        controller.close();
+      },
+    });
+
+    // First call: archive download (with streaming body)
+    // Second call: checksum fetch (returns 404 — skipped)
+    let callCount = 0;
+    globalThis.fetch = mock(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          headers: new Headers({ "content-length": String(totalSize) }),
+          body: stream,
+        } as Response);
+      }
+      // Checksum fetch — not available
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    }) as unknown as typeof fetch;
+
+    const progressCalls: Array<{
+      downloadedBytes: number;
+      totalBytes: number | null;
+    }> = [];
+    const onProgress: DownloadProgressCallback = (info) => {
+      progressCalls.push({ ...info });
+    };
+
+    const artifact = {
+      name: "archgate-linux-x64",
+      ext: ".tar.gz",
+      binaryName: "archgate",
+    };
+
+    // downloadReleaseBinary will fail at extraction (no real tar),
+    // but progress callbacks should still have been called.
+    try {
+      await downloadReleaseBinary("v1.0.0", artifact, onProgress);
+    } catch {
+      // Expected — the fake data is not a valid archive
+    }
+
+    expect(progressCalls).toHaveLength(2);
+
+    expect(progressCalls[0].downloadedBytes).toBe(chunk1.byteLength);
+    expect(progressCalls[0].totalBytes).toBe(totalSize);
+
+    expect(progressCalls[1].downloadedBytes).toBe(totalSize);
+    expect(progressCalls[1].totalBytes).toBe(totalSize);
+  });
+
+  test("streams without totalBytes when content-length is absent", async () => {
+    const chunk = new Uint8Array([1, 2, 3]);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+
+    let callCount = 0;
+    globalThis.fetch = mock(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          headers: new Headers(), // no content-length
+          body: stream,
+        } as Response);
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    }) as unknown as typeof fetch;
+
+    const progressCalls: Array<{
+      downloadedBytes: number;
+      totalBytes: number | null;
+    }> = [];
+
+    const artifact = {
+      name: "archgate-linux-x64",
+      ext: ".tar.gz",
+      binaryName: "archgate",
+    };
+
+    try {
+      await downloadReleaseBinary("v1.0.0", artifact, (info) => {
+        progressCalls.push({ ...info });
+      });
+    } catch {
+      // Expected — fake data is not a valid archive
+    }
+
+    expect(progressCalls).toHaveLength(1);
+    expect(progressCalls[0].downloadedBytes).toBe(chunk.byteLength);
+    expect(progressCalls[0].totalBytes).toBeNull();
   });
 });
 

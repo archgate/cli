@@ -95,16 +95,34 @@ export async function fetchLatestGitHubVersion(
 }
 
 // ---------------------------------------------------------------------------
+// Download progress
+// ---------------------------------------------------------------------------
+
+export interface DownloadProgress {
+  /** Bytes received so far. */
+  downloadedBytes: number;
+  /** Total expected bytes (`null` when Content-Length is absent). */
+  totalBytes: number | null;
+}
+
+export type DownloadProgressCallback = (progress: DownloadProgress) => void;
+
+// ---------------------------------------------------------------------------
 // Download and extract
 // ---------------------------------------------------------------------------
 
 /**
  * Download and extract the release binary to a temp directory.
  * Returns the path to the extracted binary.
+ *
+ * When an `onProgress` callback is provided the response body is streamed
+ * so the caller can display incremental progress.  Without the callback the
+ * response is buffered in one shot (legacy behaviour).
  */
 export async function downloadReleaseBinary(
   tag: string,
-  artifact: ArtifactInfo
+  artifact: ArtifactInfo,
+  onProgress?: DownloadProgressCallback
 ): Promise<string> {
   const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`;
   const archiveUrl = `${baseUrl}/${artifact.name}${artifact.ext}`;
@@ -113,14 +131,49 @@ export async function downloadReleaseBinary(
   logDebug("Downloading binary from:", archiveUrl);
   const response = await fetch(archiveUrl, {
     headers: { "User-Agent": "archgate-cli" },
-    signal: AbortSignal.timeout(60_000),
+    // 5 minutes — release binaries can exceed 100 MB which may take a
+    // while on slower connections.  The previous 60 s limit caused
+    // timeouts for many users.
+    signal: AbortSignal.timeout(300_000),
   });
 
   if (!response.ok) {
     throw new Error(`Download failed (HTTP ${response.status})`);
   }
 
-  const buffer = await response.arrayBuffer();
+  let buffer: ArrayBuffer;
+
+  if (onProgress && response.body) {
+    // Stream the response so we can report progress incrementally.
+    const contentLength = response.headers.get("content-length");
+    const totalBytes = contentLength ? parseInt(contentLength, 10) : null;
+
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let downloadedBytes = 0;
+
+    while (true) {
+      // oxlint-disable-next-line no-await-in-loop -- sequential streaming is intentional; each chunk depends on the previous read
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      chunks.push(value);
+      downloadedBytes += value.byteLength;
+      onProgress({ downloadedBytes, totalBytes });
+    }
+
+    // Combine chunks into a single contiguous buffer.
+    const combined = new Uint8Array(downloadedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    buffer = combined.buffer as ArrayBuffer;
+  } else {
+    buffer = await response.arrayBuffer();
+  }
+
   logDebug("Downloaded", Math.round(buffer.byteLength / 1024), "KB");
 
   // Verify SHA256 checksum when available (releases after this change)
