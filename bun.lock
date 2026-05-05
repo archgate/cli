@@ -19,7 +19,7 @@
         "meriyah": "7.1.0",
         "oxfmt": "0.47.0",
         "oxlint": "1.62.0",
-        "posthog-node": "5.32.1",
+        "posthog-node": "5.33.0",
         "zod": "4.4.2",
       },
       "peerDependencies": {
@@ -364,7 +364,7 @@
 
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
-    "posthog-node": ["posthog-node@5.32.1", "", { "dependencies": { "@posthog/core": "1.28.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-xO9ux41jZS1ZlXSGsQGzFVLtLkHbg7ss8+F9nWAtaliu+MFhR4J3FYOor688GNvuYwY8WNNdJjp9ASP7dDJk7w=="],
+    "posthog-node": ["posthog-node@5.33.0", "", { "dependencies": { "@posthog/core": "1.28.0" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-9Sj1kKQTFlHoiWl0LvD3+8InhlD9jxeIiJrMLtU87bnYuQUDqAVR16v9/ZGaQ9C0vDVGVJJQG1a6XYeySy9hmg=="],
 
     "pure-rand": ["pure-rand@8.4.0", "", {}, "sha512-IoM8YF/jY0hiugFo/wOWqfmarlE6J0wc6fDK1PhftMk7MGhVZl88sZimmqBBFomLOCSmcCCpsfj7wXASCpvK9A=="],
 
