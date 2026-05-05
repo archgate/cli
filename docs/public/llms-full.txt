@@ -3860,6 +3860,19 @@ archgate session-context claude-code [options]
 | ------------------- | ---------------------------------------- |
 | `--max-entries <n>` | Maximum entries to return (default: 200) |
 
+### archgate session-context copilot
+
+Read the Copilot CLI session transcript for the project. Sessions are matched by their workspace `cwd` field.
+
+```bash
+archgate session-context copilot [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+| `--session-id <id>` | Specific session UUID to read            |
+
 ### archgate session-context cursor
 
 Read the Cursor agent session transcript for the project.
@@ -3873,6 +3886,19 @@ archgate session-context cursor [options]
 | `--max-entries <n>` | Maximum entries to return (default: 200) |
 | `--session-id <id>` | Specific session UUID to read            |
 
+### archgate session-context opencode
+
+Read the opencode session transcript for the project. Sessions are matched by the project `path` field in session metadata.
+
+```bash
+archgate session-context opencode [options]
+```
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200) |
+| `--session-id <id>` | Specific session ID to read              |
+
 ## Examples
 
 Read the latest Claude Code session:
@@ -3885,6 +3911,18 @@ Read a specific Cursor session:
 
 ```bash
 archgate session-context cursor --session-id abc123
+```
+
+Read the latest Copilot CLI session:
+
+```bash
+archgate session-context copilot
+```
+
+Read the latest opencode session:
+
+```bash
+archgate session-context opencode
 ```
 
 ---
