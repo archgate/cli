@@ -1,10 +1,12 @@
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { clearLine, cursorTo } from "node:readline";
 
 import type { Command } from "@commander-js/extra-typings";
 import { semver } from "bun";
 
 import {
+  type DownloadProgressCallback,
   downloadReleaseBinary,
   fetchLatestGitHubVersion,
   getArtifactInfo,
@@ -201,6 +203,52 @@ async function detectInstallMethod(): Promise<InstallMethod> {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Download progress display
+// ---------------------------------------------------------------------------
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Create a progress callback that renders an updating line on stderr.
+ * Returns `undefined` when stderr is not a TTY (piped / CI) — in that case
+ * the download runs silently and the existing "Upgrading X -> Y..." message
+ * is sufficient feedback.  Per ARCH-003: no progress output without a TTY.
+ */
+function createDownloadProgress(): DownloadProgressCallback | undefined {
+  if (!process.stderr.isTTY) return undefined;
+
+  return ({ downloadedBytes, totalBytes }) => {
+    clearLine(process.stderr, 0);
+    cursorTo(process.stderr, 0);
+    const downloaded = formatBytes(downloadedBytes);
+    if (totalBytes) {
+      const total = formatBytes(totalBytes);
+      const percent = Math.round((downloadedBytes / totalBytes) * 100);
+      process.stderr.write(
+        `Downloading... ${downloaded} / ${total} (${percent}%)`
+      );
+    } else {
+      process.stderr.write(`Downloading... ${downloaded}`);
+    }
+  };
+}
+
+/** Clear the progress line so subsequent output starts on a fresh line. */
+function finishDownloadProgress(): void {
+  if (!process.stderr.isTTY) return;
+  clearLine(process.stderr, 0);
+  cursorTo(process.stderr, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Binary upgrade
+// ---------------------------------------------------------------------------
+
 async function upgradeBinary(tag: string): Promise<void> {
   logDebug("Upgrading via binary download for tag:", tag);
   const artifact = getArtifactInfo();
@@ -216,11 +264,18 @@ async function upgradeBinary(tag: string): Promise<void> {
   logDebug("Artifact:", artifact.name, "ext:", artifact.ext);
   const hint = getManualInstallHint();
   try {
-    const newBinaryPath = await downloadReleaseBinary(tag, artifact);
+    const onProgress = createDownloadProgress();
+    const newBinaryPath = await downloadReleaseBinary(
+      tag,
+      artifact,
+      onProgress
+    );
+    finishDownloadProgress();
     logDebug("Downloaded binary to:", newBinaryPath);
     logDebug("Replacing binary:", process.execPath);
     replaceBinary(process.execPath, newBinaryPath);
   } catch (err) {
+    finishDownloadProgress();
     logError(
       "Failed to upgrade binary.",
       `${err instanceof Error ? err.message : String(err)}\nTry running \`${hint}\` manually.`
