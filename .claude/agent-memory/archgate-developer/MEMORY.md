@@ -30,6 +30,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Patterns & Fixes
 
+- **YAML double-quoted strings require escaped backslashes for Windows paths in tests** — YAML interprets `\` as an escape character inside double-quoted strings. Writing `cwd: "E:\project"` silently corrupts the parsed value because `\p` is not a valid escape sequence. Fix: use `JSON.stringify(path)` to produce properly escaped YAML values (e.g., `cwd: ${JSON.stringify(cwd)}`). JSON and YAML double-quoted strings share the same escape syntax. Encountered in Copilot CLI session-context tests (`workspace.yaml` with Windows paths).
 - **`git commit` in temp repos requires local identity** — CI runners have no global `user.email`/`user.name` configured. Any test that runs `git commit` on a temp repo MUST call `git config user.email` and `git config user.name` locally after `git init`. Fails with a cryptic `ShellPromise` error in CI; passes locally. Also captured in ARCH-005 Do's.
 - **Never use `bunx prettier` directly** — Always use `bun run format` (to fix) or `bun run format:check` (to verify). Using `bunx prettier` can fail or use a different version than the project's devDependency. The same applies to all dev tools: prefer `bun run <script>` over `bunx <tool>` when a package.json script exists.
 - **`Bun.Glob.match()` triggers oxlint `prefer-regexp-test`** — `Bun.Glob.match()` returns a boolean (not a RegExp), but oxlint can't tell. Suppress with `// oxlint-disable-next-line prefer-regexp-test -- Bun.Glob.match() returns boolean, not RegExp`.

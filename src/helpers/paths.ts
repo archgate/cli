@@ -57,6 +57,37 @@ export function opencodeAgentsDir(): string {
   return join(base, "opencode", "agents");
 }
 
+/**
+ * Resolve the Copilot CLI session-state directory.
+ *
+ * Copilot CLI stores session data (workspace.yaml + events.jsonl) under
+ * `~/.copilot/session-state/<session-uuid>/`. Each session directory
+ * contains a `workspace.yaml` with a `cwd` field for project matching.
+ *
+ * Resolved at call time (not cached) so tests can override HOME.
+ */
+export function copilotSessionStateDir(): string {
+  return join(archgateHomeDir(), ".copilot", "session-state");
+}
+
+/**
+ * Resolve the opencode data storage directory.
+ *
+ * Opencode stores sessions, messages, and parts under
+ * `$XDG_DATA_HOME/opencode/storage/` (defaulting to
+ * `~/.local/share/opencode/storage/`). This is distinct from the
+ * config directory (`$XDG_CONFIG_HOME/opencode/`) used by
+ * `opencodeAgentsDir()`.
+ *
+ * Resolved at call time (not cached) so tests can override HOME /
+ * XDG_DATA_HOME.
+ */
+export function opencodeStorageDir(): string {
+  const xdg = usableEnv(Bun.env.XDG_DATA_HOME);
+  const base = xdg ?? join(archgateHomeDir(), ".local", "share");
+  return join(base, "opencode", "storage");
+}
+
 export const paths = { cacheFolder: internalPath("cache") } as const;
 
 export function projectPath(projectRoot: string, ...path: string[]) {
