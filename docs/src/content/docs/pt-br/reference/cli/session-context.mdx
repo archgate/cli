@@ -23,6 +23,19 @@ archgate session-context claude-code [options]
 | ------------------- | ------------------------------------------- |
 | `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200) |
 
+### archgate session-context copilot
+
+Lê a transcrição de sessão do Copilot CLI para o projeto. Sessões são correspondidas pelo campo `cwd` do workspace.
+
+```bash
+archgate session-context copilot [options]
+```
+
+| Opção               | Descrição                                   |
+| ------------------- | ------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200) |
+| `--session-id <id>` | UUID específico da sessão a ser lida        |
+
 ### archgate session-context cursor
 
 Lê a transcrição de sessão do agente Cursor para o projeto.
@@ -36,6 +49,19 @@ archgate session-context cursor [options]
 | `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200) |
 | `--session-id <id>` | UUID específico da sessão a ser lida        |
 
+### archgate session-context opencode
+
+Lê a transcrição de sessão do opencode para o projeto. Sessões são correspondidas pelo campo `path` do projeto nos metadados da sessão.
+
+```bash
+archgate session-context opencode [options]
+```
+
+| Opção               | Descrição                                   |
+| ------------------- | ------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200) |
+| `--session-id <id>` | ID específico da sessão a ser lida          |
+
 ## Exemplos
 
 Ler a última sessão do Claude Code:
@@ -48,4 +74,16 @@ Ler uma sessão específica do Cursor:
 
 ```bash
 archgate session-context cursor --session-id abc123
+```
+
+Ler a última sessão do Copilot CLI:
+
+```bash
+archgate session-context copilot
+```
+
+Ler a última sessão do opencode:
+
+```bash
+archgate session-context opencode
 ```

@@ -46,9 +46,9 @@ export async function encodeProjectPath(
 }
 
 const RELEVANT_TYPES = new Set(["user", "assistant"]);
-const RELEVANT_ROLES = new Set(["user", "assistant"]);
+export const RELEVANT_ROLES = new Set(["user", "assistant"]);
 
-interface TranscriptEntry {
+export interface TranscriptEntry {
   type?: string;
   role?: string;
   message?: { role?: string; content?: unknown };
@@ -79,7 +79,7 @@ type CursorSessionResult =
   | { ok: false; error: string; path?: string; available?: string[] };
 
 /** Extract a concise content preview from a transcript entry. */
-function getContentPreview(entry: TranscriptEntry): string {
+export function getContentPreview(entry: TranscriptEntry): string {
   const content = entry.message?.content;
   if (typeof content === "string") {
     return content.length > 500 ? content.slice(0, 500) + "..." : content;
