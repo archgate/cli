@@ -50,7 +50,7 @@
     "lint": "oxlint --deny-warnings .",
     "postinstall": "node scripts/postinstall.cjs",
     "test": "bun test --timeout 60000",
-    "test:coverage": "bun test --timeout 60000 --coverage",
+    "test:coverage": "bun test --timeout 60000 --coverage --reporter=junit --reporter-outfile=coverage/junit.xml",
     "test:watch": "bun test --watch --timeout 60000",
     "typecheck": "tsc --build",
     "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run build:check",
