@@ -1,3 +1,9 @@
+## [0.33.1](https://github.com/archgate/cli/compare/v0.33.0...v0.33.1) (2026-05-06)
+
+### Bug Fixes
+
+* rewrite opencode session-context to read from SQLite database ([#275](https://github.com/archgate/cli/issues/275)) ([fc7857e](https://github.com/archgate/cli/commit/fc7857ee26545b353800ca75116078d0e550ae80))
+
 ## [0.33.0](https://github.com/archgate/cli/compare/v0.32.0...v0.33.0) (2026-05-05)
 
 ### Features
