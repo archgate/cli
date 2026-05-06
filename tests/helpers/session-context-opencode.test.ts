@@ -1,85 +1,136 @@
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { readOpencodeSession } from "../../src/helpers/session-context-opencode";
 
-// This file covers readOpencodeSession happy-path and error-case tests.
-
+/**
+ * Tests for readOpencodeSession — reads session data from
+ * opencode's SQLite database.
+ */
 describe("readOpencodeSession", () => {
   const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const projectRoot = resolve(`/__archgate_opencode_test_${uniqueId}`);
-  // Use a temp storage dir under homedir to avoid polluting real opencode data
-  const projectHash = `proj_${uniqueId}`;
-  let storageDir: string;
-  let sessionBaseDir: string;
-  let messageBaseDir: string;
+  let tempDir: string;
+  let dbPath: string;
+  let originalXdg: string | undefined;
 
   beforeEach(() => {
-    storageDir = join(homedir(), ".local", "share", "opencode", "storage");
-    sessionBaseDir = join(storageDir, "session");
-    messageBaseDir = join(storageDir, "message");
-    mkdirSync(sessionBaseDir, { recursive: true });
-    mkdirSync(messageBaseDir, { recursive: true });
+    tempDir = join(
+      tmpdir(),
+      `archgate-opencode-test-${uniqueId}-${Date.now()}`
+    );
+    mkdirSync(join(tempDir, "opencode"), { recursive: true });
+    dbPath = join(tempDir, "opencode", "opencode.db");
+
+    // Point opencodeDbPath() to our temp directory
+    originalXdg = Bun.env.XDG_DATA_HOME;
+    Bun.env.XDG_DATA_HOME = tempDir;
   });
 
   afterEach(() => {
-    for (const dir of createdDirs) {
-      rmSync(dir, { recursive: true, force: true });
+    if (originalXdg === undefined) {
+      delete Bun.env.XDG_DATA_HOME;
+    } else {
+      Bun.env.XDG_DATA_HOME = originalXdg;
     }
-    createdDirs.length = 0;
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // On Windows, SQLite file handles may persist briefly after close.
+      // Temp dirs use unique names, so leftover files don't affect other tests.
+    }
   });
 
-  const createdDirs: string[] = [];
+  /** Create the opencode database schema. */
+  function createDb(): Database {
+    const db = new Database(dbPath);
+    // Use DELETE journal mode to avoid WAL/SHM files that lock on Windows
+    db.exec("PRAGMA journal_mode = DELETE");
+    db.exec(`
+      CREATE TABLE session (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL DEFAULT '',
+        parent_id TEXT,
+        slug TEXT NOT NULL DEFAULT '',
+        directory TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        version TEXT NOT NULL DEFAULT '',
+        time_created INTEGER NOT NULL DEFAULT 0,
+        time_updated INTEGER NOT NULL DEFAULT 0
+      );
+      CREATE TABLE message (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        time_created INTEGER NOT NULL DEFAULT 0,
+        time_updated INTEGER NOT NULL DEFAULT 0,
+        data TEXT NOT NULL DEFAULT '{}'
+      );
+      CREATE TABLE part (
+        id TEXT PRIMARY KEY,
+        message_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        time_created INTEGER NOT NULL DEFAULT 0,
+        time_updated INTEGER NOT NULL DEFAULT 0,
+        data TEXT NOT NULL DEFAULT '{}'
+      );
+    `);
+    return db;
+  }
 
+  /** Insert a session with messages and text parts. */
   function makeSession(
+    db: Database,
     sessionId: string,
-    sessionPath: string,
-    messages?: Array<{ id: string; role: string; content: string }>
+    sessionDir: string,
+    messages?: Array<{ id: string; role: string; content: string }>,
+    timeUpdated?: number
   ): void {
-    // Create session metadata file
-    const sessionDir = join(sessionBaseDir, projectHash);
-    mkdirSync(sessionDir, { recursive: true });
-    createdDirs.push(sessionDir);
-
-    const sessionMeta = {
-      id: sessionId,
-      title: `Test session ${sessionId}`,
-      path: sessionPath,
-      updated_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-    };
-    writeFileSync(
-      join(sessionDir, `${sessionId}.json`),
-      JSON.stringify(sessionMeta)
+    const now = timeUpdated ?? Date.now();
+    db.run(
+      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
+      [sessionId, sessionDir, now, now]
     );
 
-    // Create message files
-    if (messages) {
-      const msgDir = join(messageBaseDir, sessionId);
-      mkdirSync(msgDir, { recursive: true });
-      createdDirs.push(msgDir);
+    if (!messages) return;
 
-      for (const msg of messages) {
-        const msgData = {
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          session_id: sessionId,
-          created_at: new Date().toISOString(),
-        };
-        writeFileSync(join(msgDir, `${msg.id}.json`), JSON.stringify(msgData));
-      }
+    let msgTime = now;
+    for (const msg of messages) {
+      msgTime += 1;
+      db.run(
+        "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+        [
+          msg.id,
+          sessionId,
+          msgTime,
+          msgTime,
+          JSON.stringify({ role: msg.role }),
+        ]
+      );
+      db.run(
+        "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          `prt_${msg.id}`,
+          msg.id,
+          sessionId,
+          msgTime,
+          msgTime,
+          JSON.stringify({ type: "text", text: msg.content }),
+        ]
+      );
     }
   }
 
   test("returns data for most recent session matching project", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_1`;
-    makeSession(sessionId, projectRoot, [
+    makeSession(db, sessionId, projectRoot, [
       { id: "msg_001", role: "user", content: "hello opencode" },
       { id: "msg_002", role: "assistant", content: "hi there" },
     ]);
+    db.close();
 
     const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
@@ -99,15 +150,25 @@ describe("readOpencodeSession", () => {
   });
 
   test("finds session by sessionId", async () => {
+    const db = createDb();
     const sessionId1 = `ses_${uniqueId}_first`;
     const sessionId2 = `ses_${uniqueId}_second`;
 
-    makeSession(sessionId1, projectRoot, [
-      { id: "msg_001", role: "user", content: "first session" },
-    ]);
-    makeSession(sessionId2, projectRoot, [
-      { id: "msg_001", role: "user", content: "second session" },
-    ]);
+    makeSession(
+      db,
+      sessionId1,
+      projectRoot,
+      [{ id: "msg_001", role: "user", content: "first session" }],
+      1000
+    );
+    makeSession(
+      db,
+      sessionId2,
+      projectRoot,
+      [{ id: "msg_002", role: "user", content: "second session" }],
+      2000
+    );
+    db.close();
 
     const result = await readOpencodeSession(projectRoot, {
       sessionId: sessionId1,
@@ -120,10 +181,12 @@ describe("readOpencodeSession", () => {
   });
 
   test("returns error when sessionId not found (with available list)", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_real`;
-    makeSession(sessionId, projectRoot, [
+    makeSession(db, sessionId, projectRoot, [
       { id: "msg_001", role: "user", content: "real" },
     ]);
+    db.close();
 
     const result = await readOpencodeSession(projectRoot, {
       sessionId: "nonexistent-id",
@@ -136,13 +199,43 @@ describe("readOpencodeSession", () => {
   });
 
   test("filters to user/assistant roles only", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_roles`;
-    makeSession(sessionId, projectRoot, [
-      { id: "msg_001", role: "system", content: "system msg" },
-      { id: "msg_002", role: "tool", content: "tool output" },
-      { id: "msg_003", role: "user", content: "visible" },
-      { id: "msg_004", role: "assistant", content: "also visible" },
-    ]);
+
+    // Insert messages with various roles — system and tool should be filtered out
+    const now = Date.now();
+    db.run(
+      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
+      [sessionId, projectRoot, now, now]
+    );
+
+    const roles = ["system", "tool", "user", "assistant"];
+    const contents = ["system msg", "tool output", "visible", "also visible"];
+    for (let i = 0; i < roles.length; i++) {
+      const msgId = `msg_${String(i).padStart(3, "0")}`;
+      db.run(
+        "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+        [
+          msgId,
+          sessionId,
+          now + i + 1,
+          now + i + 1,
+          JSON.stringify({ role: roles[i] }),
+        ]
+      );
+      db.run(
+        "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+          `prt_${msgId}`,
+          msgId,
+          sessionId,
+          now + i + 1,
+          now + i + 1,
+          JSON.stringify({ type: "text", text: contents[i] }),
+        ]
+      );
+    }
+    db.close();
 
     const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
@@ -155,10 +248,12 @@ describe("readOpencodeSession", () => {
   });
 
   test("returns error when no sessions match the project", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_other`;
-    makeSession(sessionId, "/some/other/project", [
+    makeSession(db, sessionId, "/some/other/project", [
       { id: "msg_001", role: "user", content: "wrong project" },
     ]);
+    db.close();
 
     const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
@@ -169,22 +264,12 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  test("returns error when session has no message directory", async () => {
+  test("returns error when session has no messages", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_nomsg`;
-    // Create session metadata but no message directory
-    const sessionDir = join(sessionBaseDir, projectHash);
-    mkdirSync(sessionDir, { recursive: true });
-    createdDirs.push(sessionDir);
-
-    const sessionMeta = {
-      id: sessionId,
-      path: projectRoot,
-      updated_at: new Date().toISOString(),
-    };
-    writeFileSync(
-      join(sessionDir, `${sessionId}.json`),
-      JSON.stringify(sessionMeta)
-    );
+    // Create session but no messages
+    makeSession(db, sessionId, projectRoot);
+    db.close();
 
     const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
@@ -194,16 +279,19 @@ describe("readOpencodeSession", () => {
   });
 
   test("respects maxEntries — keeps last N relevant entries", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_limit`;
-    const messages: Array<{ id: string; role: string; content: string }> = [];
+
+    const msgs: Array<{ id: string; role: string; content: string }> = [];
     for (let i = 0; i < 8; i++) {
-      messages.push({
+      msgs.push({
         id: `msg_${String(i).padStart(3, "0")}`,
         role: i % 2 === 0 ? "user" : "assistant",
         content: `msg ${i}`,
       });
     }
-    makeSession(sessionId, projectRoot, messages);
+    makeSession(db, sessionId, projectRoot, msgs);
+    db.close();
 
     const result = await readOpencodeSession(projectRoot, { maxEntries: 2 });
     expect(result.ok).toBe(true);
@@ -217,10 +305,12 @@ describe("readOpencodeSession", () => {
   });
 
   test("truncates string content preview to 500 chars", async () => {
+    const db = createDb();
     const sessionId = `ses_${uniqueId}_truncate`;
-    makeSession(sessionId, projectRoot, [
+    makeSession(db, sessionId, projectRoot, [
       { id: "msg_001", role: "user", content: "x".repeat(600) },
     ]);
+    db.close();
 
     const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
@@ -231,11 +321,129 @@ describe("readOpencodeSession", () => {
     expect(preview.endsWith("...")).toBe(true);
   });
 
-  test("returns error when storage directory does not exist", async () => {
-    // readOpencodeSession should handle missing storage gracefully
-    const result = await readOpencodeSession(
-      "/nonexistent/path/that/wont/match"
-    );
+  test("returns error when database does not exist", async () => {
+    // Point to a non-existent directory
+    Bun.env.XDG_DATA_HOME = join(tempDir, "nonexistent");
+
+    const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("No opencode database found");
+    }
+  });
+
+  test("skips synthetic parts", async () => {
+    const db = createDb();
+    const sessionId = `ses_${uniqueId}_synthetic`;
+    const now = Date.now();
+
+    db.run(
+      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
+      [sessionId, projectRoot, now, now]
+    );
+
+    // User message with a synthetic part and a real part
+    const msgId = "msg_syn_001";
+    db.run(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+      [msgId, sessionId, now + 1, now + 1, JSON.stringify({ role: "user" })]
+    );
+    // Synthetic part (editor context)
+    db.run(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        "prt_syn_001",
+        msgId,
+        sessionId,
+        now + 1,
+        now + 1,
+        JSON.stringify({
+          type: "text",
+          text: "<system-reminder>Note: The user opened the file</system-reminder>",
+          synthetic: true,
+        }),
+      ]
+    );
+    // Real part (user input)
+    db.run(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        "prt_real_001",
+        msgId,
+        sessionId,
+        now + 2,
+        now + 2,
+        JSON.stringify({ type: "text", text: "actual user question" }),
+      ]
+    );
+    db.close();
+
+    const result = await readOpencodeSession(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+
+    expect(result.data.transcript[0]?.contentPreview).toBe(
+      "actual user question"
+    );
+    // The synthetic part should not appear
+    expect(result.data.transcript[0]?.contentPreview).not.toContain(
+      "system-reminder"
+    );
+  });
+
+  test("includes tool parts as [tool: name]", async () => {
+    const db = createDb();
+    const sessionId = `ses_${uniqueId}_tools`;
+    const now = Date.now();
+
+    db.run(
+      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
+      [sessionId, projectRoot, now, now]
+    );
+
+    const msgId = "msg_tool_001";
+    db.run(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+      [
+        msgId,
+        sessionId,
+        now + 1,
+        now + 1,
+        JSON.stringify({ role: "assistant" }),
+      ]
+    );
+    // Text part
+    db.run(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        "prt_t1",
+        msgId,
+        sessionId,
+        now + 1,
+        now + 1,
+        JSON.stringify({ type: "text", text: "Let me check that." }),
+      ]
+    );
+    // Tool part
+    db.run(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+      [
+        "prt_t2",
+        msgId,
+        sessionId,
+        now + 2,
+        now + 2,
+        JSON.stringify({ type: "tool", tool: "glob" }),
+      ]
+    );
+    db.close();
+
+    const result = await readOpencodeSession(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+
+    const preview = result.data.transcript[0]?.contentPreview ?? "";
+    expect(preview).toContain("Let me check that.");
+    expect(preview).toContain("[tool: glob]");
   });
 });

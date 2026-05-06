@@ -1,8 +1,9 @@
-import { readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { logDebug } from "./log";
-import { opencodeStorageDir } from "./paths";
+import { opencodeDbPath } from "./paths";
 import { isWindows } from "./platform";
 import {
   RELEVANT_ROLES,
@@ -36,190 +37,157 @@ function normalizePath(p: string): string {
   return isWindows() ? resolved.toLowerCase() : resolved;
 }
 
-interface SessionMeta {
-  id: string;
-  path: string;
-  updatedAt: number;
-  projectHash: string;
-}
-
 /**
  * Read an opencode session transcript for a project.
  *
- * Opencode stores data under `~/.local/share/opencode/storage/`:
- * - `session/<projectHash>/<sessionID>.json` — session metadata
- * - `message/<sessionID>/<messageID>.json`   — individual messages
+ * Opencode stores data in a SQLite database at
+ * `$XDG_DATA_HOME/opencode/opencode.db` (default `~/.local/share/opencode/opencode.db`):
+ * - `session` table — session metadata with `directory` for project matching
+ * - `message` table — messages with `role` in the `data` JSON column
+ * - `part` table — content parts with `type` and `text` in the `data` JSON column
  *
- * Sessions are matched by comparing the `path` field in session metadata
+ * Sessions are matched by comparing the `directory` field in session rows
  * to the provided project root.
  */
-export async function readOpencodeSession(
+export function readOpencodeSession(
   projectRoot: string | null,
   options?: ReadOpencodeSessionOptions
-): Promise<OpencodeSessionResult> {
+): OpencodeSessionResult {
   const limit = options?.maxEntries ?? 200;
-  const storageDir = opencodeStorageDir();
-  const sessionsRoot = join(storageDir, "session");
+  const dbPath = opencodeDbPath();
   const normalizedProjectRoot = normalizePath(projectRoot ?? process.cwd());
 
-  // 1. Scan session/<projectHash>/ directories for session JSON files
-  const allSessions: SessionMeta[] = [];
+  if (!existsSync(dbPath)) {
+    return { ok: false, error: "No opencode database found", path: dbPath };
+  }
 
-  let projectHashDirs: string[];
+  let db: Database;
   try {
-    projectHashDirs = readdirSync(sessionsRoot).filter((name) => {
-      try {
-        return statSync(join(sessionsRoot, name)).isDirectory();
-      } catch {
-        return false;
-      }
-    });
+    db = new Database(dbPath, { readonly: true });
   } catch {
     return {
       ok: false,
-      error: "No opencode session storage found",
-      path: sessionsRoot,
+      error: "Failed to open opencode database",
+      path: dbPath,
     };
   }
 
-  for (const hashDir of projectHashDirs) {
-    const hashPath = join(sessionsRoot, hashDir);
-    let sessionFiles: string[];
-    try {
-      sessionFiles = readdirSync(hashPath).filter((f) => f.endsWith(".json"));
-    } catch {
-      continue;
+  try {
+    // 1. Find all sessions, sorted by most recently updated first
+    interface SessionRow {
+      id: string;
+      directory: string;
+      time_updated: number;
+    }
+    const allSessions = db
+      .query<SessionRow, []>(
+        "SELECT id, directory, time_updated FROM session ORDER BY time_updated DESC"
+      )
+      .all();
+
+    if (allSessions.length === 0) {
+      return { ok: false, error: "No opencode sessions found", path: dbPath };
     }
 
-    for (const file of sessionFiles) {
-      try {
-        // oxlint-disable-next-line no-await-in-loop -- sequential read needed: each session file determines project match
-        const raw = await Bun.file(join(hashPath, file)).json();
-        const meta = raw as Record<string, unknown>;
-        const id = typeof meta.id === "string" ? meta.id : null;
-        const sessionPath = typeof meta.path === "string" ? meta.path : null;
-        if (!id) continue;
-        // Parse updated_at — may be ISO string or camelCase variant
-        let updatedAt = 0;
-        if (typeof meta.updated_at === "string") {
-          updatedAt = new Date(meta.updated_at).getTime();
-        } else if (typeof meta.updatedAt === "string") {
-          updatedAt = new Date(meta.updatedAt as string).getTime();
-        } else if (typeof meta.updated_at === "number") {
-          updatedAt = meta.updated_at;
+    // 2. Filter sessions by project path
+    const matching = allSessions.filter(
+      (s) => s.directory && normalizePath(s.directory) === normalizedProjectRoot
+    );
+
+    if (matching.length === 0) {
+      return {
+        ok: false,
+        error: "No opencode sessions found for this project",
+        path: dbPath,
+        available: allSessions.map((s) => s.id),
+      };
+    }
+
+    // 3. Select session by ID or most recent
+    const target = options?.sessionId
+      ? matching.find((s) => s.id === options.sessionId)
+      : matching[0];
+
+    if (!target) {
+      return {
+        ok: false,
+        error: `Session not found: ${options?.sessionId}`,
+        available: matching.map((s) => s.id),
+      };
+    }
+
+    // 4. Read messages for the session
+    interface MessageRow {
+      id: string;
+      role: string;
+    }
+    const messages = db
+      .query<MessageRow, [string]>(
+        "SELECT id, json_extract(data, '$.role') as role FROM message WHERE session_id = ? ORDER BY time_created"
+      )
+      .all(target.id);
+
+    if (messages.length === 0) {
+      return {
+        ok: false,
+        error: "Session exists but has no messages",
+        path: dbPath,
+      };
+    }
+
+    // 5. Build transcript from text parts, skipping synthetic entries
+    interface PartRow {
+      type: string;
+      text: string | null;
+      tool: string | null;
+    }
+    const partsQuery = db.prepare<PartRow, [string]>(
+      "SELECT json_extract(data, '$.type') as type, json_extract(data, '$.text') as text, json_extract(data, '$.tool') as tool FROM part WHERE message_id = ? AND json_extract(data, '$.synthetic') IS NOT 1 ORDER BY time_created"
+    );
+
+    const relevant: OpencodeSessionSummary["transcript"] = [];
+    for (const msg of messages) {
+      if (!RELEVANT_ROLES.has(msg.role)) continue;
+
+      const parts = partsQuery.all(msg.id);
+
+      const contentParts: string[] = [];
+      for (const part of parts) {
+        if (part.type === "text" && part.text) {
+          contentParts.push(part.text);
+        } else if (part.type === "tool" && part.tool) {
+          contentParts.push(`[tool: ${part.tool}]`);
         }
-
-        allSessions.push({
-          id,
-          path: sessionPath ?? "",
-          updatedAt,
-          projectHash: hashDir,
-        });
-      } catch {
-        logDebug(`Skipping session file ${file}: parse error`);
       }
-    }
-  }
 
-  if (allSessions.length === 0) {
-    return {
-      ok: false,
-      error: "No opencode sessions found",
-      path: sessionsRoot,
-    };
-  }
+      const content = contentParts.join("\n");
+      if (content.length === 0) continue;
 
-  // 2. Filter sessions by project path
-  const matching = allSessions
-    .filter((s) => s.path && normalizePath(s.path) === normalizedProjectRoot)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
-
-  if (matching.length === 0) {
-    return {
-      ok: false,
-      error: "No opencode sessions found for this project",
-      path: sessionsRoot,
-      available: allSessions.map((s) => s.id),
-    };
-  }
-
-  // 3. Select session by ID or most recent
-  const target = options?.sessionId
-    ? matching.find((s) => s.id === options.sessionId)
-    : matching[0];
-
-  if (!target) {
-    return {
-      ok: false,
-      error: `Session not found: ${options?.sessionId}`,
-      available: matching.map((s) => s.id),
-    };
-  }
-
-  // 4. Read message files from message/<sessionID>/
-  const messagesDir = join(storageDir, "message", target.id);
-  let messageFiles: string[];
-  try {
-    messageFiles = readdirSync(messagesDir)
-      .filter((f) => f.endsWith(".json"))
-      .sort(); // Lexicographic sort — message IDs are ordered
-  } catch {
-    return {
-      ok: false,
-      error: "Session exists but has no messages",
-      path: messagesDir,
-    };
-  }
-
-  if (messageFiles.length === 0) {
-    return {
-      ok: false,
-      error: "Session exists but message directory is empty",
-      path: messagesDir,
-    };
-  }
-
-  // 5. Parse messages, filter to user/assistant, extract previews
-  interface MessageData {
-    role?: string;
-    content?: unknown;
-  }
-  const allMessages: MessageData[] = [];
-  for (const file of messageFiles) {
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- sequential read needed: message files must be read in order
-      const data = (await Bun.file(join(messagesDir, file)).json()) as Record<
-        string,
-        unknown
-      >;
-      allMessages.push({
-        role: typeof data.role === "string" ? data.role : undefined,
-        content: data.content,
+      const normalized: TranscriptEntry = { message: { content } };
+      relevant.push({
+        role: msg.role,
+        contentPreview: getContentPreview(normalized),
       });
-    } catch {
-      logDebug(`Skipping message file ${file}: parse error`);
     }
-  }
 
-  const relevant: OpencodeSessionSummary["transcript"] = [];
-  for (const msg of allMessages) {
-    if (!RELEVANT_ROLES.has(msg.role ?? "")) continue;
-    // Normalize to TranscriptEntry shape for getContentPreview
-    const normalized: TranscriptEntry = { message: { content: msg.content } };
-    relevant.push({
-      role: msg.role!,
-      contentPreview: getContentPreview(normalized),
-    });
+    const trimmed = relevant.length > limit ? relevant.slice(-limit) : relevant;
+    return {
+      ok: true,
+      data: {
+        sessionId: target.id,
+        totalEntries: messages.length,
+        relevantEntries: relevant.length,
+        transcript: trimmed,
+      },
+    };
+  } catch (err) {
+    logDebug(`Failed to read opencode database: ${String(err)}`);
+    return {
+      ok: false,
+      error: "Failed to read opencode database",
+      path: dbPath,
+    };
+  } finally {
+    db.close();
   }
-
-  const trimmed = relevant.length > limit ? relevant.slice(-limit) : relevant;
-  return {
-    ok: true,
-    data: {
-      sessionId: target.id,
-      totalEntries: allMessages.length,
-      relevantEntries: relevant.length,
-      transcript: trimmed,
-    },
-  };
 }

@@ -88,6 +88,22 @@ export function opencodeStorageDir(): string {
   return join(base, "opencode", "storage");
 }
 
+/**
+ * Resolve the opencode SQLite database path.
+ *
+ * Opencode stores session/message/part data in a SQLite database at
+ * `$XDG_DATA_HOME/opencode/opencode.db` (defaulting to
+ * `~/.local/share/opencode/opencode.db`).
+ *
+ * Resolved at call time (not cached) so tests can override HOME /
+ * XDG_DATA_HOME.
+ */
+export function opencodeDbPath(): string {
+  const xdg = usableEnv(Bun.env.XDG_DATA_HOME);
+  const base = xdg ?? join(archgateHomeDir(), ".local", "share");
+  return join(base, "opencode", "opencode.db");
+}
+
 export const paths = { cacheFolder: internalPath("cache") } as const;
 
 export function projectPath(projectRoot: string, ...path: string[]) {
