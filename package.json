@@ -50,9 +50,11 @@
     "lint": "oxlint --deny-warnings .",
     "postinstall": "node scripts/postinstall.cjs",
     "test": "bun test --timeout 60000",
+    "test:coverage": "bun test --timeout 60000 --coverage",
     "test:watch": "bun test --watch --timeout 60000",
     "typecheck": "tsc --build",
-    "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run build:check"
+    "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run build:check",
+    "validate:coverage": "bun run lint && bun run typecheck && bun run format:check && bun run test:coverage && bun run check && bun run build:check"
   },
   "devDependencies": {
     "@commander-js/extra-typings": "14.0.0",
