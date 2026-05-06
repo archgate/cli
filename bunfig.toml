@@ -6,3 +6,5 @@ saveTextLockfile = true
 
 [test]
 preload = ["./tests/preload.ts"]
+coverageReporter = ["lcov", "text"]
+coverageDir = "coverage"

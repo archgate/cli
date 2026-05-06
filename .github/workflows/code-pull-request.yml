@@ -56,7 +56,22 @@ jobs:
           }
       - name: Validate
         id: validate
-        run: bun run validate
+        run: bun run validate:coverage
+      - name: Upload coverage to Codecov
+        if: always() && steps.validate.outcome == 'success'
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+      - name: Upload test results to Codecov
+        if: always() && steps.validate.outcome != 'skipped'
+        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/junit.xml
+          report-type: test_results
+          fail_ci_if_error: false
       - name: Save Bun Cache
         uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
