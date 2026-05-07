@@ -1,6 +1,44 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { detectEditors } from "../../src/helpers/editor-detect";
+// ---------------------------------------------------------------------------
+// Module mocks — must be declared before imports that use them.
+// ---------------------------------------------------------------------------
+
+/** Tracks calls to cursorTo from node:readline. */
+const mockCursorTo = mock(() => true);
+mock.module("node:readline", () => ({ cursorTo: mockCursorTo }));
+
+/** Mock inquirer so prompts resolve immediately without user interaction. */
+mock.module("inquirer", () => ({
+  default: { prompt: mock(() => Promise.resolve({ selected: ["claude"] })) },
+}));
+
+// ---------------------------------------------------------------------------
+// Imports under test — loaded AFTER mocks are registered.
+// ---------------------------------------------------------------------------
+
+import type { DetectedEditor } from "../../src/helpers/editor-detect";
+import {
+  detectEditors,
+  promptEditorSelection,
+  promptSingleEditorSelection,
+} from "../../src/helpers/editor-detect";
+
+// ---------------------------------------------------------------------------
+// Shared test data
+// ---------------------------------------------------------------------------
+
+const MOCK_DETECTED: DetectedEditor[] = [
+  { id: "claude", label: "Claude Code", available: true },
+  { id: "cursor", label: "Cursor", available: false },
+  { id: "vscode", label: "VS Code", available: true },
+  { id: "copilot", label: "GitHub Copilot", available: false },
+  { id: "opencode", label: "opencode", available: false },
+];
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 describe("editor-detect", () => {
   describe("detectEditors", () => {
@@ -21,6 +59,97 @@ describe("editor-detect", () => {
         expect(typeof editor.label).toBe("string");
         expect(editor.label.length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Cursor reset after inquirer prompts (Windows spacing fix)
+  //
+  // On Windows terminals, inquirer leaves the cursor at the column where the
+  // wrapped answer text ended. Without an explicit cursorTo(stdout, 0),
+  // subsequent output lines start at the wrong horizontal offset.
+  // -------------------------------------------------------------------------
+
+  describe("promptEditorSelection — cursor reset", () => {
+    const originalIsTTY = process.stdout.isTTY;
+
+    beforeEach(() => {
+      mockCursorTo.mockClear();
+    });
+
+    afterEach(() => {
+      // Restore isTTY to whatever the test runner had
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: originalIsTTY,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    test("resets cursor to column 0 after prompt when stdout is TTY", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+
+      await promptEditorSelection(MOCK_DETECTED);
+
+      expect(mockCursorTo).toHaveBeenCalledTimes(1);
+      expect(mockCursorTo).toHaveBeenCalledWith(process.stdout, 0);
+    });
+
+    test("does not call cursorTo when stdout is not TTY", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      await promptEditorSelection(MOCK_DETECTED);
+
+      expect(mockCursorTo).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("promptSingleEditorSelection — cursor reset", () => {
+    const originalIsTTY = process.stdout.isTTY;
+
+    beforeEach(() => {
+      mockCursorTo.mockClear();
+    });
+
+    afterEach(() => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: originalIsTTY,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    test("resets cursor to column 0 after prompt when stdout is TTY", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+
+      await promptSingleEditorSelection(MOCK_DETECTED);
+
+      expect(mockCursorTo).toHaveBeenCalledTimes(1);
+      expect(mockCursorTo).toHaveBeenCalledWith(process.stdout, 0);
+    });
+
+    test("does not call cursorTo when stdout is not TTY", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      await promptSingleEditorSelection(MOCK_DETECTED);
+
+      expect(mockCursorTo).not.toHaveBeenCalled();
     });
   });
 });
