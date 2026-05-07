@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { cursorTo } from "node:readline";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
@@ -91,6 +92,8 @@ export function registerInitCommand(program: Command) {
               default: true,
             },
           ]);
+          // Windows cursor-reset — see editor-detect.ts for explanation.
+          if (process.stdout.isTTY) cursorTo(process.stdout, 0);
 
           if (wantPlugin) {
             const result = await runLoginFlow({

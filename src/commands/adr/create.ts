@@ -1,3 +1,5 @@
+import { cursorTo } from "node:readline";
+
 import type { Command } from "@commander-js/extra-typings";
 import inquirer from "inquirer";
 
@@ -75,6 +77,8 @@ export function registerAdrCreateCommand(adr: Command) {
               message: "File patterns (comma-separated, optional):",
             },
           ]);
+          // Windows cursor-reset — see editor-detect.ts for explanation.
+          if (process.stdout.isTTY) cursorTo(process.stdout, 0);
 
           domain = answers.domain as AdrDomain;
           title = answers.title;
