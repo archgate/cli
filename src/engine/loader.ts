@@ -30,12 +30,12 @@ import { projectPaths } from "../helpers/paths";
 import { ensureRulesShim } from "../helpers/rules-shim";
 import { scanRuleSource } from "./rule-scanner";
 
-export interface LoadedAdr {
+interface LoadedAdr {
   adr: AdrDocument;
   ruleSet: RuleSet;
 }
 
-export interface BlockedAdr {
+interface BlockedAdr {
   adr: AdrDocument;
   error: string;
   violations: Array<{
@@ -137,7 +137,7 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
   return violations;
 }
 
-export interface ParsedAdrEntry {
+interface ParsedAdrEntry {
   file: string;
   adr: AdrDocument;
 }
@@ -152,11 +152,6 @@ export interface ParsedAdrEntry {
  * caches in this codebase (git ls-files, repo context, install method).
  */
 const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
-
-/** Reset the parsed-ADRs cache. For testing only. */
-export function _resetAdrParseCache(): void {
-  parsedAdrsCache.clear();
-}
 
 /**
  * Read and parse every ADR markdown file in the project, caching the result

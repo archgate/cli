@@ -27,7 +27,7 @@ const GITHUB_CLIENT_ID = "Ov23liZUI9Aiv2ZrSAgn";
 // Types
 // ---------------------------------------------------------------------------
 
-export interface DeviceCodeResponse {
+interface DeviceCodeResponse {
   device_code: string;
   user_code: string;
   verification_uri: string;
@@ -151,7 +151,7 @@ export async function pollForAccessToken(
   throw new Error("Device code expired. Please try again.");
 }
 
-export interface GitHubUserInfo {
+interface GitHubUserInfo {
   login: string;
   email: string | null;
 }

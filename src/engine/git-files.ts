@@ -56,11 +56,6 @@ export function getGitTrackedFiles(
   return promise;
 }
 
-/** Reset the tracked-files cache. For testing only. */
-export function _resetGitFilesCache(): void {
-  trackedFilesCache.clear();
-}
-
 /** Resolve scoped files for an ADR based on its files globs. Respects .gitignore. */
 export async function resolveScopedFiles(
   projectRoot: string,

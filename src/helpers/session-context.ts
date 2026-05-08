@@ -55,14 +55,14 @@ export interface TranscriptEntry {
   [key: string]: unknown;
 }
 
-export interface ClaudeSessionSummary {
+interface ClaudeSessionSummary {
   sessionFile: string;
   totalEntries: number;
   relevantEntries: number;
   transcript: Array<{ type: string; role?: string; contentPreview: string }>;
 }
 
-export interface CursorSessionSummary {
+interface CursorSessionSummary {
   sessionId: string;
   sessionFile: string;
   totalEntries: number;
@@ -109,7 +109,7 @@ export interface ReadSessionOptions {
   maxEntries?: number;
 }
 
-export interface ReadCursorSessionOptions extends ReadSessionOptions {
+interface ReadCursorSessionOptions extends ReadSessionOptions {
   sessionId?: string;
 }
 

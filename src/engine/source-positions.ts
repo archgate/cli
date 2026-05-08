@@ -3,7 +3,7 @@
  * original TypeScript source, skipping matches in comments and strings.
  */
 
-export interface SourcePos {
+interface SourcePos {
   line: number;
   column: number;
   endLine: number;
