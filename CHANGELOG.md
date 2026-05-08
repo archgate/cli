@@ -1,3 +1,9 @@
+## [0.33.2](https://github.com/archgate/cli/compare/v0.33.1...v0.33.2) (2026-05-08)
+
+### Bug Fixes
+
+* reset cursor to column 0 after inquirer prompts on Windows ([#278](https://github.com/archgate/cli/issues/278)) ([e390c47](https://github.com/archgate/cli/commit/e390c47e7c761439b9cbe2236a91cf14125787f5))
+
 ## [0.33.1](https://github.com/archgate/cli/compare/v0.33.0...v0.33.1) (2026-05-06)
 
 ### Bug Fixes

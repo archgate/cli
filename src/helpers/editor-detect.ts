@@ -5,6 +5,8 @@
  * In non-TTY (agent) contexts, defaults to "claude" for backward compatibility.
  */
 
+import { cursorTo } from "node:readline";
+
 import inquirer from "inquirer";
 
 import { EDITOR_LABELS } from "./init-project";
@@ -79,6 +81,10 @@ export async function promptEditorSelection(
         input.length > 0 || "Select at least one editor.",
     },
   ]);
+  // On Windows, inquirer leaves the cursor at the end of the wrapped answer
+  // line. Subsequent output calls inherit that column offset instead of
+  // starting at column 0. Explicitly reset the cursor to prevent garbled output.
+  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
   return selected;
 }
 
@@ -104,5 +110,7 @@ export async function promptSingleEditorSelection(
       default: defaultEditor,
     },
   ]);
+  // Same Windows cursor-reset fix as promptEditorSelection above.
+  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
   return selected;
 }

@@ -55,11 +55,6 @@ export function _resetPublicProbeCache(): void {
   cachedPublicProbe = null;
 }
 
-/** Inject a probe result. For testing only. */
-export function _setPublicProbeForTest(value: boolean | null): void {
-  cachedPublicProbe = Promise.resolve(value);
-}
-
 // ---------------------------------------------------------------------------
 // Dispatch
 // ---------------------------------------------------------------------------

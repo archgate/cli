@@ -71,24 +71,6 @@ export function copilotSessionStateDir(): string {
 }
 
 /**
- * Resolve the opencode data storage directory.
- *
- * Opencode stores sessions, messages, and parts under
- * `$XDG_DATA_HOME/opencode/storage/` (defaulting to
- * `~/.local/share/opencode/storage/`). This is distinct from the
- * config directory (`$XDG_CONFIG_HOME/opencode/`) used by
- * `opencodeAgentsDir()`.
- *
- * Resolved at call time (not cached) so tests can override HOME /
- * XDG_DATA_HOME.
- */
-export function opencodeStorageDir(): string {
-  const xdg = usableEnv(Bun.env.XDG_DATA_HOME);
-  const base = xdg ?? join(archgateHomeDir(), ".local", "share");
-  return join(base, "opencode", "storage");
-}
-
-/**
  * Resolve the opencode SQLite database path.
  *
  * Opencode stores session/message/part data in a SQLite database at
