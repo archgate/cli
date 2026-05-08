@@ -12,7 +12,7 @@ import { exitWith } from "../../helpers/exit";
 import { EDITOR_LABELS } from "../../helpers/init-project";
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
-import { findProjectRoot, opencodeAgentsDir } from "../../helpers/paths";
+import { findProjectRoot } from "../../helpers/paths";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
@@ -102,10 +102,7 @@ async function installForEditor(
         break;
       }
       await installOpencodePlugin(token);
-      logInfo(
-        `Archgate agents installed for ${label}.`,
-        `Target directory: ${opencodeAgentsDir()}`
-      );
+      logInfo(`Archgate agents installed for ${label}.`);
       break;
     }
     case "vscode": {
