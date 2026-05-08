@@ -97,13 +97,6 @@ export function isSupportedPlatform(): boolean {
   return runtime === "darwin" || runtime === "linux" || runtime === "win32";
 }
 
-/**
- * Reset the cached platform info. For testing only.
- */
-export function _resetPlatformCache(): void {
-  cachedPlatformInfo = null;
-}
-
 // ---------------------------------------------------------------------------
 // Path Conversion (async, WSL only)
 // ---------------------------------------------------------------------------
