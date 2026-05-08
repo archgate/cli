@@ -5,7 +5,7 @@ import type { ReportSummary } from "./reporter";
 import { buildSummary } from "./reporter";
 import { runChecks } from "./runner";
 
-export interface AdrBriefing {
+interface AdrBriefing {
   id: string;
   title: string;
   domain: AdrDomain;
@@ -15,13 +15,13 @@ export interface AdrBriefing {
   dosAndDonts: string;
 }
 
-export interface DomainContext {
+interface DomainContext {
   domain: AdrDomain;
   changedFiles: string[];
   adrs: AdrBriefing[];
 }
 
-export interface ReviewContext {
+interface ReviewContext {
   allChangedFiles: string[];
   truncatedFiles: boolean;
   domains: DomainContext[];
@@ -69,7 +69,7 @@ export function extractAdrSections(
   return result;
 }
 
-export interface BriefAdrOptions {
+interface BriefAdrOptions {
   /** Max chars per section. 0 = unlimited. Default: 2000. */
   maxSectionChars?: number;
 }
@@ -190,7 +190,7 @@ const EMPTY_SUMMARY: ReportSummary = {
   durationMs: 0,
 };
 
-export interface BuildReviewContextOptions {
+interface BuildReviewContextOptions {
   runChecks?: boolean;
   staged?: boolean;
   domain?: AdrDomain;

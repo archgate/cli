@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const DOMAIN_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
-export const DOMAIN_PREFIX_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+const DOMAIN_PREFIX_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 
 export const DomainNameSchema = z
   .string()

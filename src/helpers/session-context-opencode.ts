@@ -12,14 +12,14 @@ import {
   getContentPreview,
 } from "./session-context";
 
-export interface OpencodeSessionSummary {
+interface OpencodeSessionSummary {
   sessionId: string;
   totalEntries: number;
   relevantEntries: number;
   transcript: Array<{ role: string; contentPreview: string }>;
 }
 
-export interface ReadOpencodeSessionOptions extends ReadSessionOptions {
+interface ReadOpencodeSessionOptions extends ReadSessionOptions {
   sessionId?: string;
 }
 

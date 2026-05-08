@@ -4,7 +4,7 @@
 
 Every work loop MUST end with these steps — no exceptions, even for trivial changes:
 
-1. **`bun run validate`** — lint, typecheck, format, test, ADR check (fail-fast)
+1. **`bun run validate`** — lint, typecheck, format, test, ADR check, knip, build check (fail-fast)
 2. **`@architect` skill** — Invoke via `Skill tool` with skill `"archgate:architect"`. Validates structural ADR compliance beyond automated rules.
 3. **`@quality-manager` skill** — Invoke via `Skill tool` with skill `"archgate:quality-manager"`. Captures learnings and governance gaps.
 
@@ -54,7 +54,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Validation Pipeline
 
-- `bun run validate` is the mandatory gate: lint → typecheck → format:check → test → ADR check → build:check
+- `bun run validate` is the mandatory gate: lint → typecheck → format:check → test → ADR check → knip → build:check
 - All ADR rule severities are `error` (not `warning`) — violations are hard blockers
 - The pipeline is fail-fast — fix failures in order
 

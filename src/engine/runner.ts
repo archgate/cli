@@ -56,7 +56,7 @@ function safeGlob(pattern: string): void {
 }
 const RULE_TIMEOUT_MS = 30_000;
 
-export interface RuleResult {
+interface RuleResult {
   ruleId: string;
   adrId: string;
   description: string;

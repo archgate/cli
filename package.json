@@ -47,14 +47,15 @@
     "docs:preview": "cd docs && bunx --bun astro preview",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
+    "knip": "knip",
     "lint": "oxlint --deny-warnings .",
     "postinstall": "node scripts/postinstall.cjs",
     "test": "bun test --timeout 60000",
     "test:coverage": "bun test --timeout 60000 --coverage --reporter=junit --reporter-outfile=coverage/junit.xml",
     "test:watch": "bun test --watch --timeout 60000",
     "typecheck": "tsc --build",
-    "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run build:check",
-    "validate:coverage": "bun run lint && bun run typecheck && bun run format:check && bun run test:coverage && bun run check && bun run build:check"
+    "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run knip && bun run build:check",
+    "validate:coverage": "bun run lint && bun run typecheck && bun run format:check && bun run test:coverage && bun run check && bun run knip && bun run build:check"
   },
   "devDependencies": {
     "@commander-js/extra-typings": "14.0.0",
@@ -68,6 +69,7 @@
     "czg": "1.13.0",
     "fast-check": "4.7.0",
     "inquirer": "13.4.2",
+    "knip": "6.12.1",
     "meriyah": "7.1.0",
     "oxfmt": "0.47.0",
     "oxlint": "1.62.0",

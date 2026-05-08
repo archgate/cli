@@ -36,7 +36,7 @@ export interface ReportSummary {
   durationMs: number;
 }
 
-export interface BuildSummaryOptions {
+interface BuildSummaryOptions {
   /** Maximum violations per rule. When exceeded, only the first N are kept. Omit or 0 for unlimited. */
   maxViolationsPerRule?: number;
 }

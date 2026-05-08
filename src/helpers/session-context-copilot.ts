@@ -10,7 +10,7 @@ import {
   getContentPreview,
 } from "./session-context";
 
-export interface CopilotSessionSummary {
+interface CopilotSessionSummary {
   sessionId: string;
   sessionFile: string;
   totalEntries: number;
@@ -18,7 +18,7 @@ export interface CopilotSessionSummary {
   transcript: Array<{ role: string; contentPreview: string }>;
 }
 
-export interface ReadCopilotSessionOptions extends ReadSessionOptions {
+interface ReadCopilotSessionOptions extends ReadSessionOptions {
   sessionId?: string;
 }
 

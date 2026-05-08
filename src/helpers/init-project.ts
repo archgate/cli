@@ -29,13 +29,13 @@ export const EDITOR_LABELS: Record<EditorTarget, string> = {
   opencode: "opencode",
 };
 
-export interface InitOptions {
+interface InitOptions {
   editor?: EditorTarget;
   /** When true, attempt to install the archgate plugin using stored credentials. */
   installPlugin?: boolean;
 }
 
-export interface PluginResult {
+interface PluginResult {
   installed: boolean;
   /** For claude manual: marketplace URL; for cursor: file count summary */
   detail?: string;
@@ -43,7 +43,7 @@ export interface PluginResult {
   autoInstalled?: boolean;
 }
 
-export interface InitResult {
+interface InitResult {
   projectRoot: string;
   adrsDir: string;
   lintDir: string;

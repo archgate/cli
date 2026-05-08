@@ -28,7 +28,7 @@ export function isSignupRequiredError(message?: string): boolean {
   );
 }
 
-export interface SignupResult {
+interface SignupResult {
   ok: boolean;
   /** Token returned by the API when signup is auto-approved. */
   token: string | null;

@@ -65,7 +65,7 @@ ${opts.body}
   });
 }
 
-export interface CreateAdrResult {
+interface CreateAdrResult {
   id: string;
   fileName: string;
   filePath: string;
@@ -138,7 +138,7 @@ export async function findAdrFileById(
   return results.find((adr) => adr?.frontmatter.id === id) ?? null;
 }
 
-export interface UpdateAdrResult {
+interface UpdateAdrResult {
   id: string;
   fileName: string;
   filePath: string;
