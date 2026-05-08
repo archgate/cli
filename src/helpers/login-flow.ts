@@ -3,9 +3,18 @@
  * used by both `login` and `init` commands.
  */
 
+import { cursorTo } from "node:readline";
 import { styleText } from "node:util";
 
 import inquirer from "inquirer";
+
+/**
+ * Reset cursor to column 0 after an inquirer prompt on Windows.
+ * See editor-detect.ts for the full explanation of the bug.
+ */
+function resetCursor(): void {
+  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+}
 
 import {
   requestDeviceCode,
@@ -118,6 +127,7 @@ async function runSignupPrompt(
     validate: (v: string) =>
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Enter a valid email address",
   });
+  resetCursor();
 
   let editor = preselectedEditor;
   if (!editor) {
@@ -132,6 +142,7 @@ async function runSignupPrompt(
         { name: "Cursor", value: "cursor" },
       ],
     });
+    resetCursor();
     editor = ans.editor;
   }
 
@@ -142,6 +153,7 @@ async function runSignupPrompt(
     validate: (v: string) =>
       v.trim().length > 0 || "Please describe your use case",
   });
+  resetCursor();
 
   const { confirmed } = await inquirer.prompt({
     type: "confirm",
@@ -150,6 +162,7 @@ async function runSignupPrompt(
       "I agree to be contacted by the Archgate team to provide feedback during the beta period.",
     default: true,
   });
+  resetCursor();
 
   if (!confirmed) {
     logInfo("Signup cancelled.");
