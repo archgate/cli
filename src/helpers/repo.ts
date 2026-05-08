@@ -21,15 +21,11 @@
 import { createHash } from "node:crypto";
 
 import { logDebug } from "./log";
-import {
-  _resetPublicProbeCache,
-  _setPublicProbeForTest,
-  isPublicRepo,
-} from "./repo-probe";
+import { _resetPublicProbeCache, isPublicRepo } from "./repo-probe";
 
 // Re-export the public-visibility probe so commands / telemetry can import
 // everything repo-related from one place.
-export { isPublicRepo, _setPublicProbeForTest };
+export { isPublicRepo };
 
 // ---------------------------------------------------------------------------
 // Types

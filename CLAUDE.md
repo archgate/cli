@@ -7,7 +7,7 @@ Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs
 - **Runtime:** Bun (>=1.2.21) — not Node.js compatible
 - **Language:** TypeScript (strict mode, ESNext, ES modules)
 - **CLI framework:** Commander.js (`@commander-js/extra-typings`)
-- **Linter:** Oxlint | **Formatter:** Oxfmt | **Commits:** Conventional Commits
+- **Linter:** Oxlint | **Formatter:** Oxfmt | **Dead exports:** Knip | **Commits:** Conventional Commits
 
 ## Commands
 
@@ -18,14 +18,15 @@ bun run typecheck             # tsc --build
 bun run format                # oxfmt --write
 bun run format:check          # oxfmt --check
 bun test                      # all tests
-bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + build check
+bun run knip                  # dead export detection
+bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + knip + build check
 bun run build:check            # verify build compiles (CI builds binaries via release workflow)
 bun run commit                # conventional commit wizard
 ```
 
 ## Validation Gate
 
-**`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
+**`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check → knip → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
 
 ## Architecture
 

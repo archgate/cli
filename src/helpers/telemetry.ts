@@ -483,8 +483,3 @@ export function _resetTelemetry(): void {
 export function _getClient(): PostHog | null {
   return client;
 }
-
-/** Inject a repo context snapshot. For testing only. */
-export function _setRepoContextSnapshot(ctx: RepoContext | null): void {
-  repoContextSnapshot = ctx;
-}

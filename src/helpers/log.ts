@@ -31,11 +31,6 @@ export function setLogLevel(level: LogLevel): void {
   }
 }
 
-/** Get the current log level. */
-export function getLogLevel(): LogLevel {
-  return currentLevel;
-}
-
 function isEnabled(level: LogLevel): boolean {
   return LOG_LEVEL_PRIORITY[level] <= LOG_LEVEL_PRIORITY[currentLevel];
 }
