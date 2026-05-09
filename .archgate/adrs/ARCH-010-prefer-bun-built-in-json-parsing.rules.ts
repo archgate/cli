@@ -14,7 +14,7 @@ export default {
         // Pattern 1: single-expression JSON.parse(await Bun.file(...).text())
         const inlineMatches = await Promise.all(
           files.map((file) =>
-            ctx.grep(file, /JSON\.parse\(\s*await\s+Bun\.file/)
+            ctx.grep(file, /JSON\.parse\(\s*await\s+Bun\.file/u)
           )
         );
         for (const fileMatches of inlineMatches) {
@@ -39,7 +39,7 @@ export default {
 
             const textCalls = await ctx.grep(
               file,
-              /Bun\.file\([^)]+\)\.text\(\)/
+              /Bun\.file\([^)]+\)\.text\(\)/u
             );
             if (textCalls.length === 0) return;
 

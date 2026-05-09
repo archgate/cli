@@ -37,7 +37,7 @@ export default {
           (f) => !f.includes("tests/") && !f.includes(".archgate/")
         );
         const matches = await Promise.all(
-          files.map((file) => ctx.grep(file, /\\u001b\[|\\x1b\[|\\033\[/))
+          files.map((file) => ctx.grep(file, /\\u001b\[|\\x1b\[|\\033\[/u))
         );
         for (const fileMatches of matches) {
           for (const m of fileMatches) {

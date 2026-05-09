@@ -7,7 +7,7 @@ import { parseModule } from "meriyah";
  * Safe modules NOT blocked: node:path, node:url, node:util, node:crypto
  */
 const BANNED_MODULES =
-  /^(node:)?(fs|child_process|net|dgram|http|https|http2|worker_threads|cluster|vm)(\/.*)?$/;
+  /^(node:)?(fs|child_process|net|dgram|http|https|http2|worker_threads|cluster|vm)(\/.*)?$/u;
 
 /** Bun API properties that bypass the RuleContext sandbox. */
 const BLOCKED_BUN_PROPS = new Set(["spawn", "spawnSync", "write", "$", "file"]);

@@ -18,7 +18,7 @@ export default {
           return;
         }
 
-        const match = astroConfig.match(/softwareVersion:\s*"([^"]+)"/);
+        const match = astroConfig.match(/softwareVersion:\s*"([^"]+)"/u);
         if (!match) return;
 
         const docsVersion = match[1];

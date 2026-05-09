@@ -126,7 +126,7 @@ async function runSignupPrompt(
     message: "Email address:",
     default: githubEmail ?? undefined,
     validate: (v: string) =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || "Enter a valid email address",
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(v) || "Enter a valid email address",
   });
   resetCursor();
 

@@ -56,7 +56,7 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/))
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
               );
               for (const matches of results) {
                 for (const m of matches) {
@@ -91,7 +91,7 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/))
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
               );
               for (const matches of results) {
                 for (const m of matches) {
@@ -242,7 +242,7 @@ describe("runChecks", () => {
             description: "Test grepFiles dot-prefix",
             async check(ctx) {
               matches = await ctx.grepFiles(
-                /release/,
+                /release/u,
                 ".github/workflows/*.yml"
               );
             },
@@ -274,7 +274,7 @@ describe("runChecks", () => {
           "grep-test": {
             description: "Test grepFiles",
             async check(ctx) {
-              matches = await ctx.grepFiles(/hello/, "src/**/*.ts");
+              matches = await ctx.grepFiles(/hello/u, "src/**/*.ts");
             },
           },
         },

@@ -16,7 +16,7 @@ export default {
         );
 
         const checks = files.map(async (file) => {
-          const matches = await ctx.grep(file, /process\.cwd\(\)/);
+          const matches = await ctx.grep(file, /process\.cwd\(\)/u);
           for (const m of matches) {
             // Allow process.cwd() as a fallback after findProjectRoot()
             // e.g. findProjectRoot() ?? process.cwd()

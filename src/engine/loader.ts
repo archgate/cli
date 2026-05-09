@@ -103,7 +103,7 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
 
   // Check for triple-slash reference to rules.d.ts
   const hasTripleSlash =
-    /^\/\/\/\s*<reference\s+path=["'][^"']*rules\.d\.ts["']\s*\/>$/m.test(
+    /^\/\/\/\s*<reference\s+path=["'][^"']*rules\.d\.ts["']\s*\/>$/mu.test(
       source
     );
   if (!hasTripleSlash) {
@@ -119,7 +119,7 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
   }
 
   // Check for `satisfies RuleSet` on the default export
-  const hasSatisfies = /\bsatisfies\s+RuleSet\b/.test(source);
+  const hasSatisfies = /\bsatisfies\s+RuleSet\b/u.test(source);
   if (!hasSatisfies) {
     // Point to the last line as a reasonable location for the missing satisfies
     const lines = source.split("\n");
@@ -233,7 +233,7 @@ export async function loadRuleAdrs(
         let rulesLine = 1;
         let rulesEndCol = 0;
         for (let i = 0; i < adrLines.length; i++) {
-          const match = adrLines[i].match(/^rules:\s*true/);
+          const match = adrLines[i].match(/^rules:\s*true/u);
           if (match) {
             rulesLine = i + 1;
             rulesEndCol = adrLines[i].length;

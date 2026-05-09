@@ -39,35 +39,35 @@ function collectFiles(dir: string): string[] {
 
 /** Strip YAML frontmatter (--- ... ---) from markdown content. */
 function stripFrontmatter(content: string): string {
-  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/u);
   return match ? content.slice(match[0].length) : content;
 }
 
 /** Extract title from YAML frontmatter. */
 function extractTitle(content: string): string | null {
-  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---/);
+  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---/u);
   if (!match) return null;
-  const titleMatch = match[0].match(/^title:\s*["']?(.+?)["']?\s*$/m);
+  const titleMatch = match[0].match(/^title:\s*["']?(.+?)["']?\s*$/mu);
   return titleMatch ? titleMatch[1] : null;
 }
 
 /** Strip JSX imports and component tags (keep content inside simple tags). */
 function stripJsx(content: string): string {
   return content
-    .replaceAll(/^import\s+.*$/gm, "") // import lines
-    .replaceAll(/<[A-Z]\w+[^>]*\/>/g, "") // self-closing components
-    .replaceAll(/<[A-Z]\w+[^>]*>|<\/[A-Z]\w+>/g, "") // opening/closing components
-    .replaceAll(/:::.*\[.*\]\n?/g, "") // Starlight admonition openers (:::tip[...])
-    .replaceAll(/^:::\s*$/gm, "") // Starlight admonition closers
-    .replaceAll(/\n{3,}/g, "\n\n"); // collapse excess blank lines
+    .replaceAll(/^import\s+.*$/gmu, "") // import lines
+    .replaceAll(/<[A-Z]\w+[^>]*\/>/gu, "") // self-closing components
+    .replaceAll(/<[A-Z]\w+[^>]*>|<\/[A-Z]\w+>/gu, "") // opening/closing components
+    .replaceAll(/:::.*\[.*\]\n?/gu, "") // Starlight admonition openers (:::tip[...])
+    .replaceAll(/^:::\s*$/gmu, "") // Starlight admonition closers
+    .replaceAll(/\n{3,}/gu, "\n\n"); // collapse excess blank lines
 }
 
 /** Convert a file path to its URL path on the site. */
 function fileToUrl(filePath: string): string {
   const rel = relative(docsDir, filePath)
     .replaceAll("\\", "/")
-    .replace(/(?:\/)?index\.mdx?$/, "/")
-    .replace(/\.mdx?$/, "/");
+    .replace(/(?:\/)?index\.mdx?$/u, "/")
+    .replace(/\.mdx?$/u, "/");
   const path = rel === "/" ? "/" : `/${rel}`;
   return `${siteUrl}${path}`;
 }

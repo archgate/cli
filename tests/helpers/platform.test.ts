@@ -127,7 +127,7 @@ describe("toWindowsPath", () => {
 
   test.skipIf(!inWSL)("converts WSL home path", async () => {
     const result = await toWindowsPath("/mnt/c/Users");
-    expect(result).toMatch(/^C:\\Users$/);
+    expect(result).toMatch(/^C:\\Users$/u);
   });
 
   test("returns null when not in WSL", async () => {
@@ -162,7 +162,7 @@ describe("getWindowsHomeDirFromWSL", () => {
   test.skipIf(!inWSL)("returns a path under /mnt/", async () => {
     const result = await getWindowsHomeDirFromWSL();
     expect(result).not.toBeNull();
-    expect(result!).toMatch(/^\/mnt\//);
+    expect(result!).toMatch(/^\/mnt\//u);
   });
 
   test.skipIf(!inWSL)("caches the result", async () => {

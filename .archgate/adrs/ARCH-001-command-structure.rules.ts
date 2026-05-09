@@ -8,7 +8,7 @@ export default {
         const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
         const checks = files.map(async (file) => {
           const content = await ctx.readFile(file);
-          if (!/export\s+function\s+register\w+Command/.test(content)) {
+          if (!/export\s+function\s+register\w+Command/u.test(content)) {
             ctx.report.violation({
               message: "Command file must export a register*Command function",
               file,
@@ -27,7 +27,7 @@ export default {
           files.map((file) =>
             ctx.grep(
               file,
-              /\.(parse|match|replace|split)\(.*\).*\.(parse|match|replace|split)\(/
+              /\.(parse|match|replace|split)\(.*\).*\.(parse|match|replace|split)\(/u
             )
           )
         );

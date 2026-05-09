@@ -11,7 +11,7 @@ export default {
         );
 
         const matches = await Promise.all(
-          files.map((file) => ctx.grep(file, /process\.env\b/))
+          files.map((file) => ctx.grep(file, /process\.env\b/u))
         );
         for (const fileMatches of matches) {
           for (const m of fileMatches) {

@@ -198,7 +198,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
   let path: string | null = null;
 
   // SCP-like: git@github.com:foo/bar.git
-  const scpMatch = trimmed.match(/^[^@\s]+@([^:]+):(.+)$/);
+  const scpMatch = trimmed.match(/^[^@\s]+@([^:]+):(.+)$/u);
   if (scpMatch) {
     host = scpMatch[1];
     path = scpMatch[2];
@@ -206,7 +206,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
     try {
       const url = new URL(trimmed);
       host = url.hostname;
-      path = url.pathname.replace(/^\//, "");
+      path = url.pathname.replace(/^\//u, "");
     } catch {
       return { host: null, owner: null, name: null, normalized: null };
     }
@@ -220,7 +220,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
   const classified = classifyHost(lowerHost);
 
   // Strip trailing .git, .git/, or /
-  path = path.replace(/\.git\/?$/, "").replace(/\/$/, "");
+  path = path.replace(/\.git\/?$/u, "").replace(/\/$/u, "");
   let segments = path.split("/").filter(Boolean);
 
   // Azure DevOps URL quirks:
@@ -232,7 +232,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
   if (classified === "azure-devops") {
     segments = segments.filter((s) => s !== "_git" && s !== "v3");
 
-    const vsHostMatch = lowerHost.match(/^([^.]+)\.visualstudio\.com$/);
+    const vsHostMatch = lowerHost.match(/^([^.]+)\.visualstudio\.com$/u);
     if (vsHostMatch && !segments.some((s) => s === vsHostMatch[1])) {
       segments = [vsHostMatch[1], ...segments];
     }

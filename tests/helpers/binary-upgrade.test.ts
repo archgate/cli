@@ -30,9 +30,9 @@ describe("getArtifactInfo", () => {
     // Should return non-null for any supported CI platform
     if (info === null) return;
 
-    expect(info.name).toMatch(/^archgate-(darwin-arm64|linux-x64|win32-x64)$/);
-    expect(info.ext).toMatch(/^\.(tar\.gz|zip)$/);
-    expect(info.binaryName).toMatch(/^archgate(\.exe)?$/);
+    expect(info.name).toMatch(/^archgate-(darwin-arm64|linux-x64|win32-x64)$/u);
+    expect(info.ext).toMatch(/^\.(tar\.gz|zip)$/u);
+    expect(info.binaryName).toMatch(/^archgate(\.exe)?$/u);
   });
 
   test("returns .zip extension for win32", () => {

@@ -16,7 +16,7 @@ class ArchgateProject extends NpmProject {
       if (existsSync(astroConfigPath)) {
         const astroConfig = readFileSync(astroConfigPath, "utf8");
         const updated = astroConfig.replace(
-          /softwareVersion:\s*"[^"]+"/,
+          /softwareVersion:\s*"[^"]+"/u,
           `softwareVersion: "${version}"`
         );
         if (updated !== astroConfig) {

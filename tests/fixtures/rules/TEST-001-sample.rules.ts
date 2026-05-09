@@ -7,7 +7,7 @@ export default {
       severity: "warning",
       async check(ctx) {
         const matches = await Promise.all(
-          ctx.scopedFiles.map((file) => ctx.grep(file, /\/\/\s*TODO/i))
+          ctx.scopedFiles.map((file) => ctx.grep(file, /\/\/\s*TODO/iu))
         );
         for (const fileMatches of matches) {
           for (const match of fileMatches) {
@@ -24,7 +24,7 @@ export default {
       description: "Disallow console.log in source files",
       async check(ctx) {
         const matches = await Promise.all(
-          ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log\(/))
+          ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log\(/u))
         );
         for (const fileMatches of matches) {
           for (const match of fileMatches) {

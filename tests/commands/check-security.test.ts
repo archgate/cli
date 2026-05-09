@@ -35,7 +35,7 @@ describe("check command security", () => {
     // Wrap rule code with required syntax conventions
     const wrapped =
       `/// <reference path="../rules.d.ts" />\n\n` +
-      ruleCode.trimEnd().replace(/};\s*$/, "} satisfies RuleSet;\n");
+      ruleCode.trimEnd().replace(/\};\s*$/u, "} satisfies RuleSet;\n");
     writeFileSync(join(adrsDir, `${id}-sec.rules.ts`), wrapped);
   }
 

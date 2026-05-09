@@ -13,7 +13,7 @@ import Analytics from "./Analytics.astro";
 
 const route = Astro.locals.starlightRoute;
 const siteUrl =
-  Astro.site?.href?.replace(/\/$/, "") ?? "https://cli.archgate.dev";
+  Astro.site?.href?.replace(/\/$/u, "") ?? "https://cli.archgate.dev";
 const pathname = Astro.url.pathname;
 const pageUrl = `${siteUrl}${pathname}`;
 
@@ -26,7 +26,7 @@ const template = hasRoute ? route.entry.data.template : undefined;
 // ── hreflang alternate links ─────────────────────────────────────
 // Map between English and pt-BR pages for search engine language targeting.
 const isPtBr = pathname.startsWith("/pt-br/");
-const enPath = isPtBr ? pathname.replace(/^\/pt-br\//, "/") : pathname;
+const enPath = isPtBr ? pathname.replace(/^\/pt-br\//u, "/") : pathname;
 const ptBrPath = isPtBr ? pathname : `/pt-br${pathname}`;
 const enUrl = `${siteUrl}${enPath}`;
 const ptBrUrl = `${siteUrl}${ptBrPath}`;
@@ -59,7 +59,7 @@ function toBreadcrumbName(segment: string): string {
     .split(" ")
     .filter((part) => part.length > 0)
     .map((part) => {
-      const isAllCaps = /^[A-Z0-9]+$/.test(part);
+      const isAllCaps = /^[A-Z0-9]+$/u.test(part);
       if (isAllCaps || part.length <= 3) {
         return part.toUpperCase();
       }

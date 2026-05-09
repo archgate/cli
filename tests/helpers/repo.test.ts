@@ -120,7 +120,7 @@ describe("repo helper", () => {
   describe("hashRepoId", () => {
     test("produces a stable 16-char hex id for a given normalized url", () => {
       const id = hashRepoId("github.com/foo/bar");
-      expect(id).toMatch(/^[0-9a-f]{16}$/);
+      expect(id).toMatch(/^[0-9a-f]{16}$/u);
       expect(hashRepoId("github.com/foo/bar")).toBe(id);
     });
 
@@ -172,7 +172,7 @@ describe("repo helper", () => {
       const ctx = await getRepoContext();
       expect(ctx.isGit).toBe(true);
       if (ctx.host) {
-        expect(ctx.repoId).toMatch(/^[0-9a-f]{16}$/);
+        expect(ctx.repoId).toMatch(/^[0-9a-f]{16}$/u);
       }
     });
   });

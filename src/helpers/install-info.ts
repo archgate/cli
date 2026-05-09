@@ -95,7 +95,7 @@ export function getProjectContext(): ProjectContext {
 
     const domainSet = new Set<string>();
     for (const f of mdFiles) {
-      const match = f.match(/^([A-Z]+)-\d+/);
+      const match = f.match(/^([A-Z]+)-\d+/u);
       if (match) domainSet.add(match[1]);
     }
 

@@ -13,8 +13,8 @@ import { generateRulesTemplate } from "./rules-shim";
 export function slugify(title: string): string {
   return title
     .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "-")
-    .replaceAll(/^-|-$/g, "");
+    .replaceAll(/[^a-z0-9]+/gu, "-")
+    .replaceAll(/^-|-$/gu, "");
 }
 
 export function getNextId(adrsDir: string, prefix: string): string {
@@ -24,7 +24,7 @@ export function getNextId(adrsDir: string, prefix: string): string {
   let maxNum = 0;
 
   for (const file of files) {
-    const match = file.match(new RegExp(`^${prefix}-(\\d+)`));
+    const match = file.match(new RegExp(`^${prefix}-(\\d+)`, "u"));
     if (match) {
       const num = parseInt(match[1], 10);
       if (num > maxNum) maxNum = num;

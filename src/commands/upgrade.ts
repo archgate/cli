@@ -324,7 +324,7 @@ export function registerUpgradeCommand(program: Command) {
 
         const packageJson = await import("../../package.json");
         const currentVersion = packageJson.default.version;
-        const latestVersion = tag.replace(/^v/, "");
+        const latestVersion = tag.replace(/^v/u, "");
         logDebug("Version comparison:", currentVersion, "vs", latestVersion);
         const order = semver.order(currentVersion, latestVersion);
 

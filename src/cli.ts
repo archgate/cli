@@ -203,9 +203,10 @@ function classifyErrorKind(err: unknown): string {
   if (!(err instanceof Error)) return "unknown";
   const name = err.name || "Error";
   const msg = err.message || "";
-  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/i.test(msg)) return "network";
-  if (/certificate|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(msg)) return "tls";
-  if (/EACCES|EPERM/.test(msg)) return "permission";
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/iu.test(msg))
+    return "network";
+  if (/certificate|SELF_SIGNED|UNABLE_TO_VERIFY/iu.test(msg)) return "tls";
+  if (/EACCES|EPERM/u.test(msg)) return "permission";
   if (name === "SyntaxError") return "syntax";
   if (name === "TypeError") return "type";
   return name;

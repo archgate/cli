@@ -11,7 +11,7 @@ const CONTENT_ROOT = "docs/src/content/docs";
 
 /** Patterns that match locale-prefixed internal links in MDX files. */
 const LOCALE_LINK_PATTERNS = LOCALES.map(
-  (locale) => new RegExp(`(?:href="|\\]\\()/${locale}/`, "g")
+  (locale) => new RegExp(`(?:href="|\\]\\()/${locale}/`, "gu")
 );
 
 export default {
