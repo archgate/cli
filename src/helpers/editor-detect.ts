@@ -7,8 +7,6 @@
 
 import { cursorTo } from "node:readline";
 
-import inquirer from "inquirer";
-
 import { EDITOR_LABELS } from "./init-project";
 import type { EditorTarget } from "./init-project";
 import { logDebug } from "./log";
@@ -67,6 +65,9 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
 export async function promptEditorSelection(
   detected: DetectedEditor[]
 ): Promise<EditorTarget[]> {
+  // Lazy-load inquirer — it costs ~200ms to parse and is only needed when
+  // the user is interactively prompted, not on every CLI startup.
+  const { default: inquirer } = await import("inquirer");
   const { selected } = await inquirer.prompt([
     {
       type: "checkbox",
@@ -95,6 +96,7 @@ export async function promptEditorSelection(
 export async function promptSingleEditorSelection(
   detected: DetectedEditor[]
 ): Promise<EditorTarget> {
+  const { default: inquirer } = await import("inquirer");
   const available = detected.filter((e) => e.available);
   const defaultEditor = available.length > 0 ? available[0].id : "claude";
 

@@ -1,26 +1,21 @@
 /**
- * Performance regression tests — guard against the "un-cancelled timer"
- * class of bugs that added a 3-second tail to every command that exits
- * naturally through `main()` returning.
+ * Performance regression tests for CLI startup and exit latency.
  *
- * See PR #213 for the full list of call sites fixed. The specific
- * regression this file protects against is any leaked `setTimeout` /
- * `Bun.sleep` that keeps the Bun event loop alive past its intended
- * shutdown — most commonly in telemetry / Sentry flush, the git
- * credential helper, or the WSL fallback in `resolveCommand`.
+ * Two concerns, two describe blocks:
  *
- * Strategy: run short commands end-to-end via the real CLI entry
- * and assert wall-clock time stays under a generous threshold. A
- * lingering timer immediately pushes the time past the threshold
- * (the old tail was ~3s on Windows); genuinely slow runs on cold
- * CI still fit well within the budget.
+ * 1. **Exit tail guard** — catches leaked `setTimeout` / `Bun.sleep` that
+ *    keep the event loop alive after the command completes (the ~3s tail
+ *    from PR #213). Budget: 4000ms — generous, only fires on timer leaks.
  *
- * The thresholds are intentionally generous so the test doesn't
- * flake on slow runners — they're chosen to catch the *regression*
- * (commands lingering 3s+) without failing on normal CI noise.
- * Don't tighten these to assert absolute performance targets; do
- * that elsewhere if needed. The job of these tests is one thing:
- * catch the exit tail returning.
+ * 2. **Startup latency budget** — catches import-time regressions like
+ *    static `import inquirer` (costs ~200ms) or blocking telemetry init
+ *    (~150ms). Budgets are ~3-4x the measured baseline so they don't
+ *    flake on slow CI, but tight enough to catch a heavy dependency
+ *    being pulled into the startup path.
+ *
+ * Strategy: run commands end-to-end via `Bun.spawn`, take the median of
+ * multiple runs to smooth out cold-start variance, and assert wall-clock
+ * time stays under the budget.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -121,5 +116,138 @@ describe("CLI performance — exit tail regression guard", () => {
       expect(median).toBeLessThan(FAST_COMMAND_MAX_MS);
     },
     FAST_COMMAND_MAX_MS * 4
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Startup latency budgets
+// ---------------------------------------------------------------------------
+//
+// These budgets are tighter than the exit-tail guard above. They protect
+// against import-time regressions:
+//
+//   - Re-adding a static `import inquirer` (costs ~200ms)
+//   - Blocking on telemetry/sentry init before command parsing (~150ms)
+//   - Pulling a heavy new dependency into the top-level import chain
+//
+// Baseline (measured 2026-05-09 on Windows, subprocess via Bun.spawn):
+//   --help:    ~260ms    --version: ~250ms
+//   adr list:  ~400ms    check:     ~750ms
+//
+// Budgets are set at ~3-4x the baseline to absorb CI variance (GitHub
+// Actions Windows runners are typically 1.5-2x slower than local dev)
+// without masking a real regression. If a budget fires, profile the
+// startup with `bun -e "..."` import-time measurements (see the commit
+// that introduced these tests for the technique).
+
+/**
+ * Budget for commands that do zero project I/O — pure startup + parse +
+ * exit. These exercise the full import chain but touch no .archgate/ files.
+ */
+const STARTUP_ONLY_MAX_MS = 1000;
+
+/**
+ * Budget for commands that do light project I/O (read + parse ADR files).
+ */
+const LIGHT_COMMAND_MAX_MS = 1500;
+
+/**
+ * Budget for commands that do heavy project I/O (load rules, scan files,
+ * run checks).
+ */
+const HEAVY_COMMAND_MAX_MS = 2500;
+
+function startupBudgetError(
+  label: string,
+  median: number,
+  all: number[],
+  budget: number
+): string {
+  return (
+    `\`${label}\` took ${Math.round(median)}ms ` +
+    `(median of ${all.map((m) => Math.round(m)).join(", ")}ms). ` +
+    `Budget is ${budget}ms. ` +
+    `This usually means a heavy dependency was added to the static import chain ` +
+    `(e.g. inquirer, a new SDK) or an async init is blocking before command parsing. ` +
+    `Profile with: bun -e "const t=performance.now(); await import('./src/...'); ` +
+    `console.log(performance.now()-t)"`
+  );
+}
+
+describe("CLI performance — startup latency budget", () => {
+  test(
+    "`--help` stays within startup budget",
+    async () => {
+      const { median, all } = await medianDurationMs(["--help"], 3);
+      if (median >= STARTUP_ONLY_MAX_MS) {
+        throw new Error(
+          startupBudgetError(
+            "archgate --help",
+            median,
+            all,
+            STARTUP_ONLY_MAX_MS
+          )
+        );
+      }
+      expect(median).toBeLessThan(STARTUP_ONLY_MAX_MS);
+    },
+    STARTUP_ONLY_MAX_MS * 5
+  );
+
+  test(
+    "`--version` stays within startup budget",
+    async () => {
+      const { median, all } = await medianDurationMs(["--version"], 3);
+      if (median >= STARTUP_ONLY_MAX_MS) {
+        throw new Error(
+          startupBudgetError(
+            "archgate --version",
+            median,
+            all,
+            STARTUP_ONLY_MAX_MS
+          )
+        );
+      }
+      expect(median).toBeLessThan(STARTUP_ONLY_MAX_MS);
+    },
+    STARTUP_ONLY_MAX_MS * 5
+  );
+
+  test(
+    "`adr list` stays within light-command budget",
+    async () => {
+      const { median, all } = await medianDurationMs(["adr", "list"], 3);
+      if (median >= LIGHT_COMMAND_MAX_MS) {
+        throw new Error(
+          startupBudgetError(
+            "archgate adr list",
+            median,
+            all,
+            LIGHT_COMMAND_MAX_MS
+          )
+        );
+      }
+      expect(median).toBeLessThan(LIGHT_COMMAND_MAX_MS);
+    },
+    LIGHT_COMMAND_MAX_MS * 5
+  );
+
+  test(
+    "`check` stays within heavy-command budget",
+    async () => {
+      const { median, all } = await medianDurationMs(["check"], 3);
+      if (median >= HEAVY_COMMAND_MAX_MS) {
+        throw new Error(
+          startupBudgetError(
+            "archgate check",
+            median,
+            all,
+            HEAVY_COMMAND_MAX_MS
+          )
+        );
+      }
+      expect(median).toBeLessThan(HEAVY_COMMAND_MAX_MS);
+    },
+    HEAVY_COMMAND_MAX_MS * 5
   );
 });

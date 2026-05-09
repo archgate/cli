@@ -40,6 +40,7 @@ export function registerCheckCommand(program: Command) {
       try {
         loadResults = await loadRuleAdrs(projectRoot, opts.adr);
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(
           err instanceof Error ? err.message : `Failed to load rules: ${err}`
         );

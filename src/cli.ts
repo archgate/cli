@@ -67,16 +67,16 @@ cleanupStaleBinary();
 async function main() {
   await installGit();
 
-  // Initialize error tracking and telemetry (no-ops if opted out).
+  // Start error tracking and telemetry initialization concurrently but do NOT
+  // await them here. Both SDKs are lazy-loaded via dynamic `import()` inside
+  // these functions, so the `ARCHGATE_TELEMETRY=0` path is a cheap no-op.
   //
-  // Both SDKs are lazy-loaded via dynamic `import()` inside these functions,
-  // so the `ARCHGATE_TELEMETRY=0` path skips the parse/init cost entirely.
-  //
-  // Await telemetry so the repo context is resolved before the preAction
-  // hook fires `command_executed` — otherwise that event always lands
-  // without `repo_id` (see PR #211). The two init calls run concurrently,
-  // so the wall-clock cost is bounded by whichever is slowest.
-  await Promise.all([initSentry(), initTelemetry()]);
+  // The promise is awaited in the preAction hook — right before the first
+  // telemetry event fires — so `repo_id` is always present on `command_executed`
+  // events (see PR #211). This defers ~150ms of SDK parse + git subprocess cost
+  // off the critical path for --help, --version, and fast-exit commands that
+  // never trigger preAction.
+  const telemetryReady = Promise.all([initSentry(), initTelemetry()]);
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
     .choices(["error", "warn", "info", "debug"] as const)
@@ -93,7 +93,13 @@ async function main() {
   // Commander invokes the hook callback with (hookedCommand, actionCommand);
   // the second arg is the actual subcommand being executed. We use the action
   // command so `adr create` etc. resolves correctly instead of always "root".
-  program.hook("preAction", (_hookedCommand, actionCommand) => {
+  program.hook("preAction", async (_hookedCommand, actionCommand) => {
+    // Ensure telemetry SDKs are initialized before emitting any events.
+    // By the time a real command's preAction fires, the init promises have
+    // usually already resolved (they started before command registration),
+    // so this await is effectively free in practice.
+    await telemetryReady;
+
     // Apply log level from global option before any command runs
     const rootOpts = program.opts();
     setLogLevel(rootOpts.logLevel as LogLevel);

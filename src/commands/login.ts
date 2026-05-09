@@ -35,6 +35,7 @@ export function registerLoginCommand(program: Command) {
         await exitWith(1);
       }
     } catch (err) {
+      if (err instanceof Error && err.name === "ExitPromptError") throw err;
       const failureReason = isTlsError(err) ? "tls" : "other";
       trackLoginResult({
         subcommand: "login",
@@ -63,6 +64,7 @@ export function registerLoginCommand(program: Command) {
           console.log("Not logged in. Run `archgate login` to authenticate.");
         }
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
       }
@@ -77,6 +79,7 @@ export function registerLoginCommand(program: Command) {
         trackLoginResult({ subcommand: "logout", success: true });
         console.log("Logged out successfully.");
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
       }
@@ -96,6 +99,7 @@ export function registerLoginCommand(program: Command) {
           await exitWith(1);
         }
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         const failureReason = isTlsError(err) ? "tls" : "other";
         trackLoginResult({
           subcommand: "refresh",

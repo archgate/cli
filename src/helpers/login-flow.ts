@@ -6,8 +6,6 @@
 import { cursorTo } from "node:readline";
 import { styleText } from "node:util";
 
-import inquirer from "inquirer";
-
 /**
  * Reset cursor to column 0 after an inquirer prompt on Windows.
  * See editor-detect.ts for the full explanation of the bug.
@@ -119,6 +117,9 @@ async function runSignupPrompt(
   githubEmail: string | null,
   preselectedEditor?: string
 ): Promise<string | null> {
+  // Lazy-load inquirer — it costs ~200ms to parse and is only needed for
+  // interactive signup prompts, not on every CLI startup.
+  const { default: inquirer } = await import("inquirer");
   const { email } = await inquirer.prompt({
     type: "input",
     name: "email",

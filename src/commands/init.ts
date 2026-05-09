@@ -5,7 +5,6 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
-import inquirer from "inquirer";
 
 import { loadCredentials } from "../helpers/credential-store";
 import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
@@ -83,6 +82,9 @@ export function registerInitCommand(program: Command) {
           opts.installPlugin === undefined &&
           process.stdin.isTTY
         ) {
+          // Lazy-load inquirer — it costs ~200ms to parse and is only needed
+          // for interactive prompts, not for scripted or --help invocations.
+          const { default: inquirer } = await import("inquirer");
           const { wantPlugin } = await inquirer.prompt([
             {
               type: "confirm",
@@ -179,6 +181,8 @@ export function registerInitCommand(program: Command) {
             : {}),
         });
       } catch (err) {
+        // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         if (isTlsError(err)) {
           logError(tlsHintMessage());
           await exitWith(1);
