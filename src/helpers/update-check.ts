@@ -42,7 +42,7 @@ export async function checkForUpdatesIfNeeded(
       return null;
     }
 
-    const latestVersion = tag.replace(/^v/, "");
+    const latestVersion = tag.replace(/^v/u, "");
 
     // Write new cache timestamp regardless of result
     await Bun.write(cacheFile, String(Date.now()));

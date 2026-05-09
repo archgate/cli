@@ -31,7 +31,7 @@ function isBarrelFile(content: string): boolean {
       // Continuation of multi-line export blocks
       line.startsWith("} from") ||
       line.startsWith("type ") ||
-      /^[A-Za-z_$,\s]+$/.test(line) ||
+      /^[A-Za-z_$,\s]+$/u.test(line) ||
       line === "}" ||
       line === "};"
   );

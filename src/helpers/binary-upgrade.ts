@@ -184,7 +184,7 @@ export async function downloadReleaseBinary(
     });
     if (checksumResponse.ok) {
       const checksumText = await checksumResponse.text();
-      const expectedHash = checksumText.trim().split(/\s+/)[0].toLowerCase();
+      const expectedHash = checksumText.trim().split(/\s+/u)[0].toLowerCase();
       const actualHash = createHash("sha256")
         .update(new Uint8Array(buffer))
         .digest("hex");

@@ -72,7 +72,7 @@ describe("runChecks path sandboxing", () => {
           "traversal-grep": {
             description: "Attempt path traversal via grep",
             async check(ctx) {
-              await ctx.grep("../../../etc/hosts", /localhost/);
+              await ctx.grep("../../../etc/hosts", /localhost/u);
             },
           },
         },
@@ -148,7 +148,7 @@ describe("runChecks path sandboxing", () => {
           "grepfiles-traversal": {
             description: "Attempt grepFiles traversal",
             async check(ctx) {
-              await ctx.grepFiles(/secret/, "../**/*.env");
+              await ctx.grepFiles(/secret/u, "../**/*.env");
             },
           },
         },

@@ -14,7 +14,7 @@ export default {
         );
 
         const matches = await Promise.all(
-          files.map((file) => ctx.grep(file, /process\.platform/))
+          files.map((file) => ctx.grep(file, /process\.platform/u))
         );
         for (const fileMatches of matches) {
           for (const m of fileMatches) {

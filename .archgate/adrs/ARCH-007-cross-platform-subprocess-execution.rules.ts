@@ -12,7 +12,7 @@ export default {
 
         // Check for Bun.$ template literal usage
         const bunShellMatches = await Promise.all(
-          files.map((file) => ctx.grep(file, /Bun\.\$`/))
+          files.map((file) => ctx.grep(file, /Bun\.\$`/u))
         );
         for (const fileMatches of bunShellMatches) {
           for (const m of fileMatches) {
@@ -29,7 +29,7 @@ export default {
         // Check for $ import from "bun" (the shell API)
         const dollarImportMatches = await Promise.all(
           files.map((file) =>
-            ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/)
+            ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/u)
           )
         );
         for (const fileMatches of dollarImportMatches) {
@@ -46,7 +46,7 @@ export default {
 
         // Check for await $` pattern (destructured $ usage)
         const destructuredMatches = await Promise.all(
-          files.map((file) => ctx.grep(file, /await\s+\$`/))
+          files.map((file) => ctx.grep(file, /await\s+\$`/u))
         );
         for (const fileMatches of destructuredMatches) {
           for (const m of fileMatches) {

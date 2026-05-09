@@ -85,7 +85,7 @@ export function writeRules(
     wrapped = `/// <reference path="../rules.d.ts" />\n\n${wrapped}`;
   }
   if (!content.includes("satisfies RuleSet")) {
-    wrapped = wrapped.trimEnd().replace(/};\s*$/, "} satisfies RuleSet;\n");
+    wrapped = wrapped.trimEnd().replace(/\};\s*$/u, "} satisfies RuleSet;\n");
   }
   writeFileSync(join(dir, ".archgate", "adrs", filename), wrapped);
 }

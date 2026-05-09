@@ -49,7 +49,7 @@ export function getPlatformInfo(): PlatformInfo {
   // Fallback: /proc/version check (catches WSL1)
   try {
     const procVersion = readFileSync("/proc/version", "utf-8");
-    if (/microsoft/i.test(procVersion)) {
+    if (/microsoft/iu.test(procVersion)) {
       cachedPlatformInfo = { runtime, isWSL: true, wslDistro: null };
       return cachedPlatformInfo;
     }

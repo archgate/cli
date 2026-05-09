@@ -15,7 +15,7 @@ export default {
           files.map((file) =>
             ctx.grep(
               file,
-              /\.option\(\s*["']--\w+\s+<\w+>["'],\s*["'][^"']*(?:claude.*cursor|backend.*frontend)[^"']*["']/
+              /\.option\(\s*["']--\w+\s+<\w+>["'],\s*["'][^"']*(?:claude.*cursor|backend.*frontend)[^"']*["']/u
             )
           )
         );
@@ -44,7 +44,7 @@ export default {
           files.map((file) =>
             ctx.grep(
               file,
-              /\.option\(\s*["']--\w+\s+<\w+>["'],\s*["'][^"']*["'],\s*(?:parseInt|parseFloat|\()/
+              /\.option\(\s*["']--\w+\s+<\w+>["'],\s*["'][^"']*["'],\s*(?:parseInt|parseFloat|\()/u
             )
           )
         );

@@ -14,7 +14,7 @@ import {
 
 /** Arbitrary that produces strings resembling kebab-case domain names. */
 const domainArb = fc.oneof(
-  fc.stringMatching(/^[a-z][a-z0-9-]{1,31}$/),
+  fc.stringMatching(/^[a-z][a-z0-9-]{1,31}$/u),
   fc.constant(""),
   fc.constant("a"),
   fc.constant("BACKEND"),

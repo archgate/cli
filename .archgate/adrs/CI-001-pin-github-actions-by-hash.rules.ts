@@ -5,13 +5,13 @@
  * Captures: owner/action@ref (ignoring local refs like `./.github/...` and
  * docker refs like `docker://...`).
  */
-const USES_PATTERN = /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/g;
+const USES_PATTERN = /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/gu;
 
 /**
  * A valid pinned reference: 40 hex characters (full SHA), optionally followed
  * by a version comment.
  */
-const PINNED_SHA_PATTERN = /^.+@[0-9a-f]{40}\b/;
+const PINNED_SHA_PATTERN = /^.+@[0-9a-f]{40}\b/u;
 
 /**
  * Carved-out exceptions where the upstream provider does not support SHA pinning.
@@ -44,7 +44,7 @@ export default {
         for (const m of matches) {
           // Extract the full `uses:` value from the matched line
           const usesMatch = m.content.match(
-            /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/
+            /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/u
           );
           if (!usesMatch) continue;
 

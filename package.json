@@ -71,9 +71,9 @@
     "inquirer": "13.4.2",
     "knip": "6.12.1",
     "meriyah": "7.1.0",
-    "oxfmt": "0.47.0",
-    "oxlint": "1.62.0",
-    "posthog-node": "5.33.2",
+    "oxfmt": "0.48.0",
+    "oxlint": "1.63.0",
+    "posthog-node": "5.33.3",
     "zod": "4.4.3"
   },
   "peerDependencies": {

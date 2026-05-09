@@ -16,12 +16,12 @@ export default {
           const content = await ctx.readFile(file);
 
           // Find async action callbacks
-          const hasAsyncAction = /\.action\(\s*async\s/.test(content);
+          const hasAsyncAction = /\.action\(\s*async\s/u.test(content);
           if (!hasAsyncAction) return;
 
           // Check if the async action body contains a try block
           // Match: .action(async (...) => { ... try { ... } ... })
-          const hasTryCatch = /\.action\(\s*async\s[\s\S]*?\btry\s*\{/.test(
+          const hasTryCatch = /\.action\(\s*async\s[\s\S]*?\btry\s*\{/u.test(
             content
           );
 
@@ -51,13 +51,13 @@ export default {
 
           // Only check files with async actions that have try-catch
           const hasAsyncActionWithTryCatch =
-            /\.action\(\s*async\s[\s\S]*?\btry\s*\{/.test(content);
+            /\.action\(\s*async\s[\s\S]*?\btry\s*\{/u.test(content);
           if (!hasAsyncActionWithTryCatch) return;
 
           // Check for the ExitPromptError re-throw pattern anywhere in the file.
           // The canonical pattern is:
           //   if (err instanceof Error && err.name === "ExitPromptError") throw err;
-          const hasExitPromptRethrow = /ExitPromptError/.test(content);
+          const hasExitPromptRethrow = /ExitPromptError/u.test(content);
 
           if (!hasExitPromptRethrow) {
             ctx.report.violation({
