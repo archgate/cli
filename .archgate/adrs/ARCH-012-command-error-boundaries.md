@@ -85,6 +85,7 @@ The top-level `main().catch()` in `cli.ts` remains as a safety net for truly une
 ### Automated Enforcement
 
 - **Archgate rule** `ARCH-012/async-action-error-boundary`: Scans async command actions for try-catch blocks. Severity: `warning` (some commands may have valid reasons for alternative patterns).
+- **Archgate rule** `ARCH-012/exit-prompt-error-rethrow`: Verifies that async command actions with try-catch blocks include the `ExitPromptError` re-throw pattern. Severity: `error` — missing re-throws silently convert user cancellation (Ctrl+C, exit 130) into command failure (exit 1).
 
 ### Manual Enforcement
 

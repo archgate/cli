@@ -1,7 +1,6 @@
 import { cursorTo } from "node:readline";
 
 import type { Command } from "@commander-js/extra-typings";
-import inquirer from "inquirer";
 
 import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
@@ -56,6 +55,10 @@ export function registerAdrCreateCommand(adr: Command) {
           body = opts.body;
         } else {
           const choices = getAllDomainNames(projectRoot);
+          // Lazy-load inquirer — it costs ~200ms to parse and is only
+          // needed for interactive prompts, not for scripted --title/--domain
+          // invocations or --help/--version.
+          const { default: inquirer } = await import("inquirer");
           // Interactive mode
           const answers = await inquirer.prompt([
             {
@@ -108,6 +111,8 @@ export function registerAdrCreateCommand(adr: Command) {
           console.log(`Created ADR: ${result.filePath}`);
         }
       } catch (err) {
+        // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
       }

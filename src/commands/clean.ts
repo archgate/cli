@@ -46,6 +46,8 @@ export function registerCleanCommand(program: Command) {
           console.log(`${destinationPath} cleaned up`);
         }
       } catch (error) {
+        if (error instanceof Error && error.name === "ExitPromptError")
+          throw error;
         logError(
           `Failed to clean ${destinationPath}.`,
           error instanceof Error ? error.message : String(error)

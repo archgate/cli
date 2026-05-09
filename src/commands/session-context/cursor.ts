@@ -34,6 +34,7 @@ export function registerCursorSessionContextCommand(parent: Command) {
 
         console.log(formatJSON(result.data));
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
       }

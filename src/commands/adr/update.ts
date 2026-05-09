@@ -63,6 +63,7 @@ export function registerAdrUpdateCommand(adr: Command) {
           console.log(`Updated ADR: ${result.filePath}`);
         }
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         const message = err instanceof Error ? err.message : String(err);
         logError(message);
         await exitWith(1);

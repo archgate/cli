@@ -31,6 +31,7 @@ export function registerAdrShowCommand(adr: Command) {
         const content = await Bun.file(adr.filePath).text();
         console.log(content);
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
       }

@@ -55,6 +55,7 @@ export function registerPluginUrlCommand(plugin: Command) {
 
         console.log(url);
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
       }

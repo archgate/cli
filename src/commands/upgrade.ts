@@ -275,6 +275,7 @@ async function upgradeBinary(tag: string): Promise<void> {
     logDebug("Replacing binary:", process.execPath);
     replaceBinary(process.execPath, newBinaryPath);
   } catch (err) {
+    if (err instanceof Error && err.name === "ExitPromptError") throw err;
     finishDownloadProgress();
     logError(
       "Failed to upgrade binary.",
@@ -369,6 +370,7 @@ export function registerUpgradeCommand(program: Command) {
 
         console.log(`Archgate upgraded to ${latestVersion} successfully.`);
       } catch (err) {
+        if (err instanceof Error && err.name === "ExitPromptError") throw err;
         trackUpgradeResult({
           from_version: "unknown",
           to_version: "unknown",
