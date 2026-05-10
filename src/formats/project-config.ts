@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { z } from "zod";
 
 export const DOMAIN_NAME_PATTERN = /^[a-z][a-z0-9-]*$/u;

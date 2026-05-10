@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * Utilities for mapping violation positions from transpiled JS back to
  * original TypeScript source, skipping matches in comments and strings.

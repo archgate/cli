@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, renameSync, unlinkSync } from "node:fs";
 import { unlink } from "node:fs/promises";

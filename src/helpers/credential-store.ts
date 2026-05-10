@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * credential-store.ts — Secure credential storage using git's native credential helpers.
  *

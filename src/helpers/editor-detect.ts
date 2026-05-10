@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * editor-detect.ts — Detects available editor CLIs and prompts the user to select.
  *

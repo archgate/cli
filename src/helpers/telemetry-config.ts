@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * telemetry-config.ts — Manages telemetry preferences in ~/.archgate/config.json.
  *
@@ -26,6 +28,8 @@ export interface TelemetryConfig {
   installId: string;
   /** ISO date of first telemetry config creation. */
   createdAt: string;
+  /** Whether the first-run privacy notice has been shown. */
+  noticeShown?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,6 +147,37 @@ function saveTelemetryConfigAsync(config: TelemetryConfig): void {
   saveTelemetryConfig(config).catch(() => {
     // Silently ignore — telemetry config persistence is best-effort
   });
+}
+
+// ---------------------------------------------------------------------------
+// First-run privacy notice
+// ---------------------------------------------------------------------------
+
+/**
+ * Show a one-time privacy notice on first interactive CLI session.
+ * Only displays when: TTY, not CI, telemetry enabled, notice not yet shown.
+ * Non-blocking — saves the "shown" flag asynchronously.
+ */
+export function showFirstRunNoticeIfNeeded(): void {
+  if (!process.stdout.isTTY) return;
+  if (Bun.env.CI) return;
+  if (isEnvTelemetryDisabled()) return;
+
+  const config = loadTelemetryConfig();
+  if (!config.telemetry) return;
+  if (config.noticeShown) return;
+
+  logDebug("Showing first-run privacy notice");
+  process.stdout.write(
+    "\nArchgate collects anonymous usage data to improve the tool.\n" +
+      "Details: https://cli.archgate.dev/reference/telemetry\n" +
+      "Disable: archgate telemetry disable\n\n"
+  );
+
+  // Persist the flag so the notice is shown only once
+  config.noticeShown = true;
+  cachedConfig = config;
+  saveTelemetryConfigAsync(config);
 }
 
 // ---------------------------------------------------------------------------

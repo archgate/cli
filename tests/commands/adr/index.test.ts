@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { describe, expect, test } from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";

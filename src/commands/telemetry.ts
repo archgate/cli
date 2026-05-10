@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
 
 import { exitWith } from "../helpers/exit";
@@ -36,6 +38,9 @@ export function registerTelemetryCommand(program: Command) {
         );
         console.log(
           "\nTo disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0"
+        );
+        console.log(
+          "\nLegal basis: https://archgate.dev/legitimate-interest-assessment"
         );
         console.log("Learn more: https://cli.archgate.dev/reference/telemetry");
       } else {

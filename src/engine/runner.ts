@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { lstatSync } from "node:fs";
 import { relative, resolve, isAbsolute } from "node:path";
 

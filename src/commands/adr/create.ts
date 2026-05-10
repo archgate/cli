@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { cursorTo } from "node:readline";
 
 import type { Command } from "@commander-js/extra-typings";

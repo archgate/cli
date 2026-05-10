@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * repo-probe.ts — Unauthenticated API probes to determine whether a Git
  * repository is public on its host (GitHub, GitLab, Bitbucket, Azure DevOps).
