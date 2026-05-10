@@ -116,7 +116,7 @@ export default {
 
 - **Alterar a allowlist**: Adicione ou remova identificadores de licença baseado na licença do seu projeto. Projetos GPL podem permitir dependências GPL; projetos Apache-2.0 devem bloqueá-las.
 - **Verificar apenas deps de produção**: Remova `devDependencies` de `allDeps` se você só se preocupa com código empacotado/distribuído.
-- **Escanear transitivas**: Use `ctx.glob("node_modules/*/package.json")` e `ctx.glob("node_modules/@*/*/package.json")` para escanear todos os pacotes instalados recursivamente, não apenas dependências diretas.
+- **Escanear transitivas**: Use `ctx.glob("node_modules/{*,@*/*}/package.json")` para escanear todos os pacotes instalados (incluindo escopados) recursivamente, não apenas dependências diretas.
 
 ## Quando usar
 
