@@ -63,35 +63,43 @@ function isAllowed(license: string | undefined): boolean {
   return false;
 }
 
+/**
+ * Extrai o nome do pacote de um caminho node_modules.
+ * Trata pacotes regulares e escopados (@scope/name).
+ */
+function extractPackageName(path: string): string {
+  const parts = path.replaceAll("\\", "/").split("/");
+  const nmIdx = parts.lastIndexOf("node_modules");
+  if (nmIdx === -1) return path;
+  const afterNm = parts.slice(nmIdx + 1);
+  if (afterNm[0]?.startsWith("@") && afterNm.length >= 2) {
+    return `${afterNm[0]}/${afterNm[1]}`;
+  }
+  return afterNm[0] ?? path;
+}
+
 export default {
   rules: {
     "no-copyleft-deps": {
-      description: "All dependencies must use permissive licenses",
+      description:
+        "All dependencies (including transitive) must use permissive licenses",
       async check(ctx) {
-        let pkg: {
-          dependencies?: Record<string, string>;
-          devDependencies?: Record<string, string>;
-        };
-        try {
-          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
-        } catch {
-          return;
-        }
-
-        const allDeps = [
-          ...Object.keys(pkg.dependencies ?? {}),
-          ...Object.keys(pkg.devDependencies ?? {}),
-        ];
+        // Escaneia TODOS os pacotes em node_modules — diretos E transitivos.
+        // Brace expansion cobre pacotes regulares e escopados.
+        const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
 
         const depResults = await Promise.all(
-          allDeps.map(async (dep) => {
+          pkgFiles.map(async (pkgPath) => {
             try {
-              const depPkg = (await ctx.readJSON(
-                `node_modules/${dep}/package.json`
-              )) as { license?: string };
-              return { dep, license: depPkg.license };
+              const depPkg = (await ctx.readJSON(pkgPath)) as {
+                license?: string;
+              };
+              return {
+                dep: extractPackageName(pkgPath),
+                license: depPkg.license,
+              };
             } catch {
-              return null; // Missing or scoped — skip
+              return null;
             }
           })
         );
