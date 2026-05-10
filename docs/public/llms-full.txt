@@ -5029,6 +5029,135 @@ When your project intentionally mixes naming conventions (e.g., PascalCase for R
 
 ---
 
+## Examples: license-compatibility
+
+Source: https://cli.archgate.dev/examples/license-compatibility/
+
+Prevent copyleft or incompatible licenses from entering your dependency tree.
+
+## Rule details
+
+When you compile or bundle dependencies into your application, their license terms apply to the combined work. A single GPL dependency in a permissive (MIT/Apache-2.0) project can force the entire project to adopt copyleft terms. This rule checks all direct dependencies against a permissive-license allowlist.
+
+## Examples of **incorrect** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "readline-sync": "^1.4.10" }
+}
+```
+
+If `readline-sync` uses GPL-3.0, it triggers a violation even as a devDependency.
+
+## Examples of **correct** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "fast-check": "^4.7.0" }
+}
+```
+
+Both `zod` (MIT) and `fast-check` (MIT) are on the permissive allowlist.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const ALLOWED_LICENSES = new Set([
+  "MIT",
+  "Apache-2.0",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+  "BlueOak-1.0.0",
+]);
+
+function isAllowed(license: string | undefined): boolean {
+  if (!license) return false;
+  if (ALLOWED_LICENSES.has(license)) return true;
+
+  // Handle SPDX OR expressions — at least one option must be allowed
+  const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
+  if (ALLOWED_LICENSES.has(normalized)) return true;
+
+  if (normalized.includes(" OR ")) {
+    return normalized.split(" OR ").some((l) => ALLOWED_LICENSES.has(l.trim()));
+  }
+
+  return false;
+}
+
+export default {
+  rules: {
+    "no-copyleft-deps": {
+      description: "All dependencies must use permissive licenses",
+      async check(ctx) {
+        let pkg: {
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+        };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return;
+        }
+
+        const allDeps = [
+          ...Object.keys(pkg.dependencies ?? {}),
+          ...Object.keys(pkg.devDependencies ?? {}),
+        ];
+
+        const depResults = await Promise.all(
+          allDeps.map(async (dep) => {
+            try {
+              const depPkg = (await ctx.readJSON(
+                `node_modules/${dep}/package.json`
+              )) as { license?: string };
+              return { dep, license: depPkg.license };
+            } catch {
+              return null; // Missing or scoped — skip
+            }
+          })
+        );
+
+        for (const result of depResults) {
+          if (result === null) continue;
+          if (!isAllowed(result.license)) {
+            ctx.report.violation({
+              message: `Dependency "${result.dep}" has disallowed license: "${result.license ?? "(none)"}".`,
+              file: "package.json",
+              fix: `Remove "${result.dep}" or find an alternative with a permissive license.`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Customization
+
+- **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
+- **Check only production deps**: Remove `devDependencies` from `allDeps` if you only care about bundled/shipped code.
+- **Add transitive scanning**: For deeper coverage, scan all `node_modules/*/package.json` instead of only direct dependencies (see a dedicated script approach for this).
+
+## When to use it
+
+When your project uses a permissive license (MIT, Apache-2.0, ISC, BSD) and you want to prevent copyleft contamination, especially in compiled/bundled distributions.
+
+## When not to use it
+
+In GPL-licensed projects (where copyleft dependencies are compatible), or when you have a dedicated license-scanning SaaS tool (FOSSA, Snyk) that already gates your CI pipeline.
+
+---
+
 ## Examples: max-file-length
 
 Source: https://cli.archgate.dev/examples/max-file-length/
@@ -6059,6 +6188,105 @@ When your architecture requires a specific export pattern from files in a direct
 ## When not to use it
 
 When the directory contains mixed file types that do not all need to follow the same export pattern.
+
+---
+
+## Examples: spdx-license-headers
+
+Source: https://cli.archgate.dev/examples/spdx-license-headers/
+
+Ensure every source file declares its license with a machine-readable SPDX identifier.
+
+## Rule details
+
+Open-source projects benefit from per-file license declarations — they survive file extraction, bundling, and copy-paste scenarios where the root LICENSE file is not present. This rule verifies that every TypeScript source file starts with the standard SPDX header comment.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/utils.ts"
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+File is missing the SPDX license identifier header.
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/utils.ts"
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+For files with a shebang:
+
+```typescript title="src/cli.ts"
+#!/usr/bin/env bun
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "spdx-header-present": {
+      description:
+        "All TypeScript source files must have an SPDX-License-Identifier header",
+      async check(ctx) {
+        const results = await Promise.all(
+          ctx.scopedFiles.map(async (file) => {
+            const content = await ctx.readFile(file);
+            return { file, content };
+          })
+        );
+
+        for (const { file, content } of results) {
+          if (content === null) continue;
+
+          // Check first 5 lines for the SPDX identifier (allows for shebang)
+          const lines = content.split("\n").slice(0, 5);
+          const hasSpdx = lines.some((line) =>
+            line.includes("SPDX-License-Identifier: Apache-2.0")
+          );
+
+          if (!hasSpdx) {
+            ctx.report.violation({
+              message: "Missing SPDX-License-Identifier header.",
+              file,
+              line: 1,
+              fix: 'Add "// SPDX-License-Identifier: Apache-2.0" as the first line of the file',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Customization
+
+- **Change the license**: Replace `Apache-2.0` with your project's SPDX identifier (e.g., `MIT`, `BSD-3-Clause`)
+- **Change the scope**: Adjust the `files` glob in the ADR frontmatter to match your source directories
+- **Add copyright check**: Extend the rule to also verify the copyright line format
+
+## When to use it
+
+When your project is open-source and you want unambiguous per-file license declarations that are recognized by compliance scanners (FOSSA, Snyk, Black Duck, npm license-checker).
+
+## When not to use it
+
+In proprietary/closed-source projects where all files are implicitly "all rights reserved," or when your organization uses a different license-declaration mechanism like REUSE 3.0 `.dep5` files.
 
 ---
 
