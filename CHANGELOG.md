@@ -1,3 +1,14 @@
+## [0.33.3](https://github.com/archgate/cli/compare/v0.33.2...v0.33.3) (2026-05-10)
+
+### Bug Fixes
+
+* **deps:** update dependency @astrojs/starlight to ^0.39.0 ([#289](https://github.com/archgate/cli/issues/289)) ([d704d75](https://github.com/archgate/cli/commit/d704d757657b8d6fc8b394cca9fd25ddf943b452))
+* remove target directory from opencode install success message ([#281](https://github.com/archgate/cli/issues/281)) ([73ce5b0](https://github.com/archgate/cli/commit/73ce5b0e1ee4ec5624060d6994671078158faeec))
+
+### Performance Improvements
+
+* lazy-load inquirer and defer telemetry init to halve startup latency ([#286](https://github.com/archgate/cli/issues/286)) ([15c6b3c](https://github.com/archgate/cli/commit/15c6b3c8bc1b0350876d8177cb1e4a665c659c98))
+
 ## [0.33.2](https://github.com/archgate/cli/compare/v0.33.1...v0.33.2) (2026-05-08)
 
 ### Bug Fixes
