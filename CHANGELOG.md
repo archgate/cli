@@ -1,3 +1,10 @@
+## [0.34.0](https://github.com/archgate/cli/compare/v0.33.3...v0.34.0) (2026-05-10)
+
+### Features
+
+* legal compliance remediation ([#290](https://github.com/archgate/cli/issues/290)) ([ac71728](https://github.com/archgate/cli/commit/ac71728fbc2b1c5f2e8f2eff686ed0d0b8d1ec69))
+* support custom ADR directory via config.json paths field ([#293](https://github.com/archgate/cli/issues/293)) ([1e003ab](https://github.com/archgate/cli/commit/1e003abd33216280b2318b2c25e45d1848961eec))
+
 ## [0.33.3](https://github.com/archgate/cli/compare/v0.33.2...v0.33.3) (2026-05-10)
 
 ### Bug Fixes
