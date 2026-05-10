@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { describe, expect, test, mock } from "bun:test";
 
 import {

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { existsSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 

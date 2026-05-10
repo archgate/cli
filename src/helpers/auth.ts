@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * auth.ts — GitHub Device Flow authentication and archgate token management.
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 
 import { isAgentContext, formatJSON } from "../../src/helpers/output";

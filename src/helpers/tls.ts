@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * tls.ts — Detect TLS/SSL interception errors common in corporate environments
  * and provide actionable guidance to the user.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import type { AdrDocument, AdrDomain } from "../formats/adr";
 import { getChangedFiles, getStagedFiles } from "./git-files";
 import { loadRuleAdrs, parseAllAdrs } from "./loader";

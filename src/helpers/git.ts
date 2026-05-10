@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { logDebug, logInfo } from "./log";
 import { isWindows, isMacOS, resolveCommand } from "./platform";
 

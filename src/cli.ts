@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 import { Command, Option } from "@commander-js/extra-typings";
 import { semver } from "bun";
 
@@ -31,6 +33,7 @@ import {
   initTelemetry,
   trackCommand,
 } from "./helpers/telemetry";
+import { showFirstRunNoticeIfNeeded } from "./helpers/telemetry-config";
 import { checkForUpdatesIfNeeded } from "./helpers/update-check";
 
 // Pre-main environment guards — these are user-facing errors (exit 1), not bugs.
@@ -94,6 +97,9 @@ async function main() {
   // the second arg is the actual subcommand being executed. We use the action
   // command so `adr create` etc. resolves correctly instead of always "root".
   program.hook("preAction", async (_hookedCommand, actionCommand) => {
+    // Show one-time privacy disclosure before the first real command.
+    showFirstRunNoticeIfNeeded();
+
     // Ensure telemetry SDKs are initialized before emitting any events.
     // By the time a real command's preAction fires, the init promises have
     // usually already resolved (they started before command registration),

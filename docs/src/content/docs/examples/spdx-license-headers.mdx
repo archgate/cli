@@ -1,0 +1,99 @@
+---
+title: spdx-license-headers
+description: Enforce SPDX-License-Identifier headers in all source files for per-file license clarity and compliance scanner compatibility.
+---
+
+Ensure every source file declares its license with a machine-readable SPDX identifier.
+
+## Rule details
+
+Open-source projects benefit from per-file license declarations — they survive file extraction, bundling, and copy-paste scenarios where the root LICENSE file is not present. This rule verifies that every TypeScript source file starts with the standard SPDX header comment.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/utils.ts"
+import { join } from "node:path";
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+File is missing the SPDX license identifier header.
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/utils.ts"
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+import { join } from "node:path";
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+For files with a shebang:
+
+```typescript title="src/cli.ts"
+#!/usr/bin/env bun
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+import { Command } from "commander";
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "spdx-header-present": {
+      description:
+        "All TypeScript source files must have an SPDX-License-Identifier header",
+      async check(ctx) {
+        const results = await Promise.all(
+          ctx.scopedFiles.map(async (file) => {
+            const content = await ctx.readFile(file);
+            return { file, content };
+          })
+        );
+
+        for (const { file, content } of results) {
+          if (content === null) continue;
+
+          // Check first 5 lines for the SPDX identifier (allows for shebang)
+          const lines = content.split("\n").slice(0, 5);
+          const hasSpdx = lines.some((line) =>
+            line.includes("SPDX-License-Identifier: Apache-2.0")
+          );
+
+          if (!hasSpdx) {
+            ctx.report.violation({
+              message: "Missing SPDX-License-Identifier header.",
+              file,
+              line: 1,
+              fix: 'Add "// SPDX-License-Identifier: Apache-2.0" as the first line of the file',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Customization
+
+- **Change the license**: Replace `Apache-2.0` with your project's SPDX identifier (e.g., `MIT`, `BSD-3-Clause`)
+- **Change the scope**: Adjust the `files` glob in the ADR frontmatter to match your source directories
+- **Add copyright check**: Extend the rule to also verify the copyright line format
+
+## When to use it
+
+When your project is open-source and you want unambiguous per-file license declarations that are recognized by compliance scanners (FOSSA, Snyk, Black Duck, npm license-checker).
+
+## When not to use it
+
+In proprietary/closed-source projects where all files are implicitly "all rights reserved," or when your organization uses a different license-declaration mechanism like REUSE 3.0 `.dep5` files.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * Integration test harness — runs the real CLI via Bun.spawn
  * against isolated temp project directories.

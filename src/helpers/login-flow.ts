@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * login-flow.ts — Shared GitHub device flow + signup logic
  * used by both `login` and `init` commands.
@@ -49,6 +51,9 @@ export interface LoginFlowResult {
 export async function runLoginFlow(
   options?: LoginFlowOptions
 ): Promise<LoginFlowResult> {
+  console.log("By signing up, you agree to the Archgate Terms of Service:");
+  console.log("https://archgate.dev/terms-of-service\n");
+
   logInfo("Authenticating with GitHub...\n");
 
   logDebug("Starting login flow");

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * repo.ts — Detect the git repository context for telemetry enrichment.
  *

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /**
  * doctor.ts — Gathers system diagnostic information for debugging.
  *

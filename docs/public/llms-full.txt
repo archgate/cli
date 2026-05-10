@@ -4039,15 +4039,31 @@ For the full Archgate Privacy Policy, please visit:
 
 The sections below summarize the most relevant points for CLI users. The canonical policy on the website is the legally binding version.
 
+**Data controller:** Dasolve AS (Org.nr 936 035 019), Lillogata 5P, 0484 Oslo, Norway. Contact: [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
 ## Summary for CLI users
 
 ### What the CLI collects
 
 Archgate collects **anonymous usage analytics** (via PostHog) and **crash reports** (via Sentry) to improve the tool. No personal information, source code, file content, or AI prompts are ever collected by the CLI itself. See the [Telemetry](/reference/telemetry/) page for a detailed breakdown of every data point.
 
+**Legal basis:** Legitimate interest under GDPR Article 6(1)(f). See our [Legitimate Interest Assessment](https://archgate.dev/legitimate-interest-assessment).
+
+### Data storage and retention
+
+| Service       | Data                         | Region         | Retention                |
+| ------------- | ---------------------------- | -------------- | ------------------------ |
+| PostHog Cloud | Anonymous usage analytics    | EU (Frankfurt) | 1 year                   |
+| Sentry Cloud  | Crash reports                | EU (Frankfurt) | 90 days                  |
+| Turso         | Plugins Service account data | EU             | Until deletion requested |
+
+Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.archgate.dev` (errors) — transparent forwarders operated by Dasolve AS on Cloudflare, with no logging or storage.
+
 ### Archgate Plugins Service
 
-When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
+When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files).
+
+By creating an account, you agree to the [Terms of Service](https://archgate.dev/terms-of-service). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
 
 ### How to opt out
 
@@ -4061,9 +4077,19 @@ archgate telemetry disable
 
 Note: telemetry opt-out disables CLI analytics and crash reporting. It does not affect the Plugins Service account data, which is required for plugin access. To delete your account data, contact [privacy@archgate.dev](mailto:privacy@archgate.dev).
 
+### Your rights
+
+- **Access:** Request a copy of your data — email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (from `~/.archgate/config.json` or `archgate telemetry status`).
+- **Erasure:** Request deletion of historical data — email with your install ID. Completed within 30 days.
+- **Object:** Disable telemetry at any time via `archgate telemetry disable`.
+- **Portability:** Request data export in JSON or CSV format.
+- **Complaint:** Contact the Norwegian Data Protection Authority ([Datatilsynet](https://www.datatilsynet.no)).
+
 ### What the docs site collects
 
 This documentation site (`cli.archgate.dev`) uses [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/), a privacy-first analytics service. Cloudflare Web Analytics does not use cookies, does not track individual visitors, and does not collect personal information. It provides aggregate page-view and performance metrics only.
+
+PostHog is also used on this site with **cookieless, memory-only tracking** (`persistence: "memory"`). No cookies are set, no localStorage is written, and no data persists between page loads.
 
 ---
 
@@ -4492,11 +4518,32 @@ archgate telemetry status
 
 The environment variable takes precedence over the CLI setting. If `ARCHGATE_TELEMETRY=0` is set, telemetry is disabled regardless of the CLI config.
 
+## Legal basis
+
+Archgate CLI telemetry operates on an **opt-out basis** under GDPR Article 6(1)(f) and LGPD Article 7, IX c/c Article 10 — legitimate interests of the controller. We have published a formal [Legitimate Interest Assessment](https://archgate.dev/legitimate-interest-assessment) documenting why this is proportionate and lawful.
+
+In summary: the data is anonymous (random UUID, no PII), the impact on users is minimal, robust safeguards are in place (IP anonymization, EU storage, limited retention, transparency), and users retain full control via an easy, permanent opt-out.
+
 ## Where data is stored
 
-- **Analytics**: PostHog Cloud (EU region). Data retained per PostHog's standard retention policy.
-- **Error tracking**: Sentry Cloud (EU region). Error events retained for 90 days.
-- **Local config**: `~/.archgate/config.json` stores your telemetry preference and anonymous install ID.
+| Service       | Data                              | Region         | Retention           |
+| ------------- | --------------------------------- | -------------- | ------------------- |
+| PostHog Cloud | Anonymous usage analytics         | EU (Frankfurt) | 1 year              |
+| Sentry Cloud  | Crash reports                     | EU (Frankfurt) | 90 days             |
+| Local config  | Telemetry preference + install ID | Your machine   | Until you delete it |
+
+Analytics events are routed through `n.archgate.dev` and error reports through `s.archgate.dev`. These are transparent reverse proxies operated by Dasolve AS on Cloudflare infrastructure — they forward requests without logging, storing, or inspecting payloads.
+
+## Your rights
+
+- **Right of access**: Request a copy of all data associated with your install ID. Email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (found via `archgate telemetry status` or in `~/.archgate/config.json`). Response within 30 days.
+- **Right to erasure**: Request deletion of historical analytics and crash data. Disabling telemetry stops future collection but does not delete past events. Email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID for deletion.
+- **Right to object**: Disable telemetry at any time via `archgate telemetry disable` or `ARCHGATE_TELEMETRY=0`.
+- **Right to lodge a complaint**: Contact the Norwegian Data Protection Authority ([Datatilsynet](https://www.datatilsynet.no)) or, for Brazilian users, the ANPD ([www.gov.br/anpd](https://www.gov.br/anpd)).
+
+**Data controller:** Dasolve AS (Org.nr 936 035 019), Lillogata 5P, 0484 Oslo, Norway. Contact: [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
+**Brazilian users (LGPD):** For LGPD-specific rights (Art. 18), international transfer details (Art. 33), and ANPD contact information, see the [Portuguese privacy policy](https://archgate.dev/pt-br/privacy-policy).
 
 ## Open source
 
@@ -4979,6 +5026,143 @@ const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
 ## When not to use it
 
 When your project intentionally mixes naming conventions (e.g., PascalCase for React components and kebab-case for utilities), or when migrating a legacy codebase where bulk renames are not feasible.
+
+---
+
+## Examples: license-compatibility
+
+Source: https://cli.archgate.dev/examples/license-compatibility/
+
+Prevent copyleft or incompatible licenses from entering your dependency tree.
+
+## Rule details
+
+When you compile or bundle dependencies into your application, their license terms apply to the combined work. A single GPL dependency in a permissive (MIT/Apache-2.0) project can force the entire project to adopt copyleft terms. This rule checks all direct dependencies against a permissive-license allowlist.
+
+## Examples of **incorrect** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "readline-sync": "^1.4.10" }
+}
+```
+
+If `readline-sync` uses GPL-3.0, it triggers a violation even as a devDependency.
+
+## Examples of **correct** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "fast-check": "^4.7.0" }
+}
+```
+
+Both `zod` (MIT) and `fast-check` (MIT) are on the permissive allowlist.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const ALLOWED_LICENSES = new Set([
+  "MIT",
+  "Apache-2.0",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+  "BlueOak-1.0.0",
+]);
+
+function isAllowed(license: string | undefined): boolean {
+  if (!license) return false;
+  if (ALLOWED_LICENSES.has(license)) return true;
+
+  // Handle SPDX OR expressions — at least one option must be allowed
+  const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
+  if (ALLOWED_LICENSES.has(normalized)) return true;
+
+  if (normalized.includes(" OR ")) {
+    return normalized.split(" OR ").some((l) => ALLOWED_LICENSES.has(l.trim()));
+  }
+
+  return false;
+}
+
+/**
+ * Extract package name from a node_modules path.
+ * Handles both regular and scoped (@scope/name) packages.
+ */
+function extractPackageName(path: string): string {
+  const parts = path.replaceAll("\\", "/").split("/");
+  const nmIdx = parts.lastIndexOf("node_modules");
+  if (nmIdx === -1) return path;
+  const afterNm = parts.slice(nmIdx + 1);
+  if (afterNm[0]?.startsWith("@") && afterNm.length >= 2) {
+    return `${afterNm[0]}/${afterNm[1]}`;
+  }
+  return afterNm[0] ?? path;
+}
+
+export default {
+  rules: {
+    "no-copyleft-deps": {
+      description:
+        "All dependencies (including transitive) must use permissive licenses",
+      async check(ctx) {
+        // Scan ALL packages in node_modules — direct AND transitive.
+        // Brace expansion covers both regular and scoped packages.
+        const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
+
+        const depResults = await Promise.all(
+          pkgFiles.map(async (pkgPath) => {
+            try {
+              const depPkg = (await ctx.readJSON(pkgPath)) as {
+                license?: string;
+              };
+              return {
+                dep: extractPackageName(pkgPath),
+                license: depPkg.license,
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        for (const result of depResults) {
+          if (result === null) continue;
+          if (!isAllowed(result.license)) {
+            ctx.report.violation({
+              message: `Dependency "${result.dep}" has disallowed license: "${result.license ?? "(none)"}".`,
+              file: "package.json",
+              fix: `Remove "${result.dep}" or find an alternative with a permissive license.`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Customization
+
+- **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
+- **Check only production deps**: Remove `devDependencies` from `allDeps` if you only care about bundled/shipped code.
+- **Scan transitives**: Use `ctx.glob("node_modules/{*,@*/*}/package.json")` to scan all installed packages (including scoped) recursively, not just direct dependencies.
+
+## When to use it
+
+When your project uses a permissive license (MIT, Apache-2.0, ISC, BSD) and you want to prevent copyleft contamination, especially in compiled/bundled distributions.
+
+## When not to use it
+
+In GPL-licensed projects (where copyleft dependencies are compatible), or when you have a dedicated license-scanning SaaS tool (FOSSA, Snyk) that already gates your CI pipeline.
 
 ---
 
@@ -6012,6 +6196,105 @@ When your architecture requires a specific export pattern from files in a direct
 ## When not to use it
 
 When the directory contains mixed file types that do not all need to follow the same export pattern.
+
+---
+
+## Examples: spdx-license-headers
+
+Source: https://cli.archgate.dev/examples/spdx-license-headers/
+
+Ensure every source file declares its license with a machine-readable SPDX identifier.
+
+## Rule details
+
+Open-source projects benefit from per-file license declarations — they survive file extraction, bundling, and copy-paste scenarios where the root LICENSE file is not present. This rule verifies that every TypeScript source file starts with the standard SPDX header comment.
+
+## Examples of **incorrect** code
+
+```typescript title="src/helpers/utils.ts"
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+File is missing the SPDX license identifier header.
+
+## Examples of **correct** code
+
+```typescript title="src/helpers/utils.ts"
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+For files with a shebang:
+
+```typescript title="src/cli.ts"
+#!/usr/bin/env bun
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+
+```
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "spdx-header-present": {
+      description:
+        "All TypeScript source files must have an SPDX-License-Identifier header",
+      async check(ctx) {
+        const results = await Promise.all(
+          ctx.scopedFiles.map(async (file) => {
+            const content = await ctx.readFile(file);
+            return { file, content };
+          })
+        );
+
+        for (const { file, content } of results) {
+          if (content === null) continue;
+
+          // Check first 5 lines for the SPDX identifier (allows for shebang)
+          const lines = content.split("\n").slice(0, 5);
+          const hasSpdx = lines.some((line) =>
+            line.includes("SPDX-License-Identifier: Apache-2.0")
+          );
+
+          if (!hasSpdx) {
+            ctx.report.violation({
+              message: "Missing SPDX-License-Identifier header.",
+              file,
+              line: 1,
+              fix: 'Add "// SPDX-License-Identifier: Apache-2.0" as the first line of the file',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Customization
+
+- **Change the license**: Replace `Apache-2.0` with your project's SPDX identifier (e.g., `MIT`, `BSD-3-Clause`)
+- **Change the scope**: Adjust the `files` glob in the ADR frontmatter to match your source directories
+- **Add copyright check**: Extend the rule to also verify the copyright line format
+
+## When to use it
+
+When your project is open-source and you want unambiguous per-file license declarations that are recognized by compliance scanners (FOSSA, Snyk, Black Duck, npm license-checker).
+
+## When not to use it
+
+In proprietary/closed-source projects where all files are implicitly "all rights reserved," or when your organization uses a different license-declaration mechanism like REUSE 3.0 `.dep5` files.
 
 ---
 

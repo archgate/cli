@@ -1,0 +1,135 @@
+---
+title: license-compatibility
+description: Verify all dependencies use licenses compatible with your project's license to prevent copyleft contamination.
+---
+
+Prevent copyleft or incompatible licenses from entering your dependency tree.
+
+## Rule details
+
+When you compile or bundle dependencies into your application, their license terms apply to the combined work. A single GPL dependency in a permissive (MIT/Apache-2.0) project can force the entire project to adopt copyleft terms. This rule checks all direct dependencies against a permissive-license allowlist.
+
+## Examples of **incorrect** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "readline-sync": "^1.4.10" }
+}
+```
+
+If `readline-sync` uses GPL-3.0, it triggers a violation even as a devDependency.
+
+## Examples of **correct** code
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "fast-check": "^4.7.0" }
+}
+```
+
+Both `zod` (MIT) and `fast-check` (MIT) are on the permissive allowlist.
+
+## Rule implementation
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const ALLOWED_LICENSES = new Set([
+  "MIT",
+  "Apache-2.0",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+  "BlueOak-1.0.0",
+]);
+
+function isAllowed(license: string | undefined): boolean {
+  if (!license) return false;
+  if (ALLOWED_LICENSES.has(license)) return true;
+
+  // Handle SPDX OR expressions — at least one option must be allowed
+  const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
+  if (ALLOWED_LICENSES.has(normalized)) return true;
+
+  if (normalized.includes(" OR ")) {
+    return normalized.split(" OR ").some((l) => ALLOWED_LICENSES.has(l.trim()));
+  }
+
+  return false;
+}
+
+/**
+ * Extract package name from a node_modules path.
+ * Handles both regular and scoped (@scope/name) packages.
+ */
+function extractPackageName(path: string): string {
+  const parts = path.replaceAll("\\", "/").split("/");
+  const nmIdx = parts.lastIndexOf("node_modules");
+  if (nmIdx === -1) return path;
+  const afterNm = parts.slice(nmIdx + 1);
+  if (afterNm[0]?.startsWith("@") && afterNm.length >= 2) {
+    return `${afterNm[0]}/${afterNm[1]}`;
+  }
+  return afterNm[0] ?? path;
+}
+
+export default {
+  rules: {
+    "no-copyleft-deps": {
+      description:
+        "All dependencies (including transitive) must use permissive licenses",
+      async check(ctx) {
+        // Scan ALL packages in node_modules — direct AND transitive.
+        // Brace expansion covers both regular and scoped packages.
+        const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
+
+        const depResults = await Promise.all(
+          pkgFiles.map(async (pkgPath) => {
+            try {
+              const depPkg = (await ctx.readJSON(pkgPath)) as {
+                license?: string;
+              };
+              return {
+                dep: extractPackageName(pkgPath),
+                license: depPkg.license,
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        for (const result of depResults) {
+          if (result === null) continue;
+          if (!isAllowed(result.license)) {
+            ctx.report.violation({
+              message: `Dependency "${result.dep}" has disallowed license: "${result.license ?? "(none)"}".`,
+              file: "package.json",
+              fix: `Remove "${result.dep}" or find an alternative with a permissive license.`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Customization
+
+- **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
+- **Check only production deps**: Remove `devDependencies` from `allDeps` if you only care about bundled/shipped code.
+- **Scan transitives**: Use `ctx.glob("node_modules/{*,@*/*}/package.json")` to scan all installed packages (including scoped) recursively, not just direct dependencies.
+
+## When to use it
+
+When your project uses a permissive license (MIT, Apache-2.0, ISC, BSD) and you want to prevent copyleft contamination, especially in compiled/bundled distributions.
+
+## When not to use it
+
+In GPL-licensed projects (where copyleft dependencies are compatible), or when you have a dedicated license-scanning SaaS tool (FOSSA, Snyk) that already gates your CI pipeline.

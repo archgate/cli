@@ -9,15 +9,31 @@ For the full Archgate Privacy Policy, please visit:
 
 The sections below summarize the most relevant points for CLI users. The canonical policy on the website is the legally binding version.
 
+**Data controller:** Dasolve AS (Org.nr 936 035 019), Lillogata 5P, 0484 Oslo, Norway. Contact: [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
 ## Summary for CLI users
 
 ### What the CLI collects
 
 Archgate collects **anonymous usage analytics** (via PostHog) and **crash reports** (via Sentry) to improve the tool. No personal information, source code, file content, or AI prompts are ever collected by the CLI itself. See the [Telemetry](/reference/telemetry/) page for a detailed breakdown of every data point.
 
+**Legal basis:** Legitimate interest under GDPR Article 6(1)(f). See our [Legitimate Interest Assessment](https://archgate.dev/legitimate-interest-assessment).
+
+### Data storage and retention
+
+| Service       | Data                         | Region         | Retention                |
+| ------------- | ---------------------------- | -------------- | ------------------------ |
+| PostHog Cloud | Anonymous usage analytics    | EU (Frankfurt) | 1 year                   |
+| Sentry Cloud  | Crash reports                | EU (Frankfurt) | 90 days                  |
+| Turso         | Plugins Service account data | EU             | Until deletion requested |
+
+Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.archgate.dev` (errors) — transparent forwarders operated by Dasolve AS on Cloudflare, with no logging or storage.
+
 ### Archgate Plugins Service
 
-When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
+When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files).
+
+By creating an account, you agree to the [Terms of Service](https://archgate.dev/terms-of-service). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
 
 ### How to opt out
 
@@ -31,6 +47,16 @@ archgate telemetry disable
 
 Note: telemetry opt-out disables CLI analytics and crash reporting. It does not affect the Plugins Service account data, which is required for plugin access. To delete your account data, contact [privacy@archgate.dev](mailto:privacy@archgate.dev).
 
+### Your rights
+
+- **Access:** Request a copy of your data — email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (from `~/.archgate/config.json` or `archgate telemetry status`).
+- **Erasure:** Request deletion of historical data — email with your install ID. Completed within 30 days.
+- **Object:** Disable telemetry at any time via `archgate telemetry disable`.
+- **Portability:** Request data export in JSON or CSV format.
+- **Complaint:** Contact the Norwegian Data Protection Authority ([Datatilsynet](https://www.datatilsynet.no)).
+
 ### What the docs site collects
 
 This documentation site (`cli.archgate.dev`) uses [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/), a privacy-first analytics service. Cloudflare Web Analytics does not use cookies, does not track individual visitors, and does not collect personal information. It provides aggregate page-view and performance metrics only.
+
+PostHog is also used on this site with **cookieless, memory-only tracking** (`persistence: "memory"`). No cookies are set, no localStorage is written, and no data persists between page loads.

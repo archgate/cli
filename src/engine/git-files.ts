@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
 /** Git file-listing utilities for ADR scope resolution and change detection. */
 
 import { logDebug } from "../helpers/log";
