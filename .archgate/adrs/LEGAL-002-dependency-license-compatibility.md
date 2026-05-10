@@ -46,9 +46,9 @@ SPDX OR expressions (e.g., `MIT OR Apache-2.0`) are allowed if at least one alte
 
 ### Do
 
-- Run `bun run license:check` before adding any new dependency
+- Run `archgate check` (or `bun run validate`) before adding any new dependency
 - Verify transitive dependencies — a permissively-licensed package may pull in a copyleft transitive
-- Add newly-encountered permissive licenses to the allowlist in `scripts/check-licenses.ts` with a comment
+- Add newly-encountered permissive licenses to the allowlist in the LEGAL-002 `.rules.ts` file
 - Prefer dependencies with clear SPDX license identifiers in their `package.json`
 
 ### Don't
@@ -82,17 +82,14 @@ SPDX OR expressions (e.g., `MIT OR Apache-2.0`) are allowed if at least one alte
 
 ### Automated Enforcement
 
-- **Archgate rule** `LEGAL-002/no-copyleft-deps`: Scans **all** packages in `node_modules/` (direct and transitive) via glob, reads each `package.json` license field, and flags any package not on the permissive allowlist. Severity: `error` (hard blocker).
-- **Script**: `bun run license:check` — standalone script for the same check (useful for local verification outside of `archgate check`).
+- **Archgate rule** `LEGAL-002/no-copyleft-deps`: Scans **all** packages in `node_modules/` (direct and transitive) via glob, reads each `package.json` license field, and flags any package not on the permissive allowlist. Severity: `error` (hard blocker). Runs as part of `archgate check` (included in `bun run validate`).
 
 ### Manual Enforcement
 
 - Dependency additions in PRs should include a note confirming license compatibility
-- The `bun run license:check` script should be run after any `bun install` or lockfile update
 
 ## References
 
 - [SPDX License List](https://spdx.org/licenses/)
 - [Apache-2.0 License Compatibility](https://www.apache.org/legal/resolved.html)
 - [ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md) — Governs which dependencies are allowed; this ADR governs their license compatibility
-- [`scripts/check-licenses.ts`](../../scripts/check-licenses.ts) — The license scanner implementation

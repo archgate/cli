@@ -116,7 +116,7 @@ export default {
 
 - **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
 - **Check only production deps**: Remove `devDependencies` from `allDeps` if you only care about bundled/shipped code.
-- **Add transitive scanning**: For deeper coverage, scan all `node_modules/*/package.json` instead of only direct dependencies (see a dedicated script approach for this).
+- **Scan transitives**: Use `ctx.glob("node_modules/*/package.json")` and `ctx.glob("node_modules/@*/*/package.json")` to scan all installed packages recursively, not just direct dependencies.
 
 ## When to use it
 
