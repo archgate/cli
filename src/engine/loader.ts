@@ -28,7 +28,7 @@ import { relative } from "node:path";
 
 import type { ViolationDetail } from "../formats/rules";
 import { logDebug } from "../helpers/log";
-import { projectPaths } from "../helpers/paths";
+import { resolvedProjectPaths } from "../helpers/project-config";
 import { ensureRulesShim } from "../helpers/rules-shim";
 import { scanRuleSource } from "./rule-scanner";
 
@@ -164,7 +164,7 @@ export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
   const cached = parsedAdrsCache.get(projectRoot);
   if (cached) return cached;
 
-  const pp = projectPaths(projectRoot);
+  const pp = resolvedProjectPaths(projectRoot);
   const adrsDir = pp.adrsDir;
 
   const promise = (async () => {
@@ -202,11 +202,12 @@ export async function loadRuleAdrs(
   projectRoot: string,
   filterAdrId?: string
 ): Promise<LoadResult[]> {
-  const pp = projectPaths(projectRoot);
+  const pp = resolvedProjectPaths(projectRoot);
 
   // Ensure rules.d.ts exists so .rules.ts files get type checking
-  // without requiring node_modules (supports non-JS projects)
-  await ensureRulesShim(projectRoot);
+  // without requiring node_modules (supports non-JS projects).
+  // When ADRs live in a custom directory, also write the shim there.
+  await ensureRulesShim(projectRoot, pp.adrsDir);
 
   const adrsDir = pp.adrsDir;
 

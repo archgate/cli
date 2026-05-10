@@ -5,7 +5,8 @@ import type { Command } from "@commander-js/extra-typings";
 import { findAdrFileById } from "../../helpers/adr-writer";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
-import { findProjectRoot, projectPaths } from "../../helpers/paths";
+import { findProjectRoot } from "../../helpers/paths";
+import { resolvedProjectPaths } from "../../helpers/project-config";
 
 export function registerAdrShowCommand(adr: Command) {
   adr
@@ -21,7 +22,7 @@ export function registerAdrShowCommand(adr: Command) {
       }
 
       try {
-        const { adrsDir } = projectPaths(projectRoot);
+        const { adrsDir } = resolvedProjectPaths(projectRoot);
         const adr = await findAdrFileById(adrsDir, id);
 
         if (!adr) {

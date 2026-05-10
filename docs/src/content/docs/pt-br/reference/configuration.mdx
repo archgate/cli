@@ -1,0 +1,93 @@
+---
+title: Configuração
+description: Referência do arquivo de configuração .archgate/config.json. Configure diretórios personalizados para ADRs, mapeamentos de domínios e configurações do projeto.
+---
+
+O arquivo `.archgate/config.json` armazena configurações do projeto que são versionadas no controle de versão e compartilhadas com toda a equipe.
+
+Este arquivo é criado automaticamente pelo `archgate init` (quando domínios customizados são registrados) ou quando você adiciona configurações manualmente. Ele fica dentro do diretório `.archgate/` na raiz do seu projeto.
+
+## Schema
+
+```json
+{
+  "domains": { "security": "SEC", "compliance": "COMP" },
+  "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" }
+}
+```
+
+### `domains`
+
+Mapeamentos personalizados de domínio para prefixo. Veja [Domínios Personalizados](/concepts/domains/#custom-domains) para detalhes.
+
+| Chave  | Tipo     | Descrição                                                                                               |
+| ------ | -------- | ------------------------------------------------------------------------------------------------------- |
+| _nome_ | `string` | Nome do domínio (kebab-case minúsculo, 2-32 chars) mapeia para um prefixo de ID (maiúsculo, 2-10 chars) |
+
+Esses são mesclados com os domínios built-in (`backend`, `frontend`, `data`, `architecture`, `general`) em tempo de leitura. Entradas personalizadas não podem sobrescrever nomes ou prefixos built-in.
+
+### `paths`
+
+Sobrescreve os diretórios padrão para ADRs e regras.
+
+| Campo   | Tipo     | Padrão           | Descrição                                        |
+| ------- | -------- | ---------------- | ------------------------------------------------ |
+| `adrs`  | `string` | `.archgate/adrs` | Caminho relativo para o diretório de ADRs        |
+| `rules` | `string` | `.archgate/lint` | Caminho relativo para o diretório de regras/lint |
+
+Ambos os campos são opcionais. Quando omitidos, os diretórios padrão `.archgate/adrs/` e `.archgate/lint/` são usados.
+
+#### Validação de caminhos
+
+- Caminhos **devem ser relativos** à raiz do projeto -- caminhos absolutos (ex: `/docs/adrs`, `C:\docs\adrs`) são rejeitados.
+- Caminhos **não devem conter segmentos `..`** -- travessia acima da raiz do projeto não é permitida (ex: `../other-repo/adrs` é rejeitado).
+- Caminhos usam barras (`/`) como separadores, seguindo as convenções padrão de glob.
+
+## Diretório personalizado de ADRs
+
+Por padrão, ADRs ficam em `.archgate/adrs/`. Para armazená-los em um diretório diferente (ex: `docs/adrs/`), adicione uma seção `paths` ao `.archgate/config.json`:
+
+```json
+{ "paths": { "adrs": "docs/adrs" } }
+```
+
+Após adicionar a configuração:
+
+1. Crie o diretório de destino (ex: `mkdir -p docs/adrs`)
+2. Mova os arquivos ADR existentes e seus arquivos `.rules.ts` complementares de `.archgate/adrs/` para o novo diretório
+3. Execute `archgate check` para verificar se as regras ainda carregam corretamente
+
+Todos os comandos do CLI (`archgate adr list`, `archgate adr create`, `archgate check`, `archgate review-context`) leem automaticamente o diretório configurado.
+
+:::caution
+O diretório `.archgate/` deve continuar existindo -- ele é o marcador de projeto usado pelo CLI para localizar a raiz do seu projeto. Não o exclua após configurar caminhos personalizados.
+:::
+
+### Exemplo: pasta de documentação em monorepo
+
+Um padrão comum é colocar ADRs junto com outra documentação:
+
+```
+my-project/
+  .archgate/
+    config.json          # { "paths": { "adrs": "docs/adrs" } }
+    lint/
+    rules.d.ts
+  docs/
+    adrs/
+      ARCH-001-api-design.md
+      ARCH-001-api-design.rules.ts
+      BE-001-database-access.md
+      BE-001-database-access.rules.ts
+    rules.d.ts           # gerado automaticamente pelo archgate check
+    guides/
+    ...
+  src/
+    ...
+```
+
+## Notas
+
+- A configuração `paths` é uma **definição de equipe** -- é versionada no controle de versão e se aplica a todos os membros da equipe. Não há override de nível de usuário para caminhos de ADR.
+- Alterar a configuração requer editar manualmente `.archgate/config.json` após executar `archgate init`.
+- O arquivo de definições de tipo `rules.d.ts` é escrito automaticamente tanto em `.archgate/` quanto no diretório pai do diretório de ADR configurado, para que os arquivos `.rules.ts` complementares resolvam corretamente sua diretiva `/// <reference path="../rules.d.ts" />`.

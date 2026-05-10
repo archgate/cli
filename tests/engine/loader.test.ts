@@ -11,7 +11,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { loadRuleAdrs } from "../../src/engine/loader";
+import { loadRuleAdrs, parseAllAdrs } from "../../src/engine/loader";
+import { saveProjectConfig } from "../../src/helpers/project-config";
 
 describe("loadRuleAdrs", () => {
   let tempDir: string;
@@ -202,5 +203,51 @@ export default {
     >;
     expect(blocked.value.error).toContain("2 violations");
     expect(blocked.value.violations).toHaveLength(2);
+  });
+
+  test("loads ADRs from custom directory configured in config.json", async () => {
+    // Create a custom ADR directory outside .archgate/
+    const customAdrsDir = join(tempDir, "docs", "adrs");
+    mkdirSync(customAdrsDir, { recursive: true });
+
+    // Configure the custom path
+    await saveProjectConfig(tempDir, {
+      domains: {},
+      paths: { adrs: "docs/adrs" },
+    });
+
+    // Place ADR + rules in the custom directory
+    copyFileSync(
+      join(fixturesDir, "TEST-001-sample.md"),
+      join(customAdrsDir, "TEST-001-sample.md")
+    );
+    writeRulesTs(customAdrsDir, "TEST-001-sample");
+
+    const loaded = await loadRuleAdrs(tempDir);
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0].type).toBe("loaded");
+    const first = loaded[0] as Extract<(typeof loaded)[0], { type: "loaded" }>;
+    expect(first.value.adr.frontmatter.id).toBe("TEST-001");
+  });
+
+  test("parseAllAdrs reads from custom directory", async () => {
+    // Configure custom path
+    const customAdrsDir = join(tempDir, "governance");
+    mkdirSync(customAdrsDir, { recursive: true });
+
+    await saveProjectConfig(tempDir, {
+      domains: {},
+      paths: { adrs: "governance" },
+    });
+
+    // Place ADR in custom dir, NOT in .archgate/adrs/
+    copyFileSync(
+      join(fixturesDir, "TEST-001-sample.md"),
+      join(customAdrsDir, "TEST-001-sample.md")
+    );
+
+    const parsed = await parseAllAdrs(tempDir);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].adr.frontmatter.id).toBe("TEST-001");
   });
 });

@@ -9,10 +9,11 @@ import { createAdrFile } from "../../helpers/adr-writer";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot, projectPaths } from "../../helpers/paths";
+import { findProjectRoot } from "../../helpers/paths";
 import {
   getAllDomainNames,
   resolveDomainPrefix,
+  resolvedProjectPaths,
 } from "../../helpers/project-config";
 
 export function registerAdrCreateCommand(adr: Command) {
@@ -37,7 +38,7 @@ export function registerAdrCreateCommand(adr: Command) {
       }
 
       try {
-        const paths = projectPaths(projectRoot);
+        const paths = resolvedProjectPaths(projectRoot);
 
         let domain: AdrDomain;
         let title: string;

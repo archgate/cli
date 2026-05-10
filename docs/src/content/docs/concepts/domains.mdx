@@ -110,7 +110,7 @@ archgate adr domain add security SEC
 archgate adr domain remove security
 ```
 
-Custom domain → prefix mappings persist in `.archgate/config.json` and are merged with the built-ins at read time. A registered custom domain behaves exactly like a built-in: `archgate adr create --domain security` auto-generates IDs like `SEC-001`, and `archgate adr list --domain security` filters to those ADRs.
+Custom domain-to-prefix mappings persist in [`.archgate/config.json`](/reference/configuration/) and are merged with the built-ins at read time. A registered custom domain behaves exactly like a built-in: `archgate adr create --domain security` auto-generates IDs like `SEC-001`, and `archgate adr list --domain security` filters to those ADRs.
 
 ### Naming rules
 

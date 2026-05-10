@@ -11,6 +11,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { internalPath } from "./paths";
+import { resolvedProjectPaths } from "./project-config";
 
 // ---------------------------------------------------------------------------
 // Install method detection (cached)
@@ -78,8 +79,9 @@ export interface ProjectContext {
  * cheap enough to re-run on every event, and worth it for accuracy.
  */
 export function getProjectContext(): ProjectContext {
-  const adrsDir = join(process.cwd(), ".archgate", "adrs");
-  const hasProject = existsSync(adrsDir);
+  const cwd = process.cwd();
+  const archgateDir = join(cwd, ".archgate");
+  const hasProject = existsSync(archgateDir);
 
   if (!hasProject) {
     return {
@@ -88,6 +90,14 @@ export function getProjectContext(): ProjectContext {
       adrWithRulesCount: 0,
       domains: [],
     };
+  }
+
+  // Use resolved paths so we scan the configured ADR directory,
+  // not just the default `.archgate/adrs/`.
+  const { adrsDir } = resolvedProjectPaths(cwd);
+
+  if (!existsSync(adrsDir)) {
+    return { hasProject: true, adrCount: 0, adrWithRulesCount: 0, domains: [] };
   }
 
   try {

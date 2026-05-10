@@ -11,6 +11,10 @@ Regras são funções TypeScript que verificam seu codebase quanto à conformida
   ARCH-001-command-structure.rules.ts    # The automated checks
 ```
 
+:::note
+Arquivos de regras sempre ficam ao lado de seus arquivos ADR complementares. Se voce configurar um [diretório personalizado de ADRs](/reference/configuration/#diretorio-personalizado-de-adrs), coloque os arquivos de regras lá também.
+:::
+
 ## Configuração básica
 
 Todo arquivo de regras exporta por padrão um objeto simples tipado com `satisfies RuleSet`. Cada chave no objeto `rules` se torna um ID de regra, e cada regra tem uma `description` e uma função async `check` que recebe um objeto de contexto.

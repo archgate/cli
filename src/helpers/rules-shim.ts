@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { dirname, join } from "node:path";
+
 import { logDebug } from "./log";
 import { projectPath } from "./paths";
 
@@ -121,14 +123,10 @@ export async function writeRulesShim(projectRoot: string): Promise<void> {
 }
 
 /**
- * Ensure rules.d.ts exists and is up-to-date. Skips the disk write when the
- * on-disk content already matches — `archgate check` calls this every run,
- * and the content only changes when the CLI version changes.
+ * Write `rules.d.ts` to a specific path if it doesn't already match.
+ * Returns true when a disk write occurred, false when skipped (up-to-date).
  */
-export async function ensureRulesShim(projectRoot: string): Promise<void> {
-  const dtsPath = projectPath(projectRoot, "rules.d.ts");
-  const expected = generateRulesDts();
-
+async function ensureShimAt(dtsPath: string, expected: string): Promise<void> {
   try {
     const existing = await Bun.file(dtsPath).text();
     if (existing === expected) {
@@ -141,4 +139,35 @@ export async function ensureRulesShim(projectRoot: string): Promise<void> {
 
   await Bun.write(dtsPath, expected);
   logDebug("Rules type definitions written:", dtsPath);
+}
+
+/**
+ * Ensure rules.d.ts exists and is up-to-date. Skips the disk write when the
+ * on-disk content already matches — `archgate check` calls this every run,
+ * and the content only changes when the CLI version changes.
+ *
+ * When `customAdrsDir` is provided and differs from the default
+ * `.archgate/adrs/`, a copy of `rules.d.ts` is also written to the parent
+ * of that directory so that companion `.rules.ts` files' triple-slash
+ * `/// <reference path="../rules.d.ts" />` resolves correctly.
+ */
+export async function ensureRulesShim(
+  projectRoot: string,
+  customAdrsDir?: string
+): Promise<void> {
+  const defaultDtsPath = projectPath(projectRoot, "rules.d.ts");
+  const expected = generateRulesDts();
+
+  await ensureShimAt(defaultDtsPath, expected);
+
+  // When ADRs live in a custom directory, the `.rules.ts` files use
+  // `/// <reference path="../rules.d.ts" />` which resolves relative to
+  // their own directory. Write a shim to the parent of the custom ADR dir.
+  if (customAdrsDir) {
+    const defaultAdrsDir = join(projectRoot, ".archgate", "adrs");
+    if (customAdrsDir !== defaultAdrsDir) {
+      const customDtsPath = join(dirname(customAdrsDir), "rules.d.ts");
+      await ensureShimAt(customDtsPath, expected);
+    }
+  }
 }
