@@ -73,7 +73,7 @@
     "meriyah": "7.1.0",
     "oxfmt": "0.48.0",
     "oxlint": "1.63.0",
-    "posthog-node": "5.33.3",
+    "posthog-node": "5.33.4",
     "zod": "4.4.3"
   },
   "peerDependencies": {
