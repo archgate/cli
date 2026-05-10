@@ -87,7 +87,7 @@ export default {
             ctx.report.violation({
               message: `Dependency "${result.dep}" has disallowed license: "${result.license ?? "(none)"}". Only permissive licenses (MIT, Apache-2.0, ISC, BSD, etc.) are allowed.`,
               file: "package.json",
-              fix: `Remove "${result.dep}" or find an alternative with a permissive license. Run \`bun run license:check\` for full details.`,
+              fix: `Remove "${result.dep}" or find an alternative with a permissive license. See LEGAL-002 for the approved license list.`,
             });
           }
         }

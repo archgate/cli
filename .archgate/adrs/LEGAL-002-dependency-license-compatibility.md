@@ -74,7 +74,7 @@ SPDX OR expressions (e.g., `MIT OR Apache-2.0`) are allowed if at least one alte
 ### Risks
 
 - **Transitive dependency license change** — A previously-permissive dependency may change its license in a new version (e.g., the Elasticsearch SSPL relicensing).
-  - **Mitigation:** `bun run license:check` runs on the installed `node_modules` tree, catching license changes on any version update.
+  - **Mitigation:** The `LEGAL-002/no-copyleft-deps` rule scans the installed `node_modules` tree on every `archgate check`, catching license changes on any version update.
 - **Missing license field in package.json** — Some packages declare their license only in a LICENSE file, not in the `license` field. The scanner may flag these as "no license."
   - **Mitigation:** If a package is clearly permissive (LICENSE file exists) but lacks a `package.json` license field, add it to the allowlist with a comment explaining the override.
 
