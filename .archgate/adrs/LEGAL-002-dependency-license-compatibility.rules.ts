@@ -37,33 +37,45 @@ function isAllowed(license: string | undefined): boolean {
   return false;
 }
 
+/**
+ * Extract the package name from a node_modules package.json path.
+ * Handles both regular (node_modules/foo/package.json) and scoped
+ * (node_modules/@scope/foo/package.json) packages.
+ */
+function extractPackageName(path: string): string {
+  const parts = path.replaceAll("\\", "/").split("/");
+  const nmIdx = parts.lastIndexOf("node_modules");
+  if (nmIdx === -1) return path;
+  const afterNm = parts.slice(nmIdx + 1);
+  // Scoped package: @scope/name
+  if (afterNm[0]?.startsWith("@") && afterNm.length >= 2) {
+    return `${afterNm[0]}/${afterNm[1]}`;
+  }
+  return afterNm[0] ?? path;
+}
+
 export default {
   rules: {
     "no-copyleft-deps": {
       description:
-        "All dependencies must use Apache-2.0-compatible (permissive) licenses",
+        "All dependencies (including transitive) must use Apache-2.0-compatible (permissive) licenses",
       async check(ctx) {
-        let pkg;
-        try {
-          pkg = await ctx.readJSON("package.json");
-        } catch {
-          return;
-        }
-
-        const allDeps = [
-          ...Object.keys(pkg.dependencies ?? {}),
-          ...Object.keys(pkg.devDependencies ?? {}),
+        // Scan ALL packages in node_modules — direct AND transitive
+        const pkgFiles = [
+          ...(await ctx.glob("node_modules/*/package.json")),
+          ...(await ctx.glob("node_modules/@*/*/package.json")),
         ];
 
         const depResults = await Promise.all(
-          allDeps.map(async (dep) => {
+          pkgFiles.map(async (pkgPath) => {
             try {
-              const depPkg = await ctx.readJSON(
-                `node_modules/${dep}/package.json`
-              );
-              return { dep, license: depPkg.license as string | undefined };
+              const depPkg = await ctx.readJSON(pkgPath);
+              const name = extractPackageName(pkgPath);
+              return {
+                dep: name,
+                license: depPkg.license as string | undefined,
+              };
             } catch {
-              // Scoped packages or missing — skip (covered by full scan)
               return null;
             }
           })

@@ -82,8 +82,8 @@ SPDX OR expressions (e.g., `MIT OR Apache-2.0`) are allowed if at least one alte
 
 ### Automated Enforcement
 
-- **Archgate rule** `LEGAL-002/no-copyleft-deps`: Reads `package.json` devDependencies and dependencies, cross-references against the allowlist in `scripts/check-licenses.ts`. Severity: `error` (hard blocker).
-- **Script**: `bun run license:check` — scans all installed `node_modules` packages for comprehensive coverage including transitives.
+- **Archgate rule** `LEGAL-002/no-copyleft-deps`: Scans **all** packages in `node_modules/` (direct and transitive) via glob, reads each `package.json` license field, and flags any package not on the permissive allowlist. Severity: `error` (hard blocker).
+- **Script**: `bun run license:check` — standalone script for the same check (useful for local verification outside of `archgate check`).
 
 ### Manual Enforcement
 
