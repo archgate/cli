@@ -11,10 +11,6 @@ Rules are TypeScript functions that check your codebase for ADR compliance. They
   ARCH-001-command-structure.rules.ts    # The automated checks
 ```
 
-:::note
-Rules files always live next to their companion ADR files. If you configure a [custom ADR directory](/reference/configuration/#custom-adr-directory), place rules files there too.
-:::
-
 ## Basic setup
 
 Every rules file exports a default plain object typed with `satisfies RuleSet`. Each key in the `rules` object becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.

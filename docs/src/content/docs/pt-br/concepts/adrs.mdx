@@ -11,11 +11,7 @@ O Archgate expande o conceito de ADR dando a cada decisão duas expressões: um 
 
 ### ADR como Documento
 
-O documento é um arquivo Markdown com frontmatter YAML armazenado em `.archgate/adrs/` por padrão. Ele descreve a decisão em linguagem simples: qual problema resolve, quais alternativas foram consideradas, o que a equipe decidiu, e quais consequências seguem.
-
-:::tip[Diretório personalizado de ADRs]
-ADRs podem ser armazenados em um diretório diferente (ex: `docs/adrs/`) configurando o campo `paths.adrs` em `.archgate/config.json`. Veja a [referência de Configuração](/reference/configuration/#diretorio-personalizado-de-adrs) para detalhes.
-:::
+O documento é um arquivo Markdown com frontmatter YAML armazenado em `.archgate/adrs/`. Ele descreve a decisão em linguagem simples: qual problema resolve, quais alternativas foram consideradas, o que a equipe decidiu, e quais consequências seguem.
 
 Tanto humanos quanto agentes de IA consomem esse documento. Quando um agente de IA de codificação está prestes a escrever código, ele lê os ADRs relevantes para entender as restrições antes de gerar qualquer coisa.
 

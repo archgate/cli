@@ -11,11 +11,7 @@ Archgate builds on the ADR concept by giving each decision two expressions: a **
 
 ### ADR as Document
 
-The document is a Markdown file with YAML frontmatter stored in `.archgate/adrs/` by default. It describes the decision in plain language: what problem it solves, what alternatives were considered, what the team decided, and what consequences follow.
-
-:::tip[Custom ADR directory]
-ADRs can be stored in a different directory (e.g., `docs/adrs/`) by configuring the `paths.adrs` field in `.archgate/config.json`. See the [Configuration reference](/reference/configuration/#custom-adr-directory) for details.
-:::
+The document is a Markdown file with YAML frontmatter stored in `.archgate/adrs/`. It describes the decision in plain language: what problem it solves, what alternatives were considered, what the team decided, and what consequences follow.
 
 Both humans and AI agents consume this document. When an AI coding agent is about to write code, it reads the relevant ADRs to understand the constraints before generating anything.
 
