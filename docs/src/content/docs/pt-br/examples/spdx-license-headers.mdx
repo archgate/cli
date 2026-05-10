@@ -1,0 +1,99 @@
+---
+title: spdx-license-headers
+description: Garantir cabeçalhos SPDX-License-Identifier em todos os arquivos fonte para clareza de licença por arquivo e compatibilidade com scanners de conformidade.
+---
+
+Garanta que cada arquivo fonte declare sua licença com um identificador SPDX legível por máquina.
+
+## Detalhes da regra
+
+Projetos open-source se beneficiam de declarações de licença por arquivo — elas sobrevivem à extração de arquivos, bundling e cenários de cópia onde o arquivo LICENSE raiz não está presente. Esta regra verifica que cada arquivo TypeScript fonte começa com o comentário de cabeçalho SPDX padrão.
+
+## Exemplos de código **incorreto**
+
+```typescript title="src/helpers/utils.ts"
+import { join } from "node:path";
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+O arquivo está sem o cabeçalho de identificador de licença SPDX.
+
+## Exemplos de código **correto**
+
+```typescript title="src/helpers/utils.ts"
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+import { join } from "node:path";
+
+export function resolvePath(base: string, rel: string): string {
+  return join(base, rel);
+}
+```
+
+Para arquivos com shebang:
+
+```typescript title="src/cli.ts"
+#!/usr/bin/env bun
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+import { Command } from "commander";
+```
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "spdx-header-present": {
+      description:
+        "All TypeScript source files must have an SPDX-License-Identifier header",
+      async check(ctx) {
+        const results = await Promise.all(
+          ctx.scopedFiles.map(async (file) => {
+            const content = await ctx.readFile(file);
+            return { file, content };
+          })
+        );
+
+        for (const { file, content } of results) {
+          if (content === null) continue;
+
+          // Check first 5 lines for the SPDX identifier (allows for shebang)
+          const lines = content.split("\n").slice(0, 5);
+          const hasSpdx = lines.some((line) =>
+            line.includes("SPDX-License-Identifier: Apache-2.0")
+          );
+
+          if (!hasSpdx) {
+            ctx.report.violation({
+              message: "Missing SPDX-License-Identifier header.",
+              file,
+              line: 1,
+              fix: 'Add "// SPDX-License-Identifier: Apache-2.0" as the first line of the file',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Personalização
+
+- **Alterar a licença**: Substitua `Apache-2.0` pelo identificador SPDX do seu projeto (ex: `MIT`, `BSD-3-Clause`)
+- **Alterar o escopo**: Ajuste o glob `files` no frontmatter do ADR para corresponder aos seus diretórios fonte
+- **Adicionar verificação de copyright**: Estenda a regra para também verificar o formato da linha de copyright
+
+## Quando usar
+
+Quando seu projeto é open-source e você deseja declarações de licença por arquivo inequívocas reconhecidas por scanners de conformidade (FOSSA, Snyk, Black Duck, npm license-checker).
+
+## Quando não usar
+
+Em projetos proprietários/closed-source onde todos os arquivos são implicitamente "todos os direitos reservados", ou quando sua organização usa um mecanismo diferente de declaração de licença como arquivos `.dep5` do REUSE 3.0.

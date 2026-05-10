@@ -1,0 +1,127 @@
+---
+title: license-compatibility
+description: Verificar se todas as dependências usam licenças compatíveis com a licença do seu projeto para prevenir contaminação copyleft.
+---
+
+Previna que licenças copyleft ou incompatíveis entrem na sua árvore de dependências.
+
+## Detalhes da regra
+
+Quando você compila ou empacota dependências na sua aplicação, os termos de licença delas se aplicam à obra combinada. Uma única dependência GPL em um projeto permissivo (MIT/Apache-2.0) pode forçar o projeto inteiro a adotar termos copyleft. Esta regra verifica todas as dependências diretas contra uma allowlist de licenças permissivas.
+
+## Exemplos de código **incorreto**
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "readline-sync": "^1.4.10" }
+}
+```
+
+Se `readline-sync` usa GPL-3.0, dispara uma violação mesmo como devDependency.
+
+## Exemplos de código **correto**
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "fast-check": "^4.7.0" }
+}
+```
+
+Tanto `zod` (MIT) quanto `fast-check` (MIT) estão na allowlist de licenças permissivas.
+
+## Implementação da regra
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const ALLOWED_LICENSES = new Set([
+  "MIT",
+  "Apache-2.0",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+  "BlueOak-1.0.0",
+]);
+
+function isAllowed(license: string | undefined): boolean {
+  if (!license) return false;
+  if (ALLOWED_LICENSES.has(license)) return true;
+
+  // Handle SPDX OR expressions — at least one option must be allowed
+  const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
+  if (ALLOWED_LICENSES.has(normalized)) return true;
+
+  if (normalized.includes(" OR ")) {
+    return normalized.split(" OR ").some((l) => ALLOWED_LICENSES.has(l.trim()));
+  }
+
+  return false;
+}
+
+export default {
+  rules: {
+    "no-copyleft-deps": {
+      description: "All dependencies must use permissive licenses",
+      async check(ctx) {
+        let pkg: {
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+        };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return;
+        }
+
+        const allDeps = [
+          ...Object.keys(pkg.dependencies ?? {}),
+          ...Object.keys(pkg.devDependencies ?? {}),
+        ];
+
+        const depResults = await Promise.all(
+          allDeps.map(async (dep) => {
+            try {
+              const depPkg = (await ctx.readJSON(
+                `node_modules/${dep}/package.json`
+              )) as { license?: string };
+              return { dep, license: depPkg.license };
+            } catch {
+              return null; // Missing or scoped — skip
+            }
+          })
+        );
+
+        for (const result of depResults) {
+          if (result === null) continue;
+          if (!isAllowed(result.license)) {
+            ctx.report.violation({
+              message: `Dependency "${result.dep}" has disallowed license: "${result.license ?? "(none)"}".`,
+              file: "package.json",
+              fix: `Remove "${result.dep}" or find an alternative with a permissive license.`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Personalização
+
+- **Alterar a allowlist**: Adicione ou remova identificadores de licença baseado na licença do seu projeto. Projetos GPL podem permitir dependências GPL; projetos Apache-2.0 devem bloqueá-las.
+- **Verificar apenas deps de produção**: Remova `devDependencies` de `allDeps` se você só se preocupa com código empacotado/distribuído.
+- **Adicionar scan transitivo**: Para cobertura mais profunda, escaneie todos os `node_modules/*/package.json` ao invés de apenas dependências diretas (veja uma abordagem com script dedicado para isso).
+
+## Quando usar
+
+Quando seu projeto usa uma licença permissiva (MIT, Apache-2.0, ISC, BSD) e você quer prevenir contaminação copyleft, especialmente em distribuições compiladas/empacotadas.
+
+## Quando não usar
+
+Em projetos licenciados sob GPL (onde dependências copyleft são compatíveis), ou quando você tem uma ferramenta SaaS dedicada de scanning de licenças (FOSSA, Snyk) que já bloqueia seu pipeline de CI.
