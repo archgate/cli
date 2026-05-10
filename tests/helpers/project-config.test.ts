@@ -14,6 +14,7 @@ import {
   loadProjectConfig,
   removeCustomDomain,
   resolveDomainPrefix,
+  resolvedProjectPaths,
   saveProjectConfig,
 } from "../../src/helpers/project-config";
 
@@ -134,5 +135,66 @@ describe("project-config", () => {
   test("saveProjectConfig + loadProjectConfig roundtrip", async () => {
     await saveProjectConfig(projectRoot, { domains: { infra: "INFRA" } });
     expect(loadProjectConfig(projectRoot).domains.infra).toBe("INFRA");
+  });
+
+  // -------------------------------------------------------------------------
+  // resolvedProjectPaths
+  // -------------------------------------------------------------------------
+
+  describe("resolvedProjectPaths", () => {
+    test("returns defaults when no paths config is set", () => {
+      const paths = resolvedProjectPaths(projectRoot);
+      expect(paths.adrsDir).toBe(join(projectRoot, ".archgate", "adrs"));
+      expect(paths.lintDir).toBe(join(projectRoot, ".archgate", "lint"));
+    });
+
+    test("overrides adrsDir when paths.adrs is configured", async () => {
+      await saveProjectConfig(projectRoot, {
+        domains: {},
+        paths: { adrs: "docs/adrs" },
+      });
+      const paths = resolvedProjectPaths(projectRoot);
+      expect(paths.adrsDir).toBe(join(projectRoot, "docs", "adrs"));
+      // lintDir stays default when paths.rules is not set
+      expect(paths.lintDir).toBe(join(projectRoot, ".archgate", "lint"));
+    });
+
+    test("overrides lintDir when paths.rules is configured", async () => {
+      await saveProjectConfig(projectRoot, {
+        domains: {},
+        paths: { rules: "docs/rules" },
+      });
+      const paths = resolvedProjectPaths(projectRoot);
+      // adrsDir stays default when paths.adrs is not set
+      expect(paths.adrsDir).toBe(join(projectRoot, ".archgate", "adrs"));
+      expect(paths.lintDir).toBe(join(projectRoot, "docs", "rules"));
+    });
+
+    test("overrides both when paths.adrs and paths.rules are configured", async () => {
+      await saveProjectConfig(projectRoot, {
+        domains: {},
+        paths: { adrs: "docs/adrs", rules: "docs/rules" },
+      });
+      const paths = resolvedProjectPaths(projectRoot);
+      expect(paths.adrsDir).toBe(join(projectRoot, "docs", "adrs"));
+      expect(paths.lintDir).toBe(join(projectRoot, "docs", "rules"));
+    });
+
+    test("root always points to .archgate/ regardless of paths config", async () => {
+      await saveProjectConfig(projectRoot, {
+        domains: {},
+        paths: { adrs: "custom/adrs" },
+      });
+      const paths = resolvedProjectPaths(projectRoot);
+      expect(paths.root).toBe(join(projectRoot, ".archgate"));
+    });
+
+    test("ignores invalid config and falls back to defaults", async () => {
+      // Write a malformed config file
+      const configPath = join(projectRoot, ".archgate", "config.json");
+      await Bun.write(configPath, "not valid json");
+      const paths = resolvedProjectPaths(projectRoot);
+      expect(paths.adrsDir).toBe(join(projectRoot, ".archgate", "adrs"));
+    });
   });
 });

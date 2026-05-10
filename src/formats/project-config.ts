@@ -23,9 +23,30 @@ export const DomainPrefixSchema = z
     "domain prefix must be uppercase (e.g. 'SEC', 'MLOPS')"
   );
 
+/**
+ * Validate that a path is relative and does not escape the project root.
+ * Rejects absolute paths (leading `/`, `\`, or drive letters like `C:\`)
+ * and `..` segments that could traverse above the project root.
+ */
+const RelativePathSchema = z
+  .string()
+  .min(1, "path must not be empty")
+  .refine((p) => !/^[/\\]/u.test(p) && !/^[A-Za-z]:[/\\]/u.test(p), {
+    message: "path must be relative (no leading / or drive letter)",
+  })
+  .refine((p) => !/(^|\/)\.\.($|\/)/u.test(p.replaceAll("\\", "/")), {
+    message: "path must not contain '..' segments",
+  });
+
+export const PathsConfigSchema = z.object({
+  adrs: RelativePathSchema.optional(),
+  rules: RelativePathSchema.optional(),
+});
+
 export const ProjectConfigSchema = z
   .object({
     domains: z.record(DomainNameSchema, DomainPrefixSchema).default({}),
+    paths: PathsConfigSchema.optional(),
   })
   .default({ domains: {} });
 

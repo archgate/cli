@@ -50,6 +50,8 @@ describe("adr create action handler", () => {
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-create-test-"));
     originalCwd = process.cwd();
+    // Prevent findProjectRoot() from walking above the temp dir
+    Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
@@ -58,6 +60,7 @@ describe("adr create action handler", () => {
 
   afterEach(() => {
     process.chdir(originalCwd);
+    delete Bun.env.ARCHGATE_PROJECT_CEILING;
     rmSync(tempDir, { recursive: true, force: true });
     logSpy.mockRestore();
     exitSpy.mockRestore();

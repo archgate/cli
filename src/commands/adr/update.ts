@@ -6,8 +6,11 @@ import { updateAdrFile } from "../../helpers/adr-writer";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot, projectPaths } from "../../helpers/paths";
-import { resolveDomainPrefix } from "../../helpers/project-config";
+import { findProjectRoot } from "../../helpers/paths";
+import {
+  resolveDomainPrefix,
+  resolvedProjectPaths,
+} from "../../helpers/project-config";
 
 export function registerAdrUpdateCommand(adr: Command) {
   adr
@@ -33,7 +36,7 @@ export function registerAdrUpdateCommand(adr: Command) {
         await exitWith(1);
         return;
       }
-      const paths = projectPaths(projectRoot);
+      const paths = resolvedProjectPaths(projectRoot);
 
       const files = opts.files
         ? opts.files

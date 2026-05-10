@@ -10,6 +10,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   DOMAIN_PREFIXES as DEFAULT_DOMAIN_PREFIXES,
@@ -201,4 +202,34 @@ export async function removeCustomDomain(
   const next: ProjectConfig = { ...config, domains: nextDomains };
   await saveProjectConfig(projectRoot, next);
   return { config: next, removed: true };
+}
+
+/**
+ * Resolve project paths with config-aware overrides.
+ *
+ * Reads `.archgate/config.json` and applies any custom `paths.adrs` or
+ * `paths.rules` overrides. When `paths.rules` is not set, rules are
+ * loaded from the same directory as ADRs (co-location convention).
+ * Falls back to the standard `.archgate/adrs/` and `.archgate/lint/`
+ * defaults when no `paths` config is present.
+ */
+export function resolvedProjectPaths(projectRoot: string): {
+  root: string;
+  adrsDir: string;
+  lintDir: string;
+} {
+  const defaults = projectPaths(projectRoot);
+  const config = loadProjectConfig(projectRoot);
+
+  if (!config.paths) return defaults;
+
+  return {
+    root: defaults.root,
+    adrsDir: config.paths.adrs
+      ? join(projectRoot, config.paths.adrs)
+      : defaults.adrsDir,
+    lintDir: config.paths.rules
+      ? join(projectRoot, config.paths.rules)
+      : defaults.lintDir,
+  };
 }

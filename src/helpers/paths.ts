@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 
 import { logDebug } from "./log";
 
@@ -112,16 +112,38 @@ export function createPathIfNotExists(path: string) {
 }
 
 /**
- * Walk up from cwd to find the nearest directory containing .archgate/adrs/.
- * Returns the project root path or null if not found.
+ * Walk up from cwd to find the nearest directory containing an archgate
+ * project. A directory is a project root when it has either:
+ *   - `.archgate/adrs/` — standard project layout
+ *   - `.archgate/lint/` — also created by `archgate init`
+ *
+ * Both directories are created by `archgate init` and are project-specific.
+ * We cannot match on `.archgate/` alone because `~/.archgate/` is the
+ * CLI's user-level cache directory (binary installs, credentials, etc.)
+ * and would produce false positives. We also avoid matching on
+ * `.archgate/config.json` because `~/.archgate/config.json` stores
+ * telemetry settings.
+ *
+ * **Test isolation:** Set `ARCHGATE_PROJECT_CEILING` to a directory path
+ * to prevent the walk-up from escaping above it — analogous to git's
+ * `GIT_CEILING_DIRECTORIES`. The ceiling directory itself is still
+ * checked, but the walk stops there.
  */
 export function findProjectRoot(startDir?: string): string | null {
+  const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
+  const ceiling = ceilingEnv ? resolve(ceilingEnv) : null;
   let dir = startDir ?? process.cwd();
 
   while (true) {
     const adrsDir = join(dir, ".archgate", "adrs");
-    if (existsSync(adrsDir)) {
+    const lintDir = join(dir, ".archgate", "lint");
+    if (existsSync(adrsDir) || existsSync(lintDir)) {
       return dir;
+    }
+
+    // Don't walk above the ceiling directory
+    if (ceiling && resolve(dir) === ceiling) {
+      return null;
     }
 
     const parent = dirname(dir);

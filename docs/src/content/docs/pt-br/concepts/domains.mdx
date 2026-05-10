@@ -110,7 +110,7 @@ archgate adr domain add security SEC
 archgate adr domain remove security
 ```
 
-Os mapeamentos de domínio personalizado → prefixo persistem em `.archgate/config.json` e são mesclados com os integrados no momento da leitura. Um domínio personalizado registrado se comporta exatamente como um integrado: `archgate adr create --domain security` gera IDs como `SEC-001`, e `archgate adr list --domain security` filtra esses ADRs.
+Os mapeamentos de domínio personalizado para prefixo persistem em [`.archgate/config.json`](/reference/configuration/) e são mesclados com os integrados no momento da leitura. Um domínio personalizado registrado se comporta exatamente como um integrado: `archgate adr create --domain security` gera IDs como `SEC-001`, e `archgate adr list --domain security` filtra esses ADRs.
 
 ### Regras de nomenclatura
 

@@ -7,6 +7,7 @@ import fc from "fast-check";
 import {
   DomainNameSchema,
   DomainPrefixSchema,
+  PathsConfigSchema,
   ProjectConfigSchema,
 } from "../../src/formats/project-config";
 
@@ -204,5 +205,96 @@ describe("ProjectConfigSchema fuzz", () => {
         expect(result.data.domains).toEqual({});
       }
     }
+  });
+
+  test("accepts config with valid paths", () => {
+    const cases = [
+      { domains: {}, paths: { adrs: "docs/adrs" } },
+      { domains: {}, paths: { rules: "custom/rules" } },
+      { domains: {}, paths: { adrs: "docs/adrs", rules: "docs/adrs" } },
+      { domains: {}, paths: {} },
+    ];
+    for (const c of cases) {
+      const result = ProjectConfigSchema.safeParse(c);
+      expect(result.success).toBe(true);
+    }
+  });
+
+  test("rejects config with absolute paths", () => {
+    const cases = [
+      { domains: {}, paths: { adrs: "/absolute/path" } },
+      { domains: {}, paths: { rules: "/etc/rules" } },
+      { domains: {}, paths: { adrs: "C:\\absolute\\path" } },
+    ];
+    for (const c of cases) {
+      const result = ProjectConfigSchema.safeParse(c);
+      expect(result.success).toBe(false);
+    }
+  });
+
+  test("rejects config with '..' path segments", () => {
+    const cases = [
+      { domains: {}, paths: { adrs: "../escape" } },
+      { domains: {}, paths: { adrs: "docs/../../escape" } },
+      { domains: {}, paths: { rules: ".." } },
+    ];
+    for (const c of cases) {
+      const result = ProjectConfigSchema.safeParse(c);
+      expect(result.success).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PathsConfigSchema
+// ---------------------------------------------------------------------------
+
+describe("PathsConfigSchema fuzz", () => {
+  test("safeParse never throws on arbitrary strings for adrs/rules", () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 0, maxLength: 50 }), (input) => {
+        const result = PathsConfigSchema.safeParse({
+          adrs: input,
+          rules: input,
+        });
+        expect(result).toHaveProperty("success");
+      }),
+      { numRuns: NUM_RUNS }
+    );
+  });
+
+  test("accepts valid relative paths", () => {
+    const valid = [
+      "docs/adrs",
+      "custom",
+      "a/b/c/d",
+      "src/governance/adrs",
+      "adrs",
+    ];
+    for (const p of valid) {
+      const result = PathsConfigSchema.safeParse({ adrs: p });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  test("rejects absolute paths", () => {
+    const absolute = ["/root", "\\root", "C:\\path", "D:/path"];
+    for (const p of absolute) {
+      const result = PathsConfigSchema.safeParse({ adrs: p });
+      expect(result.success).toBe(false);
+    }
+  });
+
+  test("rejects paths with '..' segments", () => {
+    const escaping = ["..", "../foo", "foo/../bar", "foo/.."];
+    for (const p of escaping) {
+      const result = PathsConfigSchema.safeParse({ adrs: p });
+      expect(result.success).toBe(false);
+    }
+  });
+
+  test("rejects empty strings", () => {
+    const result = PathsConfigSchema.safeParse({ adrs: "" });
+    expect(result.success).toBe(false);
   });
 });

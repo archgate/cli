@@ -9,7 +9,8 @@ import { parseAllAdrs } from "../../engine/loader";
 import { exitWith } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot, projectPaths } from "../../helpers/paths";
+import { findProjectRoot } from "../../helpers/paths";
+import { resolvedProjectPaths } from "../../helpers/project-config";
 
 export function registerAdrListCommand(adr: Command) {
   adr
@@ -26,7 +27,7 @@ export function registerAdrListCommand(adr: Command) {
       }
 
       try {
-        const paths = projectPaths(projectRoot);
+        const paths = resolvedProjectPaths(projectRoot);
 
         if (!existsSync(paths.adrsDir)) {
           console.log("No ADRs found.");
