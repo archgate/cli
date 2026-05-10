@@ -36,6 +36,10 @@ export async function runCli(
       NO_COLOR: "1",
       CI: "1",
       ARCHGATE_TELEMETRY: "0",
+      // Prevent findProjectRoot() from walking above the test directory
+      // and discovering the user's ~/.archgate/ — analogous to git's
+      // GIT_CEILING_DIRECTORIES.
+      ARCHGATE_PROJECT_CEILING: cwd,
       ...env,
     },
   });
