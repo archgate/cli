@@ -307,7 +307,7 @@ This creates the `.archgate/` directory with the following structure:
     archgate.config.ts           # Archgate configuration
 ```
 
-The generated files give you a working example to build on. The default ADR directory is `.archgate/adrs/`, but it can be [customized](/reference/configuration/#custom-adr-directory) after initialization.
+The generated files give you a working example to build on.
 
 ## 3. Edit the example ADR
 
@@ -427,9 +427,7 @@ Archgate builds on the ADR concept by giving each decision two expressions: a **
 
 ### ADR as Document
 
-The document is a Markdown file with YAML frontmatter stored in `.archgate/adrs/` by default. It describes the decision in plain language: what problem it solves, what alternatives were considered, what the team decided, and what consequences follow.
-
-ADRs can be stored in a different directory (e.g., `docs/adrs/`) by configuring the `paths.adrs` field in `.archgate/config.json`. See the [Configuration reference](/reference/configuration/#custom-adr-directory) for details.
+The document is a Markdown file with YAML frontmatter stored in `.archgate/adrs/`. It describes the decision in plain language: what problem it solves, what alternatives were considered, what the team decided, and what consequences follow.
 
 Both humans and AI agents consume this document. When an AI coding agent is about to write code, it reads the relevant ADRs to understand the constraints before generating anything.
 
@@ -2188,7 +2186,7 @@ You will be prompted for:
 2. **Title** -- a short, descriptive name for the decision
 3. **File patterns** -- optional comma-separated globs that scope rule checking (e.g., `src/commands/**/*.ts`)
 
-The CLI assigns a sequential ID based on the domain prefix (`ARCH-001`, `FE-002`, `BE-003`, etc.) and writes the file to `.archgate/adrs/` (or a [custom directory](/reference/configuration/#custom-adr-directory) if configured).
+The CLI assigns a sequential ID based on the domain prefix (`ARCH-001`, `FE-002`, `BE-003`, etc.) and writes the file to `.archgate/adrs/`.
 
 ### Non-interactive mode
 
@@ -2488,9 +2486,6 @@ Rules are TypeScript functions that check your codebase for ADR compliance. They
   ARCH-001-command-structure.rules.ts    # The automated checks
 ```
 
-:::note
-Rules files always live next to their companion ADR files. If you configure a [custom ADR directory](/reference/configuration/#custom-adr-directory), place rules files there too.
-
 ## Basic setup
 
 Every rules file exports a default plain object typed with `satisfies RuleSet`. Each key in the `rules` object becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
@@ -2783,10 +2778,7 @@ ARCH-006/no-unapproved-deps
 
 Source: https://cli.archgate.dev/reference/adr-schema/
 
-Every Archgate ADR is a Markdown file stored in `.archgate/adrs/` (by default) with YAML frontmatter that defines the decision's identity and scope. This page documents the frontmatter schema, markdown section structure, and validation behavior.
-
-:::note
-The ADR directory can be customized via `.archgate/config.json`. See the [Configuration reference](/reference/configuration/#custom-adr-directory) for details.
+Every Archgate ADR is a Markdown file stored in `.archgate/adrs/` with YAML frontmatter that defines the decision's identity and scope. This page documents the frontmatter schema, markdown section structure, and validation behavior.
 
 ## Frontmatter Schema
 
@@ -3604,9 +3596,6 @@ When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/
   lint/
     archgate.config.ts           # Archgate configuration
 ```
-
-:::tip
-After initialization, you can configure a custom directory for ADRs by editing `.archgate/config.json`. See the [Configuration reference](/reference/configuration/#custom-adr-directory) for details.
 
 ---
 
