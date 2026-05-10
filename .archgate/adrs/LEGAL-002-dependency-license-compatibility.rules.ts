@@ -60,11 +60,9 @@ export default {
       description:
         "All dependencies (including transitive) must use Apache-2.0-compatible (permissive) licenses",
       async check(ctx) {
-        // Scan ALL packages in node_modules — direct AND transitive
-        const pkgFiles = [
-          ...(await ctx.glob("node_modules/*/package.json")),
-          ...(await ctx.glob("node_modules/@*/*/package.json")),
-        ];
+        // Scan ALL packages in node_modules — direct AND transitive.
+        // Brace expansion covers both regular (zod) and scoped (@sentry/node-core) packages.
+        const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
 
         const depResults = await Promise.all(
           pkgFiles.map(async (pkgPath) => {
