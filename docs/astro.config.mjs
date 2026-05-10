@@ -260,12 +260,12 @@ export default defineConfig({
         {
           label: "Examples",
           collapsed: true,
-          autogenerate: { directory: "examples" },
+          items: [{ autogenerate: { directory: "examples", collapsed: true } }],
         },
         {
           label: "Studies",
           collapsed: true,
-          autogenerate: { directory: "studies" },
+          items: [{ autogenerate: { directory: "studies", collapsed: true } }],
         },
       ],
     }),
