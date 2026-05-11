@@ -4,6 +4,7 @@ import type { Command } from "@commander-js/extra-typings";
 
 import { registerAdrCreateCommand } from "./create";
 import { registerDomainCommand } from "./domain/index";
+import { registerAdrImportCommand } from "./import";
 import { registerAdrListCommand } from "./list";
 import { registerAdrShowCommand } from "./show";
 import { registerAdrUpdateCommand } from "./update";
@@ -14,6 +15,7 @@ export function registerAdrCommand(program: Command) {
     .description("Manage Architecture Decision Records");
 
   registerAdrCreateCommand(adr);
+  registerAdrImportCommand(adr);
   registerAdrListCommand(adr);
   registerAdrShowCommand(adr);
   registerAdrUpdateCommand(adr);

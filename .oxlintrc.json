@@ -18,6 +18,13 @@
     {
       "files": [".archgate/adrs/*.rules.ts"],
       "rules": { "typescript/triple-slash-reference": "off" }
+    },
+    {
+      "files": ["tests/fixtures/**/*.rules.ts"],
+      "rules": {
+        "typescript/triple-slash-reference": "off",
+        "no-unused-vars": "off"
+      }
     }
   ]
 }

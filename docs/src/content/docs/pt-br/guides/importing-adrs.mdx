@@ -1,0 +1,133 @@
+---
+title: Importando ADRs
+description: Importe Architecture Decision Records curados do registro Archgate ou de qualquer repositório git. Comece com convenções comprovadas em vez de uma página em branco.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+## O que são ADR packs?
+
+Um **ADR pack** é uma coleção curada de Architecture Decision Records agrupados sob um tema compartilhado. Cada pack inclui:
+
+- Um manifesto `archgate-pack.yaml` com metadados (nome, versão, mantenedores, tags)
+- Um ou mais arquivos ADR markdown em um diretório `adrs/`
+- Arquivos complementares `.rules.ts` opcionais que aplicam cada decisão automaticamente
+
+Packs permitem inicializar um projeto com convenções arquiteturais comprovadas em vez de escrever tudo do zero.
+
+## Importando do registro
+
+O [registro Archgate awesome-adrs](https://github.com/archgate/awesome-adrs) hospeda packs mantidos pela comunidade. Importe um com:
+
+```bash
+archgate adr import packs/typescript-strict
+```
+
+Isso clona o registro, copia os ADRs para o diretório `.archgate/adrs/` e remapeia os IDs para se adequar ao esquema de numeração do seu projeto.
+
+### Fixando uma versão
+
+Adicione `@<ref>` para fixar em uma tag ou branch específica:
+
+```bash
+archgate adr import packs/typescript-strict@0.3.0
+```
+
+## Selecionando ADRs individuais
+
+Você não precisa importar um pack inteiro. Aponte para um arquivo ADR específico dentro de um pack:
+
+```bash
+archgate adr import packs/security/adrs/SEC-001-no-secrets-in-code
+```
+
+Apenas esse ADR (e seu arquivo de regras complementar, se existir) será importado.
+
+## Importando de repositórios de terceiros
+
+Qualquer repositório GitHub com arquivos ADR funciona como fonte. Use a sintaxe `org/repo/path` com três segmentos:
+
+```bash
+archgate adr import acme/company-adrs/packs/api-standards
+```
+
+Isso clona `https://github.com/acme/company-adrs.git` e importa do subpath especificado.
+
+## Importando de qualquer URL git
+
+Para repositórios não-GitHub ou quando precisar de controle total, passe uma URL completa:
+
+```bash
+archgate adr import https://github.com/org/repo/tree/main/packs/my-pack
+```
+
+O CLI analisa o formato GitHub `/tree/<ref>/<path>` automaticamente. Para outros hosts, passe qualquer URL clonável via git:
+
+```bash
+archgate adr import https://gitlab.com/team/repo.git
+```
+
+## Preview com `--dry-run`
+
+Veja o que seria importado sem escrever nada:
+
+```bash
+archgate adr import packs/typescript-strict --dry-run
+```
+
+A saída mostra os IDs originais, IDs remapeados e títulos em uma tabela.
+
+## Listando ADRs importados com `--list`
+
+Verifique o que foi importado anteriormente:
+
+```bash
+archgate adr import --list
+```
+
+Isso lê `.archgate/imports.json` e exibe cada fonte, versão e os IDs de ADR produzidos.
+
+## Como funciona o remapeamento de IDs
+
+Quando você importa ADRs, os IDs originais (ex: `TS-001`) são **remapeados** para se adequar à sequência de IDs do seu projeto. Por exemplo, se seu projeto já tem `ARCH-001` até `ARCH-005`, os ADRs importados receberão `ARCH-006`, `ARCH-007`, etc.
+
+Você pode sobrescrever o prefixo com `--prefix`:
+
+```bash
+archgate adr import packs/security --prefix SEC
+```
+
+O remapeamento garante:
+
+1. Nenhuma colisão de ID com ADRs existentes
+2. Um esquema de numeração único e consistente em todo o projeto
+3. Arquivos de regras importados funcionam imediatamente sem edições manuais
+
+## O manifesto imports.json
+
+Cada importação é registrada em `.archgate/imports.json`:
+
+```json
+{
+  "imports": [
+    {
+      "source": "packs/typescript-strict",
+      "version": "0.3.0",
+      "importedAt": "2026-05-10T14:32:00.000Z",
+      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"]
+    }
+  ]
+}
+```
+
+Este manifesto permite rastrear a proveniência — de onde cada ADR importado veio e quando. Faça commit dele no controle de versão junto com seus ADRs.
+
+## Referência de opções do comando
+
+| Opção               | Descrição                                       |
+| ------------------- | ----------------------------------------------- |
+| `--yes`             | Pula o prompt de confirmação                    |
+| `--json`            | Saída em formato JSON                           |
+| `--dry-run`         | Preview sem escrever arquivos                   |
+| `--prefix <prefix>` | Sobrescreve o prefixo de ID dos ADRs importados |
+| `--list`            | Lista ADRs importados anteriormente             |

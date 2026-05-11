@@ -187,3 +187,106 @@ export function scanRuleSource(source: string): ScanViolation[] {
   walk(ast as unknown as AstNode);
   return remapViolations(source, rawViolations);
 }
+
+/** Extra patterns blocked for imported (untrusted) rule files. */
+const IMPORTED_BLOCKED_GLOBALS = new Set(["require", "WebSocket"]);
+
+/**
+ * Scan an imported (untrusted) `.rules.ts` source with stricter checks.
+ *
+ * Runs the standard `scanRuleSource()` first, then adds extra checks for
+ * patterns that are acceptable in first-party rules but dangerous in
+ * imported rules:
+ *   - `Bun.env` access
+ *   - environment variable reads via process
+ *   - `require()` calls
+ *   - `WebSocket` usage
+ *
+ * @internal
+ */
+export function scanImportedRuleSource(source: string): ScanViolation[] {
+  const transpiler = new Bun.Transpiler({ loader: "ts" });
+  const js = transpiler.transformSync(source);
+  const ast = parseModule(js, { next: true, loc: true, module: true });
+  const rawViolations: RawViolation[] = [];
+
+  const seenCounts = new Map<string, number>();
+  function pushViolation(message: string, searchText: string) {
+    const count = seenCounts.get(searchText) ?? 0;
+    seenCounts.set(searchText, count + 1);
+    rawViolations.push({ message, searchText, occurrence: count });
+  }
+
+  function walkImported(node: AstNode): void {
+    if (!node || typeof node !== "object") return;
+
+    switch (node.type) {
+      case "MemberExpression": {
+        const obj = node.object as AstNode & { name?: string };
+        const prop = node.property as AstNode & { name?: string };
+        const computed = node.computed as boolean;
+
+        // Block Bun.env
+        if (obj.name === "Bun" && !computed && prop.name === "env") {
+          pushViolation(
+            "Bun.env access is blocked in imported rule files.",
+            "Bun.env"
+          );
+        }
+
+        // Block process env reads
+        if (obj.name === "process" && !computed && prop.name === "env") {
+          const target = `${obj.name}.${prop.name}`;
+          pushViolation(
+            `${target} access is blocked in imported rule files.`,
+            target
+          );
+        }
+        break;
+      }
+      case "CallExpression": {
+        const callee = node.callee as AstNode & { name?: string };
+        if (callee.name && IMPORTED_BLOCKED_GLOBALS.has(callee.name)) {
+          pushViolation(
+            `${callee.name}() is blocked in imported rule files.`,
+            `${callee.name}(`
+          );
+        }
+        break;
+      }
+      case "NewExpression": {
+        const callee = node.callee as AstNode & { name?: string };
+        if (callee.name && IMPORTED_BLOCKED_GLOBALS.has(callee.name)) {
+          pushViolation(
+            `new ${callee.name}() is blocked in imported rule files.`,
+            `new ${callee.name}(`
+          );
+        }
+        break;
+      }
+    }
+
+    for (const value of Object.values(node)) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item && typeof item === "object" && (item as AstNode).type) {
+            walkImported(item as AstNode);
+          }
+        }
+      } else if (
+        value &&
+        typeof value === "object" &&
+        (value as AstNode).type
+      ) {
+        walkImported(value as AstNode);
+      }
+    }
+  }
+
+  walkImported(ast as unknown as AstNode);
+
+  // Combine: standard scan + imported-only scan
+  const standardViolations = scanRuleSource(source);
+  const importedViolations = remapViolations(source, rawViolations);
+  return [...standardViolations, ...importedViolations];
+}
