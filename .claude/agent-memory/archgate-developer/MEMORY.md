@@ -66,7 +66,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 ## Distribution / Packaging
 
-- **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs` + `scripts/postinstall.cjs`). On first run, the shim downloads the platform binary from GitHub Releases and caches it to `~/.archgate/bin/`. No platform-specific npm packages.
+- **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs`). On first run, the shim downloads the platform binary from GitHub Releases and caches it to `~/.archgate/bin/`. No platform-specific npm packages.
 - **`.cjs` extension is mandatory** — Root `package.json` has `"type": "module"`. Any Node.js CJS wrapper script placed at the package root MUST use `.cjs`, not `.js`, or Node.js will attempt to parse it as ESM and fail.
 
 ## Telemetry Strategy

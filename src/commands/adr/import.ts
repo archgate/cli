@@ -3,7 +3,6 @@
 import {
   existsSync,
   mkdirSync,
-  readFileSync,
   rmSync,
   unlinkSync,
   writeFileSync,
@@ -37,11 +36,13 @@ import { ensureRulesShim } from "../../helpers/rules-shim";
 
 // ---------- Imports manifest I/O ----------
 
-function loadImportsManifest(projectRoot: string): ImportsManifest {
+async function loadImportsManifest(
+  projectRoot: string
+): Promise<ImportsManifest> {
   const importsPath = join(projectRoot, ".archgate", "imports.json");
   if (!existsSync(importsPath)) return { imports: [] };
-  const raw = readFileSync(importsPath, "utf-8");
-  return ImportsManifestSchema.parse(JSON.parse(raw));
+  const raw = await Bun.file(importsPath).json();
+  return ImportsManifestSchema.parse(raw);
 }
 
 function saveImportsManifest(
@@ -255,7 +256,7 @@ export function registerAdrImportCommand(adr: Command) {
 
         // --list: show previously imported ADRs
         if (opts.list) {
-          const manifest = loadImportsManifest(projectRoot);
+          const manifest = await loadImportsManifest(projectRoot);
           if (useJson) {
             console.log(formatJSON(manifest, opts.json ? true : undefined));
           } else if (manifest.imports.length === 0) {
@@ -392,7 +393,7 @@ export function registerAdrImportCommand(adr: Command) {
 
         // ---------- Update imports.json ----------
 
-        const manifest = loadImportsManifest(projectRoot);
+        const manifest = await loadImportsManifest(projectRoot);
         const sourceGroups = new Map<
           string,
           { version?: string; ids: string[] }
