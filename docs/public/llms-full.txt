@@ -1745,12 +1745,12 @@ This manifest lets you track provenance — where each imported ADR came from an
 
 ## Command options reference
 
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--yes`             | Skip the confirmation prompt             |
-| `--json`            | Output results as JSON                   |
-| `--dry-run`         | Preview changes without writing files    |
-| `--list`            | List previously imported ADRs            |
+| Option      | Description                           |
+| ----------- | ------------------------------------- |
+| `--yes`     | Skip the confirmation prompt          |
+| `--json`    | Output results as JSON                |
+| `--dry-run` | Preview changes without writing files |
+| `--list`    | List previously imported ADRs         |
 
 ---
 
