@@ -123,10 +123,7 @@ describe("detectStack", () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
     writeFileSync(
       join(tempDir, "package.json"),
-      JSON.stringify({
-        name: "test",
-        dependencies: { express: "^4.0.0" },
-      })
+      JSON.stringify({ name: "test", dependencies: { express: "^4.0.0" } })
     );
 
     const stack = await detectStack(tempDir);
@@ -135,10 +132,7 @@ describe("detectStack", () => {
 
   test("detects Vite framework from vite.config.ts", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t" })
-    );
+    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "t" }));
     writeFileSync(join(tempDir, "vite.config.ts"), "export default {}");
 
     const stack = await detectStack(tempDir);

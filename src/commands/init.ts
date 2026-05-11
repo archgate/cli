@@ -284,13 +284,7 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
   }
 
   // Import selected packs via subprocess to reuse existing import logic
-  const args = [
-    process.argv[0],
-    "adr",
-    "import",
-    "--yes",
-    ...selectedPacks,
-  ];
+  const args = [process.argv[0], "adr", "import", "--yes", ...selectedPacks];
   const proc = Bun.spawn(args, {
     cwd: projectRoot,
     stdout: "inherit",

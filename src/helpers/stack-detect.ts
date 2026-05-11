@@ -26,10 +26,7 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
 
   if (hasPkgJson) {
     try {
-      pkgJson = (await Bun.file(pkgJsonPath).json()) as Record<
-        string,
-        unknown
-      >;
+      pkgJson = (await Bun.file(pkgJsonPath).json()) as Record<string, unknown>;
     } catch {
       logDebug("Failed to parse package.json");
     }
@@ -86,15 +83,7 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
 
   // --- Frameworks ---
   // Next.js: next.config.* (any extension)
-  const nextConfigExtensions = [
-    "js",
-    "cjs",
-    "mjs",
-    "ts",
-    "mts",
-    "cts",
-    "json",
-  ];
+  const nextConfigExtensions = ["js", "cjs", "mjs", "ts", "mts", "cts", "json"];
   if (
     nextConfigExtensions.some((ext) =>
       existsSync(join(projectRoot, `next.config.${ext}`))

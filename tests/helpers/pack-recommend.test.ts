@@ -160,10 +160,7 @@ describe("recommendPacksFromDir", () => {
 
   test("counts ADR files correctly", () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
-    createPack(tempDir, "testing", {
-      tags: ["concern:testing"],
-      adrCount: 5,
-    });
+    createPack(tempDir, "testing", { tags: ["concern:testing"], adrCount: 5 });
 
     const stack: DetectedStack = {
       languages: ["typescript"],
@@ -197,14 +194,8 @@ describe("recommendPacksFromDir", () => {
 
   test("alphabetical sort within same relevance", () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
-    createPack(tempDir, "zebra", {
-      tags: ["concern:zebra"],
-      adrCount: 1,
-    });
-    createPack(tempDir, "alpha", {
-      tags: ["concern:alpha"],
-      adrCount: 1,
-    });
+    createPack(tempDir, "zebra", { tags: ["concern:zebra"], adrCount: 1 });
+    createPack(tempDir, "alpha", { tags: ["concern:alpha"], adrCount: 1 });
 
     const stack: DetectedStack = {
       languages: ["typescript"],

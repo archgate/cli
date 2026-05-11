@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
-import {
-  mkdirSync,
-  mkdtempSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -97,9 +93,9 @@ describe("adr sync command", () => {
     const parent = new Command("adr").exitOverride();
     registerAdrSyncCommand(parent);
 
-    await expect(
-      parent.parseAsync(["node", "adr", "sync"])
-    ).rejects.toThrow("process.exit");
+    await expect(parent.parseAsync(["node", "adr", "sync"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
