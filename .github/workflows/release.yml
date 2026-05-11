@@ -157,16 +157,22 @@ jobs:
         if: always() && steps.validate.outcome == 'success'
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
+          use_oidc: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: archgate/cli
           files: coverage/lcov.info
+          disable_search: true
           fail_ci_if_error: false
       - name: Upload test results to Codecov
         if: always() && steps.validate.outcome != 'skipped'
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
+          use_oidc: true
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: archgate/cli
           files: coverage/junit.xml
-          report-type: test_results
+          disable_search: true
+          report_type: test_results
           fail_ci_if_error: false
       - name: Ensure main is up-to-date before release
         run: git pull --rebase origin main
