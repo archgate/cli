@@ -3414,6 +3414,117 @@ archgate adr domain remove security
 
 ---
 
+## archgate adr import
+
+Import ADRs from the registry or a git repository.
+
+```bash
+archgate adr import <source...> [options]
+```
+
+The command clones the source, reads ADR files, remaps IDs to fit the local project's sequence, and writes them to `.archgate/adrs/`. It tracks imports in `.archgate/imports.json` so they can later be checked for upstream updates via [`archgate adr sync`](#archgate-adr-sync).
+
+### Arguments
+
+| Argument      | Description                                      |
+| ------------- | ------------------------------------------------ |
+| `<source...>` | Registry path(s), `org/repo/path`, or git URL(s) |
+
+### Options
+
+| Option      | Description                     |
+| ----------- | ------------------------------- |
+| `--yes`     | Skip confirmation prompt        |
+| `--json`    | Output as JSON                  |
+| `--dry-run` | Preview changes without writing |
+| `--list`    | List previously imported ADRs   |
+
+### Examples
+
+Import from the registry:
+
+```bash
+archgate adr import archgate/packs/typescript
+```
+
+Import from a git repository:
+
+```bash
+archgate adr import https://github.com/acme/adr-packs.git
+```
+
+Preview what would be imported without writing any files:
+
+```bash
+archgate adr import archgate/packs/typescript --dry-run
+```
+
+Import non-interactively (skip confirmation):
+
+```bash
+archgate adr import archgate/packs/typescript --yes
+```
+
+List previously imported ADRs:
+
+```bash
+archgate adr import --list
+```
+
+---
+
+## archgate adr sync
+
+Check for upstream updates to imported ADRs.
+
+```bash
+archgate adr sync [source...] [options]
+```
+
+The command compares local imported ADRs against their upstream source and shows which sections changed. In interactive mode, it prompts for each changed ADR with three choices: keep local, take upstream, or skip.
+
+### Arguments
+
+| Argument      | Description                                            |
+| ------------- | ------------------------------------------------------ |
+| `[source...]` | Optional source filter(s) — sync only matching imports |
+
+### Options
+
+| Option    | Description                              |
+| --------- | ---------------------------------------- |
+| `--check` | Exit 1 if upstream has updates (CI mode) |
+| `--yes`   | Skip confirmation prompts                |
+| `--json`  | Output as JSON                           |
+
+### Examples
+
+Check all imported ADRs for upstream updates:
+
+```bash
+archgate adr sync
+```
+
+Check only imports from a specific source:
+
+```bash
+archgate adr sync archgate/packs/typescript
+```
+
+CI mode — fail the build if any imported ADR is outdated:
+
+```bash
+archgate adr sync --check
+```
+
+Accept all upstream updates non-interactively:
+
+```bash
+archgate adr sync --yes
+```
+
+---
+
 ## Reference: archgate check
 
 Source: https://cli.archgate.dev/reference/cli/check/
@@ -4138,13 +4249,26 @@ When the override is in effect, running `archgate telemetry enable` persists the
 
 Source: https://cli.archgate.dev/reference/cli/upgrade/
 
-Upgrade Archgate to the latest version via npm.
+Upgrade Archgate to the latest version.
 
 ```bash
 archgate upgrade
 ```
 
-Checks the npm registry for the latest published version. If a newer version is available, runs `npm install -g archgate@latest` to upgrade. If already up-to-date, prints a message and exits.
+Checks GitHub Releases for the latest published version. If a newer version is available, the command auto-detects how Archgate was installed and runs the appropriate upgrade strategy. If already up-to-date, prints a message and exits.
+
+## Install method detection
+
+The upgrade command inspects the running binary path to determine the install method, then delegates to the matching strategy:
+
+| Install method                          | Detection                                      | Upgrade action                                                                                                                                           |
+| --------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Binary install** (`~/.archgate/bin/`) | Binary lives inside `~/.archgate/bin/`         | Downloads the latest binary from GitHub Releases and replaces the existing one                                                                           |
+| **Proto**                               | Binary lives inside `~/.proto/tools/archgate/` | Runs `proto install archgate latest --pin`                                                                                                               |
+| **Local dev dependency**                | Binary lives inside `node_modules/`            | Detects the package manager from the nearest lockfile (bun, pnpm, yarn, or npm) and runs the appropriate add command (e.g. `bun add -d archgate@latest`) |
+| **Global package manager**              | Binary lives in a global bin directory         | Detects which package manager owns the global bin directory and runs its upgrade command (e.g. `npm install -g archgate@latest`)                         |
+
+If no specific method is detected, the command falls back to `npm install -g archgate@latest`.
 
 ## Example
 
@@ -4154,8 +4278,8 @@ archgate upgrade
 
 ```
 Checking for latest Archgate release...
-Upgrading 0.3.0 -> 0.4.0...
-Archgate upgraded to 0.4.0 successfully.
+Upgrading 0.34.0 -> 0.35.0...
+Archgate upgraded to 0.35.0 successfully.
 ```
 
 ---
