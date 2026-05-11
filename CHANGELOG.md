@@ -1,3 +1,9 @@
+## [0.35.0](https://github.com/archgate/cli/compare/v0.34.0...v0.35.0) (2026-05-11)
+
+### Features
+
+* archgate adr import — registry import command ([#296](https://github.com/archgate/cli/issues/296)) ([ba42e97](https://github.com/archgate/cli/commit/ba42e9780736725fff423355b1f45e542b98aa7a))
+
 ## [0.34.0](https://github.com/archgate/cli/compare/v0.33.3...v0.34.0) (2026-05-10)
 
 ### Features
