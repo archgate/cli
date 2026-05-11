@@ -1,3 +1,9 @@
+## [0.36.2](https://github.com/archgate/cli/compare/v0.36.1...v0.36.2) (2026-05-11)
+
+### Bug Fixes
+
+* **ci:** resolve smoke test race condition and add explicit CodeQL workflow ([#308](https://github.com/archgate/cli/issues/308)) ([f88bb7e](https://github.com/archgate/cli/commit/f88bb7edbc72ee8ee60f5fe46ad31bb74b5ca659)), closes [#279](https://github.com/archgate/cli/issues/279)
+
 ## [0.36.1](https://github.com/archgate/cli/compare/v0.36.0...v0.36.1) (2026-05-11)
 
 ### Bug Fixes
