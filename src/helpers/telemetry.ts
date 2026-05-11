@@ -389,9 +389,7 @@ export function trackUpgradeResult(properties: {
   trackEvent("upgrade_completed", properties);
 }
 
-/**
- * Track the outcome of `archgate login`.
- */
+/** Track the outcome of `archgate login`. */
 export function trackLoginResult(properties: {
   subcommand: "login" | "logout" | "refresh" | "status";
   success: boolean;
@@ -400,26 +398,19 @@ export function trackLoginResult(properties: {
   trackEvent("login_completed", properties);
 }
 
-/**
- * Track preference changes so we can measure opt-out rate. Fires one last
- * event right before disabling telemetry, and a fresh event when re-enabling.
- */
+/** Track preference changes (opt-out rate). Fires one last event before disabling, fresh event when re-enabling. */
 export function trackTelemetryPreferenceChange(properties: {
   enabled: boolean;
 }): void {
   trackEvent("telemetry_preference_changed", properties);
 }
 
-/**
- * Track when the greenfield wizard prompt is displayed.
- */
+/** Track when the greenfield wizard prompt is displayed. */
 export function trackGreenfieldWizardShown(): void {
   trackEvent("adoption.greenfield_wizard_shown");
 }
 
-/**
- * Track when packs are imported via the greenfield wizard.
- */
+/** Track when packs are imported via the greenfield wizard. */
 export function trackPackImportedAtInit(properties: {
   pack_names: string[];
   pack_count: number;
@@ -427,9 +418,7 @@ export function trackPackImportedAtInit(properties: {
   trackEvent("adoption.pack_imported_at_init", properties);
 }
 
-/**
- * Track when user chooses "No, start empty" in the greenfield wizard.
- */
+/** Track when user chooses "No, start empty" in the greenfield wizard. */
 export function trackWizardSkipped(): void {
   trackEvent("adoption.wizard_skipped");
 }

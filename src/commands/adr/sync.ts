@@ -219,7 +219,7 @@ export function registerAdrSyncCommand(adr: Command) {
 
           if (!cloneDir) {
             try {
-              cloneDir = await shallowClone(resolved.repoUrl, resolved.ref);
+              cloneDir = await shallowClone(resolved.repoUrl, resolved.ref); // oxlint-disable-line no-await-in-loop -- sequential by design (dedup cache)
               cloneCache.set(cacheKey, cloneDir);
               tempDirs.push(cloneDir);
             } catch (err) {
@@ -327,24 +327,22 @@ export function registerAdrSyncCommand(adr: Command) {
                 opts.json ? true : undefined
               )
             );
-          } else {
-            if (result.withChanges > 0) {
+          } else if (result.withChanges > 0) {
+            console.log(
+              styleText(
+                "yellow",
+                `${result.withChanges} ADR(s) have upstream updates:`
+              )
+            );
+            for (const diff of result.diffs.filter((d) => d.hasChanges)) {
               console.log(
-                styleText(
-                  "yellow",
-                  `${result.withChanges} ADR(s) have upstream updates:`
-                )
-              );
-              for (const diff of result.diffs.filter((d) => d.hasChanges)) {
-                console.log(
-                  `  ${diff.adrId} (${diff.source}): ${diff.summary}`
-                );
-              }
-            } else {
-              console.log(
-                styleText("green", "All imported ADRs are up to date.")
+                `  ${diff.adrId} (${diff.source}): ${diff.summary}`
               );
             }
+          } else {
+            console.log(
+              styleText("green", "All imported ADRs are up to date.")
+            );
           }
 
           cleanup(tempDirs);
@@ -401,8 +399,8 @@ export function registerAdrSyncCommand(adr: Command) {
           if (opts.yes) {
             action = "take";
           } else if (!useJson && process.stdin.isTTY) {
-            const { default: inquirer } = await import("inquirer");
-            const { choice } = await inquirer.prompt([
+            const { default: inquirer } = await import("inquirer"); // oxlint-disable-line no-await-in-loop -- sequential interactive prompts
+            const { choice } = await inquirer.prompt([ // oxlint-disable-line no-await-in-loop -- sequential interactive prompts
               {
                 type: "list",
                 name: "choice",
@@ -424,7 +422,7 @@ export function registerAdrSyncCommand(adr: Command) {
               /^(id:\s*).*$/mu,
               `$1${diff.adrId}`
             );
-            await Bun.write(diff.localPath, rewritten);
+            await Bun.write(diff.localPath, rewritten); // oxlint-disable-line no-await-in-loop -- sequential writes after interactive prompt
             updatedCount++;
             if (!useJson) {
               console.log(
