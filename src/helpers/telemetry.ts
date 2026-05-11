@@ -411,6 +411,30 @@ export function trackTelemetryPreferenceChange(properties: {
 }
 
 /**
+ * Track when the greenfield wizard prompt is displayed.
+ */
+export function trackGreenfieldWizardShown(): void {
+  trackEvent("adoption.greenfield_wizard_shown");
+}
+
+/**
+ * Track when packs are imported via the greenfield wizard.
+ */
+export function trackPackImportedAtInit(properties: {
+  pack_names: string[];
+  pack_count: number;
+}): void {
+  trackEvent("adoption.pack_imported_at_init", properties);
+}
+
+/**
+ * Track when user chooses "No, start empty" in the greenfield wizard.
+ */
+export function trackWizardSkipped(): void {
+  trackEvent("adoption.wizard_skipped");
+}
+
+/**
  * Track registration of a custom ADR domain. The domain name and prefix are
  * architectural category labels (e.g. "security" / "SEC"), not user data —
  * capturing them lets us see which categories repos adopt outside the

@@ -20,7 +20,13 @@ import {
   isPublicRepo,
   shouldShareRepoIdentity,
 } from "../helpers/repo";
-import { trackInitResult, trackProjectInitialized } from "../helpers/telemetry";
+import {
+  trackGreenfieldWizardShown,
+  trackInitResult,
+  trackPackImportedAtInit,
+  trackProjectInitialized,
+  trackWizardSkipped,
+} from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
@@ -182,6 +188,11 @@ export function registerInitCommand(program: Command) {
               }
             : {}),
         });
+
+        // --- Greenfield wizard: offer starter packs when no ADRs exist ---
+        if (process.stdin.isTTY && !hadExistingProject) {
+          await runGreenfieldWizard(process.cwd());
+        }
       } catch (err) {
         // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
         if (err instanceof Error && err.name === "ExitPromptError") throw err;
@@ -193,6 +204,115 @@ export function registerInitCommand(program: Command) {
         await exitWith(1);
       }
     });
+}
+
+/**
+ * Greenfield wizard: detect project stack, recommend packs, and import
+ * selected ones. Only shown in interactive mode when no ADRs existed before init.
+ */
+async function runGreenfieldWizard(projectRoot: string): Promise<void> {
+  const { default: inquirer } = await import("inquirer");
+
+  trackGreenfieldWizardShown();
+
+  console.log("");
+  const { wantPacks } = await inquirer.prompt([
+    {
+      type: "list",
+      name: "wantPacks",
+      message:
+        "No existing ADRs detected. Would you like to import starter packs?",
+      choices: [
+        { name: "Yes, pick packs now (recommended)", value: true },
+        { name: "No, start empty", value: false },
+      ],
+    },
+  ]);
+  // Windows cursor-reset — see editor-detect.ts for explanation.
+  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+
+  if (!wantPacks) {
+    trackWizardSkipped();
+    return;
+  }
+
+  const { detectStack } = await import("../helpers/stack-detect");
+  const { recommendPacks } = await import("../helpers/pack-recommend");
+
+  const stack = await detectStack(projectRoot);
+
+  // Show detected stack summary
+  const stackParts: string[] = [];
+  if (stack.languages.length > 0) stackParts.push(...stack.languages);
+  if (stack.runtimes.length > 0) stackParts.push(...stack.runtimes);
+  if (stack.frameworks.length > 0) stackParts.push(...stack.frameworks);
+  if (stackParts.length > 0) {
+    console.log(
+      styleText(
+        "dim",
+        `Detected: ${stackParts.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(", ")}`
+      )
+    );
+  }
+
+  console.log("");
+  const recommendations = await recommendPacks(stack);
+
+  if (recommendations.length === 0) {
+    console.log("No matching packs found in the registry.");
+    return;
+  }
+
+  const { selectedPacks } = await inquirer.prompt([
+    {
+      type: "checkbox",
+      name: "selectedPacks",
+      message: "Select packs to import:",
+      choices: recommendations.map((rec) => ({
+        name: `${rec.packPath.padEnd(30)} ${String(rec.adrCount).padStart(2)} ADRs  (${rec.matchedTags.join(", ")})`,
+        value: rec.packPath,
+        checked: rec.relevance === "high",
+      })),
+    },
+  ]);
+  // Windows cursor-reset
+  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+
+  if (selectedPacks.length === 0) {
+    console.log("No packs selected.");
+    return;
+  }
+
+  // Import selected packs via subprocess to reuse existing import logic
+  const args = [
+    process.argv[0],
+    "adr",
+    "import",
+    "--yes",
+    ...selectedPacks,
+  ];
+  const proc = Bun.spawn(args, {
+    cwd: projectRoot,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  await proc.exited;
+
+  if (proc.exitCode === 0) {
+    trackPackImportedAtInit({
+      pack_names: selectedPacks,
+      pack_count: selectedPacks.length,
+    });
+    console.log("");
+    console.log(
+      styleText(
+        "green",
+        `Imported ${selectedPacks.length} pack(s). Run \`archgate check\` to see your baseline.`
+      )
+    );
+  } else {
+    logWarn("Some packs may not have imported successfully.");
+  }
 }
 
 /**
