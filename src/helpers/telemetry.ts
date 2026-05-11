@@ -389,9 +389,7 @@ export function trackUpgradeResult(properties: {
   trackEvent("upgrade_completed", properties);
 }
 
-/**
- * Track the outcome of `archgate login`.
- */
+/** Track the outcome of `archgate login`. */
 export function trackLoginResult(properties: {
   subcommand: "login" | "logout" | "refresh" | "status";
   success: boolean;
@@ -400,14 +398,30 @@ export function trackLoginResult(properties: {
   trackEvent("login_completed", properties);
 }
 
-/**
- * Track preference changes so we can measure opt-out rate. Fires one last
- * event right before disabling telemetry, and a fresh event when re-enabling.
- */
+/** Track preference changes (opt-out rate). Fires one last event before disabling, fresh event when re-enabling. */
 export function trackTelemetryPreferenceChange(properties: {
   enabled: boolean;
 }): void {
   trackEvent("telemetry_preference_changed", properties);
+}
+
+/** Track when the greenfield wizard prompt is displayed. */
+export function trackGreenfieldWizardShown(): void {
+  trackEvent("adoption.greenfield_wizard_shown");
+}
+
+/** Track packs imported via wizard. Only official registry names collected; third-party counted, not identified. */
+export function trackPackImportedAtInit(packs: string[]): void {
+  const official = packs.filter((p) => p.startsWith("packs/"));
+  trackEvent("adoption.pack_imported_at_init", {
+    official_packs: official,
+    third_party_count: packs.length - official.length,
+  });
+}
+
+/** Track when user chooses "No, start empty" in the greenfield wizard. */
+export function trackWizardSkipped(): void {
+  trackEvent("adoption.wizard_skipped");
 }
 
 /**
@@ -471,9 +485,7 @@ export async function flushTelemetry(timeoutMs = 3000): Promise<void> {
 
 /** Reset telemetry state. For testing only. */
 export function _resetTelemetry(): void {
-  if (client) {
-    client.shutdown().catch(() => {});
-  }
+  if (client) client.shutdown().catch(() => {});
   client = null;
   initialized = false;
   distinctId = "";

@@ -1711,18 +1711,17 @@ This reads `.archgate/imports.json` and displays each source, version, and the A
 
 ## How ID remapping works
 
-When you import ADRs, the original IDs (e.g., `TS-001`) are **remapped** to fit your project's ID sequence. For example, if your project already has `ARCH-001` through `ARCH-005`, the imported ADRs will receive `ARCH-006`, `ARCH-007`, etc.
+When you import ADRs, the original IDs are **remapped** to match your project's domain prefixes. Each ADR's `domain` field determines which prefix it gets — for example, an ADR with `domain: frontend` becomes `FE-XXX`, while one with `domain: backend` becomes `BE-XXX`. Each domain has its own counter, so importing a pack with mixed domains produces correctly prefixed IDs without collisions.
 
-You can override the prefix with `--prefix`:
+For example, importing a pack with three frontend ADRs and two backend ADRs into a project that already has `FE-001` and `BE-001` produces:
 
-```bash
-archgate adr import packs/security --prefix SEC
-```
+- `FE-002`, `FE-003`, `FE-004` (frontend)
+- `BE-002`, `BE-003` (backend)
 
 The remapping ensures:
 
 1. No ID collisions with existing ADRs
-2. A single consistent numbering scheme across your project
+2. Each domain maintains its own numbering sequence
 3. Imported rules files work immediately without manual edits
 
 ## The imports.json manifest
@@ -1746,13 +1745,12 @@ This manifest lets you track provenance — where each imported ADR came from an
 
 ## Command options reference
 
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--yes`             | Skip the confirmation prompt             |
-| `--json`            | Output results as JSON                   |
-| `--dry-run`         | Preview changes without writing files    |
-| `--prefix <prefix>` | Override the ID prefix for imported ADRs |
-| `--list`            | List previously imported ADRs            |
+| Option      | Description                           |
+| ----------- | ------------------------------------- |
+| `--yes`     | Skip the confirmation prompt          |
+| `--json`    | Output results as JSON                |
+| `--dry-run` | Preview changes without writing files |
+| `--list`    | List previously imported ADRs         |
 
 ---
 

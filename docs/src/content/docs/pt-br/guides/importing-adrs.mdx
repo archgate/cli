@@ -89,18 +89,17 @@ Isso lê `.archgate/imports.json` e exibe cada fonte, versão e os IDs de ADR pr
 
 ## Como funciona o remapeamento de IDs
 
-Quando você importa ADRs, os IDs originais (ex: `TS-001`) são **remapeados** para se adequar à sequência de IDs do seu projeto. Por exemplo, se seu projeto já tem `ARCH-001` até `ARCH-005`, os ADRs importados receberão `ARCH-006`, `ARCH-007`, etc.
+Quando você importa ADRs, os IDs originais são **remapeados** para corresponder aos prefixos de domínio do seu projeto. O campo `domain` de cada ADR determina qual prefixo ele recebe — por exemplo, um ADR com `domain: frontend` vira `FE-XXX`, enquanto um com `domain: backend` vira `BE-XXX`. Cada domínio tem seu próprio contador, então importar um pack com domínios mistos produz IDs corretamente prefixados sem colisões.
 
-Você pode sobrescrever o prefixo com `--prefix`:
+Por exemplo, importar um pack com três ADRs de frontend e dois de backend em um projeto que já tem `FE-001` e `BE-001` produz:
 
-```bash
-archgate adr import packs/security --prefix SEC
-```
+- `FE-002`, `FE-003`, `FE-004` (frontend)
+- `BE-002`, `BE-003` (backend)
 
 O remapeamento garante:
 
 1. Nenhuma colisão de ID com ADRs existentes
-2. Um esquema de numeração único e consistente em todo o projeto
+2. Cada domínio mantém sua própria sequência de numeração
 3. Arquivos de regras importados funcionam imediatamente sem edições manuais
 
 ## O manifesto imports.json
@@ -124,10 +123,9 @@ Este manifesto permite rastrear a proveniência — de onde cada ADR importado v
 
 ## Referência de opções do comando
 
-| Opção               | Descrição                                       |
-| ------------------- | ----------------------------------------------- |
-| `--yes`             | Pula o prompt de confirmação                    |
-| `--json`            | Saída em formato JSON                           |
-| `--dry-run`         | Preview sem escrever arquivos                   |
-| `--prefix <prefix>` | Sobrescreve o prefixo de ID dos ADRs importados |
-| `--list`            | Lista ADRs importados anteriormente             |
+| Opção       | Descrição                           |
+| ----------- | ----------------------------------- |
+| `--yes`     | Pula o prompt de confirmação        |
+| `--json`    | Saída em formato JSON               |
+| `--dry-run` | Preview sem escrever arquivos       |
+| `--list`    | Lista ADRs importados anteriormente |
