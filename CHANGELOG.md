@@ -1,3 +1,9 @@
+## [0.36.1](https://github.com/archgate/cli/compare/v0.36.0...v0.36.1) (2026-05-11)
+
+### Bug Fixes
+
+* **security:** remove postinstall script, download binary on first run only ([#306](https://github.com/archgate/cli/issues/306)) ([41696f4](https://github.com/archgate/cli/commit/41696f43e42cc21d4332630b3a4fd1ab732ad5dc))
+
 ## [0.36.0](https://github.com/archgate/cli/compare/v0.35.0...v0.36.0) (2026-05-11)
 
 ### Features
