@@ -1,15 +1,28 @@
 ---
 title: archgate upgrade
-description: "Atualiza o Archgate para a versão mais recente via npm."
+description: "Atualiza o Archgate para a versão mais recente."
 ---
 
-Atualiza o Archgate para a versão mais recente via npm.
+Atualiza o Archgate para a versão mais recente.
 
 ```bash
 archgate upgrade
 ```
 
-Verifica o registro npm para a versão mais recente publicada. Se uma versão mais nova estiver disponível, executa `npm install -g archgate@latest` para atualizar. Se já estiver atualizado, exibe uma mensagem e encerra.
+Verifica o GitHub Releases para a versão mais recente publicada. Se uma versão mais nova estiver disponível, o comando detecta automaticamente como o Archgate foi instalado e executa a estratégia de atualização apropriada. Se já estiver atualizado, exibe uma mensagem e encerra.
+
+## Detecção do método de instalação
+
+O comando de atualização inspeciona o caminho do binário em execução para determinar o método de instalação e delega para a estratégia correspondente:
+
+| Método de instalação                        | Detecção                                   | Ação de atualização                                                                                                                                               |
+| ------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Instalação binária** (`~/.archgate/bin/`) | Binário está em `~/.archgate/bin/`         | Baixa o binário mais recente do GitHub Releases e substitui o existente                                                                                           |
+| **Proto**                                   | Binário está em `~/.proto/tools/archgate/` | Executa `proto install archgate latest --pin`                                                                                                                     |
+| **Dependência de dev local**                | Binário está em `node_modules/`            | Detecta o gerenciador de pacotes pelo lockfile mais próximo (bun, pnpm, yarn ou npm) e executa o comando de adição apropriado (ex.: `bun add -d archgate@latest`) |
+| **Gerenciador de pacotes global**           | Binário está em um diretório bin global    | Detecta qual gerenciador de pacotes possui o diretório bin global e executa o comando de atualização (ex.: `npm install -g archgate@latest`)                      |
+
+Se nenhum método específico for detectado, o comando usa `npm install -g archgate@latest` como fallback.
 
 ## Exemplo
 
@@ -19,6 +32,6 @@ archgate upgrade
 
 ```
 Checking for latest Archgate release...
-Upgrading 0.3.0 -> 0.4.0...
-Archgate upgraded to 0.4.0 successfully.
+Upgrading 0.34.0 -> 0.35.0...
+Archgate upgraded to 0.35.0 successfully.
 ```
