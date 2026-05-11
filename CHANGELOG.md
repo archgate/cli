@@ -1,3 +1,14 @@
+## [0.36.0](https://github.com/archgate/cli/compare/v0.35.0...v0.36.0) (2026-05-11)
+
+### Features
+
+* greenfield wizard and archgate adr sync ([#302](https://github.com/archgate/cli/issues/302)) ([ffa9a80](https://github.com/archgate/cli/commit/ffa9a804d496a3a014e58795bb2db82f742edda5))
+
+### Bug Fixes
+
+* **ci:** fix Codecov coverage and test results uploads ([#303](https://github.com/archgate/cli/issues/303)) ([0cc2a5b](https://github.com/archgate/cli/commit/0cc2a5b4c0e544bfbb87b68a28f29dc7fb24a11e)), closes [codecov/codecov-action#1794](https://github.com/codecov/codecov-action/issues/1794) [#1839](https://github.com/archgate/cli/issues/1839) [#1623](https://github.com/archgate/cli/issues/1623) [codecov/codecov-action#1945](https://github.com/codecov/codecov-action/issues/1945)
+* **ci:** pin proto 0.56.3 on Windows, restore node 24 ([#299](https://github.com/archgate/cli/issues/299)) ([d38224b](https://github.com/archgate/cli/commit/d38224b758618996b8fc48d380a0cbd60d75f82b))
+
 ## [0.35.0](https://github.com/archgate/cli/compare/v0.34.0...v0.35.0) (2026-05-11)
 
 ### Features
