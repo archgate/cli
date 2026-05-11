@@ -7,6 +7,7 @@ import { registerDomainCommand } from "./domain/index";
 import { registerAdrImportCommand } from "./import";
 import { registerAdrListCommand } from "./list";
 import { registerAdrShowCommand } from "./show";
+import { registerAdrSyncCommand } from "./sync";
 import { registerAdrUpdateCommand } from "./update";
 
 export function registerAdrCommand(program: Command) {
@@ -18,6 +19,7 @@ export function registerAdrCommand(program: Command) {
   registerAdrImportCommand(adr);
   registerAdrListCommand(adr);
   registerAdrShowCommand(adr);
+  registerAdrSyncCommand(adr);
   registerAdrUpdateCommand(adr);
   registerDomainCommand(adr);
 }

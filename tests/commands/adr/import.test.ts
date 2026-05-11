@@ -45,12 +45,12 @@ describe("registerAdrImportCommand", () => {
     expect(dryRunOpt).toBeDefined();
   });
 
-  test("accepts --prefix option", () => {
+  test("does not have a --prefix option (domain-aware remapping)", () => {
     const parent = new Command("adr");
     registerAdrImportCommand(parent);
     const sub = parent.commands.find((c) => c.name() === "import")!;
     const prefixOpt = sub.options.find((o) => o.long === "--prefix");
-    expect(prefixOpt).toBeDefined();
+    expect(prefixOpt).toBeUndefined();
   });
 
   test("accepts --list option", () => {
