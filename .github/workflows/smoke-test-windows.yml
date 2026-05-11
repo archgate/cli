@@ -114,12 +114,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if (-not $env:ARCHGATE_VERSION) {
-            $release = gh release view --json tagName --jq .tagName 2>$null
-            if ($LASTEXITCODE -ne 0 -or -not $release) {
+            # Find the newest release that already has the Windows asset uploaded.
+            # On release-commit pushes the Validate and Release workflows start
+            # concurrently, so the latest tag may exist before its binaries are
+            # uploaded by release-binaries.yml — hitting a 404.
+            $asset = "archgate-win32-x64.zip"
+            $tags = gh release list --limit 5 --json tagName --jq '.[].tagName' 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $tags) {
               Write-Host "::warning::No releases found, skipping install.ps1 smoke test"
               exit 0
             }
-            $env:ARCHGATE_VERSION = $release
+            $found = $false
+            foreach ($tag in $tags -split "`n") {
+              $tag = $tag.Trim()
+              if (-not $tag) { continue }
+              $assets = gh release view $tag --json assets --jq '.assets[].name' 2>$null
+              if ($assets -match [regex]::Escape($asset)) {
+                $env:ARCHGATE_VERSION = $tag
+                $found = $true
+                break
+              }
+            }
+            if (-not $found) {
+              Write-Host "::warning::No release with $asset found, skipping install.ps1 smoke test"
+              exit 0
+            }
           }
           Write-Host "Testing install.ps1 with version $env:ARCHGATE_VERSION"
 

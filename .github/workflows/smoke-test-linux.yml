@@ -72,9 +72,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ -z "$ARCHGATE_VERSION" ]; then
-            ARCHGATE_VERSION="$(gh release view --json tagName --jq .tagName 2>/dev/null || true)"
-            if [ -z "$ARCHGATE_VERSION" ]; then
+            # Find the newest release that already has the Linux asset uploaded.
+            # On release-commit pushes the Validate and Release workflows start
+            # concurrently, so the latest tag may exist before its binaries are
+            # uploaded by release-binaries.yml — hitting a 404.
+            asset="archgate-linux-x64.tar.gz"
+            tags="$(gh release list --limit 5 --json tagName --jq '.[].tagName' 2>/dev/null || true)"
+            if [ -z "$tags" ]; then
               echo "::warning::No releases found, skipping install.sh smoke test"
+              exit 0
+            fi
+            found=""
+            for tag in $tags; do
+              assets="$(gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null || true)"
+              if echo "$assets" | grep -qF "$asset"; then
+                ARCHGATE_VERSION="$tag"
+                found=1
+                break
+              fi
+            done
+            if [ -z "$found" ]; then
+              echo "::warning::No release with $asset found, skipping install.sh smoke test"
               exit 0
             fi
             export ARCHGATE_VERSION
