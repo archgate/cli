@@ -27,8 +27,7 @@
     "archgate": "bin/archgate.cjs"
   },
   "files": [
-    "bin/archgate.cjs",
-    "scripts/postinstall.cjs"
+    "bin/archgate.cjs"
   ],
   "os": [
     "darwin",
@@ -49,7 +48,6 @@
     "format:check": "oxfmt --check .",
     "knip": "knip",
     "lint": "oxlint --deny-warnings .",
-    "postinstall": "node scripts/postinstall.cjs",
     "test": "bun test --timeout 60000",
     "test:coverage": "bun test --timeout 60000 --coverage --reporter=junit --reporter-outfile=coverage/junit.xml",
     "test:watch": "bun test --watch --timeout 60000",
