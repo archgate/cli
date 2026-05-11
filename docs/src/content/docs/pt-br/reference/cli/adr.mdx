@@ -208,3 +208,114 @@ Remover um domínio personalizado:
 ```bash
 archgate adr domain remove security
 ```
+
+---
+
+## archgate adr import
+
+Importa ADRs do registro ou de um repositório git.
+
+```bash
+archgate adr import <source...> [options]
+```
+
+O comando clona a fonte, lê os arquivos ADR, remapeia os IDs para a sequência do projeto local e os grava em `.archgate/adrs/`. As importações são rastreadas em `.archgate/imports.json` para que possam ser verificadas posteriormente via [`archgate adr sync`](#archgate-adr-sync).
+
+### Argumentos
+
+| Argumento     | Descrição                                             |
+| ------------- | ----------------------------------------------------- |
+| `<source...>` | Caminho(s) do registro, `org/repo/path` ou URL(s) git |
+
+### Opções
+
+| Opção       | Descrição                           |
+| ----------- | ----------------------------------- |
+| `--yes`     | Pula o prompt de confirmação        |
+| `--json`    | Saída como JSON                     |
+| `--dry-run` | Visualiza alterações sem gravar     |
+| `--list`    | Lista ADRs importados anteriormente |
+
+### Exemplos
+
+Importar do registro:
+
+```bash
+archgate adr import archgate/packs/typescript
+```
+
+Importar de um repositório git:
+
+```bash
+archgate adr import https://github.com/acme/adr-packs.git
+```
+
+Visualizar o que seria importado sem gravar arquivos:
+
+```bash
+archgate adr import archgate/packs/typescript --dry-run
+```
+
+Importar de forma não interativa (pula confirmação):
+
+```bash
+archgate adr import archgate/packs/typescript --yes
+```
+
+Listar ADRs importados anteriormente:
+
+```bash
+archgate adr import --list
+```
+
+---
+
+## archgate adr sync
+
+Verifica atualizações upstream para ADRs importados.
+
+```bash
+archgate adr sync [source...] [options]
+```
+
+O comando compara os ADRs importados locais com a fonte upstream e mostra quais seções mudaram. No modo interativo, solicita para cada ADR alterado com três opções: manter local, aceitar upstream ou pular.
+
+### Argumentos
+
+| Argumento     | Descrição                                                                    |
+| ------------- | ---------------------------------------------------------------------------- |
+| `[source...]` | Filtro(s) de fonte opcionais — sincroniza apenas importações correspondentes |
+
+### Opções
+
+| Opção     | Descrição                                         |
+| --------- | ------------------------------------------------- |
+| `--check` | Sai com código 1 se houver atualizações (modo CI) |
+| `--yes`   | Pula prompts de confirmação                       |
+| `--json`  | Saída como JSON                                   |
+
+### Exemplos
+
+Verificar todos os ADRs importados por atualizações upstream:
+
+```bash
+archgate adr sync
+```
+
+Verificar apenas importações de uma fonte específica:
+
+```bash
+archgate adr sync archgate/packs/typescript
+```
+
+Modo CI — falha o build se algum ADR importado estiver desatualizado:
+
+```bash
+archgate adr sync --check
+```
+
+Aceitar todas as atualizações upstream de forma não interativa:
+
+```bash
+archgate adr sync --yes
+```
