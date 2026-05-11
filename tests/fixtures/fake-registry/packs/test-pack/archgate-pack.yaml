@@ -1,0 +1,9 @@
+name: test-pack
+version: 0.1.0
+description: A test pack for import integration tests.
+maintainers:
+  - github: testuser
+tags:
+  - language:typescript
+  - framework:bun
+requires: []

@@ -213,6 +213,7 @@ export default defineConfig({
           items: [
             { label: "Writing ADRs", slug: "guides/writing-adrs" },
             { label: "Writing Rules", slug: "guides/writing-rules" },
+            { label: "Importing ADRs", slug: "guides/importing-adrs" },
             { label: "CI Integration", slug: "guides/ci-integration" },
             { label: "Claude Code Plugin", slug: "guides/claude-code-plugin" },
             { label: "VS Code Plugin", slug: "guides/vscode-plugin" },
