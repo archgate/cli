@@ -23,7 +23,10 @@ import { exitWith } from "../../helpers/exit";
 import { logDebug, logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
-import { resolvedProjectPaths } from "../../helpers/project-config";
+import {
+  getMergedDomainPrefixes,
+  resolvedProjectPaths,
+} from "../../helpers/project-config";
 import {
   resolveSource,
   shallowClone,
@@ -76,6 +79,7 @@ interface AdrToImport {
   rulesPath: string | null;
   originalId: string;
   title: string;
+  domain?: string;
   source: string;
   packVersion?: string;
 }
@@ -139,6 +143,7 @@ async function collectAdrsToImport(
             rulesPath: rulesFile ?? null,
             originalId: adr.frontmatter.id,
             title: adr.frontmatter.title,
+            domain: adr.frontmatter.domain,
             source,
             packVersion: target.packMeta.version,
           });
@@ -151,6 +156,7 @@ async function collectAdrsToImport(
           rulesPath: target.rulesFile,
           originalId: adr.frontmatter.id,
           title: adr.frontmatter.title,
+          domain: adr.frontmatter.domain,
           source,
         });
       }
@@ -285,21 +291,43 @@ export function registerAdrImportCommand(adr: Command) {
 
         // ---------- Determine prefix & remap IDs ----------
 
-        const prefix = opts.prefix ?? "ARCH";
         mkdirSync(paths.adrsDir, { recursive: true });
 
-        let nextIdStr = getNextId(paths.adrsDir, prefix);
+        // When --prefix is set, force a single prefix for all ADRs (legacy behavior).
+        // Otherwise, resolve each ADR's domain to the project's prefix for that domain.
+        const prefixOverride = opts.prefix;
+        const domainPrefixes = prefixOverride
+          ? null
+          : getMergedDomainPrefixes(projectRoot);
+
+        // Track the next available ID per prefix to avoid collisions
+        const nextIdByPrefix = new Map<string, string>();
+
         const idMap: Array<{ original: string; newId: string; title: string }> =
           [];
 
         for (const adr of adrsToImport) {
+          const prefix =
+            prefixOverride ??
+            (adr.domain && domainPrefixes?.[adr.domain]) ??
+            "ARCH";
+
+          if (!nextIdByPrefix.has(prefix)) {
+            nextIdByPrefix.set(prefix, getNextId(paths.adrsDir, prefix));
+          }
+
+          const nextId = nextIdByPrefix.get(prefix)!;
           idMap.push({
             original: adr.originalId,
-            newId: nextIdStr,
+            newId: nextId,
             title: adr.title,
           });
-          const num = parseInt(nextIdStr.replace(`${prefix}-`, ""), 10) + 1;
-          nextIdStr = `${prefix}-${String(num).padStart(3, "0")}`;
+
+          const num = parseInt(nextId.replace(`${prefix}-`, ""), 10) + 1;
+          nextIdByPrefix.set(
+            prefix,
+            `${prefix}-${String(num).padStart(3, "0")}`
+          );
         }
 
         // ---------- Preview ----------
