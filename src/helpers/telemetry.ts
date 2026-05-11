@@ -410,12 +410,10 @@ export function trackGreenfieldWizardShown(): void {
   trackEvent("adoption.greenfield_wizard_shown");
 }
 
-/** Track when packs are imported via the greenfield wizard. */
-export function trackPackImportedAtInit(properties: {
-  pack_names: string[];
-  pack_count: number;
-}): void {
-  trackEvent("adoption.pack_imported_at_init", properties);
+/** Track packs imported via the greenfield wizard. Only official registry names are collected; third-party sources are counted but not identified. */
+export function trackPackImportedAtInit(packs: string[]): void {
+  const official = packs.filter((p) => p.startsWith("packs/"));
+  trackEvent("adoption.pack_imported_at_init", { official_packs: official, third_party_count: packs.length - official.length });
 }
 
 /** Track when user chooses "No, start empty" in the greenfield wizard. */

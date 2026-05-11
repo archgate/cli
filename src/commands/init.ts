@@ -299,10 +299,7 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
   await proc.exited;
 
   if (proc.exitCode === 0) {
-    trackPackImportedAtInit({
-      pack_names: selectedPacks,
-      pack_count: selectedPacks.length,
-    });
+    trackPackImportedAtInit(selectedPacks);
     console.log("");
     console.log(
       styleText(
