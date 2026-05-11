@@ -247,9 +247,7 @@ export function registerAdrSyncCommand(adr: Command) {
             const upstreamAdrsDir = join(cloneDir, upstreamSubpath, "adrs");
 
             if (!existsSync(upstreamAdrsDir)) {
-              logDebug(
-                `Upstream adrs dir not found: ${upstreamAdrsDir}`
-              );
+              logDebug(`Upstream adrs dir not found: ${upstreamAdrsDir}`);
               result.errors++;
               continue;
             }
@@ -335,9 +333,7 @@ export function registerAdrSyncCommand(adr: Command) {
               )
             );
             for (const diff of result.diffs.filter((d) => d.hasChanges)) {
-              console.log(
-                `  ${diff.adrId} (${diff.source}): ${diff.summary}`
-              );
+              console.log(`  ${diff.adrId} (${diff.source}): ${diff.summary}`);
             }
           } else {
             console.log(
@@ -399,8 +395,10 @@ export function registerAdrSyncCommand(adr: Command) {
           if (opts.yes) {
             action = "take";
           } else if (!useJson && process.stdin.isTTY) {
-            const { default: inquirer } = await import("inquirer"); // oxlint-disable-line no-await-in-loop -- sequential interactive prompts
-            const { choice } = await inquirer.prompt([ // oxlint-disable-line no-await-in-loop -- sequential interactive prompts
+            // oxlint-disable-next-line no-await-in-loop -- sequential interactive prompts
+            const { default: inquirer } = await import("inquirer");
+            // oxlint-disable-next-line no-await-in-loop -- sequential interactive prompts
+            const { choice } = await inquirer.prompt([
               {
                 type: "list",
                 name: "choice",
@@ -430,7 +428,9 @@ export function registerAdrSyncCommand(adr: Command) {
               );
             }
           } else if (action === "keep" && !useJson) {
-            console.log(styleText("dim", `  Kept local version of ${diff.adrId}`));
+            console.log(
+              styleText("dim", `  Kept local version of ${diff.adrId}`)
+            );
           }
         }
 
@@ -465,10 +465,7 @@ export function registerAdrSyncCommand(adr: Command) {
           console.log("");
           if (updatedCount > 0) {
             console.log(
-              styleText(
-                "green",
-                `Synced ${updatedCount} ADR(s) from upstream.`
-              )
+              styleText("green", `Synced ${updatedCount} ADR(s) from upstream.`)
             );
           } else {
             console.log("No ADRs were updated.");

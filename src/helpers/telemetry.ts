@@ -410,10 +410,13 @@ export function trackGreenfieldWizardShown(): void {
   trackEvent("adoption.greenfield_wizard_shown");
 }
 
-/** Track packs imported via the greenfield wizard. Only official registry names are collected; third-party sources are counted but not identified. */
+/** Track packs imported via wizard. Only official registry names collected; third-party counted, not identified. */
 export function trackPackImportedAtInit(packs: string[]): void {
   const official = packs.filter((p) => p.startsWith("packs/"));
-  trackEvent("adoption.pack_imported_at_init", { official_packs: official, third_party_count: packs.length - official.length });
+  trackEvent("adoption.pack_imported_at_init", {
+    official_packs: official,
+    third_party_count: packs.length - official.length,
+  });
 }
 
 /** Track when user chooses "No, start empty" in the greenfield wizard. */
@@ -482,9 +485,7 @@ export async function flushTelemetry(timeoutMs = 3000): Promise<void> {
 
 /** Reset telemetry state. For testing only. */
 export function _resetTelemetry(): void {
-  if (client) {
-    client.shutdown().catch(() => {});
-  }
+  if (client) client.shutdown().catch(() => {});
   client = null;
   initialized = false;
   distinctId = "";
