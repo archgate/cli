@@ -240,7 +240,6 @@ export function registerAdrImportCommand(adr: Command) {
     .option("--yes", "Skip confirmation prompt", false)
     .option("--json", "Output as JSON", false)
     .option("--dry-run", "Preview changes without writing", false)
-    .option("--prefix <prefix>", "Override ID prefix for imported ADRs")
     .option("--list", "List previously imported ADRs", false)
     .action(async (sources, opts) => {
       const projectRoot = findProjectRoot();
@@ -293,12 +292,8 @@ export function registerAdrImportCommand(adr: Command) {
 
         mkdirSync(paths.adrsDir, { recursive: true });
 
-        // When --prefix is set, force a single prefix for all ADRs (legacy behavior).
-        // Otherwise, resolve each ADR's domain to the project's prefix for that domain.
-        const prefixOverride = opts.prefix;
-        const domainPrefixes = prefixOverride
-          ? null
-          : getMergedDomainPrefixes(projectRoot);
+        // Resolve each ADR's domain to the project's prefix for that domain.
+        const domainPrefixes = getMergedDomainPrefixes(projectRoot);
 
         // Track the next available ID per prefix to avoid collisions
         const nextIdByPrefix = new Map<string, string>();
@@ -307,10 +302,7 @@ export function registerAdrImportCommand(adr: Command) {
           [];
 
         for (const adr of adrsToImport) {
-          const prefix =
-            prefixOverride ??
-            (adr.domain && domainPrefixes?.[adr.domain]) ??
-            "ARCH";
+          const prefix = (adr.domain && domainPrefixes[adr.domain]) || "ARCH";
 
           if (!nextIdByPrefix.has(prefix)) {
             nextIdByPrefix.set(prefix, getNextId(paths.adrsDir, prefix));
