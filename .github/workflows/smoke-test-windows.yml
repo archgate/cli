@@ -23,11 +23,6 @@ jobs:
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
         with:
           auto-install: true
-          # Pin proto to 0.56.3 — v0.56.4 has a regression in starbase_archive
-          # 0.13.0 that prevents Node 24 from extracting on Windows Server 2025.
-          # Remove this pin once proto 0.57+ ships with the fix.
-          # See: https://github.com/moonrepo/proto/issues/1006
-          proto-version: "0.56.3"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
