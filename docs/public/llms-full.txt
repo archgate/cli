@@ -4020,8 +4020,8 @@ Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
 - **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
-- **Cursor:** Installs the VS Code extension via `cursor` CLI if available and prints the team marketplace URL; prints manual instructions otherwise.
-- **VS Code:** Adds the marketplace URL to VS Code user settings and installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
+- **Cursor:** Prints the [Team Private Plugin Marketplace](https://cursor.com/docs/plugins#team-marketplaces) URL with instructions to add it in Cursor Settings. Cursor does not support VSIX installation from the CLI.
+- **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
 - **opencode:** Requires the `opencode` CLI to be on PATH — skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" — opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Examples
