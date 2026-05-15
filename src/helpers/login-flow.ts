@@ -5,16 +5,7 @@
  * used by both `login` and `init` commands.
  */
 
-import { cursorTo } from "node:readline";
 import { styleText } from "node:util";
-
-/**
- * Reset cursor to column 0 after an inquirer prompt on Windows.
- * See editor-detect.ts for the full explanation of the bug.
- */
-function resetCursor(): void {
-  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
-}
 
 import {
   requestDeviceCode,
@@ -24,6 +15,7 @@ import {
 } from "./auth";
 import { saveCredentials } from "./credential-store";
 import { logDebug, logError, logInfo } from "./log";
+import { withPromptFix } from "./prompt";
 import { SignupRequiredError, requestSignup } from "./signup";
 
 export interface LoginFlowOptions {
@@ -125,50 +117,54 @@ async function runSignupPrompt(
   // Lazy-load inquirer — it costs ~200ms to parse and is only needed for
   // interactive signup prompts, not on every CLI startup.
   const { default: inquirer } = await import("inquirer");
-  const { email } = await inquirer.prompt({
-    type: "input",
-    name: "email",
-    message: "Email address:",
-    default: githubEmail ?? undefined,
-    validate: (v: string) =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(v) || "Enter a valid email address",
-  });
-  resetCursor();
+  const { email } = await withPromptFix(() =>
+    inquirer.prompt({
+      type: "input",
+      name: "email",
+      message: "Email address:",
+      default: githubEmail ?? undefined,
+      validate: (v: string) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(v) || "Enter a valid email address",
+    })
+  );
 
   let editor = preselectedEditor;
   if (!editor) {
-    const ans = await inquirer.prompt({
-      type: "list",
-      name: "editor",
-      message: "Which editor will you use with archgate?",
-      choices: [
-        { name: "Claude Code", value: "claude-code" },
-        { name: "VS Code", value: "vscode" },
-        { name: "Copilot CLI", value: "copilot-cli" },
-        { name: "Cursor", value: "cursor" },
-      ],
-    });
-    resetCursor();
+    const ans = await withPromptFix(() =>
+      inquirer.prompt({
+        type: "list",
+        name: "editor",
+        message: "Which editor will you use with archgate?",
+        choices: [
+          { name: "Claude Code", value: "claude-code" },
+          { name: "VS Code", value: "vscode" },
+          { name: "Copilot CLI", value: "copilot-cli" },
+          { name: "Cursor", value: "cursor" },
+        ],
+      })
+    );
     editor = ans.editor;
   }
 
-  const { useCase } = await inquirer.prompt({
-    type: "input",
-    name: "useCase",
-    message: "How do you plan to use archgate?",
-    validate: (v: string) =>
-      v.trim().length > 0 || "Please describe your use case",
-  });
-  resetCursor();
+  const { useCase } = await withPromptFix(() =>
+    inquirer.prompt({
+      type: "input",
+      name: "useCase",
+      message: "How do you plan to use archgate?",
+      validate: (v: string) =>
+        v.trim().length > 0 || "Please describe your use case",
+    })
+  );
 
-  const { confirmed } = await inquirer.prompt({
-    type: "confirm",
-    name: "confirmed",
-    message:
-      "I agree to be contacted by the Archgate team to provide feedback during the beta period.",
-    default: true,
-  });
-  resetCursor();
+  const { confirmed } = await withPromptFix(() =>
+    inquirer.prompt({
+      type: "confirm",
+      name: "confirmed",
+      message:
+        "I agree to be contacted by the Archgate team to provide feedback during the beta period.",
+      default: true,
+    })
+  );
 
   if (!confirmed) {
     logInfo("Signup cancelled.");

@@ -21,20 +21,23 @@ const CURSOR_MARKETPLACE_URL =
 
 /**
  * Run a command using Bun.spawn (cross-platform, no shell).
- * Returns { exitCode, stdout }.
+ * Returns { exitCode, stdout, stderr }.
  */
 async function run(
   cmd: string[],
   opts?: { cwd?: string }
-): Promise<{ exitCode: number; stdout: string }> {
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(cmd, {
     cwd: opts?.cwd,
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
   const exitCode = await proc.exited;
-  return { exitCode, stdout };
+  return { exitCode, stdout, stderr };
 }
 
 // ---------------------------------------------------------------------------
@@ -147,60 +150,6 @@ async function downloadPluginAsset(
 }
 
 // ---------------------------------------------------------------------------
-// Cursor — download .vsix and install via `cursor` CLI
-// ---------------------------------------------------------------------------
-
-/**
- * Download the archgate VSIX to `~/.archgate/archgate.vsix` without
- * installing it. Returns the absolute path to the saved file. Used when
- * the `cursor` CLI is not available so the user can install manually.
- */
-export async function downloadVsix(token: string): Promise<string> {
-  const vsixPath = internalPath("archgate.vsix");
-  const buffer = await downloadPluginAsset("/api/vscode", token);
-  logDebug(
-    `Downloaded VS Code extension (${Math.round(buffer.byteLength / 1024)} KB)`
-  );
-  await Bun.write(vsixPath, buffer);
-  return vsixPath;
-}
-
-/**
- * Install the archgate VS Code extension in Cursor via `cursor --install-extension`.
- *
- * On success the downloaded VSIX is cleaned up. On failure the VSIX is
- * kept at `~/.archgate/archgate.vsix` so the user can install it manually
- * via Cursor's "Extensions: Install from VSIX..." command.
- */
-export async function installCursorPlugin(token: string): Promise<void> {
-  const vsixPath = internalPath("archgate.vsix");
-  const buffer = await downloadPluginAsset("/api/vscode", token);
-  logDebug(
-    `Downloaded VS Code extension (${Math.round(buffer.byteLength / 1024)} KB)`
-  );
-  await Bun.write(vsixPath, buffer);
-
-  const cursorCmd = (await resolveCommand("cursor")) ?? "cursor";
-  logDebug("Installing VS Code extension in Cursor via cursor CLI");
-  const result = await run([cursorCmd, "--install-extension", vsixPath]);
-  if (result.exitCode !== 0) {
-    // Keep the VSIX on disk so the user can install it manually
-    throw new Error(
-      `cursor --install-extension failed (exit ${result.exitCode}). ` +
-        `The VSIX was saved to ${vsixPath} — install it manually in Cursor: ` +
-        `Ctrl+Shift+P → "Extensions: Install from VSIX..."`
-    );
-  }
-
-  // Clean up only on success
-  try {
-    unlinkSync(vsixPath);
-  } catch {
-    // Ignore cleanup errors
-  }
-}
-
-// ---------------------------------------------------------------------------
 // opencode — download agent bundle into user-scope agents dir
 // ---------------------------------------------------------------------------
 
@@ -287,9 +236,17 @@ export async function installCopilotPlugin(): Promise<void> {
   logDebug("Adding archgate marketplace to copilot CLI");
   const addResult = await run([cmd, "plugin", "marketplace", "add", url]);
   if (addResult.exitCode !== 0) {
-    throw new Error(
-      `copilot plugin marketplace add failed (exit ${addResult.exitCode})`
-    );
+    // "already registered" is not an error — the marketplace was added in a
+    // previous run. Skip and proceed to install.
+    const combined = addResult.stdout + addResult.stderr;
+    if (!combined.includes("already registered")) {
+      const detail = combined.trim();
+      throw new Error(
+        `copilot plugin marketplace add failed (exit ${addResult.exitCode})` +
+          (detail ? `\n${detail}` : "")
+      );
+    }
+    logDebug("Marketplace already registered, skipping add");
   }
 
   logDebug("Installing archgate plugin via copilot CLI");

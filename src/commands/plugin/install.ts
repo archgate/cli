@@ -16,17 +16,15 @@ import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot } from "../../helpers/paths";
 import {
+  buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
-  downloadVsix,
   installClaudePlugin,
   installCopilotPlugin,
-  installCursorPlugin,
   installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
   isCopilotCliAvailable,
-  isCursorCliAvailable,
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
@@ -76,17 +74,16 @@ async function installForEditor(
       break;
     }
     case "cursor": {
-      if (await isCursorCliAvailable()) {
-        await installCursorPlugin(token);
-        logInfo(`Archgate extension installed for ${label}.`);
-      } else {
-        const vsixPath = await downloadVsix(token);
-        logWarn("Cursor CLI not found. The VSIX has been downloaded:");
-        console.log(`  ${styleText("bold", vsixPath)}`);
-        console.log(
-          `  Open Cursor → Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select the file above`
-        );
-      }
+      // Cursor supports plugins via Team Private Marketplaces — not VSIX.
+      // See https://cursor.com/docs/plugins#team-marketplaces
+      const url = buildCursorMarketplaceUrl();
+      logInfo(
+        `To install the Archgate plugin for ${label}, add the team marketplace URL in Cursor Settings:`
+      );
+      console.log(`  ${styleText("bold", url)}`);
+      console.log(
+        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
+      );
       break;
     }
     case "opencode": {
@@ -110,10 +107,6 @@ async function installForEditor(
     case "vscode": {
       const url = buildVscodeMarketplaceUrl();
       await configureVscodeSettings(findProjectRoot() ?? process.cwd(), url);
-      logInfo(
-        `Archgate plugin configured for ${label}.`,
-        "Marketplace URL added to VS Code user settings."
-      );
       if (await isVscodeCliAvailable()) {
         await installVscodeExtension(token);
         logInfo(`Archgate extension installed for ${label}.`);
@@ -159,12 +152,11 @@ function printManualInstructions(editor: EditorTarget): void {
       break;
     }
     case "cursor": {
-      logInfo("To install the plugin manually, run:");
+      const url = buildCursorMarketplaceUrl();
+      logInfo("Add the team marketplace URL in Cursor Settings:");
+      console.log(`  ${styleText("bold", url)}`);
       console.log(
-        `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
-      );
-      console.log(
-        `  Then in Cursor: Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select archgate.vsix`
+        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
       );
       break;
     }

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { cursorTo } from "node:readline";
-
 import type { Command } from "@commander-js/extra-typings";
 
 import type { AdrDomain } from "../../formats/adr";
@@ -15,6 +13,7 @@ import {
   resolveDomainPrefix,
   resolvedProjectPaths,
 } from "../../helpers/project-config";
+import { withPromptFix } from "../../helpers/prompt";
 
 export function registerAdrCreateCommand(adr: Command) {
   adr
@@ -63,28 +62,28 @@ export function registerAdrCreateCommand(adr: Command) {
           // invocations or --help/--version.
           const { default: inquirer } = await import("inquirer");
           // Interactive mode
-          const answers = await inquirer.prompt([
-            {
-              type: "list",
-              name: "domain",
-              message: "Domain:",
-              choices: choices.map((d) => ({ name: d, value: d })),
-            },
-            {
-              type: "input",
-              name: "title",
-              message: "Title:",
-              validate: (input: string) =>
-                input.trim() !== "" || "Title is required",
-            },
-            {
-              type: "input",
-              name: "files",
-              message: "File patterns (comma-separated, optional):",
-            },
-          ]);
-          // Windows cursor-reset — see editor-detect.ts for explanation.
-          if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+          const answers = await withPromptFix(() =>
+            inquirer.prompt([
+              {
+                type: "list",
+                name: "domain",
+                message: "Domain:",
+                choices: choices.map((d) => ({ name: d, value: d })),
+              },
+              {
+                type: "input",
+                name: "title",
+                message: "Title:",
+                validate: (input: string) =>
+                  input.trim() !== "" || "Title is required",
+              },
+              {
+                type: "input",
+                name: "files",
+                message: "File patterns (comma-separated, optional):",
+              },
+            ])
+          );
 
           domain = answers.domain as AdrDomain;
           title = answers.title;

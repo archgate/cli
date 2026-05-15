@@ -26,6 +26,7 @@ import {
   getMergedDomainPrefixes,
   resolvedProjectPaths,
 } from "../../helpers/project-config";
+import { withPromptFix } from "../../helpers/prompt";
 import {
   resolveSource,
   shallowClone,
@@ -372,14 +373,16 @@ export function registerAdrImportCommand(adr: Command) {
 
         if (!opts.yes) {
           const { default: inquirer } = await import("inquirer");
-          const { confirm } = await inquirer.prompt([
-            {
-              type: "confirm",
-              name: "confirm",
-              message: `Import ${adrsToImport.length} ADR(s)?`,
-              default: true,
-            },
-          ]);
+          const { confirm } = await withPromptFix(() =>
+            inquirer.prompt([
+              {
+                type: "confirm",
+                name: "confirm",
+                message: `Import ${adrsToImport.length} ADR(s)?`,
+                default: true,
+              },
+            ])
+          );
           if (!confirm) {
             console.log("Import cancelled.");
             cleanup(tempDirs);

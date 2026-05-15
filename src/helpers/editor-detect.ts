@@ -7,18 +7,17 @@
  * In non-TTY (agent) contexts, defaults to "claude" for backward compatibility.
  */
 
-import { cursorTo } from "node:readline";
-
 import { EDITOR_LABELS } from "./init-project";
 import type { EditorTarget } from "./init-project";
 import { logDebug } from "./log";
-import { resolveCommand } from "./platform";
 import {
   isClaudeCliAvailable,
   isCopilotCliAvailable,
+  isCursorCliAvailable,
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "./plugin-install";
+import { withPromptFix } from "./prompt";
 
 /** Result of editor availability detection. */
 export interface DetectedEditor {
@@ -35,7 +34,7 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
   logDebug("Detecting available editor CLIs");
   const [claude, cursor, vscode, copilot, opencode] = await Promise.all([
     isClaudeCliAvailable(),
-    resolveCommand("cursor").then((r) => r !== null),
+    isCursorCliAvailable(),
     isVscodeCliAvailable(),
     isCopilotCliAvailable(),
     isOpencodeCliAvailable(),
@@ -70,24 +69,22 @@ export async function promptEditorSelection(
   // Lazy-load inquirer — it costs ~200ms to parse and is only needed when
   // the user is interactively prompted, not on every CLI startup.
   const { default: inquirer } = await import("inquirer");
-  const { selected } = await inquirer.prompt([
-    {
-      type: "checkbox",
-      name: "selected",
-      message: "Select editors to configure:",
-      choices: detected.map((e) => ({
-        name: e.available ? `${e.label} (detected)` : `${e.label}`,
-        value: e.id,
-        checked: e.available,
-      })),
-      validate: (input: EditorTarget[]) =>
-        input.length > 0 || "Select at least one editor.",
-    },
-  ]);
-  // On Windows, inquirer leaves the cursor at the end of the wrapped answer
-  // line. Subsequent output calls inherit that column offset instead of
-  // starting at column 0. Explicitly reset the cursor to prevent garbled output.
-  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+  const { selected } = await withPromptFix(() =>
+    inquirer.prompt([
+      {
+        type: "checkbox",
+        name: "selected",
+        message: "Select editors to configure:",
+        choices: detected.map((e) => ({
+          name: e.available ? `${e.label} (detected)` : `${e.label}`,
+          value: e.id,
+          checked: e.available,
+        })),
+        validate: (input: EditorTarget[]) =>
+          input.length > 0 || "Select at least one editor.",
+      },
+    ])
+  );
   return selected;
 }
 
@@ -102,19 +99,19 @@ export async function promptSingleEditorSelection(
   const available = detected.filter((e) => e.available);
   const defaultEditor = available.length > 0 ? available[0].id : "claude";
 
-  const { selected } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "selected",
-      message: "Select editor:",
-      choices: detected.map((e) => ({
-        name: e.available ? `${e.label} (detected)` : e.label,
-        value: e.id,
-      })),
-      default: defaultEditor,
-    },
-  ]);
-  // Same Windows cursor-reset fix as promptEditorSelection above.
-  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+  const { selected } = await withPromptFix(() =>
+    inquirer.prompt([
+      {
+        type: "list",
+        name: "selected",
+        message: "Select editor:",
+        choices: detected.map((e) => ({
+          name: e.available ? `${e.label} (detected)` : e.label,
+          value: e.id,
+        })),
+        default: defaultEditor,
+      },
+    ])
+  );
   return selected;
 }
