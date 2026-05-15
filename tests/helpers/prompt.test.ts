@@ -16,23 +16,16 @@ describe("withPromptFix", () => {
     ).rejects.toThrow("boom");
   });
 
-  // The Windows-specific patching (stream writes + console redirects) is a
-  // permanent, idempotent side effect that cannot be meaningfully asserted in
-  // unit tests — earlier tests in the full suite may have already triggered it.
-  // The behavior is verified manually on Windows PowerShell.
   test.skipIf(process.platform !== "win32")(
-    "applies newline patches on Windows (manual verification)",
+    "applies newline patches on Windows",
     async () => {
       await withPromptFix(() => Promise.resolve());
-      // On Windows, process.stdout.write should be the patched version.
-      // We check the function name rather than reference equality because
-      // earlier tests in the suite may have already applied the patch.
       expect(process.stdout.write.name).toBe("patchedWrite");
     }
   );
 
   test.skipIf(process.platform === "win32")(
-    "is a pure passthrough on non-Windows",
+    "does not apply newline patches on non-Windows",
     async () => {
       const before = process.stdout.write;
       await withPromptFix(() => Promise.resolve());

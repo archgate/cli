@@ -139,9 +139,7 @@ function patchConsoleMethods(): void {
  * On non-Windows platforms only the cursor reset is applied.
  */
 export async function withPromptFix<T>(fn: () => Promise<T>): Promise<T> {
-  if (!isWindows()) return fn();
-
-  ensureNewlinePatches();
+  if (isWindows()) ensureNewlinePatches();
   const result = await fn();
   resetCursor();
   return result;
