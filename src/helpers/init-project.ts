@@ -257,10 +257,10 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "cursor") {
-    // Cursor is a VS Code fork pinned to an older engine version.
-    // The archgate VSIX currently targets a newer VS Code engine than
-    // Cursor supports, so installation is not yet available.
-    return { installed: false };
+    // Cursor uses Team Private Plugin Marketplaces — not VSIX or CLI install.
+    // The user must add the marketplace URL manually in Cursor Settings.
+    const { buildCursorMarketplaceUrl } = await import("./plugin-install");
+    return { installed: true, detail: buildCursorMarketplaceUrl() };
   }
 
   if (editor === "vscode") {

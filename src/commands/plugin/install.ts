@@ -16,6 +16,7 @@ import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot } from "../../helpers/paths";
 import {
+  buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
@@ -73,13 +74,15 @@ async function installForEditor(
       break;
     }
     case "cursor": {
-      // Cursor is a VS Code fork pinned to an older engine version.
-      // The archgate VSIX currently targets a newer VS Code engine than
-      // Cursor supports, so installation would fail. Skip until Cursor
-      // catches up or a Cursor-specific extension is published.
-      logWarn(
-        `Cursor plugin install is not yet supported.`,
-        "The archgate VS Code extension requires a newer engine than Cursor currently provides."
+      // Cursor supports plugins via Team Private Marketplaces — not VSIX.
+      // See https://cursor.com/docs/plugins#team-marketplaces
+      const url = buildCursorMarketplaceUrl();
+      logInfo(
+        `To install the Archgate plugin for ${label}, add the team marketplace URL in Cursor Settings:`
+      );
+      console.log(`  ${styleText("bold", url)}`);
+      console.log(
+        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
       );
       break;
     }
@@ -149,7 +152,12 @@ function printManualInstructions(editor: EditorTarget): void {
       break;
     }
     case "cursor": {
-      // Cursor plugin install not yet supported — see installForEditor
+      const url = buildCursorMarketplaceUrl();
+      logInfo("Add the team marketplace URL in Cursor Settings:");
+      console.log(`  ${styleText("bold", url)}`);
+      console.log(
+        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
+      );
       break;
     }
     case "vscode": {

@@ -13,6 +13,7 @@ import { logDebug } from "./log";
 import {
   isClaudeCliAvailable,
   isCopilotCliAvailable,
+  isCursorCliAvailable,
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "./plugin-install";
@@ -31,16 +32,13 @@ export interface DetectedEditor {
  */
 export async function detectEditors(): Promise<DetectedEditor[]> {
   logDebug("Detecting available editor CLIs");
-  const [claude, vscode, copilot, opencode] = await Promise.all([
+  const [claude, cursor, vscode, copilot, opencode] = await Promise.all([
     isClaudeCliAvailable(),
+    isCursorCliAvailable(),
     isVscodeCliAvailable(),
     isCopilotCliAvailable(),
     isOpencodeCliAvailable(),
   ]);
-
-  // Cursor is excluded from detection — the archgate VSIX targets a newer
-  // VS Code engine than Cursor currently provides (see plugin-install.ts).
-  const cursor = false;
 
   logDebug("Editor detection:", { claude, cursor, vscode, copilot, opencode });
   return [
