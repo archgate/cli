@@ -1,3 +1,9 @@
+## [0.36.3](https://github.com/archgate/cli/compare/v0.36.2...v0.36.3) (2026-05-15)
+
+### Bug Fixes
+
+* **ci:** remove proto 0.56.3 pin from Windows smoke test ([#312](https://github.com/archgate/cli/issues/312)) ([c895559](https://github.com/archgate/cli/commit/c89555972bda4721561babb05628e1a999d2de00))
+
 ## [0.36.2](https://github.com/archgate/cli/compare/v0.36.1...v0.36.2) (2026-05-11)
 
 ### Bug Fixes
