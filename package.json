@@ -57,9 +57,9 @@
   },
   "devDependencies": {
     "@commander-js/extra-typings": "14.0.0",
-    "@commitlint/cli": "21.0.0",
-    "@commitlint/config-conventional": "21.0.0",
-    "@sentry/node-core": "10.52.0",
+    "@commitlint/cli": "21.0.1",
+    "@commitlint/config-conventional": "21.0.1",
+    "@sentry/node-core": "10.53.1",
     "@simple-release/npm": "2.3.0",
     "@types/bun": "1.3.13",
     "conventional-changelog": "7.2.0",
@@ -67,11 +67,11 @@
     "czg": "1.13.1",
     "fast-check": "4.8.0",
     "inquirer": "13.4.3",
-    "knip": "6.12.2",
+    "knip": "6.13.1",
     "meriyah": "7.1.0",
     "oxfmt": "0.49.0",
     "oxlint": "1.64.0",
-    "posthog-node": "5.33.7",
+    "posthog-node": "5.34.1",
     "zod": "4.4.3"
   },
   "peerDependencies": {
