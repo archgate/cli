@@ -10,24 +10,23 @@
  * the original console mode after the prompt closes — so ALL subsequent output
  * is affected, not just the prompt itself.
  *
- * The fix has two parts:
+ * The fix uses two complementary strategies:
  *
- * 1. **Stream-level:** Patch `process.stdout.write` and `process.stderr.write`
- *    to translate bare `\n` → `\r\n`. This fixes inquirer's own rendering
- *    (which writes through the JS stream API).
+ * 1. **Stream-level patch** (applied once, persists): patches
+ *    `process.stdout.write` / `process.stderr.write` to translate bare
+ *    `\n` → `\r\n`. This covers inquirer's own rendering, which writes
+ *    through the JS stream API while `DISABLE_NEWLINE_AUTO_RETURN` is set.
  *
- * 2. **Console-level:** Redirect `console.log`, `console.error`, `console.warn`,
- *    `console.info`, and `console.debug` through the patched stream writes.
- *    Bun's native console methods bypass `process.stdout.write` entirely
- *    (writing directly to the file descriptor for performance), so the
- *    stream-level patch alone cannot fix them.
+ * 2. **Console mode reset** (after each prompt): uses Bun FFI to call the
+ *    Windows `SetConsoleMode` API and clear the `DISABLE_NEWLINE_AUTO_RETURN`
+ *    flag. This restores correct newline behavior for ALL output — including
+ *    Bun's native `console.log` which bypasses the JS stream API entirely.
+ *    If FFI is unavailable (e.g., running under mintty where stdout is a
+ *    pipe, not a console handle), falls back to redirecting `console.*`
+ *    methods through the patched stream writes.
  *
- * Both patches are applied **once** (idempotent) and persist for the lifetime
- * of the process.
- *
- * `withPromptFix()` ensures the patches are active before running a prompt and
- * resets the cursor to column 0 afterward (another quirk where the cursor is
- * left at a non-zero column after a prompt answer is rendered).
+ * `withPromptFix()` ensures the stream patches are active before running a
+ * prompt, resets the console mode afterward, and moves the cursor to column 0.
  */
 
 import { cursorTo } from "node:readline";
@@ -48,43 +47,26 @@ function toCrlf(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// One-time patches (idempotent)
+// Stream-level patch (applied once, persists)
 // ---------------------------------------------------------------------------
 
-/** Whether the patches have already been applied. */
-let patched = false;
+/** Whether the stream-level patches have been applied. */
+let streamPatched = false;
 
 /**
- * On Windows, apply a permanent, idempotent patch so that ALL console output
- * uses `\r\n` instead of bare `\n`. Covers:
- *
- * - `process.stdout.write` / `process.stderr.write` (stream-level — used by
- *   inquirer's readline pipeline)
- * - `console.log` / `.info` / `.error` / `.warn` / `.debug` (console-level —
- *   Bun writes these directly to the fd, bypassing the JS stream API)
- *
- * On non-Windows platforms this is a no-op. Calling it multiple times is safe.
+ * Patch `process.stdout.write` and `process.stderr.write` to translate bare
+ * `\n` → `\r\n`. Applied once and persists — needed because inquirer writes
+ * through the JS stream API while `DISABLE_NEWLINE_AUTO_RETURN` is active.
  */
-export function ensureStdoutNewlinePatch(): void {
-  if (!isWindows() || patched) return;
-  patched = true;
-
+function ensureStreamPatches(): void {
+  if (streamPatched) return;
+  streamPatched = true;
   patchStreamWrite(process.stdout);
   patchStreamWrite(process.stderr);
-  patchConsoleMethods();
 }
 
-// ---------------------------------------------------------------------------
-// Stream-level patch
-// ---------------------------------------------------------------------------
-
-/**
- * Patch the `write` method on a writable stream to translate bare `\n` → `\r\n`.
- */
 function patchStreamWrite(stream: NodeJS.WriteStream): void {
   const original = stream.write;
-
-  // Regular function — not arrow — so `this` is forwarded correctly.
   stream.write = function patchedWrite(
     this: NodeJS.WriteStream,
     chunk: unknown,
@@ -102,30 +84,92 @@ function patchStreamWrite(stream: NodeJS.WriteStream): void {
 }
 
 // ---------------------------------------------------------------------------
-// Console-level patch
+// Console mode reset via Windows API (after each prompt)
 // ---------------------------------------------------------------------------
 
+const STD_OUTPUT_HANDLE = -11;
+const STD_ERROR_HANDLE = -12;
+/** @see https://learn.microsoft.com/en-us/windows/console/setconsolemode */
+const DISABLE_NEWLINE_AUTO_RETURN = 0x0008;
+
 /**
- * Redirect `console.log`, `.info`, `.error`, `.warn`, and `.debug` through
- * `process.stdout.write` / `process.stderr.write` so the stream-level
- * `\n` → `\r\n` translation applies to them as well.
+ * Clear the `DISABLE_NEWLINE_AUTO_RETURN` flag on the stdout and stderr
+ * console handles via the Windows `SetConsoleMode` API (Bun FFI).
  *
- * Bun's native console methods write directly to the file descriptor for
- * performance, bypassing the JavaScript stream API entirely. Without this
- * redirect, patching `process.stdout.write` has no effect on `console.log`.
+ * This restores the default behavior where `\n` returns the cursor to
+ * column 0, fixing all native output (including Bun's `console.log` which
+ * bypasses the JS stream API).
+ *
+ * Returns `true` if the reset succeeded, `false` if FFI was unavailable
+ * (e.g., stdout is a pipe under mintty, not a real console handle).
  */
-function patchConsoleMethods(): void {
-  // stdout-bound methods
-  const stdoutMethods = ["log", "info"] as const;
-  for (const method of stdoutMethods) {
+function resetConsoleNewlineMode(): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { dlopen, FFIType, ptr } =
+      require("bun:ffi") as typeof import("bun:ffi");
+    const kernel32 = dlopen("kernel32.dll", {
+      GetStdHandle: { args: [FFIType.i32], returns: FFIType.ptr },
+      GetConsoleMode: {
+        args: [FFIType.ptr, FFIType.ptr],
+        returns: FFIType.i32,
+      },
+      SetConsoleMode: {
+        args: [FFIType.ptr, FFIType.u32],
+        returns: FFIType.i32,
+      },
+    });
+
+    const modeBuffer = new Uint32Array(1);
+    let reset = false;
+
+    for (const handleId of [STD_OUTPUT_HANDLE, STD_ERROR_HANDLE]) {
+      const handle = kernel32.symbols.GetStdHandle(handleId);
+      const ok = kernel32.symbols.GetConsoleMode(handle, ptr(modeBuffer));
+      if (!ok) continue; // not a console handle (e.g., pipe under mintty)
+      const mode = modeBuffer[0];
+      if (mode & DISABLE_NEWLINE_AUTO_RETURN) {
+        kernel32.symbols.SetConsoleMode(
+          handle,
+          mode & ~DISABLE_NEWLINE_AUTO_RETURN
+        );
+        reset = true;
+      }
+    }
+
+    kernel32.close();
+    return reset || true; // true = FFI worked (even if flag wasn't set)
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Console-method fallback (only when FFI is unavailable)
+// ---------------------------------------------------------------------------
+
+/** Whether the console-method fallback has been applied. */
+let consoleFallbackApplied = false;
+
+/**
+ * Redirect `console.log`, `.info`, `.error`, `.warn`, `.debug` through the
+ * patched `process.stdout.write` / `process.stderr.write`. Only used as a
+ * fallback when `resetConsoleNewlineMode()` fails (FFI unavailable).
+ *
+ * Bun's native console methods write directly to the file descriptor,
+ * bypassing the JS stream API. Without this fallback, the stream-level
+ * patch has no effect on `console.log` output.
+ */
+function ensureConsoleFallback(): void {
+  if (consoleFallbackApplied) return;
+  consoleFallbackApplied = true;
+
+  for (const method of ["log", "info"] as const) {
     console[method] = ((...args: unknown[]) => {
       process.stdout.write(format(...args) + "\n");
     }) as typeof console.log;
   }
-
-  // stderr-bound methods
-  const stderrMethods = ["error", "warn", "debug"] as const;
-  for (const method of stderrMethods) {
+  for (const method of ["error", "warn", "debug"] as const) {
     console[method] = ((...args: unknown[]) => {
       process.stderr.write(format(...args) + "\n");
     }) as typeof console.error;
@@ -138,17 +182,23 @@ function patchConsoleMethods(): void {
 
 /**
  * Execute an async function (typically an `inquirer.prompt()` call) with the
- * Windows newline fix active. The patches are applied once and persist — they
- * are NOT removed after the prompt because inquirer permanently changes the
- * console mode. After the function resolves, the cursor is reset to column 0
- * (another Windows quirk where the cursor is left at a non-zero column after
- * a prompt answer is rendered).
+ * Windows newline fix active.
+ *
+ * - **Before:** ensures the stream-level `\n` → `\r\n` patches are active.
+ * - **After:** resets the console mode via FFI (clearing the flag inquirer
+ *   set), then resets the cursor to column 0.
  *
  * On non-Windows platforms only the cursor reset is applied.
  */
 export async function withPromptFix<T>(fn: () => Promise<T>): Promise<T> {
-  ensureStdoutNewlinePatch();
+  if (isWindows()) {
+    ensureStreamPatches();
+  }
   const result = await fn();
+  if (isWindows()) {
+    const ffiWorked = resetConsoleNewlineMode();
+    if (!ffiWorked) ensureConsoleFallback();
+  }
   resetCursor();
   return result;
 }
@@ -157,19 +207,6 @@ export async function withPromptFix<T>(fn: () => Promise<T>): Promise<T> {
 // Cursor reset
 // ---------------------------------------------------------------------------
 
-/**
- * Reset the cursor to column 0 if stdout is a TTY.
- * Useful after inquirer prompts that leave the cursor at a non-zero column.
- */
 function resetCursor(): void {
   if (process.stdout.isTTY) cursorTo(process.stdout, 0);
-}
-
-// ---------------------------------------------------------------------------
-// Testing helpers
-// ---------------------------------------------------------------------------
-
-/** Reset the patch state. For testing only. */
-export function _resetPatchState(): void {
-  patched = false;
 }
