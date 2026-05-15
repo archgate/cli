@@ -76,6 +76,27 @@ describe("telemetry-config", () => {
       expect(config.installId).toBe("test-uuid-1234");
     });
 
+    test("preserves noticeShown flag from disk", async () => {
+      const { mkdirSync } = await import("node:fs");
+      const configDir = join(tempDir, ".archgate");
+      mkdirSync(configDir, { recursive: true });
+      await Bun.write(
+        join(configDir, "config.json"),
+        JSON.stringify({
+          telemetry: true,
+          installId: "test-uuid-5678",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          noticeShown: true,
+        })
+      );
+
+      const { loadTelemetryConfig } =
+        await import("../../src/helpers/telemetry-config");
+
+      const config = loadTelemetryConfig();
+      expect(config.noticeShown).toBe(true);
+    });
+
     test("creates new config when file is malformed", async () => {
       const { mkdirSync } = await import("node:fs");
       const configDir = join(tempDir, ".archgate");

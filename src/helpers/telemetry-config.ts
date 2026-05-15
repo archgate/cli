@@ -94,6 +94,7 @@ export function loadTelemetryConfig(): TelemetryConfig {
           telemetry: parsed.telemetry,
           installId: parsed.installId,
           createdAt: parsed.createdAt ?? new Date().toISOString(),
+          noticeShown: parsed.noticeShown,
         };
         logDebug("Telemetry config loaded:", cachedConfig.installId);
         return cachedConfig;

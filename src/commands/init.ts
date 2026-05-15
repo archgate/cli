@@ -2,7 +2,6 @@
 // Copyright 2026 Archgate
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { cursorTo } from "node:readline";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
@@ -15,6 +14,7 @@ import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
+import { withPromptFix } from "../helpers/prompt";
 import {
   getRepoContext,
   isPublicRepo,
@@ -93,17 +93,17 @@ export function registerInitCommand(program: Command) {
           // Lazy-load inquirer — it costs ~200ms to parse and is only needed
           // for interactive prompts, not for scripted or --help invocations.
           const { default: inquirer } = await import("inquirer");
-          const { wantPlugin } = await inquirer.prompt([
-            {
-              type: "confirm",
-              name: "wantPlugin",
-              message:
-                "Would you like to install the Archgate editor plugin? (requires GitHub login)",
-              default: true,
-            },
-          ]);
-          // Windows cursor-reset — see editor-detect.ts for explanation.
-          if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+          const { wantPlugin } = await withPromptFix(() =>
+            inquirer.prompt([
+              {
+                type: "confirm",
+                name: "wantPlugin",
+                message:
+                  "Would you like to install the Archgate editor plugin? (requires GitHub login)",
+                default: true,
+              },
+            ])
+          );
 
           if (wantPlugin) {
             const result = await runLoginFlow({
@@ -216,20 +216,20 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
   trackGreenfieldWizardShown();
 
   console.log("");
-  const { wantPacks } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "wantPacks",
-      message:
-        "No existing ADRs detected. Would you like to import starter packs?",
-      choices: [
-        { name: "Yes, pick packs now (recommended)", value: true },
-        { name: "No, start empty", value: false },
-      ],
-    },
-  ]);
-  // Windows cursor-reset — see editor-detect.ts for explanation.
-  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+  const { wantPacks } = await withPromptFix(() =>
+    inquirer.prompt([
+      {
+        type: "list",
+        name: "wantPacks",
+        message:
+          "No existing ADRs detected. Would you like to import starter packs?",
+        choices: [
+          { name: "Yes, pick packs now (recommended)", value: true },
+          { name: "No, start empty", value: false },
+        ],
+      },
+    ])
+  );
 
   if (!wantPacks) {
     trackWizardSkipped();
@@ -263,20 +263,20 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
     return;
   }
 
-  const { selectedPacks } = await inquirer.prompt([
-    {
-      type: "checkbox",
-      name: "selectedPacks",
-      message: "Select packs to import:",
-      choices: recommendations.map((rec) => ({
-        name: `${rec.packPath.padEnd(30)} ${String(rec.adrCount).padStart(2)} ADRs  (${rec.matchedTags.join(", ")})`,
-        value: rec.packPath,
-        checked: rec.relevance === "high",
-      })),
-    },
-  ]);
-  // Windows cursor-reset
-  if (process.stdout.isTTY) cursorTo(process.stdout, 0);
+  const { selectedPacks } = await withPromptFix(() =>
+    inquirer.prompt([
+      {
+        type: "checkbox",
+        name: "selectedPacks",
+        message: "Select packs to import:",
+        choices: recommendations.map((rec) => ({
+          name: `${rec.packPath.padEnd(30)} ${String(rec.adrCount).padStart(2)} ADRs  (${rec.matchedTags.join(", ")})`,
+          value: rec.packPath,
+          checked: rec.relevance === "high",
+        })),
+      },
+    ])
+  );
 
   if (selectedPacks.length === 0) {
     console.log("No packs selected.");

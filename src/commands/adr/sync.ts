@@ -15,6 +15,7 @@ import { logDebug, logError, logWarn } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
 import { resolvedProjectPaths } from "../../helpers/project-config";
+import { withPromptFix } from "../../helpers/prompt";
 import { resolveSource, shallowClone } from "../../helpers/registry";
 
 // ---------- Types ----------
@@ -398,18 +399,20 @@ export function registerAdrSyncCommand(adr: Command) {
             // oxlint-disable-next-line no-await-in-loop -- sequential interactive prompts
             const { default: inquirer } = await import("inquirer");
             // oxlint-disable-next-line no-await-in-loop -- sequential interactive prompts
-            const { choice } = await inquirer.prompt([
-              {
-                type: "list",
-                name: "choice",
-                message: `${diff.adrId}: What would you like to do?`,
-                choices: [
-                  { name: "Keep local", value: "keep" },
-                  { name: "Take upstream", value: "take" },
-                  { name: "Skip", value: "skip" },
-                ],
-              },
-            ]);
+            const { choice } = await withPromptFix(() =>
+              inquirer.prompt([
+                {
+                  type: "list",
+                  name: "choice",
+                  message: `${diff.adrId}: What would you like to do?`,
+                  choices: [
+                    { name: "Keep local", value: "keep" },
+                    { name: "Take upstream", value: "take" },
+                    { name: "Skip", value: "skip" },
+                  ],
+                },
+              ])
+            );
             action = choice;
           }
 

@@ -110,10 +110,6 @@ async function installForEditor(
     case "vscode": {
       const url = buildVscodeMarketplaceUrl();
       await configureVscodeSettings(findProjectRoot() ?? process.cwd(), url);
-      logInfo(
-        `Archgate plugin configured for ${label}.`,
-        "Marketplace URL added to VS Code user settings."
-      );
       if (await isVscodeCliAvailable()) {
         await installVscodeExtension(token);
         logInfo(`Archgate extension installed for ${label}.`);

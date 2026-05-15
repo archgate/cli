@@ -2,11 +2,12 @@
 // Copyright 2026 Archgate
 /** Download and install the archgate plugin for supported editors. */
 
-import { mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 import { logDebug } from "./log";
 import { internalPath, opencodeAgentsDir } from "./paths";
-import { resolveCommand } from "./platform";
+import { isWindows, resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
 
@@ -21,20 +22,99 @@ const CURSOR_MARKETPLACE_URL =
 
 /**
  * Run a command using Bun.spawn (cross-platform, no shell).
- * Returns { exitCode, stdout }.
+ * Returns { exitCode, stdout, stderr }.
  */
 async function run(
   cmd: string[],
   opts?: { cwd?: string }
-): Promise<{ exitCode: number; stdout: string }> {
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(cmd, {
     cwd: opts?.cwd,
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
+  const [stdout, stderr] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+  ]);
   const exitCode = await proc.exited;
-  return { exitCode, stdout };
+  return { exitCode, stdout, stderr };
+}
+
+// ---------------------------------------------------------------------------
+// VSIX compatibility helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Read Cursor's underlying VS Code engine version from its `product.json`.
+ *
+ * The path is derived from the resolved `cursor` binary:
+ *   .../cursor/resources/app/bin/cursor[.cmd]
+ *   → .../cursor/resources/app/product.json
+ *
+ * Returns null when the version cannot be determined (missing file, no
+ * cursor on PATH, unexpected directory layout).
+ */
+export async function getCursorVscodeVersion(): Promise<string | null> {
+  try {
+    const cursorBin = await resolveCommand("cursor");
+    if (!cursorBin) return null;
+
+    // On Windows Bun.which returns the native path (e.g.
+    // C:\Users\...\cursor\resources\app\bin\cursor.cmd).
+    // On Unix it may return a symlink target or similar.
+    // Navigate from bin/ up to the app directory.
+    const binDir = dirname(cursorBin); // .../resources/app/bin
+    const appDir = dirname(binDir); // .../resources/app
+    const productPath = join(appDir, "product.json");
+
+    if (!existsSync(productPath)) return null;
+
+    const product = await Bun.file(productPath).json();
+    if (typeof product.vscodeVersion === "string") {
+      return product.vscodeVersion;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read the `engines.vscode` field from a downloaded VSIX file.
+ *
+ * The VSIX is a ZIP containing `extension/package.json`. We extract just
+ * that entry using platform tools (PowerShell on Windows, unzip on Unix).
+ *
+ * Returns the raw `engines.vscode` string (e.g. "^1.96.0") or null if
+ * the field cannot be read.
+ */
+async function readVsixEngineVersion(vsixPath: string): Promise<string | null> {
+  try {
+    const cmd = isWindows()
+      ? buildPowershellZipReadCmd(vsixPath)
+      : ["unzip", "-p", vsixPath, "extension/package.json"];
+
+    const { stdout } = await run(cmd);
+    if (!stdout.trim()) return null;
+    const pkg = JSON.parse(stdout) as { engines?: { vscode?: string } };
+    return pkg.engines?.vscode ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Build a PowerShell command to read a single entry from a ZIP file. */
+function buildPowershellZipReadCmd(vsixPath: string): string[] {
+  const script = [
+    "Add-Type -AssemblyName System.IO.Compression.FileSystem;",
+    `$z=[System.IO.Compression.ZipFile]::OpenRead('${vsixPath}');`,
+    "try{",
+    "$e=$z.Entries|Where-Object{$_.FullName -eq 'extension/package.json'};",
+    "if($e){$r=New-Object System.IO.StreamReader($e.Open());$r.ReadToEnd();$r.Close()}",
+    "}finally{$z.Dispose()}",
+  ].join("");
+  return ["powershell", "-NoProfile", "-Command", script];
 }
 
 // ---------------------------------------------------------------------------
@@ -180,14 +260,44 @@ export async function installCursorPlugin(token: string): Promise<void> {
   );
   await Bun.write(vsixPath, buffer);
 
+  // --- Pre-flight compatibility check ---
+  // Cursor is a VS Code fork pinned to a specific engine version.
+  // If the VSIX targets a newer engine, `cursor --install-extension` will
+  // reject it. Detect this upfront so we skip the noisy failed attempt.
+  const cursorVscode = await getCursorVscodeVersion();
+  const requiredVscode = await readVsixEngineVersion(vsixPath);
+  logDebug("Cursor VS Code version:", cursorVscode ?? "unknown");
+  logDebug("VSIX engines.vscode:", requiredVscode ?? "unknown");
+
+  if (
+    cursorVscode &&
+    requiredVscode &&
+    !Bun.semver.satisfies(cursorVscode, requiredVscode)
+  ) {
+    // Clean up the VSIX — it can't be installed in this Cursor version
+    try {
+      unlinkSync(vsixPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+    throw new Error(
+      `The archgate extension requires VS Code ${requiredVscode} but ` +
+        `Cursor is based on VS Code ${cursorVscode}. ` +
+        `Update Cursor or wait for a compatible extension release.`
+    );
+  }
+
   const cursorCmd = (await resolveCommand("cursor")) ?? "cursor";
   logDebug("Installing VS Code extension in Cursor via cursor CLI");
   const result = await run([cursorCmd, "--install-extension", vsixPath]);
   if (result.exitCode !== 0) {
-    // Keep the VSIX on disk so the user can install it manually
+    // Keep the VSIX on disk so the user can install it manually.
+    // Include stderr detail so the user knows why the install failed.
+    const detail = (result.stderr || result.stdout).trim();
     throw new Error(
-      `cursor --install-extension failed (exit ${result.exitCode}). ` +
-        `The VSIX was saved to ${vsixPath} — install it manually in Cursor: ` +
+      `cursor --install-extension failed (exit ${result.exitCode}).` +
+        (detail ? ` ${detail}.` : "") +
+        ` The VSIX was saved to ${vsixPath} — install it manually in Cursor: ` +
         `Ctrl+Shift+P → "Extensions: Install from VSIX..."`
     );
   }
@@ -287,9 +397,17 @@ export async function installCopilotPlugin(): Promise<void> {
   logDebug("Adding archgate marketplace to copilot CLI");
   const addResult = await run([cmd, "plugin", "marketplace", "add", url]);
   if (addResult.exitCode !== 0) {
-    throw new Error(
-      `copilot plugin marketplace add failed (exit ${addResult.exitCode})`
-    );
+    // "already registered" is not an error — the marketplace was added in a
+    // previous run. Skip and proceed to install.
+    const combined = addResult.stdout + addResult.stderr;
+    if (!combined.includes("already registered")) {
+      const detail = combined.trim();
+      throw new Error(
+        `copilot plugin marketplace add failed (exit ${addResult.exitCode})` +
+          (detail ? `\n${detail}` : "")
+      );
+    }
+    logDebug("Marketplace already registered, skipping add");
   }
 
   logDebug("Installing archgate plugin via copilot CLI");
