@@ -18,15 +18,12 @@ import { findProjectRoot } from "../../helpers/paths";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
-  downloadVsix,
   installClaudePlugin,
   installCopilotPlugin,
-  installCursorPlugin,
   installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
   isCopilotCliAvailable,
-  isCursorCliAvailable,
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
@@ -76,17 +73,14 @@ async function installForEditor(
       break;
     }
     case "cursor": {
-      if (await isCursorCliAvailable()) {
-        await installCursorPlugin(token);
-        logInfo(`Archgate extension installed for ${label}.`);
-      } else {
-        const vsixPath = await downloadVsix(token);
-        logWarn("Cursor CLI not found. The VSIX has been downloaded:");
-        console.log(`  ${styleText("bold", vsixPath)}`);
-        console.log(
-          `  Open Cursor → Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select the file above`
-        );
-      }
+      // Cursor is a VS Code fork pinned to an older engine version.
+      // The archgate VSIX currently targets a newer VS Code engine than
+      // Cursor supports, so installation would fail. Skip until Cursor
+      // catches up or a Cursor-specific extension is published.
+      logWarn(
+        `Cursor plugin install is not yet supported.`,
+        "The archgate VS Code extension requires a newer engine than Cursor currently provides."
+      );
       break;
     }
     case "opencode": {
@@ -155,13 +149,7 @@ function printManualInstructions(editor: EditorTarget): void {
       break;
     }
     case "cursor": {
-      logInfo("To install the plugin manually, run:");
-      console.log(
-        `  ${styleText("bold", "curl")} -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix`
-      );
-      console.log(
-        `  Then in Cursor: Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select archgate.vsix`
-      );
+      // Cursor plugin install not yet supported — see installForEditor
       break;
     }
     case "vscode": {
