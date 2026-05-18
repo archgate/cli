@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 /** Git file-listing utilities for ADR scope resolution and change detection. */
 
-import { logDebug } from "../helpers/log";
+import { logDebug, logWarn } from "../helpers/log";
 
 /**
  * Run a git command using Bun.spawn (cross-platform, no shell).
@@ -62,10 +62,19 @@ export function getGitTrackedFiles(
 export async function resolveScopedFiles(
   projectRoot: string,
   adrFileGlobs?: string[],
-  options?: { respectGitignore?: boolean }
+  options?: { respectGitignore?: boolean; adrId?: string }
 ): Promise<string[]> {
-  const patterns = adrFileGlobs?.length ? adrFileGlobs : ["**/*"];
+  const hasExplicitFiles = (adrFileGlobs?.length ?? 0) > 0;
+  const patterns = hasExplicitFiles ? adrFileGlobs! : ["**/*"];
   const respectGitignore = options?.respectGitignore !== false;
+  const label = options?.adrId ? `ADR ${options.adrId}` : "resolveScopedFiles";
+
+  if (!respectGitignore && !hasExplicitFiles) {
+    logWarn(
+      `${label}: respectGitignore is false without a files scope — scanning all files including node_modules/, .git/, etc. This may be very slow. Add a files pattern to narrow the scope.`
+    );
+  }
+
   const trackedFiles = respectGitignore
     ? await getGitTrackedFiles(projectRoot)
     : null;
@@ -93,6 +102,19 @@ export async function resolveScopedFiles(
     "from patterns:",
     patterns.join(", ")
   );
+
+  // Warn when explicit file patterns yield zero results due to gitignore
+  if (respectGitignore && hasExplicitFiles && all.length === 0) {
+    const unfiltered = await resolveScopedFiles(projectRoot, adrFileGlobs, {
+      respectGitignore: false,
+    });
+    if (unfiltered.length > 0) {
+      logWarn(
+        `${label}: files patterns matched ${unfiltered.length} file(s) but all are excluded by .gitignore. Set respectGitignore: false in the ADR frontmatter to include them.`
+      );
+    }
+  }
+
   return all;
 }
 

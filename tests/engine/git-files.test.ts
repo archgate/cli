@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -162,6 +162,54 @@ describe("git-files", () => {
       ]);
       expect(files).toContain(".github/workflows/release.yml");
       expect(files).toContain(".github/workflows/ci.yml");
+    });
+
+    test("warns when respectGitignore is false without files scope", async () => {
+      await git(["init"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      await resolveScopedFiles(tempDir, [], { respectGitignore: false });
+      const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+      expect(
+        warnCalls.some((msg) =>
+          msg.includes("respectGitignore is false without a files scope")
+        )
+      ).toBe(true);
+      warnSpy.mockRestore();
+    });
+
+    test("warns when file patterns match only gitignored files", async () => {
+      await git(["init"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      mkdirSync(join(tempDir, "dist"), { recursive: true });
+      writeFileSync(join(tempDir, "dist", "app.js"), "var x = 1;");
+      writeFileSync(join(tempDir, ".gitignore"), "dist/\n");
+      await git(["add", ".gitignore"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      const files = await resolveScopedFiles(tempDir, ["dist/**/*.js"]);
+      expect(files).toHaveLength(0);
+      const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+      expect(
+        warnCalls.some((msg) => msg.includes("all are excluded by .gitignore"))
+      ).toBe(true);
+      warnSpy.mockRestore();
+    });
+
+    test("includes adrId in warning when provided", async () => {
+      await git(["init"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      await resolveScopedFiles(tempDir, [], {
+        respectGitignore: false,
+        adrId: "BUILD-001",
+      });
+      const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+      expect(warnCalls.some((msg) => msg.includes("ADR BUILD-001"))).toBe(true);
+      warnSpy.mockRestore();
     });
   });
 });

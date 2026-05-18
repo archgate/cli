@@ -9,7 +9,7 @@ import type {
   RuleReport,
   ViolationDetail,
 } from "../formats/rules";
-import { logDebug, logWarn } from "../helpers/log";
+import { logDebug } from "../helpers/log";
 import {
   resolveScopedFiles,
   getStagedFiles,
@@ -228,35 +228,11 @@ export async function runChecks(
       const respectGitignore = adr.frontmatter.respectGitignore !== false;
       const trackedFiles = respectGitignore ? allTrackedFiles : null;
 
-      if (!respectGitignore && !adr.frontmatter.files?.length) {
-        logWarn(
-          `ADR ${adr.frontmatter.id}: respectGitignore is false without a files scope — scanning all files including node_modules/, .git/, etc. This may be very slow. Add a files pattern to narrow the scope.`
-        );
-      }
-
       let scopedFiles = await resolveScopedFiles(
         projectRoot,
         adr.frontmatter.files,
-        { respectGitignore }
+        { respectGitignore, adrId: adr.frontmatter.id }
       );
-
-      // Warn when explicit file patterns yield zero results due to gitignore
-      if (
-        respectGitignore &&
-        adr.frontmatter.files?.length &&
-        scopedFiles.length === 0
-      ) {
-        const unfiltered = await resolveScopedFiles(
-          projectRoot,
-          adr.frontmatter.files,
-          { respectGitignore: false }
-        );
-        if (unfiltered.length > 0) {
-          logWarn(
-            `ADR ${adr.frontmatter.id}: files patterns matched ${unfiltered.length} file(s) but all are excluded by .gitignore. Set respectGitignore: false in the ADR frontmatter to include them.`
-          );
-        }
-      }
 
       // When files are specified, narrow scopedFiles to the intersection
       if (filterFiles) {
