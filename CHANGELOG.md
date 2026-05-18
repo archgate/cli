@@ -1,3 +1,9 @@
+## [0.37.0](https://github.com/archgate/cli/compare/v0.36.3...v0.37.0) (2026-05-18)
+
+### Features
+
+* gitignore filtering for rule context and respectGitignore frontmatter opt-out ([#321](https://github.com/archgate/cli/issues/321)) ([97f1ebb](https://github.com/archgate/cli/commit/97f1ebbf2f159ee5edbb98b47e576b5f21b54291))
+
 ## [0.36.3](https://github.com/archgate/cli/compare/v0.36.2...v0.36.3) (2026-05-15)
 
 ### Bug Fixes
