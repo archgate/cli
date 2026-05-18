@@ -461,15 +461,18 @@ The prefix comes from the ADR's domain (see [Domains](/concepts/domains/)). The 
 
 Every ADR document starts with a YAML frontmatter block between `---` delimiters. The frontmatter is the machine-readable metadata that Archgate uses to load, filter, and scope rules.
 
-| Field    | Type         | Required | Description                                                                                                                                                                                  |
-| -------- | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`     | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                                                                                                                                                |
-| `title`  | string       | Yes      | Human-readable title of the decision                                                                                                                                                         |
-| `domain` | string       | Yes      | Registered domain name. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. [Custom domains](/concepts/domains/#custom-domains) can be added via `archgate adr domain add`. |
-| `rules`  | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                                                                                                                                            |
-| `files`  | string array | No       | Glob patterns that scope which files the rules check                                                                                                                                         |
+| Field              | Type         | Required | Description                                                                                                                                                                                  |
+| ------------------ | ------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`               | string       | Yes      | Unique identifier like `ARCH-001` or `BE-003`                                                                                                                                                |
+| `title`            | string       | Yes      | Human-readable title of the decision                                                                                                                                                         |
+| `domain`           | string       | Yes      | Registered domain name. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. [Custom domains](/concepts/domains/#custom-domains) can be added via `archgate adr domain add`. |
+| `rules`            | boolean      | Yes      | Whether this ADR has a companion `.rules.ts` file                                                                                                                                            |
+| `files`            | string array | No       | Glob patterns that scope which files the rules check                                                                                                                                         |
+| `respectGitignore` | boolean      | No       | Whether to filter out `.gitignore`d files. Defaults to `true`.                                                                                                                               |
 
 The `files` field is optional. When present, it restricts rule execution to only the files matching the given globs. When absent, rules run against all project files. For example, `files: ["src/commands/**/*.ts"]` limits checks to command files only.
+
+The `respectGitignore` field is also optional. By default, files listed in `.gitignore` are excluded from all file-scanning operations (`ctx.scopedFiles`, `ctx.glob()`, `ctx.grepFiles()`). Set `respectGitignore: false` to include gitignored files -- useful for rules that need to inspect build output or generated files.
 
 ## ADR Body Sections
 
@@ -2540,6 +2543,19 @@ files: ["src/commands/**/*.ts"]
 
 If `files` is omitted, `ctx.scopedFiles` includes all project files. This is appropriate for project-wide rules like dependency policies.
 
+By default, files listed in `.gitignore` (e.g., `node_modules/`, `dist/`) are automatically excluded from `ctx.scopedFiles`, `ctx.glob()`, and `ctx.grepFiles()`. To include gitignored files, set `respectGitignore: false`:
+
+```yaml
+---
+id: BUILD-001
+title: Build Output Structure
+domain: architecture
+rules: true
+respectGitignore: false
+files: ["dist/**/*.js"]
+---
+```
+
 Common patterns:
 
 | Pattern                | Matches                          |
@@ -2749,7 +2765,7 @@ for (const match of matches) {
 
 ### ctx.grepFiles(pattern, fileGlob)
 
-Search across multiple files matching a glob pattern. Returns a flat array of `GrepMatch` objects from all matching files.
+Search across multiple files matching a glob pattern. Returns a flat array of `GrepMatch` objects from all matching files. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const matches = await ctx.grepFiles(/TODO:/, "src/**/*.ts");
@@ -2764,7 +2780,7 @@ for (const match of matches) {
 
 ### ctx.glob(pattern)
 
-Find files by glob pattern. Returns an array of file paths relative to the project root.
+Find files by glob pattern. Returns an array of file paths relative to the project root. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const testFiles = await ctx.glob("tests/**/*.test.ts");
@@ -2927,13 +2943,14 @@ files: ["src/commands/**/*.ts"]
 
 ### Fields
 
-| Field    | Type       | Required | Description                                                                                                                                                                                                                          |
-| -------- | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`     | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`).                                                                                                                                                   |
-| `title`  | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                                                                                                                                                                             |
-| `domain` | `string`   | Yes      | A registered domain name in lowercase kebab-case. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains are those registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
-| `rules`  | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.                                                                                                                                                             |
-| `files`  | `string[]` | No       | Glob patterns that scope which files the rules apply to.                                                                                                                                                                             |
+| Field              | Type       | Required | Description                                                                                                                                                                                                                          |
+| ------------------ | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`               | `string`   | Yes      | Unique identifier. Must be non-empty. Convention: `PREFIX-NNN` (e.g., `ARCH-001`).                                                                                                                                                   |
+| `title`            | `string`   | Yes      | Human-readable title of the decision. Must be non-empty.                                                                                                                                                                             |
+| `domain`           | `string`   | Yes      | A registered domain name in lowercase kebab-case. Built-ins: `backend`, `frontend`, `data`, `architecture`, `general`. Custom domains are those registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
+| `rules`            | `boolean`  | Yes      | Whether this ADR has a companion `.rules.ts` file with automated checks.                                                                                                                                                             |
+| `files`            | `string[]` | No       | Glob patterns that scope which files the rules apply to.                                                                                                                                                                             |
+| `respectGitignore` | `boolean`  | No       | Whether to filter out `.gitignore`d files. Defaults to `true`.                                                                                                                                                                       |
 
 ### id
 
@@ -2968,6 +2985,19 @@ Multiple patterns can be specified:
 ```yaml
 files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 ```
+
+### respectGitignore
+
+Controls whether `.gitignore`d files are excluded from `ctx.scopedFiles`, `ctx.glob()`, and `ctx.grepFiles()`. Defaults to `true` when omitted -- gitignored files (e.g., `node_modules/`, `dist/`) are automatically filtered out.
+
+Set to `false` when a rule intentionally needs to inspect ignored files, such as checking build output structure:
+
+```yaml
+respectGitignore: false
+files: ["dist/**/*.js"]
+```
+
+When `respectGitignore` is `false`, all files matched by the `files` globs are included regardless of `.gitignore` rules. When not inside a git repository, this field has no effect -- all matched files are included.
 
 ---
 
@@ -4554,7 +4584,7 @@ The reporting interface for recording violations, warnings, and informational me
 glob(pattern: string): Promise<string[]>;
 ```
 
-Find files matching a glob pattern relative to the project root. Returns an array of absolute file paths.
+Find files matching a glob pattern relative to the project root. Returns an array of file paths. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const testFiles = await ctx.glob("tests/**/*.test.ts");
@@ -4578,7 +4608,7 @@ const matches = await ctx.grep(file, /console\.error\(/);
 grepFiles(pattern: RegExp, fileGlob: string): Promise;
 ```
 
-Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call.
+Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const matches = await ctx.grepFiles(/TODO:/i, "src/**/*.ts");
