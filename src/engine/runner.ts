@@ -240,6 +240,24 @@ export async function runChecks(
         { respectGitignore }
       );
 
+      // Warn when explicit file patterns yield zero results due to gitignore
+      if (
+        respectGitignore &&
+        adr.frontmatter.files?.length &&
+        scopedFiles.length === 0
+      ) {
+        const unfiltered = await resolveScopedFiles(
+          projectRoot,
+          adr.frontmatter.files,
+          { respectGitignore: false }
+        );
+        if (unfiltered.length > 0) {
+          logWarn(
+            `ADR ${adr.frontmatter.id}: files patterns matched ${unfiltered.length} file(s) but all are excluded by .gitignore. Set respectGitignore: false in the ADR frontmatter to include them.`
+          );
+        }
+      }
+
       // When files are specified, narrow scopedFiles to the intersection
       if (filterFiles) {
         scopedFiles = scopedFiles.filter((f) => filterFiles.has(f));
