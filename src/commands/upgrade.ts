@@ -391,4 +391,6 @@ export {
   isProtoInstall as _isProtoInstall,
   isLocalInstall as _isLocalInstall,
   detectInstallMethod as _detectInstallMethod,
+  formatBytes as _formatBytes,
+  createDownloadProgress as _createDownloadProgress,
 };

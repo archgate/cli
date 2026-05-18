@@ -64,6 +64,22 @@ describe("getPlatformInfo", () => {
       expect(getPlatformInfo().isWSL).toBe(false);
     }
   });
+
+  test("wslDistro is null on non-WSL platforms", () => {
+    if (process.platform === "win32" || process.platform === "darwin") {
+      expect(getPlatformInfo().wslDistro).toBeNull();
+    }
+  });
+
+  test("re-detection after cache reset returns consistent values", () => {
+    const first = getPlatformInfo();
+    _resetAllCaches();
+    const second = getPlatformInfo();
+    // Values should be the same even though references differ
+    expect(second.runtime).toBe(first.runtime);
+    expect(second.isWSL).toBe(first.isWSL);
+    expect(second.wslDistro).toBe(first.wslDistro);
+  });
 });
 
 describe("isWSL", () => {
@@ -72,6 +88,10 @@ describe("isWSL", () => {
 
   test("returns a boolean", () => {
     expect(typeof isWSL()).toBe("boolean");
+  });
+
+  test("is consistent with getPlatformInfo().isWSL", () => {
+    expect(isWSL()).toBe(getPlatformInfo().isWSL);
   });
 });
 
@@ -101,6 +121,13 @@ describe("platform shorthand helpers", () => {
     const checks = [isWindows(), isMacOS(), isLinux()];
     expect(checks.filter(Boolean).length).toBe(1);
   });
+
+  test("shorthand helpers agree with getPlatformInfo()", () => {
+    const info = getPlatformInfo();
+    expect(isWindows()).toBe(info.runtime === "win32");
+    expect(isMacOS()).toBe(info.runtime === "darwin");
+    expect(isLinux()).toBe(info.runtime === "linux");
+  });
 });
 
 describe("resolveCommand", () => {
@@ -109,8 +136,20 @@ describe("resolveCommand", () => {
     expect(result).toBe("bun");
   });
 
+  test("finds git on PATH", async () => {
+    const result = await resolveCommand("git");
+    expect(result).not.toBeNull();
+  });
+
   test("returns null for non-existent command", async () => {
     const result = await resolveCommand("definitely-not-a-real-command-xyz123");
+    expect(result).toBeNull();
+  });
+
+  test("returns null for another non-existent command", async () => {
+    const result = await resolveCommand(
+      "no-such-tool-abcdef-999-should-not-exist"
+    );
     expect(result).toBeNull();
   });
 });
@@ -138,6 +177,13 @@ describe("toWindowsPath", () => {
       expect(result).toBeNull();
     }
   });
+
+  test("returns null on non-WSL for absolute path", async () => {
+    if (!inWSL) {
+      const result = await toWindowsPath("/mnt/c/Users/test");
+      expect(result).toBeNull();
+    }
+  });
 });
 
 describe("toWslPath", () => {
@@ -152,6 +198,13 @@ describe("toWslPath", () => {
   test("returns null when not in WSL", async () => {
     if (!inWSL) {
       const result = await toWslPath("C:\\Users");
+      expect(result).toBeNull();
+    }
+  });
+
+  test("returns null on non-WSL for Windows-style path", async () => {
+    if (!inWSL) {
+      const result = await toWslPath("D:\\Projects\\foo");
       expect(result).toBeNull();
     }
   });
@@ -176,6 +229,28 @@ describe("getWindowsHomeDirFromWSL", () => {
   test("returns null when not in WSL", async () => {
     if (!inWSL) {
       const result = await getWindowsHomeDirFromWSL();
+      expect(result).toBeNull();
+    }
+  });
+});
+
+describe("_resetAllCaches", () => {
+  test("clears platform cache so next call re-detects", () => {
+    const first = getPlatformInfo();
+    _resetAllCaches();
+    const second = getPlatformInfo();
+    expect(first).not.toBe(second);
+    // Values remain the same — the platform hasn't changed
+    expect(second.runtime).toBe(first.runtime);
+  });
+
+  test("clears Windows home dir cache", async () => {
+    // Call once to potentially populate the cache
+    await getWindowsHomeDirFromWSL();
+    // Reset and call again — should not throw
+    _resetAllCaches();
+    const result = await getWindowsHomeDirFromWSL();
+    if (!inWSL) {
       expect(result).toBeNull();
     }
   });
