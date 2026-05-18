@@ -9,7 +9,7 @@ import type {
   RuleReport,
   ViolationDetail,
 } from "../formats/rules";
-import { logDebug } from "../helpers/log";
+import { logDebug, logWarn } from "../helpers/log";
 import {
   resolveScopedFiles,
   getStagedFiles,
@@ -227,6 +227,12 @@ export async function runChecks(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
       const respectGitignore = adr.frontmatter.respectGitignore !== false;
       const trackedFiles = respectGitignore ? allTrackedFiles : null;
+
+      if (!respectGitignore && !adr.frontmatter.files?.length) {
+        logWarn(
+          `ADR ${adr.frontmatter.id}: respectGitignore is false without a files scope — scanning all files including node_modules/, .git/, etc. This may be very slow. Add a files pattern to narrow the scope.`
+        );
+      }
 
       let scopedFiles = await resolveScopedFiles(
         projectRoot,
