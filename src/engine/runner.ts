@@ -10,7 +10,11 @@ import type {
   ViolationDetail,
 } from "../formats/rules";
 import { logDebug } from "../helpers/log";
-import { resolveScopedFiles, getStagedFiles } from "./git-files";
+import {
+  resolveScopedFiles,
+  getStagedFiles,
+  getGitTrackedFiles,
+} from "./git-files";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 
 /**
@@ -81,7 +85,8 @@ function createRuleContext(
   changedFiles: string[],
   adrId: string,
   ruleId: string,
-  violations: ViolationDetail[]
+  violations: ViolationDetail[],
+  trackedFiles: Set<string> | null
 ): RuleContext {
   const report: RuleReport = {
     violation(detail) {
@@ -109,7 +114,9 @@ function createRuleContext(
       // `.husky/`, `.vscode/` — first-class source dirs in code repos.
       // See https://github.com/archgate/cli/issues/222.
       for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
-        results.push(file.replaceAll("\\", "/"));
+        const normalized = file.replaceAll("\\", "/");
+        if (trackedFiles && !trackedFiles.has(normalized)) continue;
+        results.push(normalized);
       }
       return results.sort();
     },
@@ -144,6 +151,7 @@ function createRuleContext(
       // See https://github.com/archgate/cli/issues/222.
       for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
         const normalized = file.replaceAll("\\", "/");
+        if (trackedFiles && !trackedFiles.has(normalized)) continue;
         const absPath = safePath(projectRoot, file);
         try {
           const content = await Bun.file(absPath).text();
@@ -211,12 +219,19 @@ export async function runChecks(
     );
   }
 
+  // Resolve tracked files once (cached per-process) for gitignore filtering
+  const allTrackedFiles = await getGitTrackedFiles(projectRoot);
+
   // Run ADRs in parallel
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
+      const respectGitignore = adr.frontmatter.respectGitignore !== false;
+      const trackedFiles = respectGitignore ? allTrackedFiles : null;
+
       let scopedFiles = await resolveScopedFiles(
         projectRoot,
-        adr.frontmatter.files
+        adr.frontmatter.files,
+        { respectGitignore, adrId: adr.frontmatter.id }
       );
 
       // When files are specified, narrow scopedFiles to the intersection
@@ -242,7 +257,8 @@ export async function runChecks(
           changedFiles,
           adr.frontmatter.id,
           ruleId,
-          violations
+          violations,
+          trackedFiles
         );
 
         try {

@@ -244,6 +244,19 @@ files: ["src/commands/**/*.ts"]
 
 If `files` is omitted, `ctx.scopedFiles` includes all project files. This is appropriate for project-wide rules like dependency policies.
 
+By default, files listed in `.gitignore` (e.g., `node_modules/`, `dist/`) are automatically excluded from `ctx.scopedFiles`, `ctx.glob()`, and `ctx.grepFiles()`. To include gitignored files, set `respectGitignore: false`:
+
+```yaml
+---
+id: BUILD-001
+title: Build Output Structure
+domain: architecture
+rules: true
+respectGitignore: false
+files: ["dist/**/*.js"]
+---
+```
+
 Common patterns:
 
 | Pattern                | Matches                          |

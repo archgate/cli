@@ -41,6 +41,7 @@ export const AdrFrontmatterSchema = z.object({
     ),
   rules: z.boolean(),
   files: z.array(z.string()).optional(),
+  respectGitignore: z.boolean().optional(),
 });
 
 export type AdrFrontmatter = z.infer<typeof AdrFrontmatterSchema>;

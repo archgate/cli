@@ -145,7 +145,7 @@ for (const match of matches) {
 
 ### ctx.grepFiles(pattern, fileGlob)
 
-Search across multiple files matching a glob pattern. Returns a flat array of `GrepMatch` objects from all matching files.
+Search across multiple files matching a glob pattern. Returns a flat array of `GrepMatch` objects from all matching files. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const matches = await ctx.grepFiles(/TODO:/, "src/**/*.ts");
@@ -160,7 +160,7 @@ for (const match of matches) {
 
 ### ctx.glob(pattern)
 
-Find files by glob pattern. Returns an array of file paths relative to the project root.
+Find files by glob pattern. Returns an array of file paths relative to the project root. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const testFiles = await ctx.glob("tests/**/*.test.ts");

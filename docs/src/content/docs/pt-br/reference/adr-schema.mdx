@@ -21,13 +21,14 @@ files: ["src/commands/**/*.ts"]
 
 ### Campos
 
-| Campo    | Tipo       | Obrigatório | Descrição                                                                                                                                                                                                                                           |
-| -------- | ---------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`     | `string`   | Sim         | Identificador único. Não pode ser vazio. Convenção: `PREFIX-NNN` (ex.: `ARCH-001`).                                                                                                                                                                 |
-| `title`  | `string`   | Sim         | Título legível da decisão. Não pode ser vazio.                                                                                                                                                                                                      |
-| `domain` | `string`   | Sim         | Nome de domínio registrado em kebab-case minúsculo. Integrados: `backend`, `frontend`, `data`, `architecture`, `general`. Domínios personalizados são aqueles registrados via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
-| `rules`  | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificações automatizadas.                                                                                                                                                              |
-| `files`  | `string[]` | Não         | Padrões glob que definem o escopo de quais arquivos as regras se aplicam.                                                                                                                                                                           |
+| Campo              | Tipo       | Obrigatório | Descrição                                                                                                                                                                                                                                           |
+| ------------------ | ---------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`               | `string`   | Sim         | Identificador único. Não pode ser vazio. Convenção: `PREFIX-NNN` (ex.: `ARCH-001`).                                                                                                                                                                 |
+| `title`            | `string`   | Sim         | Título legível da decisão. Não pode ser vazio.                                                                                                                                                                                                      |
+| `domain`           | `string`   | Sim         | Nome de domínio registrado em kebab-case minúsculo. Integrados: `backend`, `frontend`, `data`, `architecture`, `general`. Domínios personalizados são aqueles registrados via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
+| `rules`            | `boolean`  | Sim         | Se este ADR possui um arquivo `.rules.ts` complementar com verificações automatizadas.                                                                                                                                                              |
+| `files`            | `string[]` | Não         | Padrões glob que definem o escopo de quais arquivos as regras se aplicam.                                                                                                                                                                           |
+| `respectGitignore` | `boolean`  | Não         | Se deve filtrar arquivos ignorados pelo `.gitignore`. Padrão: `true`.                                                                                                                                                                               |
 
 ### id
 
@@ -62,6 +63,19 @@ Múltiplos padrões podem ser especificados:
 ```yaml
 files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 ```
+
+### respectGitignore
+
+Controla se arquivos ignorados pelo `.gitignore` são excluídos de `ctx.scopedFiles`, `ctx.glob()` e `ctx.grepFiles()`. O padrão é `true` quando omitido -- arquivos ignorados pelo git (ex.: `node_modules/`, `dist/`) são filtrados automaticamente.
+
+Defina como `false` quando uma regra precisa intencionalmente inspecionar arquivos ignorados, como verificar a estrutura da saída de build:
+
+```yaml
+respectGitignore: false
+files: ["dist/**/*.js"]
+```
+
+Quando `respectGitignore` é `false`, todos os arquivos correspondentes aos globs de `files` são incluídos independentemente das regras do `.gitignore`. Quando não estiver dentro de um repositório git, este campo não tem efeito -- todos os arquivos correspondentes são incluídos.
 
 ---
 

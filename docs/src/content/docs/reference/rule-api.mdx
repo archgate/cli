@@ -111,7 +111,7 @@ The reporting interface for recording violations, warnings, and informational me
 glob(pattern: string): Promise<string[]>;
 ```
 
-Find files matching a glob pattern relative to the project root. Returns an array of absolute file paths.
+Find files matching a glob pattern relative to the project root. Returns an array of file paths. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const testFiles = await ctx.glob("tests/**/*.test.ts");
@@ -135,7 +135,7 @@ const matches = await ctx.grep(file, /console\.error\(/);
 grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
 ```
 
-Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call.
+Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
 
 ```typescript
 const matches = await ctx.grepFiles(/TODO:/i, "src/**/*.ts");
