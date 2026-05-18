@@ -58,13 +58,17 @@ export function getGitTrackedFiles(
   return promise;
 }
 
-/** Resolve scoped files for an ADR based on its files globs. Respects .gitignore. */
+/** Resolve scoped files for an ADR based on its files globs. Respects .gitignore by default. */
 export async function resolveScopedFiles(
   projectRoot: string,
-  adrFileGlobs?: string[]
+  adrFileGlobs?: string[],
+  options?: { respectGitignore?: boolean }
 ): Promise<string[]> {
   const patterns = adrFileGlobs ?? ["**/*"];
-  const trackedFiles = await getGitTrackedFiles(projectRoot);
+  const respectGitignore = options?.respectGitignore !== false;
+  const trackedFiles = respectGitignore
+    ? await getGitTrackedFiles(projectRoot)
+    : null;
 
   const results = await Promise.all(
     patterns.map(async (pattern) => {

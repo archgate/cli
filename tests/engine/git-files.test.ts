@@ -96,6 +96,38 @@ describe("git-files", () => {
       expect(files).not.toContain("src/bar.md");
     });
 
+    test("excludes gitignored files by default", async () => {
+      await git(["init"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      mkdirSync(join(tempDir, "src"), { recursive: true });
+      mkdirSync(join(tempDir, "dist"), { recursive: true });
+      writeFileSync(join(tempDir, "src", "app.ts"), "export const x = 1;");
+      writeFileSync(join(tempDir, "dist", "app.js"), "var x = 1;");
+      writeFileSync(join(tempDir, ".gitignore"), "dist/\n");
+      await git(["add", "src/app.ts", ".gitignore"], tempDir);
+      const files = await resolveScopedFiles(tempDir, ["**/*.ts", "**/*.js"]);
+      expect(files).toContain("src/app.ts");
+      expect(files).not.toContain("dist/app.js");
+    });
+
+    test("includes gitignored files when respectGitignore is false", async () => {
+      await git(["init"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      mkdirSync(join(tempDir, "src"), { recursive: true });
+      mkdirSync(join(tempDir, "dist"), { recursive: true });
+      writeFileSync(join(tempDir, "src", "app.ts"), "export const x = 1;");
+      writeFileSync(join(tempDir, "dist", "app.js"), "var x = 1;");
+      writeFileSync(join(tempDir, ".gitignore"), "dist/\n");
+      await git(["add", "src/app.ts", ".gitignore"], tempDir);
+      const files = await resolveScopedFiles(tempDir, ["**/*.ts", "**/*.js"], {
+        respectGitignore: false,
+      });
+      expect(files).toContain("src/app.ts");
+      expect(files).toContain("dist/app.js");
+    });
+
     // Regression: archgate/cli#222 — ADR `files:` globs must match
     // dot-prefixed source dirs like `.github/`. Bun.Glob with `dot: false`
     // silently drops these on Windows, so ADRs scoped to `.github/**` had
