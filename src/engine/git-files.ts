@@ -64,7 +64,7 @@ export async function resolveScopedFiles(
   adrFileGlobs?: string[],
   options?: { respectGitignore?: boolean }
 ): Promise<string[]> {
-  const patterns = adrFileGlobs ?? ["**/*"];
+  const patterns = adrFileGlobs?.length ? adrFileGlobs : ["**/*"];
   const respectGitignore = options?.respectGitignore !== false;
   const trackedFiles = respectGitignore
     ? await getGitTrackedFiles(projectRoot)

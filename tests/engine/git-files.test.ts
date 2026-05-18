@@ -128,6 +128,19 @@ describe("git-files", () => {
       expect(files).toContain("dist/app.js");
     });
 
+    test("treats empty files array same as omitted (scans all)", async () => {
+      await git(["init"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      mkdirSync(join(tempDir, "src"), { recursive: true });
+      writeFileSync(join(tempDir, "src", "app.ts"), "export const x = 1;");
+      await git(["add", "src/app.ts"], tempDir);
+      const withEmpty = await resolveScopedFiles(tempDir, []);
+      const withOmitted = await resolveScopedFiles(tempDir);
+      expect(withEmpty).toEqual(withOmitted);
+      expect(withEmpty).toContain("src/app.ts");
+    });
+
     // Regression: archgate/cli#222 — ADR `files:` globs must match
     // dot-prefixed source dirs like `.github/`. Bun.Glob with `dot: false`
     // silently drops these on Windows, so ADRs scoped to `.github/**` had
