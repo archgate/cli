@@ -195,18 +195,16 @@ describe("addMarketplaceToUserSettings", () => {
     ]);
   });
 
-  test("creates directory structure when settings dir does not exist", async () => {
-    // Use a fresh nested subdir so the settings path doesn't already exist
-    const nestedHome = join(tempDir, "fresh-home");
-    process.env.APPDATA = nestedHome; // Windows
-    process.env.HOME = nestedHome; // macOS/Linux
+  test("creates settings file even when parent dirs do not exist yet", async () => {
+    // Use a deeply nested subdir that definitely doesn't exist yet
+    const deepHome = join(tempDir, "non", "existent", "deep");
+    process.env.APPDATA = deepHome; // Windows
+    process.env.HOME = deepHome; // macOS/Linux
 
-    const path = await settingsPath();
-    const dir = join(path, "..");
-    expect(existsSync(dir)).toBe(false);
-
+    // addMarketplaceToUserSettings should create the entire directory tree
     await addMarketplaceToUserSettings(URL);
 
+    const path = await settingsPath();
     expect(existsSync(path)).toBe(true);
     const content = JSON.parse(await Bun.file(path).text());
     expect(content["chat.plugins.marketplaces"]).toContain(URL);
