@@ -196,7 +196,11 @@ describe("addMarketplaceToUserSettings", () => {
   });
 
   test("creates directory structure when settings dir does not exist", async () => {
-    // Ensure the target settings directory does not exist yet
+    // Use a fresh nested subdir so the settings path doesn't already exist
+    const nestedHome = join(tempDir, "fresh-home");
+    process.env.APPDATA = nestedHome; // Windows
+    process.env.HOME = nestedHome; // macOS/Linux
+
     const path = await settingsPath();
     const dir = join(path, "..");
     expect(existsSync(dir)).toBe(false);
