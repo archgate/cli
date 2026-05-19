@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, mock, beforeEach, afterEach } from "bun:test";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -234,6 +237,125 @@ describe("downloadReleaseBinary", () => {
     expect(progressCalls[0].downloadedBytes).toBe(chunk.byteLength);
     expect(progressCalls[0].totalBytes).toBeNull();
   });
+
+  test("throws on checksum mismatch", async () => {
+    const archiveData = new Uint8Array([10, 20, 30, 40, 50]);
+    const wrongHash = "0".repeat(64);
+    let callCount = 0;
+    globalThis.fetch = mock(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(archiveData.buffer as ArrayBuffer),
+          headers: new Headers(),
+          body: null,
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(`${wrongHash}  archgate-linux-x64.tar.gz`),
+      } as Response);
+    }) as unknown as typeof fetch;
+
+    const artifact = {
+      name: "archgate-linux-x64",
+      ext: ".tar.gz" as const,
+      binaryName: "archgate",
+    };
+    await expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
+      "Checksum mismatch"
+    );
+  });
+
+  test("passes checksum verification when hash matches", async () => {
+    const archiveData = new Uint8Array([10, 20, 30, 40, 50]);
+    const correctHash = createHash("sha256").update(archiveData).digest("hex");
+    let callCount = 0;
+    globalThis.fetch = mock(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(archiveData.buffer as ArrayBuffer),
+          headers: new Headers(),
+          body: null,
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        text: () =>
+          Promise.resolve(`${correctHash}  archgate-linux-x64.tar.gz`),
+      } as Response);
+    }) as unknown as typeof fetch;
+
+    const artifact = {
+      name: "archgate-linux-x64",
+      ext: ".tar.gz" as const,
+      binaryName: "archgate",
+    };
+    // Should pass checksum but fail at extraction (fake data)
+    try {
+      await downloadReleaseBinary("v1.0.0", artifact);
+    } catch (err) {
+      expect(String(err)).not.toContain("Checksum mismatch");
+    }
+  });
+
+  test("extracts zip archive on Windows via PowerShell", async () => {
+    if (process.platform !== "win32") return;
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-dl-zip-test-"));
+    writeFileSync(join(tmpDir, "archgate.exe"), "fake-binary-content");
+    const zipPath = join(tmpDir, "test.zip");
+    const zipProc = Bun.spawn(
+      [
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        `Compress-Archive -Path '${join(tmpDir, "archgate.exe")}' -DestinationPath '${zipPath}' -Force`,
+      ],
+      { stdout: "pipe", stderr: "pipe" }
+    );
+    await zipProc.exited;
+    const zipBuffer = readFileSync(zipPath);
+    const correctHash = createHash("sha256").update(zipBuffer).digest("hex");
+    let callCount = 0;
+    globalThis.fetch = mock(() => {
+      callCount++;
+      if (callCount === 1) {
+        const ab = zipBuffer.buffer.slice(
+          zipBuffer.byteOffset,
+          zipBuffer.byteOffset + zipBuffer.byteLength
+        ) as ArrayBuffer;
+        return Promise.resolve({
+          ok: true,
+          arrayBuffer: () => Promise.resolve(ab),
+          headers: new Headers(),
+          body: null,
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(`${correctHash}  archgate-win32-x64.zip`),
+      } as Response);
+    }) as unknown as typeof fetch;
+    const artifact = {
+      name: "archgate-win32-x64",
+      ext: ".zip" as const,
+      binaryName: "archgate.exe",
+    };
+    try {
+      const binaryPath = await downloadReleaseBinary("v1.0.0", artifact);
+      expect(binaryPath).toContain("archgate.exe");
+      expect(existsSync(binaryPath)).toBe(true);
+    } finally {
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        /* cleanup guard */
+      }
+    }
+  });
 });
 
 describe("replaceBinary", () => {
@@ -275,6 +397,47 @@ describe("replaceBinary", () => {
     expect(existsSync(currentPath)).toBe(true);
     expect(existsSync(currentPath + ".old")).toBe(true);
     expect(existsSync(newBinaryPath)).toBe(false);
+  });
+
+  test("replaces file content with new binary", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+    const binaryName =
+      process.platform === "win32" ? "archgate.exe" : "archgate";
+    const currentPath = join(tmpDir, binaryName);
+    const newBinaryPath = join(tmpDir, `${binaryName}.new`);
+
+    writeFileSync(currentPath, "old binary content");
+    writeFileSync(newBinaryPath, "new binary content");
+
+    replaceBinary(currentPath, newBinaryPath);
+
+    const content = readFileSync(currentPath, "utf8");
+    expect(content).toBe("new binary content");
+  });
+
+  test("cleans up leftover .old file from previous upgrade on Windows", () => {
+    if (process.platform !== "win32") return;
+
+    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+    const currentPath = join(tmpDir, "archgate.exe");
+    const newBinaryPath = join(tmpDir, "archgate.exe.new");
+    const oldPath = currentPath + ".old";
+
+    // Pre-create a stale .old file from a previous upgrade
+    writeFileSync(oldPath, "stale binary from previous upgrade");
+    writeFileSync(currentPath, "old binary content");
+    writeFileSync(newBinaryPath, "new binary content");
+
+    replaceBinary(currentPath, newBinaryPath);
+
+    // The old stale .old was cleaned up and replaced with the current binary
+    expect(existsSync(currentPath)).toBe(true);
+    expect(existsSync(oldPath)).toBe(true);
+    expect(existsSync(newBinaryPath)).toBe(false);
+
+    // The .old file should contain "old binary content" (the just-replaced binary)
+    const oldContent = readFileSync(oldPath, "utf8");
+    expect(oldContent).toBe("old binary content");
   });
 });
 

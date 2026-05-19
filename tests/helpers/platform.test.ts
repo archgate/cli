@@ -64,6 +64,22 @@ describe("getPlatformInfo", () => {
       expect(getPlatformInfo().isWSL).toBe(false);
     }
   });
+
+  test("wslDistro is null on non-WSL platforms", () => {
+    if (process.platform === "win32" || process.platform === "darwin") {
+      expect(getPlatformInfo().wslDistro).toBeNull();
+    }
+  });
+
+  test("re-detection after cache reset returns consistent values", () => {
+    const first = getPlatformInfo();
+    _resetAllCaches();
+    const second = getPlatformInfo();
+    // Values should be the same even though references differ
+    expect(second.runtime).toBe(first.runtime);
+    expect(second.isWSL).toBe(first.isWSL);
+    expect(second.wslDistro).toBe(first.wslDistro);
+  });
 });
 
 describe("isWSL", () => {
@@ -72,6 +88,10 @@ describe("isWSL", () => {
 
   test("returns a boolean", () => {
     expect(typeof isWSL()).toBe("boolean");
+  });
+
+  test("is consistent with getPlatformInfo().isWSL", () => {
+    expect(isWSL()).toBe(getPlatformInfo().isWSL);
   });
 });
 
@@ -101,6 +121,13 @@ describe("platform shorthand helpers", () => {
     const checks = [isWindows(), isMacOS(), isLinux()];
     expect(checks.filter(Boolean).length).toBe(1);
   });
+
+  test("shorthand helpers agree with getPlatformInfo()", () => {
+    const info = getPlatformInfo();
+    expect(isWindows()).toBe(info.runtime === "win32");
+    expect(isMacOS()).toBe(info.runtime === "darwin");
+    expect(isLinux()).toBe(info.runtime === "linux");
+  });
 });
 
 describe("resolveCommand", () => {
@@ -109,8 +136,20 @@ describe("resolveCommand", () => {
     expect(result).toBe("bun");
   });
 
+  test("finds git on PATH", async () => {
+    const result = await resolveCommand("git");
+    expect(result).not.toBeNull();
+  });
+
   test("returns null for non-existent command", async () => {
     const result = await resolveCommand("definitely-not-a-real-command-xyz123");
+    expect(result).toBeNull();
+  });
+
+  test("returns null for another non-existent command", async () => {
+    const result = await resolveCommand(
+      "no-such-tool-abcdef-999-should-not-exist"
+    );
     expect(result).toBeNull();
   });
 });
@@ -138,6 +177,13 @@ describe("toWindowsPath", () => {
       expect(result).toBeNull();
     }
   });
+
+  test("returns null on non-WSL for absolute path", async () => {
+    if (!inWSL) {
+      const result = await toWindowsPath("/mnt/c/Users/test");
+      expect(result).toBeNull();
+    }
+  });
 });
 
 describe("toWslPath", () => {
@@ -152,6 +198,13 @@ describe("toWslPath", () => {
   test("returns null when not in WSL", async () => {
     if (!inWSL) {
       const result = await toWslPath("C:\\Users");
+      expect(result).toBeNull();
+    }
+  });
+
+  test("returns null on non-WSL for Windows-style path", async () => {
+    if (!inWSL) {
+      const result = await toWslPath("D:\\Projects\\foo");
       expect(result).toBeNull();
     }
   });
@@ -176,6 +229,128 @@ describe("getWindowsHomeDirFromWSL", () => {
   test("returns null when not in WSL", async () => {
     if (!inWSL) {
       const result = await getWindowsHomeDirFromWSL();
+      expect(result).toBeNull();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WSL detection via env-var mocking (runs on Linux CI without real WSL)
+// ---------------------------------------------------------------------------
+
+describe("WSL detection via env vars (Linux only)", () => {
+  const isNativeLinux =
+    process.platform === "linux" && !process.env.WSL_DISTRO_NAME;
+
+  let savedDistro: string | undefined;
+  let savedInterop: string | undefined;
+
+  beforeEach(() => {
+    savedDistro = process.env.WSL_DISTRO_NAME;
+    savedInterop = process.env.WSL_INTEROP;
+    _resetAllCaches();
+  });
+
+  afterEach(() => {
+    if (savedDistro === undefined) delete process.env.WSL_DISTRO_NAME;
+    else process.env.WSL_DISTRO_NAME = savedDistro;
+    if (savedInterop === undefined) delete process.env.WSL_INTEROP;
+    else process.env.WSL_INTEROP = savedInterop;
+    _resetAllCaches();
+  });
+
+  test.skipIf(!isNativeLinux)("detects WSL via WSL_DISTRO_NAME", () => {
+    process.env.WSL_DISTRO_NAME = "Ubuntu-22.04";
+    _resetAllCaches();
+    const info = getPlatformInfo();
+    expect(info.isWSL).toBe(true);
+    expect(info.wslDistro).toBe("Ubuntu-22.04");
+    expect(isWSL()).toBe(true);
+  });
+
+  test.skipIf(!isNativeLinux)(
+    "detects WSL via WSL_INTEROP when WSL_DISTRO_NAME is absent",
+    () => {
+      delete process.env.WSL_DISTRO_NAME;
+      process.env.WSL_INTEROP = "/run/WSL/1_interop";
+      _resetAllCaches();
+      const info = getPlatformInfo();
+      expect(info.isWSL).toBe(true);
+      expect(info.wslDistro).toBeNull();
+    }
+  );
+
+  test.skipIf(!isNativeLinux)(
+    "isWSL false when no WSL env vars are set",
+    () => {
+      delete process.env.WSL_DISTRO_NAME;
+      delete process.env.WSL_INTEROP;
+      _resetAllCaches();
+      // On real Linux (not WSL), /proc/version won't contain "microsoft"
+      expect(getPlatformInfo().isWSL).toBe(false);
+    }
+  );
+
+  test.skipIf(!isNativeLinux)(
+    "toWindowsPath returns null in fake WSL (no wslpath binary)",
+    async () => {
+      process.env.WSL_DISTRO_NAME = "FakeWSL";
+      _resetAllCaches();
+      // isWSL() returns true, but wslpath isn't available → returns null
+      const result = await toWindowsPath("/mnt/c/Users");
+      expect(result).toBeNull();
+    }
+  );
+
+  test.skipIf(!isNativeLinux)(
+    "toWslPath returns null in fake WSL (no wslpath binary)",
+    async () => {
+      process.env.WSL_DISTRO_NAME = "FakeWSL";
+      _resetAllCaches();
+      const result = await toWslPath("C:\\Users");
+      expect(result).toBeNull();
+    }
+  );
+
+  test.skipIf(!isNativeLinux)(
+    "getWindowsHomeDirFromWSL returns null in fake WSL (no cmd.exe)",
+    async () => {
+      process.env.WSL_DISTRO_NAME = "FakeWSL";
+      _resetAllCaches();
+      const result = await getWindowsHomeDirFromWSL();
+      expect(result).toBeNull();
+    }
+  );
+
+  test.skipIf(!isNativeLinux)(
+    "resolveCommand tries .exe variant in fake WSL",
+    async () => {
+      process.env.WSL_DISTRO_NAME = "FakeWSL";
+      _resetAllCaches();
+      // Neither "fake-tool" nor "fake-tool.exe" exist
+      const result = await resolveCommand("fake-tool");
+      expect(result).toBeNull();
+    }
+  );
+});
+
+describe("_resetAllCaches", () => {
+  test("clears platform cache so next call re-detects", () => {
+    const first = getPlatformInfo();
+    _resetAllCaches();
+    const second = getPlatformInfo();
+    expect(first).not.toBe(second);
+    // Values remain the same — the platform hasn't changed
+    expect(second.runtime).toBe(first.runtime);
+  });
+
+  test("clears Windows home dir cache", async () => {
+    // Call once to potentially populate the cache
+    await getWindowsHomeDirFromWSL();
+    // Reset and call again — should not throw
+    _resetAllCaches();
+    const result = await getWindowsHomeDirFromWSL();
+    if (!inWSL) {
       expect(result).toBeNull();
     }
   });

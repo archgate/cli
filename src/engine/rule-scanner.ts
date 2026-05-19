@@ -201,8 +201,6 @@ const IMPORTED_BLOCKED_GLOBALS = new Set(["require", "WebSocket"]);
  *   - environment variable reads via process
  *   - `require()` calls
  *   - `WebSocket` usage
- *
- * @internal
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
   const transpiler = new Bun.Transpiler({ loader: "ts" });

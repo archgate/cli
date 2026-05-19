@@ -2,7 +2,10 @@
 // Copyright 2026 Archgate
 import { describe, expect, test } from "bun:test";
 
-import { scanRuleSource } from "../../src/engine/rule-scanner";
+import {
+  scanImportedRuleSource,
+  scanRuleSource,
+} from "../../src/engine/rule-scanner";
 
 describe("scanRuleSource", () => {
   describe("banned imports", () => {
@@ -252,4 +255,200 @@ describe("scanRuleSource", () => {
   });
 
   // Position remapping tests are in rule-scanner-positions.test.ts
+});
+
+describe("scanImportedRuleSource", () => {
+  describe("imported-only: Bun.env access", () => {
+    test("blocks Bun.env.FOO read", () => {
+      const source = `const token = Bun.env.FOO;`;
+      const violations = scanImportedRuleSource(source);
+      const envViolations = violations.filter((v) =>
+        v.message.includes("Bun.env")
+      );
+      expect(envViolations).toHaveLength(1);
+      expect(envViolations[0].message).toContain(
+        "Bun.env access is blocked in imported rule files"
+      );
+    });
+
+    test("blocks bare Bun.env access", () => {
+      const source = `const env = Bun.env;`;
+      const violations = scanImportedRuleSource(source);
+      const envViolations = violations.filter((v) =>
+        v.message.includes("Bun.env")
+      );
+      expect(envViolations).toHaveLength(1);
+    });
+  });
+
+  describe("imported-only: process.env access", () => {
+    test("blocks process.env read", () => {
+      const source = `const val = process.env.SECRET;`;
+      const violations = scanImportedRuleSource(source);
+      const envViolations = violations.filter((v) =>
+        v.message.includes("process.env")
+      );
+      expect(envViolations).toHaveLength(1);
+      expect(envViolations[0].message).toContain(
+        "process.env access is blocked in imported rule files"
+      );
+    });
+  });
+
+  describe("imported-only: require() call", () => {
+    test("blocks require() call", () => {
+      const source = `const mod = require("some-module");`;
+      const violations = scanImportedRuleSource(source);
+      const requireViolations = violations.filter((v) =>
+        v.message.includes("require()")
+      );
+      expect(requireViolations).toHaveLength(1);
+      expect(requireViolations[0].message).toContain(
+        "require() is blocked in imported rule files"
+      );
+    });
+  });
+
+  describe("imported-only: WebSocket usage", () => {
+    test("blocks new WebSocket()", () => {
+      const source = `const ws = new WebSocket("ws://localhost");`;
+      const violations = scanImportedRuleSource(source);
+      const wsViolations = violations.filter((v) =>
+        v.message.includes("WebSocket")
+      );
+      expect(wsViolations).toHaveLength(1);
+      expect(wsViolations[0].message).toContain(
+        "new WebSocket() is blocked in imported rule files"
+      );
+    });
+
+    test("blocks WebSocket() without new", () => {
+      const source = `const ws = WebSocket("ws://localhost");`;
+      const violations = scanImportedRuleSource(source);
+      const wsViolations = violations.filter((v) =>
+        v.message.includes("WebSocket")
+      );
+      expect(wsViolations).toHaveLength(1);
+      expect(wsViolations[0].message).toContain(
+        "WebSocket() is blocked in imported rule files"
+      );
+    });
+  });
+
+  describe("multiple imported-only violations", () => {
+    test("reports all imported-only violations together", () => {
+      const source = `
+const token = Bun.env.TOKEN;
+const secret = process.env.SECRET;
+const mod = require("dangerous");
+const ws = new WebSocket("ws://localhost");
+`;
+      const violations = scanImportedRuleSource(source);
+      const importedMessages = violations.map((v) => v.message);
+
+      expect(importedMessages.some((m) => m.includes("Bun.env"))).toBe(true);
+      expect(importedMessages.some((m) => m.includes("process.env"))).toBe(
+        true
+      );
+      expect(importedMessages.some((m) => m.includes("require()"))).toBe(true);
+      expect(importedMessages.some((m) => m.includes("new WebSocket()"))).toBe(
+        true
+      );
+    });
+  });
+
+  describe("standard violations are included", () => {
+    test("includes standard scanRuleSource violations alongside imported-only ones", () => {
+      const source = `
+import { readFileSync } from "node:fs";
+const token = Bun.env.TOKEN;
+eval("code");
+`;
+      const violations = scanImportedRuleSource(source);
+      const messages = violations.map((v) => v.message);
+
+      // Standard violations (from scanRuleSource)
+      expect(messages.some((m) => m.includes('"node:fs"'))).toBe(true);
+      expect(messages.some((m) => m.includes("eval()"))).toBe(true);
+      // Imported-only violation
+      expect(messages.some((m) => m.includes("Bun.env"))).toBe(true);
+    });
+  });
+
+  describe("clean imported rule", () => {
+    test("passes when using only safe patterns", () => {
+      const source = `
+import { join } from "node:path";
+import { URL } from "node:url";
+
+export default {
+  rules: {
+    "safe-rule": {
+      description: "A clean imported rule",
+      async check(ctx) {
+        const files = await ctx.glob("src/**/*.ts");
+        for (const file of files) {
+          const content = await ctx.readFile(file);
+          if (content.includes("TODO")) {
+            ctx.report.warning({ message: "Found TODO", file });
+          }
+        }
+      },
+    },
+  },
+};
+`;
+      const violations = scanImportedRuleSource(source);
+      expect(violations).toHaveLength(0);
+    });
+  });
+
+  describe("safe module imports remain allowed", () => {
+    const safeModules = ["node:path", "node:url", "node:util", "node:crypto"];
+
+    for (const mod of safeModules) {
+      test(`allows ${mod} import in imported rules`, () => {
+        const violations = scanImportedRuleSource(`import x from "${mod}";`);
+        expect(violations).toHaveLength(0);
+      });
+    }
+  });
+
+  describe("violation location for imported checks", () => {
+    test("reports correct line and column for Bun.env", () => {
+      const source = `const x = 1;\nconst t = Bun.env.TOKEN;`;
+      const violations = scanImportedRuleSource(source);
+      const envViolation = violations.find((v) =>
+        v.message.includes("Bun.env")
+      );
+      expect(envViolation).toBeDefined();
+      expect(envViolation!.line).toBe(2);
+      expect(envViolation!.column).toBe(10);
+      // "Bun.env" is 7 chars, so endColumn = 10 + 7 = 17
+      expect(envViolation!.endColumn).toBe(17);
+    });
+
+    test("reports correct line and column for require()", () => {
+      const source = `const a = 1;\nconst b = 2;\nconst m = require("foo");`;
+      const violations = scanImportedRuleSource(source);
+      const reqViolation = violations.find((v) =>
+        v.message.includes("require()")
+      );
+      expect(reqViolation).toBeDefined();
+      expect(reqViolation!.line).toBe(3);
+      expect(reqViolation!.column).toBe(10);
+      // "require(" is 8 chars, so endColumn = 10 + 8 = 18
+      expect(reqViolation!.endColumn).toBe(18);
+    });
+
+    test("reports correct line for new WebSocket()", () => {
+      const source = `const x = 1;\nconst ws = new WebSocket("ws://localhost");`;
+      const violations = scanImportedRuleSource(source);
+      const wsViolation = violations.find((v) =>
+        v.message.includes("WebSocket")
+      );
+      expect(wsViolation).toBeDefined();
+      expect(wsViolation!.line).toBe(2);
+    });
+  });
 });

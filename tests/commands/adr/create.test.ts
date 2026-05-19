@@ -183,4 +183,134 @@ describe("adr create action handler", () => {
 
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
+
+  test("parses comma-separated --files patterns into frontmatter", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync([
+      "node",
+      "adr",
+      "create",
+      "--title",
+      "Scoped Rule",
+      "--domain",
+      "architecture",
+      "--files",
+      "src/**/*.ts, tests/**/*.ts",
+      "--body",
+      "## Context\nScoped to specific files.",
+    ]);
+
+    const createdFile = join(adrsDir, "ARCH-001-scoped-rule.md");
+    expect(existsSync(createdFile)).toBe(true);
+    const content = await Bun.file(createdFile).text();
+    expect(content).toContain("src/**/*.ts");
+    expect(content).toContain("tests/**/*.ts");
+  });
+
+  test("sets rules: true in frontmatter when --rules flag is passed", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync([
+      "node",
+      "adr",
+      "create",
+      "--title",
+      "Enforced Rule",
+      "--domain",
+      "general",
+      "--rules",
+      "--body",
+      "## Context\nThis ADR has rules.",
+    ]);
+
+    const createdFile = join(adrsDir, "GEN-001-enforced-rule.md");
+    expect(existsSync(createdFile)).toBe(true);
+    const content = await Bun.file(createdFile).text();
+    expect(content).toContain("rules: true");
+  });
+
+  test("generates companion .rules.ts file when --rules flag is passed", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync([
+      "node",
+      "adr",
+      "create",
+      "--title",
+      "With Rules",
+      "--domain",
+      "backend",
+      "--rules",
+      "--body",
+      "## Context\nHas companion rules.",
+    ]);
+
+    const rulesFile = join(adrsDir, "BE-001-with-rules.rules.ts");
+    expect(existsSync(rulesFile)).toBe(true);
+  });
+
+  test("does not generate .rules.ts file when --rules is omitted", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync([
+      "node",
+      "adr",
+      "create",
+      "--title",
+      "No Rules",
+      "--domain",
+      "backend",
+      "--body",
+      "## Context\nNo rules needed.",
+    ]);
+
+    const rulesFile = join(adrsDir, "BE-001-no-rules.rules.ts");
+    expect(existsSync(rulesFile)).toBe(false);
+  });
+
+  test("increments ADR ID when existing ADRs are present", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+
+    // Create a first ADR
+    process.chdir(tempDir);
+    const parent1 = makeProgram();
+    await parent1.parseAsync([
+      "node",
+      "adr",
+      "create",
+      "--title",
+      "First ADR",
+      "--domain",
+      "backend",
+    ]);
+
+    // Create a second ADR in the same domain
+    const parent2 = makeProgram();
+    await parent2.parseAsync([
+      "node",
+      "adr",
+      "create",
+      "--title",
+      "Second ADR",
+      "--domain",
+      "backend",
+    ]);
+
+    expect(existsSync(join(adrsDir, "BE-001-first-adr.md"))).toBe(true);
+    expect(existsSync(join(adrsDir, "BE-002-second-adr.md"))).toBe(true);
+  });
 });
