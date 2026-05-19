@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -179,5 +179,61 @@ describe("initProject", () => {
 
     const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
     expect(config.overrides).toHaveLength(1);
+  });
+
+  test("configures Copilot settings when editor is copilot", async () => {
+    const result = await initProject(tempDir, { editor: "copilot" });
+    const copilotDir = join(tempDir, ".github", "copilot");
+    expect(existsSync(copilotDir)).toBe(true);
+    expect(result.editorSettingsPath).toBe(copilotDir);
+
+    // Claude settings should NOT exist
+    expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
+      false
+    );
+  });
+
+  test("configures opencode settings — returns user-scope agents dir", async () => {
+    const savedHome = Bun.env.HOME;
+    const savedXdg = Bun.env.XDG_CONFIG_HOME;
+    try {
+      Bun.env.HOME = tempDir;
+      delete Bun.env.XDG_CONFIG_HOME;
+
+      const result = await initProject(tempDir, { editor: "opencode" });
+      const expectedDir = join(tempDir, ".config", "opencode", "agents");
+      expect(result.editorSettingsPath).toBe(expectedDir);
+
+      // Claude settings should NOT exist
+      expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
+        false
+      );
+    } finally {
+      Bun.env.HOME = savedHome;
+      if (savedXdg !== undefined) {
+        Bun.env.XDG_CONFIG_HOME = savedXdg;
+      }
+    }
+  });
+
+  test("configures VS Code settings when editor is vscode", async () => {
+    // The vscode branch in configureEditorSettings dynamically imports
+    // credential-store. Mock it to avoid hitting the real credential store.
+    mock.module("../../src/helpers/credential-store", () => ({
+      loadCredentials: () => Promise.resolve(null),
+    }));
+
+    try {
+      const result = await initProject(tempDir, { editor: "vscode" });
+      const vscodeDir = join(tempDir, ".vscode");
+      expect(result.editorSettingsPath).toBe(vscodeDir);
+
+      // Claude settings should NOT exist
+      expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
+        false
+      );
+    } finally {
+      mock.restore();
+    }
   });
 });

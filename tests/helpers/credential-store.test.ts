@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { isWindows } from "../../src/helpers/platform";
 
 describe("credential-store", () => {
   let tempDir: string;
@@ -28,7 +30,11 @@ describe("credential-store", () => {
     Bun.env.HOME = originalHome;
     Bun.env.GIT_CONFIG_NOSYSTEM = originalGitConfigNoSystem;
     Bun.env.GIT_CONFIG_GLOBAL = originalGitConfigGlobal;
-    rmSync(tempDir, { recursive: true, force: true });
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      /* temp dir cleanup best-effort */
+    }
   });
 
   describe("saveCredentials", () => {
@@ -65,6 +71,32 @@ describe("credential-store", () => {
 
       // Legacy file should be removed.
       expect(await Bun.file(credPath).exists()).toBe(false);
+    });
+
+    test("warns when verification after approve fails", async () => {
+      // With no credential helper configured, approve succeeds (exit 0) but
+      // fill returns nothing — triggers the verification warning path.
+      const { saveCredentials } =
+        await import("../../src/helpers/credential-store");
+
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        await saveCredentials({
+          token: "ag_beta_test",
+          github_user: "testuser",
+        });
+
+        // The warning is printed because fill cannot verify the stored token.
+        // Either the "approve failed" or "could not be verified" warning fires.
+        expect(warnSpy).toHaveBeenCalled();
+        const allArgs = warnSpy.mock.calls.flat().join(" ");
+        const hasVerifyWarning =
+          allArgs.includes("could not be verified") ||
+          allArgs.includes("approve failed");
+        expect(hasVerifyWarning).toBe(true);
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 
@@ -131,6 +163,71 @@ describe("credential-store", () => {
       await clearCredentials();
 
       expect(await Bun.file(credPath).exists()).toBe(false);
+    });
+
+    test("completes without error when git credential reject runs", async () => {
+      // clearCredentials calls gitCredentialFill first; with no helper
+      // configured, fill returns null so reject is skipped — but legacy
+      // cleanup still runs. This exercises the full clearCredentials path.
+      const { clearCredentials } =
+        await import("../../src/helpers/credential-store");
+
+      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+      const credPath = join(tempDir, ".archgate", "credentials");
+      await Bun.write(credPath, "{}");
+
+      await clearCredentials();
+      expect(await Bun.file(credPath).exists()).toBe(false);
+    });
+  });
+
+  describe("credential fill with store helper", () => {
+    test("round-trips credentials through a file-based credential helper", async () => {
+      // Skip on Windows — shell-script credential helpers require bash
+      if (isWindows()) return;
+
+      // Configure a simple store-based credential helper that persists
+      // credentials to a file. This lets us exercise the approve→fill→reject
+      // cycle end-to-end without touching the OS credential manager.
+      const storePath = join(tempDir, "git-credentials");
+      const gitConfig = join(tempDir, ".gitconfig");
+      writeFileSync(
+        gitConfig,
+        `[credential]\n  helper = store --file=${storePath}\n`
+      );
+
+      const { saveCredentials, loadCredentials, clearCredentials } =
+        await import("../../src/helpers/credential-store");
+
+      // Save should succeed and be verifiable
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        await saveCredentials({
+          token: "ag_beta_roundtrip",
+          github_user: "rounduser",
+        });
+
+        // With a working helper, verification succeeds — no warning about
+        // "could not be verified".
+        const verifyWarning = warnSpy.mock.calls
+          .flat()
+          .join(" ")
+          .includes("could not be verified");
+        expect(verifyWarning).toBe(false);
+      } finally {
+        warnSpy.mockRestore();
+      }
+
+      // Load should return the saved credentials
+      const loaded = await loadCredentials();
+      expect(loaded).not.toBeNull();
+      expect(loaded!.token).toBe("ag_beta_roundtrip");
+      expect(loaded!.github_user).toBe("rounduser");
+
+      // Clear should remove them
+      await clearCredentials();
+      const afterClear = await loadCredentials();
+      expect(afterClear).toBeNull();
     });
   });
 

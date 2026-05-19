@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -215,6 +215,254 @@ describe("telemetry-config", () => {
       const id1 = getInstallId();
       const id2 = getInstallId();
       expect(id1).toBe(id2);
+    });
+  });
+
+  describe("showFirstRunNoticeIfNeeded", () => {
+    let originalIsTTY: boolean | undefined;
+    let originalCI: string | undefined;
+
+    beforeEach(() => {
+      originalIsTTY = process.stdout.isTTY;
+      originalCI = Bun.env.CI;
+    });
+
+    afterEach(() => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: originalIsTTY,
+        writable: true,
+        configurable: true,
+      });
+      if (originalCI === undefined) {
+        delete Bun.env.CI;
+      } else {
+        Bun.env.CI = originalCI;
+      }
+    });
+
+    test("prints notice when TTY + enabled + not yet shown", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+      delete Bun.env.CI;
+      delete process.env.ARCHGATE_TELEMETRY;
+
+      const { showFirstRunNoticeIfNeeded, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+        () => true
+      );
+      try {
+        showFirstRunNoticeIfNeeded();
+
+        expect(writeSpy).toHaveBeenCalled();
+        const output = writeSpy.mock.calls.map((c) => String(c[0])).join("");
+        expect(output).toContain("anonymous usage data");
+        expect(output).toContain("archgate telemetry disable");
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    test("does not print when noticeShown is already true", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+      delete Bun.env.CI;
+      delete process.env.ARCHGATE_TELEMETRY;
+
+      // Write a config with noticeShown: true
+      const { mkdirSync } = await import("node:fs");
+      const configDir = join(tempDir, ".archgate");
+      mkdirSync(configDir, { recursive: true });
+      await Bun.write(
+        join(configDir, "config.json"),
+        JSON.stringify({
+          telemetry: true,
+          installId: "test-uuid-notice",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          noticeShown: true,
+        })
+      );
+
+      const { showFirstRunNoticeIfNeeded, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+        () => true
+      );
+      try {
+        showFirstRunNoticeIfNeeded();
+        // No output — notice was already shown
+        const privacyCalls = writeSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("anonymous usage data")
+        );
+        expect(privacyCalls).toHaveLength(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    test("does not print when CI env is set", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+      Bun.env.CI = "true";
+      delete process.env.ARCHGATE_TELEMETRY;
+
+      const { showFirstRunNoticeIfNeeded, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+        () => true
+      );
+      try {
+        showFirstRunNoticeIfNeeded();
+        const privacyCalls = writeSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("anonymous usage data")
+        );
+        expect(privacyCalls).toHaveLength(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    test("does not print when telemetry is disabled via env", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+      delete Bun.env.CI;
+      process.env.ARCHGATE_TELEMETRY = "0";
+
+      const { showFirstRunNoticeIfNeeded, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+        () => true
+      );
+      try {
+        showFirstRunNoticeIfNeeded();
+        const privacyCalls = writeSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("anonymous usage data")
+        );
+        expect(privacyCalls).toHaveLength(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    test("does not print when telemetry is disabled via config", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        writable: true,
+        configurable: true,
+      });
+      delete Bun.env.CI;
+      delete process.env.ARCHGATE_TELEMETRY;
+
+      // Write a config with telemetry disabled
+      const { mkdirSync } = await import("node:fs");
+      const configDir = join(tempDir, ".archgate");
+      mkdirSync(configDir, { recursive: true });
+      await Bun.write(
+        join(configDir, "config.json"),
+        JSON.stringify({
+          telemetry: false,
+          installId: "test-uuid-disabled",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        })
+      );
+
+      const { showFirstRunNoticeIfNeeded, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+        () => true
+      );
+      try {
+        showFirstRunNoticeIfNeeded();
+        const privacyCalls = writeSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("anonymous usage data")
+        );
+        expect(privacyCalls).toHaveLength(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+
+    test("does not print when stdout is not a TTY", async () => {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: false,
+        writable: true,
+        configurable: true,
+      });
+      delete Bun.env.CI;
+      delete process.env.ARCHGATE_TELEMETRY;
+
+      const { showFirstRunNoticeIfNeeded, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+        () => true
+      );
+      try {
+        showFirstRunNoticeIfNeeded();
+        const privacyCalls = writeSpy.mock.calls.filter((c) =>
+          String(c[0]).includes("anonymous usage data")
+        );
+        expect(privacyCalls).toHaveLength(0);
+      } finally {
+        writeSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("saveTelemetryConfigAsync", () => {
+    test("swallows write errors silently", async () => {
+      // loadTelemetryConfig on first run triggers saveTelemetryConfigAsync.
+      // If the write fails (e.g., HOME is non-writable), it should not throw.
+      const nonWritable = join(tempDir, "readonly");
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(nonWritable, { recursive: true });
+      process.env.HOME = nonWritable;
+
+      // Make the directory non-writable (skip on Windows where chmod is limited)
+      const { isWindows: isWin } = await import("../../src/helpers/platform");
+      if (!isWin()) {
+        const { chmodSync: chmod } = await import("node:fs");
+        chmod(nonWritable, 0o444);
+      }
+
+      const { loadTelemetryConfig, _resetConfigCache } =
+        await import("../../src/helpers/telemetry-config");
+      _resetConfigCache();
+
+      // Should not throw even when the async save fails
+      expect(() => loadTelemetryConfig()).not.toThrow();
+
+      // Wait for the async save to settle
+      await Bun.sleep(200);
+
+      // Restore permissions for cleanup
+      if (!isWin()) {
+        const { chmodSync: chmod } = await import("node:fs");
+        chmod(nonWritable, 0o755);
+      }
     });
   });
 });

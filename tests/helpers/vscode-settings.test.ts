@@ -65,12 +65,17 @@ describe("mergeMarketplaceUrl", () => {
 
 describe("configureVscodeSettings", () => {
   let tempDir: string;
+  let savedEnv: Record<string, string | undefined>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-vscode-settings-test-"));
+    savedEnv = { APPDATA: process.env.APPDATA, HOME: process.env.HOME };
+    process.env.APPDATA = tempDir;
+    process.env.HOME = tempDir;
   });
 
   afterEach(() => {
+    Object.assign(process.env, savedEnv);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -84,6 +89,35 @@ describe("configureVscodeSettings", () => {
     const result = await configureVscodeSettings(tempDir);
 
     expect(result).toBe(join(tempDir, ".vscode"));
+  });
+
+  test("does not create user settings file when no marketplace URL is provided", async () => {
+    await configureVscodeSettings(tempDir);
+
+    // The user settings file should not be created
+    const path = await getVscodeUserSettingsPath();
+    expect(existsSync(path)).toBe(false);
+  });
+
+  test("creates .vscode/ dir when marketplace URL is provided", async () => {
+    const url = "https://user:token@plugins.archgate.dev/archgate.git";
+    await configureVscodeSettings(tempDir, url);
+
+    expect(existsSync(join(tempDir, ".vscode"))).toBe(true);
+  });
+
+  test("does not recreate .vscode/ dir when it already exists", async () => {
+    const url = "https://user:token@plugins.archgate.dev/archgate.git";
+    const vscodeDir = join(tempDir, ".vscode");
+    mkdirSync(vscodeDir, { recursive: true });
+
+    // Place a marker file to verify the dir is not replaced
+    const markerPath = join(vscodeDir, "marker.txt");
+    await Bun.write(markerPath, "exists");
+
+    await configureVscodeSettings(tempDir, url);
+
+    expect(existsSync(markerPath)).toBe(true);
   });
 });
 
@@ -160,6 +194,46 @@ describe("addMarketplaceToUserSettings", () => {
       URL,
     ]);
   });
+
+  test("creates directory structure when settings dir does not exist", async () => {
+    // Ensure the target settings directory does not exist yet
+    const path = await settingsPath();
+    const dir = join(path, "..");
+    expect(existsSync(dir)).toBe(false);
+
+    await addMarketplaceToUserSettings(URL);
+
+    expect(existsSync(path)).toBe(true);
+    const content = JSON.parse(await Bun.file(path).text());
+    expect(content["chat.plugins.marketplaces"]).toContain(URL);
+  });
+
+  test("preserves all existing keys when merging", async () => {
+    const path = await settingsPath();
+    mkdirSync(join(path, ".."), { recursive: true });
+    await Bun.write(
+      path,
+      JSON.stringify({
+        "editor.fontSize": 14,
+        "editor.tabSize": 2,
+        "workbench.colorTheme": "One Dark Pro",
+      })
+    );
+
+    await addMarketplaceToUserSettings(URL);
+
+    const content = JSON.parse(await Bun.file(path).text());
+    expect(content["editor.fontSize"]).toBe(14);
+    expect(content["editor.tabSize"]).toBe(2);
+    expect(content["workbench.colorTheme"]).toBe("One Dark Pro");
+    expect(content["chat.plugins.marketplaces"]).toContain(URL);
+  });
+
+  test("returns the settings file path", async () => {
+    const returnedPath = await addMarketplaceToUserSettings(URL);
+    const expectedPath = await settingsPath();
+    expect(returnedPath).toBe(expectedPath);
+  });
 });
 
 describe("getVscodeUserSettingsPath", () => {
@@ -206,7 +280,6 @@ describe("getVscodeUserSettingsPath", () => {
       try {
         process.env.WSL_DISTRO_NAME = "FakeWSL";
         _resetAllCaches();
-        // In fake WSL, getWindowsHomeDirFromWSL returns null → falls through to Linux path
         const path = await getVscodeUserSettingsPath();
         const normalized = path.replaceAll("\\", "/");
         expect(normalized).toContain(".config/Code/User/settings.json");
