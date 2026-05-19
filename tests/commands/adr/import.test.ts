@@ -22,13 +22,8 @@ import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-// ---------------------------------------------------------------------------
-// Module mock — declared before importing the module under test so that
-// shallowClone never hits the network.
-// ---------------------------------------------------------------------------
-
+// Module mock — declared before importing so shallowClone never hits the network.
 let fakeCloneDir: string = "";
-
 mock.module("../../../src/helpers/registry", () => {
   const real = require("../../../src/helpers/registry");
   return { ...real, shallowClone: () => Promise.resolve(fakeCloneDir) };
@@ -36,10 +31,6 @@ mock.module("../../../src/helpers/registry", () => {
 
 import { registerAdrImportCommand } from "../../../src/commands/adr/import";
 import { safeRmSync } from "../../test-utils";
-
-// ---------------------------------------------------------------------------
-// Inline fixtures (minimal to stay under max-lines)
-// ---------------------------------------------------------------------------
 
 const PACK_YAML = [
   "name: test-pack",
@@ -78,10 +69,6 @@ const ADR_2 = [
 const RULES_TS =
   "/// <reference path='../rules.d.ts' />\n" +
   "export default { rules: {} } satisfies RuleSet;\n";
-
-// ---------------------------------------------------------------------------
-// Registration tests
-// ---------------------------------------------------------------------------
 
 describe("registerAdrImportCommand", () => {
   test("registers 'import' as a subcommand", () => {
@@ -141,10 +128,6 @@ describe("registerAdrImportCommand", () => {
     expect(sub.registeredArguments[0].name()).toBe("source");
   });
 });
-
-// ---------------------------------------------------------------------------
-// Action handler tests
-// ---------------------------------------------------------------------------
 
 describe("import action handler", () => {
   let tempDir: string;
@@ -321,10 +304,15 @@ describe("import action handler", () => {
     const parsed = JSON.parse(allOutput());
     expect(parsed.dryRun).toBe(true);
     expect(parsed.adrs).toHaveLength(2);
-    expect(parsed.adrs[0].original).toBe("TP-001");
-    expect(parsed.adrs[1].original).toBe("TP-002");
-    expect(parsed.adrs[0].newId).toMatch(/^ARCH-\d{3}$/u);
-    expect(parsed.adrs[1].newId).toMatch(/^ARCH-\d{3}$/u);
+    // Sort by original ID to avoid filesystem ordering differences across platforms
+    const sortedAdrs = [...parsed.adrs].sort(
+      (a: { original: string }, b: { original: string }) =>
+        a.original.localeCompare(b.original)
+    );
+    expect(sortedAdrs[0].original).toBe("TP-001");
+    expect(sortedAdrs[1].original).toBe("TP-002");
+    expect(sortedAdrs[0].newId).toMatch(/^ARCH-\d{3}$/u);
+    expect(sortedAdrs[1].newId).toMatch(/^ARCH-\d{3}$/u);
   });
 
   test("--yes imports ADR files, remaps IDs, and assigns sequential numbers", async () => {
@@ -470,11 +458,16 @@ describe("import action handler", () => {
     ]);
     const parsed = JSON.parse(allOutput());
     expect(parsed.imported).toHaveLength(2);
-    expect(parsed.imported[0].originalId).toBe("TP-001");
-    expect(parsed.imported[1].originalId).toBe("TP-002");
-    expect(parsed.imported[0].newId).toMatch(/^ARCH-\d{3}$/u);
-    expect(parsed.imported[0].title).toBe("Test Rule");
-    expect(parsed.imported[1].title).toBe("Another Rule");
+    // Sort by originalId to avoid filesystem ordering differences across platforms
+    const sorted = [...parsed.imported].sort(
+      (a: { originalId: string }, b: { originalId: string }) =>
+        a.originalId.localeCompare(b.originalId)
+    );
+    expect(sorted[0].originalId).toBe("TP-001");
+    expect(sorted[1].originalId).toBe("TP-002");
+    expect(sorted[0].newId).toMatch(/^ARCH-\d{3}$/u);
+    expect(sorted[0].title).toBe("Test Rule");
+    expect(sorted[1].title).toBe("Another Rule");
   });
 
   test("--yes imports a single ADR with its rules file", async () => {
