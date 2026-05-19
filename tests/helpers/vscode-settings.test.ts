@@ -6,7 +6,12 @@ import { homedir } from "node:os";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { isWindows, isMacOS, isWSL } from "../../src/helpers/platform";
+import {
+  isWindows,
+  isMacOS,
+  isWSL,
+  _resetAllCaches,
+} from "../../src/helpers/platform";
 import {
   mergeMarketplaceUrl,
   configureVscodeSettings,
@@ -193,6 +198,25 @@ describe("getVscodeUserSettingsPath", () => {
       expect(normalized).toContain(".config/Code/User/settings.json");
     }
   });
+
+  test.skipIf(process.platform !== "linux" || !!process.env.WSL_DISTRO_NAME)(
+    "WSL branch falls back to Linux path when cmd.exe unavailable",
+    async () => {
+      const savedDistro = process.env.WSL_DISTRO_NAME;
+      try {
+        process.env.WSL_DISTRO_NAME = "FakeWSL";
+        _resetAllCaches();
+        // In fake WSL, getWindowsHomeDirFromWSL returns null → falls through to Linux path
+        const path = await getVscodeUserSettingsPath();
+        const normalized = path.replaceAll("\\", "/");
+        expect(normalized).toContain(".config/Code/User/settings.json");
+      } finally {
+        if (savedDistro === undefined) delete process.env.WSL_DISTRO_NAME;
+        else process.env.WSL_DISTRO_NAME = savedDistro;
+        _resetAllCaches();
+      }
+    }
+  );
 
   test("falls back to AppData/Roaming when APPDATA is unset on Windows", async () => {
     if (!isWindows()) return; // Only meaningful on Windows
