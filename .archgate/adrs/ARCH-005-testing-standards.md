@@ -45,6 +45,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Test public module interfaces, not private implementation details
 - Use descriptive test names that explain the expected behavior
 - **When mocking `fetch` in tests, assign directly to `globalThis.fetch`** — use `globalThis.fetch = mockFn as unknown as typeof fetch`. Restore in `afterEach` via `mock.restore()` (from `bun:test`) or by reassigning the original reference before the test.
+- **Wrap `spyOn` / `mockImplementation` calls in `try/finally` to guarantee `mockRestore()` runs** — when `expect()` assertions fail, they throw immediately, skipping any `mockRestore()` that follows. The un-restored spy leaks into subsequent tests, causing false positives or false negatives. Pattern: `const spy = spyOn(...).mockImplementation(() => {}); try { /* assertions */ } finally { spy.mockRestore(); }`. Alternatively, create and restore spies in `beforeEach`/`afterEach` hooks instead of inline.
 
 ### Don't
 
@@ -57,6 +58,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Don't skip tests without a tracking issue
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
 - **Don't use `mock.module("node:fetch", ...)` to intercept HTTP fetch calls** — in Bun, the runtime fetch is `globalThis.fetch` and `mock.module` targeting `node:fetch` does not intercept it. The mock silently has no effect: the real network is hit, making tests non-deterministic and dependent on external services. Assign `globalThis.fetch` directly instead (see Do's above).
+- **Don't place `mockRestore()` after assertions without `try/finally` protection** — if the assertion throws, the spy is never restored and contaminates subsequent tests. This is especially dangerous when spying on globals like `console.warn` or `globalThis.fetch`, where a leaked spy silently suppresses or redirects output for every test that follows.
 
 ## Implementation Pattern
 
@@ -209,6 +211,7 @@ Code reviewers MUST verify:
 4. Tests that instantiate SDK objects (servers, clients, connections) manage their lifecycle in `beforeEach`/`afterEach`, not inside individual test bodies
 5. Tests that call `git commit` on a temp repo configure `user.email` and `user.name` locally before committing
 6. Tests that mock HTTP fetch assign `globalThis.fetch` directly — no `mock.module("node:fetch", ...)` usage
+7. Tests that use `spyOn` or `mockImplementation` inline (not in `beforeEach`/`afterEach`) wrap the spy lifecycle in `try/finally` to guarantee `mockRestore()` runs even when assertions fail
 
 ## References
 

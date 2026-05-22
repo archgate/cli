@@ -10,6 +10,7 @@ import {
   getStagedFiles,
   getChangedFiles,
   resolveScopedFiles,
+  SCOPE_FILE_WARN_THRESHOLD,
 } from "../../src/engine/git-files";
 import { git, safeRmSync } from "../test-utils";
 
@@ -210,6 +211,61 @@ describe("git-files", () => {
       const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
       expect(warnCalls.some((msg) => msg.includes("ADR BUILD-001"))).toBe(true);
       warnSpy.mockRestore();
+    });
+
+    test("warns when file scope exceeds threshold", async () => {
+      await git(["init"], tempDir);
+      mkdirSync(join(tempDir, "src"), { recursive: true });
+      const fileCount = SCOPE_FILE_WARN_THRESHOLD + 1;
+      for (let i = 0; i < fileCount; i++) {
+        writeFileSync(
+          join(tempDir, "src", `file-${String(i).padStart(4, "0")}.ts`),
+          `export const x${i} = ${i};`
+        );
+      }
+      await git(["add", "."], tempDir);
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const files = await resolveScopedFiles(tempDir, ["src/**/*.ts"], {
+          adrId: "SCOPE-001",
+        });
+        expect(files.length).toBeGreaterThan(SCOPE_FILE_WARN_THRESHOLD);
+        const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+        expect(
+          warnCalls.some(
+            (msg) =>
+              msg.includes("ADR SCOPE-001") &&
+              msg.includes(`${fileCount} files`) &&
+              msg.includes("scan took") &&
+              msg.includes("Consider narrowing")
+          )
+        ).toBe(true);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    }, 30_000);
+
+    test("does not warn when file scope is within threshold", async () => {
+      await git(["init"], tempDir);
+      mkdirSync(join(tempDir, "src"), { recursive: true });
+      for (let i = 0; i < 10; i++) {
+        writeFileSync(
+          join(tempDir, "src", `file-${i}.ts`),
+          `export const x${i} = ${i};`
+        );
+      }
+      await git(["add", "."], tempDir);
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const files = await resolveScopedFiles(tempDir, ["src/**/*.ts"]);
+        expect(files.length).toBeLessThanOrEqual(SCOPE_FILE_WARN_THRESHOLD);
+        const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+        expect(
+          warnCalls.some((msg) => msg.includes("Consider narrowing"))
+        ).toBe(false);
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 });
