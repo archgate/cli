@@ -393,6 +393,49 @@ describe("readOpencodeSession", () => {
     );
   });
 
+  test("skip=1 reads the parent session instead of the sub-agent session", async () => {
+    const db = createDb();
+    makeSession(
+      db,
+      "ses_parent",
+      projectRoot,
+      [{ id: "msg_p1", role: "user", content: "parent question" }],
+      1000
+    );
+    makeSession(
+      db,
+      "ses_subagent",
+      projectRoot,
+      [{ id: "msg_s1", role: "user", content: "sub-agent init" }],
+      2000
+    );
+    db.close();
+
+    const noSkip = await readOpencodeSession(projectRoot);
+    expect(noSkip.ok).toBe(true);
+    if (noSkip.ok) expect(noSkip.data.sessionId).toBe("ses_subagent");
+
+    const skipped = await readOpencodeSession(projectRoot, { skip: 1 });
+    expect(skipped.ok).toBe(true);
+    if (skipped.ok) expect(skipped.data.sessionId).toBe("ses_parent");
+  });
+
+  test("skip beyond available matching sessions returns error", async () => {
+    const db = createDb();
+    makeSession(
+      db,
+      "ses_only",
+      projectRoot,
+      [{ id: "msg_001", role: "user", content: "only" }],
+      1000
+    );
+    db.close();
+
+    const result = await readOpencodeSession(projectRoot, { skip: 3 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("--skip 3 requested");
+  });
+
   test("includes tool parts as [tool: name]", async () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_tools`;

@@ -243,6 +243,67 @@ describe("readClaudeCodeSession", () => {
       expect(result.data.transcript[2]?.contentPreview).toBe("message 9");
     });
 
+    test("skip option reads the second-most-recent session file", async () => {
+      // Write a newer session file (the sub-agent's session)
+      writeFileSync(
+        join(projectsDir, "subagent.jsonl"),
+        [
+          JSON.stringify({
+            type: "user",
+            message: { role: "user", content: "sub-agent msg" },
+          }),
+        ].join("\n")
+      );
+
+      // Write an older session file (the parent's session)
+      const olderFile = join(projectsDir, "parent.jsonl");
+      writeFileSync(
+        olderFile,
+        [
+          JSON.stringify({
+            type: "user",
+            message: { role: "user", content: "parent msg" },
+          }),
+          JSON.stringify({
+            type: "assistant",
+            message: { role: "assistant", content: "parent reply" },
+          }),
+        ].join("\n")
+      );
+
+      // Make parent older than subagent by backdating its mtime
+      const { utimesSync } = await import("node:fs");
+      const past = new Date(Date.now() - 60_000);
+      utimesSync(olderFile, past, past);
+
+      // Without skip → reads subagent (most recent)
+      const resultNoSkip = await readClaudeCodeSession(projectRoot);
+      expect(resultNoSkip.ok).toBe(true);
+      if (!resultNoSkip.ok) throw new Error("expected ok");
+      expect(resultNoSkip.data.transcript[0]?.contentPreview).toBe(
+        "sub-agent msg"
+      );
+
+      // With skip=1 → reads parent session
+      const resultSkip = await readClaudeCodeSession(projectRoot, { skip: 1 });
+      expect(resultSkip.ok).toBe(true);
+      if (!resultSkip.ok) throw new Error("expected ok");
+      expect(resultSkip.data.transcript[0]?.contentPreview).toBe("parent msg");
+      expect(resultSkip.data.relevantEntries).toBe(2);
+    });
+
+    test("skip beyond available sessions returns error", async () => {
+      writeSession([
+        { type: "user", message: { role: "user", content: "only session" } },
+      ]);
+
+      const result = await readClaudeCodeSession(projectRoot, { skip: 5 });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toContain("--skip 5 requested");
+      }
+    });
+
     test("returns error when directory exists but has no .jsonl files", async () => {
       writeFileSync(join(projectsDir, "notes.txt"), "not a session");
 

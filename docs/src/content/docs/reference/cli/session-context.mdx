@@ -19,9 +19,10 @@ Read the Claude Code session transcript for the project.
 archgate session-context claude-code [options]
 ```
 
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200) |
+| Option              | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
+| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
 
 ### archgate session-context copilot
 
@@ -31,10 +32,11 @@ Read the Copilot CLI session transcript for the project. Sessions are matched by
 archgate session-context copilot [options]
 ```
 
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200) |
-| `--session-id <id>` | Specific session UUID to read            |
+| Option              | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
+| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
+| `--session-id <id>` | Specific session UUID to read                                      |
 
 ### archgate session-context cursor
 
@@ -44,10 +46,11 @@ Read the Cursor agent session transcript for the project.
 archgate session-context cursor [options]
 ```
 
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200) |
-| `--session-id <id>` | Specific session UUID to read            |
+| Option              | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
+| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
+| `--session-id <id>` | Specific session UUID to read                                      |
 
 ### archgate session-context opencode
 
@@ -57,10 +60,11 @@ Read the opencode session transcript for the project. Sessions are matched by th
 archgate session-context opencode [options]
 ```
 
-| Option              | Description                              |
-| ------------------- | ---------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200) |
-| `--session-id <id>` | Specific session ID to read              |
+| Option              | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
+| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
+| `--session-id <id>` | Specific session ID to read                                        |
 
 ## Examples
 
@@ -86,4 +90,10 @@ Read the latest opencode session:
 
 ```bash
 archgate session-context opencode
+```
+
+Read the parent session (skip the sub-agent's own session):
+
+```bash
+archgate session-context claude-code --skip 1
 ```

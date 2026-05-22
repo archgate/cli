@@ -176,6 +176,7 @@ describe("claude-code action handler", () => {
     // findProjectRoot found our tempDir (which has .archgate/)
     expect(mockReadClaudeCodeSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
+      skip: 0,
     });
   });
 });

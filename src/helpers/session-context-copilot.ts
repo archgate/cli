@@ -119,17 +119,17 @@ export async function readCopilotSession(
     };
   }
 
-  // 3. Select session by ID or most recent
+  // 3. Select session by ID or most recent (with optional skip)
+  const skip = options?.skip ?? 0;
   const target = options?.sessionId
     ? matching.find((s) => s.name === options.sessionId)
-    : matching[0];
+    : matching[skip];
 
   if (!target) {
-    return {
-      ok: false,
-      error: `Session not found: ${options?.sessionId}`,
-      available: matching.map((s) => s.name),
-    };
+    const error = options?.sessionId
+      ? `Session not found: ${options.sessionId}`
+      : `Only ${String(matching.length)} session(s) available but --skip ${String(skip)} requested`;
+    return { ok: false, error, available: matching.map((s) => s.name) };
   }
 
   // 4. Read events.jsonl

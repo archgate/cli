@@ -176,6 +176,7 @@ describe("copilot action handler", () => {
 
     expect(mockReadCopilotSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
+      skip: 0,
       sessionId: undefined,
     });
   });
