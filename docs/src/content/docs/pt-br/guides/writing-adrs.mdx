@@ -257,6 +257,10 @@ files: ["dist/**/*.js"]
 ---
 ```
 
+:::tip[Mantenha o escopo de arquivos restrito]
+O CLI avisa quando os padrões `files` de um ADR resolvem mais de 1.000 arquivos ou quando a varredura de glob leva mais de 2 segundos. Padrões amplos como `**/*.ts` podem causar verificações lentas em projetos grandes. Prefira direcionar diretórios específicos (ex.: `src/commands/**/*.ts`) em vez de globs que abrangem todo o projeto.
+:::
+
 Padrões comuns:
 
 | Padrão                 | Corresponde a                                |

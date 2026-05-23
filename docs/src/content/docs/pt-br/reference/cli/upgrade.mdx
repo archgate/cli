@@ -11,6 +11,12 @@ archgate upgrade
 
 Verifica o GitHub Releases para a versão mais recente publicada. Se uma versão mais nova estiver disponível, o comando detecta automaticamente como o Archgate foi instalado e executa a estratégia de atualização apropriada. Se já estiver atualizado, exibe uma mensagem e encerra.
 
+## Opções
+
+| Opção       | Descrição                                                      |
+| ----------- | -------------------------------------------------------------- |
+| `--plugins` | Também atualiza os plugins de editor após a atualização do CLI |
+
 ## Detecção do método de instalação
 
 O comando de atualização inspeciona o caminho do binário em execução para determinar o método de instalação e delega para a estratégia correspondente:
@@ -24,7 +30,30 @@ O comando de atualização inspeciona o caminho do binário em execução para d
 
 Se nenhum método específico for detectado, o comando usa `npm install -g archgate@latest` como fallback.
 
-## Exemplo
+## Atualização de plugins
+
+Após uma atualização bem-sucedida, o CLI oferece atualizar os plugins do seu editor. Em um terminal interativo, você recebe um prompt de confirmação:
+
+```
+Archgate upgraded to 0.35.0 successfully.
+? Would you like to update your editor plugins too? (Y/n)
+```
+
+O CLI detecta automaticamente os editores instalados (Claude Code, Cursor, VS Code, Copilot CLI, opencode) e executa a instalação do plugin para cada editor selecionado. Falhas na atualização de plugins são reportadas, mas não afetam o código de saída -- a atualização do CLI em si já está completa.
+
+Use `--plugins` para pular o prompt e atualizar todos os editores detectados automaticamente:
+
+```bash
+archgate upgrade --plugins
+```
+
+:::note
+Atualizações de plugins requerem autenticação. Se você não estiver logado, o CLI exibe um lembrete para executar `archgate login` primeiro.
+:::
+
+## Exemplos
+
+Atualizar o CLI:
 
 ```bash
 archgate upgrade
@@ -34,4 +63,10 @@ archgate upgrade
 Checking for latest Archgate release...
 Upgrading 0.34.0 -> 0.35.0...
 Archgate upgraded to 0.35.0 successfully.
+```
+
+Atualizar e instalar todos os plugins de editor em um único passo:
+
+```bash
+archgate upgrade --plugins
 ```
