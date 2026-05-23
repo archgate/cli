@@ -4,6 +4,11 @@
 
 import { logDebug, logWarn } from "../helpers/log";
 
+/** Warn when an ADR's resolved file scope exceeds this many files. */
+export const SCOPE_FILE_WARN_THRESHOLD = 1000;
+/** Warn when the glob scan phase takes longer than this (milliseconds). */
+export const SCOPE_SCAN_WARN_MS = 2000;
+
 /**
  * Run a git command using Bun.spawn (cross-platform, no shell).
  * Bun.$ hangs on Windows due to pipe handling issues — this is the safe alternative.
@@ -79,6 +84,7 @@ export async function resolveScopedFiles(
     ? await getGitTrackedFiles(projectRoot)
     : null;
 
+  const scanStart = performance.now();
   const results = await Promise.all(
     patterns.map(async (pattern) => {
       const glob = new Bun.Glob(pattern);
@@ -94,8 +100,16 @@ export async function resolveScopedFiles(
       return files;
     })
   );
+  const scanMs = performance.now() - scanStart;
 
   const all = [...new Set(results.flat())].sort();
+
+  if (all.length > SCOPE_FILE_WARN_THRESHOLD || scanMs > SCOPE_SCAN_WARN_MS) {
+    logWarn(
+      `${label}: Resolved ${all.length} files from patterns: ${patterns.join(", ")} (scan took ${Math.round(scanMs)}ms). Consider narrowing the \`files\` patterns in the ADR frontmatter to improve performance.`
+    );
+  }
+
   logDebug(
     "Scoped files resolved:",
     all.length,
