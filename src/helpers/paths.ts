@@ -41,21 +41,19 @@ function usableEnv(value: string | undefined): string | null {
 }
 
 /**
- * Resolve the opencode user-scope agents directory.
+ * Resolve the opencode user-scope config directory (`~/.config/opencode/`).
  *
  * Opencode uses the `xdg-basedir` package to locate its config root. That
  * package reads `$XDG_CONFIG_HOME` when set and otherwise falls back to
  * `~/.config` on **all platforms** — including Windows, where the resolved
- * path is `C:\Users\<user>\.config\opencode\agents` rather than anything
- * under `%APPDATA%`. We mirror the same resolution here so the CLI writes
- * to the exact directory opencode reads from.
+ * path is `C:\Users\<user>\.config\opencode\` rather than anything under
+ * `%APPDATA%`. We mirror the same resolution here so the CLI writes to
+ * the exact directory opencode reads from.
  *
  * The path is resolved at call time, not cached — tests override `HOME` /
  * `XDG_CONFIG_HOME` per-test and expect the helper to pick up the override.
- */
-/**
- * Resolve the opencode user-scope config directory (`~/.config/opencode/`).
- * Used by both `opencodeAgentsDir()` and `opencodeConfigPath()`.
+ *
+ * Used by `opencodeAgentsDir()` and `opencodeConfigPath()`.
  */
 export function opencodeConfigDir(): string {
   const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
