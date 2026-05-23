@@ -2556,6 +2556,8 @@ files: ["dist/**/*.js"]
 ---
 ```
 
+The CLI warns when an ADR's `files` patterns resolve to more than 1,000 files or the glob scan takes over 2 seconds. Broad patterns like `**/*.ts` may cause slow checks in large projects. Prefer targeting specific directories (e.g., `src/commands/**/*.ts`) over project-wide globs.
+
 Common patterns:
 
 | Pattern                | Matches                          |
@@ -3635,6 +3637,18 @@ Get GitHub Actions annotations:
 archgate check --ci
 ```
 
+## Diagnostics
+
+During execution, `archgate check` emits warnings for common misconfigurations that may cause slow or unexpected results:
+
+| Warning | Condition | Recommendation |
+| ------- | --------- | -------------- |
+| **Broad file scope** | An ADR's `files` patterns resolve to more than 1,000 files or the glob scan takes over 2 seconds | Narrow the `files` patterns in the ADR frontmatter to target only the relevant source directories |
+| **Unscoped gitignore opt-out** | `respectGitignore: false` is set without a `files` scope | Add `files` patterns to avoid scanning all files including `node_modules/`, `.git/`, etc. |
+| **All files excluded by gitignore** | Explicit `files` patterns match files, but every match is excluded by `.gitignore` | Set `respectGitignore: false` in the ADR frontmatter to include gitignored files |
+
+These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--json` is used (as violations with `"severity": "warning"`).
+
 ## JSON output format
 
 When `--json` is used, the output is a single JSON object:
@@ -4297,6 +4311,12 @@ archgate upgrade
 
 Checks GitHub Releases for the latest published version. If a newer version is available, the command auto-detects how Archgate was installed and runs the appropriate upgrade strategy. If already up-to-date, prints a message and exits.
 
+## Options
+
+| Option      | Description                                      |
+| ----------- | ------------------------------------------------ |
+| `--plugins` | Also update editor plugins after upgrading       |
+
 ## Install method detection
 
 The upgrade command inspects the running binary path to determine the install method, then delegates to the matching strategy:
@@ -4310,7 +4330,29 @@ The upgrade command inspects the running binary path to determine the install me
 
 If no specific method is detected, the command falls back to `npm install -g archgate@latest`.
 
-## Example
+## Plugin updates
+
+After a successful upgrade, the CLI offers to update your editor plugins. In an interactive terminal, you get a confirmation prompt:
+
+```
+Archgate upgraded to 0.35.0 successfully.
+? Would you like to update your editor plugins too? (Y/n)
+```
+
+The CLI auto-detects installed editors (Claude Code, Cursor, VS Code, Copilot CLI, opencode) and runs the plugin install for each selected editor. Plugin update failures are reported but do not affect the exit code -- the CLI upgrade itself is already complete.
+
+Use `--plugins` to skip the prompt and update all detected editors automatically:
+
+```bash
+archgate upgrade --plugins
+```
+
+:::note
+Plugin updates require authentication. If you are not logged in, the CLI prints a reminder to run `archgate login` first.
+
+## Examples
+
+Upgrade the CLI:
 
 ```bash
 archgate upgrade
@@ -4320,6 +4362,12 @@ archgate upgrade
 Checking for latest Archgate release...
 Upgrading 0.34.0 -> 0.35.0...
 Archgate upgraded to 0.35.0 successfully.
+```
+
+Upgrade and update all editor plugins in one step:
+
+```bash
+archgate upgrade --plugins
 ```
 
 ---
