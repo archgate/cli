@@ -35,7 +35,16 @@ const editorOption = new Option(
   "target editor (omit to auto-detect and select)"
 ).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
 
-async function installForEditor(
+/**
+ * Install the archgate plugin for a single editor.
+ *
+ * Dispatches to the editor-specific install function, checks CLI availability,
+ * and surfaces manual instructions when the CLI is missing. Throws on failure
+ * so callers can collect errors and report them together.
+ *
+ * Exported for reuse by the `upgrade --plugins` flow.
+ */
+export async function installForEditor(
   editor: EditorTarget,
   label: string,
   token: string
@@ -74,8 +83,6 @@ async function installForEditor(
       break;
     }
     case "cursor": {
-      // Cursor supports plugins via Team Private Marketplaces — not VSIX.
-      // See https://cursor.com/docs/plugins#team-marketplaces
       const url = buildCursorMarketplaceUrl();
       logInfo(
         `To install the Archgate plugin for ${label}, add the team marketplace URL in Cursor Settings:`
@@ -87,9 +94,6 @@ async function installForEditor(
       break;
     }
     case "opencode": {
-      // Writing agent files to `~/.config/opencode/agents/` is only useful
-      // if opencode is actually installed. Skip the install and surface a
-      // clear message otherwise, matching every other editor's guard.
       if (!(await isOpencodeCliAvailable())) {
         logWarn(
           "opencode CLI not found on PATH — skipping agent install.",
@@ -127,7 +131,12 @@ async function installForEditor(
   }
 }
 
-function printManualInstructions(editor: EditorTarget): void {
+/**
+ * Print manual installation instructions for a given editor.
+ *
+ * Exported for reuse by the `upgrade --plugins` flow.
+ */
+export function printManualInstructions(editor: EditorTarget): void {
   switch (editor) {
     case "claude": {
       const url = buildMarketplaceUrl();

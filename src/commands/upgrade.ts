@@ -15,11 +15,17 @@ import {
   getManualInstallHint,
   replaceBinary,
 } from "../helpers/binary-upgrade";
+import { loadCredentials } from "../helpers/credential-store";
+import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
 import { exitWith } from "../helpers/exit";
-import { logDebug, logError } from "../helpers/log";
+import { EDITOR_LABELS } from "../helpers/init-project";
+import type { EditorTarget } from "../helpers/init-project";
+import { logDebug, logError, logInfo } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
+import { withPromptFix } from "../helpers/prompt";
 import { trackUpgradeResult } from "../helpers/telemetry";
+import { installForEditor, printManualInstructions } from "./plugin/install";
 
 type InstallMethod =
   | { type: "binary"; binaryPath: string }
@@ -305,11 +311,89 @@ async function runExternalUpgrade(
   }
 }
 
+/**
+ * Offer to update editor plugins after a successful CLI upgrade.
+ * Plugin update failures are reported but do NOT change the exit code.
+ */
+async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
+  const isTTY = process.stdin.isTTY === true;
+
+  if (!pluginsFlag && isTTY) {
+    const { default: inquirer } = await import("inquirer");
+    const { updatePlugins } = await withPromptFix(() =>
+      inquirer.prompt([
+        {
+          type: "confirm",
+          name: "updatePlugins",
+          message: "Would you like to update your editor plugins too?",
+          default: true,
+        },
+      ])
+    );
+    if (!updatePlugins) return;
+  }
+
+  const credentials = await loadCredentials();
+  if (!credentials) {
+    logInfo(
+      "Not logged in.",
+      "Run `archgate login` first, then `archgate plugin install` to update plugins."
+    );
+    return;
+  }
+
+  const detected = await detectEditors();
+  const available = detected.filter((e) => e.available);
+
+  if (available.length === 0) {
+    logInfo(
+      "No supported editors detected.",
+      "Run `archgate plugin install --editor <editor>` to install manually."
+    );
+    return;
+  }
+
+  let editors: EditorTarget[];
+  if (!pluginsFlag && isTTY) {
+    editors = await promptEditorSelection(detected);
+  } else {
+    editors = available.map((e) => e.id);
+  }
+
+  console.log("Updating editor plugins...");
+
+  const failures: { editor: EditorTarget; label: string; error: string }[] = [];
+
+  for (const editor of editors) {
+    const label = EDITOR_LABELS[editor];
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- sequential install with per-editor output
+      await installForEditor(editor, label, credentials.token);
+    } catch (err) {
+      failures.push({
+        editor,
+        label,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  if (failures.length > 0) {
+    console.log();
+    for (const { editor, label, error } of failures) {
+      logError(`Failed to update plugin for ${label}.`, error);
+      printManualInstructions(editor);
+      console.log();
+    }
+  }
+}
+
 export function registerUpgradeCommand(program: Command) {
   program
     .command("upgrade")
     .description("Upgrade Archgate to the latest version")
-    .action(async () => {
+    .option("--plugins", "also update editor plugins after upgrading")
+    .action(async (opts) => {
       try {
         console.log("Checking for latest Archgate release...");
 
@@ -371,6 +455,9 @@ export function registerUpgradeCommand(program: Command) {
         });
 
         console.log(`Archgate upgraded to ${latestVersion} successfully.`);
+
+        // Offer plugin updates after a successful CLI upgrade
+        await maybeUpdatePlugins(opts.plugins === true);
       } catch (err) {
         if (err instanceof Error && err.name === "ExitPromptError") throw err;
         trackUpgradeResult({
@@ -393,4 +480,5 @@ export {
   detectInstallMethod as _detectInstallMethod,
   formatBytes as _formatBytes,
   createDownloadProgress as _createDownloadProgress,
+  maybeUpdatePlugins as _maybeUpdatePlugins,
 };
