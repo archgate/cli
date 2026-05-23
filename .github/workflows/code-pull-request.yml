@@ -13,7 +13,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -61,27 +61,75 @@ jobs:
       - name: Validate
         id: validate
         run: bun run validate:coverage
-      - name: Upload coverage to Codecov
+      - name: Coverage report
         if: always() && steps.validate.outcome == 'success'
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
-        with:
-          use_oidc: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: archgate/cli
-          files: coverage/lcov.info
-          disable_search: true
-          fail_ci_if_error: false
-      - name: Upload test results to Codecov
-        if: always() && steps.validate.outcome != 'skipped'
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
-        with:
-          use_oidc: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: archgate/cli
-          files: coverage/junit.xml
-          disable_search: true
-          report_type: test_results
-          fail_ci_if_error: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Parse lcov for summary stats
+          LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage/lcov.info)
+          LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage/lcov.info)
+          if [ "$LINES_FOUND" -gt 0 ]; then
+            COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
+          else
+            COVERAGE="0.0"
+          fi
+
+          # Per-directory coverage table
+          DIR_TABLE=$(awk -F: '
+            /^SF:/ {
+              file = $2
+              n = split(file, p, "/")
+              dir = (n >= 3) ? p[1] "/" p[2] : (n == 2 ? p[1] : file)
+            }
+            /^LF:/ { lf[dir] += $2 }
+            /^LH:/ { lh[dir] += $2 }
+            END {
+              for (d in lf) {
+                pct = (lf[d] > 0) ? (lh[d] / lf[d]) * 100 : 0
+                printf "| `%s/` | %.1f%% | %d / %d |\n", d, pct, lh[d], lf[d]
+              }
+            }
+          ' coverage/lcov.info | sort)
+
+          # Build report markdown
+          {
+            echo "## Code Coverage"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| **Lines** | **${COVERAGE}%** (${LINES_HIT} / ${LINES_FOUND}) |"
+            echo ""
+            echo "<details>"
+            echo "<summary>Per-directory breakdown</summary>"
+            echo ""
+            echo "| Directory | Coverage | Lines |"
+            echo "|-----------|----------|-------|"
+            echo "${DIR_TABLE}"
+            echo ""
+            echo "</details>"
+          } > /tmp/coverage-report.md
+
+          # Write to GitHub Actions job summary
+          cat /tmp/coverage-report.md >> "$GITHUB_STEP_SUMMARY"
+
+          # Post/update PR comment (skipped for fork PRs and non-PR events)
+          if [ "${{ github.event_name }}" = "pull_request" ] && \
+             [ "${{ github.event.pull_request.head.repo.fork }}" != "true" ]; then
+            PR_NUM="${{ github.event.pull_request.number }}"
+            MARKER="<!-- archgate-coverage -->"
+            BODY="$(printf '%s\n%s' "${MARKER}" "$(cat /tmp/coverage-report.md)")"
+
+            EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
+              --jq '[.[] | select(.body | startswith("<!-- archgate-coverage -->"))][0].id // empty' 2>/dev/null || true)
+
+            if [ -n "${EXISTING}" ]; then
+              gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments/${EXISTING}" \
+                -X PATCH -f body="${BODY}" > /dev/null
+            else
+              gh pr comment "${PR_NUM}" --body "${BODY}"
+            fi
+          fi
       - name: Save Bun Cache
         uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
