@@ -178,6 +178,7 @@ describe("opencode action handler", () => {
 
     expect(mockReadOpencodeSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
+      skip: 0,
       sessionId: undefined,
     });
   });

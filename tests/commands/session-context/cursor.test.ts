@@ -176,6 +176,7 @@ describe("cursor action handler", () => {
 
     expect(mockReadCursorSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
+      skip: 0,
       sessionId: undefined,
     });
   });

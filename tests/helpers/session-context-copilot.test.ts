@@ -233,6 +233,66 @@ describe("readCopilotSession", () => {
     expect(result.ok).toBe(false);
   });
 
+  test("skip option reads the second-most-recent matching session", async () => {
+    // Create parent session (make it older by creating first)
+    const parentId = `copilot-${uniqueId}-parent`;
+    makeSession(parentId, projectRoot, [
+      JSON.stringify({
+        type: "user.message",
+        data: { content: "parent question" },
+      }),
+      JSON.stringify({
+        type: "assistant.message",
+        data: { content: "parent answer" },
+      }),
+    ]);
+
+    // Make parent dir older so sub-agent dir is most recent
+    const { utimesSync } = await import("node:fs");
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(join(stateDir, parentId), past, past);
+
+    // Create sub-agent session (newer)
+    const subagentId = `copilot-${uniqueId}-subagent`;
+    makeSession(subagentId, projectRoot, [
+      JSON.stringify({
+        type: "user.message",
+        data: { content: "sub-agent init" },
+      }),
+    ]);
+
+    // Without skip → reads sub-agent session (most recent)
+    const resultNoSkip = await readCopilotSession(projectRoot);
+    expect(resultNoSkip.ok).toBe(true);
+    if (!resultNoSkip.ok) throw new Error("expected ok");
+    expect(resultNoSkip.data.sessionId).toBe(subagentId);
+
+    // With skip=1 → reads parent session
+    const resultSkip = await readCopilotSession(projectRoot, { skip: 1 });
+    expect(resultSkip.ok).toBe(true);
+    if (!resultSkip.ok) throw new Error("expected ok");
+    expect(resultSkip.data.sessionId).toBe(parentId);
+    expect(resultSkip.data.transcript[0]?.contentPreview).toBe(
+      "parent question"
+    );
+  });
+
+  test("skip beyond available matching sessions returns error", async () => {
+    const sessionId = `copilot-${uniqueId}-onlysession`;
+    makeSession(sessionId, projectRoot, [
+      JSON.stringify({
+        type: "user.message",
+        data: { content: "only session" },
+      }),
+    ]);
+
+    const result = await readCopilotSession(projectRoot, { skip: 2 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("--skip 2 requested");
+    }
+  });
+
   test("truncates string content preview to 500 chars", async () => {
     const sessionId = `copilot-${uniqueId}-truncate`;
     makeSession(sessionId, projectRoot, [

@@ -14,17 +14,26 @@ const maxEntriesOption = new Option(
   "maximum entries to return (default: 200)"
 ).argParser((val) => parseInt(val, 10));
 
+const skipOption = new Option(
+  "--skip <n>",
+  "skip the N most recent sessions (useful when running as a sub-agent)"
+)
+  .argParser((val) => parseInt(val, 10))
+  .default(0);
+
 export function registerCopilotSessionContextCommand(parent: Command) {
   parent
     .command("copilot")
     .description("Read Copilot CLI session transcript for the project")
     .addOption(maxEntriesOption)
+    .addOption(skipOption)
     .option("--session-id <id>", "Specific session UUID to read")
     .action(async (opts) => {
       try {
         const projectRoot = findProjectRoot();
         const result = await readCopilotSession(projectRoot, {
           maxEntries: opts.maxEntries,
+          skip: opts.skip,
           sessionId: opts.sessionId,
         });
 

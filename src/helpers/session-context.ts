@@ -109,6 +109,12 @@ export function getContentPreview(entry: TranscriptEntry): string {
 
 export interface ReadSessionOptions {
   maxEntries?: number;
+  /**
+   * Skip the N most recent sessions before selecting the one to read.
+   * Useful when running as a sub-agent: the sub-agent's own session is
+   * the most recent, so `skip: 1` reads the parent session instead.
+   */
+  skip?: number;
 }
 
 interface ReadCursorSessionOptions extends ReadSessionOptions {
@@ -146,7 +152,16 @@ export async function readClaudeCodeSession(
     };
   }
 
-  const sessionFile = join(projectsDir, files[0]);
+  const skip = options?.skip ?? 0;
+  if (skip >= files.length) {
+    return {
+      ok: false,
+      error: `Only ${String(files.length)} session(s) available but --skip ${String(skip)} requested`,
+      path: projectsDir,
+    };
+  }
+
+  const sessionFile = join(projectsDir, files[skip]);
   let entries: TranscriptEntry[];
   try {
     const raw = await Bun.file(sessionFile).text();
@@ -232,16 +247,16 @@ export async function readCursorSession(
     };
   }
 
+  const skip = options?.skip ?? 0;
   const targetDir = options?.sessionId
     ? sessionDirs.find((d) => d.name === options.sessionId)
-    : sessionDirs[0];
+    : sessionDirs[skip];
 
   if (!targetDir) {
-    return {
-      ok: false,
-      error: `Session not found: ${options?.sessionId}`,
-      available: sessionDirs.map((d) => d.name),
-    };
+    const error = options?.sessionId
+      ? `Session not found: ${options.sessionId}`
+      : `Only ${String(sessionDirs.length)} session(s) available but --skip ${String(skip)} requested`;
+    return { ok: false, error, available: sessionDirs.map((d) => d.name) };
   }
 
   const sessionFile = join(

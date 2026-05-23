@@ -198,6 +198,63 @@ describe("readCursorSession", () => {
     expect(result.data.transcript[1]?.contentPreview).toBe("msg 7");
   });
 
+  test("skip option reads the second-most-recent session directory", async () => {
+    // Create parent session (make it older)
+    makeSession("session-parent", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "parent question" },
+      }),
+      JSON.stringify({
+        role: "assistant",
+        message: { role: "assistant", content: "parent answer" },
+      }),
+    ]);
+
+    // Make parent dir older
+    const { utimesSync } = await import("node:fs");
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(join(transcriptsDir, "session-parent"), past, past);
+
+    // Create sub-agent session (newer)
+    makeSession("session-subagent", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "sub-agent init" },
+      }),
+    ]);
+
+    // Without skip → reads sub-agent session (most recent)
+    const resultNoSkip = await readCursorSession(projectRoot);
+    expect(resultNoSkip.ok).toBe(true);
+    if (!resultNoSkip.ok) throw new Error("expected ok");
+    expect(resultNoSkip.data.sessionId).toBe("session-subagent");
+
+    // With skip=1 → reads parent session
+    const resultSkip = await readCursorSession(projectRoot, { skip: 1 });
+    expect(resultSkip.ok).toBe(true);
+    if (!resultSkip.ok) throw new Error("expected ok");
+    expect(resultSkip.data.sessionId).toBe("session-parent");
+    expect(resultSkip.data.transcript[0]?.contentPreview).toBe(
+      "parent question"
+    );
+  });
+
+  test("skip beyond available sessions returns error", async () => {
+    makeSession("session-only", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "only session" },
+      }),
+    ]);
+
+    const result = await readCursorSession(projectRoot, { skip: 2 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("--skip 2 requested");
+    }
+  });
+
   test("ignores non-directory entries in transcripts dir", async () => {
     // Put a plain file in the transcripts dir — it should be skipped
     writeFileSync(join(transcriptsDir, "stray-file.txt"), "noise");
