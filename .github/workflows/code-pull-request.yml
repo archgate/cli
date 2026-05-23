@@ -61,7 +61,19 @@ jobs:
       - name: Validate
         id: validate
         run: bun run validate:coverage
-      - name: Coverage report
+      - name: Generate HTML coverage report
+        if: always() && steps.validate.outcome == 'success'
+        run: |
+          sudo apt-get install -y -qq lcov > /dev/null 2>&1
+          genhtml coverage/lcov.info --output-directory coverage/html --quiet
+      - name: Upload coverage report
+        if: always() && steps.validate.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-report
+          path: coverage/html
+          retention-days: 30
+      - name: Coverage summary
         if: always() && steps.validate.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -92,6 +104,8 @@ jobs:
             }
           ' coverage/lcov.info | sort)
 
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
           # Build report markdown
           {
             echo "## Code Coverage"
@@ -99,6 +113,8 @@ jobs:
             echo "| Metric | Value |"
             echo "|--------|-------|"
             echo "| **Lines** | **${COVERAGE}%** (${LINES_HIT} / ${LINES_FOUND}) |"
+            echo ""
+            echo "Full HTML report available in [workflow artifacts](${RUN_URL}#artifacts)."
             echo ""
             echo "<details>"
             echo "<summary>Per-directory breakdown</summary>"
