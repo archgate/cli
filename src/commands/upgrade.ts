@@ -15,17 +15,12 @@ import {
   getManualInstallHint,
   replaceBinary,
 } from "../helpers/binary-upgrade";
-import { loadCredentials } from "../helpers/credential-store";
-import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
 import { exitWith } from "../helpers/exit";
-import { EDITOR_LABELS } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logDebug, logError, logInfo } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
-import { withPromptFix } from "../helpers/prompt";
 import { trackUpgradeResult } from "../helpers/telemetry";
-import { installForEditor, printManualInstructions } from "./plugin/install";
 
 type InstallMethod =
   | { type: "binary"; binaryPath: string }
@@ -320,6 +315,7 @@ async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
 
   if (!pluginsFlag && isTTY) {
     const { default: inquirer } = await import("inquirer");
+    const { withPromptFix } = await import("../helpers/prompt");
     const { updatePlugins } = await withPromptFix(() =>
       inquirer.prompt([
         {
@@ -333,6 +329,7 @@ async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
     if (!updatePlugins) return;
   }
 
+  const { loadCredentials } = await import("../helpers/credential-store");
   const credentials = await loadCredentials();
   if (!credentials) {
     logInfo(
@@ -342,6 +339,8 @@ async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
     return;
   }
 
+  const { detectEditors, promptEditorSelection } =
+    await import("../helpers/editor-detect");
   const detected = await detectEditors();
   const available = detected.filter((e) => e.available);
 
@@ -359,6 +358,10 @@ async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
   } else {
     editors = available.map((e) => e.id);
   }
+
+  const { EDITOR_LABELS } = await import("../helpers/init-project");
+  const { installForEditor, printManualInstructions } =
+    await import("./plugin/install");
 
   console.log("Updating editor plugins...");
 
