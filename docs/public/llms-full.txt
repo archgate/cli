@@ -3641,11 +3641,11 @@ archgate check --ci
 
 During execution, `archgate check` emits warnings for common misconfigurations that may cause slow or unexpected results:
 
-| Warning | Condition | Recommendation |
-| ------- | --------- | -------------- |
-| **Broad file scope** | An ADR's `files` patterns resolve to more than 1,000 files or the glob scan takes over 2 seconds | Narrow the `files` patterns in the ADR frontmatter to target only the relevant source directories |
-| **Unscoped gitignore opt-out** | `respectGitignore: false` is set without a `files` scope | Add `files` patterns to avoid scanning all files including `node_modules/`, `.git/`, etc. |
-| **All files excluded by gitignore** | Explicit `files` patterns match files, but every match is excluded by `.gitignore` | Set `respectGitignore: false` in the ADR frontmatter to include gitignored files |
+| Warning                             | Condition                                                                                        | Recommendation                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| **Broad file scope**                | An ADR's `files` patterns resolve to more than 1,000 files or the glob scan takes over 2 seconds | Narrow the `files` patterns in the ADR frontmatter to target only the relevant source directories |
+| **Unscoped gitignore opt-out**      | `respectGitignore: false` is set without a `files` scope                                         | Add `files` patterns to avoid scanning all files including `node_modules/`, `.git/`, etc.         |
+| **All files excluded by gitignore** | Explicit `files` patterns match files, but every match is excluded by `.gitignore`               | Set `respectGitignore: false` in the ADR frontmatter to include gitignored files                  |
 
 These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--json` is used (as violations with `"severity": "warning"`).
 
@@ -4313,9 +4313,9 @@ Checks GitHub Releases for the latest published version. If a newer version is a
 
 ## Options
 
-| Option      | Description                                      |
-| ----------- | ------------------------------------------------ |
-| `--plugins` | Also update editor plugins after upgrading       |
+| Option      | Description                                |
+| ----------- | ------------------------------------------ |
+| `--plugins` | Also update editor plugins after upgrading |
 
 ## Install method detection
 
