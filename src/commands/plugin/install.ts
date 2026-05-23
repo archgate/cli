@@ -35,7 +35,16 @@ const editorOption = new Option(
   "target editor (omit to auto-detect and select)"
 ).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
 
-async function installForEditor(
+/**
+ * Install the archgate plugin for a single editor.
+ *
+ * Dispatches to the editor-specific install function, checks CLI availability,
+ * and surfaces manual instructions when the CLI is missing. Throws on failure
+ * so callers can collect errors and report them together.
+ *
+ * Exported for reuse by the `upgrade --plugins` flow.
+ */
+export async function installForEditor(
   editor: EditorTarget,
   label: string,
   token: string
@@ -127,7 +136,12 @@ async function installForEditor(
   }
 }
 
-function printManualInstructions(editor: EditorTarget): void {
+/**
+ * Print manual installation instructions for a given editor.
+ *
+ * Exported for reuse by the `upgrade --plugins` flow.
+ */
+export function printManualInstructions(editor: EditorTarget): void {
   switch (editor) {
     case "claude": {
       const url = buildMarketplaceUrl();
@@ -184,6 +198,47 @@ function printManualInstructions(editor: EditorTarget): void {
   }
 }
 
+/**
+ * Run plugin installs for a list of editors, collecting failures.
+ *
+ * Returns the failure list so callers can decide how to handle them
+ * (e.g., exit 1 for `plugin install`, or just report for `upgrade`).
+ *
+ * Exported for reuse by the `upgrade --plugins` flow.
+ */
+export async function runPluginInstalls(
+  editors: EditorTarget[],
+  token: string,
+  verb: string = "install"
+): Promise<{ editor: EditorTarget; label: string; error: string }[]> {
+  const failures: { editor: EditorTarget; label: string; error: string }[] = [];
+
+  for (const editor of editors) {
+    const label = EDITOR_LABELS[editor];
+    try {
+      // oxlint-disable-next-line no-await-in-loop -- sequential install with per-editor output
+      await installForEditor(editor, label, token);
+    } catch (err) {
+      failures.push({
+        editor,
+        label,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  if (failures.length > 0) {
+    console.log();
+    for (const { editor, label, error } of failures) {
+      logError(`Failed to ${verb} plugin for ${label}.`, error);
+      printManualInstructions(editor);
+      console.log();
+    }
+  }
+
+  return failures;
+}
+
 export function registerPluginInstallCommand(plugin: Command) {
   plugin
     .command("install")
@@ -212,34 +267,12 @@ export function registerPluginInstallCommand(plugin: Command) {
           editors = ["claude"];
         }
 
-        const failures: {
-          editor: EditorTarget;
-          label: string;
-          error: string;
-        }[] = [];
-
-        for (const editor of editors) {
-          const label = EDITOR_LABELS[editor];
-          try {
-            // oxlint-disable-next-line no-await-in-loop -- sequential install with per-editor output
-            await installForEditor(editor, label, credentials.token);
-          } catch (err) {
-            failures.push({
-              editor,
-              label,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-
-        // Print all failures together at the end so they are easy to review
+        const failures = await runPluginInstalls(
+          editors,
+          credentials.token,
+          "install"
+        );
         if (failures.length > 0) {
-          console.log();
-          for (const { editor, label, error } of failures) {
-            logError(`Failed to install plugin for ${label}.`, error);
-            printManualInstructions(editor);
-            console.log();
-          }
           await exitWith(1);
         }
       } catch (err) {

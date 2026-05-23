@@ -16,7 +16,8 @@ import {
   replaceBinary,
 } from "../helpers/binary-upgrade";
 import { exitWith } from "../helpers/exit";
-import { logDebug, logError } from "../helpers/log";
+import type { EditorTarget } from "../helpers/init-project";
+import { logDebug, logError, logInfo } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
 import { trackUpgradeResult } from "../helpers/telemetry";
@@ -305,11 +306,71 @@ async function runExternalUpgrade(
   }
 }
 
+/**
+ * Offer to update editor plugins after a successful CLI upgrade.
+ * Plugin update failures are reported but do NOT change the exit code.
+ */
+async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
+  const isTTY = process.stdin.isTTY === true;
+
+  if (!pluginsFlag && isTTY) {
+    const { default: inquirer } = await import("inquirer");
+    const { withPromptFix } = await import("../helpers/prompt");
+    const { updatePlugins } = await withPromptFix(() =>
+      inquirer.prompt([
+        {
+          type: "confirm",
+          name: "updatePlugins",
+          message: "Would you like to update your editor plugins too?",
+          default: true,
+        },
+      ])
+    );
+    if (!updatePlugins) return;
+  }
+
+  const { loadCredentials } = await import("../helpers/credential-store");
+  const credentials = await loadCredentials();
+  if (!credentials) {
+    logInfo(
+      "Not logged in.",
+      "Run `archgate login` first, then `archgate plugin install` to update plugins."
+    );
+    return;
+  }
+
+  const { detectEditors, promptEditorSelection } =
+    await import("../helpers/editor-detect");
+  const detected = await detectEditors();
+  const available = detected.filter((e) => e.available);
+
+  if (available.length === 0) {
+    logInfo(
+      "No supported editors detected.",
+      "Run `archgate plugin install --editor <editor>` to install manually."
+    );
+    return;
+  }
+
+  let editors: EditorTarget[];
+  if (!pluginsFlag && isTTY) {
+    editors = await promptEditorSelection(detected);
+  } else {
+    editors = available.map((e) => e.id);
+  }
+
+  const { runPluginInstalls } = await import("./plugin/install");
+
+  console.log("Updating editor plugins...");
+  await runPluginInstalls(editors, credentials.token, "update");
+}
+
 export function registerUpgradeCommand(program: Command) {
   program
     .command("upgrade")
     .description("Upgrade Archgate to the latest version")
-    .action(async () => {
+    .option("--plugins", "also update editor plugins after upgrading")
+    .action(async (opts) => {
       try {
         console.log("Checking for latest Archgate release...");
 
@@ -371,6 +432,9 @@ export function registerUpgradeCommand(program: Command) {
         });
 
         console.log(`Archgate upgraded to ${latestVersion} successfully.`);
+
+        // Offer plugin updates after a successful CLI upgrade
+        await maybeUpdatePlugins(opts.plugins === true);
       } catch (err) {
         if (err instanceof Error && err.name === "ExitPromptError") throw err;
         trackUpgradeResult({
@@ -393,4 +457,5 @@ export {
   detectInstallMethod as _detectInstallMethod,
   formatBytes as _formatBytes,
   createDownloadProgress as _createDownloadProgress,
+  maybeUpdatePlugins as _maybeUpdatePlugins,
 };

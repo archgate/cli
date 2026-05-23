@@ -205,6 +205,10 @@ export async function installOpencodePlugin(token: string): Promise<void> {
       // Ignore cleanup errors
     }
   }
+
+  // Configure opencode.json with default_agent (idempotent — only sets if absent)
+  const { configureOpencodeSettings } = await import("./opencode-settings");
+  await configureOpencodeSettings();
 }
 
 // ---------------------------------------------------------------------------

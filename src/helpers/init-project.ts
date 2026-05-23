@@ -162,7 +162,8 @@ async function configureEditorSettings(
       // Opencode agent files are user-scope and written by `tryInstallPlugin`
       // after authenticating against the plugins service. Nothing lands in
       // the project tree — return the resolved user-scope path so the init
-      // summary has something meaningful to print.
+      // summary has something meaningful to print. The opencode.json config
+      // (default_agent) is set inside installOpencodePlugin() itself.
       return opencodeAgentsDir();
     default:
       return configureClaudeSettings(projectRoot);
