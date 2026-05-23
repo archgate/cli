@@ -184,6 +184,29 @@ jobs:
           branch: release
         env:
           NPM_CONFIG_PROVENANCE: "true"
+      - name: Annotate release in PostHog
+        if: success()
+        continue-on-error: true
+        env:
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${POSTHOG_PERSONAL_API_KEY:-}" ] || [ -z "${POSTHOG_PROJECT_ID:-}" ]; then
+            echo "::notice::Skipping PostHog annotation — POSTHOG_PERSONAL_API_KEY or POSTHOG_PROJECT_ID not configured"
+            exit 0
+          fi
+          version=$(jq -r .version package.json)
+          curl -fsS -X POST "https://eu.posthog.com/api/projects/${POSTHOG_PROJECT_ID}/annotations/" \
+            -H "Authorization: Bearer ${POSTHOG_PERSONAL_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"content\": \"v${version}\",
+              \"date_marker\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+              \"scope\": \"project\",
+              \"creation_type\": \"GIT\"
+            }"
+          echo "::notice::PostHog annotation created for v${version}"
       - name: Save Bun Cache
         uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
