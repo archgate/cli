@@ -65,7 +65,8 @@ jobs:
         if: always() && steps.validate.outcome == 'success'
         run: |
           sudo apt-get install -y -qq lcov > /dev/null 2>&1
-          genhtml coverage/lcov.info --output-directory coverage/html --quiet
+          lcov --extract coverage/lcov.info 'src/*' --output-file coverage/lcov-src.info --quiet
+          genhtml coverage/lcov-src.info --output-directory coverage/html --quiet
       - name: Upload coverage report
         if: always() && steps.validate.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -78,9 +79,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Parse lcov for summary stats
-          LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage/lcov.info)
-          LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage/lcov.info)
+          # Parse filtered lcov for summary stats (src/ only, excludes test temp dirs)
+          LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage/lcov-src.info)
+          LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage/lcov-src.info)
           if [ "$LINES_FOUND" -gt 0 ]; then
             COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
           else
@@ -102,7 +103,7 @@ jobs:
                 printf "| `%s/` | %.1f%% | %d / %d |\n", d, pct, lh[d], lf[d]
               }
             }
-          ' coverage/lcov.info | sort)
+          ' coverage/lcov-src.info | sort)
 
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -133,18 +134,12 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ] && \
              [ "${{ github.event.pull_request.head.repo.fork }}" != "true" ]; then
             PR_NUM="${{ github.event.pull_request.number }}"
-            MARKER="<!-- archgate-coverage -->"
-            BODY="$(printf '%s\n%s' "${MARKER}" "$(cat /tmp/coverage-report.md)")"
+            BODY="<!-- archgate-coverage -->
+          $(cat /tmp/coverage-report.md)"
 
-            EXISTING=$(gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments" \
-              --jq '[.[] | select(.body | startswith("<!-- archgate-coverage -->"))][0].id // empty' 2>/dev/null || true)
-
-            if [ -n "${EXISTING}" ]; then
-              gh api "repos/${{ github.repository }}/issues/${PR_NUM}/comments/${EXISTING}" \
-                -X PATCH -f body="${BODY}" > /dev/null
-            else
+            # Update existing comment or create a new one
+            gh pr comment "${PR_NUM}" --body "${BODY}" --edit-last 2>/dev/null || \
               gh pr comment "${PR_NUM}" --body "${BODY}"
-            fi
           fi
       - name: Save Bun Cache
         uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
