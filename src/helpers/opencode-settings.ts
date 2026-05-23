@@ -10,14 +10,14 @@
  *
  * opencode resolves its config via `xdg-basedir`, which falls back to
  * `~/.config` on all platforms (including Windows). The path resolution
- * mirrors `opencodeAgentsDir()` in `paths.ts`.
+ * uses `opencodeConfigDir()` from `paths.ts`.
  */
 
 import { existsSync, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { logDebug } from "./log";
-import { opencodeAgentsDir } from "./paths";
+import { opencodeConfigDir } from "./paths";
 
 /** The agent name used in opencode's `default_agent` config field. */
 const DEFAULT_AGENT = "archgate-developer";
@@ -50,8 +50,7 @@ export function mergeOpencodeSettings(
  * as `opencodeAgentsDir()` to stay consistent.
  */
 export function opencodeConfigPath(): string {
-  // agents dir is `~/.config/opencode/agents/` — go up one level
-  return join(dirname(opencodeAgentsDir()), "opencode.json");
+  return join(opencodeConfigDir(), "opencode.json");
 }
 
 /**
@@ -77,7 +76,7 @@ export async function configureOpencodeSettings(): Promise<string> {
   const merged = mergeOpencodeSettings(existing);
 
   // Ensure parent directory exists
-  const dir = dirname(configPath);
+  const dir = opencodeConfigDir();
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }

@@ -53,10 +53,18 @@ function usableEnv(value: string | undefined): string | null {
  * The path is resolved at call time, not cached — tests override `HOME` /
  * `XDG_CONFIG_HOME` per-test and expect the helper to pick up the override.
  */
-export function opencodeAgentsDir(): string {
+/**
+ * Resolve the opencode user-scope config directory (`~/.config/opencode/`).
+ * Used by both `opencodeAgentsDir()` and `opencodeConfigPath()`.
+ */
+export function opencodeConfigDir(): string {
   const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
   const base = xdg ?? join(archgateHomeDir(), ".config");
-  return join(base, "opencode", "agents");
+  return join(base, "opencode");
+}
+
+export function opencodeAgentsDir(): string {
+  return join(opencodeConfigDir(), "agents");
 }
 
 /**
