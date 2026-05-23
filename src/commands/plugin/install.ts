@@ -105,6 +105,10 @@ export async function installForEditor(
         break;
       }
       await installOpencodePlugin(token);
+      // Configure opencode.json to set archgate-developer as default agent
+      const { configureOpencodeSettings } =
+        await import("../../helpers/opencode-settings");
+      await configureOpencodeSettings();
       logInfo(`Archgate agents installed for ${label}.`);
       break;
     }

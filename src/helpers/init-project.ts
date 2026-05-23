@@ -158,12 +158,15 @@ async function configureEditorSettings(
     }
     case "copilot":
       return configureCopilotSettings(projectRoot);
-    case "opencode":
+    case "opencode": {
       // Opencode agent files are user-scope and written by `tryInstallPlugin`
       // after authenticating against the plugins service. Nothing lands in
-      // the project tree — return the resolved user-scope path so the init
-      // summary has something meaningful to print.
+      // the project tree. Additionally, configure opencode.json to set the
+      // default agent to archgate-developer.
+      const { configureOpencodeSettings } = await import("./opencode-settings");
+      await configureOpencodeSettings();
       return opencodeAgentsDir();
+    }
     default:
       return configureClaudeSettings(projectRoot);
   }
