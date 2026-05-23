@@ -83,6 +83,8 @@ export async function installForEditor(
       break;
     }
     case "cursor": {
+      // Cursor supports plugins via Team Private Marketplaces — not VSIX.
+      // See https://cursor.com/docs/plugins#team-marketplaces
       const url = buildCursorMarketplaceUrl();
       logInfo(
         `To install the Archgate plugin for ${label}, add the team marketplace URL in Cursor Settings:`
@@ -94,6 +96,9 @@ export async function installForEditor(
       break;
     }
     case "opencode": {
+      // Writing agent files to `~/.config/opencode/agents/` is only useful
+      // if opencode is actually installed. Skip the install and surface a
+      // clear message otherwise, matching every other editor's guard.
       if (!(await isOpencodeCliAvailable())) {
         logWarn(
           "opencode CLI not found on PATH — skipping agent install.",
