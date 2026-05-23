@@ -359,36 +359,10 @@ async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
     editors = available.map((e) => e.id);
   }
 
-  const { EDITOR_LABELS } = await import("../helpers/init-project");
-  const { installForEditor, printManualInstructions } =
-    await import("./plugin/install");
+  const { runPluginInstalls } = await import("./plugin/install");
 
   console.log("Updating editor plugins...");
-
-  const failures: { editor: EditorTarget; label: string; error: string }[] = [];
-
-  for (const editor of editors) {
-    const label = EDITOR_LABELS[editor];
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- sequential install with per-editor output
-      await installForEditor(editor, label, credentials.token);
-    } catch (err) {
-      failures.push({
-        editor,
-        label,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
-  }
-
-  if (failures.length > 0) {
-    console.log();
-    for (const { editor, label, error } of failures) {
-      logError(`Failed to update plugin for ${label}.`, error);
-      printManualInstructions(editor);
-      console.log();
-    }
-  }
+  await runPluginInstalls(editors, credentials.token, "update");
 }
 
 export function registerUpgradeCommand(program: Command) {
