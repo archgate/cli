@@ -9,6 +9,8 @@ import {
   getGitTrackedFiles,
   getStagedFiles,
   getChangedFiles,
+  detectBaseRef,
+  getFilesChangedSinceRef,
   resolveScopedFiles,
   SCOPE_FILE_WARN_THRESHOLD,
 } from "../../src/engine/git-files";
@@ -77,6 +79,86 @@ describe("git-files", () => {
       const files = await getChangedFiles(tempDir);
       expect(files).toContain("a.ts");
       expect(files).toContain("b.ts");
+    }, 15_000);
+  });
+
+  describe("detectBaseRef", () => {
+    test("returns null for non-git directory", async () => {
+      const ref = await detectBaseRef(tempDir);
+      expect(ref).toBeNull();
+    });
+
+    test("detects local main branch", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      const ref = await detectBaseRef(tempDir);
+      expect(ref).toBe("main");
+    });
+
+    test("detects local master branch", async () => {
+      await git(["init", "--initial-branch=master"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      const ref = await detectBaseRef(tempDir);
+      expect(ref).toBe("master");
+    });
+  });
+
+  describe("getFilesChangedSinceRef", () => {
+    test("returns empty array for non-git directory", async () => {
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toEqual([]);
+    });
+
+    test("returns files changed on a feature branch", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+      await git(["add", "base.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      // Create feature branch and add files
+      await git(["checkout", "-b", "feature"], tempDir);
+      writeFileSync(join(tempDir, "new-file.ts"), "export const y = 2;");
+      await git(["add", "new-file.ts"], tempDir);
+      await git(["commit", "-m", "add new file"], tempDir);
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toContain("new-file.ts");
+      expect(files).not.toContain("base.ts");
+    }, 15_000);
+
+    test("returns empty when on the base branch with no new commits", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+      await git(["add", "base.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toEqual([]);
+    });
+
+    test("returns multiple changed files sorted", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+      await git(["add", "base.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      await git(["checkout", "-b", "feature"], tempDir);
+      writeFileSync(join(tempDir, "z-file.ts"), "export const z = 3;");
+      writeFileSync(join(tempDir, "a-file.ts"), "export const a = 1;");
+      await git(["add", "."], tempDir);
+      await git(["commit", "-m", "add files"], tempDir);
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toEqual(["a-file.ts", "z-file.ts"]);
     }, 15_000);
   });
 

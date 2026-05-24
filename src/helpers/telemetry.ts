@@ -327,6 +327,7 @@ export function trackCheckResult(properties: {
   pass: boolean;
   output_format: "console" | "json" | "ci";
   used_staged: boolean;
+  used_base: boolean;
   used_file_filter: boolean;
   used_adr_filter: boolean;
   files_scanned?: number;

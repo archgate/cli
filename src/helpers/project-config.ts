@@ -107,6 +107,15 @@ export function resolveDomainPrefix(
   return prefix;
 }
 
+/**
+ * Read the `baseBranch` value from `.archgate/config.json`.
+ * Returns `null` when unconfigured.
+ */
+export function getConfiguredBaseBranch(projectRoot: string): string | null {
+  const config = loadProjectConfig(projectRoot);
+  return config.baseBranch ?? null;
+}
+
 export function isDefaultDomain(domain: string): boolean {
   return (DEFAULT_DOMAINS as readonly string[]).includes(domain);
 }
