@@ -1,3 +1,15 @@
+## [0.38.0](https://github.com/archgate/cli/compare/v0.37.0...v0.38.0) (2026-05-24)
+
+### Features
+
+* **session-context:** add --skip option for sub-agent session reads ([#330](https://github.com/archgate/cli/issues/330)) ([a3fcdd5](https://github.com/archgate/cli/commit/a3fcdd5cdc8e3cb2c61424c9e6f88241996bf54d))
+* **upgrade:** prompt to update editor plugins after CLI upgrade ([#334](https://github.com/archgate/cli/issues/334)) ([a330b5c](https://github.com/archgate/cli/commit/a330b5c22311de65b8a676153aaf13d7846762b4))
+* warn when ADR file scope is too broad ([#329](https://github.com/archgate/cli/issues/329)) ([0d99b7f](https://github.com/archgate/cli/commit/0d99b7f8222f51097b6263ad807653729ba5299c))
+
+### Bug Fixes
+
+* **ci:** revert SLSA reusable workflow to tag pin ([#322](https://github.com/archgate/cli/issues/322)) ([dee4999](https://github.com/archgate/cli/commit/dee49991a05a5f12e1aba4cbc6a3c1d3f271adb0)), closes [#284](https://github.com/archgate/cli/issues/284) [#10](https://github.com/archgate/cli/issues/10) [slsa-framework/slsa-github-generator#150](https://github.com/slsa-framework/slsa-github-generator/issues/150)
+
 ## [0.37.0](https://github.com/archgate/cli/compare/v0.36.3...v0.37.0) (2026-05-18)
 
 ### Features
