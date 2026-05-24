@@ -61,27 +61,73 @@ jobs:
       - name: Validate
         id: validate
         run: bun run validate:coverage
-      - name: Generate HTML coverage report
-        if: always() && steps.validate.outcome == 'success'
-        run: |
-          sudo apt-get install -y -qq lcov > /dev/null 2>&1
-          lcov --extract coverage/lcov.info 'src/*' --output-file coverage/lcov-src.info --quiet
-          genhtml coverage/lcov-src.info --output-directory coverage/html --quiet
-      - name: Upload coverage report
+      - name: Upload coverage
         if: always() && steps.validate.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: coverage-report
-          path: coverage/html
-          retention-days: 30
-      - name: Coverage summary
-        if: always() && steps.validate.outcome == 'success'
+          name: coverage-linux
+          path: coverage/lcov.info
+          retention-days: 1
+      - name: Save Bun Cache
+        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
+        with:
+          path: /home/runner/.bun/install/cache
+          key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
+
+  smoke-windows:
+    name: Smoke Test (Windows)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/smoke-test-windows.yml
+
+  smoke-linux:
+    name: Smoke Test (Linux)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    uses: ./.github/workflows/smoke-test-linux.yml
+
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    if: always() && needs.validate.result == 'success'
+    needs: [validate, smoke-windows]
+    steps:
+      - name: Download Linux coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: coverage-linux
+          path: coverage-linux
+      - name: Download Windows coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: coverage-windows
+          path: coverage-windows
+        continue-on-error: true
+      - name: Merge coverage and generate report
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Parse filtered lcov for summary stats (src/ only, excludes test temp dirs)
-          LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage/lcov-src.info)
-          LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage/lcov-src.info)
+          sudo apt-get install -y -qq lcov > /dev/null 2>&1
+
+          # Start with Linux coverage
+          cp coverage-linux/lcov.info merged.info
+
+          # Add Windows coverage if available (normalize backslash paths first)
+          if [ -f coverage-windows/lcov.info ]; then
+            sed -i 's|\\|/|g' coverage-windows/lcov.info
+            lcov --add-tracefile coverage-linux/lcov.info \
+                 --add-tracefile coverage-windows/lcov.info \
+                 --output-file merged.info --quiet
+          fi
+
+          # Filter to src/ only (excludes test temp dirs)
+          lcov --extract merged.info 'src/*' --output-file coverage.info --quiet
+
+          # Generate HTML report
+          genhtml coverage.info --output-directory coverage-html --quiet
+
+          # Parse summary stats
+          LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage.info)
+          LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage.info)
           if [ "$LINES_FOUND" -gt 0 ]; then
             COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
           else
@@ -103,7 +149,14 @@ jobs:
                 printf "| `%s/` | %.1f%% | %d / %d |\n", d, pct, lh[d], lf[d]
               }
             }
-          ' coverage/lcov-src.info | sort)
+          ' coverage.info | sort)
+
+          # Check if Windows coverage was merged
+          if [ -f coverage-windows/lcov.info ]; then
+            PLATFORMS="Linux + Windows"
+          else
+            PLATFORMS="Linux only"
+          fi
 
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -114,6 +167,7 @@ jobs:
             echo "| Metric | Value |"
             echo "|--------|-------|"
             echo "| **Lines** | **${COVERAGE}%** (${LINES_HIT} / ${LINES_FOUND}) |"
+            echo "| **Platforms** | ${PLATFORMS} |"
             echo ""
             echo "Full HTML report available in [workflow artifacts](${RUN_URL}#artifacts)."
             echo ""
@@ -137,26 +191,15 @@ jobs:
             BODY="<!-- archgate-coverage -->
           $(cat /tmp/coverage-report.md)"
 
-            # Update existing comment or create a new one
             gh pr comment "${PR_NUM}" --body "${BODY}" --edit-last 2>/dev/null || \
               gh pr comment "${PR_NUM}" --body "${BODY}"
           fi
-      - name: Save Bun Cache
-        uses: actions/cache/save@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          path: /home/runner/.bun/install/cache
-          key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
-
-  smoke-windows:
-    name: Smoke Test (Windows)
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    uses: ./.github/workflows/smoke-test-windows.yml
-
-  smoke-linux:
-    name: Smoke Test (Linux)
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    uses: ./.github/workflows/smoke-test-linux.yml
+          name: coverage-report
+          path: coverage-html
+          retention-days: 30
 
   # Gate job — single required status check for branch protection.
   status:

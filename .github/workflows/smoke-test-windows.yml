@@ -37,7 +37,15 @@ jobs:
         run: bun run format:check
 
       - name: Tests
-        run: bun test --timeout 60000
+        id: tests
+        run: bun test --timeout 60000 --coverage
+      - name: Upload coverage
+        if: always() && steps.tests.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: coverage-windows
+          path: coverage/lcov.info
+          retention-days: 1
 
       - name: Build Windows binary
         run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
