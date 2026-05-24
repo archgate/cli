@@ -1,11 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as credentialStore from "../../src/helpers/credential-store";
 import { initProject } from "../../src/helpers/init-project";
+import * as pluginInstall from "../../src/helpers/plugin-install";
 
 describe("initProject", () => {
   let tempDir: string;
@@ -234,6 +244,246 @@ describe("initProject", () => {
       );
     } finally {
       mock.restore();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tryInstallPlugin — exercises the plugin install path triggered by
+// initProject(root, { installPlugin: true, editor: ... })
+// ---------------------------------------------------------------------------
+
+describe("tryInstallPlugin via initProject", () => {
+  let tempDir: string;
+  let credSpy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-initproj-plugin-"));
+    credSpy = spyOn(credentialStore, "loadCredentials").mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    credSpy.mockRestore();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test("no credentials returns installed: false", async () => {
+    credSpy.mockResolvedValue(null);
+    const result = await initProject(tempDir, { installPlugin: true });
+    expect(result.plugin).toBeDefined();
+    expect(result.plugin!.installed).toBe(false);
+    expect(result.plugin!.detail).toContain("No stored credentials");
+  });
+
+  test("cursor returns marketplace URL", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const urlSpy = spyOn(
+      pluginInstall,
+      "buildCursorMarketplaceUrl"
+    ).mockReturnValue("https://cursor.example");
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "cursor",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.detail).toBe("https://cursor.example");
+    } finally {
+      urlSpy.mockRestore();
+    }
+  });
+
+  test("vscode returns auto-installed", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const result = await initProject(tempDir, {
+      installPlugin: true,
+      editor: "vscode",
+    });
+    expect(result.plugin!.installed).toBe(true);
+    expect(result.plugin!.autoInstalled).toBe(true);
+  });
+
+  test("claude with CLI available auto-installs", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isClaudeCliAvailable"
+    ).mockResolvedValue(true);
+    const installSpy = spyOn(
+      pluginInstall,
+      "installClaudePlugin"
+    ).mockResolvedValue();
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "claude",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.autoInstalled).toBe(true);
+      expect(installSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      cliSpy.mockRestore();
+      installSpy.mockRestore();
+    }
+  });
+
+  test("claude without CLI falls back to marketplace URL", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isClaudeCliAvailable"
+    ).mockResolvedValue(false);
+    const urlSpy = spyOn(pluginInstall, "buildMarketplaceUrl").mockReturnValue(
+      "https://marketplace.example"
+    );
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "claude",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.detail).toBe("https://marketplace.example");
+      expect(result.plugin!.autoInstalled).toBeUndefined();
+    } finally {
+      cliSpy.mockRestore();
+      urlSpy.mockRestore();
+    }
+  });
+
+  test("claude install failure falls back to marketplace URL", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isClaudeCliAvailable"
+    ).mockResolvedValue(true);
+    const installSpy = spyOn(
+      pluginInstall,
+      "installClaudePlugin"
+    ).mockRejectedValue(new Error("install failed"));
+    const urlSpy = spyOn(pluginInstall, "buildMarketplaceUrl").mockReturnValue(
+      "https://marketplace.example"
+    );
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "claude",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.detail).toBe("https://marketplace.example");
+    } finally {
+      cliSpy.mockRestore();
+      installSpy.mockRestore();
+      urlSpy.mockRestore();
+    }
+  });
+
+  test("copilot with CLI available auto-installs", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isCopilotCliAvailable"
+    ).mockResolvedValue(true);
+    const installSpy = spyOn(
+      pluginInstall,
+      "installCopilotPlugin"
+    ).mockResolvedValue();
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "copilot",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.autoInstalled).toBe(true);
+    } finally {
+      cliSpy.mockRestore();
+      installSpy.mockRestore();
+    }
+  });
+
+  test("copilot without CLI falls back to marketplace URL", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isCopilotCliAvailable"
+    ).mockResolvedValue(false);
+    const urlSpy = spyOn(
+      pluginInstall,
+      "buildVscodeMarketplaceUrl"
+    ).mockReturnValue("https://vscode.example");
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "copilot",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.detail).toBe("https://vscode.example");
+    } finally {
+      cliSpy.mockRestore();
+      urlSpy.mockRestore();
+    }
+  });
+
+  test("opencode with CLI available auto-installs", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isOpencodeCliAvailable"
+    ).mockResolvedValue(true);
+    const installSpy = spyOn(
+      pluginInstall,
+      "installOpencodePlugin"
+    ).mockResolvedValue();
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "opencode",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.autoInstalled).toBe(true);
+    } finally {
+      cliSpy.mockRestore();
+      installSpy.mockRestore();
+    }
+  });
+
+  test("opencode without CLI returns cli-not-found", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isOpencodeCliAvailable"
+    ).mockResolvedValue(false);
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "opencode",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.detail).toBe("cli-not-found");
+    } finally {
+      cliSpy.mockRestore();
+    }
+  });
+
+  test("opencode install failure returns error detail", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const cliSpy = spyOn(
+      pluginInstall,
+      "isOpencodeCliAvailable"
+    ).mockResolvedValue(true);
+    const installSpy = spyOn(
+      pluginInstall,
+      "installOpencodePlugin"
+    ).mockRejectedValue(new Error("network timeout"));
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "opencode",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.detail).toBe("network timeout");
+    } finally {
+      cliSpy.mockRestore();
+      installSpy.mockRestore();
     }
   });
 });
