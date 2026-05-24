@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import * as pluginInstall from "../../../src/commands/plugin/install";
+import { _maybeUpdatePlugins } from "../../../src/commands/upgrade";
 import * as credentialStore from "../../../src/helpers/credential-store";
 import * as editorDetect from "../../../src/helpers/editor-detect";
 
@@ -65,10 +66,6 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function importUpgrade() {
-  return import(`../../../src/commands/upgrade?t=${Date.now()}`);
-}
-
 function setTTY(value: boolean | undefined) {
   Object.defineProperty(process.stdin, "isTTY", { value, configurable: true });
 }
@@ -82,7 +79,6 @@ describe("maybeUpdatePlugins", () => {
     setTTY(false);
     credSpy.mockResolvedValue(null);
 
-    const { _maybeUpdatePlugins } = await importUpgrade();
     await _maybeUpdatePlugins(true);
 
     expect(logSpy).toHaveBeenCalled();
@@ -101,7 +97,6 @@ describe("maybeUpdatePlugins", () => {
       { id: "cursor" as const, label: "Cursor", available: false },
     ]);
 
-    const { _maybeUpdatePlugins } = await importUpgrade();
     await _maybeUpdatePlugins(true);
 
     expect(logSpy).toHaveBeenCalled();
@@ -121,7 +116,6 @@ describe("maybeUpdatePlugins", () => {
       { id: "cursor" as const, label: "Cursor", available: false },
     ]);
 
-    const { _maybeUpdatePlugins } = await importUpgrade();
     await _maybeUpdatePlugins(true);
 
     expect(installSpy).toHaveBeenCalledTimes(2);
@@ -137,7 +131,6 @@ describe("maybeUpdatePlugins", () => {
       { id: "claude" as const, label: "Claude Code", available: true },
     ]);
 
-    const { _maybeUpdatePlugins } = await importUpgrade();
     await _maybeUpdatePlugins(false);
 
     expect(installSpy).toHaveBeenCalledTimes(1);
@@ -153,7 +146,6 @@ describe("maybeUpdatePlugins", () => {
     ]);
     installSpy.mockRejectedValue(new Error("install failed"));
 
-    const { _maybeUpdatePlugins } = await importUpgrade();
     await _maybeUpdatePlugins(true);
 
     expect(errorSpy).toHaveBeenCalled();

@@ -7,16 +7,19 @@ import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-import { registerUpgradeCommand } from "../../src/commands/upgrade";
+import {
+  registerUpgradeCommand,
+  _isBinaryInstall,
+  _isProtoInstall,
+  _isLocalInstall,
+  _detectInstallMethod,
+  _formatBytes,
+  _createDownloadProgress,
+} from "../../src/commands/upgrade";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Dynamic import with cache-busting for modules with process-level state. */
-function importUpgrade() {
-  return import(`../../src/commands/upgrade?t=${Date.now()}`);
-}
 
 function setExecPath(path: string) {
   Object.defineProperty(process, "execPath", {
@@ -74,53 +77,46 @@ describe("install method detection", () => {
   });
 
   describe("_isBinaryInstall", () => {
-    test("returns true when execPath is under ~/.archgate/bin/", async () => {
+    test("returns true when execPath is under ~/.archgate/bin/", () => {
       setExecPath(join(tempDir, ".archgate", "bin", "archgate"));
-      const { _isBinaryInstall } = await importUpgrade();
       expect(_isBinaryInstall()).toBe(true);
     });
 
-    test("returns false when execPath is elsewhere", async () => {
+    test("returns false when execPath is elsewhere", () => {
       setExecPath(join(tempDir, "usr", "local", "bin", "archgate"));
-      const { _isBinaryInstall } = await importUpgrade();
       expect(_isBinaryInstall()).toBe(false);
     });
   });
 
   describe("_isProtoInstall", () => {
-    test("returns true when execPath is under ~/.proto/tools/archgate/", async () => {
+    test("returns true when execPath is under ~/.proto/tools/archgate/", () => {
       setExecPath(
         join(tempDir, ".proto", "tools", "archgate", "0.13.0", "archgate")
       );
-      const { _isProtoInstall } = await importUpgrade();
       expect(_isProtoInstall()).toBe(true);
     });
 
-    test("respects PROTO_HOME env var", async () => {
+    test("respects PROTO_HOME env var", () => {
       const customProto = join(tempDir, "custom-proto");
       process.env.PROTO_HOME = customProto;
       setExecPath(join(customProto, "tools", "archgate", "0.13.0", "archgate"));
-      const { _isProtoInstall } = await importUpgrade();
       expect(_isProtoInstall()).toBe(true);
     });
 
-    test("returns false when execPath is elsewhere", async () => {
+    test("returns false when execPath is elsewhere", () => {
       setExecPath(join(tempDir, "usr", "local", "bin", "archgate"));
-      const { _isProtoInstall } = await importUpgrade();
       expect(_isProtoInstall()).toBe(false);
     });
   });
 
   describe("_isLocalInstall", () => {
-    test("returns true when execPath contains node_modules", async () => {
+    test("returns true when execPath contains node_modules", () => {
       setExecPath(join(tempDir, "project", "node_modules", ".bin", "archgate"));
-      const { _isLocalInstall } = await importUpgrade();
       expect(_isLocalInstall()).toBe(true);
     });
 
-    test("returns false when execPath has no node_modules", async () => {
+    test("returns false when execPath has no node_modules", () => {
       setExecPath(join(tempDir, "usr", "local", "bin", "archgate"));
-      const { _isLocalInstall } = await importUpgrade();
       expect(_isLocalInstall()).toBe(false);
     });
   });
@@ -129,7 +125,6 @@ describe("install method detection", () => {
     test("detects binary install", async () => {
       const fakeBinary = join(tempDir, ".archgate", "bin", "archgate");
       setExecPath(fakeBinary);
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("binary");
       expect(method).toHaveProperty("binaryPath", fakeBinary);
@@ -139,7 +134,6 @@ describe("install method detection", () => {
       setExecPath(
         join(tempDir, ".proto", "tools", "archgate", "0.13.0", "archgate")
       );
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("proto");
       expect(method).toHaveProperty("protoCmd");
@@ -151,10 +145,9 @@ describe("install method detection", () => {
       writeFileSync(join(dir, "package.json"), "{}");
       writeFileSync(join(dir, "bun.lock"), "");
       setExecPath(join(dir, "node_modules", ".bin", "archgate"));
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("local");
-      expect(method.manualHint).toContain("bun");
+      if (method.type === "local") expect(method.manualHint).toContain("bun");
     });
 
     test("detects local install with pnpm-lock.yaml", async () => {
@@ -163,10 +156,9 @@ describe("install method detection", () => {
       writeFileSync(join(dir, "package.json"), "{}");
       writeFileSync(join(dir, "pnpm-lock.yaml"), "");
       setExecPath(join(dir, "node_modules", ".bin", "archgate"));
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("local");
-      expect(method.manualHint).toContain("pnpm");
+      if (method.type === "local") expect(method.manualHint).toContain("pnpm");
     });
 
     test("detects local install with yarn.lock", async () => {
@@ -175,10 +167,9 @@ describe("install method detection", () => {
       writeFileSync(join(dir, "package.json"), "{}");
       writeFileSync(join(dir, "yarn.lock"), "");
       setExecPath(join(dir, "node_modules", ".bin", "archgate"));
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("local");
-      expect(method.manualHint).toContain("yarn");
+      if (method.type === "local") expect(method.manualHint).toContain("yarn");
     });
 
     test("detects local install with package-lock.json", async () => {
@@ -187,22 +178,19 @@ describe("install method detection", () => {
       writeFileSync(join(dir, "package.json"), "{}");
       writeFileSync(join(dir, "package-lock.json"), "{}");
       setExecPath(join(dir, "node_modules", ".bin", "archgate"));
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("local");
-      expect(method.manualHint).toContain("npm");
+      if (method.type === "local") expect(method.manualHint).toContain("npm");
     });
 
     test("falls back to package-manager for unknown location", async () => {
       setExecPath(join(tempDir, "some", "random", "path", "archgate"));
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("package-manager");
     });
 
     test("binary detection takes priority over other methods", async () => {
       setExecPath(join(tempDir, ".archgate", "bin", "archgate"));
-      const { _detectInstallMethod } = await importUpgrade();
       const method = await _detectInstallMethod();
       expect(method.type).toBe("binary");
     });
@@ -214,8 +202,7 @@ describe("install method detection", () => {
 // ---------------------------------------------------------------------------
 
 describe("_formatBytes", () => {
-  test("formats bytes, KB, and MB ranges", async () => {
-    const { _formatBytes } = await importUpgrade();
+  test("formats bytes, KB, and MB ranges", () => {
     // Bytes
     expect(_formatBytes(0)).toBe("0 B");
     expect(_formatBytes(512)).toBe("512 B");
@@ -232,8 +219,7 @@ describe("_formatBytes", () => {
 });
 
 describe("_createDownloadProgress", () => {
-  test("returns undefined when stderr is not a TTY", async () => {
-    const { _createDownloadProgress } = await importUpgrade();
+  test("returns undefined when stderr is not a TTY", () => {
     const originalIsTTY = process.stderr.isTTY;
     try {
       Object.defineProperty(process.stderr, "isTTY", {
@@ -284,7 +270,7 @@ describe("upgrade action handler", () => {
   function mockGitHubRelease(tag: string | null) {
     globalThis.fetch = (() =>
       Promise.resolve({
-        ok: tag === null ? false : true,
+        ok: tag !== null,
         status: tag === null ? 500 : 200,
         json: () => Promise.resolve(tag ? { tag_name: tag } : {}),
       })) as unknown as typeof fetch;

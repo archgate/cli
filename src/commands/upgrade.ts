@@ -449,7 +449,7 @@ export function registerUpgradeCommand(program: Command) {
     });
 }
 
-/** @internal test hooks — consumed via dynamic import() in upgrade.test.ts */
+/** Test hooks — exported for unit tests in upgrade.test.ts */
 export {
   isBinaryInstall as _isBinaryInstall,
   isProtoInstall as _isProtoInstall,
