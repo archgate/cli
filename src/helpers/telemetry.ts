@@ -64,7 +64,11 @@ let repoContextSnapshot: RepoContext | null = null;
 // (ARCHGATE_TELEMETRY=0 in tests disables init). Validated via dashboard.
 // ---------------------------------------------------------------------------
 
-/** Best-effort CI environment classification. */
+/**
+ * Best-effort classification of the CI environment. PostHog already tells us
+ * `is_ci`, but knowing whether a user is on GitHub Actions vs. GitLab CI vs.
+ * a self-hosted runner is load-bearing context for understanding usage.
+ */
 function detectCiProvider(): string | null {
   if (Bun.env.GITHUB_ACTIONS) return "github-actions";
   if (Bun.env.GITLAB_CI) return "gitlab-ci";
