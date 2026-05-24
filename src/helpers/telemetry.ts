@@ -59,14 +59,12 @@ let distinctId = "";
 let repoContextSnapshot: RepoContext | null = null;
 
 // ---------------------------------------------------------------------------
-// Environment enrichment
+// Environment enrichment — intentionally uncovered in unit tests.
+// These private functions only run when the PostHog client is live
+// (ARCHGATE_TELEMETRY=0 in tests disables init). Validated via dashboard.
 // ---------------------------------------------------------------------------
 
-/**
- * Best-effort classification of the CI environment. PostHog already tells us
- * `is_ci`, but knowing whether a user is on GitHub Actions vs. GitLab CI vs.
- * a self-hosted runner is load-bearing context for understanding usage.
- */
+/** Best-effort CI environment classification. */
 function detectCiProvider(): string | null {
   if (Bun.env.GITHUB_ACTIONS) return "github-actions";
   if (Bun.env.GITLAB_CI) return "gitlab-ci";
@@ -198,6 +196,8 @@ export async function initTelemetry(): Promise<void> {
   try {
     // Lazy-load the PostHog SDK so the `ARCHGATE_TELEMETRY=0` path never pays
     // the module-parse cost (noticeable on cold starts / WSL).
+    // SDK init + custom fetch wrapper below are intentionally uncovered —
+    // validated via PostHog dashboard, not by mocking the SDK constructor.
     const { PostHog } = await import("posthog-node");
     client = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
