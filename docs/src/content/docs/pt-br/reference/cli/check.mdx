@@ -13,13 +13,14 @@ Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts`
 
 ## Opções
 
-| Opção        | Descrição                                                              |
-| ------------ | ---------------------------------------------------------------------- |
-| `--staged`   | Verificar apenas arquivos no git stage (útil para hooks de pre-commit) |
-| `--json`     | Saída JSON legível por máquina                                         |
-| `--ci`       | Formato de anotação do GitHub Actions                                  |
-| `--adr <id>` | Verificar apenas regras de um ADR específico                           |
-| `--verbose`  | Mostrar regras aprovadas e informações de tempo                        |
+| Opção          | Descrição                                                                     |
+| -------------- | ----------------------------------------------------------------------------- |
+| `--staged`     | Verificar apenas arquivos no git stage (útil para hooks de pre-commit)        |
+| `--base [ref]` | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido) |
+| `--json`       | Saída JSON legível por máquina                                                |
+| `--ci`         | Formato de anotação do GitHub Actions                                         |
+| `--adr <id>`   | Verificar apenas regras de um ADR específico                                  |
+| `--verbose`    | Mostrar regras aprovadas e informações de tempo                               |
 
 ## Argumentos
 
@@ -47,6 +48,12 @@ Verificar apenas arquivos no stage antes de commitar:
 
 ```bash
 archgate check --staged
+```
+
+Verificar todos os arquivos alterados na branch atual vs `main`:
+
+```bash
+archgate check --base main
 ```
 
 Verificar um único ADR:

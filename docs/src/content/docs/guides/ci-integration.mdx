@@ -142,6 +142,16 @@ Warnings (severity `warning`) are logged but do not affect the exit code. Only `
 
 ## Narrowing scope
 
+### Check files changed in the PR
+
+Use `--base` to compare against the PR's base branch. This gives cross-file dependency rules the full picture of what changed:
+
+```yaml
+- run: archgate check --base origin/${{ github.base_ref }}
+```
+
+Without `--base`, the base branch is auto-detected from `origin/HEAD`. The explicit form is recommended in CI for deterministic behavior.
+
 ### Check only staged files
 
 Use `--staged` to limit checking to git-staged files. This is useful in pre-commit hooks or when you only want to validate what is about to be committed:

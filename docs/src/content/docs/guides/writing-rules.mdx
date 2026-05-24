@@ -99,14 +99,22 @@ Use `ctx.scopedFiles` when your rule should only apply to files the ADR governs.
 
 ### ctx.changedFiles
 
-An array of file paths that have been modified (git staged or changed). Useful for incremental checking -- only validate files that were actually touched.
+An array of file paths that differ from the base branch. Auto-detected by default, or populated from `--staged` / `--base <ref>`. Useful for incremental checking and cross-file dependency rules.
 
 ```typescript
+// Incremental checking -- only validate changed files
 const filesToCheck = ctx.scopedFiles.filter((f) =>
   ctx.changedFiles.includes(f)
 );
-for (const file of filesToCheck) {
-  // Only check changed files
+
+// Cross-file dependency -- if file A changed, file B must also change
+if (ctx.changedFiles.includes("config/database.yml")) {
+  if (!ctx.changedFiles.includes("deploy/manifest.yml")) {
+    ctx.report.violation({
+      message: "config changed but manifest was not bumped",
+      file: "config/database.yml",
+    });
+  }
 }
 ```
 
@@ -277,7 +285,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` for incremental checking.** When running `archgate check --staged`, `ctx.changedFiles` contains only the git-staged files. Filter `ctx.scopedFiles` against it to check only what changed.
+2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
 
 3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
 
