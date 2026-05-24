@@ -79,6 +79,18 @@ Obter anotações do GitHub Actions:
 archgate check --ci
 ```
 
+## Diagnósticos
+
+Durante a execução, `archgate check` emite avisos para configurações incorretas comuns que podem causar resultados lentos ou inesperados:
+
+| Aviso                                          | Condição                                                                                                          | Recomendação                                                                                                   |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Escopo de arquivos amplo**                   | Os padrões `files` de um ADR resolvem mais de 1.000 arquivos ou a varredura de glob leva mais de 2 segundos       | Estreite os padrões `files` no frontmatter do ADR para atingir apenas os diretórios de código relevantes       |
+| **Opt-out de gitignore sem escopo**            | `respectGitignore: false` está definido sem um escopo `files`                                                     | Adicione padrões `files` para evitar a varredura de todos os arquivos incluindo `node_modules/`, `.git/`, etc. |
+| **Todos os arquivos excluídos pelo gitignore** | Padrões `files` explícitos correspondem a arquivos, mas todas as correspondências são excluídas pelo `.gitignore` | Defina `respectGitignore: false` no frontmatter do ADR para incluir arquivos ignorados pelo git                |
+
+Esses avisos aparecem na saída padrão e não afetam o código de saída. Eles também aparecem na saída JSON quando `--json` é usado (como violações com `"severity": "warning"`).
+
 ## Formato da saída JSON
 
 Quando `--json` é usado, a saída é um único objeto JSON:
