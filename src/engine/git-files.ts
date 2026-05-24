@@ -224,6 +224,36 @@ export async function detectBaseRef(
 }
 
 /**
+ * Resolve the base ref for branch-level change detection.
+ *
+ * Priority: explicit flag → project config → git auto-detect → undefined.
+ * The `staged` flag short-circuits to `undefined` (caller uses staged files
+ * instead of a branch diff).
+ */
+export async function resolveBaseRef(
+  projectRoot: string,
+  options: {
+    staged?: boolean;
+    base?: string | true;
+    configBase?: string | null;
+  }
+): Promise<string | undefined> {
+  if (options.staged) return undefined;
+
+  if (typeof options.base === "string") {
+    logDebug("Using explicit base ref:", options.base);
+    return options.base;
+  }
+
+  if (options.configBase) {
+    logDebug("Using configured base branch:", options.configBase);
+    return options.configBase;
+  }
+
+  return (await detectBaseRef(projectRoot)) ?? undefined;
+}
+
+/**
  * Get files changed between a base ref and HEAD.
  * Uses three-dot diff (`base...HEAD`) to find the merge-base automatically.
  */

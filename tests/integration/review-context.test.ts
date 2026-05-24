@@ -148,4 +148,87 @@ describe("review-context integration", () => {
     expect(exitCode).not.toBe(0);
     expect(stderr.toLowerCase()).toContain("error");
   });
+
+  test("--base populates allChangedFiles from branch diff", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ARCH-020.md",
+      makeAdr({
+        id: "ARCH-020",
+        title: "Base Test ADR",
+        domain: "architecture",
+        rules: false,
+        body: "## Decision\nTest.\n\n## Do's and Don'ts\nDo test.",
+      })
+    );
+    await git(["init", "--initial-branch=main"], dir);
+    await git(["config", "user.email", "test@test.com"], dir);
+    await git(["config", "user.name", "Test"], dir);
+
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "base.ts"), "export const x = 1;\n");
+    await commitAll(dir, "initial commit");
+
+    // Create feature branch and add a file
+    await git(["checkout", "-b", "feature"], dir);
+    writeFileSync(join(dir, "src", "new-feature.ts"), "export const y = 2;\n");
+    await commitAll(dir, "add feature");
+
+    const { exitCode, stdout } = await runCli(
+      ["review-context", "--base", "main"],
+      dir,
+      { GIT_CONFIG_NOSYSTEM: "", GIT_CONFIG_GLOBAL: "" }
+    );
+    expect(exitCode).toBe(0);
+
+    const ctx = JSON.parse(stdout) as {
+      allChangedFiles: string[];
+      domains: Array<{ domain: string; changedFiles: string[] }>;
+    };
+    expect(ctx.allChangedFiles).toContain("src/new-feature.ts");
+    expect(ctx.allChangedFiles).not.toContain("src/base.ts");
+  }, 30_000);
+
+  test("--staged takes precedence over --base for review-context", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ARCH-021.md",
+      makeAdr({
+        id: "ARCH-021",
+        title: "Staged Test ADR",
+        domain: "architecture",
+        rules: false,
+        body: "## Decision\nTest.\n\n## Do's and Don'ts\nDo test.",
+      })
+    );
+    await git(["init", "--initial-branch=main"], dir);
+    await git(["config", "user.email", "test@test.com"], dir);
+    await git(["config", "user.name", "Test"], dir);
+
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "base.ts"), "export const x = 1;\n");
+    await commitAll(dir, "initial commit");
+
+    await git(["checkout", "-b", "feature"], dir);
+    writeFileSync(join(dir, "src", "committed.ts"), "export const c = 3;\n");
+    await commitAll(dir, "committed change");
+
+    // Stage a different file (not committed yet)
+    writeFileSync(join(dir, "src", "staged.ts"), "export const s = 4;\n");
+    await git(["add", "src/staged.ts"], dir);
+
+    // --staged should only show staged.ts, not committed.ts
+    const { exitCode, stdout } = await runCli(
+      ["review-context", "--staged"],
+      dir,
+      { GIT_CONFIG_NOSYSTEM: "", GIT_CONFIG_GLOBAL: "" }
+    );
+    expect(exitCode).toBe(0);
+
+    const ctx = JSON.parse(stdout) as { allChangedFiles: string[] };
+    expect(ctx.allChangedFiles).toContain("src/staged.ts");
+    expect(ctx.allChangedFiles).not.toContain("src/committed.ts");
+  }, 30_000);
 });

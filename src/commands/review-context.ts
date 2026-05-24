@@ -3,9 +3,9 @@
 import type { Command } from "@commander-js/extra-typings";
 
 import { buildReviewContext } from "../engine/context";
-import { detectBaseRef } from "../engine/git-files";
+import { resolveBaseRef } from "../engine/git-files";
 import { exitWith } from "../helpers/exit";
-import { logDebug, logError } from "../helpers/log";
+import { logError } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
@@ -34,21 +34,11 @@ export function registerReviewContextCommand(program: Command) {
       }
 
       // Resolve base ref: --staged skips base detection
-      let resolvedBase: string | undefined;
-      if (!opts.staged) {
-        if (typeof opts.base === "string") {
-          resolvedBase = opts.base;
-          logDebug("Using explicit base ref:", resolvedBase);
-        } else {
-          const configBase = getConfiguredBaseBranch(projectRoot);
-          if (configBase) {
-            resolvedBase = configBase;
-            logDebug("Using configured base branch:", resolvedBase);
-          } else {
-            resolvedBase = (await detectBaseRef(projectRoot)) ?? undefined;
-          }
-        }
-      }
+      const resolvedBase = await resolveBaseRef(projectRoot, {
+        staged: opts.staged,
+        base: opts.base,
+        configBase: getConfiguredBaseBranch(projectRoot),
+      });
 
       try {
         const context = await buildReviewContext(projectRoot, {
