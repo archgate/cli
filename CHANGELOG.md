@@ -1,3 +1,14 @@
+## [0.39.0](https://github.com/archgate/cli/compare/v0.38.0...v0.39.0) (2026-05-25)
+
+### Features
+
+* **check:** add --base flag for cross-file rule parity between local and CI ([#339](https://github.com/archgate/cli/issues/339)) ([1058aa5](https://github.com/archgate/cli/commit/1058aa5550492eb169a74b93e3190550fbc2487f)), closes [#338](https://github.com/archgate/cli/issues/338)
+
+### Performance Improvements
+
+* **check:** batch git subprocesses and auto-populate baseBranch on init ([#347](https://github.com/archgate/cli/issues/347)) ([d0aa6b2](https://github.com/archgate/cli/commit/d0aa6b2b4fb223d58bafa507f1877eecd8e0cb85)), closes [#343](https://github.com/archgate/cli/issues/343) [#346](https://github.com/archgate/cli/issues/346) [#343](https://github.com/archgate/cli/issues/343) [#346](https://github.com/archgate/cli/issues/346)
+* **check:** parallelize file reads in grepFiles() ([#349](https://github.com/archgate/cli/issues/349)) ([1d7bd1f](https://github.com/archgate/cli/commit/1d7bd1f22a50edb0c55f8e651eccfa87e9f92a91)), closes [#344](https://github.com/archgate/cli/issues/344)
+
 ## [0.38.0](https://github.com/archgate/cli/compare/v0.37.0...v0.38.0) (2026-05-24)
 
 ### Features
