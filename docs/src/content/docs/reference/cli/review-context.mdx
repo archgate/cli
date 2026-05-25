@@ -11,11 +11,12 @@ archgate review-context [options]
 
 ## Options
 
-| Option              | Description                          |
-| ------------------- | ------------------------------------ |
-| `--staged`          | Only include git-staged files        |
-| `--run-checks`      | Include ADR compliance check results |
-| `--domain <domain>` | Filter to a single domain            |
+| Option              | Description                                                          |
+| ------------------- | -------------------------------------------------------------------- |
+| `--staged`          | Only include git-staged files                                        |
+| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted) |
+| `--run-checks`      | Include ADR compliance check results                                 |
+| `--domain <domain>` | Filter to a single domain                                            |
 
 ## Example
 

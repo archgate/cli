@@ -13,6 +13,7 @@ import { logDebug } from "../helpers/log";
 import {
   resolveScopedFiles,
   getStagedFiles,
+  getFilesChangedSinceRef,
   getGitTrackedFiles,
 } from "./git-files";
 import { type LoadResult, blockedToRuleResult } from "./loader";
@@ -194,10 +195,14 @@ function createRuleContext(
 export async function runChecks(
   projectRoot: string,
   loadResults: LoadResult[],
-  options: { staged?: boolean; files?: string[] } = {}
+  options: { staged?: boolean; files?: string[]; base?: string } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
-  const changedFiles = options.staged ? await getStagedFiles(projectRoot) : [];
+  const changedFiles = options.staged
+    ? await getStagedFiles(projectRoot)
+    : options.base
+      ? await getFilesChangedSinceRef(projectRoot, options.base)
+      : [];
   const results: RuleResult[] = loadResults
     .filter((lr) => lr.type === "blocked")
     .map((lr) => blockedToRuleResult(projectRoot, lr.value));

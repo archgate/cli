@@ -13,13 +13,14 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Options
 
-| Option       | Description                                               |
-| ------------ | --------------------------------------------------------- |
-| `--staged`   | Only check git-staged files (useful for pre-commit hooks) |
-| `--json`     | Machine-readable JSON output                              |
-| `--ci`       | GitHub Actions annotation format                          |
-| `--adr <id>` | Only check rules from a specific ADR                      |
-| `--verbose`  | Show passing rules and timing info                        |
+| Option         | Description                                                          |
+| -------------- | -------------------------------------------------------------------- |
+| `--staged`     | Only check git-staged files (useful for pre-commit hooks)            |
+| `--base [ref]` | Compare changed files against a base ref (auto-detects when omitted) |
+| `--json`       | Machine-readable JSON output                                         |
+| `--ci`         | GitHub Actions annotation format                                     |
+| `--adr <id>`   | Only check rules from a specific ADR                                 |
+| `--verbose`    | Show passing rules and timing info                                   |
 
 ## Arguments
 
@@ -47,6 +48,12 @@ Check only staged files before committing:
 
 ```bash
 archgate check --staged
+```
+
+Check all files changed on the current branch vs `main`:
+
+```bash
+archgate check --base main
 ```
 
 Check a single ADR:
@@ -77,6 +84,26 @@ Get GitHub Actions annotations:
 
 ```bash
 archgate check --ci
+```
+
+## Changed files detection
+
+By default, `archgate check` auto-detects the base branch and populates `ctx.changedFiles` with the branch diff (`git diff <base>...HEAD`). This enables cross-file dependency rules to work locally -- not just in CI.
+
+The base ref is resolved in priority order:
+
+| Priority | Source                               | `changedFiles` populated with    |
+| -------- | ------------------------------------ | -------------------------------- |
+| 1        | `--staged`                           | Git staging area only            |
+| 2        | `--base <ref>`                       | `git diff <ref>...HEAD`          |
+| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` |
+| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` |
+| 5        | Detection fails                      | Empty (full-scan mode)           |
+
+Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, and local `master`. To set a project default, add `baseBranch` to `.archgate/config.json`:
+
+```json
+{ "baseBranch": "main" }
 ```
 
 ## Diagnostics

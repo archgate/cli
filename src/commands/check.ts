@@ -2,6 +2,7 @@
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
 
+import { resolveBaseRef } from "../engine/git-files";
 import { loadRuleAdrs } from "../engine/loader";
 import {
   reportConsole,
@@ -15,6 +16,7 @@ import { exitWith } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
+import { getConfiguredBaseBranch } from "../helpers/project-config";
 import { trackCheckResult } from "../helpers/telemetry";
 
 export function registerCheckCommand(program: Command) {
@@ -24,6 +26,10 @@ export function registerCheckCommand(program: Command) {
     .option("--json", "Output results as JSON")
     .option("--ci", "Output GitHub Actions annotations")
     .option("--staged", "Only check git-staged files")
+    .option(
+      "--base [ref]",
+      "Compare changed files against a base ref (auto-detects when omitted)"
+    )
     .option("--adr <id>", "Only check rules from a specific ADR")
     .option("--verbose", "Show passing rules and timing info")
     .argument("[files...]", "Only check rules relevant to these files")
@@ -96,8 +102,17 @@ export function registerCheckCommand(program: Command) {
         }
       }
 
+      // Resolve base ref for branch-level change detection.
+      // Priority: --staged (skips base) → --base <ref> → config → auto-detect
+      const resolvedBase = await resolveBaseRef(projectRoot, {
+        staged: opts.staged,
+        base: opts.base,
+        configBase: getConfiguredBaseBranch(projectRoot),
+      });
+
       const result = await runChecks(projectRoot, loadResults, {
         staged: opts.staged,
+        base: resolvedBase,
         files: filterFiles.length > 0 ? filterFiles : undefined,
       });
 
@@ -128,6 +143,7 @@ export function registerCheckCommand(program: Command) {
         pass: summary.pass,
         output_format: outputFormat,
         used_staged: Boolean(opts.staged),
+        used_base: Boolean(resolvedBase),
         used_file_filter: filterFiles.length > 0,
         used_adr_filter: Boolean(opts.adr),
         files_scanned: filterFiles.length,

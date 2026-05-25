@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { AdrDocument, AdrDomain } from "../formats/adr";
-import { getChangedFiles, getStagedFiles } from "./git-files";
+import {
+  getChangedFiles,
+  getFilesChangedSinceRef,
+  getStagedFiles,
+} from "./git-files";
 import { loadRuleAdrs, parseAllAdrs } from "./loader";
 import type { ReportSummary } from "./reporter";
 import { buildSummary } from "./reporter";
@@ -195,6 +199,7 @@ const EMPTY_SUMMARY: ReportSummary = {
 interface BuildReviewContextOptions {
   runChecks?: boolean;
   staged?: boolean;
+  base?: string;
   domain?: AdrDomain;
   maxChangedFiles?: number;
   maxSectionChars?: number;
@@ -211,9 +216,12 @@ export async function buildReviewContext(
   const maxSectionChars = options?.maxSectionChars ?? DEFAULT_MAX_SECTION_CHARS;
   const maxViolationsPerRule = options?.maxViolationsPerRule ?? 20;
 
+  const base = options?.base;
   const rawChangedFiles = staged
     ? await getStagedFiles(projectRoot)
-    : await getChangedFiles(projectRoot);
+    : base
+      ? await getFilesChangedSinceRef(projectRoot, base)
+      : await getChangedFiles(projectRoot);
 
   const truncatedFiles = maxFiles > 0 && rawChangedFiles.length > maxFiles;
   const allChangedFiles = truncatedFiles
@@ -228,7 +236,10 @@ export async function buildReviewContext(
   if (options?.runChecks) {
     const loadResults = await loadRuleAdrs(projectRoot);
     if (loadResults.length > 0) {
-      const checkResult = await runChecks(projectRoot, loadResults, { staged });
+      const checkResult = await runChecks(projectRoot, loadResults, {
+        staged,
+        base,
+      });
       checkSummary = buildSummary(checkResult, { maxViolationsPerRule });
     } else {
       checkSummary = { ...EMPTY_SUMMARY };

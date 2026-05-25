@@ -99,14 +99,22 @@ Use `ctx.scopedFiles` quando sua regra deve se aplicar apenas aos arquivos que o
 
 ### ctx.changedFiles
 
-Um array de caminhos de arquivo que foram modificados (staged ou alterados no git). Útil para verificação incremental -- valide apenas os arquivos que foram efetivamente alterados.
+Um array de caminhos de arquivo que diferem da branch base. Auto-detectado por padrão, ou preenchido via `--staged` / `--base <ref>`. Útil para verificação incremental e regras de dependência entre arquivos.
 
 ```typescript
+// Verificação incremental -- validar apenas arquivos alterados
 const filesToCheck = ctx.scopedFiles.filter((f) =>
   ctx.changedFiles.includes(f)
 );
-for (const file of filesToCheck) {
-  // Only check changed files
+
+// Dependência entre arquivos -- se o arquivo A mudou, o arquivo B também deve mudar
+if (ctx.changedFiles.includes("config/database.yml")) {
+  if (!ctx.changedFiles.includes("deploy/manifest.yml")) {
+    ctx.report.violation({
+      message: "config changed but manifest was not bumped",
+      file: "config/database.yml",
+    });
+  }
 }
 ```
 
@@ -277,7 +285,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` para verificação incremental.** Ao executar `archgate check --staged`, `ctx.changedFiles` contém apenas os arquivos staged no git. Filtre `ctx.scopedFiles` com ele para verificar apenas o que mudou.
+2. **Use `ctx.changedFiles` para verificação incremental.** `ctx.changedFiles` é auto-preenchido com o diff da branch (ou arquivos staged com `--staged`). Filtre `ctx.scopedFiles` com ele para verificar apenas o que mudou, ou use-o diretamente para regras de dependência entre arquivos.
 
 3. **Mantenha as regras focadas em uma única preocupação.** Uma regra que verifica tanto convenções de nomenclatura quanto padrões de import deve ser dividida em duas regras com IDs separados.
 

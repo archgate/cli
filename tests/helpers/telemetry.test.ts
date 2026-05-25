@@ -163,6 +163,7 @@ describe("telemetry", () => {
         pass: false,
         output_format: "console",
         used_staged: false,
+        used_base: false,
         used_file_filter: false,
         used_adr_filter: false,
       });
@@ -183,6 +184,7 @@ describe("telemetry", () => {
         pass: true,
         output_format: "json",
         used_staged: true,
+        used_base: true,
         used_file_filter: true,
         used_adr_filter: true,
         files_scanned: 42,

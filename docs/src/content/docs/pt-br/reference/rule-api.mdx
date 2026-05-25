@@ -93,7 +93,7 @@ Arquivos que correspondem aos padrões glob de `files` do frontmatter do ADR. Se
 changedFiles: string[];
 ```
 
-Arquivos que foram modificados de acordo com o git. Quando `--staged` é usado, contém apenas arquivos no stage. Quando executado sem `--staged`, contém todos os arquivos alterados (staged e unstaged). Vazio quando nenhuma alteração git é detectada.
+Arquivos que foram modificados de acordo com o git. Por padrão, é auto-preenchido com o diff da branch contra a branch base detectada (ex: `origin/main`). Quando `--staged` é usado, contém apenas arquivos staged. Quando `--base <ref>` é usado, contém todos os arquivos alterados desde aquela ref. Vazio quando a detecção falha ou nenhuma alteração é encontrada. Use para construir regras de dependência entre arquivos (ex: "se o arquivo A mudou, o arquivo B também deve mudar").
 
 #### report
 

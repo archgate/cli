@@ -142,6 +142,16 @@ Avisos (severidade `warning`) são registrados, mas não afetam o código de sa�
 
 ## Reduzindo o escopo
 
+### Verificar arquivos alterados no PR
+
+Use `--base` para comparar contra a branch base do PR. Isso dá às regras de dependência entre arquivos a visão completa do que mudou:
+
+```yaml
+- run: archgate check --base origin/${{ github.base_ref }}
+```
+
+Sem `--base`, a branch base é auto-detectada a partir de `origin/HEAD`. A forma explícita é recomendada no CI para comportamento determinístico.
+
 ### Verificar apenas arquivos staged
 
 Use `--staged` para limitar a verificação aos arquivos staged no git. Isso é útil em hooks de pre-commit ou quando você deseja validar apenas o que está prestes a ser commitado:

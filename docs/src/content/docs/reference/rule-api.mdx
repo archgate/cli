@@ -93,7 +93,7 @@ Files matching the ADR's `files` glob patterns from its frontmatter. If the ADR 
 changedFiles: string[];
 ```
 
-Files that have been modified according to git. When `--staged` is used, this contains only staged files. When running without `--staged`, this contains all changed files (staged and unstaged). Empty when no git changes are detected.
+Files that have been modified according to git. By default, this is auto-populated with the branch diff against the detected base branch (e.g., `origin/main`). When `--staged` is used, this contains only staged files. When `--base <ref>` is used, this contains all files changed since that ref. Empty when base detection fails or no changes are found. Use this to build cross-file dependency rules (e.g., "if file A changed, file B must also change").
 
 #### report
 
