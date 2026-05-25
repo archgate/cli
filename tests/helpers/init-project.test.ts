@@ -120,8 +120,6 @@ describe("initProject", () => {
 
     const content = JSON.parse(await Bun.file(settingsPath).text());
     expect(content.agent).toBe("archgate:developer");
-    // MCP settings should not be present (MCP removed)
-    expect(content.enabledMcpjsonServers).toBeUndefined();
   });
 
   test("includes editorSettingsPath in result", async () => {

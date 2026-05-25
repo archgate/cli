@@ -16,7 +16,7 @@ Bun provides two subprocess APIs:
 - **`Bun.$` (shell template literals)** — A shell-like API that pipes commands through a subprocess shell. Convenient syntax (`await Bun.$\`git ls-files\`.text()`), but relies on platform-specific shell behavior.
 - **`Bun.spawn` (array-based)** — A lower-level API that executes a command directly (no intermediate shell). Takes an array of arguments, explicit pipe configuration, and returns a process handle with `stdout`, `stderr`, and `exited` properties.
 
-**The problem:** `Bun.$` hangs on Windows. The shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that block the calling thread indefinitely. When the Archgate CLI runs as an MCP server inside Claude Code or Cursor, this deadlock freezes the entire editor's agent interface — the user must force-kill the process. This was discovered in production and fixed in commit `ca33377`, which replaced all `Bun.$` calls with `Bun.spawn`.
+**The problem:** `Bun.$` hangs on Windows. The shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that block the calling thread indefinitely. This was discovered in production and fixed in commit `ca33377`, which replaced all `Bun.$` calls with `Bun.spawn`.
 
 **Alternatives considered:**
 
@@ -136,7 +136,6 @@ Bun.spawn(["git diff --cached | head -5"]); // This is a single argument, not a 
 
 - **Cross-platform reliability** — `Bun.spawn` works identically on macOS, Linux, and Windows. No platform-specific pipe handling differences.
 - **No deadlocks** — Array-based execution avoids the stdin/stdout pipe issues that cause `Bun.$` to hang on Windows.
-- **MCP server safety** — The CLI runs as a long-lived MCP server inside editors. A subprocess deadlock would freeze the entire agent interface. `Bun.spawn` eliminates this risk.
 - **Explicit argument handling** — Array-based arguments prevent shell injection vulnerabilities. Each argument is passed directly to the command, not interpreted by a shell.
 - **No shell dependency** — The command does not require a shell interpreter (bash, cmd.exe, PowerShell) to be available or configured correctly.
 - **Consistent error handling** — `proc.exited` returns a Promise that resolves to the exit code, making error checking uniform across all subprocess calls.
