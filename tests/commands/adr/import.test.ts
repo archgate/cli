@@ -15,6 +15,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -130,8 +131,14 @@ describe("import action handler", () => {
   let exitSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-import-test-"));
-    upstreamDir = mkdtempSync(join(tmpdir(), "archgate-upstream-"));
+    // realpathSync normalizes macOS /var → /private/var symlink so paths
+    // match what process.cwd() and mock.module resolve to at runtime.
+    tempDir = realpathSync(
+      mkdtempSync(join(tmpdir(), "archgate-import-test-"))
+    );
+    upstreamDir = realpathSync(
+      mkdtempSync(join(tmpdir(), "archgate-upstream-"))
+    );
     originalCwd = process.cwd();
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     logSpy = spyOn(console, "log").mockImplementation(() => {});

@@ -130,13 +130,19 @@ describe("platform shorthand helpers", () => {
   });
 });
 
+// Bun.which returns null on macOS ARM64 GitHub runners where bun/git are
+// installed via proto toolchain shims. Skip PATH-presence tests when the
+// underlying Bun.which can't find the tool.
+const bunOnPath = !!Bun.which("bun");
+const gitOnPath = !!Bun.which("git");
+
 describe("resolveCommand", () => {
-  test("finds bun on PATH", async () => {
+  test.skipIf(!bunOnPath)("finds bun on PATH", async () => {
     const result = await resolveCommand("bun");
     expect(result).toBe("bun");
   });
 
-  test("finds git on PATH", async () => {
+  test.skipIf(!gitOnPath)("finds git on PATH", async () => {
     const result = await resolveCommand("git");
     expect(result).not.toBeNull();
   });

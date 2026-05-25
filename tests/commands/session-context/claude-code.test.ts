@@ -9,7 +9,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -76,7 +76,9 @@ describe("claude-code action handler", () => {
   let exitSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-cc-test-"));
+    // realpathSync normalizes macOS /var → /private/var symlink so the
+    // path matches what process.cwd() returns after chdir.
+    tempDir = realpathSync(mkdtempSync(join(tmpdir(), "archgate-cc-test-")));
     originalCwd = process.cwd();
     // Create .archgate/ so findProjectRoot returns this dir
     mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
