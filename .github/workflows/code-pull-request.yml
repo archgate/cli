@@ -33,19 +33,16 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
-        with:
-          auto-install: true
-          cache: true
-          cache-base: main
       - name: Restore Bun Package Cache
         id: restore-bun-cache
         uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      - uses: ./.github/actions/setup-bun-project
+        with:
+          cache: "true"
+          cache-base: main
       - name: Validate commit messages
         if: github.event_name == 'pull_request'
         env:
@@ -105,122 +102,26 @@ jobs:
           path: coverage-windows
         continue-on-error: true
       - name: Merge coverage and generate report
-        id: merge-coverage
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          sudo apt-get install -y -qq lcov > /dev/null 2>&1
-
-          # Start with Linux coverage
-          cp coverage-linux/lcov.info merged.info
-
-          # Add Windows coverage if available (normalize backslash paths first)
-          if [ -f coverage-windows/lcov.info ]; then
-            sed -i 's|\\|/|g' coverage-windows/lcov.info
-            lcov --add-tracefile coverage-linux/lcov.info \
-                 --add-tracefile coverage-windows/lcov.info \
-                 --output-file merged.info --quiet
-          fi
-
-          # Filter to src/ only (excludes test temp dirs)
-          lcov --extract merged.info 'src/*' --output-file coverage.info --quiet
-
-          # Generate HTML report
-          genhtml coverage.info --output-directory coverage-html --quiet
-
-          # Parse summary stats
-          LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage.info)
-          LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage.info)
-          if [ "$LINES_FOUND" -gt 0 ]; then
-            COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
-          else
-            COVERAGE="0.0"
-          fi
-
-          # Determine coverage threshold status
-          MIN_COVERAGE=90
-          THRESHOLD_MET=$(awk "BEGIN{print ($COVERAGE >= $MIN_COVERAGE) ? 1 : 0}")
-          if [ "$THRESHOLD_MET" = "1" ]; then
-            THRESHOLD_LABEL="met"
-          else
-            THRESHOLD_LABEL="**not met**"
-          fi
-
-          # Per-directory coverage table
-          DIR_TABLE=$(awk -F: '
-            /^SF:/ {
-              file = $2
-              n = split(file, p, "/")
-              dir = (n >= 3) ? p[1] "/" p[2] : (n == 2 ? p[1] : file)
-            }
-            /^LF:/ { lf[dir] += $2 }
-            /^LH:/ { lh[dir] += $2 }
-            END {
-              for (d in lf) {
-                pct = (lf[d] > 0) ? (lh[d] / lf[d]) * 100 : 0
-                printf "| `%s/` | %.1f%% | %d / %d |\n", d, pct, lh[d], lf[d]
-              }
-            }
-          ' coverage.info | sort)
-
-          # Check if Windows coverage was merged
-          if [ -f coverage-windows/lcov.info ]; then
-            PLATFORMS="Linux + Windows"
-          else
-            PLATFORMS="Linux only"
-          fi
-
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-          # Build report markdown
-          {
-            echo "## Code Coverage"
-            echo ""
-            echo "| Metric | Value |"
-            echo "|--------|-------|"
-            echo "| **Lines** | **${COVERAGE}%** (${LINES_HIT} / ${LINES_FOUND}) |"
-            echo "| **Threshold** | ${MIN_COVERAGE}% minimum — ${THRESHOLD_LABEL} |"
-            echo "| **Platforms** | ${PLATFORMS} |"
-            echo ""
-            echo "Full HTML report available in [workflow artifacts](${RUN_URL}#artifacts)."
-            echo ""
-            echo "<details>"
-            echo "<summary>Per-directory breakdown</summary>"
-            echo ""
-            echo "| Directory | Coverage | Lines |"
-            echo "|-----------|----------|-------|"
-            echo "${DIR_TABLE}"
-            echo ""
-            echo "</details>"
-          } > /tmp/coverage-report.md
-
-          # Write to GitHub Actions job summary
-          cat /tmp/coverage-report.md >> "$GITHUB_STEP_SUMMARY"
-
-          # Post/update PR comment (skipped for fork PRs and non-PR events)
-          if [ "${{ github.event_name }}" = "pull_request" ] && \
-             [ "${{ github.event.pull_request.head.repo.fork }}" != "true" ]; then
-            PR_NUM="${{ github.event.pull_request.number }}"
-            BODY="<!-- archgate-coverage -->
-          $(cat /tmp/coverage-report.md)"
-
-            gh pr comment "${PR_NUM}" --body "${BODY}" --edit-last 2>/dev/null || \
-              gh pr comment "${PR_NUM}" --body "${BODY}"
-          fi
-
-          # Output coverage for threshold enforcement step
-          echo "coverage=$COVERAGE" >> "$GITHUB_OUTPUT"
+        id: coverage-report
+        uses: ./.github/actions/coverage-report
+        with:
+          min-coverage: "90"
+          github-token: ${{ github.token }}
+          event-name: ${{ github.event_name }}
+          pr-number: ${{ github.event.pull_request.number }}
+          is-fork: ${{ github.event.pull_request.head.repo.fork }}
+          run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Upload coverage report
-        if: always() && steps.merge-coverage.outcome == 'success'
+        if: always() && steps.coverage-report.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
-          path: coverage-html
+          path: ${{ steps.coverage-report.outputs.html-report-path }}
           retention-days: 30
       - name: Enforce coverage threshold
-        if: always() && steps.merge-coverage.outcome == 'success'
+        if: always() && steps.coverage-report.outcome == 'success'
         run: |
-          COVERAGE="${{ steps.merge-coverage.outputs.coverage }}"
+          COVERAGE="${{ steps.coverage-report.outputs.coverage }}"
           MIN_COVERAGE=90
           BELOW=$(awk "BEGIN{print ($COVERAGE < $MIN_COVERAGE) ? 1 : 0}")
           if [ "$BELOW" = "1" ]; then

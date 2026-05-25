@@ -1,0 +1,168 @@
+name: Coverage Report
+description: Merge multi-platform coverage data, generate reports, post PR comment, and compute threshold status
+
+inputs:
+  min-coverage:
+    description: Minimum line coverage percentage required
+    required: false
+    default: "90"
+  github-token:
+    description: GitHub token for posting PR comments
+    required: true
+  linux-coverage-path:
+    description: Path to Linux lcov.info file
+    required: false
+    default: "coverage-linux/lcov.info"
+  windows-coverage-path:
+    description: Path to Windows lcov.info file (may not exist)
+    required: false
+    default: "coverage-windows/lcov.info"
+  src-filter:
+    description: lcov extract pattern to filter coverage to source files
+    required: false
+    default: "src/*"
+  event-name:
+    description: github.event_name value
+    required: true
+  pr-number:
+    description: github.event.pull_request.number value (empty for non-PR events)
+    required: false
+    default: ""
+  is-fork:
+    description: github.event.pull_request.head.repo.fork value
+    required: false
+    default: "false"
+  run-url:
+    description: Full URL to the workflow run for artifact links
+    required: true
+
+outputs:
+  coverage:
+    description: Total line coverage percentage (e.g. 92.3)
+    value: ${{ steps.report.outputs.coverage }}
+  threshold-met:
+    description: Whether coverage meets the minimum threshold (true/false)
+    value: ${{ steps.report.outputs.threshold-met }}
+  html-report-path:
+    description: Path to the generated HTML coverage report directory
+    value: ${{ steps.report.outputs.html-report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install lcov
+      shell: bash
+      run: sudo apt-get install -y -qq lcov > /dev/null 2>&1
+
+    - name: Merge coverage and generate report
+      id: report
+      shell: bash
+      env:
+        MIN_COVERAGE: ${{ inputs.min-coverage }}
+        LINUX_COVERAGE: ${{ inputs.linux-coverage-path }}
+        WINDOWS_COVERAGE: ${{ inputs.windows-coverage-path }}
+        SRC_FILTER: ${{ inputs.src-filter }}
+        EVENT_NAME: ${{ inputs.event-name }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        IS_FORK: ${{ inputs.is-fork }}
+        RUN_URL: ${{ inputs.run-url }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        # Start with Linux coverage
+        cp "$LINUX_COVERAGE" merged.info
+
+        # Add Windows coverage if available (normalize backslash paths first)
+        if [ -f "$WINDOWS_COVERAGE" ]; then
+          sed -i 's|\\|/|g' "$WINDOWS_COVERAGE"
+          lcov --add-tracefile "$LINUX_COVERAGE" \
+               --add-tracefile "$WINDOWS_COVERAGE" \
+               --output-file merged.info --quiet
+        fi
+
+        # Filter to source files only (excludes test temp dirs)
+        lcov --extract merged.info "$SRC_FILTER" --output-file coverage.info --quiet
+
+        # Generate HTML report
+        genhtml coverage.info --output-directory coverage-html --quiet
+
+        # Parse summary stats
+        LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage.info)
+        LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage.info)
+        if [ "$LINES_FOUND" -gt 0 ]; then
+          COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
+        else
+          COVERAGE="0.0"
+        fi
+
+        # Determine coverage threshold status
+        THRESHOLD_MET=$(awk "BEGIN{print ($COVERAGE >= $MIN_COVERAGE) ? 1 : 0}")
+        if [ "$THRESHOLD_MET" = "1" ]; then
+          THRESHOLD_LABEL="met"
+          THRESHOLD_MET_OUTPUT="true"
+        else
+          THRESHOLD_LABEL="**not met**"
+          THRESHOLD_MET_OUTPUT="false"
+        fi
+
+        # Per-directory coverage table
+        DIR_TABLE=$(awk -F: '
+          /^SF:/ {
+            file = $2
+            n = split(file, p, "/")
+            dir = (n >= 3) ? p[1] "/" p[2] : (n == 2 ? p[1] : file)
+          }
+          /^LF:/ { lf[dir] += $2 }
+          /^LH:/ { lh[dir] += $2 }
+          END {
+            for (d in lf) {
+              pct = (lf[d] > 0) ? (lh[d] / lf[d]) * 100 : 0
+              printf "| `%s/` | %.1f%% | %d / %d |\n", d, pct, lh[d], lf[d]
+            }
+          }
+        ' coverage.info | sort)
+
+        # Check if Windows coverage was merged
+        if [ -f "$WINDOWS_COVERAGE" ]; then
+          PLATFORMS="Linux + Windows"
+        else
+          PLATFORMS="Linux only"
+        fi
+
+        # Build report markdown
+        {
+          echo "## Code Coverage"
+          echo ""
+          echo "| Metric | Value |"
+          echo "|--------|-------|"
+          echo "| **Lines** | **${COVERAGE}%** (${LINES_HIT} / ${LINES_FOUND}) |"
+          echo "| **Threshold** | ${MIN_COVERAGE}% minimum — ${THRESHOLD_LABEL} |"
+          echo "| **Platforms** | ${PLATFORMS} |"
+          echo ""
+          echo "Full HTML report available in [workflow artifacts](${RUN_URL}#artifacts)."
+          echo ""
+          echo "<details>"
+          echo "<summary>Per-directory breakdown</summary>"
+          echo ""
+          echo "| Directory | Coverage | Lines |"
+          echo "|-----------|----------|-------|"
+          echo "${DIR_TABLE}"
+          echo ""
+          echo "</details>"
+        } > /tmp/coverage-report.md
+
+        # Write to GitHub Actions job summary
+        cat /tmp/coverage-report.md >> "$GITHUB_STEP_SUMMARY"
+
+        # Post/update PR comment (skipped for fork PRs and non-PR events)
+        if [ "$EVENT_NAME" = "pull_request" ] && [ "$IS_FORK" != "true" ]; then
+          BODY="<!-- archgate-coverage -->
+        $(cat /tmp/coverage-report.md)"
+
+          gh pr comment "${PR_NUMBER}" --body "${BODY}" --edit-last 2>/dev/null || \
+            gh pr comment "${PR_NUMBER}" --body "${BODY}"
+        fi
+
+        # Write outputs
+        echo "coverage=$COVERAGE" >> "$GITHUB_OUTPUT"
+        echo "threshold-met=$THRESHOLD_MET_OUTPUT" >> "$GITHUB_OUTPUT"
+        echo "html-report-path=coverage-html" >> "$GITHUB_OUTPUT"

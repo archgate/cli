@@ -1,0 +1,24 @@
+name: Setup Bun Project
+description: Install toolchain via moonrepo and project dependencies via bun
+
+inputs:
+  cache:
+    description: Enable moonrepo toolchain caching
+    required: false
+    default: "false"
+  cache-base:
+    description: Base branch for moonrepo toolchain cache
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
+      with:
+        auto-install: true
+        cache: ${{ inputs.cache }}
+        cache-base: ${{ inputs.cache-base }}
+    - name: Install dependencies
+      shell: bash
+      run: bun install --frozen-lockfile
