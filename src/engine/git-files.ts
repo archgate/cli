@@ -3,10 +3,7 @@
 /** Git file-listing utilities for ADR scope resolution and change detection. */
 
 import { logDebug, logWarn } from "../helpers/log";
-import {
-  loadProjectConfig,
-  saveProjectConfig,
-} from "../helpers/project-config";
+import { ensureBaseBranch } from "../helpers/project-config";
 
 /** Warn when an ADR's resolved file scope exceeds this many files. */
 export const SCOPE_FILE_WARN_THRESHOLD = 1000;
@@ -253,24 +250,8 @@ export async function resolveBaseRef(
     return options.configBase;
   }
 
-  const detected = await detectBaseRef(projectRoot);
-  if (detected) {
-    // Lazy-save: persist detected base branch to config.json so future runs
-    // skip detection entirely. Non-fatal — read-only filesystems are fine.
-    try {
-      const config = loadProjectConfig(projectRoot);
-      if (!config.baseBranch) {
-        await saveProjectConfig(projectRoot, {
-          ...config,
-          baseBranch: detected,
-        });
-        logDebug("Saved detected base branch to config:", detected);
-      }
-    } catch {
-      logDebug("Could not save detected base branch to config");
-    }
-  }
-  return detected ?? undefined;
+  // Lazy-save: detect + persist to config.json so future runs skip detection.
+  return (await ensureBaseBranch(projectRoot, detectBaseRef)) ?? undefined;
 }
 
 /**

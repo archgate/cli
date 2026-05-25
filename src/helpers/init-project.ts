@@ -14,7 +14,7 @@ import {
   opencodeAgentsDir,
   projectPaths,
 } from "./paths";
-import { loadProjectConfig, saveProjectConfig } from "./project-config";
+import { ensureBaseBranch } from "./project-config";
 import { writeRulesShim } from "./rules-shim";
 import { configureVscodeSettings } from "./vscode-settings";
 
@@ -126,22 +126,7 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
 
   // Auto-detect base branch and save to config.json when not already configured.
   // Runs after directory creation so .archgate/ exists for saveProjectConfig.
-  // Non-fatal — detection may fail if not in a git repo.
-  const existingConfig = loadProjectConfig(projectRoot);
-  if (!existingConfig.baseBranch) {
-    try {
-      const detectedBase = await detectBaseRef(projectRoot);
-      if (detectedBase) {
-        await saveProjectConfig(projectRoot, {
-          ...existingConfig,
-          baseBranch: detectedBase,
-        });
-        logDebug("Auto-detected base branch:", detectedBase);
-      }
-    } catch {
-      logDebug("Base branch detection failed during init (not a git repo?)");
-    }
-  }
+  await ensureBaseBranch(projectRoot, detectBaseRef);
 
   // Plugin installation (optional — requires stored credentials)
   let plugin: PluginResult | undefined;
