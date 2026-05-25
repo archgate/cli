@@ -23,103 +23,108 @@ import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
+import { parsePackMetadata } from "../../../src/formats/pack";
+
 // Module mock — declared before importing so shallowClone never hits the network.
+// Provides explicit implementations instead of `require()` + spread of the mocked
+// module, which is unreliable on macOS ARM64 (Bun mock.module interop issue).
 let fakeCloneDir: string = "";
-mock.module("../../../src/helpers/registry", () => {
-  const real = require("../../../src/helpers/registry");
-  return { ...real, shallowClone: () => Promise.resolve(fakeCloneDir) };
-});
+mock.module("../../../src/helpers/registry", () => ({
+  resolveSource(input: string) {
+    const atIdx = input.lastIndexOf("@");
+    const base = atIdx <= 0 ? input : input.slice(0, atIdx);
+    const ref = atIdx <= 0 ? undefined : input.slice(atIdx + 1);
+    if (base.startsWith("packs/")) {
+      return {
+        kind: "official",
+        repoUrl: "https://github.com/archgate/awesome-adrs.git",
+        ref,
+        subpath: base,
+      };
+    }
+    const segments = base.split("/");
+    if (segments.length >= 3) {
+      const [org, repo, ...rest] = segments;
+      return {
+        kind: "github-repo",
+        repoUrl: `https://github.com/${org}/${repo}.git`,
+        ref,
+        subpath: rest.join("/"),
+      };
+    }
+    throw new Error(`Cannot resolve source "${input}".`);
+  },
+  async detectTarget(cloneDir: string, subpath: string) {
+    const fullPath = join(cloneDir, subpath);
+    const packYaml = join(fullPath, "archgate-pack.yaml");
+    if (existsSync(packYaml)) {
+      const raw = await Bun.file(packYaml).text();
+      const packMeta = parsePackMetadata(raw);
+      const adrsDir = join(fullPath, "adrs");
+      const entries = existsSync(adrsDir) ? readdirSync(adrsDir) : [];
+      return {
+        kind: "pack",
+        packMeta,
+        adrFiles: entries
+          .filter((f: string) => f.endsWith(".md"))
+          .map((f: string) => join(adrsDir, f)),
+        rulesFiles: entries
+          .filter((f: string) => f.endsWith(".rules.ts"))
+          .map((f: string) => join(adrsDir, f)),
+        baseDir: adrsDir,
+      };
+    }
+    const mdPath = fullPath.endsWith(".md") ? fullPath : `${fullPath}.md`;
+    if (existsSync(mdPath)) {
+      const rulesPath = mdPath.replace(/\.md$/u, ".rules.ts");
+      return {
+        kind: "single-adr",
+        adrFile: mdPath,
+        rulesFile: existsSync(rulesPath) ? rulesPath : null,
+        baseDir: join(mdPath, ".."),
+      };
+    }
+    throw new Error(
+      `Cannot detect import target at "${subpath}". Expected archgate-pack.yaml (pack) or a .md file (single ADR).`
+    );
+  },
+  shallowClone: () => Promise.resolve(fakeCloneDir),
+}));
 
 import { registerAdrImportCommand } from "../../../src/commands/adr/import";
 import { safeRmSync } from "../../test-utils";
 
-const PACK_YAML = [
-  "name: test-pack",
-  "version: 0.1.0",
-  "description: A test pack for import testing.",
-  "maintainers:",
-  "  - github: testuser",
-  "tags: []",
-  "requires: []",
-].join("\n");
+const PACK_YAML =
+  "name: test-pack\nversion: 0.1.0\ndescription: A test pack for import testing.\nmaintainers:\n  - github: testuser\ntags: []\nrequires: []";
 
-const ADR_1 = [
-  "---",
-  "id: TP-001",
-  "title: Test Rule",
-  "domain: architecture",
-  "rules: true",
-  "---",
-  "",
-  "## Context",
-  "Test ADR.",
-].join("\n");
+const ADR_1 =
+  "---\nid: TP-001\ntitle: Test Rule\ndomain: architecture\nrules: true\n---\n\n## Context\nTest ADR.";
 
-const ADR_2 = [
-  "---",
-  "id: TP-002",
-  "title: Another Rule",
-  "domain: architecture",
-  "rules: false",
-  "---",
-  "",
-  "## Context",
-  "Another test ADR.",
-].join("\n");
+const ADR_2 =
+  "---\nid: TP-002\ntitle: Another Rule\ndomain: architecture\nrules: false\n---\n\n## Context\nAnother test ADR.";
 
 const RULES_TS =
-  "/// <reference path='../rules.d.ts' />\n" +
-  "export default { rules: {} } satisfies RuleSet;\n";
+  "/// <reference path='../rules.d.ts' />\nexport default { rules: {} } satisfies RuleSet;\n";
 
 describe("registerAdrImportCommand", () => {
-  test("registers 'import' as a subcommand", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import");
-    expect(sub).toBeDefined();
-  });
+  const sub = () => {
+    const p = new Command("adr");
+    registerAdrImportCommand(p);
+    return p.commands.find((c) => c.name() === "import")!;
+  };
+  const hasOpt = (long: string) => sub().options.find((o) => o.long === long);
 
-  test("has a description", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import")!;
-    expect(sub.description()).toBeTruthy();
-  });
-
-  test("accepts --yes option", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import")!;
-    expect(sub.options.find((o) => o.long === "--yes")).toBeDefined();
-  });
-
-  test("accepts --json option", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import")!;
-    expect(sub.options.find((o) => o.long === "--json")).toBeDefined();
-  });
-
-  test("accepts --dry-run option", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import")!;
-    expect(sub.options.find((o) => o.long === "--dry-run")).toBeDefined();
-  });
-
-  test("accepts --list option", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import")!;
-    expect(sub.options.find((o) => o.long === "--list")).toBeDefined();
-  });
-
+  test("registers 'import' as a subcommand", () => expect(sub()).toBeDefined());
+  test("has a description", () => expect(sub().description()).toBeTruthy());
+  test("accepts --yes option", () => expect(hasOpt("--yes")).toBeDefined());
+  test("accepts --json option", () => expect(hasOpt("--json")).toBeDefined());
+  test("accepts --dry-run option", () =>
+    expect(hasOpt("--dry-run")).toBeDefined());
+  test("accepts --list option", () => expect(hasOpt("--list")).toBeDefined());
   test("requires <source...> argument", () => {
-    const parent = new Command("adr");
-    registerAdrImportCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "import")!;
-    expect(sub.registeredArguments.length).toBeGreaterThanOrEqual(1);
-    expect(sub.registeredArguments[0].name()).toBe("source");
+    const s = sub();
+    expect(s.registeredArguments.length).toBeGreaterThanOrEqual(1);
+    expect(s.registeredArguments[0].name()).toBe("source");
   });
 });
 
