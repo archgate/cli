@@ -27,9 +27,4 @@ describe("configureCursorSettings", () => {
     configureCursorSettings(tempDir);
     expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
   });
-
-  test("does not create mcp.json", () => {
-    configureCursorSettings(tempDir);
-    expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
-  });
 });

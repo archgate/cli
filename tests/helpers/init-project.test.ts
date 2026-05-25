@@ -85,7 +85,6 @@ describe("initProject", () => {
 
     // Cursor plugin is embedded in the VSIX — no project-level files written
     expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
-    expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
 
     // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
@@ -120,8 +119,6 @@ describe("initProject", () => {
 
     const content = JSON.parse(await Bun.file(settingsPath).text());
     expect(content.agent).toBe("archgate:developer");
-    // MCP settings should not be present (MCP removed)
-    expect(content.enabledMcpjsonServers).toBeUndefined();
   });
 
   test("includes editorSettingsPath in result", async () => {

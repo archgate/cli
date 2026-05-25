@@ -308,11 +308,8 @@ export async function loadRuleAdrs(
         };
       }
 
-      // Cache-bust: Bun caches import() per-process, so append a timestamp
-      // to force re-reading from disk on every call (critical for repeated invocations).
       // Use file:// URL to handle Windows backslash paths in import().
-      const rulesUrl = `${pathToFileURL(rulesFile).href}?t=${Date.now()}`;
-      const mod = await import(rulesUrl);
+      const mod = await import(pathToFileURL(rulesFile).href);
       const parsed = RuleSetSchema.safeParse(mod.default);
 
       if (!parsed.success) {

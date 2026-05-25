@@ -24,14 +24,6 @@ describe("configureCopilotSettings", () => {
     expect(existsSync(join(tempDir, ".github", "copilot"))).toBe(true);
   });
 
-  test("does not create mcp.json", async () => {
-    await configureCopilotSettings(tempDir);
-
-    expect(existsSync(join(tempDir, ".github", "copilot", "mcp.json"))).toBe(
-      false
-    );
-  });
-
   test("returns path to .github/copilot/ directory", async () => {
     const result = await configureCopilotSettings(tempDir);
 

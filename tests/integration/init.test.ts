@@ -65,10 +65,7 @@ describe("init integration", () => {
     expect(result.exitCode).toBe(0);
 
     // Cursor plugin is embedded in the VSIX — no .cursor/ files written
-    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
-    expect(
-      existsSync(join(tempDir, ".cursor", "rules", "archgate-governance.mdc"))
-    ).toBe(false);
+    expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
   });
 
   test("init with --editor copilot creates copilot directory", async () => {
