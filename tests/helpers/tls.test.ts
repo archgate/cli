@@ -50,14 +50,18 @@ describe("tlsHintMessage", () => {
     expect(tlsHintMessage()).toContain("corporate proxy");
   });
 
-  test("shows shell-appropriate syntax per platform", () => {
-    const msg = tlsHintMessage();
-    if (process.platform === "win32") {
+  test.skipIf(process.platform !== "win32")(
+    "shows Windows shell syntax",
+    () => {
+      const msg = tlsHintMessage();
       expect(msg).toContain("PowerShell:");
       expect(msg).toContain("cmd:");
       expect(msg).toContain("Git Bash:");
-    } else {
-      expect(msg).toContain("export NODE_EXTRA_CA_CERTS=");
     }
+  );
+
+  test.skipIf(process.platform === "win32")("shows Unix export syntax", () => {
+    const msg = tlsHintMessage();
+    expect(msg).toContain("export NODE_EXTRA_CA_CERTS=");
   });
 });

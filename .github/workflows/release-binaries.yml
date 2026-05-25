@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate (Windows)
         if: runner.os == 'Windows'
-        run: bun run lint && bun run typecheck && bun run format:check && bun test
+        run: bun run lint && bun run typecheck && bun run format:check && bun run test
 
       - name: Build binary
         run: |
