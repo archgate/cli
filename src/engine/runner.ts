@@ -146,31 +146,52 @@ function createRuleContext(
     async grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]> {
       safeGlob(fileGlob);
       const g = new Bun.Glob(fileGlob);
-      const allMatches: GrepMatch[] = [];
 
+      // Collect paths first, then read in parallel batches for I/O throughput.
       // dot: true to match dot-prefixed source dirs (`.github/`, etc.).
       // See https://github.com/archgate/cli/issues/222.
+      const files: string[] = [];
       for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
         const normalized = file.replaceAll("\\", "/");
         if (trackedFiles && !trackedFiles.has(normalized)) continue;
-        const absPath = safePath(projectRoot, file);
-        try {
-          const content = await Bun.file(absPath).text();
-          const lines = content.split("\n");
+        files.push(normalized);
+      }
 
-          for (let i = 0; i < lines.length; i++) {
-            const match = lines[i].match(pattern);
-            if (match) {
-              allMatches.push({
-                file: normalized,
-                line: i + 1,
-                column: (match.index ?? 0) + 1,
-                content: lines[i],
-              });
+      const BATCH_SIZE = 32;
+      const allMatches: GrepMatch[] = [];
+
+      for (let i = 0; i < files.length; i += BATCH_SIZE) {
+        const batch = files.slice(i, i + BATCH_SIZE);
+        // oxlint-disable-next-line no-await-in-loop -- batched parallelism with sequential batch boundaries
+        const batchResults = await Promise.all(
+          batch.map(async (normalized) => {
+            const absPath = safePath(projectRoot, normalized);
+            try {
+              const content = await Bun.file(absPath).text();
+              const lines = content.split("\n");
+              const matches: GrepMatch[] = [];
+
+              for (let j = 0; j < lines.length; j++) {
+                const match = lines[j].match(pattern);
+                if (match) {
+                  matches.push({
+                    file: normalized,
+                    line: j + 1,
+                    column: (match.index ?? 0) + 1,
+                    content: lines[j],
+                  });
+                }
+              }
+
+              return matches;
+            } catch {
+              // Skip unreadable files
+              return [];
             }
-          }
-        } catch {
-          // Skip unreadable files
+          })
+        );
+        for (const matches of batchResults) {
+          allMatches.push(...matches);
         }
       }
 
