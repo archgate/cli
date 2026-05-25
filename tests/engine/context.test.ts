@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import {
   buildReviewContext,
 } from "../../src/engine/context";
 import type { AdrDocument, AdrDomain } from "../../src/formats/adr";
+import { safeRmSync } from "../test-utils";
 
 function makeAdr(
   overrides: Partial<AdrDocument["frontmatter"]> = {},
@@ -248,7 +249,7 @@ describe("buildReviewContext", () => {
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    safeRmSync(tempDir);
   });
 
   function writeAdr(
