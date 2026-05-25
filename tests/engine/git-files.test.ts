@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -152,6 +152,47 @@ describe("git-files", () => {
 
       const ref = await resolveBaseRef(tempDir, {});
       expect(ref).toBe("main");
+    }, 15_000);
+
+    test("lazy-saves detected base branch to config.json", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+
+      // No configBase — triggers detectBaseRef + lazy-save
+      await resolveBaseRef(tempDir, {});
+
+      const configPath = join(tempDir, ".archgate", "config.json");
+      expect(existsSync(configPath)).toBe(true);
+      const config = JSON.parse(await Bun.file(configPath).text());
+      expect(config.baseBranch).toBe("main");
+    }, 15_000);
+
+    test("does not overwrite existing baseBranch on lazy-save", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+
+      // Pre-create config with a custom baseBranch
+      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+      await Bun.write(
+        join(tempDir, ".archgate", "config.json"),
+        JSON.stringify({ baseBranch: "develop" }, null, 2) + "\n"
+      );
+
+      // configBase is null (simulating caller didn't find it) but config has baseBranch
+      await resolveBaseRef(tempDir, {});
+
+      const config = JSON.parse(
+        await Bun.file(join(tempDir, ".archgate", "config.json")).text()
+      );
+      expect(config.baseBranch).toBe("develop");
     }, 15_000);
   });
 
