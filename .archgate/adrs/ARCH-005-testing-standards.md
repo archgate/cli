@@ -22,7 +22,7 @@ Bun's built-in test runner (`bun test`) provides a Jest-compatible API (`describ
 
 ## Decision
 
-Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tests/` mirroring the `src/` directory structure. Fixtures go in `tests/fixtures/`. Target 80% code coverage.
+Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tests/` mirroring the `src/` directory structure. Fixtures go in `tests/fixtures/`. Target 90% code coverage, enforced in CI.
 
 **Key conventions:**
 
@@ -30,7 +30,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 2. **Fixtures in `tests/fixtures/`** — Sample ADR files and mock codebases live in a shared fixtures directory. Fixtures are reusable across test suites.
 3. **Temp directories for filesystem tests** — Tests that write files use `mkdtemp` for isolation. Temp directories are cleaned up in `afterEach` or `afterAll`.
 4. **Test file naming** — Test files use the `.test.ts` suffix: `<module-name>.test.ts`.
-5. **Coverage target: 80%** — Not enforced in CI yet, but serves as a guideline. Critical paths (engine, formats) should have higher coverage.
+5. **Coverage target: 90%** — Enforced in CI. PRs that drop total line coverage below 90% are blocked by the `Validate Code` gate check.
 
 ## Do's and Don'ts
 
@@ -190,7 +190,7 @@ globalThis.fetch = (() =>
 - **Bun test runner API changes** — Although Bun is past 1.0, some newer APIs may still evolve between minor versions. Test runner behavior or API may change.
   - **Mitigation:** The project pins a specific Bun version via `.prototools`. Test runner API changes are caught during controlled Bun upgrades with full test suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may not report accurate coverage for all code paths, especially for dynamically imported modules.
-  - **Mitigation:** Coverage is a guideline (80% target), not a hard gate. Critical modules (engine, formats) are tested thoroughly regardless of coverage numbers.
+  - **Mitigation:** The 90% threshold is enforced on total line coverage, not per-file. Individual modules with dynamically-loaded code paths may have lower per-file coverage as long as the aggregate stays above 90%. Critical modules (engine, formats) are tested thoroughly regardless of aggregate numbers.
 - **Third-party SDK event loop retention** — External SDK instances that hold internal resource references may keep Bun's event loop alive on Linux after all tests complete, causing `bun test` to hang indefinitely. This does not surface on macOS (event loop drains normally there), making it a Linux-CI-only failure that is hard to reproduce locally.
   - **Mitigation:** Always manage external resource lifecycle in `beforeEach`/`afterEach` and call the cleanup method (`close()`, `destroy()`, `disconnect()`) in `afterEach`. Add `timeout-minutes` to CI jobs as a safety net — the `code-pull-request.yml` job is set to 10 minutes to cap any future regressions.
 
@@ -200,6 +200,7 @@ globalThis.fetch = (() =>
 
 - **Archgate rule** `ARCH-005/test-mirrors-src`: Scans all source files in `src/` and verifies a corresponding `.test.ts` file exists in `tests/`. Severity: `error`.
 - **CI pipeline**: `bun test --timeout 60000` runs on every pull request. Test failures and per-test timeouts block merge. All workflow jobs have `timeout-minutes` set to prevent indefinite hangs.
+- **Coverage threshold**: The `Coverage Report` job enforces a 90% minimum line coverage. If total coverage drops below 90%, the job fails and the `Validate Code` gate blocks the PR.
 
 ### Manual Enforcement
 
