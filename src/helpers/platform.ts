@@ -86,6 +86,7 @@ export function isMacOS(): boolean {
 
 /**
  * Returns true if the process is running on Linux (including WSL).
+ * @public
  */
 export function isLinux(): boolean {
   return getPlatformInfo().runtime === "linux";

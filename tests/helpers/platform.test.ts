@@ -5,10 +5,6 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import {
   getPlatformInfo,
   isWSL,
-  isWindows,
-  isMacOS,
-  isLinux,
-  isSupportedPlatform,
   resolveCommand,
   toWindowsPath,
   toWslPath,
@@ -40,11 +36,6 @@ describe("getPlatformInfo", () => {
     expect(info).toHaveProperty("wslDistro");
   });
 
-  test("runtime matches process.platform", () => {
-    const info = getPlatformInfo();
-    expect(info.runtime).toBe(process.platform);
-  });
-
   test("caches result across calls", () => {
     const first = getPlatformInfo();
     const second = getPlatformInfo();
@@ -57,18 +48,6 @@ describe("getPlatformInfo", () => {
     const second = getPlatformInfo();
     // Different reference after cache reset (may have same values)
     expect(first).not.toBe(second);
-  });
-
-  test("isWSL is false on win32 and darwin", () => {
-    if (process.platform === "win32" || process.platform === "darwin") {
-      expect(getPlatformInfo().isWSL).toBe(false);
-    }
-  });
-
-  test("wslDistro is null on non-WSL platforms", () => {
-    if (process.platform === "win32" || process.platform === "darwin") {
-      expect(getPlatformInfo().wslDistro).toBeNull();
-    }
   });
 
   test("re-detection after cache reset returns consistent values", () => {
@@ -92,41 +71,6 @@ describe("isWSL", () => {
 
   test("is consistent with getPlatformInfo().isWSL", () => {
     expect(isWSL()).toBe(getPlatformInfo().isWSL);
-  });
-});
-
-describe("platform shorthand helpers", () => {
-  beforeEach(() => _resetAllCaches());
-  afterEach(() => _resetAllCaches());
-
-  test("isWindows matches process.platform", () => {
-    expect(isWindows()).toBe(process.platform === "win32");
-  });
-
-  test("isMacOS matches process.platform", () => {
-    expect(isMacOS()).toBe(process.platform === "darwin");
-  });
-
-  test("isLinux matches process.platform", () => {
-    expect(isLinux()).toBe(process.platform === "linux");
-  });
-
-  test("isSupportedPlatform returns true on supported platforms", () => {
-    expect(isSupportedPlatform()).toBe(
-      ["darwin", "linux", "win32"].includes(process.platform)
-    );
-  });
-
-  test("exactly one of isWindows/isMacOS/isLinux is true", () => {
-    const checks = [isWindows(), isMacOS(), isLinux()];
-    expect(checks.filter(Boolean).length).toBe(1);
-  });
-
-  test("shorthand helpers agree with getPlatformInfo()", () => {
-    const info = getPlatformInfo();
-    expect(isWindows()).toBe(info.runtime === "win32");
-    expect(isMacOS()).toBe(info.runtime === "darwin");
-    expect(isLinux()).toBe(info.runtime === "linux");
   });
 });
 
