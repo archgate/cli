@@ -1,1 +1,6 @@
-{ "domains": { "ci": "CI" } }
+{
+  "domains": {
+    "ci": "CI"
+  },
+  "baseBranch": "origin/main"
+}
