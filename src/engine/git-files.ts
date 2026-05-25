@@ -3,6 +3,7 @@
 /** Git file-listing utilities for ADR scope resolution and change detection. */
 
 import { logDebug, logWarn } from "../helpers/log";
+import { ensureBaseBranch } from "../helpers/project-config";
 
 /** Warn when an ADR's resolved file scope exceeds this many files. */
 export const SCOPE_FILE_WARN_THRESHOLD = 1000;
@@ -151,11 +152,10 @@ export async function getStagedFiles(projectRoot: string): Promise<string[]> {
 /** Get all changed files (staged + unstaged). */
 export async function getChangedFiles(projectRoot: string): Promise<string[]> {
   try {
-    const staged = await runGit(
-      ["diff", "--cached", "--name-only"],
-      projectRoot
-    );
-    const unstaged = await runGit(["diff", "--name-only"], projectRoot);
+    const [staged, unstaged] = await Promise.all([
+      runGit(["diff", "--cached", "--name-only"], projectRoot),
+      runGit(["diff", "--name-only"], projectRoot),
+    ]);
     const all = new Set([
       ...staged.trim().split("\n").filter(Boolean),
       ...unstaged.trim().split("\n").filter(Boolean),
@@ -250,7 +250,8 @@ export async function resolveBaseRef(
     return options.configBase;
   }
 
-  return (await detectBaseRef(projectRoot)) ?? undefined;
+  // Lazy-save: detect + persist to config.json so future runs skip detection.
+  return (await ensureBaseBranch(projectRoot, detectBaseRef)) ?? undefined;
 }
 
 /**

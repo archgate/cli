@@ -16,6 +16,7 @@ import { join } from "node:path";
 import * as credentialStore from "../../src/helpers/credential-store";
 import { initProject } from "../../src/helpers/init-project";
 import * as pluginInstall from "../../src/helpers/plugin-install";
+import { safeRmSync } from "../test-utils";
 
 describe("initProject", () => {
   let tempDir: string;
@@ -25,7 +26,7 @@ describe("initProject", () => {
   });
 
   afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
+    safeRmSync(tempDir);
   });
 
   test("creates .archgate/adrs/ directory structure", async () => {

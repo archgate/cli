@@ -5,14 +5,15 @@ description: Referência do arquivo de configuração .archgate/config.json. Con
 
 O arquivo `.archgate/config.json` armazena configurações do projeto que são versionadas no controle de versão e compartilhadas com toda a equipe.
 
-Este arquivo é criado automaticamente pelo `archgate init` (quando domínios customizados são registrados) ou quando você adiciona configurações manualmente. Ele fica dentro do diretório `.archgate/` na raiz do seu projeto.
+Este arquivo é criado automaticamente pelo `archgate init` (para armazenar o branch base auto-detectado e quaisquer domínios customizados) ou quando você adiciona configurações manualmente. Ele fica dentro do diretório `.archgate/` na raiz do seu projeto.
 
 ## Schema
 
 ```json
 {
   "domains": { "security": "SEC", "compliance": "COMP" },
-  "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" }
+  "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
+  "baseBranch": "main"
 }
 ```
 
@@ -25,6 +26,24 @@ Mapeamentos personalizados de domínio para prefixo. Veja [Domínios Personaliza
 | _nome_ | `string` | Nome do domínio (kebab-case minúsculo, 2-32 chars) mapeia para um prefixo de ID (maiúsculo, 2-10 chars) |
 
 Esses são mesclados com os domínios built-in (`backend`, `frontend`, `data`, `architecture`, `general`) em tempo de leitura. Entradas personalizadas não podem sobrescrever nomes ou prefixos built-in.
+
+### `baseBranch`
+
+Branch base para detecção de mudanças no `archgate check`. Quando definido, `archgate check` pula as probes de auto-detecção e usa este valor diretamente para popular `ctx.changedFiles` via `git diff <baseBranch>...HEAD`.
+
+| Tipo     | Padrão          | Descrição                                                |
+| -------- | --------------- | -------------------------------------------------------- |
+| `string` | _(auto-detect)_ | Nome do branch ou ref remoto (ex: `main`, `origin/main`) |
+
+Este campo é **preenchido automaticamente** pelo `archgate init` quando um repositório git é detectado. A auto-detecção tenta `origin/HEAD`, `origin/main`, `origin/master`, `main` local e `master` local (primeiro encontrado vence). Re-executar `archgate init` não sobrescreve um valor configurado manualmente.
+
+Você também pode defini-lo manualmente:
+
+```json
+{ "baseBranch": "main" }
+```
+
+Veja [`archgate check` -- Detecção de arquivos alterados](/reference/cli/check/#changed-files-detection) para a prioridade completa de resolução.
 
 ### `paths`
 

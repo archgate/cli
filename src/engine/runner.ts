@@ -198,11 +198,16 @@ export async function runChecks(
   options: { staged?: boolean; files?: string[]; base?: string } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
-  const changedFiles = options.staged
-    ? await getStagedFiles(projectRoot)
+
+  // Start git I/O concurrently — changedFiles and trackedFiles are independent
+  const changedFilesPromise = options.staged
+    ? getStagedFiles(projectRoot)
     : options.base
-      ? await getFilesChangedSinceRef(projectRoot, options.base)
-      : [];
+      ? getFilesChangedSinceRef(projectRoot, options.base)
+      : Promise.resolve([]);
+  const allTrackedFilesPromise = getGitTrackedFiles(projectRoot);
+
+  // Do synchronous work while git subprocesses run
   const results: RuleResult[] = loadResults
     .filter((lr) => lr.type === "blocked")
     .map((lr) => blockedToRuleResult(projectRoot, lr.value));
@@ -224,8 +229,11 @@ export async function runChecks(
     );
   }
 
-  // Resolve tracked files once (cached per-process) for gitignore filtering
-  const allTrackedFiles = await getGitTrackedFiles(projectRoot);
+  // Await both git operations (started above, run concurrently)
+  const [changedFiles, allTrackedFiles] = await Promise.all([
+    changedFilesPromise,
+    allTrackedFilesPromise,
+  ]);
 
   // Run ADRs in parallel
   const adrResults = await Promise.allSettled(

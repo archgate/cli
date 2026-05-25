@@ -116,6 +116,33 @@ export function getConfiguredBaseBranch(projectRoot: string): string | null {
   return config.baseBranch ?? null;
 }
 
+/**
+ * Detect the base branch and save it to `.archgate/config.json` when not
+ * already configured. Idempotent — skips if `baseBranch` is already set.
+ * Non-fatal — silently logs on failure (not a git repo, read-only fs, etc.).
+ *
+ * Used by both `archgate init` (eager) and `resolveBaseRef` (lazy on first check).
+ */
+export async function ensureBaseBranch(
+  projectRoot: string,
+  detectBaseRef: (root: string) => Promise<string | null>
+): Promise<string | null> {
+  const config = loadProjectConfig(projectRoot);
+  if (config.baseBranch) return config.baseBranch;
+
+  try {
+    const detected = await detectBaseRef(projectRoot);
+    if (detected) {
+      await saveProjectConfig(projectRoot, { ...config, baseBranch: detected });
+      logDebug("Saved detected base branch to config:", detected);
+    }
+    return detected;
+  } catch {
+    logDebug("Base branch detection failed (not a git repo?)");
+    return null;
+  }
+}
+
 export function isDefaultDomain(domain: string): boolean {
   return (DEFAULT_DOMAINS as readonly string[]).includes(domain);
 }

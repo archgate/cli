@@ -5,14 +5,15 @@ description: Reference for the .archgate/config.json project configuration file.
 
 The `.archgate/config.json` file stores project-level configuration that is committed to version control and shared across the team.
 
-This file is created automatically by `archgate init` (when custom domains are registered) or when you manually add configuration. It lives inside the `.archgate/` directory at your project root.
+This file is created automatically by `archgate init` (to store the auto-detected base branch and any custom domains) or when you manually add configuration. It lives inside the `.archgate/` directory at your project root.
 
 ## Schema
 
 ```json
 {
   "domains": { "security": "SEC", "compliance": "COMP" },
-  "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" }
+  "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
+  "baseBranch": "main"
 }
 ```
 
@@ -25,6 +26,24 @@ Custom domain-to-prefix mappings. See [Custom Domains](/concepts/domains/#custom
 | _name_ | `string` | Domain name (lowercase kebab-case, 2-32 chars) maps to an ID prefix (uppercase, 2-10 chars) |
 
 These are merged with the built-in domains (`backend`, `frontend`, `data`, `architecture`, `general`) at read time. Custom entries cannot override built-in names or prefixes.
+
+### `baseBranch`
+
+Base branch for change detection in `archgate check`. When set, `archgate check` skips the auto-detection probes and uses this value directly for `ctx.changedFiles` population via `git diff <baseBranch>...HEAD`.
+
+| Type     | Default         | Description                                             |
+| -------- | --------------- | ------------------------------------------------------- |
+| `string` | _(auto-detect)_ | Branch name or remote ref (e.g., `main`, `origin/main`) |
+
+This field is **auto-populated** by `archgate init` when a git repository is detected. The auto-detection tries `origin/HEAD`, `origin/main`, `origin/master`, local `main`, and local `master` (first match wins). Re-running `archgate init` does not overwrite a manually configured value.
+
+You can also set it manually:
+
+```json
+{ "baseBranch": "main" }
+```
+
+See [`archgate check` -- Changed files detection](/reference/cli/check/#changed-files-detection) for the full resolution priority.
 
 ### `paths`
 
