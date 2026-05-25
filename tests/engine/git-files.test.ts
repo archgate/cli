@@ -10,6 +10,7 @@ import {
   getStagedFiles,
   getChangedFiles,
   detectBaseRef,
+  resolveBaseRef,
   getFilesChangedSinceRef,
   resolveScopedFiles,
   SCOPE_FILE_WARN_THRESHOLD,
@@ -109,6 +110,49 @@ describe("git-files", () => {
       const ref = await detectBaseRef(tempDir);
       expect(ref).toBe("master");
     });
+  });
+
+  describe("resolveBaseRef", () => {
+    test("returns undefined when staged is true", async () => {
+      const ref = await resolveBaseRef(tempDir, {
+        staged: true,
+        base: "main",
+        configBase: "origin/main",
+      });
+      expect(ref).toBeUndefined();
+    });
+
+    test("explicit base string wins over configBase", async () => {
+      const ref = await resolveBaseRef(tempDir, {
+        base: "develop",
+        configBase: "origin/main",
+      });
+      expect(ref).toBe("develop");
+    });
+
+    test("configBase wins over auto-detect", async () => {
+      // tempDir is not a git repo, so detectBaseRef would return null.
+      // configBase should be returned without calling detectBaseRef.
+      const ref = await resolveBaseRef(tempDir, { configBase: "origin/main" });
+      expect(ref).toBe("origin/main");
+    });
+
+    test("falls back to undefined when no config and not a git repo", async () => {
+      const ref = await resolveBaseRef(tempDir, {});
+      expect(ref).toBeUndefined();
+    });
+
+    test("falls back to detectBaseRef and returns detected branch", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+
+      const ref = await resolveBaseRef(tempDir, {});
+      expect(ref).toBe("main");
+    }, 15_000);
   });
 
   describe("getFilesChangedSinceRef", () => {
