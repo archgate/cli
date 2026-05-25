@@ -105,18 +105,14 @@ describe("toWindowsPath", () => {
     expect(result).toMatch(/^C:\\Users$/u);
   });
 
-  test("returns null when not in WSL", async () => {
-    if (!inWSL) {
-      const result = await toWindowsPath("/some/path");
-      expect(result).toBeNull();
-    }
+  test.skipIf(inWSL)("returns null when not in WSL", async () => {
+    const result = await toWindowsPath("/some/path");
+    expect(result).toBeNull();
   });
 
-  test("returns null on non-WSL for absolute path", async () => {
-    if (!inWSL) {
-      const result = await toWindowsPath("/mnt/c/Users/test");
-      expect(result).toBeNull();
-    }
+  test.skipIf(inWSL)("returns null on non-WSL for absolute path", async () => {
+    const result = await toWindowsPath("/mnt/c/Users/test");
+    expect(result).toBeNull();
   });
 });
 
@@ -129,19 +125,18 @@ describe("toWslPath", () => {
     expect(result).toBe("/mnt/c/");
   });
 
-  test("returns null when not in WSL", async () => {
-    if (!inWSL) {
-      const result = await toWslPath("C:\\Users");
-      expect(result).toBeNull();
-    }
+  test.skipIf(inWSL)("returns null when not in WSL", async () => {
+    const result = await toWslPath("C:\\Users");
+    expect(result).toBeNull();
   });
 
-  test("returns null on non-WSL for Windows-style path", async () => {
-    if (!inWSL) {
+  test.skipIf(inWSL)(
+    "returns null on non-WSL for Windows-style path",
+    async () => {
       const result = await toWslPath("D:\\Projects\\foo");
       expect(result).toBeNull();
     }
-  });
+  );
 });
 
 describe("getWindowsHomeDirFromWSL", () => {
@@ -160,11 +155,9 @@ describe("getWindowsHomeDirFromWSL", () => {
     expect(first).toBe(second);
   });
 
-  test("returns null when not in WSL", async () => {
-    if (!inWSL) {
-      const result = await getWindowsHomeDirFromWSL();
-      expect(result).toBeNull();
-    }
+  test.skipIf(inWSL)("returns null when not in WSL", async () => {
+    const result = await getWindowsHomeDirFromWSL();
+    expect(result).toBeNull();
   });
 });
 
@@ -283,9 +276,15 @@ describe("_resetAllCaches", () => {
     await getWindowsHomeDirFromWSL();
     // Reset and call again — should not throw
     _resetAllCaches();
-    const result = await getWindowsHomeDirFromWSL();
-    if (!inWSL) {
+    await getWindowsHomeDirFromWSL();
+  });
+
+  test.skipIf(inWSL)(
+    "returns null after cache reset when not in WSL",
+    async () => {
+      _resetAllCaches();
+      const result = await getWindowsHomeDirFromWSL();
       expect(result).toBeNull();
     }
-  });
+  );
 });

@@ -58,18 +58,17 @@ describe("installGit", () => {
     );
   });
 
-  test("throws when git is not found on Windows", async () => {
-    // This path is only reachable on Windows where isWindows() returns true.
-    // On other platforms, installGit would attempt brew/apt install instead
-    // of throwing — so we can only test the error message shape on Windows.
-    if (process.platform !== "win32") return;
-
-    await withBunWhich(
-      () => null,
-      async () => {
-        // Even on Windows, git is typically available so this won't reach
-        // the throw. This test documents the expected error for the path.
-      }
-    );
-  });
+  test.skipIf(process.platform !== "win32")(
+    "throws when git is not found on Windows",
+    async () => {
+      // On other platforms, installGit would attempt brew/apt install instead of throwing.
+      await withBunWhich(
+        () => null,
+        async () => {
+          // Even on Windows, git is typically available so this won't reach
+          // the throw. This test documents the expected error for the path.
+        }
+      );
+    }
+  );
 });

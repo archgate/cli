@@ -40,36 +40,46 @@ describe("getArtifactInfo", () => {
     expect(info.binaryName).toMatch(/^archgate(\.exe)?$/u);
   });
 
-  test("returns .zip extension for win32", () => {
-    const info = getArtifactInfo();
-    if (process.platform !== "win32") return;
-    expect(info).not.toBeNull();
-    expect(info!.ext).toBe(".zip");
-    expect(info!.binaryName).toBe("archgate.exe");
-    expect(info!.name).toBe("archgate-win32-x64");
-  });
+  test.skipIf(process.platform !== "win32")(
+    "returns .zip extension for win32",
+    () => {
+      const info = getArtifactInfo();
+      expect(info).not.toBeNull();
+      expect(info!.ext).toBe(".zip");
+      expect(info!.binaryName).toBe("archgate.exe");
+      expect(info!.name).toBe("archgate-win32-x64");
+    }
+  );
 
-  test("returns .tar.gz extension for non-win32", () => {
-    const info = getArtifactInfo();
-    if (process.platform === "win32") return;
-    expect(info).not.toBeNull();
-    expect(info!.ext).toBe(".tar.gz");
-    expect(info!.binaryName).toBe("archgate");
-  });
+  test.skipIf(process.platform === "win32")(
+    "returns .tar.gz extension for non-win32",
+    () => {
+      const info = getArtifactInfo();
+      expect(info).not.toBeNull();
+      expect(info!.ext).toBe(".tar.gz");
+      expect(info!.binaryName).toBe("archgate");
+    }
+  );
 });
 
 describe("getManualInstallHint", () => {
-  test("returns platform-appropriate install command", () => {
-    const hint = getManualInstallHint();
-
-    if (process.platform === "win32") {
+  test.skipIf(process.platform !== "win32")(
+    "returns Windows install command",
+    () => {
+      const hint = getManualInstallHint();
       expect(hint).toContain("install.ps1");
       expect(hint).toContain("irm");
-    } else {
+    }
+  );
+
+  test.skipIf(process.platform === "win32")(
+    "returns Unix install command",
+    () => {
+      const hint = getManualInstallHint();
       expect(hint).toContain("install.sh");
       expect(hint).toContain("curl");
     }
-  });
+  );
 });
 
 describe("fetchLatestGitHubVersion", () => {
@@ -302,102 +312,106 @@ describe("downloadReleaseBinary", () => {
     }
   });
 
-  test("extracts zip archive on Windows via PowerShell", async () => {
-    if (process.platform !== "win32") return;
-    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-dl-zip-test-"));
-    writeFileSync(join(tmpDir, "archgate.exe"), "fake-binary-content");
-    const zipPath = join(tmpDir, "test.zip");
-    const zipProc = Bun.spawn(
-      [
-        "powershell",
-        "-NoProfile",
-        "-Command",
-        `Compress-Archive -Path '${join(tmpDir, "archgate.exe")}' -DestinationPath '${zipPath}' -Force`,
-      ],
-      { stdout: "pipe", stderr: "pipe" }
-    );
-    await zipProc.exited;
-    const zipBuffer = readFileSync(zipPath);
-    const correctHash = createHash("sha256").update(zipBuffer).digest("hex");
-    let callCount = 0;
-    globalThis.fetch = mock(() => {
-      callCount++;
-      if (callCount === 1) {
-        const ab = zipBuffer.buffer.slice(
-          zipBuffer.byteOffset,
-          zipBuffer.byteOffset + zipBuffer.byteLength
-        ) as ArrayBuffer;
+  test.skipIf(process.platform !== "win32")(
+    "extracts zip archive on Windows via PowerShell",
+    async () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "archgate-dl-zip-test-"));
+      writeFileSync(join(tmpDir, "archgate.exe"), "fake-binary-content");
+      const zipPath = join(tmpDir, "test.zip");
+      const zipProc = Bun.spawn(
+        [
+          "powershell",
+          "-NoProfile",
+          "-Command",
+          `Compress-Archive -Path '${join(tmpDir, "archgate.exe")}' -DestinationPath '${zipPath}' -Force`,
+        ],
+        { stdout: "pipe", stderr: "pipe" }
+      );
+      await zipProc.exited;
+      const zipBuffer = readFileSync(zipPath);
+      const correctHash = createHash("sha256").update(zipBuffer).digest("hex");
+      let callCount = 0;
+      globalThis.fetch = mock(() => {
+        callCount++;
+        if (callCount === 1) {
+          const ab = zipBuffer.buffer.slice(
+            zipBuffer.byteOffset,
+            zipBuffer.byteOffset + zipBuffer.byteLength
+          ) as ArrayBuffer;
+          return Promise.resolve({
+            ok: true,
+            arrayBuffer: () => Promise.resolve(ab),
+            headers: new Headers(),
+            body: null,
+          } as Response);
+        }
         return Promise.resolve({
           ok: true,
-          arrayBuffer: () => Promise.resolve(ab),
-          headers: new Headers(),
-          body: null,
+          text: () => Promise.resolve(`${correctHash}  archgate-win32-x64.zip`),
         } as Response);
-      }
-      return Promise.resolve({
-        ok: true,
-        text: () => Promise.resolve(`${correctHash}  archgate-win32-x64.zip`),
-      } as Response);
-    }) as unknown as typeof fetch;
-    const artifact = {
-      name: "archgate-win32-x64",
-      ext: ".zip" as const,
-      binaryName: "archgate.exe",
-    };
-    try {
-      const binaryPath = await downloadReleaseBinary("v1.0.0", artifact);
-      expect(binaryPath).toContain("archgate.exe");
-      expect(existsSync(binaryPath)).toBe(true);
-    } finally {
+      }) as unknown as typeof fetch;
+      const artifact = {
+        name: "archgate-win32-x64",
+        ext: ".zip" as const,
+        binaryName: "archgate.exe",
+      };
       try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch {
-        /* cleanup guard */
+        const binaryPath = await downloadReleaseBinary("v1.0.0", artifact);
+        expect(binaryPath).toContain("archgate.exe");
+        expect(existsSync(binaryPath)).toBe(true);
+      } finally {
+        try {
+          rmSync(tmpDir, { recursive: true, force: true });
+        } catch {
+          /* cleanup guard */
+        }
       }
     }
-  });
+  );
 });
 
 describe("replaceBinary", () => {
-  test("renames new binary to current path on non-Windows", () => {
-    if (process.platform === "win32") return;
+  test.skipIf(process.platform === "win32")(
+    "renames new binary to current path on non-Windows",
+    () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+      const currentPath = join(tmpDir, "archgate");
+      const newBinaryPath = join(tmpDir, "archgate.new");
 
-    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
-    const currentPath = join(tmpDir, "archgate");
-    const newBinaryPath = join(tmpDir, "archgate.new");
+      // Create placeholder files
+      writeFileSync(currentPath, "old binary content");
+      writeFileSync(newBinaryPath, "new binary content");
 
-    // Create placeholder files
-    writeFileSync(currentPath, "old binary content");
-    writeFileSync(newBinaryPath, "new binary content");
+      replaceBinary(currentPath, newBinaryPath);
 
-    replaceBinary(currentPath, newBinaryPath);
+      // new binary should have been renamed to currentPath
+      expect(existsSync(currentPath)).toBe(true);
+      // the new binary path should no longer exist (it was renamed)
+      expect(existsSync(newBinaryPath)).toBe(false);
 
-    // new binary should have been renamed to currentPath
-    expect(existsSync(currentPath)).toBe(true);
-    // the new binary path should no longer exist (it was renamed)
-    expect(existsSync(newBinaryPath)).toBe(false);
+      // verify chmod 755 was applied
+      const mode = statSync(currentPath).mode & 0o777;
+      expect(mode).toBe(0o755);
+    }
+  );
 
-    // verify chmod 755 was applied
-    const mode = statSync(currentPath).mode & 0o777;
-    expect(mode).toBe(0o755);
-  });
+  test.skipIf(process.platform !== "win32")(
+    "creates .old file on Windows",
+    () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+      const currentPath = join(tmpDir, "archgate.exe");
+      const newBinaryPath = join(tmpDir, "archgate.exe.new");
 
-  test("creates .old file on Windows", () => {
-    if (process.platform !== "win32") return;
+      writeFileSync(currentPath, "old binary content");
+      writeFileSync(newBinaryPath, "new binary content");
 
-    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
-    const currentPath = join(tmpDir, "archgate.exe");
-    const newBinaryPath = join(tmpDir, "archgate.exe.new");
+      replaceBinary(currentPath, newBinaryPath);
 
-    writeFileSync(currentPath, "old binary content");
-    writeFileSync(newBinaryPath, "new binary content");
-
-    replaceBinary(currentPath, newBinaryPath);
-
-    expect(existsSync(currentPath)).toBe(true);
-    expect(existsSync(currentPath + ".old")).toBe(true);
-    expect(existsSync(newBinaryPath)).toBe(false);
-  });
+      expect(existsSync(currentPath)).toBe(true);
+      expect(existsSync(currentPath + ".old")).toBe(true);
+      expect(existsSync(newBinaryPath)).toBe(false);
+    }
+  );
 
   test("replaces file content with new binary", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
@@ -415,30 +429,31 @@ describe("replaceBinary", () => {
     expect(content).toBe("new binary content");
   });
 
-  test("cleans up leftover .old file from previous upgrade on Windows", () => {
-    if (process.platform !== "win32") return;
+  test.skipIf(process.platform !== "win32")(
+    "cleans up leftover .old file from previous upgrade on Windows",
+    () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
+      const currentPath = join(tmpDir, "archgate.exe");
+      const newBinaryPath = join(tmpDir, "archgate.exe.new");
+      const oldPath = currentPath + ".old";
 
-    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-replace-test-"));
-    const currentPath = join(tmpDir, "archgate.exe");
-    const newBinaryPath = join(tmpDir, "archgate.exe.new");
-    const oldPath = currentPath + ".old";
+      // Pre-create a stale .old file from a previous upgrade
+      writeFileSync(oldPath, "stale binary from previous upgrade");
+      writeFileSync(currentPath, "old binary content");
+      writeFileSync(newBinaryPath, "new binary content");
 
-    // Pre-create a stale .old file from a previous upgrade
-    writeFileSync(oldPath, "stale binary from previous upgrade");
-    writeFileSync(currentPath, "old binary content");
-    writeFileSync(newBinaryPath, "new binary content");
+      replaceBinary(currentPath, newBinaryPath);
 
-    replaceBinary(currentPath, newBinaryPath);
+      // The old stale .old was cleaned up and replaced with the current binary
+      expect(existsSync(currentPath)).toBe(true);
+      expect(existsSync(oldPath)).toBe(true);
+      expect(existsSync(newBinaryPath)).toBe(false);
 
-    // The old stale .old was cleaned up and replaced with the current binary
-    expect(existsSync(currentPath)).toBe(true);
-    expect(existsSync(oldPath)).toBe(true);
-    expect(existsSync(newBinaryPath)).toBe(false);
-
-    // The .old file should contain "old binary content" (the just-replaced binary)
-    const oldContent = readFileSync(oldPath, "utf8");
-    expect(oldContent).toBe("old binary content");
-  });
+      // The .old file should contain "old binary content" (the just-replaced binary)
+      const oldContent = readFileSync(oldPath, "utf8");
+      expect(oldContent).toBe("old binary content");
+    }
+  );
 });
 
 describe("cleanupStaleBinary", () => {
