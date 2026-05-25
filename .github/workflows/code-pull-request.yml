@@ -105,6 +105,7 @@ jobs:
           path: coverage-windows
         continue-on-error: true
       - name: Merge coverage and generate report
+        id: merge-coverage
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -134,6 +135,15 @@ jobs:
             COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
           else
             COVERAGE="0.0"
+          fi
+
+          # Determine coverage threshold status
+          MIN_COVERAGE=90
+          THRESHOLD_MET=$(awk "BEGIN{print ($COVERAGE >= $MIN_COVERAGE) ? 1 : 0}")
+          if [ "$THRESHOLD_MET" = "1" ]; then
+            THRESHOLD_LABEL="met"
+          else
+            THRESHOLD_LABEL="**not met**"
           fi
 
           # Per-directory coverage table
@@ -169,6 +179,7 @@ jobs:
             echo "| Metric | Value |"
             echo "|--------|-------|"
             echo "| **Lines** | **${COVERAGE}%** (${LINES_HIT} / ${LINES_FOUND}) |"
+            echo "| **Threshold** | ${MIN_COVERAGE}% minimum — ${THRESHOLD_LABEL} |"
             echo "| **Platforms** | ${PLATFORMS} |"
             echo ""
             echo "Full HTML report available in [workflow artifacts](${RUN_URL}#artifacts)."
@@ -196,29 +207,46 @@ jobs:
             gh pr comment "${PR_NUM}" --body "${BODY}" --edit-last 2>/dev/null || \
               gh pr comment "${PR_NUM}" --body "${BODY}"
           fi
+
+          # Output coverage for threshold enforcement step
+          echo "coverage=$COVERAGE" >> "$GITHUB_OUTPUT"
       - name: Upload coverage report
+        if: always() && steps.merge-coverage.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: coverage-html
           retention-days: 30
+      - name: Enforce coverage threshold
+        if: always() && steps.merge-coverage.outcome == 'success'
+        run: |
+          COVERAGE="${{ steps.merge-coverage.outputs.coverage }}"
+          MIN_COVERAGE=90
+          BELOW=$(awk "BEGIN{print ($COVERAGE < $MIN_COVERAGE) ? 1 : 0}")
+          if [ "$BELOW" = "1" ]; then
+            echo "::error::Code coverage is ${COVERAGE}%, which is below the minimum threshold of ${MIN_COVERAGE}%."
+            exit 1
+          fi
+          echo "Coverage ${COVERAGE}% meets the minimum threshold of ${MIN_COVERAGE}%."
 
   # Gate job — single required status check for branch protection.
   status:
     name: Validate Code
     runs-on: ubuntu-latest
     if: always()
-    needs: [validate, smoke-windows, smoke-linux]
+    needs: [validate, smoke-windows, smoke-linux, coverage]
     steps:
       - name: Check job results
         run: |
           if [[ "${{ needs.validate.result }}" != "success" ]] || \
              [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
-             [[ "${{ needs.smoke-linux.result }}" != "success" ]]; then
+             [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
+             [[ "${{ needs.coverage.result }}" != "success" ]]; then
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
             echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
+            echo "  coverage: ${{ needs.coverage.result }}"
             exit 1
           fi
           echo "All checks passed."
