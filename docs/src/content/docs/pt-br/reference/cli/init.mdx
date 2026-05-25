@@ -41,6 +41,14 @@ Archgate plugin installed for Claude Code.
 
 Quando `--editor cursor` é usado, a saída mostra `.cursor/` em vez de `.claude/`.
 
+## Detecção de branch base
+
+Quando executado dentro de um repositório git, `archgate init` detecta automaticamente o branch base e o salva em `.archgate/config.json` como o campo `baseBranch`. Isso permite que `archgate check` pule a detecção de branch a cada execução, economizando 1-4 chamadas de subprocesso git.
+
+A detecção tenta `origin/HEAD`, `origin/main`, `origin/master`, `main` local e `master` local (primeiro encontrado vence). Se nenhum for encontrado (ex: não é um repositório git), nenhum `baseBranch` é gravado.
+
+Re-executar `archgate init` **não** sobrescreve um `baseBranch` configurado manualmente. Veja [Configuração -- `baseBranch`](/reference/configuration/#basebranch) para detalhes.
+
 ## Estrutura gerada
 
 ```
