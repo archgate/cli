@@ -85,7 +85,6 @@ describe("initProject", () => {
 
     // Cursor plugin is embedded in the VSIX — no project-level files written
     expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
-    expect(existsSync(join(tempDir, ".cursor", "mcp.json"))).toBe(false);
 
     // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(

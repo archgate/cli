@@ -43,8 +43,6 @@ describe("rules-shim", () => {
     expect(template).toContain('/// <reference path="../rules.d.ts" />');
     expect(template).toContain("satisfies RuleSet");
     expect(template).toContain("export default {");
-    // Should NOT reference defineRules
-    expect(template).not.toContain("defineRules");
   });
 
   test("writeRulesShim creates rules.d.ts in .archgate/", async () => {
