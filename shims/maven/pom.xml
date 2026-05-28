@@ -46,7 +46,11 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>6.1.0</version>
+            <!-- Pinned to the 5.x line: JUnit Jupiter 6.x requires a Java 17 baseline,
+                 but this shim targets Java 11 (maven.compiler.target=11) for broad
+                 end-user compatibility and is built/tested on JDK 11 in CI. See the
+                 junit-jupiter rule in renovate.json. -->
+            <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
