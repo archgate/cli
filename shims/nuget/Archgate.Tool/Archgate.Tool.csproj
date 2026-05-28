@@ -10,6 +10,7 @@
     <Description>Enforce Architecture Decision Records as executable rules -- for both humans and AI agents</Description>
     <Authors>Archgate</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageProjectUrl>https://cli.archgate.dev</PackageProjectUrl>
     <RepositoryUrl>https://github.com/archgate/cli</RepositoryUrl>
     <PackageTags>adr;archgate;architecture-decision-records;cli;governance;linter</PackageTags>
@@ -19,5 +20,9 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Archgate.Tool.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

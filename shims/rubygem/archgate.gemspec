@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
   spec.metadata["source_code_uri"] = "https://github.com/archgate/cli"
   spec.metadata["bug_tracker_uri"] = "https://github.com/archgate/cli/issues"
 
-  spec.files = Dir["lib/**/*.rb", "exe/*"]
+  spec.files = Dir["lib/**/*.rb", "exe/*", "README.md"]
   spec.bindir = "exe"
   spec.executables = ["archgate"]
   spec.require_paths = ["lib"]
