@@ -4,6 +4,7 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 // Static import — resolves during module graph phase, before mock.module()
 // calls in parallel test files (e.g. login-flow.test.ts) can replace the
 // module cache entry. The destructured references are immune to later mocks.
@@ -45,7 +46,6 @@ describe("credential-store", () => {
 
   describe("saveCredentials", () => {
     test("does not write any metadata file to disk", async () => {
-
       await saveCredentials({
         token: "ag_beta_abc123",
         github_user: "testuser",
@@ -62,9 +62,6 @@ describe("credential-store", () => {
     test.skipIf(process.platform !== "win32")(
       "cleans up legacy metadata file on save",
       async () => {
-        const { saveCredentials } =
-          await import("../../src/helpers/credential-store");
-
         // Create a legacy metadata file
         mkdirSync(join(tempDir, ".archgate"), { recursive: true });
         const credPath = join(tempDir, ".archgate", "credentials");
@@ -90,9 +87,6 @@ describe("credential-store", () => {
       async () => {
         // With no credential helper configured, approve succeeds (exit 0) but
         // fill returns nothing — triggers the verification warning path.
-        const { saveCredentials } =
-          await import("../../src/helpers/credential-store");
-
         const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
         try {
           await saveCredentials({
@@ -117,13 +111,11 @@ describe("credential-store", () => {
 
   describe("loadCredentials", () => {
     test("returns null when no credentials exist anywhere", async () => {
-
       const result = await loadCredentials();
       expect(result).toBeNull();
     });
 
     test("returns null and deletes legacy metadata file", async () => {
-
       const credPath = join(tempDir, ".archgate", "credentials");
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
       await Bun.write(
@@ -142,7 +134,6 @@ describe("credential-store", () => {
     });
 
     test("returns null when no git creds and no legacy file", async () => {
-
       // With isolated git config (no credential helper), returns null.
       const result = await loadCredentials();
       expect(result).toBeNull();
@@ -151,13 +142,11 @@ describe("credential-store", () => {
 
   describe("clearCredentials", () => {
     test("does not throw when no credentials exist", async () => {
-
       // Should not throw
       await clearCredentials();
     });
 
     test("cleans up legacy metadata file", async () => {
-
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
       const credPath = join(tempDir, ".archgate", "credentials");
       await Bun.write(
@@ -202,7 +191,6 @@ describe("credential-store", () => {
       );
       // Point git at our custom config so the store helper is used
       Bun.env.GIT_CONFIG_GLOBAL = gitConfig;
-
 
       // Save should succeed and be verifiable
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});

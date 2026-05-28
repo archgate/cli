@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, mock } from "bun:test";
+
 // Static import — resolves during module graph phase, before mock.module()
 // calls in parallel test files (e.g. login-flow.test.ts) can replace the
 // module cache entry. The destructured reference is immune to later mocks.
@@ -13,7 +14,6 @@ function mockFetch(handler: () => Promise<Response>) {
 
 describe("pollForAccessToken", () => {
   test("returns token after authorization_pending then success", async () => {
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
@@ -46,7 +46,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("handles slow_down by increasing poll interval", async () => {
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     const sleepArgs: number[] = [];
@@ -82,7 +81,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws on expired_token", async () => {
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
@@ -107,7 +105,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws on access_denied", async () => {
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
@@ -132,7 +129,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws when deadline expires before authorization", async () => {
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
