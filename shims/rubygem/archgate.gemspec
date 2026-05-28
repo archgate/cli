@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.email = ["hello@archgate.dev"]
 
   spec.summary = "Enforce Architecture Decision Records as executable rules"
-  spec.description = "Enforce Architecture Decision Records as executable rules -- for both humans and AI agents"
+  spec.description = "Enforce Architecture Decision Records as executable rules — for both humans and AI agents"
   spec.homepage = "https://cli.archgate.dev"
   spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 2.7.0"

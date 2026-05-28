@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>archgate-cli</name>
-    <description>Thin Java shim that downloads the archgate platform binary from GitHub Releases on first invocation and then executes it.</description>
+    <description>Enforce Architecture Decision Records as executable rules — for both humans and AI agents</description>
     <url>https://cli.archgate.dev</url>
 
     <licenses>
@@ -35,6 +35,11 @@
         <developerConnection>scm:git:git@github.com:archgate/cli.git</developerConnection>
         <url>https://github.com/archgate/cli</url>
     </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/archgate/cli/issues</url>
+    </issueManagement>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
