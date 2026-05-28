@@ -44,8 +44,14 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **When a test creates a temp git repo and needs to call `git commit`, configure local user identity first** — CI runners have no global git config, so commits fail without explicit local identity. Set it with `await Bun.$\`git config user.email "test@test.com"\`.cwd(tempDir).quiet()`and`await Bun.$\`git config user.name "Test"\`.cwd(tempDir).quiet()`immediately after`git init`.
 - Test public module interfaces, not private implementation details
 - Use descriptive test names that explain the expected behavior
+- **Every test MUST contain at least one `expect()` assertion** — enforced by the custom `bun-test/expect-expect` oxlint plugin at `lint/expect-expect.ts` (registered via `jsPlugins` in `.oxlintrc.json`, enabled for `tests/**/*.test.ts`). `bun run lint` fails on any runnable `test()`/`it()` whose body contains no `expect()`. oxlint's built-in `jest/expect-expect` does not cover `bun:test`, which is why this plugin exists.
+- **Make implicit "does not throw" contracts explicit** — for a smoke test that merely invokes a function, assert the contract: `expect(() => fn()).not.toThrow()` for synchronous calls, or `await expect(promise).resolves.toBeUndefined()` for async calls. Calling a function with no assertion provides false confidence and is blocked by the assertion rule.
+- **Use `test.skip` or `test.todo` for intentionally empty or disabled tests** — the `bun-test/expect-expect` rule deliberately ignores `.skip` and `.todo` so placeholders remain explicit and self-documenting.
+- **When adding the first `expect()` to a previously assertion-less test file, add `expect` to the `bun:test` import** — older smoke-test files (e.g., `sentry.test.ts`) historically omitted it because their bodies never asserted.
 - **When mocking `fetch` in tests, assign directly to `globalThis.fetch`** — use `globalThis.fetch = mockFn as unknown as typeof fetch`. Restore in `afterEach` via `mock.restore()` (from `bun:test`) or by reassigning the original reference before the test.
 - **Wrap `spyOn` / `mockImplementation` calls in `try/finally` to guarantee `mockRestore()` runs** — when `expect()` assertions fail, they throw immediately, skipping any `mockRestore()` that follows. The un-restored spy leaks into subsequent tests, causing false positives or false negatives. Pattern: `const spy = spyOn(...).mockImplementation(() => {}); try { /* assertions */ } finally { spy.mockRestore(); }`. Alternatively, create and restore spies in `beforeEach`/`afterEach` hooks instead of inline.
+- **Make large production thresholds injectable so tests can use a small value** — When production code only acts past a large numeric threshold (e.g., `SCOPE_FILE_WARN_THRESHOLD = 1000` in `src/engine/git-files.ts`), add an optional parameter that defaults to the module constant (e.g., `resolveScopedFiles(root, globs, { fileWarnThreshold })`). Tests inject a tiny value such as `5` and create only a handful of files to exercise the same code path. This keeps the test fast and deterministic on every platform instead of materializing thousands of fixture files.
+- **Only ever raise a per-test timeout override above the global, never below it** — the project global is `bun test --timeout 60000` (60s). A per-test `}, 30_000` override makes that test _more_ likely to time out than the default. Use a per-test override solely to grant a genuinely slow test more time than 60s; never set one shorter than the global.
 
 ### Don't
 
@@ -56,9 +62,12 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **Don't rely on globally-configured git identity in temp git repos** — always set `user.email` and `user.name` locally in any repo that makes commits. Omitting this works locally (where developers have global git config) but fails silently in CI, producing a cryptic `ShellPromise` error with no indication that git identity is the cause.
 - **Don't let tests send real events to Sentry** — set `Bun.env.NODE_ENV = "test"` in `beforeEach` (and restore in `afterEach`) for any test that initializes Sentry. The Sentry SDK is configured with `enabled: Bun.env.NODE_ENV !== "test"` to prevent test noise from polluting production error tracking.
 - Don't skip tests without a tracking issue
+- **Don't write assertion-less tests** — a `test()`/`it()` body with no `expect()` call silently passes and gives false confidence. The `bun-test/expect-expect` oxlint plugin blocks these at lint time.
+- **Don't use a bare early `return` or an empty callback body to conditionally skip a test** — use `test.skipIf(condition)`, `test.skip`, or `test.todo` so the skip is explicit and the assertion rule can recognize it. Bare returns and empty bodies are exactly how assertion-less tests accumulated silently before the rule existed.
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
 - **Don't use `mock.module("node:fetch", ...)` to intercept HTTP fetch calls** — in Bun, the runtime fetch is `globalThis.fetch` and `mock.module` targeting `node:fetch` does not intercept it. The mock silently has no effect: the real network is hit, making tests non-deterministic and dependent on external services. Assign `globalThis.fetch` directly instead (see Do's above).
 - **Don't place `mockRestore()` after assertions without `try/finally` protection** — if the assertion throws, the spy is never restored and contaminates subsequent tests. This is especially dangerous when spying on globals like `console.warn` or `globalThis.fetch`, where a leaked spy silently suppresses or redirects output for every test that follows.
+- **Don't materialize large filesystem fixtures (1000+ files, plus `git add .`) just to cross a production threshold** — on Windows CI runners that filesystem work is slow enough to exceed the per-test timeout, killing the staging subprocess mid-run (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM) and producing a flaky failure that does not reproduce locally. Inject a small threshold instead (see Do's above). This was the root cause of a recurring Windows smoke-test flake on the `resolveScopedFiles` warning test.
 
 ## Implementation Pattern
 
@@ -199,6 +208,7 @@ globalThis.fetch = (() =>
 ### Automated Enforcement
 
 - **Archgate rule** `ARCH-005/test-mirrors-src`: Scans all source files in `src/` and verifies a corresponding `.test.ts` file exists in `tests/`. Severity: `error`.
+- **oxlint plugin** `bun-test/expect-expect` (`lint/expect-expect.ts`): A custom oxlint JS plugin enabled for `tests/**/*.test.ts` that fails the build for any runnable `test()`/`it()` (including `test.skipIf(...)()`, `test.each(...)()`) whose body contains no `expect()` call. It ignores `test.skip` and `test.todo`. Runs as part of `bun run lint` (and therefore `bun run validate` and CI). oxlint's built-in `jest/expect-expect` only recognizes `jest`/`vitest` imports, so it does not cover `bun:test` — this plugin fills that gap.
 - **CI pipeline**: `bun test --timeout 60000` runs on every pull request. Test failures and per-test timeouts block merge. All workflow jobs have `timeout-minutes` set to prevent indefinite hangs.
 - **Coverage threshold**: The `Coverage Report` job enforces a 90% minimum line coverage. If total coverage drops below 90%, the job fails and the `Validate Code` gate blocks the PR.
 
@@ -213,6 +223,8 @@ Code reviewers MUST verify:
 5. Tests that call `git commit` on a temp repo configure `user.email` and `user.name` locally before committing
 6. Tests that mock HTTP fetch assign `globalThis.fetch` directly — no `mock.module("node:fetch", ...)` usage
 7. Tests that use `spyOn` or `mockImplementation` inline (not in `beforeEach`/`afterEach`) wrap the spy lifecycle in `try/finally` to guarantee `mockRestore()` runs even when assertions fail
+8. Every test asserts something with `expect()` — no smoke tests that merely call a function; "does not throw" contracts are made explicit via `expect(() => fn()).not.toThrow()` or `await expect(promise).resolves.toBeUndefined()`
+9. Tests that exercise a numeric production threshold inject a small threshold value rather than generating fixtures large enough to trip the production default, and no per-test timeout override is shorter than the global `--timeout 60000`
 
 ## References
 
