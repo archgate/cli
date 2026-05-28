@@ -9,18 +9,25 @@ const path = require("path");
 const fs = require("fs");
 const os = require("os");
 
-function getArtifactName() {
-  const { platform, arch } = process;
-  if (platform === "darwin" && arch === "arm64") return "archgate-darwin-arm64";
-  if (platform === "linux" && arch === "x64") return "archgate-linux-x64";
-  if (platform === "win32" && arch === "x64") return "archgate-win32-x64";
+function getArtifactName(platform, arch) {
+  const p = platform || process.platform;
+  const a = arch || process.arch;
+  if (p === "darwin" && a === "arm64") return "archgate-darwin-arm64";
+  if (p === "linux" && a === "x64") return "archgate-linux-x64";
+  if (p === "win32" && a === "x64") return "archgate-win32-x64";
   throw new Error(
-    `Unsupported platform: ${platform}/${arch}\narchgate supports darwin/arm64, linux/x64, and win32/x64.`
+    `Unsupported platform: ${p}/${a}\narchgate supports darwin/arm64, linux/x64, and win32/x64.`
   );
 }
 
-function getBinaryName() {
-  return process.platform === "win32" ? "archgate.exe" : "archgate";
+function getBinaryName(platform) {
+  return (platform || process.platform) === "win32"
+    ? "archgate.exe"
+    : "archgate";
+}
+
+function getArchiveExt(platform) {
+  return (platform || process.platform) === "win32" ? "zip" : "tar.gz";
 }
 
 function getCacheDir() {
@@ -91,10 +98,11 @@ async function downloadToBuffer(url) {
  * Verify SHA256 checksum of a buffer against the companion .sha256 file.
  * The .sha256 file format is: "<hex-sha256>  <filename>\n"
  */
-async function verifySha256(archiveBuffer, checksumUrl, version) {
+async function verifySha256(archiveBuffer, checksumUrl, version, fetchFn) {
+  const download = fetchFn || downloadToBuffer;
   let checksumData;
   try {
-    checksumData = await downloadToBuffer(checksumUrl);
+    checksumData = await download(checksumUrl);
   } catch {
     // If checksum file is unavailable, skip verification with a warning
     console.error(
@@ -123,7 +131,7 @@ async function downloadBinary() {
   const version = getPackageVersion();
   const binaryName = getBinaryName();
   const isWin = process.platform === "win32";
-  const ext = isWin ? "zip" : "tar.gz";
+  const ext = getArchiveExt();
 
   const baseUrl = `https://github.com/archgate/cli/releases/download/v${version}/${artifactName}`;
   const url = `${baseUrl}.${ext}`;
@@ -250,4 +258,17 @@ async function main() {
   }
 }
 
-main();
+// When required as a module (tests), export helpers without running main().
+// When executed directly (npm bin), run the CLI passthrough.
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  getArtifactName,
+  getBinaryName,
+  getArchiveExt,
+  getCacheDir,
+  stripNulls,
+  verifySha256,
+};

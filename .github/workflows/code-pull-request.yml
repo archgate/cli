@@ -104,6 +104,9 @@ jobs:
         if: steps.changes.outputs.shims_changed == 'true'
         working-directory: shims/pypi
         run: python -m unittest discover tests/
+      - name: Test npm shim
+        if: steps.changes.outputs.shims_changed == 'true'
+        run: node --test shims/npm/test/archgate.test.cjs
       - name: Setup Go
         if: steps.changes.outputs.shims_changed == 'true'
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
