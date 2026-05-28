@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "minitest/mock"
 require "digest/sha2"
 
 # Ensure the gem's lib/ is on the load path regardless of working directory.
