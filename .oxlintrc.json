@@ -1,4 +1,5 @@
 {
+  "jsPlugins": ["./lint/expect-expect.ts"],
   "categories": {
     "correctness": "error",
     "pedantic": "error",
@@ -15,6 +16,10 @@
     "typescript/no-deprecated": "error"
   },
   "overrides": [
+    {
+      "files": ["tests/**/*.test.ts"],
+      "rules": { "bun-test/expect-expect": "error" }
+    },
     {
       "files": [".archgate/adrs/*.rules.ts"],
       "rules": { "typescript/triple-slash-reference": "off" }

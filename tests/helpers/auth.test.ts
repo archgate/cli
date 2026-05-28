@@ -101,8 +101,7 @@ describe("auth", () => {
       const { clearCredentials } =
         await import("../../src/helpers/credential-store");
 
-      // Should not throw
-      await clearCredentials();
+      await expect(clearCredentials()).resolves.toBeUndefined();
     });
   });
 
