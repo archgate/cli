@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, test, beforeEach, afterEach, mock } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -47,8 +47,8 @@ describe("sentry", () => {
     test("initializes Sentry SDK when telemetry is enabled", async () => {
       const { initSentry } = await import("../../src/helpers/sentry");
 
-      // Should not throw — Sentry.init is called internally
-      initSentry();
+      // Sentry.init is called internally — initialization must resolve cleanly.
+      await expect(initSentry()).resolves.toBeUndefined();
     });
 
     test("does not initialize when telemetry is disabled", async () => {
@@ -57,9 +57,11 @@ describe("sentry", () => {
       const { initSentry, captureException } =
         await import("../../src/helpers/sentry");
 
-      initSentry();
-      // captureException should be a no-op
-      captureException(new Error("should not send"));
+      await initSentry();
+      // captureException should be a no-op when telemetry is disabled.
+      expect(() =>
+        captureException(new Error("should not send"))
+      ).not.toThrow();
     });
   });
 
@@ -67,17 +69,19 @@ describe("sentry", () => {
     test("is a no-op when not initialized", async () => {
       const { captureException } = await import("../../src/helpers/sentry");
 
-      // Should not throw
-      captureException(new Error("should not send"));
+      expect(() =>
+        captureException(new Error("should not send"))
+      ).not.toThrow();
     });
 
     test("handles non-Error values without throwing", async () => {
       const { initSentry, captureException } =
         await import("../../src/helpers/sentry");
 
-      initSentry();
-      // Should not throw
-      captureException("string error", { command: "init" });
+      await initSentry();
+      expect(() =>
+        captureException("string error", { command: "init" })
+      ).not.toThrow();
     });
   });
 
@@ -85,17 +89,17 @@ describe("sentry", () => {
     test("is a no-op when not initialized", async () => {
       const { addBreadcrumb } = await import("../../src/helpers/sentry");
 
-      // Should not throw
-      addBreadcrumb("test", "test breadcrumb");
+      expect(() => addBreadcrumb("test", "test breadcrumb")).not.toThrow();
     });
 
     test("adds breadcrumb when initialized", async () => {
       const { initSentry, addBreadcrumb } =
         await import("../../src/helpers/sentry");
 
-      initSentry();
-      // Should not throw
-      addBreadcrumb("command", "Running: check", { staged: true });
+      await initSentry();
+      expect(() =>
+        addBreadcrumb("command", "Running: check", { staged: true })
+      ).not.toThrow();
     });
   });
 
@@ -103,17 +107,15 @@ describe("sentry", () => {
     test("is a no-op when not initialized", async () => {
       const { flushSentry } = await import("../../src/helpers/sentry");
 
-      // Should not throw
-      await flushSentry();
+      await expect(flushSentry()).resolves.toBeUndefined();
     });
 
     test("flushes when initialized", async () => {
       const { initSentry, flushSentry } =
         await import("../../src/helpers/sentry");
 
-      initSentry();
-      // Should not throw
-      await flushSentry(100);
+      await initSentry();
+      await expect(flushSentry(100)).resolves.toBeUndefined();
     });
   });
 });
