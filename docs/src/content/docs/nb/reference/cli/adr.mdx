@@ -1,0 +1,321 @@
+---
+title: archgate adr
+description: "Opprett, list, vis og oppdater Architecture Decision Records."
+---
+
+## archgate adr create
+
+Opprett en ny ADR interaktivt eller via flagg.
+
+```bash
+archgate adr create [options]
+```
+
+Når kommandoen kjøres uten `--title` og `--domain`, spør den interaktivt om domene, tittel og valgfrie filmønstre. Når både `--title` og `--domain` er oppgitt, kjører den ikke-interaktivt.
+
+ADR-ID-en genereres automatisk med domeneprefikset og neste tilgjengelige sekvensnummer (f.eks. `ARCH-002`, `BE-001`).
+
+### Valg
+
+| Valg                 | Beskrivelse                                                                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--title <title>`    | ADR-tittel (hopp over interaktiv prompt)                                                                                                                                           |
+| `--domain <domain>`  | ADR-domene. Innebygde: `backend`, `frontend`, `data`, `architecture`, `general`. Egendefinerte domener må først registreres via [`archgate adr domain add`](#archgate-adr-domain). |
+| `--files <patterns>` | Filmønstre, kommaseparert                                                                                                                                                          |
+| `--body <markdown>`  | Fullstendig ADR-brødtekst i markdown (hopp over mal)                                                                                                                               |
+| `--rules`            | Sett `rules: true` i frontmatter                                                                                                                                                   |
+| `--json`             | Utdata som JSON                                                                                                                                                                    |
+
+### Eksempler
+
+Interaktiv modus:
+
+```bash
+archgate adr create
+```
+
+Ikke-interaktiv modus:
+
+```bash
+archgate adr create \
+  --title "API Response Envelope" \
+  --domain backend \
+  --files "src/api/**/*.ts" \
+  --rules
+```
+
+---
+
+## archgate adr list
+
+List alle ADR-er i prosjektet.
+
+```bash
+archgate adr list [options]
+```
+
+### Valg
+
+| Valg                | Beskrivelse          |
+| ------------------- | -------------------- |
+| `--json`            | Utdata som JSON      |
+| `--domain <domain>` | Filtrer etter domene |
+
+### Eksempler
+
+List alle ADR-er i tabellformat:
+
+```bash
+archgate adr list
+```
+
+```
+ID          Domain        Rules  Title
+────────────────────────────────────────────────────────
+ARCH-001    architecture  true   Command Structure
+ARCH-002    architecture  true   Error Handling
+BE-001      backend       true   API Response Envelope
+```
+
+List ADR-er som JSON:
+
+```bash
+archgate adr list --json
+```
+
+Filtrer etter domene:
+
+```bash
+archgate adr list --domain backend
+```
+
+---
+
+## archgate adr show
+
+Skriv ut en bestemt ADR etter ID.
+
+```bash
+archgate adr show <id>
+```
+
+Skriver ut hele ADR-innholdet (frontmatter og brødtekst) til stdout.
+
+### Argumenter
+
+| Argument | Beskrivelse                          |
+| -------- | ------------------------------------ |
+| `<id>`   | ADR-ID (f.eks. `ARCH-001`, `BE-003`) |
+
+### Eksempel
+
+```bash
+archgate adr show ARCH-001
+```
+
+---
+
+## archgate adr update
+
+Oppdater en eksisterende ADR etter ID.
+
+```bash
+archgate adr update --id <id> --body <markdown> [options]
+```
+
+Erstatter ADR-brødteksten med den oppgitte markdownen. Frontmatter-felter (`--title`, `--domain`, `--files`, `--rules`) oppdateres bare når de eksplisitt sendes med; ellers beholdes eksisterende verdier.
+
+### Valg
+
+| Valg                 | Påkrevd | Beskrivelse                                                                                                                                                                         |
+| -------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--id <id>`          | Ja      | ADR-ID å oppdatere (f.eks. `ARCH-001`)                                                                                                                                              |
+| `--body <markdown>`  | Ja      | Fullstendig erstatnings-ADR-brødtekst i markdown                                                                                                                                    |
+| `--title <title>`    | Nei     | Ny ADR-tittel (beholder eksisterende hvis utelatt)                                                                                                                                  |
+| `--domain <domain>`  | Nei     | Nytt domene. Innebygde: `backend`, `frontend`, `data`, `architecture`, `general`. Egendefinerte domener må først registreres via [`archgate adr domain add`](#archgate-adr-domain). |
+| `--files <patterns>` | Nei     | Nye filmønstre, kommaseparert (beholder eksisterende hvis utelatt)                                                                                                                  |
+| `--rules`            | Nei     | Sett `rules: true` i frontmatter                                                                                                                                                    |
+| `--json`             | Nei     | Utdata som JSON                                                                                                                                                                     |
+
+### Eksempel
+
+```bash
+archgate adr update \
+  --id ARCH-001 \
+  --title "Updated Command Structure" \
+  --body "## Context\n\nUpdated context..."
+```
+
+---
+
+## archgate adr domain
+
+Administrer egendefinerte ADR-domener. Egendefinerte domener er navn-til-ID-prefiks-tilordninger som lagres i `.archgate/config.json` og slås sammen med de fem innebygde (`backend`, `frontend`, `data`, `architecture`, `general`) ved lesing.
+
+Bruk denne kommandoen når en beslutning ikke passer inn under noe innebygd domene. Før du registrerer et nytt, sjekk om beslutningen kan legges under et eksisterende domene -- innebygde er standarden, og et egendefinert domene bør bare introduseres når ingen innebygde passer.
+
+```bash
+archgate adr domain <subcommand> [options]
+```
+
+### Underkommandoer
+
+| Underkommando                             | Beskrivelse                                                                 |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `archgate adr domain list`                | Vis alle sammenslåtte (innebygde + egendefinerte) domener og prefikser      |
+| `archgate adr domain add <name> <prefix>` | Registrer et egendefinert domene                                            |
+| `archgate adr domain remove <name>`       | Fjern registreringen av et egendefinert domene (innebygde kan ikke fjernes) |
+
+### Navneregler
+
+- `<name>` -- kebab-case med små bokstaver, 2-32 tegn (f.eks. `security`, `ml-ops`)
+- `<prefix>` -- store bokstaver, sifre eller understrek, 2-10 tegn (f.eks. `SEC`, `MLOPS`)
+- Egendefinerte navn og prefikser kan ikke kollidere med innebygde eller med andre egendefinerte oppføringer.
+
+### Valg
+
+| Valg     | Gjelder for          | Beskrivelse     |
+| -------- | -------------------- | --------------- |
+| `--json` | alle underkommandoer | Utdata som JSON |
+
+### Eksempler
+
+List innebygde og egendefinerte domener:
+
+```bash
+archgate adr domain list
+```
+
+```
+Domain          Prefix    Source
+────────────────────────────────
+architecture    ARCH      default
+backend         BE        default
+data            DATA      default
+frontend        FE        default
+general         GEN       default
+security        SEC       custom
+```
+
+Registrer et egendefinert domene:
+
+```bash
+archgate adr domain add security SEC
+```
+
+Fjern et egendefinert domene:
+
+```bash
+archgate adr domain remove security
+```
+
+---
+
+## archgate adr import
+
+Importer ADR-er fra registeret eller et git-repository.
+
+```bash
+archgate adr import <source...> [options]
+```
+
+Kommandoen kloner kilden, leser ADR-filer, omtilordner ID-er for å passe inn i det lokale prosjektets sekvens, og skriver dem til `.archgate/adrs/`. Den sporer importer i `.archgate/imports.json` slik at de senere kan sjekkes for oppstrømsoppdateringer via [`archgate adr sync`](#archgate-adr-sync).
+
+### Argumenter
+
+| Argument      | Beskrivelse                                        |
+| ------------- | -------------------------------------------------- |
+| `<source...>` | Registersti(er), `org/repo/path` eller git-URL(er) |
+
+### Valg
+
+| Valg        | Beskrivelse                         |
+| ----------- | ----------------------------------- |
+| `--yes`     | Hopp over bekreftelsesprompt        |
+| `--json`    | Utdata som JSON                     |
+| `--dry-run` | Forhåndsvis endringer uten å skrive |
+| `--list`    | List tidligere importerte ADR-er    |
+
+### Eksempler
+
+Importer fra registeret:
+
+```bash
+archgate adr import archgate/packs/typescript
+```
+
+Importer fra et git-repository:
+
+```bash
+archgate adr import https://github.com/acme/adr-packs.git
+```
+
+Forhåndsvis hva som ville bli importert uten å skrive noen filer:
+
+```bash
+archgate adr import archgate/packs/typescript --dry-run
+```
+
+Importer ikke-interaktivt (hopp over bekreftelse):
+
+```bash
+archgate adr import archgate/packs/typescript --yes
+```
+
+List tidligere importerte ADR-er:
+
+```bash
+archgate adr import --list
+```
+
+---
+
+## archgate adr sync
+
+Sjekk for oppstrømsoppdateringer av importerte ADR-er.
+
+```bash
+archgate adr sync [source...] [options]
+```
+
+Kommandoen sammenligner lokale importerte ADR-er mot oppstrømskilden og viser hvilke seksjoner som er endret. I interaktiv modus spør den for hver endret ADR med tre valg: behold lokal, ta oppstrøms eller hopp over.
+
+### Argumenter
+
+| Argument      | Beskrivelse                                                  |
+| ------------- | ------------------------------------------------------------ |
+| `[source...]` | Valgfritt kildefilter -- synkroniser bare matchende importer |
+
+### Valg
+
+| Valg      | Beskrivelse                                                    |
+| --------- | -------------------------------------------------------------- |
+| `--check` | Avslutt med kode 1 hvis oppstrøms har oppdateringer (CI-modus) |
+| `--yes`   | Hopp over bekreftelsespromter                                  |
+| `--json`  | Utdata som JSON                                                |
+
+### Eksempler
+
+Sjekk alle importerte ADR-er for oppstrømsoppdateringer:
+
+```bash
+archgate adr sync
+```
+
+Sjekk kun importer fra en bestemt kilde:
+
+```bash
+archgate adr sync archgate/packs/typescript
+```
+
+CI-modus -- feil bygget hvis noen importert ADR er utdatert:
+
+```bash
+archgate adr sync --check
+```
+
+Godta alle oppstrømsoppdateringer ikke-interaktivt:
+
+```bash
+archgate adr sync --yes
+```

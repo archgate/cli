@@ -1,0 +1,117 @@
+---
+title: database-audit-fields
+description: Sørg for at alle databasetabeller inkluderer påkrevde revisjonskolonner som created_at og updated_at for sporbarhet.
+---
+
+Sorg for at alle databasetabeller inkluderer påkrevde revisjonskolonner.
+
+## Regeldetaljer
+
+Revisjonsfelt (`created_at`, `updated_at`) er essensielle for feilsoking, datastyring og synkroniseringsprotokoller. Denne regelen analyserer skjemafiler for å finne tabelldefinisjoner, henter ut hver tabells kolonneblokk ved hjelp av klammeparentesdybde-sporing, og sjekker om påkrevde kolonner er til stede. Den fungerer med enhver ORM som definerer tabeller som funksjonsanrop med objektargumenter (Drizzle, Prisma schema-in-code, osv.).
+
+## Eksempler på **feil** kode
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  // Missing created_at and updated_at
+});
+```
+
+## Eksempler på **riktig** kode
+
+```typescript title="packages/db/src/schema.ts"
+export const users = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  created_at: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  updated_at: text("updated_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "audit-fields": {
+      description:
+        "All database tables must have created_at and updated_at columns",
+      async check(ctx) {
+        const schemaFiles = await ctx.glob("packages/**/src/schema.ts");
+        const TABLE_PATTERN = /sqliteTable\s*\(\s*["']([^"']+)["']/g;
+
+        for (const file of schemaFiles) {
+          const content = await ctx.readFile(file);
+          let match;
+
+          while ((match = TABLE_PATTERN.exec(content)) !== null) {
+            const tableName = match[1];
+            const tableStart = match.index;
+
+            // Extract the table's column block using brace-depth tracking
+            const afterMatch = content.slice(tableStart);
+            const firstBrace = afterMatch.indexOf("{");
+            if (firstBrace === -1) continue;
+
+            let depth = 0;
+            let tableEnd = tableStart + firstBrace;
+            for (let i = firstBrace; i < afterMatch.length; i++) {
+              if (afterMatch[i] === "{") depth++;
+              else if (afterMatch[i] === "}") {
+                depth--;
+                if (depth === 0) {
+                  tableEnd = tableStart + i;
+                  break;
+                }
+              }
+            }
+
+            const tableBlock = content.slice(tableStart, tableEnd + 1);
+
+            if (!tableBlock.includes('"created_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "created_at" column`,
+                file,
+                fix: 'Add created_at: text("created_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+            if (!tableBlock.includes('"updated_at"')) {
+              ctx.report.violation({
+                message: `Table "${tableName}" is missing "updated_at" column`,
+                file,
+                fix: 'Add updated_at: text("updated_at").notNull().$defaultFn(() => new Date().toISOString())',
+              });
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Når bør du bruke den
+
+Når datamodellen din krever konsistente revisjonsfelt for sporbarhet, feilsoking eller samsvar. Tilpass `TABLE_PATTERN`-regex og kolonnenavn for din ORM:
+
+```typescript
+// For Drizzle with PostgreSQL
+const TABLE_PATTERN = /pgTable\s*\(\s*["']([^"']+)["']/g;
+
+// For Prisma-style definitions
+const TABLE_PATTERN = /model\s+(\w+)\s*\{/g;
+```
+
+## Når bør du ikke bruke den
+
+Når noen tabeller med vilje utelater revisjonsfelt (f.eks. kobletabeller, materialiserte visninger), eller når revisjonsfelt legges til automatisk på databasenivå via triggere.

@@ -1,0 +1,25 @@
+---
+title: "Studie: Sentry PR-friksjon og ADR-standardisering"
+description: "En 90-dagers pull request-studie av getsentry/sentry som viser hvor gjennomgangs-friksjon samler seg og hvilke ADR-er/regler som kan redusere gjentatte diskusjoner."
+---
+
+Denne studien m&aring;ler hvor kodegjennomgangsfriksjon konsentrerer seg i [`getsentry/sentry`](https://github.com/getsentry/sentry) og identifiserer hvilke ADR-er som kan redusere gjentatte diskusjonssykluser.
+
+M&aring;let er ikke &aring; fjerne menneskelig gjennomgang. M&aring;let er &aring; flytte gjentatte, forutsigbare gjennomgangsdebatter inn i eksplisitte beslutninger og maskinsjekbar policy.
+
+## H&oslash;ydepunkter
+
+P&aring; tvers av **500 sammensl&aring;tte PR-er**, **500 lukket-uten-sammensl&aring;ing PR-er** og **251 &aring;pne PR-er** over et 90-dagers vindu:
+
+- **PR-st&oslash;rrelse er den sterkeste friksjonsindikator** -- store PR-er havner i den h&oslash;ye friksjonskvartilen **57 %** av gangene mot **10 %** for sm&aring; PR-er.
+- **Median tid-til-sammensl&aring;ing er ca. 5 timer**, men P90 n&aring;r **ca. 71 timer** (en 14x-multiplikator).
+- **Gjentatte diskusjonstemaer** samler seg rundt API-semantikk, typesikkerhet, testbevis, UX-flytutvarianter og omfangssplitting.
+- **5 foresl&aring;tte ADR-er** adresserer de st&oslash;rste friksjonskildene, med tilh&oslash;rende regler og en faseinndelt utrullingsplan.
+
+## Les den fullstendige studien
+
+Den komplette studien -- metodikk, grunnlinjemetrikker, friksjonskart, temaanalyse og ADR-forslag -- er publisert p&aring;:
+
+**[studies.archgate.dev/studies/sentry-pr-review-friction](https://studies.archgate.dev/studies/sentry-pr-review-friction/)**
+
+Kildekode og dataartefakter finnes i [`archgate/studies`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction).

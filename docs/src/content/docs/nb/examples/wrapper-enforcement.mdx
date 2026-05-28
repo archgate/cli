@@ -1,0 +1,79 @@
+---
+title: wrapper-enforcement
+description: H&aring;ndhev bruk av en prosjektinnpakning eller hjelper i stedet for et r&aring;tt plattform-API, med automatisk ekskludering av innpakningsfilen selv.
+---
+
+H&aring;ndhev bruk av en prosjektinnpakning i stedet for et r&aring;tt plattform-API.
+
+## Regeldetaljer
+
+N&aring;r et prosjekt tilbyr en hjelper som normaliserer et lavniv&aring;-API (f.eks. en `platform.ts`-hjelper som innpakker `process.platform`), b&oslash;r direkte bruk av det r&aring; API-et forbys overalt unntatt i innpakningen selv. Denne regelen skanner omfangsfiler etter det r&aring; API-kallet og ekskluderer automatisk hjelpefilen og ikke-produksjonskode.
+
+## Eksempler p&aring; **feil** kode
+
+```typescript title="src/commands/build.ts"
+if (process.platform === "win32") {
+  // Windows-specific logic
+}
+```
+
+## Eksempler p&aring; **riktig** kode
+
+```typescript title="src/commands/build.ts"
+import { isWindows } from "../helpers/platform";
+
+if (isWindows()) {
+  // Windows-specific logic
+}
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-direct-process-platform": {
+      description:
+        "Platform detection must use src/helpers/platform.ts, not process.platform directly",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) =>
+            !f.includes("tests/") &&
+            !f.includes(".archgate/") &&
+            !f.endsWith("src/helpers/platform.ts") // Exclude the wrapper itself
+        );
+
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /process\.platform/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Do not access process.platform directly — use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
+              file: m.file,
+              line: m.line,
+              fix: 'Import { isWindows } from "../helpers/platform" and use it instead of process.platform',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+N&aring;r prosjektet ditt har en innpakning eller hjelpemodul som normaliserer et r&aring;tt API og du vil forhindre direkte tilgang til det underliggende API-et. Vanlige eksempler:
+
+- `platform.ts` som innpakker `process.platform`
+- `logger.ts` som innpakker `console.log` / `console.error`
+- `fs.ts` som innpakker `node:fs` med prosjektspesifikke standardverdier
+- `env.ts` som innpakker `process.env` med typede aksessorer
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+N&aring;r det r&aring; API-et er enkelt nok til at en innpakning ikke tilfører verdi, eller n&aring;r innpakningen enn&aring; ikke er tatt i bruk p&aring; tvers av kodebasen (vurder &aring; bruke `warning`-alvorlighetsgrad under migrering).

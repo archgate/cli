@@ -1,0 +1,133 @@
+---
+title: Domener
+description: Organiser Architecture Decision Records etter domene i Archgate. Grupper ADR-er etter arkitektur, testing, sikkerhet eller enhver egendefinert kategori for målrettet styring.
+---
+
+Domener er kategorier som grupperer relaterte ADR-er. Hver ADR tilhører nøyaktig ett domene, og domenet bestemmer prefikset som brukes i ADR-ens identifikator.
+
+## Innebygde domener
+
+Archgate leveres med fem innebygde domener. Hvert har et kort prefiks som vises i starten av hver ADR-ID i det domenet.
+
+| Domene         | Prefiks | Brukes til                                            |
+| -------------- | ------- | ----------------------------------------------------- |
+| `backend`      | `BE`    | Server-side-logikk, API-er, databaser, tjenester      |
+| `frontend`     | `FE`    | UI-komponenter, klient-side-logikk, stilmønstre       |
+| `data`         | `DATA`  | Datamodeller, skjemaer, pipelines, lagringsstrategier |
+| `architecture` | `ARCH`  | Tverrgående arkitekturbeslutninger                    |
+| `general`      | `GEN`   | Generelle prosjektkonvensjoner og arbeidsflyter       |
+
+For eksempel vil den tredje backend-ADR-en ha ID-en `BE-003`, og den første frontend-ADR-en vil være `FE-001`.
+
+## Hvordan domener brukes
+
+### ADR-identifikasjon
+
+Domeneprefikset er bakt inn i hvert ADR-s `id`-felt. Når du kjører `archgate adr create` og velger et domene, bestemmer CLI-en automatisk neste tilgjengelige sekvensnummer for det domenets prefiks. Et arkitekturdomene med to eksisterende ADR-er (`ARCH-001`, `ARCH-002`) vil tildele `ARCH-003` til den neste.
+
+Filnavnet speiler ID-en:
+
+```
+ARCH-003-dependency-policy.md
+ARCH-003-dependency-policy.rules.ts
+```
+
+### Filtrering
+
+Kommandoen `archgate adr list` støtter flagget `--domain` for å vise kun ADR-er fra et bestemt domene:
+
+```bash
+archgate adr list --domain backend
+archgate adr list --domain architecture
+```
+
+Dette er nyttig i store prosjekter der mange ADR-er spenner over flere ansvarsområder. Filtrering etter domene lar deg fokusere på beslutningene som er relevante for ditt nåværende arbeid.
+
+### AI-agentkontekst
+
+Kommandoen `archgate review-context` grupperer endrede filer etter domene når den gir kontekst til AI-agenter. Når en agent skal skrive kode, mottar den bare ADR-briefingene som er relevante for domenene endringene berører, i stedet for det fullstendige settet av alle ADR-er. Denne avgrensningen reduserer støy og hjelper agenter å fokusere på begrensningene som faktisk gjelder.
+
+### Avgrenset validering
+
+Selv om domener i seg selv ikke begrenser hvilke filer en regel kan sjekke (det er jobben til `files`-globen i ADR frontmatteren), gir domener en logisk gruppering som hjelper team å organisere styringen sin. Et backend-team kan gjennomgå alle `BE-*`-ADR-er for å forstå sine begrensninger, mens frontend-teamet fokuserer på `FE-*`.
+
+## Når du bør bruke hvilket domene
+
+### backend
+
+Bruk for beslutninger om server-side-kode: API-designmønstre, databasetilgangskonvensjoner, autentiseringsflyter, tjeneste-til-tjeneste-kommunikasjon, køhåndtering og mønster for bakgrunnsjobber.
+
+**Eksempel-ADR-er:** API-responskonvoluttformat, databasemigreringsstrategi, feilkodetaksonomi.
+
+### frontend
+
+Bruk for beslutninger om klient-side-kode: komponentstruktur, tilstandshåndteringsmønstre, stilingsmetoder, tilgjengelighetskrav og valg av byggeverktøy.
+
+**Eksempel-ADR-er:** Komponentfilstruktur, CSS-metodikk, skjemavalideringsmønster.
+
+### data
+
+Bruk for beslutninger om data: skjemadesign, datapipeline-konvensjoner, valg av lagringsmotor, serialiseringsformater og datavalideringsstrategier.
+
+**Eksempel-ADR-er:** Hendelseskjemaversionering, databasenavnekonvensjoner, retningslinjer for dataoppbevaring.
+
+### architecture
+
+Bruk for tverrgående beslutninger som spenner over flere domener eller påvirker prosjektets overordnede struktur. Dette er beslutninger som backend-, frontend- og datateam alle må følge.
+
+**Eksempel-ADR-er:** Kommandostruktur, feilhåndteringskonvensjoner, avhengighetsforvaltningspolicy, testestandarder.
+
+### general
+
+Bruk for prosjektomfattende konvensjoner som ikke passer godt inn i et teknisk domene: kodegjennomgangsprosesser, formater for commit-meldinger, dokumentasjonsstandarder og onboarding-praksis.
+
+**Eksempel-ADR-er:** Commit-meldingsformat, PR-beskrivelsemal, dokumentasjonskrav.
+
+## Velge riktig domene
+
+Når du bestemmer hvilket domene en ADR tilhører, tenk på hvem som må følge den:
+
+- Hvis bare backend-utviklere trenger å følge den, bruk `backend`.
+- Hvis bare frontend-utviklere trenger å følge den, bruk `frontend`.
+- Hvis den gjelder spesifikt datamodellering eller pipelines, bruk `data`.
+- Hvis den gjelder på tvers av flere tekniske domener, bruk `architecture`.
+- Hvis det er en prosess eller konvensjon snarere enn en teknisk beslutning, bruk `general`.
+
+Når du er i tvil mellom `architecture` og et spesifikt domene, foretrekk det mer spesifikke domenet. Reserver `architecture` for beslutninger som genuint krysser grenser.
+
+## Egendefinerte domener
+
+Når de fem innebygde domenene virkelig ikke passer for en kategori av beslutninger -- for eksempel `security`, `ml-ops` eller `compliance` -- kan du registrere et egendefinert domene via CLI-en:
+
+```bash
+# Se hva som for øyeblikket er gjenkjent i dette prosjektet
+archgate adr domain list
+
+# Registrer et nytt domene med ID-prefiks
+archgate adr domain add security SEC
+
+# Fjern et egendefinert domene (innebygde kan ikke fjernes)
+archgate adr domain remove security
+```
+
+Egendefinerte domene-til-prefiks-tilordninger lagres i [`.archgate/config.json`](/reference/configuration/) og slås sammen med de innebygde ved lesing. Et registrert egendefinert domene oppfører seg nøyaktig som et innebygd: `archgate adr create --domain security` genererer automatisk ID-er som `SEC-001`, og `archgate adr list --domain security` filtrerer til disse ADR-ene.
+
+### Navneregler
+
+- **Navn** -- kebab-case med små bokstaver, 2--32 tegn (f.eks. `security`, `ml-ops`, `compliance`).
+- **Prefiks** -- store bokstaver, sifre eller understreker, 2--10 tegn (f.eks. `SEC`, `MLOPS`, `COMP`).
+- Egendefinerte navn og prefikser kan ikke kollidere med innebygde eller andre egendefinerte oppføringer.
+
+### Når du bør foretrekke et innebygd
+
+De fem innebygde domenene er bevisst opinionerte. Før du registrerer et egendefinert domene, sjekk om beslutningen kan plasseres under et eksisterende:
+
+- En beslutning om autentiseringsmellomvare passer vanligvis under `backend`, selv om motivasjonen er sikkerhet.
+- En beslutning om skjemaversionering passer vanligvis under `data`, selv om motivasjonen er samsvar.
+- En beslutning som spenner over flere tekniske områder passer vanligvis under `architecture`.
+
+Bruk et egendefinert domene bare når ingen av de innebygde passer -- for eksempel når du har et dedikert team eller et samsvarregime som trenger sin egen styringsflate.
+
+### Veiledning for AI-agenter
+
+Når du bruker Archgate-editorpluginen til å opprette ADR-er, er agentene instruert til å foretrekke de innebygde domenene og spørre før de introduserer et egendefinert. De viser den samlede listen via `archgate adr domain list` og registrerer bare et nytt domene etter å ha bekreftet med deg at ingen innebygde passer.

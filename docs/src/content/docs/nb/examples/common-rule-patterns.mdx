@@ -1,0 +1,60 @@
+---
+title: Vanlige regelmonstre
+description: "Bruksklare Archgate-regelmonstre for vanlige styringsbehov: avhengighetsstyring, importrestriksjoner, filstruktur, kodekvalitet, databaseskjema og arkitekturgrenser."
+sidebar:
+  order: 0
+---
+
+Bla gjennom komplette, kopierbare regeleksempler organisert etter kategori. Hver regelside folger et konsistent format: hva regelen sjekker, eksempler pa feil og riktig kode, den fullstendige `.rules.ts`-implementasjonen, og veiledning om nar du bor bruke den.
+
+## Avhengigheter og pakkestyring
+
+| Regel                                                   | Beskrivelse                                                                  |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| [no-unapproved-deps](/examples/no-unapproved-deps/)     | Begrens produksjonsavhengigheter til en godkjent liste                       |
+| [version-catalog](/examples/version-catalog/)           | Krev sentralisert versjonsstyring i monorepositories med `catalog:`-notasjon |
+| [monorepo-task-runner](/examples/monorepo-task-runner/) | Forby `package.json`-skript og krev task runner-konfigurasjon i alle pakker  |
+
+## Import- og API-restriksjoner
+
+| Regel                                                 | Beskrivelse                                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [no-banned-imports](/examples/no-banned-imports/)     | Forhindre bruk av forbudte biblioteker med en datadrevet monsterliste                    |
+| [no-banned-api](/examples/no-banned-api/)             | Forby spesifikke kjoretidens API-er som forårsaker plattform- eller stabilitetsproblemer |
+| [wrapper-enforcement](/examples/wrapper-enforcement/) | Krev bruk av en prosjektwrapper i stedet for en rå plattform-API                         |
+
+## Filstruktur og organisering
+
+| Regel                                                   | Beskrivelse                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------ |
+| [kebab-case-filenames](/examples/kebab-case-filenames/) | Krev konsistente filnavnkonvensjoner med regex-validering          |
+| [no-barrel-files](/examples/no-barrel-files/)           | Oppdag og forby barrel-filer (re-eksport-bare `index.ts`)          |
+| [test-file-coverage](/examples/test-file-coverage/)     | Kontroller at hver kildefil har en tilhorende testfil              |
+| [component-pairing](/examples/component-pairing/)       | Krev Connected/presentational-komponentpar med mulighet for unntak |
+
+## Kodekvalitet og output
+
+| Regel                                                               | Beskrivelse                                                          |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [no-todo-comments](/examples/no-todo-comments/)                     | Flagg TODO-, FIXME-, HACK- og XXX-kommentarer for sammenslåing       |
+| [no-emoji-in-output](/examples/no-emoji-in-output/)                 | Forby emoji og rå ANSI-koder i CLI-outputstrenger                    |
+| [max-file-length](/examples/max-file-length/)                       | Advar nar kildefiler overskrider en konfigurerbar linjeantallsgrense |
+| [page-component-constraints](/examples/page-component-constraints/) | Krev storrelesgrenser og forby data-henting-hooks i sidekomponenter  |
+
+## Databaseskjema
+
+| Regel                                                     | Beskrivelse                                                                 |
+| --------------------------------------------------------- | --------------------------------------------------------------------------- |
+| [database-audit-fields](/examples/database-audit-fields/) | Sorg for at alle tabeller inkluderer `created_at`- og `updated_at`-kolonner |
+
+## Arkitekturgrenser
+
+| Regel                                                             | Beskrivelse                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------ |
+| [required-export-pattern](/examples/required-export-pattern/)     | Kontroller at filer eksporterer en pakrevd funksjonssignatur |
+| [openapi-routes](/examples/openapi-routes/)                       | Sorg for at backend-ruter bruker OpenAPI-typede definisjoner |
+| [clean-architecture-layers](/examples/clean-architecture-layers/) | Krev avhengighetsretning i lagdelte arkitekturer             |
+
+:::tip[La AI-agenter skrive regler for deg]
+Editorutvidelsene for [Claude Code](/guides/claude-code-plugin/) og [Cursor](/guides/cursor-integration/) inkluderer en Quality Manager-ferdighet som identifiserer gjentakende monstre i kodebasen din og foreslar nye regler for å handtere dem. [Registrer deg for betatilgang](https://plugins.archgate.dev).
+:::

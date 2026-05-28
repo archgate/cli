@@ -1,0 +1,62 @@
+---
+title: Personvernerklaering
+description: Hvordan Archgate behandler dataene dine, hva vi samler inn, og rettighetene dine.
+---
+
+For den fullstendige Archgate-personvernerklaering, besok:
+
+**[archgate.dev/privacy-policy](https://archgate.dev/privacy-policy)**
+
+Seksjonene nedenfor oppsummerer de mest relevante punktene for CLI-brukere. Den kanoniske erklaering pa nettstedet er den juridisk bindende versjonen.
+
+**Behandlingsansvarlig:** Dasolve AS (Org.nr 936 035 019), Lillogata 5P, 0484 Oslo, Norge. Kontakt: [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
+## Sammendrag for CLI-brukere
+
+### Hva CLI-en samler inn
+
+Archgate samler inn **anonym bruksanalyse** (via PostHog) og **krasjrapporter** (via Sentry) for a forbedre verktøyet. Ingen personopplysninger, kildekode, filinnhold eller AI-prompter samles noensinne inn av selve CLI-en. Se [Telemetri](/reference/telemetry/)-siden for en detaljert gjennomgang av hvert datapunkt.
+
+**Rettslig grunnlag:** Berettiget interesse under GDPR artikkel 6(1)(f). Se var [Vurdering av berettigede interesser](https://archgate.dev/legitimate-interest-assessment).
+
+### Datalagring og oppbevaringstid
+
+| Tjeneste      | Data                      | Region         | Oppbevaringstid           |
+| ------------- | ------------------------- | -------------- | ------------------------- |
+| PostHog Cloud | Anonym bruksanalyse       | EU (Frankfurt) | 1 ar                      |
+| Sentry Cloud  | Krasjrapporter            | EU (Frankfurt) | 90 dager                  |
+| Turso         | Plugins Service-kontodata | EU             | Til sletting etterspørres |
+
+Data overføres via reverseproksier pa `n.archgate.dev` (analyse) og `s.archgate.dev` (feil) -- transparente videresendere driftet av Dasolve AS pa Cloudflare, uten logging eller lagring.
+
+### Archgate Plugins Service
+
+Nar du registrerer deg via `archgate login`, samler **Plugins Service** (`plugins.archgate.dev`) inn personopplysninger: din **e-postadresse**, **GitHub-brukernavn**, **editorvalg** og en **beskrivelse av bruksomrade**. Disse dataene brukes til a opprette kontoen din og sende en velkomst-e-post. Autentiseringstokener lagres som SHA-256-hasher pa serverne vare; pa din maskin oppbevares legitimasjonen i operativsystemets legitimasjonsbehandler (aldri som ren tekstfiler).
+
+Ved a opprette en konto godtar du [tjenestevilkarene](https://archgate.dev/terms-of-service). Se den [fullstendige personvernerklaering](https://archgate.dev/privacy-policy) for komplette detaljer.
+
+### Slik reserverer du deg
+
+```bash
+# Miljøvariabel (umiddelbar, per sesjon eller i shellprofil)
+export ARCHGATE_TELEMETRY=0
+
+# Eller permanent via CLI-en
+archgate telemetry disable
+```
+
+Merk: telemetrireservasjon deaktiverer CLI-analyse og krasjrapportering. Det pavirker ikke Plugins Service-kontodataene, som kreves for plugintilgang. For a slette kontodataene dine, kontakt [privacy@archgate.dev](mailto:privacy@archgate.dev).
+
+### Dine rettigheter
+
+- **Innsyn:** Be om en kopi av dataene dine -- send e-post til [privacy@archgate.dev](mailto:privacy@archgate.dev) med din installasjons-ID (fra `~/.archgate/config.json` eller `archgate telemetry status`).
+- **Sletting:** Be om sletting av historiske data -- send e-post med din installasjons-ID. Gjennomføres innen 30 dager.
+- **Protest:** Deaktiver telemetri nar som helst via `archgate telemetry disable`.
+- **Dataportabilitet:** Be om dataeksport i JSON- eller CSV-format.
+- **Klage:** Kontakt Datatilsynet ([Datatilsynet](https://www.datatilsynet.no)).
+
+### Hva dokumentasjonssiden samler inn
+
+Denne dokumentasjonssiden (`cli.archgate.dev`) bruker [Cloudflare Web Analytics](https://www.cloudflare.com/web-analytics/), en personvernvennlig analysetjeneste. Cloudflare Web Analytics bruker ikke informasjonskapsler, sporer ikke individuelle besøkende og samler ikke inn personopplysninger. Tjenesten gir kun aggregerte sidevisnings- og ytelsesmålinger.
+
+PostHog brukes ogsa pa dette nettstedet med **informasjonskapselløs sporing kun i minnet** (`persistence: "memory"`). Ingen informasjonskapsler settes, ingen localStorage skrives, og ingen data vedvarer mellom sidelastinger.

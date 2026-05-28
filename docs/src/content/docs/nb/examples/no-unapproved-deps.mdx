@@ -1,0 +1,77 @@
+---
+title: no-unapproved-deps
+description: Begrens produksjonsavhengigheter til en godkjent tillatelsesliste for &aring; kontrollere forsyningskjederisiko og avhengighetsoppbl&aring;sing.
+---
+
+Begrens produksjonsavhengigheter til en godkjent tillatelsesliste.
+
+## Regeldetaljer
+
+Store avhengighetstrær &oslash;ker forsyningskjederisiko og bl&aring;ser opp pakkest&oslash;rrelser. Denne regelen leser `package.json` og rapporterer enhver produksjonsavhengighet som ikke st&aring;r p&aring; en eksplisitt tillatelsesliste. Utviklingsavhengigheter sjekkes ikke.
+
+## Eksempler p&aring; **feil** kode
+
+```json title="package.json"
+{ "dependencies": { "zod": "^3.23.0", "chalk": "^5.3.0" } }
+```
+
+Hvis bare `zod` st&aring;r p&aring; den godkjente listen, utl&oslash;ser `chalk` et brudd.
+
+## Eksempler p&aring; **riktig** kode
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "chalk": "^5.3.0" }
+}
+```
+
+Alle produksjonsavhengigheter st&aring;r p&aring; den godkjente listen. Biblioteker som bare trengs ved byggetidspunkt ligger i `devDependencies`.
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const APPROVED_DEPS = [
+  "@commander-js/extra-typings",
+  "inquirer",
+  "@modelcontextprotocol/sdk",
+  "zod",
+];
+
+export default {
+  rules: {
+    "no-unapproved-deps": {
+      description: "Production dependencies must be on the approved list",
+      async check(ctx) {
+        let pkg: { dependencies?: Record<string, string> };
+        try {
+          pkg = (await ctx.readJSON("package.json")) as typeof pkg;
+        } catch {
+          return; // No package.json — nothing to check
+        }
+
+        const deps = Object.keys(pkg.dependencies ?? {});
+        for (const dep of deps) {
+          if (!APPROVED_DEPS.includes(dep)) {
+            ctx.report.violation({
+              message: `Unapproved production dependency: "${dep}". Approved: ${APPROVED_DEPS.join(", ")}`,
+              file: "package.json",
+              fix: `Either add "${dep}" to the approved list in the ADR or move it to devDependencies`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+N&aring;r teamet ditt har en eksplisitt policy for avhengighetsstyring og &oslash;nsker &aring; forhindre at ikke-godkjente pakker havner i produksjonspakken.
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+I prosjekter i tidlig fase der avhengighetslisten fortsatt utvikles raskt, eller n&aring;r avhengighetsstyring h&aring;ndteres av et eget verkt&oslash;y som Socket eller Snyk.

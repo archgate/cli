@@ -1,0 +1,82 @@
+---
+title: test-file-coverage
+description: Verifiser at hver kildefil har en tilh&oslash;rende testfil for &aring; forhindre at utestet kode blir sammensl&aring;tt.
+---
+
+Verifiser at hver kildefil har en tilh&oslash;rende testfil.
+
+## Regeldetaljer
+
+Utestet kode er en risiko. Denne regelen h&aring;ndhever en strukturell konvensjon: for hver fil i `src/` m&aring; en matchende `.test.ts`-fil finnes i `tests/`. Den bruker `ctx.glob` for &aring; oppdage eksisterende testfiler, bygger et oppslagssett for rask matching, og rapporterer enhver kildefil uten en motpart.
+
+## Eksempler p&aring; **feil** kode
+
+```
+src/
+  helpers/
+    log.ts          ← has a test ✓
+    paths.ts        ← no test file ✗
+tests/
+  helpers/
+    log.test.ts
+```
+
+## Eksempler p&aring; **riktig** kode
+
+```
+src/
+  helpers/
+    log.ts
+    paths.ts
+tests/
+  helpers/
+    log.test.ts
+    paths.test.ts
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+import { relative } from "node:path";
+
+export default {
+  rules: {
+    "test-file-exists": {
+      description: "Every source file should have a corresponding test file",
+      severity: "warning",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const rel = relative(ctx.projectRoot, file);
+          const testPath = rel
+            .replace(/^src\//, "tests/")
+            .replace(/\.ts$/, ".test.ts");
+          const testFiles = await ctx.glob(testPath);
+          if (testFiles.length === 0) {
+            ctx.report.warning({
+              message: `No test file found at ${testPath}`,
+              file,
+              fix: `Create a test file at ${testPath}`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+For &aring; tilpasse til prosjekter som plasserer tester ved siden av kildefilene:
+
+```typescript
+const testPath = rel.replace(/\.ts$/, ".test.ts");
+// src/helpers/log.ts → src/helpers/log.test.ts
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+N&aring;r teamet ditt f&oslash;lger en konvensjon om at hver kildemodul m&aring; ha en tilh&oslash;rende testfil, og du &oslash;nsker &aring; fange opp manglende tester under kodegjennomgang.
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+N&aring;r testdekning spores p&aring; andre m&aring;ter (f.eks. dekningsgrenser i CI), eller n&aring;r noen kildefiler genuint ikke trenger tester (kun-type-filer, konstanter).

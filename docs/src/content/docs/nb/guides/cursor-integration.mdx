@@ -1,0 +1,161 @@
+---
+title: Cursor-integrasjon
+description: Integrer Archgate med Cursor IDE for AI-assistert utvikling med arkitekturstyring. Konfigurer agentregler og ferdigheter for ADR-samsvar.
+---
+
+Archgate integreres med [Cursor](https://cursor.com) for aa gi AI-agenter en strukturert styringsarbeidsflyt. Agenten leser ADR-ene dine for den skriver kode, validerer etterpaa, og fanger opp nye monstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
+
+## Oppsett
+
+Kjor `archgate init` med `--editor cursor`-flagget for aa konfigurere Cursor-integrasjon i prosjektet ditt:
+
+```bash
+archgate init --editor cursor
+```
+
+### Med plugin (beta)
+
+:::note[Betatilgang kreves]
+Cursor-pluginet er for oyeblikket i beta. Kjor `archgate login` for aa registrere deg og autentisere.
+:::
+
+Hvis du har logget inn via `archgate login`, installerer init-kommandoen ogsaa Archgate-pluginet for Cursor. Pluginet tilbyr ferdigbygde agentregler og ferdigheter som gir Cursor sin AI-agent en komplett styringsarbeidsflyt.
+
+Pluginet distribueres paa to maater:
+
+1. **Cursor Team Marketplace** -- Pluginet publiseres til et git-basert team-markedsplass-repositorium. Etter installasjon oppdager Cursor det fra team-markedsplassens URL som skrives ut av CLI-en.
+2. **VS Code Extension (VSIX)** -- En `.vsix`-utvidelse installeres i Cursor via `cursor --install-extension`-kommandoen.
+
+For aa eksplisitt installere pluginet:
+
+```bash
+archgate login              # engangsoppsett
+archgate init --editor cursor --install-plugin
+```
+
+Kommandoen `archgate plugin install --editor cursor` installerer VS Code-utvidelsen via `cursor`-CLI-en hvis tilgjengelig og skriver ut team-markedsplassens URL; ellers skrives manuelle instruksjoner ut.
+
+For aa installere eller reinstallere pluginet paa et allerede initialisert prosjekt:
+
+```bash
+archgate plugin install --editor cursor
+```
+
+### Uten plugin (gratis)
+
+Uten pluginet konfigurerer `archgate init --editor cursor` fortsatt en grunnleggende styringsregel. AI-agenten kan konsultere ADR-er og kjore sjekker via CLI-kommandoer, men faar ikke de rollebaserte ferdighetene beskrevet nedenfor.
+
+### Genererte filer
+
+| Fil                                     | Formaal                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------- |
+| `.cursor/rules/archgate-governance.mdc` | Alltid-paa Cursor-regel som instruerer agenten om aa konsultere ADR-er |
+
+## Hva pluginet tilbyr
+
+Pluginet legger til en agent og rollebaserte ferdigheter i Cursor. Cursors plugin-system haandterer navnerom, saa ferdigheter bruker sine direkte navn uten prefiks.
+
+### Agent
+
+| Navn        | Formaal                                                                    |
+| ----------- | -------------------------------------------------------------------------- |
+| `developer` | Generell utviklingsagent som leser ADR-er for koding og validerer etterpaa |
+
+`developer`-agenten orkestrerer ferdighetene nedenfor automatisk som en del av arbeidsflyten.
+
+### Ferdigheter
+
+| Navn              | Formaal                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| `architect`       | Validerer kodeendringer mot alle prosjektets ADR-er for strukturell samsvar             |
+| `quality-manager` | Gjennomgaar regeldekning og foreslar nye ADR-er naar monstre dukker opp                 |
+| `adr-author`      | Oppretter og redigerer ADR-er i henhold til prosjektets konvensjoner                    |
+| `onboard`         | Engangsoppsett: utforsker kodebasen, intervjuer utvikleren, oppretter innledende ADR-er |
+| `cli-reference`   | Intern referanse for AI-agenter med den komplette Archgate CLI-kommandoguiden           |
+
+Disse er den samme agenten og ferdighetene som er tilgjengelige i Claude Code-pluginet (`archgate:developer`, `archgate:architect`, osv.), tilpasset Cursors plugin-system.
+
+## Forste oppsett med onboard
+
+Etter aa ha installert pluginet, kjor `onboard`-ferdigheten i prosjektet ditt en gang. Denne ferdigheten:
+
+1. Utforsker kodebasestrukturen din (mapper, nokkelfiler, pakkekonfigurasjon)
+2. Intervjuer deg om teamets konvensjoner, begrensninger og arkitekturbeslutninger
+3. Oppretter et innledende sett med ADR-er basert paa svarene dine
+4. Setter opp `.archgate/`-mappen med de forste reglene dine
+
+Onboard-ferdigheten er designet for aa kjores en gang per prosjekt. Etter onboarding haandterer de andre ferdighetene daglig utvikling.
+
+## Hvordan det fungerer i praksis
+
+### Med pluginet
+
+`developer`-agenten folger en strukturert arbeidsflyt for hver kodeoppgave:
+
+1. **Les gjeldende ADR-er** -- Agenten kjorer `archgate review-context` for aa se hvilke ADR-er som gjelder for filene som endres. Den skriver ikke kode for den har lest de gjeldende ADR-ene.
+
+2. **Skriv kode i henhold til ADR-begrensninger** -- Agenten implementerer endringer i henhold til Do's and Don'ts fra de gjeldende ADR-ene.
+
+3. **Kjor samsvarssjekker** -- Agenten kjorer `archgate check --staged` for aa utfore automatiserte regler. Eventuelle brudd utbedres for man gaar videre.
+
+4. **Arkitektgjennomgang** -- Agenten aktiverer `architect`-ferdigheten for aa validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp.
+
+5. **Fang opp laeringer** -- Agenten aktiverer `quality-manager`-ferdigheten for aa gjennomgaa arbeidet og identifisere monstre som er verdt aa fange opp som nye ADR-er eller oppdateringer til eksisterende.
+
+### Uten pluginet
+
+Agenten bruker styringsregelen og CLI-kommandoer for aa folge fire manuelle trinn:
+
+1. **Gjennomgaa kontekst** -- Kjor `archgate review-context` for aa se hvilke ADR-er som gjelder for filene som endres.
+
+2. **Les individuelle ADR-er** -- For full kontekst om en spesifikk beslutning, kjor `archgate adr show <id>` (for eksempel `archgate adr show ARCH-001`).
+
+3. **Skriv kode** -- Implementer endringer i henhold til begrensningene fra de gjeldende ADR-ene.
+
+4. **Kjor samsvarssjekker** -- Kjor `archgate check --staged` for aa validere at koden samsvarer med alle ADR-regler.
+
+## ADR-drevet avvisning
+
+Naar agenten moter en oppgave som ville kreve brudd paa en ADR, avviser den og forklarer hvilken ADR som ville bli brutt. Den foreslar deretter hvordan man kan oppnaa det samme maalet uten aa bryte reglene.
+
+Hvis for eksempel en utvikler ber agenten om aa legge til `chalk` som en avhengighet i et prosjekt styrt av en ADR for avhengighetspolicy, vil agenten:
+
+1. Avvise, med henvisning til ADR-en og den godkjente avhengighetslisten
+2. Foresla det godkjente alternativet i stedet
+3. Tilby aa implementere oppgaven med den samsvarende tilnaermingen
+
+Denne oppforselen er konsistent uavhengig av hvordan utvikleren formulerer forsporselen. ADR-er behandles som obligatoriske begrensninger, ikke forslag.
+
+## Naar du skal bruke hver agent eller ferdighet
+
+| Scenario                                           | Ferdighet         |
+| -------------------------------------------------- | ----------------- |
+| Starte et nytt prosjekt med Archgate               | `onboard`         |
+| Daglige kodeoppgaver                               | `developer`       |
+| Gjennomgaa en PR for ADR-samsvar                   | `architect`       |
+| Oppdage et gjentagende monster verdt aa kodifisere | `quality-manager` |
+| Opprette eller redigere en ADR                     | `adr-author`      |
+
+`developer`-agenten orkestrerer ferdighetene automatisk -- den aktiverer `architect` og `quality-manager` som en del av arbeidsflyten. Mesteparten av tiden trenger du bare aa bruke `developer` direkte.
+
+## Styringsregel
+
+Styringsregelen i `.cursor/rules/archgate-governance.mdc` bruker `alwaysApply: true`, noe som betyr at Cursor-agenten alltid har styringstilgang tilgjengelig uten manuell aktivering. Den instruerer agenten om aa kjore `archgate review-context` for koding og `archgate check --staged` etterpaa.
+
+## Tilgang til sesjonsutskrifter
+
+Kommandoen `archgate session-context cursor` leser Cursor-agentens sesjonsutskrifter fra disk. Dette lar ferdigheter faa tilgang til historikken til den gjeldende samtalen, noe som er nyttig for aa gjenopprette kontekst som kan ha blitt komprimert eller avkortet.
+
+Kommandoen aksepterer to valgfrie flagg:
+
+- `--max-entries <n>` -- Maksimalt antall oppforinger aa returnere (standard: 200, nyeste oppforinger).
+- `--session-id <uuid>` -- En spesifikk sesjons-UUID aa lese. Hvis utelatt, brukes den nyeste sesjonen.
+
+## Tips for effektiv bruk
+
+- **Bruk `developer`-ferdigheten for kodeoppgaver.** Den orkestrerer hele les-valider-fang-opp-arbeidsflyten automatisk.
+- **Kjor `onboard` en gang per prosjekt.** Den setter opp de innledende ADR-ene basert paa den faktiske kodebasen og konvensjonene dine.
+- **Bruk `architect` for PR-gjennomganger.** Den validerer strukturelt samsvar utover det automatiserte regler fanger opp.
+- **Bruk `quality-manager` etter aa ha lost vanskelige problemer.** Den fanger opp laeringer slik at de samme feilene ikke gjentas.
+- **Commit `.cursor/`-mappen.** Dette sikrer at alle teammedlemmer faar den samme styringskonfigurasjonen naar de kloner repositoriet.
+- **Hold ADR-regelfiler oppdatert.** Agenten haandterer det reglene sjekker for -- hvis en regel mangler, vil bruddet ikke bli fanget opp.

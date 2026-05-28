@@ -1,0 +1,291 @@
+---
+title: CI-integrasjon
+description: Integrer Archgate-samsvarsjekker i GitHub Actions, GitLab CI eller hvilken som helst CI/CD-pipeline. Blokker sammenslåinger når arkitekturregler brytes.
+---
+
+Archgate-sjekker passer inn i ethvert CI-system som respekterer exit-koder. Legg til ett enkelt steg i pipelinen din, så blokkeres sammenslåinger automatisk ved brudd.
+
+## GitHub Actions
+
+Den raskeste måten å legge til Archgate i GitHub Actions er med den offisielle [`archgate/check-action`](https://github.com/archgate/check-action). Den installerer CLI-et, kjører `archgate check --ci` og viser brudd som innebygde merknader på pull requestens "Files changed"-fane:
+
+```yaml
+name: Archgate
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+Det er alt -- ingen Node.js-oppsett, ingen installasjonssteg. Hvis en regel rapporterer et brudd med `error`-alvorlighetsgrad, feiler jobben med exit-kode 1.
+
+### Fest en versjon
+
+```yaml
+- uses: archgate/check-action@v1
+  with:
+    version: v0.15.0
+```
+
+### Kun oppsett-action
+
+Hvis du trenger å kjøre Archgate-kommandoer utover `check` (f.eks. `archgate adr list --json`), bruk [`archgate/setup-action`](https://github.com/archgate/setup-action) for å installere CLI-et og legge det til PATH, og kjør deretter de kommandoene du trenger:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - uses: archgate/setup-action@v1
+  - run: archgate check --ci
+  - run: archgate adr list --json
+```
+
+### Kryssplattform-arbeidsflyt
+
+Begge actionene støtter Ubuntu, macOS og Windows-runnere:
+
+```yaml
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: archgate/check-action@v1
+```
+
+### Manuelt oppsett
+
+Hvis du foretrekker å ikke bruke de offisielle actionene, kan du installere Archgate manuelt:
+
+```yaml
+steps:
+  - uses: actions/checkout@v4
+  - run: npm install -g archgate
+  - run: archgate check
+```
+
+## GitHub Actions-merknader
+
+Bruk `--ci` for å skrive brudd som GitHub Actions-arbeidsflytmerknader. Disse vises innebygd på pull requestens "Files changed"-fane og peker direkte til den problematiske filen og linjen.
+
+```yaml
+- run: archgate check --ci
+```
+
+Flagget `--ci` produserer `::error`- og `::warning`-merknader i formatet GitHub Actions forventer. Hver merknad inkluderer ADR-ID, regel-ID, filsti og linjenummer.
+
+:::note[Merknad]
+`archgate/check-action` sender `--ci` automatisk -- du trenger bare dette flagget når du kjører `archgate check` manuelt.
+:::
+
+## Maskinlesbar utdata
+
+Bruk `--json` for strukturert utdata som andre verktøy kan parse:
+
+```yaml
+- run: archgate check --json > results.json
+```
+
+JSON-utdataen inkluderer:
+
+```json
+{
+  "pass": false,
+  "total": 6,
+  "passed": 5,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-006",
+      "ruleId": "no-unapproved-deps",
+      "description": "Production dependencies must be on the approved list",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Unapproved production dependency: \"chalk\"",
+          "file": "package.json",
+          "severity": "error"
+        }
+      ],
+      "durationMs": 18
+    }
+  ],
+  "durationMs": 142
+}
+```
+
+## Exit-koder
+
+| Kode | Betydning       | CI-oppførsel  |
+| ---- | --------------- | ------------- |
+| 0    | Alle sjekker ok | Jobben lykkes |
+| 1    | Brudd funnet    | Jobben feiler |
+| 2    | Intern feil     | Jobben feiler |
+
+Advarsler (alvorlighetsgrad `warning`) logges, men påvirker ikke exit-koden. Bare brudd med `error`-alvorlighetsgrad forårsaker exit-kode 1.
+
+## Avgrense omfanget
+
+### Sjekk filer endret i PR-en
+
+Bruk `--base` for å sammenligne mot PR-ens grunngren. Dette gir regler for avhengigheter mellom filer det fulle bildet av hva som er endret:
+
+```yaml
+- run: archgate check --base origin/${{ github.base_ref }}
+```
+
+Uten `--base` auto-detekteres grunngrenen fra `origin/HEAD`. Den eksplisitte formen anbefales i CI for deterministisk oppførsel.
+
+### Sjekk bare stagede filer
+
+Bruk `--staged` for å begrense sjekkingen til git-stagede filer. Dette er nyttig i pre-commit-hooks eller når du bare vil validere det som er i ferd med å bli committet:
+
+```yaml
+- run: archgate check --staged
+```
+
+### Sjekk en spesifikk ADR
+
+Bruk `--adr <id>` for å kjøre regler fra en enkelt ADR:
+
+```yaml
+- run: archgate check --adr ARCH-006
+```
+
+Dette er nyttig når en PR bare berører filer styrt av en ADR og du vil ha raskere tilbakemelding.
+
+## Legge til i en eksisterende pipeline
+
+Hvis du allerede har en CI-konfigurasjon, legg til Archgate som et enkelt steg etter checkout:
+
+```yaml
+# Existing pipeline
+steps:
+  - uses: actions/checkout@v4
+  - uses: actions/setup-node@v4
+    with:
+      node-version: "22"
+  - run: npm ci
+  - run: npm test
+
+  # Add Archgate check
+  - run: npm install -g archgate
+  - run: archgate check --ci
+```
+
+Ingen ekstra avhengigheter eller konfigurasjonsfiler er nødvendige utover `.archgate/`-katalogen som allerede er i repositoriet ditt.
+
+## Hurtigbufre installasjonen
+
+Hurtigbufre `~/.archgate`-katalogen for å fremskynde gjentatte installasjoner:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Archgate
+        uses: actions/cache@v4
+        with:
+          path: ~/.archgate
+          key: archgate-${{ runner.os }}
+
+      - run: npm install -g archgate
+      - run: archgate check --ci
+```
+
+## GitLab CI
+
+```yaml
+adr-compliance:
+  image: node:22
+  script:
+    - npm install -g archgate
+    - archgate check
+```
+
+## Frittstående installasjon (uten Node.js)
+
+Hvis CI-miljøet ditt ikke har Node.js, bruk den frittstående installasjonsskriptet for å laste ned en forhåndsbygd binærfil direkte fra GitHub Releases:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL https://cli.archgate.dev/install-unix | sh
+      - run: ~/.archgate/bin/archgate check --ci
+```
+
+Dette fungerer i ethvert miljø med `curl` og `tar` -- ingen kjøretidsavhengigheter nødvendig. Du kan feste en versjon med miljøvariabelen `ARCHGATE_VERSION`:
+
+```yaml
+- run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | ARCHGATE_VERSION=v0.11.2 sh
+```
+
+## Bun-basert CI
+
+Hvis CI-et ditt allerede bruker Bun, installer Archgate med `bun` i stedet for `npm`:
+
+```yaml
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install -g archgate
+      - run: archgate check --ci
+```
+
+## Andre CI-systemer
+
+Archgate fungerer med ethvert CI-system som kan kjøre shell-kommandoer. Mønsteret er alltid det samme:
+
+1. Installer: `npm install -g archgate`, `bun install -g archgate`, eller bruk den [frittstående installasjonsskriptet](/getting-started/installation/#install-standalone-recommended)
+2. Kjør: `archgate check`
+3. Sjekk exit-koden (0 = bestått, 1 = brudd, 2 = feil)
+
+For systemer som støtter merknader (Azure DevOps, Buildkite osv.), bruk `--json` for å parse utdataen og sende merknader i formatet CI-et ditt forventer.
+
+## Pre-commit-hooks
+
+Du kan også kjøre Archgate som en lokal pre-commit-hook. Legg dette til `.git/hooks/pre-commit` (eller bruk en hook-administrator som Husky eller Lefthook):
+
+```bash
+#!/bin/sh
+archgate check --staged
+```
+
+Flagget `--staged` sikrer at bare filer som er i ferd med å bli committet sjekkes, noe som holder hooken rask.
+
+## Detaljert utdata
+
+Bruk `--verbose` for å se beståtte regler og tidsinformasjon sammen med feil. Dette er nyttig for feilsøking av trege sjekker eller for å bekrefte at regler kjører som forventet:
+
+```yaml
+- run: archgate check --verbose
+```
+
+:::tip[Legg til AI-styring i arbeidsflyten din]
+CI fanger brudd ved sammenslåing. Redaktørplugins fanger dem under koding. Med [Claude Code](/guides/claude-code-plugin/)- eller [Cursor](/guides/cursor-integration/)-pluginen leser AI-agenten din ADR-er før den skriver kode og validerer samsvar før du i det hele tatt committer. [Meld deg på beta-tilgang](https://plugins.archgate.dev).
+:::

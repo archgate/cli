@@ -1,0 +1,99 @@
+---
+title: no-emoji-in-output
+description: Forby emoji-tegn i CLI-utdata for konsistent visning p&aring; tvers av terminaler og tilgjengelighetsverkt&oslash;y.
+---
+
+Forby emoji-tegn i CLI-utdata.
+
+## Regeldetaljer
+
+Emoji vises inkonsekvent p&aring; tvers av terminaler, bryter justering i monospace-utdata, og skaper problemer med skjermlesere og CI-loggparsere. Denne regelen bruker Unicode-omr&aring;de-regex for &aring; oppdage emoji-tegn og en sekund&aelig;r sjekk for &aring; sikre at de forekommer inne i streng-literaler (ikke kommentarer eller variabelnavn).
+
+Regelen sjekker ogs&aring; for r&aring; ANSI-escape-koder, og h&aring;ndhever bruk av `styleText()` fra `node:util` for terminalformatering.
+
+## Eksempler p&aring; **feil** kode
+
+```typescript title="src/commands/check.ts"
+console.log("✅ All checks passed!");
+console.log("❌ Validation failed");
+console.log("\x1b[32mSuccess\x1b[0m"); // raw ANSI
+```
+
+## Eksempler p&aring; **riktig** kode
+
+```typescript title="src/commands/check.ts"
+import { styleText } from "node:util";
+
+console.log("All checks passed");
+console.log("Validation failed");
+console.log(styleText("green", "Success"));
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const EMOJI_PATTERN =
+  /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
+const EMOJI_IN_STRING =
+  /["'`].*[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}].*["'`]/u;
+
+export default {
+  rules: {
+    "no-emoji-in-output": {
+      description: "CLI output must not contain emoji characters",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, EMOJI_PATTERN))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            if (EMOJI_IN_STRING.test(m.content)) {
+              ctx.report.violation({
+                message: "Do not use emoji in CLI output strings",
+                file: m.file,
+                line: m.line,
+                fix: "Remove emoji from output strings",
+              });
+            }
+          }
+        }
+      },
+    },
+    "use-style-text": {
+      description: "Use styleText from node:util instead of raw ANSI codes",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter(
+          (f) => !f.includes("tests/") && !f.includes(".archgate/")
+        );
+        const matches = await Promise.all(
+          files.map((file) => ctx.grep(file, /\\u001b\[|\\x1b\[|\\033\[/))
+        );
+        for (const fileMatches of matches) {
+          for (const m of fileMatches) {
+            ctx.report.violation({
+              message:
+                "Use styleText() from node:util instead of raw ANSI escape codes",
+              file: m.file,
+              line: m.line,
+              fix: "Import { styleText } from 'node:util' and use styleText(style, text)",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+I CLI-verkt&oslash;y der konsistent utdata p&aring; tvers av terminaler er viktig, eller n&aring;r tilgjengelighet har prioritet.
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+I webapplikasjoner eller verkt&oslash;y der emoji er en del av det forventede brukergrensesnittet, eller n&aring;r utdataene alltid konsumeres av mennesker i moderne terminaler.

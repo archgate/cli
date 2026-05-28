@@ -1,0 +1,183 @@
+---
+title: Architecture Decision Records
+description: Lær hvordan Architecture Decision Records (ADR-er) fungerer i Archgate som både lesbar dokumentasjon og maskinelt kjørbare samsvarregler.
+---
+
+En Architecture Decision Record (ADR) er et kort dokument som fanger opp en enkelt arkitekturbeslutning sammen med dens kontekst og konsekvenser. ADR-er svarer på spørsmålet: _hvorfor_ ble denne beslutningen tatt, og _hva_ er avveiningene?
+
+Archgate bygger videre på ADR-konseptet ved å gi hver beslutning to uttrykk: et **dokument** som mennesker og AI-agenter leser, og en valgfri **regelfil** som maskiner kjører.
+
+## To uttrykk for en ADR
+
+### ADR som dokument
+
+Dokumentet er en Markdown-fil med YAML frontmatter lagret i `.archgate/adrs/`. Det beskriver beslutningen i vanlig språk: hvilket problem det løser, hvilke alternativer som ble vurdert, hva teamet besluttet, og hvilke konsekvenser som følger.
+
+Både mennesker og AI-agenter bruker dette dokumentet. Når en AI-kodeagent skal skrive kode, leser den de relevante ADR-ene for å forstå begrensningene før den genererer noe.
+
+:::tip[Automatiser dette med editorplugins]
+Med [Claude Code](/guides/claude-code-plugin/)- eller [Cursor](/guides/cursor-integration/)-pluginen leser AI-agenten din de gjeldende ADR-ene automatisk før hver kodeoppgave -- ingen manuell kopiering og liming inn i ledetekster. [Registrer deg for beta-tilgang](https://plugins.archgate.dev).
+:::
+
+### ADR som regler
+
+Regelfilen er en tilhørende `.rules.ts`-fil som eksporterer et vanlig objekt typet med `satisfies RuleSet`. Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: true` i frontmatteren, kjører den tilhørende regelfilen mot kodebasen din og rapporterer eventuelle brudd med filstier og linjenumre.
+
+Ikke alle ADR-er trenger regler. Noen beslutninger håndheves best kun gjennom kodegjennomgang. Sett `rules: false` når ingen automatisert sjekk er praktisk.
+
+## Navnekonvensjon for filer
+
+ADR-filer følger en streng navnekonvensjon som koder domeneprefiks, sekvensnummer og en lesbar slug:
+
+```
+{PREFIX}-{NNN}-{slug}.md            # The document
+{PREFIX}-{NNN}-{slug}.rules.ts      # The companion rules file (optional)
+```
+
+For eksempel vil en ADR i arkitekturdomenet om kommandostruktur gi:
+
+```
+ARCH-001-command-structure.md
+ARCH-001-command-structure.rules.ts
+```
+
+Prefikset kommer fra ADR-ens domene (se [Domener](/concepts/domains/)). Sekvensnummeret er nullpolstret til tre sifre og auto-inkrementert av `archgate adr create`.
+
+## YAML Frontmatter
+
+Hvert ADR-dokument starter med en YAML frontmatter-blokk mellom `---`-skilletegn. Frontmatteren er de maskinlesbare metadataene som Archgate bruker til å laste, filtrere og avgrense regler.
+
+| Felt               | Type         | Påkrevd | Beskrivelse                                                                                                                                                                                          |
+| ------------------ | ------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`               | string       | Ja      | Unik identifikator som `ARCH-001` eller `BE-003`                                                                                                                                                     |
+| `title`            | string       | Ja      | Lesbar tittel for beslutningen                                                                                                                                                                       |
+| `domain`           | string       | Ja      | Registrert domenenavn. Innebygde: `backend`, `frontend`, `data`, `architecture`, `general`. [Egendefinerte domener](/concepts/domains/#custom-domains) kan legges til via `archgate adr domain add`. |
+| `rules`            | boolean      | Ja      | Om denne ADR-en har en tilhørende `.rules.ts`-fil                                                                                                                                                    |
+| `files`            | string array | Nei     | Glob-mønstre som avgrenser hvilke filer reglene sjekker                                                                                                                                              |
+| `respectGitignore` | boolean      | Nei     | Om filer i `.gitignore` skal filtreres bort. Standard er `true`.                                                                                                                                     |
+
+Feltet `files` er valgfritt. Når det er tilstede, begrenser det regelkjøring til kun filene som matcher de angitte globbene. Når det er fraværende, kjøres regler mot alle prosjektfiler. For eksempel begrenser `files: ["src/commands/**/*.ts"]` sjekker til kun kommandofiler.
+
+Feltet `respectGitignore` er også valgfritt. Som standard ekskluderes filer oppført i `.gitignore` fra alle filsøkeoperasjoner (`ctx.scopedFiles`, `ctx.glob()`, `ctx.grepFiles()`). Sett `respectGitignore: false` for å inkludere git-ignorerte filer -- nyttig for regler som trenger å inspisere byggeresultater eller genererte filer.
+
+## ADR-seksjonene
+
+Etter frontmatteren følger ADR-kroppen en standardisert seksjonsstruktur:
+
+### Context
+
+Beskriver problemet eller situasjonen som utløste beslutningen. Inkluder alternativer som ble vurdert og hvorfor de ble forkastet.
+
+### Decision
+
+Fastslår selve beslutningen og dens viktigste begrensninger. Dette er seksjonen AI-agenter legger mest merke til når de bestemmer hvordan de skal skrive kode.
+
+### Do's and Don'ts
+
+Konkret, handlingsrettet veiledning delt i to underseksjoner. Fungerer som en hurtigreferanse-sjekkliste for utviklere og AI-agenter.
+
+### Consequences
+
+Delt i tre underseksjoner:
+
+- **Positive** -- fordeler beslutningen gir
+- **Negative** -- avveininger som aksepteres
+- **Risks** -- ting som kan gå galt og hvordan de kan begrenses
+
+### Compliance and Enforcement
+
+Beskriver hvordan beslutningen håndheves, både gjennom automatiserte regler (med regel-ID-er og alvorlighetsgrader) og manuelle gjennomgangssjekklister.
+
+### References
+
+Lenker til relaterte ADR-er, ekstern dokumentasjon eller designdokumenter.
+
+## Komplett eksempel
+
+Nedenfor er en fullstendig ADR med frontmatter og alle seksjoner fylt ut.
+
+```markdown
+---
+id: BE-001
+title: API Response Envelope
+domain: backend
+rules: true
+files: ["src/api/**/*.ts"]
+---
+
+## Context
+
+The API returns data in inconsistent shapes across endpoints. Some endpoints
+wrap responses in `{ data, error }`, others return raw arrays, and error
+responses vary between plain strings and structured objects.
+
+**Alternatives considered:**
+
+- **No envelope** -- Return raw data and rely on HTTP status codes alone.
+  Simple, but clients cannot distinguish between "the endpoint returned an
+  empty array" and "the endpoint errored."
+- **GraphQL-style errors array** -- Use `{ data, errors: [] }`. Flexible
+  but adds complexity for simple REST endpoints.
+
+The chosen envelope balances consistency with simplicity.
+
+## Decision
+
+All API endpoints MUST return responses in a standard envelope:
+
+- Success: `{ data: T }`
+- Error: `{ error: { code: string, message: string } }`
+
+HTTP status codes remain the primary success/failure signal. The envelope
+provides a predictable structure for clients to parse.
+
+## Do's and Don'ts
+
+### Do
+
+- Wrap all API responses in the `{ data }` or `{ error }` envelope
+- Use specific error codes (e.g., `VALIDATION_FAILED`, `NOT_FOUND`)
+- Include the HTTP status code that matches the error semantics
+
+### Don't
+
+- Don't return raw arrays or primitives from API endpoints
+- Don't nest envelopes (no `{ data: { data: ... } }`)
+- Don't put stack traces in the error message field
+
+## Consequences
+
+### Positive
+
+- Clients can parse every response with the same logic
+- Error responses always have a machine-readable code for programmatic handling
+
+### Negative
+
+- Adds a small amount of boilerplate to every endpoint handler
+- Slightly larger payloads due to the wrapper object
+
+### Risks
+
+- Developers may forget the envelope on new endpoints. Mitigated by
+  the automated rule that scans for non-conforming return statements.
+
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** BE-001/response-envelope: Scans API handler files for
+  return statements and verifies they use the envelope helper. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. New API endpoints use the response envelope
+2. Error responses include a specific error code, not a generic message
+
+## References
+
+- [Microsoft REST API Guidelines](https://github.com/microsoft/api-guidelines)
+- [ARCH-002 -- Error Handling](./ARCH-002-error-handling.md)
+```

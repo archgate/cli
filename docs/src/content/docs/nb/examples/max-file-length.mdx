@@ -1,0 +1,67 @@
+---
+title: max-file-length
+description: Advar når kildefiler overskrider en konfigurerbar linjeantallsgrense for å oppmuntre til modulær kode.
+---
+
+Advar når kildefiler overskrider en linjeantallsgrense.
+
+## Regeldetaljer
+
+Store filer er vanskeligere å navigere, gjennomgå og teste. Denne regelen teller linjer i hver fil innenfor omfanget og rapporterer en advarsel når antallet overskrider et konfigurerbart maksimum. Bruk av `warning`-alvorlighetsgrad holder CI gronn samtidig som filer som bor refaktoreres blir synliggjort.
+
+## Eksempler på **feil** kode
+
+En fil med 450 linjer når grensen er 300:
+
+```
+src/engine/runner.ts (450 lines)
+```
+
+## Eksempler på **riktig** kode
+
+Den samme logikken delt opp i fokuserte moduler:
+
+```
+src/engine/runner.ts     (120 lines)
+src/engine/loader.ts     (95 lines)
+src/engine/reporter.ts   (85 lines)
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const MAX_LINES = 300;
+
+export default {
+  rules: {
+    "max-file-length": {
+      description: `Source files should not exceed ${MAX_LINES} lines`,
+      severity: "warning",
+      async check(ctx) {
+        const checks = ctx.scopedFiles.map(async (file) => {
+          const content = await ctx.readFile(file);
+          const lineCount = content.split("\n").length;
+          if (lineCount > MAX_LINES) {
+            ctx.report.warning({
+              message: `File has ${lineCount} lines (max: ${MAX_LINES}). Consider splitting it.`,
+              file,
+              fix: "Extract related functions into separate modules",
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Når bør du bruke den
+
+Når du onsker en myk grense mot at filer vokser for store. Juster `MAX_LINES` etter teamets preferanse (200-500 er vanlig).
+
+## Når bør du ikke bruke den
+
+Når noen filer med rette er store (generert kode, testsuiter med mange tilfeller), eller når du foretrekker andre kompleksitetsmetrikker som syklomatisk kompleksitet.

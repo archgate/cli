@@ -1,0 +1,74 @@
+---
+title: archgate telemetry
+description: "Administrer anonym bruksdatainnsamling for Archgate CLI."
+---
+
+Administrer anonym bruksdatainnsamling for Archgate CLI. Telemetri er opt-out: aktivert som standard, samler aldri inn personlig identifiserbar informasjon, og anonymiserer klient-IP-en serversiden.
+
+```bash
+archgate telemetry <subcommand>
+```
+
+Se [CLI-telemetri](/reference/telemetry/) for den fullstendige personvernpolicyen, listen over hendelser som sendes, og hvordan telemetri samhandler med `ARCHGATE_TELEMETRY=0` og CI-miljoer.
+
+## Underkommandoer
+
+| Underkommando                | Beskrivelse                                         |
+| ---------------------------- | --------------------------------------------------- |
+| `archgate telemetry status`  | Vis om telemetri er aktivert for denne CLI-brukeren |
+| `archgate telemetry enable`  | Aktiver anonym bruksdatainnsamling                  |
+| `archgate telemetry disable` | Deaktiver anonym bruksdatainnsamling                |
+
+Alle tre underkommandoene leser og skriver `~/.archgate/config.json`, som lagrer opt-in-tilstanden og den anonyme installasjons-ID-en brukt som telemetriets `distinct_id`.
+
+## Eksempler
+
+Sjekk gjeldende tilstand:
+
+```bash
+archgate telemetry status
+```
+
+```
+Telemetry is enabled.
+Anonymous usage data helps improve Archgate. No personal information is collected.
+
+To disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+Learn more: https://cli.archgate.dev/reference/telemetry
+```
+
+Deaktiver telemetri:
+
+```bash
+archgate telemetry disable
+```
+
+```
+Telemetry disabled. No usage data will be collected.
+```
+
+Aktiver telemetri på nytt:
+
+```bash
+archgate telemetry enable
+```
+
+```
+Telemetry enabled. Thank you for helping improve Archgate.
+```
+
+## Overstyring via miljovariabel
+
+Å sette `ARCHGATE_TELEMETRY=0` (eller `false`, `no`, `off`, uavhengig av store/små bokstaver) deaktiverer telemetri for en enkelt kjøring uavhengig av den lagrede tilstanden. Bruk dette i CI eller delte miljoer der du ønsker fravalg uten å endre brukerens konfigurasjon:
+
+```bash
+ARCHGATE_TELEMETRY=0 archgate check
+```
+
+`archgate telemetry status` detekterer overstyringen og rapporterer:
+
+```
+Telemetry is disabled (ARCHGATE_TELEMETRY environment variable).
+```
+
+Når overstyringen er aktiv og du kjører `archgate telemetry enable`, lagres opt-in, men det skrives ut en merknad om at miljovariabelen fortsetter å deaktivere telemetri til den fjernes.

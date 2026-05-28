@@ -1,0 +1,111 @@
+---
+title: monorepo-task-runner
+description: Krev at alle pakker bruker en sentralisert task runner i stedet for package.json-skript for konsistent byggeorkestrering.
+---
+
+Krev at alle pakker bruker en sentralisert task runner i stedet for `package.json`-skript.
+
+## Regeldetaljer
+
+I et monorepo er `package.json`-skript lokale for hver pakke og kan ikke uttrykke avhengigheter mellom pakker, caching eller orkestrering. Denne regelen krever at alle pakker bruker en sentralisert task runner (f.eks. Moon, Turborepo, Nx) ved å forby `scripts` i `package.json` og kreve en task runner-konfigurasjonsfil (`moon.yml`, `turbo.json`, osv.) i hver pakke.
+
+## Eksempler på **feil** kode
+
+```json title="packages/api/package.json"
+{
+  "name": "@myorg/api",
+  "scripts": { "build": "tsc", "test": "vitest", "lint": "eslint ." }
+}
+```
+
+## Eksempler på **riktig** kode
+
+```json title="packages/api/package.json"
+{ "name": "@myorg/api" }
+```
+
+```yaml title="packages/api/moon.yml"
+tasks:
+  build:
+    command: tsc
+    inputs:
+      - src/**/*
+  test:
+    command: vitest
+    deps:
+      - ~:build
+  lint:
+    command: eslint .
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-package-scripts": {
+      description:
+        "package.json must not have scripts — use the task runner instead",
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as {
+            scripts?: Record<string, string>;
+          };
+          if (pkg.scripts && Object.keys(pkg.scripts).length > 0) {
+            ctx.report.violation({
+              message: `${file}: has "scripts" field — use task runner config instead`,
+              file,
+              fix: 'Move scripts to the task runner config and remove "scripts" from package.json',
+            });
+          }
+        }
+      },
+    },
+    "task-runner-config": {
+      description: "All packages must have a task runner configuration file",
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const configPath = file.replace("/package.json", "/moon.yml");
+          try {
+            await ctx.readFile(configPath);
+          } catch {
+            ctx.report.violation({
+              message: `Missing task runner config: ${configPath}`,
+              file: configPath,
+              fix: "Create a moon.yml file with appropriate task definitions for this package",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Når bør du bruke den
+
+I monorepositories som bruker en sentralisert task runner for byggeorkestrering. Tilpass konfigurasjonsfil-sjekken for din task runner:
+
+```typescript
+// Turborepo
+const configPath = file.replace("/package.json", "/turbo.json");
+
+// Nx
+const configPath = file.replace("/package.json", "/project.json");
+```
+
+## Når bør du ikke bruke den
+
+I enkeltpakke-repositorier, eller i monorepositories der task runner-en er konfigurert sentralt (f.eks. en enkelt `turbo.json` i roten) i stedet for per pakke.

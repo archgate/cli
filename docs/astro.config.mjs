@@ -10,6 +10,7 @@ export default defineConfig({
       locales: {
         root: { label: "English", lang: "en" },
         "pt-br": { label: "Português (Brasil)", lang: "pt-BR" },
+        nb: { label: "Norsk (Bokmål)", lang: "nb" },
       },
       description:
         "Enforce Architecture Decision Records as executable rules — for both humans and AI agents.",
@@ -114,6 +115,10 @@ export default defineConfig({
         },
         {
           tag: "meta",
+          attrs: { property: "og:locale:alternate", content: "nb_NO" },
+        },
+        {
+          tag: "meta",
           attrs: {
             property: "og:image",
             content: "https://cli.archgate.dev/og-image.png",
@@ -163,7 +168,7 @@ export default defineConfig({
             url: "https://cli.archgate.dev",
             description:
               "Documentation for Archgate — enforce Architecture Decision Records as executable TypeScript rules for automated code governance.",
-            inLanguage: ["en", "pt-BR"],
+            inLanguage: ["en", "pt-BR", "nb"],
           }),
         },
         // ── JSON-LD: SoftwareApplication ──────────────────────────
@@ -195,6 +200,7 @@ export default defineConfig({
       sidebar: [
         {
           label: "Getting Started",
+          translations: { "pt-BR": "Primeiros Passos", nb: "Kom i gang" },
           items: [
             { label: "Installation", slug: "getting-started/installation" },
             { label: "Quick Start", slug: "getting-started/quick-start" },
@@ -202,6 +208,10 @@ export default defineConfig({
         },
         {
           label: "Core Concepts",
+          translations: {
+            "pt-BR": "Conceitos Fundamentais",
+            nb: "Grunnleggende konsepter",
+          },
           items: [
             { label: "Architecture Decision Records", slug: "concepts/adrs" },
             { label: "Rules", slug: "concepts/rules" },
@@ -210,6 +220,7 @@ export default defineConfig({
         },
         {
           label: "Guides",
+          translations: { "pt-BR": "Guias", nb: "Guider" },
           items: [
             { label: "Writing ADRs", slug: "guides/writing-adrs" },
             { label: "Writing Rules", slug: "guides/writing-rules" },
@@ -229,9 +240,14 @@ export default defineConfig({
         },
         {
           label: "Reference",
+          translations: { "pt-BR": "Referência", nb: "Referanse" },
           items: [
             {
               label: "CLI Commands",
+              translations: {
+                "pt-BR": "Comandos da CLI",
+                nb: "CLI-kommandoer",
+              },
               items: [
                 { label: "Overview", slug: "reference/cli" },
                 { label: "archgate login", slug: "reference/cli/login" },
@@ -261,11 +277,13 @@ export default defineConfig({
         },
         {
           label: "Examples",
+          translations: { "pt-BR": "Exemplos", nb: "Eksempler" },
           collapsed: true,
           items: [{ autogenerate: { directory: "examples", collapsed: true } }],
         },
         {
           label: "Studies",
+          translations: { "pt-BR": "Estudos", nb: "Studier" },
           collapsed: true,
           items: [{ autogenerate: { directory: "studies", collapsed: true } }],
         },

@@ -1,0 +1,143 @@
+---
+title: version-catalog
+description: H&aring;ndhev sentralisert versjonsadministrasjon i monorepoer ved &aring; kreve catalog- eller workspace-notasjon for alle avhengigheter.
+---
+
+H&aring;ndhev sentralisert versjonsadministrasjon i monorepoer ved &aring; kreve `catalog:`- eller `workspace:`-notasjon for alle avhengigheter.
+
+## Regeldetaljer
+
+I monorepoer med mange pakker f&oslash;rer duplisering av versjonsstrenger p&aring; tvers av `package.json`-filer til versjonsforskyvning og oppgraderingssmerter. Denne regelen sikrer at hver avhengighetsreferanse bruker `catalog:` (hentet fra en sentral katalog i rot-`package.json`) eller `workspace:` (for interne pakker), aldri en r&aring; semver-streng.
+
+Regelen har to sjekker: `catalog-usage` verifiserer at alle avhengigheter bruker riktig notasjon, og `catalog-completeness` verifiserer at hver `catalog:`-referanse peker til en faktisk oppf&oslash;ring i rotkatalogen.
+
+## Eksempler p&aring; **feil** kode
+
+```json title="packages/api/package.json"
+{ "dependencies": { "zod": "^3.23.0", "hono": "^4.0.0" } }
+```
+
+R&aring; semver-strenger omg&aring;r den sentrale katalogen og vil divergere p&aring; tvers av pakker.
+
+## Eksempler p&aring; **riktig** kode
+
+```json title="packages/api/package.json"
+{
+  "dependencies": {
+    "zod": "catalog:",
+    "hono": "catalog:",
+    "@myorg/shared": "workspace:*"
+  }
+}
+```
+
+```json title="package.json (root)"
+{ "catalog": { "zod": "^3.23.0", "hono": "^4.0.0" } }
+```
+
+Alle versjoner administreres sentralt. Oppgradering av `zod` krever bare endring av rotkatalogen.
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "catalog-usage": {
+      description:
+        'All workspace dependencies must use "catalog:" or "workspace:" notation',
+      async check(ctx) {
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as Record<string, unknown>;
+          for (const depType of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+          ]) {
+            const deps = pkg[depType] as Record<string, string> | undefined;
+            if (!deps) continue;
+
+            for (const [name, version] of Object.entries(deps)) {
+              if (
+                typeof version === "string" &&
+                !version.startsWith("catalog:") &&
+                !version.startsWith("workspace:")
+              ) {
+                ctx.report.violation({
+                  message: `${file}: ${depType}.${name} uses "${version}" instead of "catalog:" or "workspace:"`,
+                  file,
+                  fix: `Change to "catalog:" and ensure the package is listed in root package.json catalog`,
+                });
+              }
+            }
+          }
+        }
+      },
+    },
+    "catalog-completeness": {
+      description:
+        "All catalog: references must resolve to entries in root package.json catalog",
+      async check(ctx) {
+        const rootPkg = (await ctx.readJSON("package.json")) as Record<
+          string,
+          unknown
+        >;
+        const catalog = (rootPkg.catalog ?? {}) as Record<string, string>;
+        const catalogKeys = new Set(Object.keys(catalog));
+
+        const packageJsonFiles = [
+          ...(await ctx.glob("packages/*/package.json")),
+          ...(await ctx.glob("packages/*/*/package.json")),
+        ];
+
+        for (const file of packageJsonFiles) {
+          const pkg = (await ctx.readJSON(file)) as Record<string, unknown>;
+          for (const depType of [
+            "dependencies",
+            "devDependencies",
+            "peerDependencies",
+          ]) {
+            const deps = pkg[depType] as Record<string, string> | undefined;
+            if (!deps) continue;
+
+            for (const [name, version] of Object.entries(deps)) {
+              if (
+                typeof version !== "string" ||
+                !version.startsWith("catalog:")
+              )
+                continue;
+
+              const catalogRef =
+                version === "catalog:"
+                  ? name
+                  : version.slice("catalog:".length);
+
+              if (!catalogKeys.has(catalogRef)) {
+                ctx.report.violation({
+                  message: `${file}: ${depType}.${name} references catalog:${catalogRef} but it is not in root catalog`,
+                  file,
+                  fix: `Add "${catalogRef}" to the catalog section in the root package.json`,
+                });
+              }
+            }
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+I monorepoer der flere pakker deler avhengigheter og du &oslash;nsker en enkelt sannhetskilde for versjoner (f.eks. Bun workspaces med katalogst&oslash;tte, eller lignende oppsett).
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+I enkeltpakke-repositorier eller monorepoer som bruker en annen versjonsstyringstrategi som Renovates gruppeoppdateringer.

@@ -8,7 +8,7 @@
  *   bun run docs/scripts/generate-llms-full.ts
  */
 import { readFileSync, writeFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const docsDir = join(import.meta.dirname, "..", "src", "content", "docs");
 const outputPath = join(import.meta.dirname, "..", "public", "llms-full.txt");
@@ -110,8 +110,10 @@ for (const section of sections) {
     continue; // section directory may not exist
   }
 
-  // Skip pt-br files — English only
-  const enFiles = files.filter((f) => !f.includes("pt-br"));
+  // Skip translated locale files — English only
+  const enFiles = files.filter(
+    (f) => !f.includes(`${sep}pt-br${sep}`) && !f.includes(`${sep}nb${sep}`)
+  );
   if (enFiles.length === 0) continue;
 
   for (const file of enFiles) {

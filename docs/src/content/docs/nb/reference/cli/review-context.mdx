@@ -1,0 +1,25 @@
+---
+title: archgate review-context
+description: "Forhåndsberegn gjennomgangskontekst med ADR-briefinger for endrede filer."
+---
+
+Forhåndsberegn gjennomgangskontekst med ADR-briefinger for endrede filer. Designet for CI og editor-plugin-integrasjoner som trenger en oppsummering av hvilke ADR-er som gjelder for filene som endres.
+
+```bash
+archgate review-context [options]
+```
+
+## Valg
+
+| Valg                | Beskrivelse                                                                  |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `--staged`          | Inkluder kun git-stagede filer                                               |
+| `--base [ref]`      | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt) |
+| `--run-checks`      | Inkluder resultater fra ADR-samsvarskontroller                               |
+| `--domain <domain>` | Filtrer til et enkelt domene                                                 |
+
+## Eksempel
+
+```bash
+archgate review-context --staged
+```

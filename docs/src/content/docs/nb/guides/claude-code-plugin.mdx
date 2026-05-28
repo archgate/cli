@@ -1,0 +1,153 @@
+---
+title: Claude Code-plugin
+description: Sett opp Archgate-pluginen for Claude Code. Gi AI-agenter en styringsarbeidsflyt som leser ADR-er, validerer kode og fanger opp arkitekturmønstre.
+---
+
+Archgate Claude Code-pluginen gir AI-agenter som jobber i [Claude Code](https://claude.ai/code) en strukturert styringsarbeidsflyt. I stedet for å stole på prompt-instruksjoner som glir over tid, leser agenter ADR-ene dine direkte via Archgate CLI-kommandoer og validerer sin egen kode mot reglene dine.
+
+## Hva pluginen tilbyr
+
+Pluginen legger til en agent og rollebaserte ferdigheter i Claude Code. Agenten orkestrerer styringsarbeidsflyten, og aktiverer ferdigheter etter behov -- les beslutninger før koding, valider etterpå, og fang opp nye mønstre for teamet.
+
+### Agent
+
+| Agent                | Formål                                                                    |
+| -------------------- | ------------------------------------------------------------------------- |
+| `archgate:developer` | Generell utviklingsagent som leser ADR-er før koding og validerer etterpå |
+
+`archgate:developer`-agenten er satt som standardagent via `.claude/settings.local.json`. Den orkestrerer ferdighetene nedenfor automatisk som en del av arbeidsflyten sin.
+
+### Ferdigheter
+
+| Ferdighet                  | Formål                                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `archgate:architect`       | Validerer kodeendringer mot alle prosjektets ADR-er for strukturelt samsvar             |
+| `archgate:quality-manager` | Gjennomgår regeldekning og foreslår nye ADR-er når mønstre dukker opp                   |
+| `archgate:adr-author`      | Oppretter og redigerer ADR-er i henhold til prosjektets konvensjoner                    |
+| `archgate:onboard`         | Engangsoppsett: utforsker kodebasen, intervjuer utvikleren, oppretter innledende ADR-er |
+
+## Installasjon
+
+:::note[Beta-tilgang kreves]
+Claude Code-pluginen er for tiden i beta. Kjør `archgate login` for å registrere deg og autentisere.
+:::
+
+### 1. Logg inn med GitHub
+
+Autentiser med GitHub-kontoen din for å få et plugin-token:
+
+```bash
+archgate login
+```
+
+Dette starter en GitHub Device Flow. CLI-et viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden og autoriser. Når det er ferdig, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+
+### 2. Initialiser prosjektet ditt med pluginen
+
+Kjør `archgate init` i prosjektet ditt. Hvis du allerede er logget inn, installeres pluginen automatisk:
+
+```bash
+archgate init
+```
+
+For å eksplisitt be om plugininstallasjon:
+
+```bash
+archgate init --install-plugin
+```
+
+Dette oppretter `.claude/settings.local.json` med `archgate:developer`-agenten og ferdighetstillatelser forhåndskonfigurert.
+
+Hvis `claude`-CLI-et er på PATH, installeres pluginen automatisk via:
+
+1. `claude plugin marketplace add` (registrerer Archgate-markedsplassen)
+2. `claude plugin install archgate@archgate` (installerer pluginen)
+
+Hvis `claude`-CLI-et ikke finnes, skriver kommandoen ut de manuelle kommandoene du må kjøre.
+
+### Installere pluginen på et eksisterende prosjekt
+
+Hvis prosjektet ditt allerede er initialisert, kan du installere eller reinstallere pluginen uten å kjøre `archgate init` på nytt:
+
+```bash
+archgate plugin install
+```
+
+For å få den autentiserte repository-URL-en for manuell konfigurasjon:
+
+```bash
+archgate plugin url
+```
+
+## Innledende oppsett med onboard
+
+Etter installasjon, kjør `archgate:onboard`-ferdigheten i prosjektet ditt en gang. Denne ferdigheten:
+
+1. Utforsker kodebasens struktur (kataloger, nøkkelfiler, pakkekonfigurasjon)
+2. Intervjuer deg om teamets konvensjoner, begrensninger og arkitekturbeslutninger
+3. Oppretter et innledende sett med ADR-er basert på svarene dine
+4. Setter opp `.archgate/`-katalogen med de første reglene dine
+
+Onboard-ferdigheten er laget for å kjøres en gang per prosjekt. Etter onboarding håndterer de andre ferdighetene daglig utvikling.
+
+## Slik fungerer det i praksis
+
+Pluginen følger en strukturert arbeidsflyt for hver kodeoppgave:
+
+### 1. Les gjeldende ADR-er
+
+Når utvikleren gir en kodeoppgave, kjører agenten `archgate review-context` for å lese alle ADR-er som gjelder for filene som endres. Dette gir en komprimert briefing med **Decision**- og **Do's and Don'ts**-seksjonene fra hver relevante ADR.
+
+Agenten skriver ikke kode før den har lest de gjeldende ADR-ene. Dette håndheves av `archgate:developer`-ferdigheten.
+
+### 2. Skriv kode i henhold til ADR-begrensninger
+
+Agenten skriver kode som er i samsvar med begrensningene fra ADR-ene. Do's and Don'ts-seksjonene fungerer som konkrete retningslinjer -- agenten refererer til dem mens den koder.
+
+### 3. Valider endringer
+
+Etter at koden er skrevet, kjører agenten `archgate check` for å kjøre automatiserte regler mot endringene. Eventuelle brudd fikses før den går videre.
+
+### 4. Arkitektgjennomgang
+
+Agenten aktiverer `archgate:architect` for å validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp. Arkitektferdigheten gjennomgår den fulle konteksten av endringene mot alle gjeldende ADR-er.
+
+### 5. Fange opp lærdommer
+
+Agenten aktiverer `archgate:quality-manager` for å gjennomgå arbeidet og identifisere mønstre som er verdt å fange opp. Quality manager kan foreslå nye ADR-er eller oppdateringer til eksisterende når gjentakende konvensjoner dukker opp.
+
+## ADR-drevet avvisning
+
+Når agenten møter en oppgave som ville kreve brudd på en ADR, avviser den og forklarer hvilken ADR som ville blitt brutt. Den foreslår deretter hvordan man kan oppnå det samme målet mens man holder seg i samsvar.
+
+For eksempel, hvis en utvikler ber agenten om å legge til `chalk` som en avhengighet i et prosjekt styrt av ARCH-006 (avhengighetspolicy), vil agenten:
+
+1. Avvise, med referanse til ARCH-006 og den godkjente avhengighetslisten
+2. Foreslå å bruke `styleText()` fra `node:util` i stedet
+3. Tilby å implementere oppgaven med det samsvarende alternativet
+
+Denne oppførselen er konsistent uavhengig av hvordan utvikleren formulerer forespørselen. ADR-er behandles som obligatoriske begrensninger, ikke forslag.
+
+## Slik får pluginen tilgang til ADR-er
+
+Pluginen bruker Archgate CLI-kommandoer direkte for å lese ADR-er og kjøre samsvarsjekker. Nøkkelkommandoene er:
+
+- **`archgate review-context`** -- komprimerte briefinger av alle ADR-er som gjelder for endrede filer, gruppert etter domene
+- **`archgate check --staged`** -- automatisert regelsjekking med bruddrapportering
+- **`archgate adr show <id>`** -- full tekst av en spesifikk ADR
+- **`archgate adr list`** -- oversikt over alle ADR-er i prosjektet med metadata
+- **`archgate session-context claude-code`** -- les sesjonsutskrifter for kontekstgjenoppretting
+
+Alle kommandoer kjøres lokalt og leser direkte fra `.archgate/adrs/`-katalogen din. Ingen data forlater maskinen din.
+
+## Når du skal bruke hvilken agent eller ferdighet
+
+| Scenario                                          | Agent eller ferdighet      |
+| ------------------------------------------------- | -------------------------- |
+| Starte et nytt prosjekt med Archgate              | `archgate:onboard`         |
+| Daglige kodeoppgaver                              | `archgate:developer`       |
+| Gjennomgå en PR for ADR-samsvar                   | `archgate:architect`       |
+| Oppdage et gjentakende mønster verdt å kodifisere | `archgate:quality-manager` |
+| Opprette eller redigere en ADR                    | `archgate:adr-author`      |
+
+`archgate:developer`-agenten orkestrerer ferdighetene automatisk -- den aktiverer `archgate:architect` og `archgate:quality-manager` som en del av arbeidsflyten sin. Mesteparten av tiden trenger du bare å samhandle med developer-agenten direkte.

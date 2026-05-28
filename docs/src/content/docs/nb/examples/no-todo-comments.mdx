@@ -1,0 +1,61 @@
+---
+title: no-todo-comments
+description: Flagg TODO-, FIXME-, HACK- og XXX-kommentarer for &aring; sikre at de l&oslash;ses f&oslash;r sammensl&aring;ing.
+---
+
+Flagg `TODO`-, `FIXME`-, `HACK`- og `XXX`-kommentarer slik at de l&oslash;ses f&oslash;r sammensl&aring;ing.
+
+## Regeldetaljer
+
+TODO-kommentarer er nyttige under utvikling, men b&oslash;r ikke hope seg opp i hovedgrenen. Denne regelen bruker `ctx.grepFiles` for &aring; skanne alle kildefiler etter vanlige oppgavemarkerings-kommentarer. Den bruker `warning`-alvorlighetsgrad slik at den ikke blokkerer CI, men gj&oslash;r kommentarene synlige i hver sjekk.
+
+## Eksempler p&aring; **feil** kode
+
+```typescript title="src/helpers/git.ts"
+// TODO: handle merge conflicts
+// FIXME: this breaks on Windows
+// HACK: workaround for upstream bug
+// XXX: revisit this logic
+```
+
+## Eksempler p&aring; **riktig** kode
+
+```typescript title="src/helpers/git.ts"
+// Proper implementation with no deferred work
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-todo-comments": {
+      description: "TODO and FIXME comments should be resolved before merging",
+      severity: "warning",
+      async check(ctx) {
+        const matches = await ctx.grepFiles(
+          /\/\/\s*(TODO|FIXME|HACK|XXX):/i,
+          "src/**/*.ts"
+        );
+        for (const match of matches) {
+          ctx.report.warning({
+            message: `${match.content.trim()} — resolve before merging`,
+            file: match.file,
+            line: match.line,
+          });
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+N&aring;r du &oslash;nsker innsikt i utsatt arbeid og vil forhindre at TODO-kommentarer hoper seg opp over tid. Endre alvorlighetsgrad til `"error"` og bruk `ctx.report.violation()` for &aring; gj&oslash;re den til en hard blokkering.
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+N&aring;r TODO-kommentarer er tilsiktet dokumentasjon (f.eks. sporet av et eget verkt&oslash;y som oppretter saker fra TODO-kommentarer).

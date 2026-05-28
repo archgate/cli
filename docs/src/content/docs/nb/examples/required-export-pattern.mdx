@@ -1,0 +1,82 @@
+---
+title: required-export-pattern
+description: Verifiser at filer i en spesifikk mappe eksporterer en p&aring;krevd funksjonssignatur for &aring; h&aring;ndheve konsistent modulstruktur.
+---
+
+Verifiser at filer i en spesifikk mappe eksporterer en p&aring;krevd funksjonssignatur.
+
+## Regeldetaljer
+
+Konvensjonsbaserte arkitekturer (CLI-kommandofiler, rutebehandlere, pluginmoduler) krever ofte at hver fil eksporterer en funksjon med et spesifikt navnem&oslash;nster. Denne regelen skanner omfangsfiler etter en p&aring;krevd eksport og rapporterer enhver fil som ikke samsvarer. Den bruker `Promise.all()` for &aring; sjekke filer parallelt for ytelse.
+
+## Eksempler p&aring; **feil** kode
+
+```typescript title="src/commands/deploy.ts"
+// Missing the required register*Command export
+export function deploy() {
+  // ...
+}
+```
+
+## Eksempler p&aring; **riktig** kode
+
+```typescript title="src/commands/deploy.ts"
+import type { Command } from "commander";
+
+export function registerDeployCommand(program: Command) {
+  program
+    .command("deploy")
+    .description("Deploy the application")
+    .action(() => {
+      // ...
+    });
+}
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "register-function-export": {
+      description: "Command files must export a register*Command function",
+      async check(ctx) {
+        const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+        const checks = files.map(async (file) => {
+          const content = await ctx.readFile(file);
+          if (!/export\s+function\s+register\w+Command/.test(content)) {
+            ctx.report.violation({
+              message: "Command file must export a register*Command function",
+              file,
+            });
+          }
+        });
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Tilpass m&oslash;nsteret for andre konvensjoner:
+
+```typescript
+// Express/Hono route handlers
+/export\s+default\s+.*Router/
+
+// React page components
+/export\s+default\s+function\s+\w+Page/
+
+// Plugin modules
+/export\s+const\s+plugin\s*[:=]/
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+N&aring;r arkitekturen din krever et spesifikt eksportm&oslash;nster fra filer i en mappe. Kombiner denne med ADR-ens `files`-frontmatter-felt for &aring; avgrense den til riktig mappe.
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+N&aring;r mappen inneholder blandede filtyper som ikke alle trenger &aring; f&oslash;lge det samme eksportm&oslash;nsteret.

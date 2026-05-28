@@ -24,12 +24,27 @@ const description = hasRoute ? route.entry.data.description : undefined;
 const template = hasRoute ? route.entry.data.template : undefined;
 
 // ── hreflang alternate links ─────────────────────────────────────
-// Map between English and pt-BR pages for search engine language targeting.
-const isPtBr = pathname.startsWith("/pt-br/");
-const enPath = isPtBr ? pathname.replace(/^\/pt-br\//u, "/") : pathname;
-const ptBrPath = isPtBr ? pathname : `/pt-br${pathname}`;
+// Map between all locale variants for search engine language targeting.
+const LOCALE_PREFIXES = ["pt-br", "nb"] as const;
+const LOCALE_HREFLANG: Record<string, string> = {
+  "pt-br": "pt-BR",
+  nb: "nb",
+};
+
+// Strip any locale prefix to get the base English path.
+let enPath = pathname;
+for (const prefix of LOCALE_PREFIXES) {
+  if (pathname.startsWith(`/${prefix}/`)) {
+    enPath = pathname.replace(new RegExp(`^/${prefix}/`, "u"), "/");
+    break;
+  }
+}
+
 const enUrl = `${siteUrl}${enPath}`;
-const ptBrUrl = `${siteUrl}${ptBrPath}`;
+const localeAlternates = LOCALE_PREFIXES.map((prefix) => ({
+  hreflang: LOCALE_HREFLANG[prefix],
+  href: `${siteUrl}/${prefix}${enPath}`,
+}));
 
 /**
  * Convert a URL path segment into a human-readable breadcrumb label.
