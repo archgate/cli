@@ -16,4 +16,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Archgate.Tool.Tests" />
+  </ItemGroup>
 </Project>
