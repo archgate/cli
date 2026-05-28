@@ -5,7 +5,7 @@
  * When adding a new language, add its directory name here AND in
  * docs/astro.config.mjs under the `locales` key.
  */
-const LOCALES = ["pt-br"];
+const LOCALES = ["pt-br", "nb"];
 
 const CONTENT_ROOT = "docs/src/content/docs";
 

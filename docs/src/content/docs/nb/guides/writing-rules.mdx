@@ -1,0 +1,308 @@
+---
+title: Skrive regler
+description: Skriv TypeScript-regler som automatisk håndhever Architecture Decision Records. Lær Archgate-regel-API-et med satisfies RuleSet, filmønstermatching og bruddrapportering.
+---
+
+Regler er TypeScript-funksjoner som sjekker kodebasen din for ADR-samsvar. De ligger i tilhørende `.rules.ts`-filer ved siden av ADR-markdown-filer og kjøres når du utfører `archgate check`.
+
+```
+.archgate/adrs/
+  ARCH-001-command-structure.md          # Beslutningen
+  ARCH-001-command-structure.rules.ts    # De automatiserte sjekkene
+```
+
+## Grunnleggende oppsett
+
+Hver regelfil eksporterer et standard-objekt typet med `satisfies RuleSet`. Hver nøkkel i `rules`-objektet blir en regel-ID, og hver regel har en `description` og en asynkron `check`-funksjon som mottar et kontekstobjekt.
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "my-rule-id": {
+      description: "What this rule checks",
+      async check(ctx) {
+        // Your check logic here
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+:::note[Merknad]
+Direktivet `/// <reference path>` kan komme i konflikt med regelen `@typescript-eslint/triple-slash-reference` i ESLint eller oxlint. Hvis prosjektet ditt bruker denne regelen, deaktiver den for `.archgate/adrs/`-filer.
+
+For **ESLint** (flat config):
+
+```js
+{
+  files: [".archgate/adrs/*.rules.ts"],
+  rules: { "@typescript-eslint/triple-slash-reference": "off" },
+}
+```
+
+For **oxlint** (`.oxlintrc.json`):
+
+```json
+{
+  "overrides": [
+    {
+      "files": [".archgate/adrs/*.rules.ts"],
+      "rules": { "typescript/triple-slash-reference": "off" }
+    }
+  ]
+}
+```
+
+:::
+
+En enkelt regelfil kan definere flere regler:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "first-rule": {
+      description: "Checks one thing",
+      async check(ctx) {
+        // ...
+      },
+    },
+    "second-rule": {
+      description: "Checks another thing",
+      async check(ctx) {
+        // ...
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Context API-et
+
+`ctx`-objektet som sendes til hver `check`-funksjon gir muligheter for fillesing, søk og rapportering. Her er en detaljert referanse med eksempler.
+
+### ctx.scopedFiles
+
+En matrise med filstier som matcher ADR-ens `files`-glob fra frontmatter. Hvis ADR-en ikke har noe `files`-felt, inkluderer dette alle prosjektfiler.
+
+```typescript
+for (const file of ctx.scopedFiles) {
+  const content = await ctx.readFile(file);
+  // Check content...
+}
+```
+
+Bruk `ctx.scopedFiles` når regelen din bare skal gjelde filer ADR-en styrer. For eksempel vil en kommandostrukturregel avgrenset til `src/commands/**/*.ts` bare motta kommandofiler.
+
+### ctx.changedFiles
+
+En matrise med filstier som skiller seg fra grunngrenen. Auto-detektert som standard, eller fylt fra `--staged` / `--base <ref>`. Nyttig for inkrementell sjekking og regler for avhengigheter mellom filer.
+
+```typescript
+// Incremental checking -- only validate changed files
+const filesToCheck = ctx.scopedFiles.filter((f) =>
+  ctx.changedFiles.includes(f)
+);
+
+// Cross-file dependency -- if file A changed, file B must also change
+if (ctx.changedFiles.includes("config/database.yml")) {
+  if (!ctx.changedFiles.includes("deploy/manifest.yml")) {
+    ctx.report.violation({
+      message: "config changed but manifest was not bumped",
+      file: "config/database.yml",
+    });
+  }
+}
+```
+
+### ctx.readFile(path)
+
+Les innholdet i en fil som en streng. Stien er relativ til prosjektroten.
+
+```typescript
+const content = await ctx.readFile("src/cli.ts");
+```
+
+### ctx.readJSON(path)
+
+Les og parse en JSON-fil. Returnerer `unknown` -- cast den til forventet form.
+
+```typescript
+const pkg = (await ctx.readJSON("package.json")) as {
+  dependencies?: Record<string, string>;
+};
+```
+
+### ctx.grep(file, pattern)
+
+Søk i en enkelt fil med et regulært uttrykk. Returnerer en matrise med `GrepMatch`-objekter, hver med egenskapene `file`, `line`, `column` og `content`.
+
+```typescript
+const matches = await ctx.grep(file, /console\.error\(/);
+for (const match of matches) {
+  ctx.report.violation({
+    message: "Use logError() instead of console.error()",
+    file: match.file,
+    line: match.line,
+  });
+}
+```
+
+### ctx.grepFiles(pattern, fileGlob)
+
+Søk på tvers av flere filer som matcher et glob-mønster. Returnerer en flat matrise med `GrepMatch`-objekter fra alle matchende filer. Filer ignorert av `.gitignore` ekskluderes som standard. Sett `respectGitignore: false` i ADR-frontmatter for å inkludere dem.
+
+```typescript
+const matches = await ctx.grepFiles(/TODO:/, "src/**/*.ts");
+for (const match of matches) {
+  ctx.report.warning({
+    message: "TODO comment found",
+    file: match.file,
+    line: match.line,
+  });
+}
+```
+
+### ctx.glob(pattern)
+
+Finn filer etter glob-mønster. Returnerer en matrise med filstier relative til prosjektroten. Filer ignorert av `.gitignore` ekskluderes som standard. Sett `respectGitignore: false` i ADR-frontmatter for å inkludere dem.
+
+```typescript
+const testFiles = await ctx.glob("tests/**/*.test.ts");
+```
+
+### ctx.report
+
+Rapporteringsgrensesnittet med tre alvorlighetsgradsmetoder:
+
+- `ctx.report.violation(detail)` -- feil-alvorlighetsgrad (exit-kode 1, blokkerer CI)
+- `ctx.report.warning(detail)` -- advarsel-alvorlighetsgrad (logges, men blokkerer ikke)
+- `ctx.report.info(detail)` -- informasjon (logges for synlighet)
+
+Hver metode aksepterer et objekt med:
+
+| Felt      | Type     | Påkrevd | Beskrivelse                              |
+| --------- | -------- | ------- | ---------------------------------------- |
+| `message` | `string` | Ja      | Hva bruddet er                           |
+| `file`    | `string` | Nei     | Sti til den problematiske filen          |
+| `line`    | `number` | Nei     | Linjenummer for bruddet                  |
+| `fix`     | `string` | Nei     | Foreslått løsning (vises til utvikleren) |
+
+```typescript
+ctx.report.violation({
+  message: "Command file must export a register*Command function",
+  file: "src/commands/check.ts",
+  line: 5,
+  fix: "Add: export function registerCheckCommand(program: Command) { ... }",
+});
+```
+
+### ctx.projectRoot
+
+Den absolutte stien til prosjektets rotkatalog. Nyttig når du trenger å konstruere absolutte stier.
+
+## Alvorlighetsgrader
+
+Hver regel kan sette en standard alvorlighetsgrad i konfigurasjonen sin. Alvorlighetsgraden bestemmer hvordan brudd behandles:
+
+| Alvorlighetsgrad | Exit-kode | Oppførsel                         |
+| ---------------- | --------- | --------------------------------- |
+| `error`          | 1         | Blokkerer CI, må fikses           |
+| `warning`        | 0         | Logges, men blokkerer ikke        |
+| `info`           | 0         | Informasjon, logges for synlighet |
+
+Sett alvorlighetsgraden i regeldefinisjonen:
+
+```typescript
+export default {
+  rules: {
+    "my-rule": {
+      description: "...",
+      severity: "warning",
+      async check(ctx) {
+        // Violations from this rule are warnings, not errors
+        ctx.report.violation({ message: "..." });
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Hvis `severity` utelates, er standardverdien `error`.
+
+Du kan også rapportere med ulike alvorlighetsgrader innenfor samme regel ved å bruke `ctx.report.violation()`, `ctx.report.warning()` og `ctx.report.info()` direkte.
+
+## Tidsgrense for regler
+
+Hver regel har en kjøringstidsgrense på 30 sekunder. Hvis en regel overskrider denne grensen, behandles den som en feil. Dette forhindrer at uendelige sjekker blokkerer pipelinen.
+
+Hold reglene raske ved å:
+
+- Bruke `ctx.grepFiles()` i stedet for å lese hver fil manuelt
+- Bruke `Promise.all()` for å sjekke filer parallelt
+- Avgrense regler med `files`-feltet i frontmatter for å begrense antall filer som behandles
+
+## `fix`-feltet
+
+`fix`-feltet er en valgfri streng som vises til utvikleren sammen med bruddmeldingen. Den beskriver hvilken handling som må utføres for å løse problemet. Fikser brukes ikke automatisk -- de er veiledning.
+
+```typescript
+ctx.report.violation({
+  message: `Unapproved dependency: "chalk"`,
+  file: "package.json",
+  fix: "Use styleText() from node:util instead of chalk",
+});
+```
+
+Når den vises, kommer fiksen under bruddmeldingen:
+
+```
+ARCH-006/no-unapproved-deps
+  package.json
+    Unapproved dependency: "chalk"
+    Fix: Use styleText() from node:util instead of chalk
+```
+
+## Tips for å skrive regler
+
+1. **Bruk `Promise.all()` for parallelle filsjekker.** Når du sjekker flere filer uavhengig, prosesser dem parallelt i stedet for sekvensielt.
+
+   ```typescript
+   // Good: parallel
+   const checks = files.map(async (file) => {
+     const content = await ctx.readFile(file);
+     // ...
+   });
+   await Promise.all(checks);
+
+   // Avoid: sequential
+   for (const file of files) {
+     const content = await ctx.readFile(file);
+     // ...
+   }
+   ```
+
+2. **Bruk `ctx.changedFiles` for inkrementell sjekking.** `ctx.changedFiles` fylles automatisk med grenforskjellen (eller stagede filer med `--staged`). Filtrer `ctx.scopedFiles` mot den for å bare sjekke det som er endret, eller bruk den direkte for regler om avhengigheter mellom filer.
+
+3. **Hold reglene fokusert på ett anliggende.** En regel som sjekker både navnekonvensjoner og importmønstre bør deles i to regler med separate ID-er.
+
+4. **Bruk `ctx.grepFiles()` fremfor manuell iterering.** Når du søker etter et mønster på tvers av mange filer, er `ctx.grepFiles()` mer effektivt enn å lese hver fil og kjøre et regulært uttrykk.
+
+5. **Gi handlingsbare `fix`-meldinger.** En fiks som "Ikke gjør dette" er ikke nyttig. Fortell utvikleren nøyaktig hva som skal gjøres i stedet.
+
+6. **Filtrer bort ikke-relevante filer tidlig.** Hvis regelen din bare gjelder for bestemte filer innenfor omfanget, filtrer `ctx.scopedFiles` før prosessering:
+
+   ```typescript
+   const commandFiles = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
+   ```
+
+7. **Håndter manglende filer elegant.** Hvis regelen din leser en spesifikk fil som `package.json`, pakk lesingen i en try/catch og returner tidlig hvis filen ikke eksisterer.
+
+## Neste steg
+
+- [Vanlige regelmønstre](/examples/common-rule-patterns/) -- Kopier-og-lim-inn-mønstre organisert etter kategori: avhengighetshåndtering, importrestriksjoner, filstruktur, kodekvalitet, databaseskjema og arkitekturgrenser.
+- [Regel-API-referanse](/reference/rule-api/) -- Fullstendig referanse for alle regel-API-typer og -funksjoner.
+- [CI-integrasjon](/guides/ci-integration/) -- Koble `archgate check` til pipelinen din for å håndheve regler på hver PR.

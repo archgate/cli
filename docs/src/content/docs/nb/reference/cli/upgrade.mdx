@@ -1,0 +1,72 @@
+---
+title: archgate upgrade
+description: "Oppgrader Archgate til nyeste versjon."
+---
+
+Oppgrader Archgate til nyeste versjon.
+
+```bash
+archgate upgrade
+```
+
+Sjekker GitHub Releases for den siste publiserte versjonen. Hvis en nyere versjon er tilgjengelig, autodetekterer kommandoen hvordan Archgate ble installert og kjører den passende oppgraderingsstrategien. Hvis allerede oppdatert, skrives en melding og kommandoen avsluttes.
+
+## Valg
+
+| Valg        | Beskrivelse                                     |
+| ----------- | ----------------------------------------------- |
+| `--plugins` | Oppdater også editor-plugins etter oppgradering |
+
+## Deteksjon av installasjonsmetode
+
+Oppgraderingskommandoen inspiserer den kjørende binærfilens sti for å bestemme installasjonsmetoden, og delegerer deretter til den matchende strategien:
+
+| Installasjonsmetode                        | Deteksjon                                      | Oppgraderingshandling                                                                                                                               |
+| ------------------------------------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Binærinstallasjon** (`~/.archgate/bin/`) | Binærfilen ligger i `~/.archgate/bin/`         | Laster ned den nyeste binærfilen fra GitHub Releases og erstatter den eksisterende                                                                  |
+| **Proto**                                  | Binærfilen ligger i `~/.proto/tools/archgate/` | Kjører `proto install archgate latest --pin`                                                                                                        |
+| **Lokal dev-avhengighet**                  | Binærfilen ligger i `node_modules/`            | Detekterer pakkebehandleren fra nærmeste lockfile (bun, pnpm, yarn eller npm) og kjører riktig add-kommando (f.eks. `bun add -d archgate@latest`)   |
+| **Global pakkebehandler**                  | Binærfilen ligger i en global bin-katalog      | Detekterer hvilken pakkebehandler som eier den globale bin-katalogen og kjører dens oppgraderingskommando (f.eks. `npm install -g archgate@latest`) |
+
+Hvis ingen spesifikk metode detekteres, faller kommandoen tilbake til `npm install -g archgate@latest`.
+
+## Plugin-oppdateringer
+
+Etter en vellykket oppgradering tilbyr CLI-en å oppdatere editor-pluginene dine. I en interaktiv terminal får du en bekreftelsesprompt:
+
+```
+Archgate upgraded to 0.35.0 successfully.
+? Would you like to update your editor plugins too? (Y/n)
+```
+
+CLI-en autodetekterer installerte editorer (Claude Code, Cursor, VS Code, Copilot CLI, opencode) og kjører plugin-installasjonen for hver valgte editor. Feil ved plugin-oppdatering rapporteres, men påvirker ikke avslutningskoden -- selve CLI-oppgraderingen er allerede fullført.
+
+Bruk `--plugins` for å hoppe over prompten og oppdatere alle detekterte editorer automatisk:
+
+```bash
+archgate upgrade --plugins
+```
+
+:::note
+Plugin-oppdateringer krever autentisering. Hvis du ikke er innlogget, skriver CLI-en ut en påminnelse om å kjøre `archgate login` først.
+:::
+
+## Eksempler
+
+Oppgrader CLI-en:
+
+```bash
+archgate upgrade
+```
+
+```
+Checking for latest Archgate release...
+Upgrading 0.34.0 -> 0.35.0...
+Archgate upgraded to 0.35.0 successfully.
+```
+
+Oppgrader og oppdater alle editor-plugins i ett trinn:
+
+```bash
+archgate upgrade --plugins
+```

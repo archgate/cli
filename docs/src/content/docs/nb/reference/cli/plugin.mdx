@@ -1,0 +1,85 @@
+---
+title: archgate plugin
+description: "Administrer Archgate editor-plugins uavhengig av archgate init."
+---
+
+Administrer Archgate editor-plugins uavhengig av `archgate init`.
+
+```bash
+archgate plugin <subcommand> [options]
+```
+
+Bruk `archgate plugin` til å installere plugins eller hente den autentiserte repository-URL-en for prosjekter som allerede er initialisert.
+
+## Underkommandoer
+
+### archgate plugin url
+
+Skriv ut plugin-repository-URL-en for manuell verktøykonfigurasjon.
+
+```bash
+archgate plugin url [options]
+```
+
+| Valg                | Standard | Beskrivelse                                                     |
+| ------------------- | -------- | --------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Måleditor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+
+URL-en kan brukes til å konfigurere editorverktøy manuelt. Legitimasjon leveres automatisk av git-legitimasjonsbehandleren din (lagret under `archgate login`). For eksempel, for å legge til Archgate-markedsplassen i Claude Code:
+
+```bash
+claude plugin marketplace add "$(archgate plugin url)"
+claude plugin install archgate@archgate
+```
+
+For VS Code peker URL-en til et separat plugin-repository:
+
+```bash
+archgate plugin url --editor vscode
+```
+
+### archgate plugin install
+
+Installer Archgate-pluginen for den angitte editoren i et allerede initialisert prosjekt.
+
+```bash
+archgate plugin install [options]
+```
+
+| Valg                | Standard | Beskrivelse                                                     |
+| ------------------- | -------- | --------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Måleditor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+
+Installasjonsoppførselen varierer etter editor:
+
+- **Claude Code:** Autoinstallerer via `claude`-CLI-en hvis tilgjengelig; skriver ut manuelle kommandoer ellers.
+- **Copilot CLI:** Autoinstallerer via `copilot`-CLI-en hvis tilgjengelig; skriver ut manuelle kommandoer ellers.
+- **Cursor:** Skriver ut [Team Private Plugin Marketplace](https://cursor.com/docs/plugins#team-marketplaces)-URL-en med instruksjoner for å legge den til i Cursor-innstillingene. Cursor støtter ikke VSIX-installasjon fra CLI-en.
+- **VS Code:** Installerer VS Code-utvidelsen (`.vsix`) via `code`-CLI-en hvis tilgjengelig; skriver ut manuelle instruksjoner ellers.
+- **opencode:** Krever at `opencode`-CLI-en er på PATH -- hopper over installasjonen med en tydelig melding ellers. Når den er til stede, laster den ned en autentisert tarball med agentfiler og pakker den ut i opencode-agentkatalogen for brukerskoopet. `archgate plugin url --editor opencode` skriver ut "N/A" -- opencode har ingen markedsplassURL. Se [opencode-integrasjonsguiden](/guides/opencode-integration/) for detaljer.
+
+## Eksempler
+
+Hent plugin-URL-en for manuell konfigurasjon:
+
+```bash
+archgate plugin url
+```
+
+Installer pluginen for Claude Code:
+
+```bash
+archgate plugin install
+```
+
+Installer pluginen for Cursor:
+
+```bash
+archgate plugin install --editor cursor
+```
+
+Installer agentpakken for opencode:
+
+```bash
+archgate plugin install --editor opencode
+```

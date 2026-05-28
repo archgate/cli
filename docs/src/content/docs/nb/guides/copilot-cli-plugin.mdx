@@ -1,0 +1,129 @@
+---
+title: Copilot CLI-plugin
+description: Sett opp Archgate-pluginet for GitHub Copilot CLI. Legg til arkitekturstyring i Copilot med automatisert ADR-samsvar og regelhaandheving.
+---
+
+Archgate Copilot CLI-pluginet gir AI-agenter som jobber i [GitHub Copilot CLI](https://github.com/features/copilot) en strukturert styringsarbeidsflyt. Agenter leser ADR-ene dine for de skriver kode, validerer etterpaa, og fanger opp nye monstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
+
+## Hvordan det fungerer
+
+Copilot CLI stotter plugin-installasjon fra git-repositorier ved hjelp av `copilot plugin install`. Archgate-pluginet serveres fra et git-repositorium paa `plugins.archgate.dev/archgate.git`, som Copilot CLI gjenkjenner direkte -- det samme `.claude-plugin/plugin.json`-manifestformatet fungerer for baade Claude Code og Copilot CLI.
+
+## Installasjon
+
+:::note[Betatilgang kreves]
+Copilot CLI-pluginet er for oyeblikket i beta. Kjor `archgate login` for aa registrere deg og autentisere for du folger trinnene nedenfor.
+:::
+
+### 1. Logg inn med GitHub
+
+Autentiser med GitHub-kontoen din for aa faa et plugin-token:
+
+```bash
+archgate login
+```
+
+Dette starter en GitHub Device Flow. CLI-en viser en engangskode og URL -- aapne URL-en i nettleseren din, skriv inn koden, og autoriser. Naar det er fullfort, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+
+### 2. Initialiser prosjektet ditt med pluginet
+
+Kjor `archgate init` med `--editor copilot`-flagget:
+
+```bash
+archgate init --editor copilot
+```
+
+Hvis du allerede er logget inn og `copilot`-CLI-en er paa PATH, installeres pluginet automatisk via:
+
+```bash
+copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
+```
+
+Hvis `copilot`-CLI-en ikke finnes, skriver kommandoen ut den manuelle kommandoen du maa kjore.
+
+For aa eksplisitt be om plugin-installasjon:
+
+```bash
+archgate init --editor copilot --install-plugin
+```
+
+For aa installere eller reinstallere pluginet paa et allerede initialisert prosjekt:
+
+```bash
+archgate plugin install --editor copilot
+```
+
+### Genererte filer
+
+Kommandoen oppretter `.github/copilot/`-mappen for plugin-konfigurasjon. Plugin-installasjon haandteres separat via `copilot plugin install`-kommandoen.
+
+### Manuell installasjon
+
+Hvis `copilot`-CLI-en ikke finnes under `archgate init`, kan du installere pluginet manuelt:
+
+```bash
+copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
+```
+
+Du kan finne den autentiserte URL-en din ved aa kjore `archgate plugin url copilot`.
+
+## Hva pluginet tilbyr
+
+Pluginet legger til en agent og rollebaserte ferdigheter i Copilot CLI. Agenten orkestrerer styringsarbeidsflyten og aktiverer ferdigheter etter behov.
+
+### Agent
+
+| Agent                | Formaal                                                                    |
+| -------------------- | -------------------------------------------------------------------------- |
+| `archgate:developer` | Generell utviklingsagent som leser ADR-er for koding og validerer etterpaa |
+
+`archgate:developer`-agenten er satt som standardagent via plugin-innstillingene. Den orkestrerer ferdighetene nedenfor automatisk som en del av arbeidsflyten.
+
+### Ferdigheter
+
+| Ferdighet                  | Formaal                                                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `archgate:architect`       | Validerer kodeendringer mot alle prosjektets ADR-er for strukturell samsvar             |
+| `archgate:quality-manager` | Gjennomgaar regeldekning og foreslar nye ADR-er naar monstre dukker opp                 |
+| `archgate:adr-author`      | Oppretter og redigerer ADR-er i henhold til prosjektets konvensjoner                    |
+| `archgate:onboard`         | Engangsoppsett: utforsker kodebasen, intervjuer utvikleren, oppretter innledende ADR-er |
+
+## Forste oppsett med onboard
+
+Etter installasjon, kjor `archgate:onboard`-ferdigheten i prosjektet ditt en gang. Denne ferdigheten:
+
+1. Utforsker kodebasestrukturen din (mapper, nokkelfiler, pakkekonfigurasjon)
+2. Intervjuer deg om teamets konvensjoner, begrensninger og arkitekturbeslutninger
+3. Oppretter et innledende sett med ADR-er basert paa svarene dine
+4. Setter opp `.archgate/`-mappen med de forste reglene dine
+
+Onboard-ferdigheten er designet for aa kjores en gang per prosjekt. Etter onboarding handterer de andre ferdighetene daglig utvikling.
+
+## Hvordan det fungerer i praksis
+
+Pluginet folger en strukturert arbeidsflyt for hver kodeoppgave:
+
+### 1. Les gjeldende ADR-er
+
+Naar utvikleren gir en kodeoppgave, kjorer agenten `archgate review-context` for aa lese alle ADR-er som gjelder for filene som endres. Dette gir en komprimert briefing med **Decision**- og **Do's and Don'ts**-seksjonene fra hver relevante ADR.
+
+### 2. Skriv kode i henhold til ADR-begrensninger
+
+Agenten skriver kode som samsvarer med begrensningene fra ADR-ene. Do's and Don'ts-seksjonene fungerer som konkrete retningslinjer.
+
+### 3. Valider endringer
+
+Etter aa ha skrevet kode, kjorer agenten `archgate check` for aa utfore automatiserte regler mot endringene. Eventuelle brudd utbedres for man gaar videre.
+
+### 4. Arkitektgjennomgang
+
+Agenten aktiverer `archgate:architect` for aa validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp.
+
+### 5. Fang opp laeringer
+
+Agenten aktiverer `archgate:quality-manager` for aa gjennomgaa arbeidet og identifisere monstre som er verdt aa fange opp som nye ADR-er.
+
+## Tips
+
+- **Kjor onboard en gang per prosjekt** for aa generere de innledende ADR-ene fra den faktiske kodebasen din.
+- **Hold ADR-regelfiler oppdatert** -- agenten haandterer det reglene sjekker for.

@@ -1,0 +1,170 @@
+---
+title: Regler
+description: Forstå Archgates TypeScript-regelsystem som gjør Architecture Decision Records om til automatiserte samsvarssjekker med bruddrapportering på filnivå.
+---
+
+Regler er den kjørbare siden av en ADR. De bor i tilhørende `.rules.ts`-filer ved siden av ADR-dokumentet og eksporterer et vanlig objekt typet med `satisfies RuleSet`. Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: true`, importerer den tilhørende regelfilen og kjører hver sjekk mot kodebasen din.
+
+## Definere regler
+
+En regelfil er en TypeScript-modul som standard-eksporterer et vanlig objekt i samsvar med `RuleSet`-typen. Typen leveres av den lokale shimen som auto-genereres av `archgate init` (ingen npm-installasjon nødvendig):
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "rule-key": {
+      description: "What this rule checks",
+      severity: "error",
+      async check(ctx) {
+        // Inspect files and report violations
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Hver nøkkel i `rules`-objektet blir regel-ID-en. Den fullstendige regelidentifikatoren som vises i sjekk-utdata kombinerer ADR-ID-en og regelnøkkelen, for eksempel `ARCH-004/no-barrel-files`.
+
+## Regelstruktur
+
+Hver regel har tre deler:
+
+| Egenskap      | Type     | Påkrevd | Beskrivelse                                      |
+| ------------- | -------- | ------- | ------------------------------------------------ |
+| `description` | string   | Ja      | Et kort sammendrag av hva regelen sjekker        |
+| `severity`    | string   | Nei     | `"error"` (standard), `"warning"` eller `"info"` |
+| `check`       | function | Ja      | Asynkron funksjon som mottar en `RuleContext`    |
+
+### Alvorlighetsgrader
+
+Alvorlighetsgraden bestemmer hva som skjer når en regel finner et problem:
+
+| Alvorlighetsgrad | Exit Code | Effekt                                |
+| ---------------- | --------- | ------------------------------------- |
+| `error`          | 1         | Bruddet rapporteres og sjekken feiler |
+| `warning`        | 0         | Advarselen logges, men sjekken består |
+| `info`           | 0         | Informasjonsmelding, sjekken består   |
+
+Når `archgate check` kjøres, betyr exit code 1 at minst ett brudd med alvorlighetsgrad `error` ble funnet. Exit code 0 betyr ingen feil (advarsler og informasjonsmeldinger logges, men blokkerer ikke).
+
+## RuleContext
+
+`check`-funksjonen mottar et `RuleContext`-objekt som gir alt en regel trenger for å inspisere kodebasen og rapportere funn.
+
+### Prosjektinformasjon
+
+| Egenskap           | Type       | Beskrivelse                                                                                  |
+| ------------------ | ---------- | -------------------------------------------------------------------------------------------- |
+| `ctx.projectRoot`  | `string`   | Absolutt sti til prosjektets rotmappe                                                        |
+| `ctx.scopedFiles`  | `string[]` | Filer som matcher ADR-ens `files`-glober, eller alle prosjektfiler hvis ingen glober er satt |
+| `ctx.changedFiles` | `string[]` | Filer endret i git (auto-oppdaget fra branch-diff, eller fra `--staged`/`--base`)            |
+
+### Filoperasjoner
+
+| Metode               | Returtype           | Beskrivelse                            |
+| -------------------- | ------------------- | -------------------------------------- |
+| `ctx.glob(pattern)`  | `Promise<string[]>` | Finn filer som matcher et glob-mønster |
+| `ctx.readFile(path)` | `Promise<string>`   | Les en fils innhold som streng         |
+| `ctx.readJSON(path)` | `Promise<unknown>`  | Les og parse en JSON-fil               |
+
+### Søkeoperasjoner
+
+| Metode                             | Returtype              | Beskrivelse                                     |
+| ---------------------------------- | ---------------------- | ----------------------------------------------- |
+| `ctx.grep(file, pattern)`          | `Promise<GrepMatch[]>` | Søk i en enkelt fil med et regex-mønster        |
+| `ctx.grepFiles(pattern, fileGlob)` | `Promise<GrepMatch[]>` | Søk på tvers av flere filer som matcher en glob |
+
+Både `grep` og `grepFiles` returnerer et array av `GrepMatch`-objekter:
+
+```typescript
+interface GrepMatch {
+  file: string; // Relative path from project root
+  line: number; // 1-based line number
+  column: number; // 1-based column number
+  content: string; // The full line content
+}
+```
+
+### Rapportering
+
+`ctx.report`-objektet gir tre metoder for å rapportere funn:
+
+```typescript
+ctx.report.violation({ message, file?, line?, fix? });
+ctx.report.warning({ message, file?, line?, fix? });
+ctx.report.info({ message, file?, line?, fix? });
+```
+
+Hver metode aksepterer et objekt med:
+
+| Egenskap  | Type   | Påkrevd | Beskrivelse                        |
+| --------- | ------ | ------- | ---------------------------------- |
+| `message` | string | Ja      | Hva problemet er                   |
+| `file`    | string | Nei     | Relativ sti til den aktuelle filen |
+| `line`    | number | Nei     | Linjenummer der problemet oppstår  |
+| `fix`     | string | Nei     | Foreslått rettelse for bruddet     |
+
+Bruk `ctx.report.violation()` for problemer som skal blokkere sammenslåinger. Bruk `ctx.report.warning()` for problemer som er verdt å flagge, men som ikke blokkerer. Bruk `ctx.report.info()` for rent informativ utdata.
+
+## Tidsavbrudd for regler
+
+Hver regel har en kjøretidsgrense på 30 sekunder. Hvis en regels `check`-funksjon ikke fullføres innen 30 sekunder, termineres den og rapporteres som feil. Dette forhindrer at regler som løper løpsk blokkerer pipelinen på ubestemt tid.
+
+## Komplett eksempel
+
+Her er en komplett regelfil som sjekker for et forbudt importmønster. Den håndhever at ingen kildefil importerer direkte fra `node:fs` (prosjektet krever bruk av en wrapper).
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-direct-fs-import": {
+      description:
+        "Source files must not import directly from node:fs; use the fs wrapper",
+      severity: "error",
+      async check(ctx) {
+        const sourceFiles = ctx.scopedFiles.filter(
+          (f) => f.endsWith(".ts") && !f.endsWith(".test.ts")
+        );
+
+        for (const file of sourceFiles) {
+          const matches = await ctx.grep(file, /from ["']node:fs["']/);
+
+          for (const match of matches) {
+            ctx.report.violation({
+              message: `Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.`,
+              file: match.file,
+              line: match.line,
+              fix: 'Replace the import with: import { readFile, writeFile } from "../helpers/fs"',
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Når denne regelen kjøres mot en fil som inneholder `import { readFileSync } from "node:fs"`, ser utdataen slik ut:
+
+```
+ARCH-007/no-direct-fs-import  ERROR
+  src/services/config.ts:3 — Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
+  Fix: Replace the import with: import { readFile, writeFile } from "../helpers/fs"
+```
+
+## Kjøremodell
+
+Regler kjøres med følgende garantier:
+
+- **Parallelt mellom ADR-er** -- Regler fra forskjellige ADR-er kjøres samtidig for raskere kjøring.
+- **Sekvensielt innenfor en ADR** -- Regler som tilhører samme ADR kjøres etter hverandre, slik at tidligere regler kan etablere kontekst for senere.
+- **Avgrensede filer er forhåndsløst** -- `ctx.scopedFiles`-arrayet er fylt ut før `check`-funksjonen din kalles, basert på ADR-ens `files`-glober.
+- **Endrede filer auto-oppdaget** -- `ctx.changedFiles` fylles automatisk med branch-diffen mot base-branchen (f.eks. `main`). Bruk `--staged` for pre-commit hooks (kun staged-filer) eller `--base <ref>` for en eksplisitt base. Dette gjør at kryss-fil-avhengighetsregler fungerer lokalt, ikke bare i CI.
+
+:::tip[Kjør sjekker automatisk med editorplugins]
+Editorpluginene for [Claude Code](/guides/claude-code-plugin/) og [Cursor](/guides/cursor-integration/) kjører `archgate check` automatisk etter hver kodeendring. Agenten leser de gjeldende ADR-ene, skriver samsvarende kode og validerer -- ingen manuelle sjekkkommandoer nødvendig. [Registrer deg for beta-tilgang](https://plugins.archgate.dev).
+:::

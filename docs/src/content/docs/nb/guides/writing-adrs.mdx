@@ -1,0 +1,327 @@
+---
+title: Skrive ADR-er
+description: Komplett guide til å skrive effektive Architecture Decision Records i Archgate. Lær YAML frontmatter-skjemaet, markdown-strukturen og beste praksis.
+---
+
+## Opprette en ADR
+
+Bruk `archgate adr create` for å generere en ny ADR med standardmalen. Kommandoen støtter både interaktiv og ikke-interaktiv modus.
+
+### Interaktiv modus
+
+Kjør kommandoen uten argumenter for å få veiledende spørsmål:
+
+```bash
+archgate adr create
+```
+
+Du blir bedt om å oppgi:
+
+1. **Domene** -- et av de innebygde `backend`, `frontend`, `data`, `architecture` eller `general`, pluss eventuelle [egendefinerte domener](/concepts/domains/#custom-domains) prosjektet har registrert via `archgate adr domain add`
+2. **Tittel** -- et kort, beskrivende navn for beslutningen
+3. **Filmønstre** -- valgfrie kommaseparerte glob-mønstre som avgrenser regelsjekking (f.eks. `src/commands/**/*.ts`)
+
+CLI-et tildeler en sekvensiell ID basert på domeneprefikset (`ARCH-001`, `FE-002`, `BE-003` osv.) og skriver filen til `.archgate/adrs/`.
+
+### Ikke-interaktiv modus
+
+Bruk `--title` og `--domain` for å hoppe over spørsmålene:
+
+```bash
+archgate adr create --title "API Response Format" --domain backend --files "src/api/**/*.ts"
+```
+
+Tilgjengelige flagg:
+
+| Flagg             | Beskrivelse                                                                   |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `--title <title>` | ADR-tittel (påkrevd i ikke-interaktiv modus)                                  |
+| `--domain <name>` | Domenenavn (innebygd eller [egendefinert](/concepts/domains/#custom-domains)) |
+| `--files <globs>` | Kommaseparerte filmønstre for regelavgrensning                                |
+| `--rules`         | Setter `rules: true` i frontmatter                                            |
+| `--body <md>`     | Fullstendig ADR-innhold i markdown (hopper over malen)                        |
+| `--json`          | Skriv resultatet som JSON                                                     |
+
+## Den genererte malen
+
+Når du oppretter en ADR uten `--body`, genererer CLI-et en mal med alle standardseksjoner:
+
+```markdown
+---
+id: BE-001
+title: API Response Format
+domain: backend
+rules: false
+files: ["src/api/**/*.ts"]
+---
+
+# API Response Format
+
+## Context
+
+Describe the context and problem statement.
+
+## Decision
+
+Describe the decision that was made.
+
+## Do's and Don'ts
+
+### Do
+
+-
+
+### Don't
+
+-
+
+## Consequences
+
+### Positive
+
+-
+
+### Negative
+
+-
+
+### Risks
+
+-
+
+## Compliance and Enforcement
+
+Describe how this decision will be enforced.
+
+## References
+
+-
+```
+
+## Veiledning seksjon for seksjon
+
+### Context
+
+Forklar hvorfor denne beslutningen var nødvendig. Hvilket problem utløste den? Hvilke alternativer ble vurdert, og hvorfor ble de forkastet?
+
+Gode Context-seksjoner inkluderer:
+
+- Problemet eller smertepunktet som utløste beslutningen
+- Alternativer som ble evaluert, med kort avveining
+- Eventuelle begrensninger som innsnevret valgene (teamstørrelse, kjøretid, kompatibilitet)
+
+```markdown
+## Context
+
+The CLI needs a consistent pattern for defining and registering commands. As the
+command surface grows (init, check, adr, login, upgrade, clean), the registration
+mechanism must scale without introducing hidden coupling or making the dependency
+graph opaque.
+
+**Alternatives considered:**
+
+- **Auto-discovery via `executableDir()`** -- Commander.js supports automatic
+  command discovery by scanning a directory. This hides the dependency graph and
+  makes dead command detection impossible.
+- **Single-file command map** -- Simple but creates a monolithic file that grows
+  with every command.
+```
+
+### Decision
+
+Beskriv hva som ble besluttet. Vær spesifikk og konkret -- denne seksjonen skal ikke etterlate noen tvil om hva utviklere må gjøre.
+
+Inkluder nummererte begrensninger når beslutningen har flere fasetter:
+
+```markdown
+## Decision
+
+Commands live in src/commands/ and export a register\*Command(program) function.
+The main entry point (src/cli.ts) explicitly imports and calls each register
+function.
+
+**Key constraints:**
+
+1. **One command per file** -- Each .ts file defines exactly one command
+2. **Explicit registration** -- Every command must be manually imported in src/cli.ts
+3. **Thin commands** -- Command files handle I/O only; no business logic
+```
+
+### Do's and Don'ts
+
+Dette er seksjonen utviklere og AI-agenter refererer til oftest. Skriv konkrete eksempler på korrekte og ukorrekte mønstre. Bruk ekte kode når det er mulig.
+
+```markdown
+## Do's and Don'ts
+
+### Do
+
+- Export a register\*Command function from each command module
+- Keep commands thin: parse args, call helpers/engine, format output
+- Use src/commands/<name>.ts for top-level commands
+
+### Don't
+
+- Don't put business logic in command files -- move it to src/engine/ or src/helpers/
+- Don't use executableDir() for command discovery
+- Don't call .parse() in command files -- the entry point handles parsing
+```
+
+### Consequences
+
+Del konsekvensene inn i tre kategorier:
+
+- **Positive** -- fordeler teamet oppnår med denne beslutningen
+- **Negative** -- avveininger teamet aksepterer (enhver beslutning har dem)
+- **Risks** -- hva som kan gå galt, og hvordan du planlegger å redusere risikoen
+
+```markdown
+## Consequences
+
+### Positive
+
+- In-process execution enables testing without spawning subprocesses
+- Explicit imports make all commands visible at a glance in src/cli.ts
+
+### Negative
+
+- Manual import bookkeeping -- each new command requires adding an import
+
+### Risks
+
+- Stale imports when commands are removed. Mitigation: TypeScript catches
+  missing modules at compile time.
+```
+
+### Compliance and Enforcement
+
+Beskriv hvordan denne beslutningen håndheves. Det finnes to håndhevingsmekanismer:
+
+1. **Automatiserte regler** -- tilhørende `.rules.ts`-filer som kjøres under `archgate check`
+2. **Manuell håndhevelse** -- hva kodegjennomgåere bør verifisere
+
+```markdown
+## Compliance and Enforcement
+
+### Automated Enforcement
+
+- **Archgate rule** ARCH-001/register-function-export: Scans all command files
+  and verifies each exports a register\*Command function. Severity: error.
+
+### Manual Enforcement
+
+Code reviewers MUST verify:
+
+1. New commands are imported and registered in src/cli.ts
+2. Command files delegate to engine/helpers for business logic
+```
+
+### References
+
+Lenke til relaterte ADR-er, ekstern dokumentasjon eller relevante diskusjoner:
+
+```markdown
+## References
+
+- [Commander.js documentation](https://github.com/tj/commander.js)
+- [ARCH-004 -- No Barrel Files](./ARCH-004-no-barrel-files.md)
+- [ARCH-002 -- Error Handling](./ARCH-002-error-handling.md)
+```
+
+## Avgrense regler med `files`
+
+Feltet `files` i frontmatter er en matrise med glob-mønstre. Når det er satt, sender `archgate check` bare matchende filer til regelens `ctx.scopedFiles`. Dette holder reglene fokusert på koden de styrer.
+
+```yaml
+---
+id: ARCH-001
+title: Command Structure
+domain: architecture
+rules: true
+files: ["src/commands/**/*.ts"]
+---
+```
+
+Hvis `files` utelates, inkluderer `ctx.scopedFiles` alle prosjektfiler. Dette er passende for prosjektomfattende regler som avhengighetspolicyer.
+
+Som standard blir filer oppført i `.gitignore` (f.eks. `node_modules/`, `dist/`) automatisk ekskludert fra `ctx.scopedFiles`, `ctx.glob()` og `ctx.grepFiles()`. For å inkludere gitignorerte filer, sett `respectGitignore: false`:
+
+```yaml
+---
+id: BUILD-001
+title: Build Output Structure
+domain: architecture
+rules: true
+respectGitignore: false
+files: ["dist/**/*.js"]
+---
+```
+
+:::tip[Hold filomfanget smalt]
+CLI-et advarer når en ADRs `files`-mønstre treffer mer enn 1 000 filer eller glob-skanningen tar over 2 sekunder. Brede mønstre som `**/*.ts` kan gi trege sjekker i store prosjekter. Foretrekk å målrette spesifikke kataloger (f.eks. `src/commands/**/*.ts`) fremfor prosjektomfattende glob-mønstre.
+:::
+
+Vanlige mønstre:
+
+| Mønster                | Treffer                          |
+| ---------------------- | -------------------------------- |
+| `src/commands/**/*.ts` | Alle TypeScript-filer i commands |
+| `src/**/*.ts`          | Alle TypeScript-kildefiler       |
+| `package.json`         | Bare rot-package.json            |
+| `src/api/**/*.ts`      | API-lagfiler                     |
+| `tests/**/*.test.ts`   | Testfiler                        |
+
+## Når du skal sette `rules: true` vs `rules: false`
+
+Sett `rules: true` når du har en tilhørende `.rules.ts`-fil med automatiserte sjekker. Filen må ha samme navn som ADR-markdown-filen, men med `.rules.ts`-endelse:
+
+```
+.archgate/adrs/
+  ARCH-001-command-structure.md          # rules: true
+  ARCH-001-command-structure.rules.ts    # tilhørende regelfil
+  ARCH-002-error-handling.md             # rules: true
+  ARCH-002-error-handling.rules.ts       # tilhørende regelfil
+  GEN-001-code-review-process.md         # rules: false (ingen automatiserte sjekker)
+```
+
+Sett `rules: false` for beslutninger som bare håndheves gjennom kodegjennomgang -- prosessbeslutninger, teamavtaler eller retningslinjer som er vanskelige å sjekke programmatisk.
+
+## Oppdatere ADR-er
+
+Bruk `archgate adr update` for å endre en eksisterende ADR:
+
+```bash
+archgate adr update --id ARCH-001 --body "## Context\n\nUpdated context..." --title "New Title"
+```
+
+Flaggene `--id` og `--body` er påkrevd. Alle andre frontmatter-felt (`--title`, `--domain`, `--files`, `--rules`) er valgfrie og beholder eksisterende verdier når de utelates.
+
+| Flagg             | Beskrivelse                                         |
+| ----------------- | --------------------------------------------------- |
+| `--id <id>`       | ADR-ID som skal oppdateres (påkrevd)                |
+| `--body <md>`     | Fullstendig erstatningsinnhold i markdown (påkrevd) |
+| `--title <title>` | Ny tittel (beholder eksisterende hvis utelatt)      |
+| `--domain <name>` | Nytt domene (beholder eksisterende hvis utelatt)    |
+| `--files <globs>` | Nye filmønstre (beholder eksisterende hvis utelatt) |
+| `--rules`         | Setter `rules: true`                                |
+| `--json`          | Skriv resultatet som JSON                           |
+
+## Tips for effektive ADR-er
+
+1. **Hold hver ADR fokusert på en enkelt beslutning.** Hvis du oppdager at du skriver om to urelaterte emner, del dem opp i separate ADR-er.
+
+2. **Vær spesifikk i Do's and Don'ts.** Vage retningslinjer som "skriv ren kode" er ikke handlingsbare. Vis konkrete kodemønstre.
+
+3. **Inkluder ekte kodeeksempler.** Do's and Don'ts-seksjonen er der utviklere og AI-agenter ser først. Annoterte kodeeksempler gjør beslutningen utvetydig.
+
+4. **Dokumenter alternativer du forkastet.** Fremtidige bidragsytere vil spørre "hvorfor brukte vi ikke X?" Context-seksjonen bør svare på det spørsmålet.
+
+5. **Beskriv avveininger ærlig.** Enhver beslutning har negative konsekvenser. Å dokumentere dem bygger tillit og hjelper teamet med å forstå hva som ble ofret.
+
+6. **Skriv regler for beslutninger som kan sjekkes automatisk.** Hvis en regel kan fange et brudd før kodegjennomgang, sett `rules: true` og skriv en tilhørende `.rules.ts`-fil. Se guiden [Skrive regler](/guides/writing-rules/).
+
+7. **Bruk domeneprefikser for å organisere.** Domenefeltet bestemmer ID-prefikset og hjelper med å filtrere ADR-er etter område. Foretrekk de fem innebygde (`backend`, `frontend`, `data`, `architecture`, `general`); registrer et [egendefinert domene](/concepts/domains/#custom-domains) bare når ingen av dem passer godt.
+
+:::tip[La AI-agenter skrive ADR-er for deg]
+Redaktørpluginene for [Claude Code](/guides/claude-code-plugin/) og [Cursor](/guides/cursor-integration/) inkluderer en ADR Author-ferdighet som oppretter og oppdaterer ADR-er i henhold til prosjektets konvensjoner. Quality Manager-ferdigheten foreslår også nye ADR-er når den oppdager gjentakende mønstre. [Meld deg på beta-tilgang](https://plugins.archgate.dev).
+:::

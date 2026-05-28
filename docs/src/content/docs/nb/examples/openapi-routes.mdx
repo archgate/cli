@@ -1,0 +1,108 @@
+---
+title: openapi-routes
+description: S&oslash;rg for at alle backend-rutefiler bruker OpenAPI-typede rutedefinisjoner i stedet for r&aring; HTTP-metodebehandlere.
+---
+
+S&oslash;rg for at alle backend-rutefiler bruker OpenAPI-typede rutedefinisjoner.
+
+## Regeldetaljer
+
+N&aring;r et backend-rammeverk st&oslash;tter OpenAPI-integrasjon (f.eks. `@hono/zod-openapi`), omg&aring;r r&aring; HTTP-metodebehandlere (`.get()`, `.post()`) skjemavalidering og dokumentasjonsgenerering. Denne regelen sjekker at rutefiler importerer OpenAPI-integrasjonen og bruker `.openapi()` i stedet for r&aring; metoder.
+
+## Eksempler p&aring; **feil** kode
+
+```typescript title="packages/backend/src/routes/users.ts"
+import { Hono } from "hono";
+
+const app = new Hono();
+
+app.get("/users", async (c) => {
+  // No OpenAPI schema, no auto-generated docs
+  return c.json(await getUsers());
+});
+```
+
+## Eksempler p&aring; **riktig** kode
+
+```typescript title="packages/backend/src/routes/users.ts"
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+
+const route = createRoute({
+  method: "get",
+  path: "/users",
+  responses: {
+    200: {
+      content: { "application/json": { schema: UserListSchema } },
+      description: "List of users",
+    },
+  },
+});
+
+app.openapi(route, async (c) => {
+  return c.json(await getUsers());
+});
+```
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "openapi-route-completeness": {
+      description:
+        "All backend routes must use @hono/zod-openapi, not raw HTTP methods",
+      async check(ctx) {
+        const routeFiles = await ctx.glob("packages/backend/src/routes/*.ts");
+
+        for (const file of routeFiles) {
+          if (file.includes(".test.") || file.includes(".spec.")) continue;
+
+          const content = await ctx.readFile(file);
+
+          const importsOpenApi = /from\s+["']@hono\/zod-openapi["']/.test(
+            content
+          );
+          const hasRawMethods = /\.(?:get|post|put|delete|patch)\s*\(/.test(
+            content
+          );
+          const hasOpenApiCalls = /\.openapi\s*\(/.test(content);
+
+          if (!importsOpenApi && hasRawMethods) {
+            ctx.report.violation({
+              message: `Route file uses raw HTTP methods without importing @hono/zod-openapi`,
+              file,
+              fix: "Import from @hono/zod-openapi and use .openapi() instead of raw .get()/.post()",
+            });
+          }
+
+          if (importsOpenApi && hasRawMethods && !hasOpenApiCalls) {
+            ctx.report.violation({
+              message: `Route file imports @hono/zod-openapi but uses raw HTTP methods instead of .openapi()`,
+              file,
+              fix: "Replace raw .get()/.post() calls with .openapi() route definitions",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## N&aring;r du b&oslash;r bruke den
+
+N&aring;r backend-rammeverket ditt st&oslash;tter OpenAPI-integrasjon og du vil sikre at alle ruter er dokumentert og skjemavalidert. Tilpass importm&oslash;nsteret og metodedeteksjonen for ditt rammeverk:
+
+```typescript
+// For Express with express-openapi-validator
+/from\s+["']express-openapi-validator["']/
+
+// For Fastify with @fastify/swagger
+/from\s+["']@fastify\/swagger["']/
+```
+
+## N&aring;r du ikke b&oslash;r bruke den
+
+N&aring;r ikke alle ruter krever OpenAPI-dokumentasjon (f.eks. interne helsesjekker, metrikk-endepunkter), eller n&aring;r OpenAPI-spesifikasjoner vedlikeholdes separat fra rutekoden.

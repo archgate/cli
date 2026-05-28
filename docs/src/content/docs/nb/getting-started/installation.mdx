@@ -1,0 +1,161 @@
+---
+title: Installasjon
+description: Installer Archgate CLI på macOS, Linux eller Windows via en enlinje-installatør, npm eller frittstående binærfil. Begynn å håndheve ADR-er som kjørbare koderegler på minutter.
+---
+
+## Frittstående installasjon (anbefalt)
+
+Den raskeste måten å installere Archgate på -- ingen Node.js eller pakkebehandler nødvendig:
+
+```bash
+# macOS / Linux
+curl -fsSL https://cli.archgate.dev/install-unix | sh
+
+# Windows (PowerShell)
+irm https://cli.archgate.dev/install-windows | iex
+
+# Windows (Git Bash / MSYS2)
+curl -fsSL https://cli.archgate.dev/install-unix | sh
+```
+
+Dette laster ned en forhåndskompilert binærfil for din plattform og installerer den til `~/.archgate/bin/`. Installatøren oppdager shell-profilene dine og tilbyr å legge mappen til PATH.
+
+På Windows oppdager PowerShell-installatøren også Git Bash shell-profiler (`.bashrc`, `.bash_profile`, `.profile`) og tilbyr å konfigurere PATH der også.
+
+Du kan tilpasse installasjonen med miljøvariabler:
+
+| Variabel               | Beskrivelse                                     | Standard          |
+| ---------------------- | ----------------------------------------------- | ----------------- |
+| `ARCHGATE_VERSION`     | Installer en bestemt versjon (f.eks. `v0.11.2`) | Siste versjon     |
+| `ARCHGATE_INSTALL_DIR` | Egendefinert installasjonsmappe                 | `~/.archgate/bin` |
+
+Du kan også laste ned binærfiler direkte fra [GitHub Releases](https://github.com/archgate/cli/releases).
+
+## Installer via npm
+
+Installer Archgate globalt med din foretrukne Node.js-pakkebehandler:
+
+```bash
+# npm
+npm install -g archgate
+
+# Bun
+bun install -g archgate
+
+# Yarn
+yarn global add archgate
+
+# pnpm
+pnpm add -g archgate
+```
+
+Dette installerer en lettvekts-wrapper som delegerer til en plattformspesifikk binærfil. CLI-en er en frittstående binærfil kompilert med Bun -- Node.js trengs bare for npm/yarn/pnpm-wrapperen.
+
+## Installer som utviklingsavhengighet
+
+Du kan også legge til Archgate som en utviklingsavhengighet i prosjektet ditt og kjøre den gjennom pakkebehandlerens script runner. Dette er nyttig for å låse en bestemt versjon per prosjekt eller kjøre sjekker i CI uten global installasjon.
+
+```bash
+# npm
+npm install -D archgate
+
+# Bun
+bun add -d archgate
+
+# Yarn
+yarn add -D archgate
+
+# pnpm
+pnpm add -D archgate
+```
+
+Deretter kjører du Archgate via pakkebehandleren din:
+
+```bash
+# npm / Yarn / pnpm
+npx archgate check
+
+# Bun
+bun run archgate check
+```
+
+Eller legg til et script i `package.json`:
+
+```json
+{ "scripts": { "check:adrs": "archgate check" } }
+```
+
+```bash
+# Works with any package manager
+npm run check:adrs
+bun run check:adrs
+yarn check:adrs
+pnpm check:adrs
+```
+
+## Plattformstøtte
+
+Archgate leverer forhåndskompilerte binærfiler for følgende plattformer:
+
+| Plattform | Arkitektur | Artefakt                |
+| --------- | ---------- | ----------------------- |
+| macOS     | arm64      | `archgate-darwin-arm64` |
+| Linux     | x86_64     | `archgate-linux-x64`    |
+| Windows   | x86_64     | `archgate-win32-x64`    |
+
+Riktig binærfil lastes ned automatisk fra GitHub Releases ved første kjøring og hurtiglagres i `~/.archgate/bin/`.
+
+## Verifiser installasjonen
+
+```bash
+archgate --version
+```
+
+Du bør se den installerte versjonen skrevet ut til stdout.
+
+## Installer via proto
+
+Hvis du bruker [proto](https://moonrepo.dev/proto) (moonrepos verktøykjedebehandler), kan du installere Archgate direkte som en proto-plugin -- ingen Node.js eller npm nødvendig.
+
+Legg til pluginen i `.prototools`:
+
+```toml
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
+```
+
+Deretter installerer og bruker du den som et hvilket som helst annet proto-verktøy:
+
+```bash
+proto install archgate
+archgate check
+```
+
+Proto administrerer binærfilen for deg, inkludert versjonslåsing og automatisk installasjon. For å låse en bestemt versjon, legg den til i roten av `.prototools`:
+
+```toml
+archgate = "0.15.0"
+
+[plugins.tools]
+archgate = "github://archgate/proto-plugin"
+```
+
+Du kan også liste tilgjengelige versjoner og administrere installasjoner med proto-kommandoer:
+
+```bash
+proto list-remote archgate   # liste tilgjengelige versjoner
+proto install archgate 0.15.0  # installere en bestemt versjon
+proto pin archgate 0.15.0      # låse versjon i .prototools
+```
+
+:::note[Bruker du npm globals med proto?]
+Hvis du foretrekker `npm install -g archgate` i stedet for proto-pluginen, må du konfigurere proto til å eksponere globale npm-binærfiler. Legg til `shared-globals-dir = true` under `[tools.npm]` i `~/.proto/config.toml`, og legg deretter til `$HOME/.proto/tools/node/globals/bin` i shell-PATHen din.
+:::
+
+## Neste steg
+
+Etter installasjonen, kjør `archgate init` i prosjektet ditt for å sette opp styring. Se guiden [Hurtigstart](/getting-started/quick-start/) for en gjennomgang.
+
+:::tip[Editorplugins (beta)]
+Vil du at AI-agenten din skal lese ADR-er før den koder og validere etterpå? Editorpluginene for [Claude Code](/guides/claude-code-plugin/) og [Cursor](/guides/cursor-integration/) legger til en komplett styringsarbeidsflyt på toppen av CLI-en. Kjør `archgate login` for å registrere deg og komme i gang.
+:::

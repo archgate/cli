@@ -1,0 +1,128 @@
+---
+title: Archgate
+description: Archgate CLI håndhever Architecture Decision Records (ADR-er) som kjørbare TypeScript-regler. Automatiser kodestyring for mennesker og AI-agenter.
+template: splash
+hero:
+  tagline: Skriv en ADR én gang. Håndhev den overalt. Gi den til AI-agenter automatisk.
+  actions:
+    - text: Kom i gang
+      link: /getting-started/installation/
+      icon: right-arrow
+      variant: primary
+    - text: Se på GitHub
+      link: https://github.com/archgate/cli
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
+import CodeShowcase from "../../../components/CodeShowcase.astro";
+
+## Hvordan det fungerer
+
+Archgate har to lag som fungerer sammen:
+
+1. **ADR-er som dokumenter** — Markdown-filer med YAML-frontmatter som beskriver arkitekturbeslutninger i klartekst. Mennesker leser dem. AI-agenter leser dem. Alle holder seg samkjørte.
+
+2. **ADR-er som regler** — Tilhørende `.rules.ts`-filer med automatiserte kontroller skrevet i TypeScript. De kjøres mot kodebasen din og rapporterer brudd med filstier og linjenumre.
+
+<CodeShowcase
+  heading="ADR-er som håndhever seg selv"
+  subtext="Skriv en beslutning i Markdown. Legg til regler i TypeScript. CLI-en sjekker samsvar automatisk."
+/>
+
+Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: true` i frontmatter, kjører den tilhørende regelfilen og rapporterer eventuelle brudd. Utgangskode 0 betyr at koden din er i samsvar. Utgangskode 1 betyr at den ikke er det.
+
+## Hovedfunksjoner
+
+<CardGrid>
+  <Card title="Kjørbare regler" icon="seti:typescript">
+    Skriv regler i TypeScript. Archgate kjører dem mot kodebasen din og
+    rapporterer brudd med filstier og linjenumre. Reglene ligger ved siden av
+    beslutningene de håndhever.
+  </Card>
+  <Card title="CI-integrasjon" icon="seti:pipeline">
+    Koble `archgate check` inn i pipelinen din. Utgangskode 1 blokkerer merges
+    når regler brytes. Fungerer med GitHub Actions, GitLab CI eller ethvert
+    CI-system som respekterer utgangskoder.
+  </Card>
+  <Card title="AI-bevisst styring" icon="star">
+    Editorplugins gir AI-agenter direkte tilgang til ADR-ene dine via
+    CLI-kommandoer. De leser beslutninger før de skriver kode, og validerer
+    etterpå. Ingen kopiering og liming av regler i ledetekster.
+  </Card>
+  <Card title="Selvstyre" icon="approve-check-circle">
+    Archgate styrer sin egen utvikling. Det samme verktøyet som sjekker koden
+    din, sjekker vår. Våre egne ADR-er håndhever kommandostruktur,
+    feilhåndtering, utdataformatering, testing og mer — [se dem på
+    GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
+  </Card>
+</CardGrid>
+
+## Editorplugins
+
+Archgate CLI fungerer frittstående, men **editorplugins** låser opp en fullstendig AI-styringsarbeidsflyt. Plugins gir AI-agenter rollebaserte ferdigheter slik at de leser ADR-ene dine før de koder, validerer etterpå og fanger opp nye mønstre for teamet ditt — automatisk.
+
+<CardGrid>
+  <Card title="Claude Code" icon="star">
+    Claude Code-pluginen legger til fem ferdigheter: developer, architect,
+    quality-manager, adr-author og onboard. Agenter følger en strukturert
+    les-valider-fang-løkke for hver oppgave.
+  </Card>
+  <Card title="Cursor" icon="pencil">
+    Cursor-pluginen tilbyr ferdigbygde agentregler og ferdigheter som gir
+    Cursors AI-agent den samme styringsarbeidsflyten som Claude Code.
+  </Card>
+</CardGrid>
+
+:::tip[Beta-tilgang]
+Editorplugins er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere, deretter `archgate init --install-plugin` for å sette opp pluginen.
+:::
+
+<CardGrid>
+  <LinkCard
+    title="Claude Code plugin-guide"
+    href="/guides/claude-code-plugin/"
+    description="Fullstendig oppsett- og bruksguide for Claude Code-pluginen."
+  />
+  <LinkCard
+    title="VS Code plugin-guide"
+    href="/guides/vscode-plugin/"
+    description="Sett opp Archgate med VS Code."
+  />
+  <LinkCard
+    title="Copilot CLI plugin-guide"
+    href="/guides/copilot-cli-plugin/"
+    description="Sett opp Archgate med GitHub Copilot CLI."
+  />
+  <LinkCard
+    title="Cursor integrasjonsguide"
+    href="/guides/cursor-integration/"
+    description="Sett opp Archgate med Cursor IDE."
+  />
+</CardGrid>
+
+## Lær mer
+
+<CardGrid>
+  <LinkCard
+    title="Hva er ADR-er?"
+    href="/concepts/adrs/"
+    description="Forstå Architecture Decision Records og hvordan Archgate bruker dem."
+  />
+  <LinkCard
+    title="Skrive regler"
+    href="/guides/writing-rules/"
+    description="Skriv TypeScript-regler som håndhever beslutningene dine automatisk."
+  />
+  <LinkCard
+    title="CI-integrasjon"
+    href="/guides/ci-integration/"
+    description="Blokker merges når regler brytes i GitHub Actions, GitLab CI eller en hvilken som helst pipeline."
+  />
+  <LinkCard
+    title="CLI-kommandoer"
+    href="/reference/cli-commands/"
+    description="Komplett referanse for alle Archgate CLI-kommandoer og -alternativer."
+  />
+</CardGrid>

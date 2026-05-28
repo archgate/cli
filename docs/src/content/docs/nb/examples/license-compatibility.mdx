@@ -1,0 +1,135 @@
+---
+title: license-compatibility
+description: Verifiser at alle avhengigheter bruker lisenser som er kompatible med prosjektets lisens for å forhindre copyleft-kontaminering.
+---
+
+Forhindre copyleft- eller inkompatible lisenser fra å komme inn i avhengighetstreet ditt.
+
+## Regeldetaljer
+
+Når du kompilerer eller bundler avhengigheter inn i applikasjonen din, gjelder lisensvilkårene deres for det kombinerte verket. En enkelt GPL-avhengighet i et permissivt (MIT/Apache-2.0) prosjekt kan tvinge hele prosjektet til å ta i bruk copyleft-vilkår. Denne regelen sjekker alle direkte avhengigheter mot en tillatt-liste med permissive lisenser.
+
+## Eksempler på **feil** kode
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "readline-sync": "^1.4.10" }
+}
+```
+
+Hvis `readline-sync` bruker GPL-3.0, utloses et brudd selv som devDependency.
+
+## Eksempler på **riktig** kode
+
+```json title="package.json"
+{
+  "dependencies": { "zod": "^3.23.0" },
+  "devDependencies": { "fast-check": "^4.7.0" }
+}
+```
+
+Både `zod` (MIT) og `fast-check` (MIT) er på den permissive tillatt-listen.
+
+## Regelimplementasjon
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+const ALLOWED_LICENSES = new Set([
+  "MIT",
+  "Apache-2.0",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
+  "CC0-1.0",
+  "Unlicense",
+  "BlueOak-1.0.0",
+]);
+
+function isAllowed(license: string | undefined): boolean {
+  if (!license) return false;
+  if (ALLOWED_LICENSES.has(license)) return true;
+
+  // Handle SPDX OR expressions — at least one option must be allowed
+  const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
+  if (ALLOWED_LICENSES.has(normalized)) return true;
+
+  if (normalized.includes(" OR ")) {
+    return normalized.split(" OR ").some((l) => ALLOWED_LICENSES.has(l.trim()));
+  }
+
+  return false;
+}
+
+/**
+ * Extract package name from a node_modules path.
+ * Handles both regular and scoped (@scope/name) packages.
+ */
+function extractPackageName(path: string): string {
+  const parts = path.replaceAll("\\", "/").split("/");
+  const nmIdx = parts.lastIndexOf("node_modules");
+  if (nmIdx === -1) return path;
+  const afterNm = parts.slice(nmIdx + 1);
+  if (afterNm[0]?.startsWith("@") && afterNm.length >= 2) {
+    return `${afterNm[0]}/${afterNm[1]}`;
+  }
+  return afterNm[0] ?? path;
+}
+
+export default {
+  rules: {
+    "no-copyleft-deps": {
+      description:
+        "All dependencies (including transitive) must use permissive licenses",
+      async check(ctx) {
+        // Scan ALL packages in node_modules — direct AND transitive.
+        // Brace expansion covers both regular and scoped packages.
+        const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
+
+        const depResults = await Promise.all(
+          pkgFiles.map(async (pkgPath) => {
+            try {
+              const depPkg = (await ctx.readJSON(pkgPath)) as {
+                license?: string;
+              };
+              return {
+                dep: extractPackageName(pkgPath),
+                license: depPkg.license,
+              };
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        for (const result of depResults) {
+          if (result === null) continue;
+          if (!isAllowed(result.license)) {
+            ctx.report.violation({
+              message: `Dependency "${result.dep}" has disallowed license: "${result.license ?? "(none)"}".`,
+              file: "package.json",
+              fix: `Remove "${result.dep}" or find an alternative with a permissive license.`,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+## Tilpasning
+
+- **Endre tillatt-listen**: Legg til eller fjern lisensidentifikatorer basert på prosjektets lisens. GPL-prosjekter kan tillate GPL-avhengigheter; Apache-2.0-prosjekter bor blokkere dem.
+- **Sjekk kun produksjonsavhengigheter**: Fjern `devDependencies` fra `allDeps` hvis du bare bryr deg om bundlet/levert kode.
+- **Skann transitive avhengigheter**: Bruk `ctx.glob("node_modules/{*,@*/*}/package.json")` for å skanne alle installerte pakker (inkludert scoped) rekursivt, ikke bare direkte avhengigheter.
+
+## Når bør du bruke den
+
+Når prosjektet ditt bruker en permissiv lisens (MIT, Apache-2.0, ISC, BSD) og du vil forhindre copyleft-kontaminering, spesielt i kompilerte/bundlede distribusjoner.
+
+## Når bør du ikke bruke den
+
+I GPL-lisensierte prosjekter (der copyleft-avhengigheter er kompatible), eller når du har et dedikert lisensskanningsverktoy (FOSSA, Snyk) som allerede beskytter CI-pipelinen din.

@@ -14,7 +14,7 @@ Archgate targets a global developer audience, but the documentation site ([GEN-0
 2. **Community growth is limited** -- Open-source adoption in non-English markets depends on accessible documentation
 3. **Translation efforts lack governance** -- Without structure, translations drift from the source language, pages get added without corresponding translations, and stale translations mislead users
 
-Brazilian Portuguese is the first translation target. The Starlight documentation framework already provides built-in i18n support with locale-based routing, automatic language switching, and fallback behavior.
+Brazilian Portuguese and Norwegian Bokmål are translation targets. The Starlight documentation framework already provides built-in i18n support with locale-based routing, automatic language switching, and fallback behavior.
 
 **Alternatives considered:**
 
@@ -56,6 +56,7 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 | ---------- | ------------------ | ---------- | ---------- |
 | `root`     | English            | `en`       | _(none)_   |
 | `pt-br`    | Portugues (Brasil) | `pt-BR`    | `/pt-br/`  |
+| `nb`       | Norsk (Bokmål)     | `nb`       | `/nb/`     |
 
 ## Do's and Don'ts
 
@@ -71,6 +72,7 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 - **DO** preserve Starlight component import statements identically in translated files
 - **DO** update translations in the same PR that modifies the English source content
 - **DO** use correct diacritical marks (accents) in Portuguese translations -- ã, ç, é, í, ó, ú, â, ê, ô, à are mandatory. Never write unaccented Portuguese (e.g., `não` not `nao`, `código` not `codigo`, `você` not `voce`, `segurança` not `seguranca`, `funções` not `funcoes`)
+- **DO** use Norwegian Bokmål (not Nynorsk) for Norwegian translations, with the informal "du" form and correct Norwegian characters (æ, ø, å)
 - **DO** update the `LOCALES` constant in the companion rules file when adding a new language
 
 ### Don't
@@ -88,7 +90,7 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 
 ### Positive
 
-- **Broader international audience** -- Brazilian Portuguese speakers can read documentation in their language, lowering the barrier to adoption
+- **Broader international audience** -- Brazilian Portuguese and Norwegian speakers can read documentation in their language, lowering the barrier to adoption
 - **Zero breaking changes** -- The root locale pattern preserves all existing English URLs; no redirects or link updates needed
 - **Automatic language switching** -- Starlight renders a language switcher in the navigation with no custom code
 - **Automated parity enforcement** -- The companion rule catches missing translations and orphan files before they reach production
@@ -96,9 +98,9 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 
 ### Negative
 
-- **Doubled content maintenance** -- Every content PR must update both English and Portuguese files, increasing review scope
+- **Multiplied content maintenance** -- Every content PR must update English, Portuguese, and Norwegian files, increasing review scope
 - **Translation quality depends on reviewers** -- The automated rule only checks file existence, not translation accuracy or completeness
-- **Contributor friction** -- Contributors who only speak English must still account for the Portuguese translation (even if they only add a placeholder file)
+- **Contributor friction** -- Contributors who only speak English must still account for all locale translations (even if they only add a placeholder file)
 
 ### Risks
 

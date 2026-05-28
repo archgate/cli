@@ -1,0 +1,99 @@
+---
+title: archgate session-context
+description: "Les AI-editor-sesjonslogger for prosjektet."
+---
+
+Les AI-editor-sesjonslogger for prosjektet. Nyttig for å revidere hva en AI-agent gjorde under en kodeøkt.
+
+```bash
+archgate session-context <subcommand> [options]
+```
+
+## Underkommandoer
+
+### archgate session-context claude-code
+
+Les Claude Code-sesjonsloggen for prosjektet.
+
+```bash
+archgate session-context claude-code [options]
+```
+
+| Valg                | Beskrivelse                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
+
+### archgate session-context copilot
+
+Les Copilot CLI-sesjonsloggen for prosjektet. Sesjoner matches etter arbeidsområdets `cwd`-felt.
+
+```bash
+archgate session-context copilot [options]
+```
+
+| Valg                | Beskrivelse                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
+| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                       |
+
+### archgate session-context cursor
+
+Les Cursor-agentsesjonsloggen for prosjektet.
+
+```bash
+archgate session-context cursor [options]
+```
+
+| Valg                | Beskrivelse                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
+| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                       |
+
+### archgate session-context opencode
+
+Les opencode-sesjonsloggen for prosjektet. Sesjoner matches etter prosjektets `path`-felt i sesjonsmetadataene.
+
+```bash
+archgate session-context opencode [options]
+```
+
+| Valg                | Beskrivelse                                                         |
+| ------------------- | ------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
+| `--session-id <id>` | Spesifikk sesjons-ID å lese                                         |
+
+## Eksempler
+
+Les den nyeste Claude Code-sesjonen:
+
+```bash
+archgate session-context claude-code
+```
+
+Les en bestemt Cursor-sesjon:
+
+```bash
+archgate session-context cursor --session-id abc123
+```
+
+Les den nyeste Copilot CLI-sesjonen:
+
+```bash
+archgate session-context copilot
+```
+
+Les den nyeste opencode-sesjonen:
+
+```bash
+archgate session-context opencode
+```
+
+Les foreldresesjonen (hopp over underagentens egen sesjon):
+
+```bash
+archgate session-context claude-code --skip 1
+```

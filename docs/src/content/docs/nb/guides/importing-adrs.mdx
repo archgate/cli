@@ -1,0 +1,131 @@
+---
+title: Importere ADR-er
+description: Importer kuraterte Architecture Decision Records fra Archgate-registeret eller et hvilket som helst git-repositorium. Start med utprovde konvensjoner i stedet for en blank side.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+## Hva er ADR-pakker?
+
+En **ADR-pakke** er en kuratert samling av Architecture Decision Records buntet sammen under et felles tema. Hver pakke inkluderer:
+
+- En `archgate-pack.yaml`-manifestfil med metadata (navn, versjon, vedlikeholdere, tagger)
+- En eller flere ADR-markdownfiler i en `adrs/`-katalog
+- Valgfrie tilhorende `.rules.ts`-filer som haandhever hver beslutning automatisk
+
+Pakker lar deg starte et prosjekt med utprovde arkitekturkonvensjoner i stedet for aa skrive alt fra bunnen av.
+
+## Importere fra registeret
+
+[Archgate awesome-adrs-registeret](https://github.com/archgate/awesome-adrs) er vert for fellesskapsvedlikeholdte pakker. Importer en med:
+
+```bash
+archgate adr import packs/typescript-strict
+```
+
+Dette kloner registeret, kopierer ADR-ene til `.archgate/adrs/`-katalogen din, og tilordner ID-er paa nytt for aa passe prosjektets nummereringsskjema.
+
+### Laase til en versjon
+
+Legg til `@<ref>` for aa laase til en spesifikk git-tag eller gren:
+
+```bash
+archgate adr import packs/typescript-strict@0.3.0
+```
+
+## Plukke ut individuelle ADR-er
+
+Du trenger ikke importere en hel pakke. Pek til en spesifikk ADR-fil inni en pakke:
+
+```bash
+archgate adr import packs/security/adrs/SEC-001-no-secrets-in-code
+```
+
+Bare den ene ADR-en (og dens tilhorende regelfil, hvis den finnes) vil bli importert.
+
+## Importere fra tredjepartsrepositorier
+
+Ethvert GitHub-repositorium med ADR-filer fungerer som kilde. Bruk syntaksen med tre segmenter `org/repo/sti`:
+
+```bash
+archgate adr import acme/company-adrs/packs/api-standards
+```
+
+Dette kloner `https://github.com/acme/company-adrs.git` og importerer fra den angitte underkatalogen.
+
+## Importere fra en hvilken som helst git-URL
+
+For ikke-GitHub-repositorier eller naar du trenger full kontroll, send en fullstendig URL:
+
+```bash
+archgate adr import https://github.com/org/repo/tree/main/packs/my-pack
+```
+
+CLI-en parser GitHub `/tree/<ref>/<sti>`-formatet automatisk. For andre verter kan du sende enhver git-klonbar URL:
+
+```bash
+archgate adr import https://gitlab.com/team/repo.git
+```
+
+## Forhaandsvis med `--dry-run`
+
+Se hva som ville blitt importert uten aa skrive noe:
+
+```bash
+archgate adr import packs/typescript-strict --dry-run
+```
+
+Utskriften viser de opprinnelige ID-ene, nytilordnede ID-er og titler i en tabell.
+
+## Liste importerte ADR-er med `--list`
+
+Sjekk hva som har blitt importert tidligere:
+
+```bash
+archgate adr import --list
+```
+
+Dette leser `.archgate/imports.json` og viser hver kilde, versjon og ADR-ID-ene den produserte.
+
+## Hvordan ID-nytilordning fungerer
+
+Naar du importerer ADR-er, blir de opprinnelige ID-ene **nytilordnet** for aa matche prosjektets domeneprefikser. Hver ADRs `domain`-felt bestemmer hvilket prefiks den faar -- for eksempel blir en ADR med `domain: frontend` til `FE-XXX`, mens en med `domain: backend` blir `BE-XXX`. Hvert domene har sin egen teller, saa import av en pakke med blandede domener produserer korrekt prefiksede ID-er uten kollisjoner.
+
+For eksempel, naar du importerer en pakke med tre frontend-ADR-er og to backend-ADR-er inn i et prosjekt som allerede har `FE-001` og `BE-001`, produseres:
+
+- `FE-002`, `FE-003`, `FE-004` (frontend)
+- `BE-002`, `BE-003` (backend)
+
+Nytilordningen sikrer:
+
+1. Ingen ID-kollisjoner med eksisterende ADR-er
+2. Hvert domene opprettholder sin egen nummereringssekvens
+3. Importerte regelfiler fungerer umiddelbart uten manuelle endringer
+
+## imports.json-manifestet
+
+Hver import registreres i `.archgate/imports.json`:
+
+```json
+{
+  "imports": [
+    {
+      "source": "packs/typescript-strict",
+      "version": "0.3.0",
+      "importedAt": "2026-05-10T14:32:00.000Z",
+      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"]
+    }
+  ]
+}
+```
+
+Dette manifestet lar deg spore opprinnelse -- hvor hver importerte ADR kom fra og naar. Commit det til versjonskontroll sammen med ADR-ene dine.
+
+## Referanse for kommandoalternativer
+
+| Alternativ  | Beskrivelse                                 |
+| ----------- | ------------------------------------------- |
+| `--yes`     | Hopp over bekreftelsesdialogen              |
+| `--json`    | Skriv ut resultater som JSON                |
+| `--dry-run` | Forhaandsvis endringer uten aa skrive filer |
+| `--list`    | List tidligere importerte ADR-er            |

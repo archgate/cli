@@ -1,0 +1,175 @@
+---
+title: archgate check
+description: "Kjør alle automatiserte ADR-samsvarskontroller mot kodebasen."
+---
+
+Kjør alle automatiserte ADR-samsvarskontroller mot kodebasen.
+
+```bash
+archgate check [options] [files...]
+```
+
+Laster inn hver ADR med `rules: true` i frontmatteren, kjører den tilhørende `.rules.ts`-filen og rapporterer brudd med filstier og linjenumre. Når filstier oppgis som posisjonsargumenter, kjøres bare ADR-er der `files`-mønstrene matcher disse filene.
+
+## Valg
+
+| Valg           | Beskrivelse                                                                  |
+| -------------- | ---------------------------------------------------------------------------- |
+| `--staged`     | Sjekk kun git-stagede filer (nyttig for pre-commit-hooks)                    |
+| `--base [ref]` | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt) |
+| `--json`       | Maskinlesbar JSON-utdata                                                     |
+| `--ci`         | GitHub Actions-annotasjonsformat                                             |
+| `--adr <id>`   | Sjekk kun regler fra en bestemt ADR                                          |
+| `--verbose`    | Vis beståtte regler og tidsinformasjon                                       |
+
+## Argumenter
+
+| Argument     | Beskrivelse                                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `[files...]` | Valgfrie filstier for å begrense kontrollene. Bare ADR-er der `files`-mønstrene matcher vil kjøres. Støtter stdin-piping. |
+
+## Avslutningskoder
+
+| Kode | Betydning                                                                        |
+| ---- | -------------------------------------------------------------------------------- |
+| 0    | Alle regler bestått. Ingen brudd funnet.                                         |
+| 1    | Ett eller flere brudd oppdaget.                                                  |
+| 2    | Feil ved regelkjøring (f.eks. feilformatert regel, sikkerhetsskannerblokkering). |
+
+## Eksempler
+
+Sjekk hele prosjektet:
+
+```bash
+archgate check
+```
+
+Sjekk kun stagede filer før commit:
+
+```bash
+archgate check --staged
+```
+
+Sjekk alle filer endret på gjeldende gren vs `main`:
+
+```bash
+archgate check --base main
+```
+
+Sjekk en enkelt ADR:
+
+```bash
+archgate check --adr ARCH-001
+```
+
+Sjekk bestemte filer (bare matchende ADR-er kjøres):
+
+```bash
+archgate check src/foo.ts src/bar.ts
+```
+
+Pipe fra git (sjekk kun endrede filer):
+
+```bash
+git diff --name-only | archgate check --json
+```
+
+Hent JSON-utdata for CI-integrasjon:
+
+```bash
+archgate check --json
+```
+
+Hent GitHub Actions-annotasjoner:
+
+```bash
+archgate check --ci
+```
+
+## Deteksjon av endrede filer
+
+Som standard autodetekterer `archgate check` hovedgrenen og fyller `ctx.changedFiles` med grendifferansen (`git diff <base>...HEAD`). Dette gjør at regler for avhengigheter på tvers av filer fungerer lokalt -- ikke bare i CI.
+
+Basisreferansen løses i denne prioritetsrekkefølgen:
+
+| Prioritet | Kilde                                | `changedFiles` fylles med        |
+| --------- | ------------------------------------ | -------------------------------- |
+| 1         | `--staged`                           | Kun git-stagingområdet           |
+| 2         | `--base <ref>`                       | `git diff <ref>...HEAD`          |
+| 3         | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` |
+| 4         | Git-autodeteksjon                    | `git diff <detected-ref>...HEAD` |
+| 5         | Deteksjon mislykkes                  | Tom (fullskanmodus)              |
+
+Autodeteksjon prøver `origin/HEAD`, deretter `origin/main`, `origin/master`, lokal `main` og lokal `master`. For å sette en prosjektstandard, legg til `baseBranch` i `.archgate/config.json`:
+
+```json
+{ "baseBranch": "main" }
+```
+
+## Diagnostikk
+
+Under kjøring sender `archgate check` advarsler for vanlige feilkonfigurasjoner som kan forårsake trege eller uventede resultater:
+
+| Advarsel                               | Tilstand                                                                                       | Anbefaling                                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Bredt filomfang**                    | En ADRs `files`-mønstre løser til mer enn 1000 filer eller glob-skanningen tar over 2 sekunder | Begrens `files`-mønstrene i ADR-frontmatteren til å kun omfatte relevante kildekatalogene           |
+| **Uscopet gitignore-fravalg**          | `respectGitignore: false` er satt uten et `files`-omfang                                       | Legg til `files`-mønstre for å unngå skanning av alle filer inkludert `node_modules/`, `.git/` osv. |
+| **Alle filer ekskludert av gitignore** | Eksplisitte `files`-mønstre matcher filer, men alle treff er ekskludert av `.gitignore`        | Sett `respectGitignore: false` i ADR-frontmatteren for å inkludere gitignorerte filer               |
+
+Disse advarslene vises i standardutdataene og påvirker ikke avslutningskoden. De vises også i JSON-utdata når `--json` brukes (som brudd med `"severity": "warning"`).
+
+## JSON-utdataformat
+
+Når `--json` brukes, er utdataene et enkelt JSON-objekt:
+
+```json
+{
+  "pass": false,
+  "total": 4,
+  "passed": 3,
+  "failed": 1,
+  "warnings": 0,
+  "errors": 1,
+  "infos": 0,
+  "ruleErrors": 0,
+  "truncated": false,
+  "results": [
+    {
+      "adrId": "ARCH-001",
+      "ruleId": "register-function-export",
+      "description": "Command file must export a register*Command function",
+      "status": "fail",
+      "totalViolations": 1,
+      "shownViolations": 1,
+      "violations": [
+        {
+          "message": "Command file must export a register*Command function",
+          "file": "src/commands/broken.ts",
+          "line": 1,
+          "endLine": 1,
+          "endColumn": 42,
+          "severity": "error"
+        }
+      ],
+      "durationMs": 12
+    }
+  ],
+  "durationMs": 42
+}
+```
+
+### Bruddfelter
+
+| Felt        | Type    | Beskrivelse                                           |
+| ----------- | ------- | ----------------------------------------------------- |
+| `message`   | string  | Hva bruddet er                                        |
+| `file`      | string? | Relativ filsti                                        |
+| `line`      | number? | Startlinje (1-basert)                                 |
+| `endLine`   | number? | Sluttlinje (1-basert) -- for presis editor-utheving   |
+| `endColumn` | number? | Sluttkolonne (0-basert) -- for presis editor-utheving |
+| `fix`       | string? | Foreslått fiks (kun veiledning)                       |
+| `severity`  | string  | `"error"`, `"warning"` eller `"info"`                 |
+
+### Blokkerte regelfiler
+
+Når en regelfil blokkeres av sikkerhetsskanneren (f.eks. bruker `Bun.spawn()`) eller en tilhørende `.rules.ts`-fil mangler, vises resultatet i JSON-utdataene med `status: "error"` og `ruleId: "security-scan"`. Brudd inkluderer den eksakte filen og linjen til den blokkerte koden (eller `rules: true`-linjen i ADR-en for manglende tilhørende filer).

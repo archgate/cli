@@ -1,0 +1,146 @@
+---
+title: Hurtigstart
+description: Kom i gang med Archgate på under 5 minutter. Initialiser et prosjekt, opprett din første ADR, skriv samsvarregler, og kjør automatiserte arkitektursjekker.
+---
+
+## 1. Installer Archgate
+
+Hvis du ikke har installert CLI-en ennå:
+
+```bash
+# Standalone (no Node.js required)
+curl -fsSL https://cli.archgate.dev/install-unix | sh
+
+# Or via npm
+npm install -g archgate
+```
+
+Se [Installasjon](/getting-started/installation/)-siden for alle alternativer, inkludert Windows og egendefinerte installasjonsmapper.
+
+## 2. Initialiser prosjektet ditt
+
+Naviger til prosjektroten din og kjør `init`-kommandoen:
+
+```bash
+cd my-project
+archgate init
+```
+
+Dette oppretter `.archgate/`-mappen med følgende struktur:
+
+```
+.archgate/
+  adrs/
+    ARCH-001-example.md          # Example ADR
+    ARCH-001-example.rules.ts    # Example rules file
+  lint/
+    archgate.config.ts           # Archgate configuration
+```
+
+De genererte filene gir deg et fungerende eksempel å bygge videre på.
+
+## 3. Rediger eksempel-ADR-en
+
+Åpne `.archgate/adrs/ARCH-001-example.md`. Hver ADR starter med YAML frontmatter som definerer identiteten:
+
+```yaml
+---
+id: ARCH-001
+title: Example Decision
+domain: architecture
+rules: true
+files: ["src/**/*.ts"]
+---
+```
+
+- **id** -- Unik identifikator. Konvensjonen er `ARCH-NNN`, men enhver streng fungerer.
+- **title** -- Lesbart navn for beslutningen.
+- **domain** -- Grupperer relaterte ADR-er (`architecture`, `backend`, `frontend`, `data` eller `general`).
+- **rules** -- Sett til `true` hvis denne ADR-en har en tilhørende `.rules.ts`-fil med automatiserte sjekker.
+- **files** -- Valgfrie glob-mønstre som begrenser hvilke filer reglene gjelder for.
+
+Under frontmatter skriver du beslutningen i markdown. Archgate pålegger ikke en bestemt seksjonsstruktur, men de anbefalte seksjonene er: Context, Decision, Do's and Don'ts, Consequences, Compliance og References.
+
+## 4. Legg til en tilhørende regelfil
+
+Opprett en `.rules.ts`-fil ved siden av ADR-en med samme navneprefiks. Regler skrives i TypeScript med `RuleSet`-typen:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-console-error": {
+      description: "Use logError() instead of console.error()",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          const matches = await ctx.grep(file, /console\.error\(/);
+          for (const match of matches) {
+            ctx.report.violation({
+              message: "Use logError() instead of console.error()",
+              file: match.file,
+              line: match.line,
+              fix: "Import logError from your helpers and use it instead",
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Hver regel har en unik nøkkel, en beskrivelse og en asynkron `check`-funksjon. Inne i `check` har du tilgang til:
+
+- **`ctx.scopedFiles`** -- Filer som matcher ADR-ens `files` glob-mønstre.
+- **`ctx.grep(file, pattern)`** -- Søk i en fil etter regex-treff, returnerer filstier og linjenumre.
+- **`ctx.report.violation()`** -- Rapporter et brudd med melding, filsti, linjenummer og valgfritt rettingsforslag.
+
+## 5. Kjør sjekker
+
+Kjør samsvarssjekken mot kodebasen din:
+
+```bash
+archgate check
+```
+
+Archgate laster inn hver ADR med `rules: true`, kjører den tilhørende regelfilen og skriver ut resultatene. Avslutningskoden forteller deg utfallet:
+
+| Avslutningskode | Betydning                                           |
+| --------------- | --------------------------------------------------- |
+| 0               | Alle regler bestått. Ingen brudd funnet.            |
+| 1               | Ett eller flere brudd oppdaget.                     |
+| 2               | Intern feil (f.eks. feilformatert ADR eller regel). |
+
+For å sjekke bare staged-filer (nyttig i pre-commit hooks eller CI):
+
+```bash
+archgate check --staged
+```
+
+## Hva nå?
+
+Nå som du har et fungerende oppsett, kan du dykke dypere:
+
+**Forstå konseptene:**
+
+- [ADR-er](/concepts/adrs/) -- Hva Architecture Decision Records er og hvordan Archgate bruker dem.
+- [Regler](/concepts/rules/) -- Hvordan tilhørende `.rules.ts`-filer gjør beslutninger om til automatiserte sjekker.
+- [Domener](/concepts/domains/) -- Hvordan domener grupperer relaterte ADR-er og begrenser filtilordning.
+
+**Skriv dine egne:**
+
+- [Skrive ADR-er](/guides/writing-adrs/) -- Lær det fullstendige ADR-formatet og beste praksis for å skrive effektive beslutninger.
+- [Skrive regler](/guides/writing-rules/) -- Utforsk regel-API-et, avanserte mønstre og hvordan du tester reglene dine.
+- [Vanlige regelmønstre](/examples/common-rule-patterns/) -- Mønstre du kan kopiere og lime inn for avhengighetssjekker, navnekonvensjoner og mer.
+
+**Integrer i arbeidsflyten din:**
+
+- [CI-integrasjon](/guides/ci-integration/) -- Koble `archgate check` til GitHub Actions, GitLab CI eller en hvilken som helst pipeline.
+- [Pre-commit Hooks](/guides/pre-commit-hooks/) -- Kjør sjekker lokalt før hver commit.
+- [Claude Code-plugin](/guides/claude-code-plugin/) -- Gi AI-agenter en komplett styringsarbeidsflyt med rollebaserte ferdigheter.
+- [Cursor-integrasjon](/guides/cursor-integration/) -- Bruk Archgate med Cursor IDE for AI-assistert utvikling.
+
+:::tip[Editorplugins (beta)]
+Vil du ha AI-agenter som automatisk leser ADR-ene dine før de koder? Kjør `archgate login` for å registrere deg og autentisere, deretter kjør `archgate init --install-plugin` for å sette opp pluginen.
+:::
