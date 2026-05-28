@@ -101,5 +101,55 @@ export default {
         }
       },
     },
+    "shim-readme-sync": {
+      description:
+        "All shim package READMEs must be byte-identical to the canonical root README.md",
+      severity: "error",
+      async check(ctx) {
+        let canonical: string;
+        try {
+          canonical = await ctx.readFile("README.md");
+        } catch {
+          // Root README.md should always exist; skip if running in a context without it
+          return;
+        }
+
+        // .gitattributes enforces eol=lf, but normalize trailing newlines and
+        // CRLF defensively so the rule is stable across platforms.
+        const normalize = (s: string): string =>
+          s.replaceAll("\r\n", "\n").trimEnd();
+        const expected = normalize(canonical);
+
+        // The npm package publishes the root README.md directly (package.json
+        // "readme" + npm always-include), so it is excluded here. Every other
+        // shim ecosystem ships its own copy that must mirror the root.
+        const shimReadmes: string[] = [
+          "shims/go/README.md",
+          "shims/maven/README.md",
+          "shims/nuget/Archgate.Tool/README.md",
+          "shims/pypi/README.md",
+          "shims/rubygem/README.md",
+        ];
+
+        for (const file of shimReadmes) {
+          let content: string;
+          try {
+            // oxlint-disable-next-line no-await-in-loop -- sequential read is intentional; files are few and order-independent but must check each
+            content = await ctx.readFile(file);
+          } catch {
+            // Shim README may not exist yet
+            continue;
+          }
+
+          if (normalize(content) !== expected) {
+            ctx.report.violation({
+              message: `${file} is out of sync with the canonical root README.md`,
+              file,
+              fix: `Copy README.md to ${file} (e.g. \`cp README.md ${file}\`) so all package READMEs stay identical`,
+            });
+          }
+        }
+      },
+    },
   },
 } satisfies RuleSet;

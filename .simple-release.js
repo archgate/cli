@@ -111,6 +111,34 @@ class ArchgateProject extends NpmProject {
           this.changedFiles.push(rubyVersionPath);
         }
       }
+
+      // ---------------------------------------------------------------
+      // Sync shim package READMEs to the canonical root README.md
+      //
+      // The npm package publishes the root README directly, so it needs
+      // no copy. Every other ecosystem ships its own copy that must stay
+      // byte-identical to root (enforced by ARCH-013/shim-readme-sync).
+      // ---------------------------------------------------------------
+      const rootReadmePath = "README.md";
+      if (existsSync(rootReadmePath)) {
+        const rootReadme = readFileSync(rootReadmePath, "utf8");
+        const shimReadmePaths = [
+          "shims/go/README.md",
+          "shims/pypi/README.md",
+          "shims/nuget/Archgate.Tool/README.md",
+          "shims/rubygem/README.md",
+          "shims/maven/README.md",
+        ];
+        for (const readmePath of shimReadmePaths) {
+          const existing = existsSync(readmePath)
+            ? readFileSync(readmePath, "utf8")
+            : null;
+          if (existing !== rootReadme) {
+            writeFileSync(readmePath, rootReadme);
+            this.changedFiles.push(readmePath);
+          }
+        }
+      }
     }
 
     return result;
