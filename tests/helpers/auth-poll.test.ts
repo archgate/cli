@@ -2,10 +2,11 @@
 // Copyright 2026 Archgate
 import { describe, expect, test, mock } from "bun:test";
 
-// Static import — resolves during module graph phase, before mock.module()
-// calls in parallel test files (e.g. login-flow.test.ts) can replace the
-// module cache entry. The destructured reference is immune to later mocks.
-import { pollForAccessToken } from "../../src/helpers/auth";
+// Import from auth-poll.ts (not auth.ts) so that mock.module() calls in
+// parallel test files (e.g. login-flow.test.ts which mocks "../../src/helpers/auth")
+// do not replace this binding. Bun's mock.module is process-global and retroactive
+// — only importing from a different physical file provides reliable isolation.
+import { pollForAccessToken } from "../../src/helpers/auth-poll";
 
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
