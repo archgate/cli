@@ -8,14 +8,23 @@
  * credential helpers (macOS Keychain, Windows Credential Manager, libsecret).
  */
 
+// Re-export pollForAccessToken as a wrapper (NOT a live re-export) so that
+// mock.module("auth") in login-flow.test.ts does NOT follow the binding chain
+// into auth-poll.ts. A live `export { X } from "./Y"` creates a binding that
+// Bun's mock.module replaces at the source, poisoning auth-poll.ts for other
+// test files. A wrapper function is its own binding — mocking auth.ts replaces
+// the wrapper, leaving auth-poll.ts's binding untouched.
+import { pollForAccessToken as pollForAccessTokenImpl } from "./auth-poll";
 import { logDebug } from "./log";
 import { SignupRequiredError, isSignupRequiredError } from "./signup";
 
-// Re-export pollForAccessToken from its own module so that existing consumers
-// (login-flow.ts, etc.) keep working with `import { pollForAccessToken } from "./auth"`.
-// The separate file exists to isolate the real implementation from mock.module()
-// calls in login-flow.test.ts — see auth-poll.ts header for details.
-export { pollForAccessToken } from "./auth-poll";
+export async function pollForAccessToken(
+  deviceCode: string,
+  interval: number,
+  expiresIn: number
+): Promise<string> {
+  return await pollForAccessTokenImpl(deviceCode, interval, expiresIn);
+}
 
 // ---------------------------------------------------------------------------
 // Constants
