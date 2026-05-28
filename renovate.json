@@ -1,4 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["local>archgate/renovate-config"]
+  "extends": ["local>archgate/renovate-config"],
+  "packageRules": [
+    {
+      "description": "Maven shim targets Java 11; JUnit Jupiter 6.x requires Java 17, so stay on the 5.x line.",
+      "matchManagers": ["maven"],
+      "matchPackageNames": ["org.junit.jupiter:junit-jupiter"],
+      "allowedVersions": "<6"
+    }
+  ]
 }
