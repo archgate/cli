@@ -229,7 +229,8 @@ jobs:
     name: Validate Code
     runs-on: ubuntu-latest
     if: always()
-    needs: [validate, shim-changes, shim-tests, smoke-windows, smoke-linux, coverage]
+    needs:
+      [validate, shim-changes, shim-tests, smoke-windows, smoke-linux, coverage]
     steps:
       - name: Check job results
         run: |
