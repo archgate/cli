@@ -129,13 +129,12 @@ export default {
         if (changedRootFiles.length === 0) return;
 
         // Pre-build a set of all existing locale files for fast lookup
-        const allLocaleFiles = new Set<string>();
-        for (const locale of LOCALES) {
-          const files = await ctx.glob(
-            `${CONTENT_ROOT}/${locale}/**/*.mdx`
-          );
-          for (const f of files) allLocaleFiles.add(f);
-        }
+        const localeFileArrays = await Promise.all(
+          LOCALES.map((locale) =>
+            ctx.glob(`${CONTENT_ROOT}/${locale}/**/*.mdx`)
+          )
+        );
+        const allLocaleFiles = new Set<string>(localeFileArrays.flat());
 
         for (const rootFile of changedRootFiles) {
           const relativePath = rootFile.replace(rootPrefix, "");
