@@ -17,8 +17,11 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = "https://github.com/archgate/cli"
   spec.metadata["bug_tracker_uri"] = "https://github.com/archgate/cli/issues"
+  spec.metadata["documentation_uri"] = "https://cli.archgate.dev"
+  spec.metadata["changelog_uri"] = "https://github.com/archgate/cli/blob/main/CHANGELOG.md"
+  spec.metadata["rubygems_mfa_required"] = "true"
 
-  spec.files = Dir["lib/**/*.rb", "exe/*", "README.md"]
+  spec.files = Dir["lib/**/*.rb", "exe/*", "README.md", "LICENSE.md"]
   spec.bindir = "exe"
   spec.executables = ["archgate"]
   spec.require_paths = ["lib"]

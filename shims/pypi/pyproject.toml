@@ -41,5 +41,7 @@ archgate = "archgate._shim:main"
 
 [project.urls]
 Homepage = "https://cli.archgate.dev"
+Documentation = "https://cli.archgate.dev"
 Repository = "https://github.com/archgate/cli"
 Issues = "https://github.com/archgate/cli/issues"
+Changelog = "https://github.com/archgate/cli/blob/main/CHANGELOG.md"

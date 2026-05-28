@@ -139,6 +139,36 @@ class ArchgateProject extends NpmProject {
           }
         }
       }
+
+      // ---------------------------------------------------------------
+      // Sync shim package LICENSE.md to the canonical root LICENSE.md
+      //
+      // The npm package publishes the root LICENSE directly, so it needs
+      // no copy. Every other ecosystem ships its own copy that must stay
+      // byte-identical to root (enforced by ARCH-013/shim-license-sync).
+      // Registries and pkg.go.dev detect the license from files inside
+      // the package, not from the repository root.
+      // ---------------------------------------------------------------
+      const rootLicensePath = "LICENSE.md";
+      if (existsSync(rootLicensePath)) {
+        const rootLicense = readFileSync(rootLicensePath, "utf8");
+        const shimLicensePaths = [
+          "shims/go/LICENSE.md",
+          "shims/pypi/LICENSE.md",
+          "shims/nuget/Archgate.Tool/LICENSE.md",
+          "shims/rubygem/LICENSE.md",
+          "shims/maven/LICENSE.md",
+        ];
+        for (const licensePath of shimLicensePaths) {
+          const existing = existsSync(licensePath)
+            ? readFileSync(licensePath, "utf8")
+            : null;
+          if (existing !== rootLicense) {
+            writeFileSync(licensePath, rootLicense);
+            this.changedFiles.push(licensePath);
+          }
+        }
+      }
     }
 
     return result;
