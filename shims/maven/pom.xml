@@ -6,7 +6,7 @@
 
     <groupId>dev.archgate</groupId>
     <artifactId>archgate-cli</artifactId>
-    <version>0.39.0</version>
+    <version>0.40.0</version>
     <packaging>jar</packaging>
 
     <name>archgate-cli</name>
@@ -81,7 +81,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
-                        <version>3.2.7</version>
+                        <version>3.2.8</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>
