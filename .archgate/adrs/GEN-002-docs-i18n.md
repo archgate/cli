@@ -113,9 +113,11 @@ The sidebar in `docs/astro.config.mjs` does NOT need per-locale duplication. Sta
 
 ### Automated Enforcement
 
-The companion rules file (`GEN-002-docs-i18n.rules.ts`) defines one rule:
+The companion rules file (`GEN-002-docs-i18n.rules.ts`) defines three rules:
 
 - **`i18n-page-parity`** (severity: `error`) -- Verifies that every root MDX file has a corresponding translation in each configured locale directory, and that no orphan translations exist without a root source file. Runs as part of `archgate check`.
+- **`i18n-translation-drift`** (severity: `error`) -- When running against a changeset (PR, staged files), verifies that if an English docs file was modified, the corresponding locale file was also modified. Catches content drift within existing files that page-parity alone would miss.
+- **`no-locale-prefix-in-links`** (severity: `error`) -- Verifies that locale pages do not use locale-prefixed internal links (e.g., `/pt-br/guides/...`). Starlight resolves locale routes automatically.
 
 ### Manual Enforcement
 
