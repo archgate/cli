@@ -24,10 +24,10 @@
     "url": "git+https://github.com/archgate/cli.git"
   },
   "bin": {
-    "archgate": "bin/archgate.cjs"
+    "archgate": "shims/npm/archgate.cjs"
   },
   "files": [
-    "bin/archgate.cjs"
+    "shims/npm/archgate.cjs"
   ],
   "os": [
     "darwin",

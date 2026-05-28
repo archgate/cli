@@ -1,0 +1,158 @@
+name: Publish Shims
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish shims for (e.g. v0.39.0)"
+        required: true
+
+permissions: {}
+
+env:
+  ARCHGATE_TELEMETRY: "0"
+
+jobs:
+  # Wait for platform binaries to be uploaded by release-binaries.yml.
+  # Shim packages download binaries on first use, but smoke tests need them.
+  wait-for-binaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Wait for release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip")
+          for i in $(seq 1 60); do
+            ASSETS=$(gh release view "$TAG" --repo archgate/cli --json assets --jq '.assets[].name')
+            ALL_FOUND=true
+            for asset in "${REQUIRED_ASSETS[@]}"; do
+              if ! echo "$ASSETS" | grep -qF "$asset"; then
+                ALL_FOUND=false
+                break
+              fi
+            done
+            if $ALL_FOUND; then
+              echo "All required release assets found"
+              exit 0
+            fi
+            echo "Waiting for release assets... attempt $i/60"
+            sleep 30
+          done
+          echo "::error::Timed out waiting for release assets"
+          exit 1
+
+  publish-pypi:
+    needs: wait-for-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write # PyPI trusted publishers (OIDC)
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Build package
+        working-directory: shims/pypi
+        run: |
+          pip install build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@6733eb7d741f0b11ec6a39b58540dab7590f9b7d # v1.14.0
+        with:
+          packages-dir: shims/pypi/dist/
+
+  publish-nuget:
+    needs: wait-for-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write # NuGet trusted publishers (OIDC)
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: NuGet login (OIDC)
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget-login
+        with:
+          user: rhuan.barreto
+      - name: Pack and publish
+        working-directory: shims/nuget/Archgate.Tool
+        run: |
+          dotnet pack -c Release
+          dotnet nuget push bin/Release/*.nupkg \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+
+  publish-go-tag:
+    needs: wait-for-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - name: Create Go module tag
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          GO_TAG="shims/go/${TAG}"
+          git tag "$GO_TAG"
+          git push origin "$GO_TAG"
+
+  publish-maven:
+    needs: wait-for-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: {}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: "temurin"
+          java-version: "11"
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Build and publish
+        working-directory: shims/maven
+        env:
+          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          mvn clean deploy -P release -B --no-transfer-progress
+
+  publish-rubygem:
+    needs: wait-for-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write # RubyGems trusted publishers (OIDC)
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
+        with:
+          ruby-version: "3.3"
+      - uses: rubygems/release-gem@6317d8d1f7e28c24d28f6eff169ea854948bd9f7 # v1.2.0

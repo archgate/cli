@@ -1,0 +1,9 @@
+{
+  "catalogs": {},
+  "aliases": {
+    "archgate": {
+      "script-ref": "dev.archgate:archgate-cli:RELEASE",
+      "description": "Enforce Architecture Decision Records as executable rules"
+    }
+  }
+}

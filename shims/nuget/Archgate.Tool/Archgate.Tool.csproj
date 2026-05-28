@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Archgate.Tool</RootNamespace>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>archgate</ToolCommandName>
+    <PackageId>archgate</PackageId>
+    <Version>0.39.0</Version>
+    <Description>Enforce Architecture Decision Records as executable rules -- for both humans and AI agents</Description>
+    <Authors>Archgate</Authors>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://cli.archgate.dev</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/archgate/cli</RepositoryUrl>
+    <PackageTags>adr;archgate;architecture-decision-records;cli;governance;linter</PackageTags>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Archgate.Tool.Tests" />
+  </ItemGroup>
+</Project>

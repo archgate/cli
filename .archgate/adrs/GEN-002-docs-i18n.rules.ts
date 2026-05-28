@@ -107,5 +107,53 @@ export default {
         }
       },
     },
+    "i18n-translation-drift": {
+      description:
+        "When an English docs file is modified, the corresponding locale file must also be modified in the same changeset",
+      severity: "error",
+      async check(ctx) {
+        // Only meaningful when running against a changeset (PR, staged, etc.)
+        if (ctx.changedFiles.length === 0) return;
+
+        const changedSet = new Set(ctx.changedFiles);
+        const rootPrefix = `${CONTENT_ROOT}/`;
+
+        // Find changed root (English) MDX files that aren't inside a locale dir
+        const changedRootFiles = ctx.changedFiles.filter(
+          (f) =>
+            f.startsWith(rootPrefix) &&
+            f.endsWith(".mdx") &&
+            !LOCALES.some((l) => f.startsWith(`${rootPrefix}${l}/`))
+        );
+
+        if (changedRootFiles.length === 0) return;
+
+        // Pre-build a set of all existing locale files for fast lookup
+        const localeFileArrays = await Promise.all(
+          LOCALES.map((locale) =>
+            ctx.glob(`${CONTENT_ROOT}/${locale}/**/*.mdx`)
+          )
+        );
+        const allLocaleFiles = new Set<string>(localeFileArrays.flat());
+
+        for (const rootFile of changedRootFiles) {
+          const relativePath = rootFile.replace(rootPrefix, "");
+
+          for (const locale of LOCALES) {
+            const localePath = `${CONTENT_ROOT}/${locale}/${relativePath}`;
+
+            // Only flag if the locale file exists but wasn't changed.
+            // Missing locale files are already caught by i18n-page-parity.
+            if (allLocaleFiles.has(localePath) && !changedSet.has(localePath)) {
+              ctx.report.violation({
+                message: `English file "${relativePath}" was modified but the ${locale} translation was not updated`,
+                file: localePath,
+                fix: `Update ${localePath} to reflect the changes in ${rootFile}`,
+              });
+            }
+          }
+        }
+      },
+    },
   },
 } satisfies RuleSet;

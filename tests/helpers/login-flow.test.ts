@@ -17,7 +17,8 @@ import {
 /** Mock cursorTo from node:readline (used by prompt.ts withPromptFix). */
 mock.module("node:readline", () => ({ cursorTo: mock(() => true) }));
 
-// Mock auth functions — auth.test.ts uses dynamic import(), so this is safe.
+// Mock auth functions — auth-poll.test.ts imports from auth-poll.ts (not auth.ts),
+// so this mock does not leak into its tests.
 const mockRequestDeviceCode = mock(() =>
   Promise.resolve({
     device_code: "dc-test-123",
@@ -43,10 +44,16 @@ mock.module("../../src/helpers/auth", () => ({
 }));
 
 // Mock credential-store — uses git subprocess, not fetch.
-// credential-store.test.ts uses dynamic import(), so this is safe.
+// credential-store.test.ts imports from credential-store-impl.ts (not
+// credential-store.ts), so this mock does not leak into its tests.
 const mockSaveCredentials = mock(() => Promise.resolve());
+// Provide ALL exports so other test files that resolve this module
+// (via mock.module's process-global replacement) get callable functions
+// instead of undefined. The impl tests import from credential-store-impl.ts.
 mock.module("../../src/helpers/credential-store", () => ({
   saveCredentials: mockSaveCredentials,
+  loadCredentials: mock(() => Promise.resolve(null)),
+  clearCredentials: mock(() => Promise.resolve()),
 }));
 
 // Mock inquirer for the signup flow prompts (lazy-loaded via dynamic import).

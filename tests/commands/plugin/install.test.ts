@@ -17,8 +17,13 @@ import {
 const mockLoadCredentials = mock<
   () => Promise<{ token: string; github_user: string } | null>
 >(() => Promise.resolve(null));
+// Provide ALL exports so other test files that resolve this module
+// (via mock.module's process-global replacement) get callable functions
+// instead of undefined. The impl tests import from credential-store-impl.ts.
 mock.module("../../../src/helpers/credential-store", () => ({
+  saveCredentials: mock(() => Promise.resolve()),
   loadCredentials: mockLoadCredentials,
+  clearCredentials: mock(() => Promise.resolve()),
 }));
 
 const mockInstallClaudePlugin = mock(() => Promise.resolve());

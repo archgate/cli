@@ -2,6 +2,12 @@
 // Copyright 2026 Archgate
 import { describe, expect, test, mock } from "bun:test";
 
+// Import from auth-poll.ts (not auth.ts) so that mock.module() calls in
+// parallel test files (e.g. login-flow.test.ts which mocks "../../src/helpers/auth")
+// do not replace this binding. Bun's mock.module is process-global and retroactive
+// — only importing from a different physical file provides reliable isolation.
+import { pollForAccessToken } from "../../src/helpers/auth-poll";
+
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
@@ -9,8 +15,6 @@ function mockFetch(handler: () => Promise<Response>) {
 
 describe("pollForAccessToken", () => {
   test("returns token after authorization_pending then success", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
@@ -43,8 +47,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("handles slow_down by increasing poll interval", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     const sleepArgs: number[] = [];
@@ -80,8 +82,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws on expired_token", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
@@ -106,8 +106,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws on access_denied", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
@@ -132,8 +130,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws when deadline expires before authorization", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
-
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
     Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;

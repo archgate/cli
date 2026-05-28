@@ -14,3 +14,4 @@ bunfig.toml
 bun.lock
 docs
 plans
+shims
