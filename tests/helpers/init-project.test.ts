@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -226,10 +218,12 @@ describe("initProject", () => {
 
   test("configures VS Code settings when editor is vscode", async () => {
     // The vscode branch in configureEditorSettings dynamically imports
-    // credential-store. Mock it to avoid hitting the real credential store.
-    mock.module("../../src/helpers/credential-store", () => ({
-      loadCredentials: () => Promise.resolve(null),
-    }));
+    // credential-store. Spy on it (not mock.module, which leaks globally) to
+    // avoid hitting the real credential store. spyOn reflects through the
+    // dynamic import because it targets the same module instance.
+    const credSpy = spyOn(credentialStore, "loadCredentials").mockResolvedValue(
+      null
+    );
 
     try {
       const result = await initProject(tempDir, { editor: "vscode" });
@@ -241,7 +235,7 @@ describe("initProject", () => {
         false
       );
     } finally {
-      mock.restore();
+      credSpy.mockRestore();
     }
   });
 });
