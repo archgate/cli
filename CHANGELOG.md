@@ -1,3 +1,13 @@
+## [0.40.0](https://github.com/archgate/cli/compare/v0.39.0...v0.40.0) (2026-05-28)
+
+### Features
+
+* multi-ecosystem shim distribution and CI test coverage ([#356](https://github.com/archgate/cli/issues/356)) ([3bd562e](https://github.com/archgate/cli/commit/3bd562e94444ad3b2dde29d39249162fe15f7f06))
+
+### Bug Fixes
+
+* **ci:** detect workflow changes that affect shim tests ([#360](https://github.com/archgate/cli/issues/360)) ([372baf2](https://github.com/archgate/cli/commit/372baf2635ad1bcdd5b864700408c8664f87c3d4))
+
 ## [0.39.0](https://github.com/archgate/cli/compare/v0.38.0...v0.39.0) (2026-05-25)
 
 ### Features
