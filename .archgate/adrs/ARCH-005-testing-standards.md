@@ -52,6 +52,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **Wrap `spyOn` / `mockImplementation` calls in `try/finally` to guarantee `mockRestore()` runs** — when `expect()` assertions fail, they throw immediately, skipping any `mockRestore()` that follows. The un-restored spy leaks into subsequent tests, causing false positives or false negatives. Pattern: `const spy = spyOn(...).mockImplementation(() => {}); try { /* assertions */ } finally { spy.mockRestore(); }`. Alternatively, create and restore spies in `beforeEach`/`afterEach` hooks instead of inline.
 - **Make large production thresholds injectable so tests can use a small value** — When production code only acts past a large numeric threshold (e.g., `SCOPE_FILE_WARN_THRESHOLD = 1000` in `src/engine/git-files.ts`), add an optional parameter that defaults to the module constant (e.g., `resolveScopedFiles(root, globs, { fileWarnThreshold })`). Tests inject a tiny value such as `5` and create only a handful of files to exercise the same code path. This keeps the test fast and deterministic on every platform instead of materializing thousands of fixture files.
 - **Only ever raise a per-test timeout override above the global, never below it** — the project global is `bun test --timeout 60000` (60s). A per-test `}, 30_000` override makes that test _more_ likely to time out than the default. Use a per-test override solely to grant a genuinely slow test more time than 60s; never set one shorter than the global.
+- **Mock first-party modules with `import * as mod` + `spyOn(mod, "fn")`, not `mock.module()`** — declare `import * as authMod from "../../src/helpers/auth"`, then in `beforeEach` install `spyOn(authMod, "requestDeviceCode").mockResolvedValue(...)` and restore with `mock.restore()` in `afterEach`. `spyOn` is scoped per-test and auto-restored, and it correctly reaches BOTH static named-import consumers (Bun backs named imports with live bindings) AND dynamic `await import()` consumers, because it mutates the single shared module instance. This is the same pattern used for `spyOn(pathsMod, "findProjectRoot")`.
 
 ### Don't
 
@@ -66,6 +67,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **Don't use a bare early `return` or an empty callback body to conditionally skip a test** — use `test.skipIf(condition)`, `test.skip`, or `test.todo` so the skip is explicit and the assertion rule can recognize it. Bare returns and empty bodies are exactly how assertion-less tests accumulated silently before the rule existed.
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
 - **Don't use `mock.module("node:fetch", ...)` to intercept HTTP fetch calls** — in Bun, the runtime fetch is `globalThis.fetch` and `mock.module` targeting `node:fetch` does not intercept it. The mock silently has no effect: the real network is hit, making tests non-deterministic and dependent on external services. Assign `globalThis.fetch` directly instead (see Do's above).
+- **Don't use `mock.module()` on a first-party module that any other test file imports** — Bun's `mock.module()` is process-global and retroactive: it replaces the module for ALL test files in the same Bun process and is NOT undone by `mock.restore()`. Symptom: a test that imports the real implementation intermittently receives a mocked one depending on file execution order — a flaky failure that passes in isolation. Do NOT work around this by splitting production code into a separate `-impl` file (or thin delegating wrapper) just so the "real" tests can import an un-mocked path — that contorts the production module layout to serve a test-tool quirk. Fix the test by switching to `spyOn` (see Do's above). `mock.module()` remains acceptable for third-party modules (e.g. `inquirer`, `node:readline`) that no first-party test needs the real implementation of.
 - **Don't place `mockRestore()` after assertions without `try/finally` protection** — if the assertion throws, the spy is never restored and contaminates subsequent tests. This is especially dangerous when spying on globals like `console.warn` or `globalThis.fetch`, where a leaked spy silently suppresses or redirects output for every test that follows.
 - **Don't materialize large filesystem fixtures (1000+ files, plus `git add .`) just to cross a production threshold** — on Windows CI runners that filesystem work is slow enough to exceed the per-test timeout, killing the staging subprocess mid-run (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM) and producing a flaky failure that does not reproduce locally. Inject a small threshold instead (see Do's above). This was the root cause of a recurring Windows smoke-test flake on the `resolveScopedFiles` warning test.
 
@@ -178,6 +180,22 @@ mock.module("node:fetch", () => ({
 // GOOD: assign globalThis.fetch directly
 globalThis.fetch = (() =>
   Promise.reject(new Error("network error"))) as unknown as typeof fetch;
+
+// BAD: mock.module on a first-party module is process-global and leaks into
+// EVERY other test file in the process — auth.test.ts then receives this mock
+// instead of the real implementation (flaky, order-dependent).
+mock.module("../../src/helpers/auth", () => ({
+  requestDeviceCode: mock(() => Promise.resolve({ device_code: "x" })),
+}));
+
+// GOOD: spyOn the imported module namespace — per-test and auto-restored.
+import * as authMod from "../../src/helpers/auth";
+beforeEach(() => {
+  spyOn(authMod, "requestDeviceCode").mockResolvedValue({ device_code: "x" });
+});
+afterEach(() => {
+  mock.restore();
+});
 ```
 
 ## Consequences
@@ -225,6 +243,7 @@ Code reviewers MUST verify:
 7. Tests that use `spyOn` or `mockImplementation` inline (not in `beforeEach`/`afterEach`) wrap the spy lifecycle in `try/finally` to guarantee `mockRestore()` runs even when assertions fail
 8. Every test asserts something with `expect()` — no smoke tests that merely call a function; "does not throw" contracts are made explicit via `expect(() => fn()).not.toThrow()` or `await expect(promise).resolves.toBeUndefined()`
 9. Tests that exercise a numeric production threshold inject a small threshold value rather than generating fixtures large enough to trip the production default, and no per-test timeout override is shorter than the global `--timeout 60000`
+10. Tests mock first-party modules via `import * as mod` + `spyOn`, not `mock.module()` — and no production module has been split into a separate `-impl` file solely to dodge `mock.module` leakage
 
 ## References
 

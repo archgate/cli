@@ -14,17 +14,10 @@ import {
 // Module mocks — declared before imports that use them.
 // ---------------------------------------------------------------------------
 
-const mockLoadCredentials = mock<
-  () => Promise<{ token: string; github_user: string } | null>
->(() => Promise.resolve(null));
-// Provide ALL exports so other test files that resolve this module
-// (via mock.module's process-global replacement) get callable functions
-// instead of undefined. The impl tests import from credential-store-impl.ts.
-mock.module("../../../src/helpers/credential-store", () => ({
-  saveCredentials: mock(() => Promise.resolve()),
-  loadCredentials: mockLoadCredentials,
-  clearCredentials: mock(() => Promise.resolve()),
-}));
+// loadCredentials is stubbed per-test via spyOn (see beforeEach), NOT
+// mock.module — mock.module is process-global and would leak the stub into
+// credential-store.test.ts and other consumers.
+let mockLoadCredentials: ReturnType<typeof spyOn>;
 
 const mockInstallClaudePlugin = mock(() => Promise.resolve());
 const mockInstallCopilotPlugin = mock(() => Promise.resolve());
@@ -67,10 +60,10 @@ mock.module("../../../src/helpers/vscode-settings", () => ({
   configureVscodeSettings: mockConfigureVscodeSettings,
 }));
 
-// NOTE: Do NOT mock.module paths or credential-store here — it leaks globally
-// and breaks session-context tests. Instead, those are mocked above via
-// mock.module (credential-store is test-scoped since only plugin/install uses it).
-// For findProjectRoot we use spyOn in beforeEach below.
+// NOTE: Do NOT mock.module paths or credential-store here — mock.module is
+// process-global and leaks into other test files (e.g. session-context and
+// credential-store tests). For first-party modules we use spyOn in beforeEach
+// (findProjectRoot, loadCredentials), which is per-test and auto-restored.
 
 // ---------------------------------------------------------------------------
 // Imports under test — loaded AFTER mocks are registered.
@@ -79,6 +72,7 @@ mock.module("../../../src/helpers/vscode-settings", () => ({
 import { Command } from "@commander-js/extra-typings";
 
 import { registerPluginInstallCommand } from "../../../src/commands/plugin/install";
+import * as credentialStore from "../../../src/helpers/credential-store";
 import * as pathsMod from "../../../src/helpers/paths";
 
 // ---------------------------------------------------------------------------
@@ -115,9 +109,12 @@ beforeEach(() => {
     throw new Error("process.exit called");
   });
   spyOn(pathsMod, "findProjectRoot").mockReturnValue("/fake/project");
+  mockLoadCredentials = spyOn(
+    credentialStore,
+    "loadCredentials"
+  ).mockResolvedValue(null);
 
   // Reset all mocks
-  mockLoadCredentials.mockReset();
   mockInstallClaudePlugin.mockReset();
   mockInstallCopilotPlugin.mockReset();
   mockInstallVscodeExtension.mockReset();
@@ -131,7 +128,6 @@ beforeEach(() => {
   mockConfigureVscodeSettings.mockReset();
 
   // Default implementations
-  mockLoadCredentials.mockImplementation(() => Promise.resolve(null));
   mockInstallClaudePlugin.mockImplementation(() => Promise.resolve());
   mockInstallCopilotPlugin.mockImplementation(() => Promise.resolve());
   mockInstallVscodeExtension.mockImplementation((_token: string) =>
