@@ -3649,14 +3649,15 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Options
 
-| Option         | Description                                                          |
-| -------------- | -------------------------------------------------------------------- |
-| `--staged`     | Only check git-staged files (useful for pre-commit hooks)            |
-| `--base [ref]` | Compare changed files against a base ref (auto-detects when omitted) |
-| `--json`       | Machine-readable JSON output                                         |
-| `--ci`         | GitHub Actions annotation format                                     |
-| `--adr <id>`   | Only check rules from a specific ADR                                 |
-| `--verbose`    | Show passing rules and timing info                                   |
+| Option               | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `--staged`           | Only check git-staged files (useful for pre-commit hooks)                         |
+| `--base [ref]`       | Compare changed files against a base ref (auto-detects when omitted)              |
+| `--json`             | Machine-readable JSON output                                                      |
+| `--ci`               | GitHub Actions annotation format                                                  |
+| `--adr <id>`         | Only check rules from a specific ADR                                              |
+| `--verbose`          | Show passing rules and timing info                                                |
+| `--max-warnings <n>` | Fail (exit 1) when the warning count exceeds `n`. Use `0` to fail on any warning. |
 
 ## Arguments
 
@@ -3666,11 +3667,11 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Exit codes
 
-| Code | Meaning                                                              |
-| ---- | -------------------------------------------------------------------- |
-| 0    | All rules pass. No violations found.                                 |
-| 1    | One or more violations detected.                                     |
-| 2    | Rule execution error (e.g., malformed rule, security scanner block). |
+| Code | Meaning                                                                 |
+| ---- | ----------------------------------------------------------------------- |
+| 0    | All rules pass. No violations found.                                    |
+| 1    | One or more violations detected, or warnings exceeded `--max-warnings`. |
+| 2    | Rule execution error (e.g., malformed rule, security scanner block).    |
 
 ## Examples
 
@@ -3696,6 +3697,12 @@ Check a single ADR:
 
 ```bash
 archgate check --adr ARCH-001
+```
+
+Treat any warning as a failure (useful in CI):
+
+```bash
+archgate check --max-warnings 0
 ```
 
 Check specific files (only matching ADRs run):
@@ -3754,6 +3761,8 @@ During execution, `archgate check` emits warnings for common misconfigurations t
 
 These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--json` is used (as violations with `"severity": "warning"`).
 
+By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--max-warnings <n>` to make `archgate check` exit 1 when the total warning count exceeds `n`. `--max-warnings 0` fails on any warning. When the threshold is exceeded the JSON output's `warningsExceeded` field is `true` and `pass` is `false`.
+
 ## JSON output format
 
 When `--json` is used, the output is a single JSON object:
@@ -3768,6 +3777,7 @@ When `--json` is used, the output is a single JSON object:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "warningsExceeded": false,
   "truncated": false,
   "results": [
     {
