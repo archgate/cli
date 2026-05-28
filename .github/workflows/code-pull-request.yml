@@ -72,11 +72,12 @@ jobs:
           path: /home/runner/.bun/install/cache
           key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
 
-  shim-tests:
-    name: Shim Tests
+  shim-changes:
+    name: Detect Shim Changes
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    outputs:
+      shims_changed: ${{ steps.changes.outputs.shims_changed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -95,53 +96,73 @@ jobs:
           else
             echo "shims_changed=false" >> "$GITHUB_OUTPUT"
           fi
+
+  shim-tests:
+    name: Shim Tests (${{ matrix.shim }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: shim-changes
+    if: needs.shim-changes.outputs.shims_changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shim: [npm, pypi, go, maven, nuget, rubygem]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      # --- npm (Node.js pre-installed on ubuntu-latest) ---
+      - name: Test npm shim
+        if: matrix.shim == 'npm'
+        run: node --test shims/npm/test/archgate.test.cjs
+      # --- PyPI ---
       - name: Setup Python
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'pypi'
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - name: Test PyPI shim
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'pypi'
         working-directory: shims/pypi
         run: python -m unittest discover tests/
-      - name: Test npm shim
-        if: steps.changes.outputs.shims_changed == 'true'
-        run: node --test shims/npm/test/archgate.test.cjs
+      # --- Go ---
       - name: Setup Go
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'go'
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.21"
       - name: Test Go shim
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'go'
         working-directory: shims/go
         run: go test ./...
+      # --- Maven ---
       - name: Setup Java
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'maven'
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
           distribution: temurin
           java-version: "11"
       - name: Test Maven shim
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'maven'
         working-directory: shims/maven
         run: mvn test -B
+      # --- NuGet ---
       - name: Setup .NET
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'nuget'
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "8.0.x"
       - name: Test NuGet shim
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'nuget'
         working-directory: shims/nuget/tests/Archgate.Tool.Tests
         run: dotnet test
+      # --- RubyGem ---
       - name: Setup Ruby
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'rubygem'
         uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
         with:
           ruby-version: "3.3"
       - name: Test RubyGem shim
-        if: steps.changes.outputs.shims_changed == 'true'
+        if: matrix.shim == 'rubygem'
         working-directory: shims/rubygem
         run: bundle install --jobs 4 && bundle exec ruby test/test_shim.rb
 
@@ -208,16 +229,22 @@ jobs:
     name: Validate Code
     runs-on: ubuntu-latest
     if: always()
-    needs: [validate, smoke-windows, smoke-linux, coverage]
+    needs: [validate, shim-changes, shim-tests, smoke-windows, smoke-linux, coverage]
     steps:
       - name: Check job results
         run: |
+          # shim-tests is skipped when no shim files changed — treat skipped as success.
+          SHIM_OK="${{ needs.shim-tests.result }}"
+          if [[ "$SHIM_OK" == "skipped" ]]; then SHIM_OK="success"; fi
+
           if [[ "${{ needs.validate.result }}" != "success" ]] || \
+             [[ "$SHIM_OK" != "success" ]] || \
              [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
              [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
              [[ "${{ needs.coverage.result }}" != "success" ]]; then
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
+            echo "  shim-tests: ${{ needs.shim-tests.result }}"
             echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
             echo "  coverage: ${{ needs.coverage.result }}"
