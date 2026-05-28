@@ -1,6 +1,6 @@
 ---
 title: Instalação
-description: Instale o Archgate CLI no macOS, Linux ou Windows via instalador, npm ou binário standalone. Comece a aplicar ADRs como regras de código executáveis em minutos.
+description: Instale o Archgate CLI no macOS, Linux ou Windows via instalador, npm, pip, dotnet, go, gem ou binário standalone. Comece a aplicar ADRs como regras de código executáveis em minutos.
 ---
 
 ## Instalação standalone (recomendado)
@@ -93,6 +93,66 @@ yarn check:adrs
 pnpm check:adrs
 ```
 
+## Instalar via pip (Python)
+
+Instale o Archgate globalmente usando pip ou pipx:
+
+```bash
+# pip
+pip install archgate
+
+# pipx (recomendado para ferramentas CLI)
+pipx install archgate
+```
+
+Isso instala um wrapper leve em Python que delega para um binário específico da plataforma. Requer Python 3.8+.
+
+## Instalar via dotnet
+
+Instale o Archgate como uma ferramenta global .NET:
+
+```bash
+dotnet tool install -g archgate
+```
+
+Requer .NET 8.0+ SDK. A ferramenta baixa o binário da plataforma na primeira execução.
+
+## Instalar via Go
+
+Instale o Archgate usando `go install`:
+
+```bash
+go install github.com/archgate/cli/shims/go/cmd/archgate@latest
+```
+
+Requer Go 1.21+. O wrapper compilado em Go baixa o binário da plataforma na primeira execução.
+
+## Instalar via RubyGems
+
+Instale o Archgate como uma gem Ruby:
+
+```bash
+gem install archgate
+```
+
+Requer Ruby 2.7+. A gem baixa o binário da plataforma na primeira execução.
+
+## Instalar via Maven / jbang (Java)
+
+Instale o Archgate usando jbang:
+
+```bash
+jbang app install archgate@dev.archgate
+```
+
+Ou baixe o JAR executável do Maven Central (`dev.archgate:archgate-cli`) e execute diretamente:
+
+```bash
+java -jar archgate-cli-0.39.0.jar check
+```
+
+Requer Java 11+. O shim baixa o binário da plataforma na primeira execução.
+
 ## Suporte a plataformas
 
 O Archgate disponibiliza binários pré-compilados para as seguintes plataformas:
@@ -157,5 +217,5 @@ Se você preferir `npm install -g archgate` ao invés do plugin proto, precisa c
 Após a instalação, execute `archgate init` no seu projeto para configurar a governança. Veja o guia de [Início Rápido](/getting-started/quick-start/) para um passo a passo.
 
 :::tip[Plugins para editores (beta)]
-Quer que seu agente de IA leia ADRs antes de programar e valide depois? Os plugins para editores do [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) adicionam um fluxo completo de governança sobre a CLI. [Cadastre-se para acesso beta](https://plugins.archgate.dev).
+Quer que seu agente de IA leia ADRs antes de programar e valide depois? Os plugins para editores do [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) adicionam um fluxo completo de governança sobre a CLI. Execute `archgate login` para se cadastrar e começar.
 :::
