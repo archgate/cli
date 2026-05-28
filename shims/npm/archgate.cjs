@@ -2,6 +2,7 @@
 "use strict";
 
 const { execFileSync, execSync } = require("child_process");
+const crypto = require("crypto");
 const https = require("https");
 const zlib = require("zlib");
 const path = require("path");
@@ -28,7 +29,7 @@ function getCacheDir() {
 
 function getPackageVersion() {
   const pkg = JSON.parse(
-    fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8")
+    fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf8")
   );
   return pkg.version;
 }
@@ -73,6 +74,47 @@ function stripNulls(str) {
 }
 
 /**
+ * Download a URL into a Buffer, following redirects.
+ */
+async function downloadToBuffer(url) {
+  const res = await fetchWithRedirects(url);
+  const chunks = [];
+  await new Promise((resolve, reject) => {
+    res.on("data", (chunk) => chunks.push(chunk));
+    res.on("end", resolve);
+    res.on("error", reject);
+  });
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Verify SHA256 checksum of a buffer against the companion .sha256 file.
+ * The .sha256 file format is: "<hex-sha256>  <filename>\n"
+ */
+async function verifySha256(archiveBuffer, checksumUrl, version) {
+  let checksumData;
+  try {
+    checksumData = await downloadToBuffer(checksumUrl);
+  } catch {
+    // If checksum file is unavailable, skip verification with a warning
+    console.error(
+      "archgate: warning: checksum file not available, skipping verification"
+    );
+    return;
+  }
+  const expectedHash = checksumData.toString("utf8").trim().split(/\s+/u)[0];
+  const actualHash = crypto
+    .createHash("sha256")
+    .update(archiveBuffer)
+    .digest("hex");
+  if (actualHash !== expectedHash) {
+    throw new Error(
+      `checksum verification failed for v${version} (expected ${expectedHash}, got ${actualHash})`
+    );
+  }
+}
+
+/**
  * Download the platform binary from GitHub Releases and cache it.
  * Returns the path to the downloaded binary.
  */
@@ -83,25 +125,24 @@ async function downloadBinary() {
   const isWin = process.platform === "win32";
   const ext = isWin ? "zip" : "tar.gz";
 
-  const url = `https://github.com/archgate/cli/releases/download/v${version}/${artifactName}.${ext}`;
+  const baseUrl = `https://github.com/archgate/cli/releases/download/v${version}/${artifactName}`;
+  const url = `${baseUrl}.${ext}`;
+  const checksumUrl = `${baseUrl}.${ext}.sha256`;
   console.error(`archgate: binary not found, downloading v${version}...`);
 
   const cacheDir = getCacheDir();
   fs.mkdirSync(cacheDir, { recursive: true });
   const destPath = path.join(cacheDir, binaryName);
 
+  // Download archive and verify checksum (shared across platforms)
+  const archiveBuffer = await downloadToBuffer(url);
+  await verifySha256(archiveBuffer, checksumUrl, version);
+
   if (isWin) {
-    // Download zip to temp file, extract with PowerShell
-    const res = await fetchWithRedirects(url);
-    const chunks = [];
-    await new Promise((resolve, reject) => {
-      res.on("data", (chunk) => chunks.push(chunk));
-      res.on("end", resolve);
-      res.on("error", reject);
-    });
+    // Extract zip with PowerShell
     const tmpZip = path.join(cacheDir, "archgate-download.zip");
     const tmpExtract = path.join(cacheDir, "archgate-extract");
-    fs.writeFileSync(tmpZip, Buffer.concat(chunks));
+    fs.writeFileSync(tmpZip, archiveBuffer);
     try {
       fs.mkdirSync(tmpExtract, { recursive: true });
       execSync(
@@ -114,17 +155,24 @@ async function downloadBinary() {
       }
       fs.copyFileSync(extractedBinary, destPath);
     } finally {
-      try { fs.unlinkSync(tmpZip); } catch { /* cleanup */ }
-      try { fs.rmSync(tmpExtract, { recursive: true, force: true }); } catch { /* cleanup */ }
+      try {
+        fs.unlinkSync(tmpZip);
+      } catch {
+        /* cleanup */
+      }
+      try {
+        fs.rmSync(tmpExtract, { recursive: true, force: true });
+      } catch {
+        /* cleanup */
+      }
     }
   } else {
-    // Download tar.gz, extract binary using inline tar parser
-    const res = await fetchWithRedirects(url);
+    // Extract binary from tar.gz using inline tar parser
     await new Promise((resolve, reject) => {
       const gunzip = zlib.createGunzip();
       const chunks = [];
 
-      res.pipe(gunzip);
+      gunzip.end(archiveBuffer);
       gunzip.on("data", (chunk) => chunks.push(chunk));
       gunzip.on("end", () => {
         const data = Buffer.concat(chunks);
@@ -138,9 +186,7 @@ async function downloadBinary() {
           if (header.every((b) => b === 0)) break;
 
           let name = stripNulls(header.subarray(0, 100).toString("utf8"));
-          const prefix = stripNulls(
-            header.subarray(345, 500).toString("utf8")
-          );
+          const prefix = stripNulls(header.subarray(345, 500).toString("utf8"));
           if (prefix) name = `${prefix}/${name}`;
 
           const sizeStr = stripNulls(

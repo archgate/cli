@@ -30,6 +30,87 @@ class ArchgateProject extends NpmProject {
       const versionPayload = `{ "version": "v${version}" }\n`;
       writeFileSync(versionJsonPath, versionPayload);
       this.changedFiles.push(versionJsonPath);
+
+      // ---------------------------------------------------------------
+      // Sync shim package versions
+      // ---------------------------------------------------------------
+
+      // PyPI: pyproject.toml
+      const pyprojectPath = "shims/pypi/pyproject.toml";
+      if (existsSync(pyprojectPath)) {
+        const content = readFileSync(pyprojectPath, "utf8");
+        const updated = content.replace(
+          /^version\s*=\s*"[^"]+"/mu,
+          `version = "${version}"`
+        );
+        if (updated !== content) {
+          writeFileSync(pyprojectPath, updated);
+          this.changedFiles.push(pyprojectPath);
+        }
+      }
+
+      // PyPI: _version.py
+      const pyVersionPath = "shims/pypi/archgate/_version.py";
+      if (existsSync(pyVersionPath)) {
+        writeFileSync(pyVersionPath, `__version__ = "${version}"\n`);
+        this.changedFiles.push(pyVersionPath);
+      }
+
+      // NuGet: .csproj
+      const csprojPath = "shims/nuget/Archgate.Tool/Archgate.Tool.csproj";
+      if (existsSync(csprojPath)) {
+        const content = readFileSync(csprojPath, "utf8");
+        const updated = content.replace(
+          /<Version>[^<]+<\/Version>/u,
+          `<Version>${version}</Version>`
+        );
+        if (updated !== content) {
+          writeFileSync(csprojPath, updated);
+          this.changedFiles.push(csprojPath);
+        }
+      }
+
+      // Go: shim.go version constant
+      const goShimPath = "shims/go/internal/shim/shim.go";
+      if (existsSync(goShimPath)) {
+        const content = readFileSync(goShimPath, "utf8");
+        const updated = content.replace(
+          /const Version = "[^"]+"/u,
+          `const Version = "${version}"`
+        );
+        if (updated !== content) {
+          writeFileSync(goShimPath, updated);
+          this.changedFiles.push(goShimPath);
+        }
+      }
+
+      // Maven: pom.xml (project version, not dependency versions)
+      const pomPath = "shims/maven/pom.xml";
+      if (existsSync(pomPath)) {
+        const content = readFileSync(pomPath, "utf8");
+        const updated = content.replace(
+          /(<artifactId>archgate-cli<\/artifactId>\s*<version>)[^<]+(<\/version>)/u,
+          `$1${version}$2`
+        );
+        if (updated !== content) {
+          writeFileSync(pomPath, updated);
+          this.changedFiles.push(pomPath);
+        }
+      }
+
+      // RubyGem: version.rb
+      const rubyVersionPath = "shims/rubygem/lib/archgate/version.rb";
+      if (existsSync(rubyVersionPath)) {
+        const content = readFileSync(rubyVersionPath, "utf8");
+        const updated = content.replace(
+          /VERSION = "[^"]+"/u,
+          `VERSION = "${version}"`
+        );
+        if (updated !== content) {
+          writeFileSync(rubyVersionPath, updated);
+          this.changedFiles.push(rubyVersionPath);
+        }
+      }
     }
 
     return result;

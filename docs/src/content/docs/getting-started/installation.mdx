@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install the Archgate CLI on macOS, Linux, or Windows via a one-line installer, npm, or standalone binary. Start enforcing ADRs as executable code rules in minutes.
+description: Install the Archgate CLI on macOS, Linux, or Windows via a one-line installer, npm, pip, dotnet, go, gem, or standalone binary. Start enforcing ADRs as executable code rules in minutes.
 ---
 
 ## Install standalone (recommended)
@@ -92,6 +92,66 @@ bun run check:adrs
 yarn check:adrs
 pnpm check:adrs
 ```
+
+## Install via pip (Python)
+
+Install Archgate globally using pip or pipx:
+
+```bash
+# pip
+pip install archgate
+
+# pipx (recommended for CLI tools)
+pipx install archgate
+```
+
+This installs a lightweight Python wrapper that delegates to a platform-specific binary. Python 3.8+ is required.
+
+## Install via dotnet
+
+Install Archgate as a .NET global tool:
+
+```bash
+dotnet tool install -g archgate
+```
+
+Requires .NET 8.0+ SDK. The tool downloads the platform binary on first run.
+
+## Install via Go
+
+Install Archgate using `go install`:
+
+```bash
+go install github.com/archgate/cli/shims/go/cmd/archgate@latest
+```
+
+Requires Go 1.21+. The compiled Go wrapper downloads the platform binary on first run.
+
+## Install via RubyGems
+
+Install Archgate as a Ruby gem:
+
+```bash
+gem install archgate
+```
+
+Requires Ruby 2.7+. The gem downloads the platform binary on first run.
+
+## Install via Maven / jbang (Java)
+
+Install Archgate using jbang:
+
+```bash
+jbang app install archgate@dev.archgate
+```
+
+Or download the executable JAR from Maven Central (`dev.archgate:archgate-cli`) and run directly:
+
+```bash
+java -jar archgate-cli-0.39.0.jar check
+```
+
+Requires Java 11+. The shim downloads the platform binary on first run.
 
 ## Platform support
 

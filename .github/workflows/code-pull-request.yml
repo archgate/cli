@@ -72,6 +72,46 @@ jobs:
           path: /home/runner/.bun/install/cache
           key: ${{ steps.restore-bun-cache.outputs.cache-primary-key }}
 
+  shim-tests:
+    name: Shim Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Check for shim changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- shims/ || true)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 -- shims/ || true)
+          fi
+          if [ -n "$CHANGED" ]; then
+            echo "shims_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "shims_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Setup Python
+        if: steps.changes.outputs.shims_changed == 'true'
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Test PyPI shim
+        if: steps.changes.outputs.shims_changed == 'true'
+        working-directory: shims/pypi
+        run: python -m unittest discover tests/
+      - name: Setup Go
+        if: steps.changes.outputs.shims_changed == 'true'
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.21"
+      - name: Test Go shim
+        if: steps.changes.outputs.shims_changed == 'true'
+        working-directory: shims/go
+        run: go test ./...
+
   smoke-windows:
     name: Smoke Test (Windows)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
