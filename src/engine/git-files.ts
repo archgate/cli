@@ -68,12 +68,19 @@ export function getGitTrackedFiles(
 export async function resolveScopedFiles(
   projectRoot: string,
   adrFileGlobs?: string[],
-  options?: { respectGitignore?: boolean; adrId?: string }
+  options?: {
+    respectGitignore?: boolean;
+    adrId?: string;
+    /** Override the file-count warning threshold (defaults to SCOPE_FILE_WARN_THRESHOLD). */
+    fileWarnThreshold?: number;
+  }
 ): Promise<string[]> {
   const hasExplicitFiles = (adrFileGlobs?.length ?? 0) > 0;
   const patterns = hasExplicitFiles ? adrFileGlobs! : ["**/*"];
   const respectGitignore = options?.respectGitignore !== false;
   const label = options?.adrId ? `ADR ${options.adrId}` : "resolveScopedFiles";
+  const fileWarnThreshold =
+    options?.fileWarnThreshold ?? SCOPE_FILE_WARN_THRESHOLD;
 
   if (!respectGitignore && !hasExplicitFiles) {
     logWarn(
@@ -105,7 +112,7 @@ export async function resolveScopedFiles(
 
   const all = [...new Set(results.flat())].sort();
 
-  if (all.length > SCOPE_FILE_WARN_THRESHOLD || scanMs > SCOPE_SCAN_WARN_MS) {
+  if (all.length > fileWarnThreshold || scanMs > SCOPE_SCAN_WARN_MS) {
     logWarn(
       `${label}: Resolved ${all.length} files from patterns: ${patterns.join(", ")} (scan took ${Math.round(scanMs)}ms). Consider narrowing the \`files\` patterns in the ADR frontmatter to improve performance.`
     );

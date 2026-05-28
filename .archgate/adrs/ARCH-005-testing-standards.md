@@ -50,6 +50,8 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - **When adding the first `expect()` to a previously assertion-less test file, add `expect` to the `bun:test` import** — older smoke-test files (e.g., `sentry.test.ts`) historically omitted it because their bodies never asserted.
 - **When mocking `fetch` in tests, assign directly to `globalThis.fetch`** — use `globalThis.fetch = mockFn as unknown as typeof fetch`. Restore in `afterEach` via `mock.restore()` (from `bun:test`) or by reassigning the original reference before the test.
 - **Wrap `spyOn` / `mockImplementation` calls in `try/finally` to guarantee `mockRestore()` runs** — when `expect()` assertions fail, they throw immediately, skipping any `mockRestore()` that follows. The un-restored spy leaks into subsequent tests, causing false positives or false negatives. Pattern: `const spy = spyOn(...).mockImplementation(() => {}); try { /* assertions */ } finally { spy.mockRestore(); }`. Alternatively, create and restore spies in `beforeEach`/`afterEach` hooks instead of inline.
+- **Make large production thresholds injectable so tests can use a small value** — When production code only acts past a large numeric threshold (e.g., `SCOPE_FILE_WARN_THRESHOLD = 1000` in `src/engine/git-files.ts`), add an optional parameter that defaults to the module constant (e.g., `resolveScopedFiles(root, globs, { fileWarnThreshold })`). Tests inject a tiny value such as `5` and create only a handful of files to exercise the same code path. This keeps the test fast and deterministic on every platform instead of materializing thousands of fixture files.
+- **Only ever raise a per-test timeout override above the global, never below it** — the project global is `bun test --timeout 60000` (60s). A per-test `}, 30_000` override makes that test _more_ likely to time out than the default. Use a per-test override solely to grant a genuinely slow test more time than 60s; never set one shorter than the global.
 
 ### Don't
 
@@ -65,6 +67,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files go in `tes
 - Don't import test utilities from `node:test` — use Bun's built-in `bun:test` module
 - **Don't use `mock.module("node:fetch", ...)` to intercept HTTP fetch calls** — in Bun, the runtime fetch is `globalThis.fetch` and `mock.module` targeting `node:fetch` does not intercept it. The mock silently has no effect: the real network is hit, making tests non-deterministic and dependent on external services. Assign `globalThis.fetch` directly instead (see Do's above).
 - **Don't place `mockRestore()` after assertions without `try/finally` protection** — if the assertion throws, the spy is never restored and contaminates subsequent tests. This is especially dangerous when spying on globals like `console.warn` or `globalThis.fetch`, where a leaked spy silently suppresses or redirects output for every test that follows.
+- **Don't materialize large filesystem fixtures (1000+ files, plus `git add .`) just to cross a production threshold** — on Windows CI runners that filesystem work is slow enough to exceed the per-test timeout, killing the staging subprocess mid-run (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM) and producing a flaky failure that does not reproduce locally. Inject a small threshold instead (see Do's above). This was the root cause of a recurring Windows smoke-test flake on the `resolveScopedFiles` warning test.
 
 ## Implementation Pattern
 
@@ -221,6 +224,7 @@ Code reviewers MUST verify:
 6. Tests that mock HTTP fetch assign `globalThis.fetch` directly — no `mock.module("node:fetch", ...)` usage
 7. Tests that use `spyOn` or `mockImplementation` inline (not in `beforeEach`/`afterEach`) wrap the spy lifecycle in `try/finally` to guarantee `mockRestore()` runs even when assertions fail
 8. Every test asserts something with `expect()` — no smoke tests that merely call a function; "does not throw" contracts are made explicit via `expect(() => fn()).not.toThrow()` or `await expect(promise).resolves.toBeUndefined()`
+9. Tests that exercise a numeric production threshold inject a small threshold value rather than generating fixtures large enough to trip the production default, and no per-test timeout override is shorter than the global `--timeout 60000`
 
 ## References
 
