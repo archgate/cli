@@ -113,6 +113,34 @@ jobs:
         if: steps.changes.outputs.shims_changed == 'true'
         working-directory: shims/go
         run: go test ./...
+      - name: Setup Java
+        if: steps.changes.outputs.shims_changed == 'true'
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        with:
+          distribution: temurin
+          java-version: "11"
+      - name: Test Maven shim
+        if: steps.changes.outputs.shims_changed == 'true'
+        working-directory: shims/maven
+        run: mvn test -B
+      - name: Setup .NET
+        if: steps.changes.outputs.shims_changed == 'true'
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Test NuGet shim
+        if: steps.changes.outputs.shims_changed == 'true'
+        working-directory: shims/nuget/tests/Archgate.Tool.Tests
+        run: dotnet test
+      - name: Setup Ruby
+        if: steps.changes.outputs.shims_changed == 'true'
+        uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
+        with:
+          ruby-version: "3.3"
+      - name: Test RubyGem shim
+        if: steps.changes.outputs.shims_changed == 'true'
+        working-directory: shims/rubygem
+        run: bundle install --jobs 4 && bundle exec ruby test/test_shim.rb
 
   smoke-windows:
     name: Smoke Test (Windows)
