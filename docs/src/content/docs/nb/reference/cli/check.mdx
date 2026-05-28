@@ -13,14 +13,15 @@ Laster inn hver ADR med `rules: true` i frontmatteren, kjører den tilhørende `
 
 ## Valg
 
-| Valg           | Beskrivelse                                                                  |
-| -------------- | ---------------------------------------------------------------------------- |
-| `--staged`     | Sjekk kun git-stagede filer (nyttig for pre-commit-hooks)                    |
-| `--base [ref]` | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt) |
-| `--json`       | Maskinlesbar JSON-utdata                                                     |
-| `--ci`         | GitHub Actions-annotasjonsformat                                             |
-| `--adr <id>`   | Sjekk kun regler fra en bestemt ADR                                          |
-| `--verbose`    | Vis beståtte regler og tidsinformasjon                                       |
+| Valg                 | Beskrivelse                                                                                              |
+| -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `--staged`           | Sjekk kun git-stagede filer (nyttig for pre-commit-hooks)                                                |
+| `--base [ref]`       | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt)                             |
+| `--json`             | Maskinlesbar JSON-utdata                                                                                 |
+| `--ci`               | GitHub Actions-annotasjonsformat                                                                         |
+| `--adr <id>`         | Sjekk kun regler fra en bestemt ADR                                                                      |
+| `--verbose`          | Vis beståtte regler og tidsinformasjon                                                                   |
+| `--max-warnings <n>` | Mislykkes (kode 1) når antallet advarsler overskrider `n`. Bruk `0` for å mislykkes ved enhver advarsel. |
 
 ## Argumenter
 
@@ -33,7 +34,7 @@ Laster inn hver ADR med `rules: true` i frontmatteren, kjører den tilhørende `
 | Kode | Betydning                                                                        |
 | ---- | -------------------------------------------------------------------------------- |
 | 0    | Alle regler bestått. Ingen brudd funnet.                                         |
-| 1    | Ett eller flere brudd oppdaget.                                                  |
+| 1    | Ett eller flere brudd oppdaget, eller advarsler overskred `--max-warnings`.      |
 | 2    | Feil ved regelkjøring (f.eks. feilformatert regel, sikkerhetsskannerblokkering). |
 
 ## Eksempler
@@ -60,6 +61,12 @@ Sjekk en enkelt ADR:
 
 ```bash
 archgate check --adr ARCH-001
+```
+
+Behandle enhver advarsel som en feil (nyttig i CI):
+
+```bash
+archgate check --max-warnings 0
 ```
 
 Sjekk bestemte filer (bare matchende ADR-er kjøres):
@@ -118,6 +125,8 @@ Under kjøring sender `archgate check` advarsler for vanlige feilkonfigurasjoner
 
 Disse advarslene vises i standardutdataene og påvirker ikke avslutningskoden. De vises også i JSON-utdata når `--json` brukes (som brudd med `"severity": "warning"`).
 
+Som standard endrer advarsler (både diagnostikk og regelrapporterte brudd med `"severity": "warning"`) aldri avslutningskoden. Send `--max-warnings <n>` for å få `archgate check` til å avslutte med kode 1 når det totale antallet advarsler overskrider `n`. `--max-warnings 0` mislykkes ved enhver advarsel. Når terskelen overskrides, er feltet `warningsExceeded` i JSON-utdataene `true` og `pass` er `false`.
+
 ## JSON-utdataformat
 
 Når `--json` brukes, er utdataene et enkelt JSON-objekt:
@@ -132,6 +141,7 @@ Når `--json` brukes, er utdataene et enkelt JSON-objekt:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "warningsExceeded": false,
   "truncated": false,
   "results": [
     {

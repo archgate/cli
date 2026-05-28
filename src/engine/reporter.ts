@@ -15,6 +15,8 @@ export interface ReportSummary {
   errors: number;
   infos: number;
   ruleErrors: number;
+  /** True when a `maxWarnings` threshold was set and the warning count exceeded it. */
+  warningsExceeded: boolean;
   truncated: boolean;
   results: Array<{
     adrId: string;
@@ -41,6 +43,12 @@ export interface ReportSummary {
 interface BuildSummaryOptions {
   /** Maximum violations per rule. When exceeded, only the first N are kept. Omit or 0 for unlimited. */
   maxViolationsPerRule?: number;
+  /**
+   * Maximum number of warnings tolerated before the check is considered failed.
+   * When the total warning count exceeds this threshold, `pass` becomes false and
+   * `warningsExceeded` is set. Omit for no limit (warnings never affect `pass`).
+   */
+  maxWarnings?: number;
 }
 
 export function buildSummary(
@@ -105,8 +113,11 @@ export function buildSummary(
     };
   });
 
+  const warningsExceeded =
+    options?.maxWarnings !== undefined && warnings > options.maxWarnings;
+
   return {
-    pass: failed === 0 && ruleErrors === 0,
+    pass: failed === 0 && ruleErrors === 0 && !warningsExceeded,
     total: result.results.length,
     passed,
     failed,
@@ -114,6 +125,7 @@ export function buildSummary(
     errors,
     infos,
     ruleErrors,
+    warningsExceeded,
     truncated: anyTruncated,
     results,
     durationMs: result.totalDurationMs,
@@ -197,6 +209,15 @@ export function reportConsole(
 
   console.log(`  ${status} - ${parts.join(", ")} ${durationStr}`);
 
+  if (summary.warningsExceeded) {
+    console.log(
+      styleText(
+        "yellow",
+        `  ${summary.warnings} warning(s) exceeded the configured --max-warnings threshold`
+      )
+    );
+  }
+
   if (verbose) {
     const timeDetails = summary.results
       .map((r) => `    ${r.adrId}/${r.ruleId}: ${r.durationMs.toFixed(0)}ms`)
@@ -269,6 +290,7 @@ export function getExitCode(
   if (summary) {
     if (summary.ruleErrors > 0) return 2;
     if (summary.failed > 0) return 1;
+    if (summary.warningsExceeded) return 1;
     return 0;
   }
   const hasErrors = result.results.some((r) => r.error);

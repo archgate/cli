@@ -152,11 +152,12 @@ describe("telemetry", () => {
   });
 
   describe("trackCheckResult", () => {
-    test("captures check_completed event without throwing", async () => {
+    test("captures check_completed event for required and optional payloads", async () => {
       const { initTelemetry, trackCheckResult } =
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
+      // Required-only payload
       expect(() =>
         trackCheckResult({
           total_rules: 5,
@@ -171,15 +172,10 @@ describe("telemetry", () => {
           used_base: false,
           used_file_filter: false,
           used_adr_filter: false,
+          used_max_warnings: false,
         })
       ).not.toThrow();
-    });
-
-    test("accepts optional fields (files_scanned, durations)", async () => {
-      const { initTelemetry, trackCheckResult } =
-        await import("../../src/helpers/telemetry");
-
-      await initTelemetry();
+      // Payload including optional fields (files_scanned, durations)
       expect(() =>
         trackCheckResult({
           total_rules: 10,
@@ -194,6 +190,7 @@ describe("telemetry", () => {
           used_base: true,
           used_file_filter: true,
           used_adr_filter: true,
+          used_max_warnings: true,
           files_scanned: 42,
           load_duration_ms: 15,
           check_duration_ms: 200,

@@ -191,6 +191,7 @@ const EMPTY_SUMMARY: ReportSummary = {
   errors: 0,
   infos: 0,
   ruleErrors: 0,
+  warningsExceeded: false,
   truncated: false,
   results: [],
   durationMs: 0,
