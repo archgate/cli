@@ -75,7 +75,8 @@ jobs:
     needs: wait-for-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions: {}
+    permissions:
+      id-token: write # NuGet trusted publishers (OIDC)
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -83,15 +84,18 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "8.0.x"
+      - name: NuGet login (OIDC)
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: nuget-login
+        with:
+          user: rhuan.barreto
       - name: Pack and publish
         working-directory: shims/nuget/Archgate.Tool
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet pack -c Release
           dotnet nuget push bin/Release/*.nupkg \
             --source https://api.nuget.org/v3/index.json \
-            --api-key "$NUGET_API_KEY"
+            --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
 
   publish-go-tag:
     needs: wait-for-binaries
@@ -123,7 +127,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: "11"
-          server-id: ossrh
+          server-id: central
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -141,7 +145,9 @@ jobs:
     needs: wait-for-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions: {}
+    permissions:
+      contents: write
+      id-token: write # RubyGems trusted publishers (OIDC)
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
@@ -149,10 +155,4 @@ jobs:
       - uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
         with:
           ruby-version: "3.3"
-      - name: Build and publish
-        working-directory: shims/rubygem
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.GEM_HOST_API_KEY }}
-        run: |
-          gem build archgate.gemspec
-          gem push archgate-*.gem
+      - uses: rubygems/release-gem@6317d8d1f7e28c24d28f6eff169ea854948bd9f7 # v1.2.0

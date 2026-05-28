@@ -66,5 +66,5 @@ The shim packages (npm, PyPI, NuGet, Go, Maven Central, RubyGems) are thin wrapp
 ## References
 
 - [GEN-001 — Documentation Site](./GEN-001-documentation-site.md) — Docs site structure and configuration
-- [DIST-001 — Multi-Ecosystem Distribution](./DIST-001-multi-ecosystem-distribution.md) — Shim pattern and behavioral contract
+- [ARCH-017 — Multi-Ecosystem Distribution](./ARCH-017-multi-ecosystem-distribution.md) — Shim pattern and behavioral contract
 - [`.simple-release.js`](../../.simple-release.js) — Release bump hook that syncs all version locations
