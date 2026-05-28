@@ -4,6 +4,14 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+// Static import — resolves during module graph phase, before mock.module()
+// calls in parallel test files (e.g. login-flow.test.ts) can replace the
+// module cache entry. The destructured references are immune to later mocks.
+import {
+  saveCredentials,
+  loadCredentials,
+  clearCredentials,
+} from "../../src/helpers/credential-store";
 
 describe("credential-store", () => {
   let tempDir: string;
@@ -37,8 +45,6 @@ describe("credential-store", () => {
 
   describe("saveCredentials", () => {
     test("does not write any metadata file to disk", async () => {
-      const { saveCredentials } =
-        await import("../../src/helpers/credential-store");
 
       await saveCredentials({
         token: "ag_beta_abc123",
@@ -111,16 +117,12 @@ describe("credential-store", () => {
 
   describe("loadCredentials", () => {
     test("returns null when no credentials exist anywhere", async () => {
-      const { loadCredentials } =
-        await import("../../src/helpers/credential-store");
 
       const result = await loadCredentials();
       expect(result).toBeNull();
     });
 
     test("returns null and deletes legacy metadata file", async () => {
-      const { loadCredentials } =
-        await import("../../src/helpers/credential-store");
 
       const credPath = join(tempDir, ".archgate", "credentials");
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
@@ -140,8 +142,6 @@ describe("credential-store", () => {
     });
 
     test("returns null when no git creds and no legacy file", async () => {
-      const { loadCredentials } =
-        await import("../../src/helpers/credential-store");
 
       // With isolated git config (no credential helper), returns null.
       const result = await loadCredentials();
@@ -151,16 +151,12 @@ describe("credential-store", () => {
 
   describe("clearCredentials", () => {
     test("does not throw when no credentials exist", async () => {
-      const { clearCredentials } =
-        await import("../../src/helpers/credential-store");
 
       // Should not throw
       await clearCredentials();
     });
 
     test("cleans up legacy metadata file", async () => {
-      const { clearCredentials } =
-        await import("../../src/helpers/credential-store");
 
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
       const credPath = join(tempDir, ".archgate", "credentials");
@@ -178,8 +174,6 @@ describe("credential-store", () => {
       // clearCredentials calls gitCredentialFill first; with no helper
       // configured, fill returns null so reject is skipped — but legacy
       // cleanup still runs. This exercises the full clearCredentials path.
-      const { clearCredentials } =
-        await import("../../src/helpers/credential-store");
 
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
       const credPath = join(tempDir, ".archgate", "credentials");
@@ -209,8 +203,6 @@ describe("credential-store", () => {
       // Point git at our custom config so the store helper is used
       Bun.env.GIT_CONFIG_GLOBAL = gitConfig;
 
-      const { saveCredentials, loadCredentials, clearCredentials } =
-        await import("../../src/helpers/credential-store");
 
       // Save should succeed and be verifiable
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
@@ -245,11 +237,10 @@ describe("credential-store", () => {
   });
 
   describe("StoredCredentials type", () => {
-    test("interface has expected shape", async () => {
-      const mod = await import("../../src/helpers/credential-store");
-      expect(typeof mod.saveCredentials).toBe("function");
-      expect(typeof mod.loadCredentials).toBe("function");
-      expect(typeof mod.clearCredentials).toBe("function");
+    test("interface has expected shape", () => {
+      expect(typeof saveCredentials).toBe("function");
+      expect(typeof loadCredentials).toBe("function");
+      expect(typeof clearCredentials).toBe("function");
     });
   });
 });

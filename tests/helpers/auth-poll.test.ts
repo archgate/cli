@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, mock } from "bun:test";
+// Static import — resolves during module graph phase, before mock.module()
+// calls in parallel test files (e.g. login-flow.test.ts) can replace the
+// module cache entry. The destructured reference is immune to later mocks.
+import { pollForAccessToken } from "../../src/helpers/auth";
 
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
@@ -9,7 +13,6 @@ function mockFetch(handler: () => Promise<Response>) {
 
 describe("pollForAccessToken", () => {
   test("returns token after authorization_pending then success", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
 
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
@@ -43,7 +46,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("handles slow_down by increasing poll interval", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
 
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
@@ -80,7 +82,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws on expired_token", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
 
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
@@ -106,7 +107,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws on access_denied", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
 
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
@@ -132,7 +132,6 @@ describe("pollForAccessToken", () => {
   });
 
   test("throws when deadline expires before authorization", async () => {
-    const { pollForAccessToken } = await import("../../src/helpers/auth");
 
     const originalFetch = globalThis.fetch;
     const originalSleep = Bun.sleep;
