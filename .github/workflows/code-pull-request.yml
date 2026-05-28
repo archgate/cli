@@ -86,10 +86,15 @@ jobs:
       - name: Check for shim changes
         id: changes
         run: |
+          # Detect changes to shim source code AND workflow files that configure
+          # shim test/publish infrastructure (e.g., action version bumps, runtime
+          # version changes). Without checking workflow files, a Renovate PR that
+          # bumps Ruby 3.3→3.4 in the shim-tests job would skip tests entirely.
+          PATHS="shims/ .github/workflows/publish-shims.yml .github/workflows/code-pull-request.yml"
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- shims/ || true)
+            CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- $PATHS || true)
           else
-            CHANGED=$(git diff --name-only HEAD~1 -- shims/ || true)
+            CHANGED=$(git diff --name-only HEAD~1 -- $PATHS || true)
           fi
           if [ -n "$CHANGED" ]; then
             echo "shims_changed=true" >> "$GITHUB_OUTPUT"
