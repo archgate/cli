@@ -50,7 +50,7 @@
                  but this shim targets Java 11 (maven.compiler.target=11) for broad
                  end-user compatibility and is built/tested on JDK 11 in CI. See the
                  junit-jupiter rule in renovate.json. -->
-            <version>5.11.4</version>
+            <version>5.14.4</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
