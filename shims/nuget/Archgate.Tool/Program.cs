@@ -144,7 +144,7 @@ internal static class Program
         }
 
         byte[] hashBytes = SHA256.HashData(archiveBytes);
-        string actualHash = Convert.ToHexStringLower(hashBytes);
+        string actualHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
 
         if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
         {
