@@ -151,5 +151,57 @@ export default {
         }
       },
     },
+    "shim-license-sync": {
+      description:
+        "All shim package LICENSE.md files must be byte-identical to the canonical root LICENSE.md",
+      severity: "error",
+      async check(ctx) {
+        let canonical: string;
+        try {
+          canonical = await ctx.readFile("LICENSE.md");
+        } catch {
+          // Root LICENSE.md should always exist; skip if running in a context without it
+          return;
+        }
+
+        // .gitattributes enforces eol=lf, but normalize trailing newlines and
+        // CRLF defensively so the rule is stable across platforms.
+        const normalize = (s: string): string =>
+          s.replaceAll("\r\n", "\n").trimEnd();
+        const expected = normalize(canonical);
+
+        // The npm package publishes the root LICENSE.md directly (npm
+        // always-include), so it is excluded here. Every other shim ecosystem
+        // ships its own copy that must mirror the root — registries and
+        // pkg.go.dev detect the license from files inside the package, not
+        // from the repository root.
+        const shimLicenses: string[] = [
+          "shims/go/LICENSE.md",
+          "shims/maven/LICENSE.md",
+          "shims/nuget/Archgate.Tool/LICENSE.md",
+          "shims/pypi/LICENSE.md",
+          "shims/rubygem/LICENSE.md",
+        ];
+
+        for (const file of shimLicenses) {
+          let content: string;
+          try {
+            // oxlint-disable-next-line no-await-in-loop -- sequential read is intentional; files are few and order-independent but must check each
+            content = await ctx.readFile(file);
+          } catch {
+            // Shim LICENSE may not exist yet
+            continue;
+          }
+
+          if (normalize(content) !== expected) {
+            ctx.report.violation({
+              message: `${file} is out of sync with the canonical root LICENSE.md`,
+              file,
+              fix: `Copy LICENSE.md to ${file} (e.g. \`cp LICENSE.md ${file}\`) so all package licenses stay identical`,
+            });
+          }
+        }
+      },
+    },
   },
 } satisfies RuleSet;
