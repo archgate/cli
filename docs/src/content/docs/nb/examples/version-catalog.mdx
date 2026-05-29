@@ -1,25 +1,25 @@
 ---
 title: version-catalog
-description: H&aring;ndhev sentralisert versjonsadministrasjon i monorepoer ved &aring; kreve catalog- eller workspace-notasjon for alle avhengigheter.
+description: Håndhev sentralisert versjonsadministrasjon i monorepoer ved å kreve catalog- eller workspace-notasjon for alle avhengigheter.
 ---
 
-H&aring;ndhev sentralisert versjonsadministrasjon i monorepoer ved &aring; kreve `catalog:`- eller `workspace:`-notasjon for alle avhengigheter.
+Håndhev sentralisert versjonsadministrasjon i monorepoer ved å kreve `catalog:`- eller `workspace:`-notasjon for alle avhengigheter.
 
 ## Regeldetaljer
 
-I monorepoer med mange pakker f&oslash;rer duplisering av versjonsstrenger p&aring; tvers av `package.json`-filer til versjonsforskyvning og oppgraderingssmerter. Denne regelen sikrer at hver avhengighetsreferanse bruker `catalog:` (hentet fra en sentral katalog i rot-`package.json`) eller `workspace:` (for interne pakker), aldri en r&aring; semver-streng.
+I monorepoer med mange pakker fører duplisering av versjonsstrenger på tvers av `package.json`-filer til versjonsforskyvning og oppgraderingssmerter. Denne regelen sikrer at hver avhengighetsreferanse bruker `catalog:` (hentet fra en sentral katalog i rot-`package.json`) eller `workspace:` (for interne pakker), aldri en rå semver-streng.
 
-Regelen har to sjekker: `catalog-usage` verifiserer at alle avhengigheter bruker riktig notasjon, og `catalog-completeness` verifiserer at hver `catalog:`-referanse peker til en faktisk oppf&oslash;ring i rotkatalogen.
+Regelen har to sjekker: `catalog-usage` verifiserer at alle avhengigheter bruker riktig notasjon, og `catalog-completeness` verifiserer at hver `catalog:`-referanse peker til en faktisk oppføring i rotkatalogen.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```json title="packages/api/package.json"
 { "dependencies": { "zod": "^3.23.0", "hono": "^4.0.0" } }
 ```
 
-R&aring; semver-strenger omg&aring;r den sentrale katalogen og vil divergere p&aring; tvers av pakker.
+Rå semver-strenger omgår den sentrale katalogen og vil divergere på tvers av pakker.
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```json title="packages/api/package.json"
 {
@@ -134,10 +134,10 @@ export default {
 } satisfies RuleSet;
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-I monorepoer der flere pakker deler avhengigheter og du &oslash;nsker en enkelt sannhetskilde for versjoner (f.eks. Bun workspaces med katalogst&oslash;tte, eller lignende oppsett).
+I monorepoer der flere pakker deler avhengigheter og du ønsker en enkelt sannhetskilde for versjoner (f.eks. Bun workspaces med katalogstøtte, eller lignende oppsett).
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
 I enkeltpakke-repositorier eller monorepoer som bruker en annen versjonsstyringstrategi som Renovates gruppeoppdateringer.

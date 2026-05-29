@@ -7,7 +7,7 @@ Krev konsistente filnavnkonvensjoner på tvers av kildemapper.
 
 ## Regeldetaljer
 
-Inkonsistente filnavn (blanding av `camelCase`, `PascalCase`, `snake_case` og `kebab-case`) gjor filer vanskeligere å finne og forårsaker problemer med store/små bokstaver på tvers av operativsystemer. Denne regelen validerer hvert filnavn innenfor omfanget mot et regex-monster og foreslar rettelser.
+Inkonsistente filnavn (blanding av `camelCase`, `PascalCase`, `snake_case` og `kebab-case`) gjør filer vanskeligere å finne og forårsaker problemer med store/små bokstaver på tvers av operativsystemer. Denne regelen validerer hvert filnavn innenfor omfanget mot et regex-mønster og foreslår rettelser.
 
 ## Eksempler på **feil** kode
 
@@ -64,7 +64,7 @@ export default {
 
 ## Når bør du bruke den
 
-Når teamet ditt har standardisert en navnekonvensjon og onsker å håndheve den automatisk. Tilpass regex for din konvensjon:
+Når teamet ditt har standardisert en navnekonvensjon og ønsker å håndheve den automatisk. Tilpass regex for din konvensjon:
 
 ```typescript
 // PascalCase (React components)
@@ -79,4 +79,4 @@ const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
 
 ## Når bør du ikke bruke den
 
-Når prosjektet ditt med vilje blander navnekonvensjoner (f.eks. PascalCase for React-komponenter og kebab-case for hjelpefunksjoner), eller når du migrerer en gammel kodebase der masseomdobing ikke er gjennomforbart.
+Når prosjektet ditt med vilje blander navnekonvensjoner (f.eks. PascalCase for React-komponenter og kebab-case for hjelpefunksjoner), eller når du migrerer en gammel kodebase der masseomdøping ikke er gjennomførbart.

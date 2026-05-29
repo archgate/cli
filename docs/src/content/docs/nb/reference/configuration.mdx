@@ -1,11 +1,11 @@
 ---
 title: Konfigurasjon
-description: Referanse for prosjektkonfigurasjonsfilen .archgate/config.json. Konfigurer egendefinerte ADR-kataloger, domenetilordninger og innstillinger pa prosjektniva.
+description: Referanse for prosjektkonfigurasjonsfilen .archgate/config.json. Konfigurer egendefinerte ADR-kataloger, domenetilordninger og innstillinger på prosjektnivå.
 ---
 
-Filen `.archgate/config.json` lagrer konfigurasjon pa prosjektniva som committes til versjonskontroll og deles pa tvers av teamet.
+Filen `.archgate/config.json` lagrer konfigurasjon på prosjektnivå som committes til versjonskontroll og deles på tvers av teamet.
 
-Denne filen opprettes automatisk av `archgate init` (for a lagre den autodetekterte basisgrenen og eventuelle egendefinerte domener) eller nar du legger til konfigurasjon manuelt. Den ligger inne i `.archgate/`-katalogen i prosjektroten din.
+Denne filen opprettes automatisk av `archgate init` (for å lagre den autodetekterte basisgrenen og eventuelle egendefinerte domener) eller når du legger til konfigurasjon manuelt. Den ligger inne i `.archgate/`-katalogen i prosjektroten din.
 
 ## Skjema
 
@@ -21,29 +21,29 @@ Denne filen opprettes automatisk av `archgate init` (for a lagre den autodetekte
 
 Egendefinerte domene-til-prefiks-tilordninger. Se [Egendefinerte domener](/concepts/domains/#custom-domains) for detaljer.
 
-| Nokkel | Type     | Beskrivelse                                                                                               |
+| Nøkkel | Type     | Beskrivelse                                                                                               |
 | ------ | -------- | --------------------------------------------------------------------------------------------------------- |
-| _navn_ | `string` | Domenenavn (kebab-case med sma bokstaver, 2-32 tegn) tilordnes et ID-prefiks (store bokstaver, 2-10 tegn) |
+| _navn_ | `string` | Domenenavn (kebab-case med små bokstaver, 2-32 tegn) tilordnes et ID-prefiks (store bokstaver, 2-10 tegn) |
 
-Disse slas sammen med de innebygde domenene (`backend`, `frontend`, `data`, `architecture`, `general`) ved lesing. Egendefinerte oppforinger kan ikke overstyre innebygde navn eller prefikser.
+Disse slås sammen med de innebygde domenene (`backend`, `frontend`, `data`, `architecture`, `general`) ved lesing. Egendefinerte oppføringer kan ikke overstyre innebygde navn eller prefikser.
 
 ### `baseBranch`
 
-Basisgren for endringsdeteksjon i `archgate check`. Nar dette er satt, hopper `archgate check` over autodeksjonsprobing og bruker denne verdien direkte for populering av `ctx.changedFiles` via `git diff <baseBranch>...HEAD`.
+Basisgren for endringsdeteksjon i `archgate check`. Når dette er satt, hopper `archgate check` over autodeksjonsprobing og bruker denne verdien direkte for populering av `ctx.changedFiles` via `git diff <baseBranch>...HEAD`.
 
 | Type     | Standard         | Beskrivelse                                                  |
 | -------- | ---------------- | ------------------------------------------------------------ |
 | `string` | _(autodetekter)_ | Grennavn eller fjernreferanse (f.eks. `main`, `origin/main`) |
 
-Dette feltet **fylles automatisk** av `archgate init` nar et git-repository detekteres. Autodeteksjonen provar `origin/HEAD`, `origin/main`, `origin/master`, lokal `main` og lokal `master` (forste treff vinner). A kjore `archgate init` pa nytt overskriver ikke en manuelt konfigurert verdi.
+Dette feltet **fylles automatisk** av `archgate init` når et git-repository detekteres. Autodeteksjonen prøver `origin/HEAD`, `origin/main`, `origin/master`, lokal `main` og lokal `master` (første treff vinner). Å kjøre `archgate init` på nytt overskriver ikke en manuelt konfigurert verdi.
 
-Du kan ogsa sette den manuelt:
+Du kan også sette den manuelt:
 
 ```json
 { "baseBranch": "main" }
 ```
 
-Se [`archgate check` -- Deteksjon av endrede filer](/reference/cli/check/#changed-files-detection) for den fullstendige prioritetsrekkfolgen.
+Se [`archgate check` -- Deteksjon av endrede filer](/reference/cli/check/#changed-files-detection) for den fullstendige prioritetsrekkefølgen.
 
 ### `paths`
 
@@ -54,17 +54,17 @@ Overstyr standardkataloger for ADR-er og regler.
 | `adrs`  | `string` | `.archgate/adrs` | Relativ sti til ADR-katalogen         |
 | `rules` | `string` | `.archgate/lint` | Relativ sti til regel-/lint-katalogen |
 
-Begge feltene er valgfrie. Nar de utelates, brukes standardkatalogene `.archgate/adrs/` og `.archgate/lint/`.
+Begge feltene er valgfrie. Når de utelates, brukes standardkatalogene `.archgate/adrs/` og `.archgate/lint/`.
 
 #### Stivalidering
 
-- Stier **ma vaere relative** til prosjektroten -- absolutte stier (f.eks. `/docs/adrs`, `C:\docs\adrs`) avvises.
-- Stier **ma ikke inneholde `..`-segmenter** -- traversering over prosjektroten er ikke tillatt (f.eks. `../other-repo/adrs` avvises).
-- Stier bruker skrastrek (`/`) som skilletegn, i trad med standard globkonvensjoner.
+- Stier **må være relative** til prosjektroten -- absolutte stier (f.eks. `/docs/adrs`, `C:\docs\adrs`) avvises.
+- Stier **må ikke inneholde `..`-segmenter** -- traversering over prosjektroten er ikke tillatt (f.eks. `../other-repo/adrs` avvises).
+- Stier bruker skråstrek (`/`) som skilletegn, i tråd med standard globkonvensjoner.
 
 ## Egendefinert ADR-katalog
 
-Som standard ligger ADR-er i `.archgate/adrs/`. For a lagre dem i en annen katalog (f.eks. `docs/adrs/`), legg til en `paths`-seksjon i `.archgate/config.json`:
+Som standard ligger ADR-er i `.archgate/adrs/`. For å lagre dem i en annen katalog (f.eks. `docs/adrs/`), legg til en `paths`-seksjon i `.archgate/config.json`:
 
 ```json
 { "paths": { "adrs": "docs/adrs" } }
@@ -72,19 +72,19 @@ Som standard ligger ADR-er i `.archgate/adrs/`. For a lagre dem i en annen katal
 
 Etter at konfigurasjonen er lagt til:
 
-1. Opprett malkatalogen (f.eks. `mkdir -p docs/adrs`)
-2. Flytt eksisterende ADR-filer og deres tilhorende `.rules.ts`-filer fra `.archgate/adrs/` til den nye katalogen
-3. Kjor `archgate check` for a verifisere at reglene fortsatt lastes riktig
+1. Opprett målkatalogen (f.eks. `mkdir -p docs/adrs`)
+2. Flytt eksisterende ADR-filer og deres tilhørende `.rules.ts`-filer fra `.archgate/adrs/` til den nye katalogen
+3. Kjør `archgate check` for å verifisere at reglene fortsatt lastes riktig
 
 Alle CLI-kommandoer (`archgate adr list`, `archgate adr create`, `archgate check`, `archgate review-context`) leser automatisk den konfigurerte katalogen.
 
 :::caution
-`.archgate/`-katalogen ma fortsatt eksistere -- den er prosjektmarkoren som CLI-en bruker for a finne prosjektroten din. Ikke slett den etter at du har konfigurert egendefinerte stier.
+`.archgate/`-katalogen må fortsatt eksistere -- den er prosjektmarkøren som CLI-en bruker for å finne prosjektroten din. Ikke slett den etter at du har konfigurert egendefinerte stier.
 :::
 
 ### Eksempel: dokumentasjonsmappe i monorepo
 
-Et vanlig monster er a plassere ADR-er sammen med annen dokumentasjon:
+Et vanlig mønster er å plassere ADR-er sammen med annen dokumentasjon:
 
 ```
 my-project/
@@ -107,6 +107,6 @@ my-project/
 
 ## Merknader
 
-- `paths`-konfigurasjonen er en **teamomfattende innstilling** -- den committes til versjonskontroll og gjelder for alle teammedlemmer. Det finnes ingen brukerniva-overstyring for ADR-stier.
-- Endring av konfigurasjonen krever manuell redigering av `.archgate/config.json` etter at `archgate init` er kjort.
-- Typedefinisjonfilen `rules.d.ts` skrives automatisk til bade `.archgate/` og foreldrekatalogen til den konfigurerte ADR-katalogen, slik at tilhorende `.rules.ts`-filer loser `/// <reference path="../rules.d.ts" />`-direktivet riktig.
+- `paths`-konfigurasjonen er en **teamomfattende innstilling** -- den committes til versjonskontroll og gjelder for alle teammedlemmer. Det finnes ingen brukernivå-overstyring for ADR-stier.
+- Endring av konfigurasjonen krever manuell redigering av `.archgate/config.json` etter at `archgate init` er kjørt.
+- Typedefinisjonfilen `rules.d.ts` skrives automatisk til både `.archgate/` og foreldrekatalogen til den konfigurerte ADR-katalogen, slik at tilhørende `.rules.ts`-filer løser `/// <reference path="../rules.d.ts" />`-direktivet riktig.

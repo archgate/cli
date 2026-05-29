@@ -1,15 +1,15 @@
 ---
 title: spdx-license-headers
-description: H&aring;ndhev SPDX-License-Identifier-hoder i alle kildefiler for lisensklarhet per fil og kompatibilitet med samsvarsskannere.
+description: Håndhev SPDX-License-Identifier-hoder i alle kildefiler for lisensklarhet per fil og kompatibilitet med samsvarsskannere.
 ---
 
-S&oslash;rg for at hver kildefil deklarerer lisensen sin med en maskinlesbar SPDX-identifikator.
+Sørg for at hver kildefil deklarerer lisensen sin med en maskinlesbar SPDX-identifikator.
 
 ## Regeldetaljer
 
-&Aring;pen kildekode-prosjekter drar nytte av lisensdeklarasjoner per fil -- de overlever filutpakking, bunting og kopier-og-lim-scenarier der rot-LICENSE-filen ikke er til stede. Denne regelen verifiserer at hver TypeScript-kildefil starter med standard SPDX-hodekommentar.
+Åpen kildekode-prosjekter drar nytte av lisensdeklarasjoner per fil -- de overlever filutpakking, bunting og kopier-og-lim-scenarier der rot-LICENSE-filen ikke er til stede. Denne regelen verifiserer at hver TypeScript-kildefil starter med standard SPDX-hodekommentar.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```typescript title="src/helpers/utils.ts"
 import { join } from "node:path";
@@ -21,7 +21,7 @@ export function resolvePath(base: string, rel: string): string {
 
 Filen mangler SPDX-lisensidentifikator-hodet.
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```typescript title="src/helpers/utils.ts"
 // SPDX-License-Identifier: Apache-2.0
@@ -87,13 +87,13 @@ export default {
 ## Tilpasning
 
 - **Endre lisensen**: Erstatt `Apache-2.0` med prosjektets SPDX-identifikator (f.eks. `MIT`, `BSD-3-Clause`)
-- **Endre omfanget**: Juster `files`-glob-en i ADR-frontmatteren for &aring; samsvare med kildekatalogene dine
-- **Legg til opphavsrettssjekk**: Utvid regelen til ogs&aring; &aring; verifisere opphavsrettslinje-formatet
+- **Endre omfanget**: Juster `files`-glob-en i ADR-frontmatteren for å samsvare med kildekatalogene dine
+- **Legg til opphavsrettssjekk**: Utvid regelen til også å verifisere opphavsrettslinje-formatet
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r prosjektet ditt er &aring;pen kildekode og du &oslash;nsker entydige lisensdeklarasjoner per fil som gjenkjennes av samsvarsskannere (FOSSA, Snyk, Black Duck, npm license-checker).
+Når prosjektet ditt er åpen kildekode og du ønsker entydige lisensdeklarasjoner per fil som gjenkjennes av samsvarsskannere (FOSSA, Snyk, Black Duck, npm license-checker).
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-I propriet&aelig;re/lukkede prosjekter der alle filer implisitt er "alle rettigheter forbeholdt", eller n&aring;r organisasjonen din bruker en annen lisensdeklarasjonsmekanisme som REUSE 3.0 `.dep5`-filer.
+I proprietære/lukkede prosjekter der alle filer implisitt er "alle rettigheter forbeholdt", eller når organisasjonen din bruker en annen lisensdeklarasjonsmekanisme som REUSE 3.0 `.dep5`-filer.

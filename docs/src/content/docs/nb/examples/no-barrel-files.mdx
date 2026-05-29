@@ -7,7 +7,7 @@ Oppdag og forby barrel-filer -- `index.ts`-filer som kun inneholder re-eksporter
 
 ## Regeldetaljer
 
-Barrel-filer (re-eksport-bare `index.ts`) tilslorer hvor koden faktisk befinner seg, forringer tree-shaking, skaper risiko for sirkulære avhengigheter og gjor IDE-navigasjon tregere. Denne regelen bruker en tilpasset analysefunksjon for å avgjore om en `index.ts`-fil er en ren re-eksport-barrel ved å inspisere hver ikke-kommentar-, ikke-tom linje.
+Barrel-filer (re-eksport-bare `index.ts`) tilslører hvor koden faktisk befinner seg, forringer tree-shaking, skaper risiko for sirkulære avhengigheter og gjør IDE-navigasjon tregere. Denne regelen bruker en tilpasset analysefunksjon for å avgjøre om en `index.ts`-fil er en ren re-eksport-barrel ved å inspisere hver ikke-kommentar-, ikke-tom linje.
 
 ## Eksempler på **feil** kode
 
@@ -99,7 +99,7 @@ export default {
 
 ## Når bør du bruke den
 
-Når du vil kreve direkte importer og unngå omveien som barrel-filer introduserer. Spesielt verdifullt i store kodebaser der barrel-filer forårsaker treg IDE-ytelse og gjor avhengighetsgrafer vanskeligere å forstå.
+Når du vil kreve direkte importer og unngå omveien som barrel-filer introduserer. Spesielt verdifullt i store kodebaser der barrel-filer forårsaker treg IDE-ytelse og gjør avhengighetsgrafer vanskeligere å forstå.
 
 ## Når bør du ikke bruke den
 

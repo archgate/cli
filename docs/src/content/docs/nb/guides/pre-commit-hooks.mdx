@@ -1,17 +1,17 @@
 ---
 title: Pre-commit-hooks
-description: Sett opp Archgate pre-commit-hooks for aa automatisk sjekke ADR-samsvar for hver commit. Fang opp arkitekturbrudd for de naar CI.
+description: Sett opp Archgate pre-commit-hooks for å automatisk sjekke ADR-samsvar før hver commit. Fang opp arkitekturbrudd før de når CI.
 ---
 
 ## Oversikt
 
-Kommandoen `archgate check --staged` sjekker bare git-stagede filer mot ADR-reglene dine. Fordi den hopper over ustagede og usporede filer, kjorer den raskt nok til aa brukes som en pre-commit-hook uten aa bremse arbeidsflyten din.
+Kommandoen `archgate check --staged` sjekker bare git-stagede filer mot ADR-reglene dine. Fordi den hopper over ustagede og usporede filer, kjører den raskt nok til å brukes som en pre-commit-hook uten å bremse arbeidsflyten din.
 
-Naar en sjekk feiler, blokkeres committen. Brudd skrives ut til stderr med filstier og linjenumre slik at du kan finne og fikse dem umiddelbart.
+Når en sjekk feiler, blokkeres committen. Brudd skrives ut til stderr med filstier og linjenumre slik at du kan finne og fikse dem umiddelbart.
 
 ## Lefthook
 
-[Lefthook](https://github.com/evilmartians/lefthook) er en rask, kryssplattform git-hooks-behandler. Legg til folgende i `lefthook.yml`:
+[Lefthook](https://github.com/evilmartians/lefthook) er en rask, kryssplattform git-hooks-behandler. Legg til følgende i `lefthook.yml`:
 
 ```yaml
 # lefthook.yml
@@ -29,53 +29,53 @@ lefthook install
 
 ## Husky
 
-[Husky](https://typicode.github.io/husky/) er et populaert git-hooks-verktoy for Node.js-prosjekter. Legg til sjekken i pre-commit-hooken din:
+[Husky](https://typicode.github.io/husky/) er et populært git-hooks-verktøy for Node.js-prosjekter. Legg til sjekken i pre-commit-hooken din:
 
 ```bash
 # .husky/pre-commit
 archgate check --staged
 ```
 
-Sorge for at hook-filen er kjoerbar:
+Sørg for at hook-filen er kjørbar:
 
 ```bash
 chmod +x .husky/pre-commit
 ```
 
-## Hva skjer naar sjekker feiler
+## Hva skjer når sjekker feiler
 
-Naar `archgate check --staged` finner brudd, avslutter den med kode 1. Dette blokkerer committen. Utskriften inkluderer:
+Når `archgate check --staged` finner brudd, avslutter den med kode 1. Dette blokkerer committen. Utskriften inkluderer:
 
 - ADR-ID-en og regelnavnet som ble brutt
 - Filstien der bruddet ble funnet
-- Linjenummeret (naar tilgjengelig)
+- Linjenummeret (når tilgjengelig)
 - En beskrivelse av hva regelen forventer
 
-Fiks bruddene, stage filene paa nytt med `git add`, og commit igjen.
+Fiks bruddene, stage filene på nytt med `git add`, og commit igjen.
 
 ## Ytelse
 
-`--staged`-flagget begrenser sjekker til bare filene i git-stageomraadet. Dette betyr:
+`--staged`-flagget begrenser sjekker til bare filene i git-stageområdet. Dette betyr:
 
 - Et prosjekt med hundrevis av kildefiler, men bare tre stagede filer, vil bare sjekke de tre filene.
 - Regler som ikke matcher noen stagede filer, hoppes helt over.
-- Typiske pre-commit-sjekker fullores paa under et sekund.
+- Typiske pre-commit-sjekker fullføres på under et sekund.
 
-Uten `--staged` skanner `archgate check` alle filer som matcher hver ADRs `files`-globmonster, noe som er nyttig for CI, men tregere for interaktiv bruk.
+Uten `--staged` skanner `archgate check` alle filer som matcher hver ADRs `files`-globmønster, noe som er nyttig for CI, men tregere for interaktiv bruk.
 
 ## Nyttige flagg
 
-| Flagg        | Formaal                                                                                                                      |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`   | Sjekk bare git-stagede filer (paakrevd for pre-commit)                                                                       |
-| `--verbose`  | Vis bestaatte regler og tidsinformasjon -- nyttig for aa feilsoke hvorfor en sjekk er treg eller hvilke regler som evalueres |
-| `--json`     | Skriv ut resultater som JSON -- nyttig for aa pipe til andre verktoy eller egendefinerte rapporteringsskript                 |
-| `--adr <id>` | Sjekk bare regler fra en spesifikk ADR -- nyttig for aa isolere en enkelt regel under feilsoking                             |
-| `--ci`       | Skriv ut GitHub Actions-annotasjoner -- bruk dette i CI-arbeidsflyter i stedet for pre-commit-hooks                          |
+| Flagg        | Formål                                                                                                                     |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`   | Sjekk bare git-stagede filer (påkrevd for pre-commit)                                                                      |
+| `--verbose`  | Vis beståtte regler og tidsinformasjon -- nyttig for å feilsøke hvorfor en sjekk er treg eller hvilke regler som evalueres |
+| `--json`     | Skriv ut resultater som JSON -- nyttig for å pipe til andre verktøy eller egendefinerte rapporteringsskript                |
+| `--adr <id>` | Sjekk bare regler fra en spesifikk ADR -- nyttig for å isolere en enkelt regel under feilsøking                            |
+| `--ci`       | Skriv ut GitHub Actions-annotasjoner -- bruk dette i CI-arbeidsflyter i stedet for pre-commit-hooks                        |
 
 ## Kombinere med andre hooks
 
-Pre-commit-hooks kan kjore flere kommandoer. For eksempel med Lefthook:
+Pre-commit-hooks kan kjøre flere kommandoer. For eksempel med Lefthook:
 
 ```yaml
 # lefthook.yml
@@ -89,4 +89,4 @@ pre-commit:
       run: archgate check --staged
 ```
 
-Hver kommando kjorer uavhengig. Hvis en kommando avslutter med en kode som ikke er null, blokkeres committen.
+Hver kommando kjører uavhengig. Hvis en kommando avslutter med en kode som ikke er null, blokkeres committen.

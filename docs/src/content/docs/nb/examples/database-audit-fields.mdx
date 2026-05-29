@@ -3,11 +3,11 @@ title: database-audit-fields
 description: Sørg for at alle databasetabeller inkluderer påkrevde revisjonskolonner som created_at og updated_at for sporbarhet.
 ---
 
-Sorg for at alle databasetabeller inkluderer påkrevde revisjonskolonner.
+Sørg for at alle databasetabeller inkluderer påkrevde revisjonskolonner.
 
 ## Regeldetaljer
 
-Revisjonsfelt (`created_at`, `updated_at`) er essensielle for feilsoking, datastyring og synkroniseringsprotokoller. Denne regelen analyserer skjemafiler for å finne tabelldefinisjoner, henter ut hver tabells kolonneblokk ved hjelp av klammeparentesdybde-sporing, og sjekker om påkrevde kolonner er til stede. Den fungerer med enhver ORM som definerer tabeller som funksjonsanrop med objektargumenter (Drizzle, Prisma schema-in-code, osv.).
+Revisjonsfelt (`created_at`, `updated_at`) er essensielle for feilsøking, datastyring og synkroniseringsprotokoller. Denne regelen analyserer skjemafiler for å finne tabelldefinisjoner, henter ut hver tabells kolonneblokk ved hjelp av klammeparentesdybde-sporing, og sjekker om påkrevde kolonner er til stede. Den fungerer med enhver ORM som definerer tabeller som funksjonsanrop med objektargumenter (Drizzle, Prisma schema-in-code, osv.).
 
 ## Eksempler på **feil** kode
 
@@ -102,7 +102,7 @@ export default {
 
 ## Når bør du bruke den
 
-Når datamodellen din krever konsistente revisjonsfelt for sporbarhet, feilsoking eller samsvar. Tilpass `TABLE_PATTERN`-regex og kolonnenavn for din ORM:
+Når datamodellen din krever konsistente revisjonsfelt for sporbarhet, feilsøking eller samsvar. Tilpass `TABLE_PATTERN`-regex og kolonnenavn for din ORM:
 
 ```typescript
 // For Drizzle with PostgreSQL

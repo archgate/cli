@@ -9,7 +9,7 @@ Forby spesifikke kjøretids-API-er som forårsaker plattform- eller stabilitetsp
 
 Noen API-er fungerer korrekt på en plattform, men feiler på en annen. For eksempel henger Buns shell-API (`Bun.$`) på Windows på grunn av pipe-deadlocks. Denne regelen oppdager flere varianter av en forbudt API -- det direkte kallet, importen og destrukturert bruk -- og sikrer at ingen form slipper gjennom.
 
-Dette monsteret kan generaliseres til enhver API du vil forby mens du tillater et sikkert alternativ.
+Dette mønsteret kan generaliseres til enhver API du vil forby mens du tillater et sikkert alternativ.
 
 ## Eksempler på **feil** kode
 
@@ -103,7 +103,7 @@ export default {
 
 ## Når bør du bruke den
 
-Når prosjektet ditt må kjore på flere plattformer og en spesifikk API er kjent for å feile på en av dem. Også nyttig for å forby utdaterte API-er med kjente stabilitetsproblemer.
+Når prosjektet ditt må kjøre på flere plattformer og en spesifikk API er kjent for å feile på en av dem. Også nyttig for å forby utdaterte API-er med kjente stabilitetsproblemer.
 
 ## Når bør du ikke bruke den
 

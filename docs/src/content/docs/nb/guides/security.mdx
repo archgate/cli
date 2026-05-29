@@ -1,27 +1,27 @@
 ---
 title: Sikkerhet
-description: Forstaa Archgate CLIs tillitsmodell, hvordan regler kjores, og beste praksis for aa kjore sjekker trygt i CI/CD og lokal utvikling.
+description: Forstå Archgate CLIs tillitsmodell, hvordan regler kjøres, og beste praksis for å kjøre sjekker trygt i CI/CD og lokal utvikling.
 ---
 
-Archgate kjorer TypeScript-regler fra `.rules.ts`-filer i repositoriet ditt. Denne siden forklarer tillitsmodellen, hva regler kan og ikke kan gjore, og hvordan du kjorer sjekker trygt.
+Archgate kjører TypeScript-regler fra `.rules.ts`-filer i repositoriet ditt. Denne siden forklarer tillitsmodellen, hva regler kan og ikke kan gjøre, og hvordan du kjører sjekker trygt.
 
 ## Tillitsmodell
 
-**`.rules.ts`-filer er kjoerbar kode.** Naar du kjorer `archgate check`, importerer CLI-en dynamisk hver `.rules.ts`-folgestykke-fil og kjorer `check`-funksjonene. Dette tilsvarer aa kjore `bun .archgate/adrs/*.rules.ts` -- koden har de samme mulighetene som ethvert annet skript paa maskinen din.
+**`.rules.ts`-filer er kjørbar kode.** Når du kjører `archgate check`, importerer CLI-en dynamisk hver `.rules.ts`-følgestykke-fil og kjører `check`-funksjonene. Dette tilsvarer å kjøre `bun .archgate/adrs/*.rules.ts` -- koden har de samme mulighetene som ethvert annet skript på maskinen din.
 
 Dette betyr:
 
-- Kjor bare `archgate check` paa repositorier du stoler paa.
-- Gjennomgaa `.rules.ts`-filer med samme grundighet som all annen kildekode i prosjektet.
+- Kjør bare `archgate check` på repositorier du stoler på.
+- Gjennomgå `.rules.ts`-filer med samme grundighet som all annen kildekode i prosjektet.
 - I open source-prosjekter, behandle `.rules.ts`-endringer i pull requests som sikkerhetssensitive.
 
-### Hva regler kan faa tilgang til
+### Hva regler kan få tilgang til
 
 Regler mottar et `RuleContext`-objekt med sandkassede filoperasjoner. Alle `RuleContext`-metoder (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) er begrenset til prosjektets rotkatalog -- stitraversering via `../`, absolutte stier og symbolske lenker er blokkert og kaster en feil.
 
-I tillegg til kjoringsmiljoets sandkasse kjorer Archgate en **statisk analysesikkerhetsskanner** paa hver `.rules.ts`-fil for den kjores. Skanneren parser regelens AST og blokkerer filer som inneholder farlige monstre:
+I tillegg til kjøringsmiljøets sandkasse kjører Archgate en **statisk analysesikkerhetsskanner** på hver `.rules.ts`-fil før den kjøres. Skanneren parser regelens AST og blokkerer filer som inneholder farlige mønstre:
 
-| Monster                                                             | Blokkert |
+| Mønster                                                             | Blokkert |
 | ------------------------------------------------------------------- | -------- |
 | Import av `node:fs`, `child_process`, `net`, `http`, `vm`, osv.     | Ja       |
 | `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                 | Ja       |
@@ -31,26 +31,26 @@ I tillegg til kjoringsmiljoets sandkasse kjorer Archgate en **statisk analysesik
 | Dynamisk `import()` med ikke-literal argument                       | Ja       |
 | Tilordning til `globalThis` eller `process.env`                     | Ja       |
 
-Hvis et forbudt monster finnes, blir regelfilen **ikke importert eller kjoert**, og `archgate check` avslutter med en feil.
+Hvis et forbudt mønster finnes, blir regelfilen **ikke importert eller kjørt**, og `archgate check` avslutter med en feil.
 
-**Trygge moduler som er tillatt:** `node:path`, `node:url`, `node:util`, `node:crypto` -- dette er verktoymoduler uten filsystem-, nettverks- eller prosess-I/O-funksjonalitet.
+**Trygge moduler som er tillatt:** `node:path`, `node:url`, `node:util`, `node:crypto` -- dette er verktøymoduler uten filsystem-, nettverks- eller prosess-I/O-funksjonalitet.
 
-Skanneren hever terskelen fra "trivielt aa utnytte" til "krever bevisst obfuskering som ser mistenkelig ut i kodegjennomgang." Veloppforte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, osv.) og `ctx.report` for utskrift.
+Skanneren hever terskelen fra "trivielt å utnytte" til "krever bevisst obfuskering som ser mistenkelig ut i kodegjennomgang." Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, osv.) og `ctx.report` for utskrift.
 
-### Hva regler ikke kan gjore
+### Hva regler ikke kan gjøre
 
 - **Skrive filer** -- `RuleContext`-API-et er skrivebeskyttet. Regler rapporterer brudd, men kan ikke endre kodebasen.
 - **Unnslippe 30-sekunders tidsgrensen** -- hver regel termineres etter 30 sekunder veggtid.
-- **Paavirke andre regler** -- regler fra forskjellige ADR-er kjorer parallelt, men deler ingen mutbar tilstand gjennom kontekst-API-et.
-- **Bruke farlige API-er** -- sikkerhetsskanneren blokkerer import av systemmoduler (`fs`, `child_process`, `net`, osv.), Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`) og kodegenerering (`eval`, `new Function`). Regelfiler som inneholder disse monstrene avvises for kjoring.
+- **Påvirke andre regler** -- regler fra forskjellige ADR-er kjører parallelt, men deler ingen mutbar tilstand gjennom kontekst-API-et.
+- **Bruke farlige API-er** -- sikkerhetsskanneren blokkerer import av systemmoduler (`fs`, `child_process`, `net`, osv.), Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`) og kodegenerering (`eval`, `new Function`). Regelfiler som inneholder disse mønstrene avvises før kjøring.
 
 ## Beste praksis for CI/CD
 
-Aa kjore `archgate check` i CI er trygt naar du kontrollerer repositoriets innhold. Ekstra forsiktighet er nodvendig for pull requests fra eksterne bidragsytere.
+Å kjøre `archgate check` i CI er trygt når du kontrollerer repositoriets innhold. Ekstra forsiktighet er nødvendig for pull requests fra eksterne bidragsytere.
 
-### Paalitelige grener
+### Pålitelige grener
 
-For pushes til `main` eller andre beskyttede grener kjorer `archgate check` kode som allerede er gjennomgaatt og merget. Dette er trygt:
+For pushes til `main` eller andre beskyttede grener kjører `archgate check` kode som allerede er gjennomgått og merget. Dette er trygt:
 
 ```yaml
 on:
@@ -67,9 +67,9 @@ jobs:
 
 ### Pull requests fra forks
 
-Naar en pull request kommer fra en fork, kan `.rules.ts`-filene i PR-en inneholde vilkaarlig kode. Dette er den samme risikoen som aa kjore et hvilket som helst ikke-paalitelig CI-skript.
+Når en pull request kommer fra en fork, kan `.rules.ts`-filene i PR-en inneholde vilkårlig kode. Dette er den samme risikoen som å kjøre et hvilket som helst ikke-pålitelig CI-skript.
 
-**Alternativ 1: Krev godkjenning for kjoring.** Bruk GitHubs miljoebeskyttelsesregler eller `pull_request_target` med manuell godkjenning for aa gate CI paa gjennomgang:
+**Alternativ 1: Krev godkjenning for kjøring.** Bruk GitHubs miljøbeskyttelsesregler eller `pull_request_target` med manuell godkjenning for å gate CI på gjennomgang:
 
 ```yaml
 on:
@@ -86,9 +86,9 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-**Alternativ 2: Kjor bare sjekker paa paalitelige filer.** Bruk en separat arbeidsflyt som sjekker ut basisgrenens `.rules.ts`-filer og kjorer dem mot PR-ens kildefiler. Dette sikrer at bare gjennomgaatte regler kjores.
+**Alternativ 2: Kjør bare sjekker på pålitelige filer.** Bruk en separat arbeidsflyt som sjekker ut basisgrenens `.rules.ts`-filer og kjører dem mot PR-ens kildefiler. Dette sikrer at bare gjennomgåtte regler kjøres.
 
-**Alternativ 3: Hopp over sjekker paa fork-PR-er.** Hvis reglene dine hovedsakelig er for intern styring, hopp over automatiserte sjekker paa fork-PR-er og kjor dem manuelt etter gjennomgang:
+**Alternativ 3: Hopp over sjekker på fork-PR-er.** Hvis reglene dine hovedsakelig er for intern styring, hopp over automatiserte sjekker på fork-PR-er og kjør dem manuelt etter gjennomgang:
 
 ```yaml
 on:
@@ -103,9 +103,9 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-### Minst-privilegium-kjorere
+### Minst-privilegium-kjørere
 
-Kjor `archgate check` paa kjorere med minimale tilganger. Jobben trenger bare lesetilgang til repositoriet -- ingen hemmeligheter, distribusjonsnokler eller skrivetilganger er nodvendig:
+Kjør `archgate check` på kjørere med minimale tilganger. Jobben trenger bare lesetilgang til repositoriet -- ingen hemmeligheter, distribusjonsnøkler eller skrivetilganger er nødvendig:
 
 ```yaml
 jobs:
@@ -120,25 +120,25 @@ jobs:
 
 ## Lokal utvikling
 
-### Gjennomgaa regler i nye repositorier
+### Gjennomgå regler i nye repositorier
 
-Naar du kloner eller forker et repositorium som bruker Archgate, blokkerer sikkerhetsskanneren automatisk farlige monstre i `.rules.ts`-filer. Du bor likevel gjennomgaa regelfiler for du kjorer `archgate check` for forste gang:
+Når du kloner eller forker et repositorium som bruker Archgate, blokkerer sikkerhetsskanneren automatisk farlige mønstre i `.rules.ts`-filer. Du bør likevel gjennomgå regelfiler før du kjører `archgate check` for første gang:
 
-- Skanneren fanger eksplisitt bruk av forbudte API-er, men sofistikert obfuskering (f.eks. `Reflect.get(Bun, "spawn")`) kan omgaa den
-- Toppnivaa-kode som kjorer ved import (for `check`-funksjonen kalles) kjores fortsatt hvis den bestaar skanneren
-- Veloppforte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, osv.) og `ctx.report` for utskrift
+- Skanneren fanger eksplisitt bruk av forbudte API-er, men sofistikert obfuskering (f.eks. `Reflect.get(Bun, "spawn")`) kan omgå den
+- Toppnivå-kode som kjører ved import (før `check`-funksjonen kalles) kjøres fortsatt hvis den består skanneren
+- Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, osv.) og `ctx.report` for utskrift
 
 ### Legitimasjon
 
 Kommandoen `archgate login` lagrer autentiseringstokenet ditt i operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) via `git credential approve`. Ingen legitimasjon skrives til disk som klartekstfiler. Tokenet brukes for plugin-installasjon og sendes aldri til tredjeparter utover Archgate plugins-tjenesten.
 
-- Del ikke tokenet i CI-logger. Plugin-installasjonskommandoer sender legitimasjon via autentiserte URL-er til git, som kan dukke opp i prosesslister. Unngaa aa kjore `archgate plugin install` med detaljert logging i delte CI-miljoer.
-- For aa tilbakekalle tilgang, kjor `archgate login logout`.
+- Del ikke tokenet i CI-logger. Plugin-installasjonskommandoer sender legitimasjon via autentiserte URL-er til git, som kan dukke opp i prosesslister. Unngå å kjøre `archgate plugin install` med detaljert logging i delte CI-miljøer.
+- For å tilbakekalle tilgang, kjør `archgate login logout`.
 
 ### Selvoppdateringsintegritet
 
-Naar du kjorer `archgate upgrade`, laster CLI-en ned utgivelsesbinaeeren fra GitHub Releases og verifiserer SHA256-sjekksummen for den pakkes ut. Hvis sjekksummen ikke stemmer, avbrytes oppgraderingen. Dette beskytter mot manipulerte nedlastinger paa grunn av nettverksavlytting eller kompromitterte speil.
+Når du kjører `archgate upgrade`, laster CLI-en ned utgivelsesbinæren fra GitHub Releases og verifiserer SHA256-sjekksummen før den pakkes ut. Hvis sjekksummen ikke stemmer, avbrytes oppgraderingen. Dette beskytter mot manipulerte nedlastinger på grunn av nettverksavlytting eller kompromitterte speil.
 
-## Rapportere saaerbarheter
+## Rapportere sårbarheter
 
-Hvis du oppdager et sikkerhetsproblem i Archgate, vennligst rapporter det ansvarlig ved aa aapne en [GitHub-sak](https://github.com/archgate/cli/issues) eller kontakte vedlikeholderne direkte. Ikke inkluder utnyttelseskode i offentlige saker.
+Hvis du oppdager et sikkerhetsproblem i Archgate, vennligst rapporter det ansvarlig ved å åpne en [GitHub-sak](https://github.com/archgate/cli/issues) eller kontakte vedlikeholderne direkte. Ikke inkluder utnyttelseskode i offentlige saker.

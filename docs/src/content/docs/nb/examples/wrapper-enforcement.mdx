@@ -1,15 +1,15 @@
 ---
 title: wrapper-enforcement
-description: H&aring;ndhev bruk av en prosjektinnpakning eller hjelper i stedet for et r&aring;tt plattform-API, med automatisk ekskludering av innpakningsfilen selv.
+description: Håndhev bruk av en prosjektinnpakning eller hjelper i stedet for et rått plattform-API, med automatisk ekskludering av innpakningsfilen selv.
 ---
 
-H&aring;ndhev bruk av en prosjektinnpakning i stedet for et r&aring;tt plattform-API.
+Håndhev bruk av en prosjektinnpakning i stedet for et rått plattform-API.
 
 ## Regeldetaljer
 
-N&aring;r et prosjekt tilbyr en hjelper som normaliserer et lavniv&aring;-API (f.eks. en `platform.ts`-hjelper som innpakker `process.platform`), b&oslash;r direkte bruk av det r&aring; API-et forbys overalt unntatt i innpakningen selv. Denne regelen skanner omfangsfiler etter det r&aring; API-kallet og ekskluderer automatisk hjelpefilen og ikke-produksjonskode.
+Når et prosjekt tilbyr en hjelper som normaliserer et lavnivå-API (f.eks. en `platform.ts`-hjelper som innpakker `process.platform`), bør direkte bruk av det rå API-et forbys overalt unntatt i innpakningen selv. Denne regelen skanner omfangsfiler etter det rå API-kallet og ekskluderer automatisk hjelpefilen og ikke-produksjonskode.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```typescript title="src/commands/build.ts"
 if (process.platform === "win32") {
@@ -17,7 +17,7 @@ if (process.platform === "win32") {
 }
 ```
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```typescript title="src/commands/build.ts"
 import { isWindows } from "../helpers/platform";
@@ -65,15 +65,15 @@ export default {
 } satisfies RuleSet;
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r prosjektet ditt har en innpakning eller hjelpemodul som normaliserer et r&aring;tt API og du vil forhindre direkte tilgang til det underliggende API-et. Vanlige eksempler:
+Når prosjektet ditt har en innpakning eller hjelpemodul som normaliserer et rått API og du vil forhindre direkte tilgang til det underliggende API-et. Vanlige eksempler:
 
 - `platform.ts` som innpakker `process.platform`
 - `logger.ts` som innpakker `console.log` / `console.error`
 - `fs.ts` som innpakker `node:fs` med prosjektspesifikke standardverdier
 - `env.ts` som innpakker `process.env` med typede aksessorer
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-N&aring;r det r&aring; API-et er enkelt nok til at en innpakning ikke tilfører verdi, eller n&aring;r innpakningen enn&aring; ikke er tatt i bruk p&aring; tvers av kodebasen (vurder &aring; bruke `warning`-alvorlighetsgrad under migrering).
+Når det rå API-et er enkelt nok til at en innpakning ikke tilfører verdi, eller når innpakningen ennå ikke er tatt i bruk på tvers av kodebasen (vurder å bruke `warning`-alvorlighetsgrad under migrering).

@@ -1,15 +1,15 @@
 ---
 title: test-file-coverage
-description: Verifiser at hver kildefil har en tilh&oslash;rende testfil for &aring; forhindre at utestet kode blir sammensl&aring;tt.
+description: Verifiser at hver kildefil har en tilhørende testfil for å forhindre at utestet kode blir sammenslått.
 ---
 
-Verifiser at hver kildefil har en tilh&oslash;rende testfil.
+Verifiser at hver kildefil har en tilhørende testfil.
 
 ## Regeldetaljer
 
-Utestet kode er en risiko. Denne regelen h&aring;ndhever en strukturell konvensjon: for hver fil i `src/` m&aring; en matchende `.test.ts`-fil finnes i `tests/`. Den bruker `ctx.glob` for &aring; oppdage eksisterende testfiler, bygger et oppslagssett for rask matching, og rapporterer enhver kildefil uten en motpart.
+Utestet kode er en risiko. Denne regelen håndhever en strukturell konvensjon: for hver fil i `src/` må en matchende `.test.ts`-fil finnes i `tests/`. Den bruker `ctx.glob` for å oppdage eksisterende testfiler, bygger et oppslagssett for rask matching, og rapporterer enhver kildefil uten en motpart.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```
 src/
@@ -21,7 +21,7 @@ tests/
     log.test.ts
 ```
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```
 src/
@@ -66,17 +66,17 @@ export default {
 } satisfies RuleSet;
 ```
 
-For &aring; tilpasse til prosjekter som plasserer tester ved siden av kildefilene:
+For å tilpasse til prosjekter som plasserer tester ved siden av kildefilene:
 
 ```typescript
 const testPath = rel.replace(/\.ts$/, ".test.ts");
 // src/helpers/log.ts → src/helpers/log.test.ts
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r teamet ditt f&oslash;lger en konvensjon om at hver kildemodul m&aring; ha en tilh&oslash;rende testfil, og du &oslash;nsker &aring; fange opp manglende tester under kodegjennomgang.
+Når teamet ditt følger en konvensjon om at hver kildemodul må ha en tilhørende testfil, og du ønsker å fange opp manglende tester under kodegjennomgang.
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-N&aring;r testdekning spores p&aring; andre m&aring;ter (f.eks. dekningsgrenser i CI), eller n&aring;r noen kildefiler genuint ikke trenger tester (kun-type-filer, konstanter).
+Når testdekning spores på andre måter (f.eks. dekningsgrenser i CI), eller når noen kildefiler genuint ikke trenger tester (kun-type-filer, konstanter).
