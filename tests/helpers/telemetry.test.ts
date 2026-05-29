@@ -82,23 +82,24 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      // Should not throw — events are queued internally by the SDK (and
-      // suppressed entirely in test mode by trackEvent itself)
-      trackEvent("command_executed", { command: "check" });
+      // Events are queued internally by the SDK (and suppressed entirely in
+      // test mode by trackEvent itself), so the contract is simply: no throw.
+      expect(() =>
+        trackEvent("command_executed", { command: "check" })
+      ).not.toThrow();
     });
 
     test("is a no-op when not initialized", async () => {
       const { trackEvent } = await import("../../src/helpers/telemetry");
 
-      // Should not throw
-      trackEvent("should_not_capture");
+      expect(() => trackEvent("should_not_capture")).not.toThrow();
     });
 
     test("is a no-op with no properties argument", async () => {
       const { trackEvent } = await import("../../src/helpers/telemetry");
 
       // trackEvent with no properties — exercises the undefined branch
-      trackEvent("bare_event");
+      expect(() => trackEvent("bare_event")).not.toThrow();
     });
   });
 
@@ -108,14 +109,13 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      // Should not throw
-      trackCommand("adr create", { json: true });
+      expect(() => trackCommand("adr create", { json: true })).not.toThrow();
     });
 
     test("is a no-op when not initialized", async () => {
       const { trackCommand } = await import("../../src/helpers/telemetry");
 
-      trackCommand("check");
+      expect(() => trackCommand("check")).not.toThrow();
     });
   });
 
@@ -125,7 +125,9 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackCommandResult("check", 0, 120, { outcome: "success" });
+      expect(() =>
+        trackCommandResult("check", 0, 120, { outcome: "success" })
+      ).not.toThrow();
     });
 
     test("handles non-zero exit code and extra properties", async () => {
@@ -133,64 +135,67 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackCommandResult("check", 1, 450, {
-        outcome: "user_error",
-        error_kind: "violations_found",
-      });
+      expect(() =>
+        trackCommandResult("check", 1, 450, {
+          outcome: "user_error",
+          error_kind: "violations_found",
+        })
+      ).not.toThrow();
     });
 
     test("is a no-op when not initialized", async () => {
       const { trackCommandResult } =
         await import("../../src/helpers/telemetry");
 
-      trackCommandResult("check", 0, 100);
+      expect(() => trackCommandResult("check", 0, 100)).not.toThrow();
     });
   });
 
   describe("trackCheckResult", () => {
-    test("captures check_completed event without throwing", async () => {
+    test("captures check_completed event for required and optional payloads", async () => {
       const { initTelemetry, trackCheckResult } =
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackCheckResult({
-        total_rules: 5,
-        passed: 4,
-        failed: 1,
-        warnings: 2,
-        errors: 1,
-        rule_errors: 0,
-        pass: false,
-        output_format: "console",
-        used_staged: false,
-        used_base: false,
-        used_file_filter: false,
-        used_adr_filter: false,
-      });
-    });
-
-    test("accepts optional fields (files_scanned, durations)", async () => {
-      const { initTelemetry, trackCheckResult } =
-        await import("../../src/helpers/telemetry");
-
-      await initTelemetry();
-      trackCheckResult({
-        total_rules: 10,
-        passed: 10,
-        failed: 0,
-        warnings: 0,
-        errors: 0,
-        rule_errors: 0,
-        pass: true,
-        output_format: "json",
-        used_staged: true,
-        used_base: true,
-        used_file_filter: true,
-        used_adr_filter: true,
-        files_scanned: 42,
-        load_duration_ms: 15,
-        check_duration_ms: 200,
-      });
+      // Required-only payload
+      expect(() =>
+        trackCheckResult({
+          total_rules: 5,
+          passed: 4,
+          failed: 1,
+          warnings: 2,
+          errors: 1,
+          rule_errors: 0,
+          pass: false,
+          output_format: "console",
+          used_staged: false,
+          used_base: false,
+          used_file_filter: false,
+          used_adr_filter: false,
+          used_max_warnings: false,
+        })
+      ).not.toThrow();
+      // Payload including optional fields (files_scanned, durations)
+      expect(() =>
+        trackCheckResult({
+          total_rules: 10,
+          passed: 10,
+          failed: 0,
+          warnings: 0,
+          errors: 0,
+          rule_errors: 0,
+          pass: true,
+          output_format: "json",
+          used_staged: true,
+          used_base: true,
+          used_file_filter: true,
+          used_adr_filter: true,
+          used_max_warnings: true,
+          files_scanned: 42,
+          load_duration_ms: 15,
+          check_duration_ms: 200,
+        })
+      ).not.toThrow();
     });
   });
 
@@ -200,12 +205,14 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackInitResult({
-        editor: "claude",
-        plugin_installed: true,
-        plugin_auto_installed: true,
-        had_existing_project: false,
-      });
+      expect(() =>
+        trackInitResult({
+          editor: "claude",
+          plugin_installed: true,
+          plugin_auto_installed: true,
+          had_existing_project: false,
+        })
+      ).not.toThrow();
     });
   });
 
@@ -215,12 +222,14 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackUpgradeResult({
-        from_version: "0.24.0",
-        to_version: "0.25.0",
-        install_method: "binary",
-        success: true,
-      });
+      expect(() =>
+        trackUpgradeResult({
+          from_version: "0.24.0",
+          to_version: "0.25.0",
+          install_method: "binary",
+          success: true,
+        })
+      ).not.toThrow();
     });
 
     test("accepts optional failure fields", async () => {
@@ -228,14 +237,16 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackUpgradeResult({
-        from_version: "0.24.0",
-        to_version: "0.25.0",
-        install_method: "binary",
-        success: false,
-        prompted_by_update_check: true,
-        failure_reason: "download_failed",
-      });
+      expect(() =>
+        trackUpgradeResult({
+          from_version: "0.24.0",
+          to_version: "0.25.0",
+          install_method: "binary",
+          success: false,
+          prompted_by_update_check: true,
+          failure_reason: "download_failed",
+        })
+      ).not.toThrow();
     });
   });
 
@@ -245,7 +256,9 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackLoginResult({ subcommand: "login", success: true });
+      expect(() =>
+        trackLoginResult({ subcommand: "login", success: true })
+      ).not.toThrow();
     });
 
     test("accepts failure_reason", async () => {
@@ -253,11 +266,13 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackLoginResult({
-        subcommand: "login",
-        success: false,
-        failure_reason: "network",
-      });
+      expect(() =>
+        trackLoginResult({
+          subcommand: "login",
+          success: false,
+          failure_reason: "network",
+        })
+      ).not.toThrow();
     });
 
     test("tracks logout subcommand", async () => {
@@ -265,7 +280,9 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackLoginResult({ subcommand: "logout", success: true });
+      expect(() =>
+        trackLoginResult({ subcommand: "logout", success: true })
+      ).not.toThrow();
     });
   });
 
@@ -275,16 +292,18 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackProjectInitialized({
-        editors: ["claude"],
-        editor_primary: "claude",
-        plugin_installed: false,
-        had_existing_project: false,
-        identity_shared: false,
-        repo_host: "github",
-        repo_is_git: true,
-        repo_public: null,
-      });
+      expect(() =>
+        trackProjectInitialized({
+          editors: ["claude"],
+          editor_primary: "claude",
+          plugin_installed: false,
+          had_existing_project: false,
+          identity_shared: false,
+          repo_host: "github",
+          repo_is_git: true,
+          repo_public: null,
+        })
+      ).not.toThrow();
     });
 
     test("accepts identity fields when sharing", async () => {
@@ -292,19 +311,21 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackProjectInitialized({
-        editors: ["claude"],
-        editor_primary: "claude",
-        plugin_installed: false,
-        had_existing_project: false,
-        identity_shared: true,
-        repo_host: "github",
-        repo_is_git: true,
-        repo_public: true,
-        remote_url: "https://github.com/archgate/cli.git",
-        repo_owner: "archgate",
-        repo_name: "cli",
-      });
+      expect(() =>
+        trackProjectInitialized({
+          editors: ["claude"],
+          editor_primary: "claude",
+          plugin_installed: false,
+          had_existing_project: false,
+          identity_shared: true,
+          repo_host: "github",
+          repo_is_git: true,
+          repo_public: true,
+          remote_url: "https://github.com/archgate/cli.git",
+          repo_owner: "archgate",
+          repo_name: "cli",
+        })
+      ).not.toThrow();
     });
   });
 
@@ -314,7 +335,9 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackTelemetryPreferenceChange({ enabled: false });
+      expect(() =>
+        trackTelemetryPreferenceChange({ enabled: false })
+      ).not.toThrow();
     });
 
     test("tracks re-enabling telemetry", async () => {
@@ -322,7 +345,9 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackTelemetryPreferenceChange({ enabled: true });
+      expect(() =>
+        trackTelemetryPreferenceChange({ enabled: true })
+      ).not.toThrow();
     });
   });
 
@@ -332,14 +357,14 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackGreenfieldWizardShown();
+      expect(() => trackGreenfieldWizardShown()).not.toThrow();
     });
 
     test("is a no-op when not initialized", async () => {
       const { trackGreenfieldWizardShown } =
         await import("../../src/helpers/telemetry");
 
-      trackGreenfieldWizardShown();
+      expect(() => trackGreenfieldWizardShown()).not.toThrow();
     });
   });
 
@@ -350,11 +375,13 @@ describe("telemetry", () => {
 
       await initTelemetry();
       // Exercises the filter logic: "packs/" prefix = official, others = third-party
-      trackPackImportedAtInit([
-        "packs/security",
-        "packs/testing",
-        "my-custom-pack",
-      ]);
+      expect(() =>
+        trackPackImportedAtInit([
+          "packs/security",
+          "packs/testing",
+          "my-custom-pack",
+        ])
+      ).not.toThrow();
     });
 
     test("handles empty pack list", async () => {
@@ -362,7 +389,7 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackPackImportedAtInit([]);
+      expect(() => trackPackImportedAtInit([])).not.toThrow();
     });
 
     test("handles all-official packs", async () => {
@@ -370,14 +397,16 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackPackImportedAtInit(["packs/security", "packs/testing"]);
+      expect(() =>
+        trackPackImportedAtInit(["packs/security", "packs/testing"])
+      ).not.toThrow();
     });
 
     test("is a no-op when not initialized", async () => {
       const { trackPackImportedAtInit } =
         await import("../../src/helpers/telemetry");
 
-      trackPackImportedAtInit(["packs/foo"]);
+      expect(() => trackPackImportedAtInit(["packs/foo"])).not.toThrow();
     });
   });
 
@@ -387,7 +416,7 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackWizardSkipped();
+      expect(() => trackWizardSkipped()).not.toThrow();
     });
   });
 
@@ -397,11 +426,13 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackCustomDomainAdded({
-        domain_name: "security",
-        prefix: "SEC",
-        total_custom_domains: 1,
-      });
+      expect(() =>
+        trackCustomDomainAdded({
+          domain_name: "security",
+          prefix: "SEC",
+          total_custom_domains: 1,
+        })
+      ).not.toThrow();
     });
   });
 
@@ -411,11 +442,13 @@ describe("telemetry", () => {
         await import("../../src/helpers/telemetry");
 
       await initTelemetry();
-      trackCustomDomainRemoved({
-        domain_name: "security",
-        prefix: "SEC",
-        total_custom_domains: 0,
-      });
+      expect(() =>
+        trackCustomDomainRemoved({
+          domain_name: "security",
+          prefix: "SEC",
+          total_custom_domains: 0,
+        })
+      ).not.toThrow();
     });
   });
 
@@ -426,15 +459,14 @@ describe("telemetry", () => {
 
       await initTelemetry();
 
-      // Flush with no pending events — should resolve quickly
-      await flushTelemetry();
+      // Flush with no pending events — should resolve quickly to undefined.
+      await expect(flushTelemetry()).resolves.toBeUndefined();
     });
 
     test("is a no-op when not initialized", async () => {
       const { flushTelemetry } = await import("../../src/helpers/telemetry");
 
-      // Should not throw
-      await flushTelemetry();
+      await expect(flushTelemetry()).resolves.toBeUndefined();
     });
 
     test("respects custom timeout argument", async () => {
@@ -443,8 +475,8 @@ describe("telemetry", () => {
 
       await initTelemetry();
 
-      // Short timeout — should still resolve (no pending events)
-      await flushTelemetry(100);
+      // Short timeout — should still resolve (no pending events).
+      await expect(flushTelemetry(100)).resolves.toBeUndefined();
     });
   });
 

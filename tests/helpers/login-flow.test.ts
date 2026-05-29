@@ -17,44 +17,15 @@ import {
 /** Mock cursorTo from node:readline (used by prompt.ts withPromptFix). */
 mock.module("node:readline", () => ({ cursorTo: mock(() => true) }));
 
-// Mock auth functions — auth-poll.test.ts imports from auth-poll.ts (not auth.ts),
-// so this mock does not leak into its tests.
-const mockRequestDeviceCode = mock(() =>
-  Promise.resolve({
-    device_code: "dc-test-123",
-    user_code: "ABCD-1234",
-    verification_uri: "https://github.com/login/device",
-    expires_in: 900,
-    interval: 5,
-  })
-);
-const mockPollForAccessToken = mock(() => Promise.resolve("gh-token-test-456"));
-const mockGetGitHubUser = mock(() =>
-  Promise.resolve({ login: "octocat", email: "octocat@github.com" })
-);
-const mockClaimArchgateToken = mock(() =>
-  Promise.resolve("archgate-token-789")
-);
-
-mock.module("../../src/helpers/auth", () => ({
-  requestDeviceCode: mockRequestDeviceCode,
-  pollForAccessToken: mockPollForAccessToken,
-  getGitHubUser: mockGetGitHubUser,
-  claimArchgateToken: mockClaimArchgateToken,
-}));
-
-// Mock credential-store — uses git subprocess, not fetch.
-// credential-store.test.ts imports from credential-store-impl.ts (not
-// credential-store.ts), so this mock does not leak into its tests.
-const mockSaveCredentials = mock(() => Promise.resolve());
-// Provide ALL exports so other test files that resolve this module
-// (via mock.module's process-global replacement) get callable functions
-// instead of undefined. The impl tests import from credential-store-impl.ts.
-mock.module("../../src/helpers/credential-store", () => ({
-  saveCredentials: mockSaveCredentials,
-  loadCredentials: mock(() => Promise.resolve(null)),
-  clearCredentials: mock(() => Promise.resolve()),
-}));
+// Auth + credential-store stubs are installed per-test via spyOn (see
+// beforeEach), NOT mock.module. spyOn is auto-restored and scoped to this
+// file; mock.module is process-global and would leak mocked implementations
+// into auth.test.ts and credential-store.test.ts.
+let mockRequestDeviceCode: ReturnType<typeof spyOn>;
+let mockPollForAccessToken: ReturnType<typeof spyOn>;
+let mockGetGitHubUser: ReturnType<typeof spyOn>;
+let mockClaimArchgateToken: ReturnType<typeof spyOn>;
+let mockSaveCredentials: ReturnType<typeof spyOn>;
 
 // Mock inquirer for the signup flow prompts (lazy-loaded via dynamic import).
 // Use Record<string, unknown> as return type so mockImplementation can return
@@ -72,6 +43,8 @@ mock.module("inquirer", () => ({ default: { prompt: mockInquirerPrompt } }));
 // signup.test.ts (which uses static imports).
 // ---------------------------------------------------------------------------
 
+import * as authMod from "../../src/helpers/auth";
+import * as credMod from "../../src/helpers/credential-store";
 import { runLoginFlow } from "../../src/helpers/login-flow";
 // ---------------------------------------------------------------------------
 // Imports under test — loaded AFTER mocks are registered.
@@ -90,62 +63,55 @@ import { SignupRequiredError } from "../../src/helpers/signup";
 let originalFetch: typeof globalThis.fetch;
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-let consoleLogSpy: ReturnType<typeof spyOn>;
-let consoleErrorSpy: ReturnType<typeof spyOn>;
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe("login-flow", () => {
   beforeEach(() => {
-    // Silence console output
-    consoleLogSpy = spyOn(console, "log").mockImplementation(() => {});
-    consoleErrorSpy = spyOn(console, "error").mockImplementation(() => {});
+    // Silence console output (restored via mock.restore() in afterEach).
+    spyOn(console, "log").mockImplementation(() => {});
+    spyOn(console, "error").mockImplementation(() => {});
 
     // Save original fetch — only needed for signup tests that go through
     // the real requestSignup function.
     originalFetch = globalThis.fetch;
 
-    // Clear mock call counts from previous tests
-    mockRequestDeviceCode.mockClear();
-    mockPollForAccessToken.mockClear();
-    mockGetGitHubUser.mockClear();
-    mockClaimArchgateToken.mockClear();
-    mockSaveCredentials.mockClear();
-    mockInquirerPrompt.mockClear();
+    // Install fresh per-test spies with default implementations.
+    mockRequestDeviceCode = spyOn(
+      authMod,
+      "requestDeviceCode"
+    ).mockResolvedValue({
+      device_code: "dc-test-123",
+      user_code: "ABCD-1234",
+      verification_uri: "https://github.com/login/device",
+      expires_in: 900,
+      interval: 5,
+    });
+    mockPollForAccessToken = spyOn(
+      authMod,
+      "pollForAccessToken"
+    ).mockResolvedValue("gh-token-test-456");
+    mockGetGitHubUser = spyOn(authMod, "getGitHubUser").mockResolvedValue({
+      login: "octocat",
+      email: "octocat@github.com",
+    });
+    mockClaimArchgateToken = spyOn(
+      authMod,
+      "claimArchgateToken"
+    ).mockResolvedValue("archgate-token-789");
+    mockSaveCredentials = spyOn(credMod, "saveCredentials").mockImplementation(
+      () => Promise.resolve()
+    );
 
-    // Reset default implementations
-    mockRequestDeviceCode.mockImplementation(() =>
-      Promise.resolve({
-        device_code: "dc-test-123",
-        user_code: "ABCD-1234",
-        verification_uri: "https://github.com/login/device",
-        expires_in: 900,
-        interval: 5,
-      })
-    );
-    mockPollForAccessToken.mockImplementation(() =>
-      Promise.resolve("gh-token-test-456")
-    );
-    mockGetGitHubUser.mockImplementation(() =>
-      Promise.resolve({ login: "octocat", email: "octocat@github.com" })
-    );
-    mockClaimArchgateToken.mockImplementation(() =>
-      Promise.resolve("archgate-token-789")
-    );
-    mockSaveCredentials.mockImplementation(() => Promise.resolve());
+    mockInquirerPrompt.mockClear();
     mockInquirerPrompt.mockImplementation(() =>
       Promise.resolve({ email: "test@example.com" })
     );
   });
 
   afterEach(() => {
-    consoleLogSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
+    // Restore all spyOn spies (console + auth + credential-store).
+    mock.restore();
     globalThis.fetch = originalFetch;
   });
 

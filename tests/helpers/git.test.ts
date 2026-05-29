@@ -61,14 +61,23 @@ describe("installGit", () => {
   test.skipIf(process.platform !== "win32")(
     "throws when git is not found on Windows",
     async () => {
-      // On other platforms, installGit would attempt brew/apt install instead of throwing.
-      await withBunWhich(
-        () => null,
-        async () => {
-          // Even on Windows, git is typically available so this won't reach
-          // the throw. This test documents the expected error for the path.
-        }
-      );
+      // On other platforms, installGit would attempt brew/apt install instead
+      // of throwing. Force the WSL fallback (`wsl which git`) to report a miss
+      // so resolveCommand returns null and installGit reaches the Windows throw.
+      const originalSpawn = Bun.spawn;
+      Bun.spawn = (() => ({
+        exited: Promise.resolve(1),
+      })) as unknown as typeof Bun.spawn;
+      try {
+        await withBunWhich(
+          () => null,
+          async () => {
+            await expect(installGit()).rejects.toThrow(/Git is not installed/u);
+          }
+        );
+      } finally {
+        Bun.spawn = originalSpawn;
+      }
     }
   );
 });

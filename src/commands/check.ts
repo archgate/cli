@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 
 import { resolveBaseRef } from "../engine/git-files";
 import { loadRuleAdrs } from "../engine/loader";
@@ -19,6 +20,11 @@ import { findProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
 import { trackCheckResult } from "../helpers/telemetry";
 
+const maxWarningsOption = new Option(
+  "--max-warnings <n>",
+  "Fail (exit 1) when the number of warnings exceeds this threshold (0 = fail on any warning)"
+).argParser((val) => parseInt(val, 10));
+
 export function registerCheckCommand(program: Command) {
   program
     .command("check")
@@ -32,6 +38,7 @@ export function registerCheckCommand(program: Command) {
     )
     .option("--adr <id>", "Only check rules from a specific ADR")
     .option("--verbose", "Show passing rules and timing info")
+    .addOption(maxWarningsOption)
     .argument("[files...]", "Only check rules relevant to these files")
     .action(async (files, opts) => {
       const projectRoot = findProjectRoot();
@@ -39,6 +46,16 @@ export function registerCheckCommand(program: Command) {
         logError(
           "No archgate project found. Run 'archgate init' to create one."
         );
+        await exitWith(1);
+        return;
+      }
+
+      const maxWarnings = opts.maxWarnings;
+      if (
+        maxWarnings !== undefined &&
+        (Number.isNaN(maxWarnings) || maxWarnings < 0)
+      ) {
+        logError("--max-warnings must be a non-negative integer");
         await exitWith(1);
         return;
       }
@@ -72,6 +89,7 @@ export function registerCheckCommand(program: Command) {
                 errors: 0,
                 infos: 0,
                 ruleErrors: 0,
+                warningsExceeded: false,
                 results: [],
                 durationMs: 0,
               },
@@ -122,7 +140,7 @@ export function registerCheckCommand(program: Command) {
       // Build the summary once and share it with the reporters, telemetry,
       // and exit-code resolver. Previously each of those built its own
       // summary — 3 walks over the same result set.
-      const summary = buildSummary(result);
+      const summary = buildSummary(result, { maxWarnings });
 
       if (opts.ci) {
         reportCI(result, summary);
@@ -146,6 +164,7 @@ export function registerCheckCommand(program: Command) {
         used_base: Boolean(resolvedBase),
         used_file_filter: filterFiles.length > 0,
         used_adr_filter: Boolean(opts.adr),
+        used_max_warnings: maxWarnings !== undefined,
         files_scanned: filterFiles.length,
         load_duration_ms: loadDurationMs,
         check_duration_ms: Math.round(result.totalDurationMs),

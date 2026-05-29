@@ -383,7 +383,11 @@ describe("git-files", () => {
     test("warns when file scope exceeds threshold", async () => {
       await git(["init"], tempDir);
       mkdirSync(join(tempDir, "src"), { recursive: true });
-      const fileCount = SCOPE_FILE_WARN_THRESHOLD + 1;
+      // Use a tiny injected threshold so we only need a handful of files —
+      // creating 1000+ real files + `git add .` is slow enough on Windows
+      // runners to trip the per-test timeout (SIGTERM mid-`git add`).
+      const fileWarnThreshold = 5;
+      const fileCount = fileWarnThreshold + 1;
       for (let i = 0; i < fileCount; i++) {
         writeFileSync(
           join(tempDir, "src", `file-${String(i).padStart(4, "0")}.ts`),
@@ -395,8 +399,9 @@ describe("git-files", () => {
       try {
         const files = await resolveScopedFiles(tempDir, ["src/**/*.ts"], {
           adrId: "SCOPE-001",
+          fileWarnThreshold,
         });
-        expect(files.length).toBeGreaterThan(SCOPE_FILE_WARN_THRESHOLD);
+        expect(files.length).toBeGreaterThan(fileWarnThreshold);
         const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
         expect(
           warnCalls.some(
@@ -410,7 +415,7 @@ describe("git-files", () => {
       } finally {
         warnSpy.mockRestore();
       }
-    }, 30_000);
+    });
 
     test("does not warn when file scope is within threshold", async () => {
       await git(["init"], tempDir);

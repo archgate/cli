@@ -13,14 +13,15 @@ Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts`
 
 ## Opções
 
-| Opção          | Descrição                                                                     |
-| -------------- | ----------------------------------------------------------------------------- |
-| `--staged`     | Verificar apenas arquivos no git stage (útil para hooks de pre-commit)        |
-| `--base [ref]` | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido) |
-| `--json`       | Saída JSON legível por máquina                                                |
-| `--ci`         | Formato de anotação do GitHub Actions                                         |
-| `--adr <id>`   | Verificar apenas regras de um ADR específico                                  |
-| `--verbose`    | Mostrar regras aprovadas e informações de tempo                               |
+| Opção                | Descrição                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `--staged`           | Verificar apenas arquivos no git stage (útil para hooks de pre-commit)                             |
+| `--base [ref]`       | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido)                      |
+| `--json`             | Saída JSON legível por máquina                                                                     |
+| `--ci`               | Formato de anotação do GitHub Actions                                                              |
+| `--adr <id>`         | Verificar apenas regras de um ADR específico                                                       |
+| `--verbose`          | Mostrar regras aprovadas e informações de tempo                                                    |
+| `--max-warnings <n>` | Falhar (código 1) quando a contagem de avisos exceder `n`. Use `0` para falhar com qualquer aviso. |
 
 ## Argumentos
 
@@ -33,7 +34,7 @@ Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts`
 | Código | Significado                                                                          |
 | ------ | ------------------------------------------------------------------------------------ |
 | 0      | Todas as regras passaram. Nenhuma violação encontrada.                               |
-| 1      | Uma ou mais violações detectadas.                                                    |
+| 1      | Uma ou mais violações detectadas, ou avisos excederam `--max-warnings`.              |
 | 2      | Erro na execução de regra (ex.: regra malformada, bloqueio do scanner de segurança). |
 
 ## Exemplos
@@ -60,6 +61,12 @@ Verificar um único ADR:
 
 ```bash
 archgate check --adr ARCH-001
+```
+
+Tratar qualquer aviso como falha (útil em CI):
+
+```bash
+archgate check --max-warnings 0
 ```
 
 Verificar arquivos específicos (apenas ADRs correspondentes são executados):
@@ -98,6 +105,8 @@ Durante a execução, `archgate check` emite avisos para configurações incorre
 
 Esses avisos aparecem na saída padrão e não afetam o código de saída. Eles também aparecem na saída JSON quando `--json` é usado (como violações com `"severity": "warning"`).
 
+Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"severity": "warning"`) nunca alteram o código de saída. Passe `--max-warnings <n>` para fazer `archgate check` sair com código 1 quando a contagem total de avisos exceder `n`. `--max-warnings 0` falha com qualquer aviso. Quando o limite é excedido, o campo `warningsExceeded` da saída JSON é `true` e `pass` é `false`.
+
 ## Formato da saída JSON
 
 Quando `--json` é usado, a saída é um único objeto JSON:
@@ -112,6 +121,7 @@ Quando `--json` é usado, a saída é um único objeto JSON:
   "errors": 1,
   "infos": 0,
   "ruleErrors": 0,
+  "warningsExceeded": false,
   "truncated": false,
   "results": [
     {

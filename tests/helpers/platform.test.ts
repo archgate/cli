@@ -272,11 +272,13 @@ describe("_resetAllCaches", () => {
   });
 
   test("clears Windows home dir cache", async () => {
-    // Call once to potentially populate the cache
-    await getWindowsHomeDirFromWSL();
-    // Reset and call again — should not throw
+    // Call once to populate the cache.
+    const before = await getWindowsHomeDirFromWSL();
+    // Reset and re-detect — the platform hasn't changed, so the freshly
+    // detected value must match the previously cached one.
     _resetAllCaches();
-    await getWindowsHomeDirFromWSL();
+    const after = await getWindowsHomeDirFromWSL();
+    expect(after).toBe(before);
   });
 
   test.skipIf(inWSL)(
