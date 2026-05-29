@@ -1,3 +1,9 @@
 # frozen_string_literal: true
 
 require "bundler/gem_tasks"
+
+# CI publishes from a tag checkout where bundler-cache generates
+# Gemfile.lock, .bundle/, and vendor/ as untracked files.
+# Bundler's release:guard_clean aborts when any untracked file exists,
+# so skip it — the tree is clean enough for a CI release.
+Bundler::GemHelper.instance.define_singleton_method(:guard_clean) {}
