@@ -2,7 +2,7 @@
 id: ARCH-017
 title: Multi-Ecosystem Distribution
 domain: distribution
-rules: false
+rules: true
 ---
 
 # Multi-Ecosystem Distribution
@@ -61,6 +61,7 @@ All shims produce identical user-facing error messages on stderr:
 - Don't add runtime dependencies to any shim package
 - Don't use a different cache location per ecosystem
 - Don't skip SHA256 verification
+- Don't add a top-level `main` field to the root `package.json` — npm always includes the `main` entry point in the published tarball regardless of the `files` array, which would bundle the CLI source into the thin shim. The npm package exposes only `bin/archgate.cjs` (and sub-path exports like `./rules`); it needs no default entry point.
 
 ## Consequences
 
@@ -76,6 +77,16 @@ All shims produce identical user-facing error messages on stderr:
 - First-run latency: the binary must be downloaded on the first invocation after install
 - Multiple codebases to maintain (one per ecosystem), though the logic is simple and rarely changes
 - Network dependency on GitHub Releases for the initial download
+
+## Compliance and Enforcement
+
+### Automated
+
+- **Archgate rule** ARCH-017/no-npm-main-field: Verifies the root `package.json` has no top-level `main` field, so the npm shim never bundles the CLI entry point. Severity: error.
+
+### Manual
+
+Code reviewers MUST verify new shims download (never bundle) the binary, add zero runtime dependencies, share the `~/.archgate/bin/` cache, and register their version file in `.simple-release.js` and the ARCH-013 companion rule.
 
 ## References
 

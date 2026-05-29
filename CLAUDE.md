@@ -17,7 +17,7 @@ bun run lint                  # oxlint
 bun run typecheck             # tsc --build
 bun run format                # oxfmt --write
 bun run format:check          # oxfmt --check
-bun test                      # all tests
+bun run test                  # all tests (not bare `bun test` — picks up --timeout; see GEN-003)
 bun run knip                  # dead export detection
 bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + knip + build check
 bun run build:check            # verify build compiles (CI builds binaries via release workflow)

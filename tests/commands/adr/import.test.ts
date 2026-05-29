@@ -23,76 +23,81 @@ import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-import { parsePackMetadata } from "../../../src/formats/pack";
-
-// Module mock — declared before importing so shallowClone never hits the network.
-// Provides explicit implementations instead of `require()` + spread of the mocked
-// module, which is unreliable on macOS ARM64 (Bun mock.module interop issue).
-let fakeCloneDir: string = "";
-mock.module("../../../src/helpers/registry", () => ({
-  resolveSource(input: string) {
-    const atIdx = input.lastIndexOf("@");
-    const base = atIdx <= 0 ? input : input.slice(0, atIdx);
-    const ref = atIdx <= 0 ? undefined : input.slice(atIdx + 1);
-    if (base.startsWith("packs/")) {
-      return {
-        kind: "official",
-        repoUrl: "https://github.com/archgate/awesome-adrs.git",
-        ref,
-        subpath: base,
-      };
-    }
-    const segments = base.split("/");
-    if (segments.length >= 3) {
-      const [org, repo, ...rest] = segments;
-      return {
-        kind: "github-repo",
-        repoUrl: `https://github.com/${org}/${repo}.git`,
-        ref,
-        subpath: rest.join("/"),
-      };
-    }
-    throw new Error(`Cannot resolve source "${input}".`);
-  },
-  async detectTarget(cloneDir: string, subpath: string) {
-    const fullPath = join(cloneDir, subpath);
-    const packYaml = join(fullPath, "archgate-pack.yaml");
-    if (existsSync(packYaml)) {
-      const raw = await Bun.file(packYaml).text();
-      const packMeta = parsePackMetadata(raw);
-      const adrsDir = join(fullPath, "adrs");
-      const entries = existsSync(adrsDir) ? readdirSync(adrsDir) : [];
-      return {
-        kind: "pack",
-        packMeta,
-        adrFiles: entries
-          .filter((f: string) => f.endsWith(".md"))
-          .map((f: string) => join(adrsDir, f)),
-        rulesFiles: entries
-          .filter((f: string) => f.endsWith(".rules.ts"))
-          .map((f: string) => join(adrsDir, f)),
-        baseDir: adrsDir,
-      };
-    }
-    const mdPath = fullPath.endsWith(".md") ? fullPath : `${fullPath}.md`;
-    if (existsSync(mdPath)) {
-      const rulesPath = mdPath.replace(/\.md$/u, ".rules.ts");
-      return {
-        kind: "single-adr",
-        adrFile: mdPath,
-        rulesFile: existsSync(rulesPath) ? rulesPath : null,
-        baseDir: join(mdPath, ".."),
-      };
-    }
-    throw new Error(
-      `Cannot detect import target at "${subpath}". Expected archgate-pack.yaml (pack) or a .md file (single ADR).`
-    );
-  },
-  shallowClone: () => Promise.resolve(fakeCloneDir),
-}));
-
 import { registerAdrImportCommand } from "../../../src/commands/adr/import";
+import { parsePackMetadata } from "../../../src/formats/pack";
+import * as registryMod from "../../../src/helpers/registry";
 import { safeRmSync } from "../../test-utils";
+
+// Per-test clone target; the shallowClone spy reads it at call time.
+let fakeCloneDir = "";
+
+// Explicit stand-ins for the first-party registry module, installed via spyOn
+// in beforeEach. We deliberately avoid mock.module: mock.module on a first-party
+// module is process-global and would leak into tests/helpers/registry.test.ts
+// (see ARCH-005). spyOn is per-test and auto-restored, and reaches import.ts's
+// static named imports via Bun's live bindings.
+const fakeResolveSource: typeof registryMod.resolveSource = (input) => {
+  const atIdx = input.lastIndexOf("@");
+  const base = atIdx <= 0 ? input : input.slice(0, atIdx);
+  const ref = atIdx <= 0 ? undefined : input.slice(atIdx + 1);
+  if (base.startsWith("packs/")) {
+    return {
+      kind: "official",
+      repoUrl: "https://github.com/archgate/awesome-adrs.git",
+      ref,
+      subpath: base,
+    };
+  }
+  const segments = base.split("/");
+  if (segments.length >= 3) {
+    const [org, repo, ...rest] = segments;
+    return {
+      kind: "github-repo",
+      repoUrl: `https://github.com/${org}/${repo}.git`,
+      ref,
+      subpath: rest.join("/"),
+    };
+  }
+  throw new Error(`Cannot resolve source "${input}".`);
+};
+
+const fakeDetectTarget: typeof registryMod.detectTarget = async (
+  cloneDir,
+  subpath
+) => {
+  const fullPath = join(cloneDir, subpath);
+  const packYaml = join(fullPath, "archgate-pack.yaml");
+  if (existsSync(packYaml)) {
+    const raw = await Bun.file(packYaml).text();
+    const packMeta = parsePackMetadata(raw);
+    const adrsDir = join(fullPath, "adrs");
+    const entries = existsSync(adrsDir) ? readdirSync(adrsDir) : [];
+    return {
+      kind: "pack",
+      packMeta,
+      adrFiles: entries
+        .filter((f) => f.endsWith(".md"))
+        .map((f) => join(adrsDir, f)),
+      rulesFiles: entries
+        .filter((f) => f.endsWith(".rules.ts"))
+        .map((f) => join(adrsDir, f)),
+      baseDir: adrsDir,
+    };
+  }
+  const mdPath = fullPath.endsWith(".md") ? fullPath : `${fullPath}.md`;
+  if (existsSync(mdPath)) {
+    const rulesPath = mdPath.replace(/\.md$/u, ".rules.ts");
+    return {
+      kind: "single-adr",
+      adrFile: mdPath,
+      rulesFile: existsSync(rulesPath) ? rulesPath : null,
+      baseDir: join(mdPath, ".."),
+    };
+  }
+  throw new Error(
+    `Cannot detect import target at "${subpath}". Expected archgate-pack.yaml (pack) or a .md file (single ADR).`
+  );
+};
 
 const PACK_YAML =
   "name: test-pack\nversion: 0.1.0\ndescription: A test pack for import testing.\nmaintainers:\n  - github: testuser\ntags: []\nrequires: []";
@@ -137,7 +142,7 @@ describe("import action handler", () => {
 
   beforeEach(() => {
     // realpathSync normalizes macOS /var → /private/var symlink so paths
-    // match what process.cwd() and mock.module resolve to at runtime.
+    // match what process.cwd() resolves to at runtime.
     tempDir = realpathSync(
       mkdtempSync(join(tmpdir(), "archgate-import-test-"))
     );
@@ -151,6 +156,11 @@ describe("import action handler", () => {
       throw new Error("process.exit");
     });
     fakeCloneDir = upstreamDir;
+    spyOn(registryMod, "resolveSource").mockImplementation(fakeResolveSource);
+    spyOn(registryMod, "detectTarget").mockImplementation(fakeDetectTarget);
+    spyOn(registryMod, "shallowClone").mockImplementation(() =>
+      Promise.resolve(fakeCloneDir)
+    );
   });
 
   afterEach(() => {
@@ -158,8 +168,8 @@ describe("import action handler", () => {
     delete Bun.env.ARCHGATE_PROJECT_CEILING;
     safeRmSync(tempDir);
     safeRmSync(upstreamDir);
-    logSpy.mockRestore();
-    exitSpy.mockRestore();
+    // Restores all spyOn mocks (console.log, process.exit, and the registry spies).
+    mock.restore();
   });
 
   function scaffoldProject(): void {
