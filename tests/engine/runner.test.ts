@@ -328,4 +328,133 @@ describe("runChecks", () => {
     expect(result.totalDurationMs).toBeGreaterThan(0);
     expect(result.results[0].durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  // --- Inline suppression integration tests ---
+
+  test("archgate-ignore comment suppresses matching violation", async () => {
+    writeFileSync(
+      join(tempDir, "src", "suppressed.ts"),
+      [
+        "// archgate-ignore TEST-001/no-console legacy helper",
+        'console.log("suppressed");',
+        "",
+      ].join("\n")
+    );
+
+    const loaded = makeLoadedAdr(
+      { files: ["src/**/*.ts"] },
+      {
+        rules: {
+          "no-console": {
+            description: "No console.log",
+            async check(ctx) {
+              const results = await Promise.all(
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+              );
+              for (const matches of results) {
+                for (const m of matches) {
+                  ctx.report.violation({
+                    message: "Found console.log",
+                    file: m.file,
+                    line: m.line,
+                  });
+                }
+              }
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    expect(result.results[0].violations).toHaveLength(0);
+    expect(result.suppressedCount).toBe(1);
+  });
+
+  test("archgate-ignore-file suppresses all matching violations in file", async () => {
+    writeFileSync(
+      join(tempDir, "src", "exempt.ts"),
+      [
+        "// archgate-ignore-file TEST-001/no-console debug file",
+        'console.log("a");',
+        'console.log("b");',
+        "",
+      ].join("\n")
+    );
+
+    const loaded = makeLoadedAdr(
+      { files: ["src/**/*.ts"] },
+      {
+        rules: {
+          "no-console": {
+            description: "No console.log",
+            async check(ctx) {
+              const results = await Promise.all(
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+              );
+              for (const matches of results) {
+                for (const m of matches) {
+                  ctx.report.violation({
+                    message: "Found console.log",
+                    file: m.file,
+                    line: m.line,
+                  });
+                }
+              }
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    expect(result.results[0].violations).toHaveLength(0);
+    expect(result.suppressedCount).toBe(2);
+  });
+
+  test("suppression warnings populate CheckResult", async () => {
+    writeFileSync(
+      join(tempDir, "src", "warn.ts"),
+      [
+        "// archgate-ignore TEST-001/no-console",
+        'console.log("missing reason");',
+        "",
+      ].join("\n")
+    );
+
+    const loaded = makeLoadedAdr(
+      { files: ["src/**/*.ts"] },
+      {
+        rules: {
+          "no-console": {
+            description: "No console.log",
+            async check(ctx) {
+              const results = await Promise.all(
+                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+              );
+              for (const matches of results) {
+                for (const m of matches) {
+                  ctx.report.violation({
+                    message: "Found console.log",
+                    file: m.file,
+                    line: m.line,
+                  });
+                }
+              }
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    // Violation NOT suppressed because reason is missing
+    expect(result.results[0].violations).toHaveLength(1);
+    expect(result.suppressedCount).toBe(0);
+    expect(result.suppressionWarnings).toBeDefined();
+    expect(result.suppressionWarnings!.length).toBeGreaterThan(0);
+    expect(result.suppressionWarnings![0].message).toContain(
+      "missing a reason"
+    );
+  });
 });

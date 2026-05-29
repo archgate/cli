@@ -301,6 +301,90 @@ ARCH-006/no-unapproved-deps
 
 7. **Håndter manglende filer elegant.** Hvis regelen din leser en spesifikk fil som `package.json`, pakk lesingen i en try/catch og returner tidlig hvis filen ikke eksisterer.
 
+## Opt-out-direktiver
+
+Det finnes to måter å håndtere unntak i Archgate: **undertrykkelse på motornivå** (fungerer med alle regler automatisk) og **egendefinerte direktiver på regelnivå** (implementert av regelforfatteren for domenespesifikke opt-outs).
+
+### Undertrykkelse på motornivå
+
+Archgate støtter inline `archgate-ignore`-kommentarer som undertrykker brudd uten å endre selve regelen. Motoren analyserer disse kommentarene og filtrerer matchende brudd før rapportering.
+
+**Neste-linje-undertrykkelse** — undertrykker bruddet på den umiddelbart følgende linjen:
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy-avhengighet, migrering planlagt for Q3
+import chalk from "chalk";
+```
+
+**Filnivå-undertrykkelse** — undertrykker alle matchende brudd hvor som helst i filen:
+
+```typescript
+// archgate-ignore-file ARCH-005/test-mirrors-src generert fil, ingen manuell test
+```
+
+**Flere regler** — stable kommentarer for å undertrykke mer enn én regel på samme linje:
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy-avhengighet
+// archgate-ignore ARCH-003/use-style-text tredjepartsbibliotek håndterer farger
+import chalk from "chalk";
+```
+
+Sammenhengende undertrykkelseskommentarer sikter alle mot den første ikke-undertrykkelseslinjen etter blokken.
+
+Formatet er `ADR-ID/rule-id` etterfulgt av en begrunnelse. Begrunnelsen er **påkrevd** — en undertrykkelse uten begrunnelse ignoreres og gir en advarsel:
+
+```
+[suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
+```
+
+Både `//` og `#` kommentarstiler støttes, slik at undertrykkelser fungerer i TypeScript, JavaScript, YAML, Python, shell-skript og andre filtyper reglene dine kan skanne.
+
+:::tip
+Ubrukte undertrykkelseskommentarer (kommentarer som ikke matcher noen brudd) gir også advarsler, som hjelper deg med å rydde opp i foreldede unntak etter hvert som koden utvikler seg.
+:::
+
+### Egendefinerte direktiver på regelnivå
+
+For domenespesifikke opt-outs kan regelforfattere implementere sine egne kommentarbaserte direktiver inne i `check`-funksjonen. Dette mønsteret gir regelen full kontroll over direktivsyntaksen, plassering og validering.
+
+```typescript
+// I din .rules.ts-fil:
+async check(ctx) {
+  const files = await ctx.glob("src/components/**/*Connected.tsx");
+
+  for (const file of files) {
+    const content = await ctx.readFile(file);
+
+    // Støtt opt-out-direktiv øverst i filen
+    if (/^\/\/\s*@no-presentational:/u.test(content.trimStart())) continue;
+
+    // ... regellogikk som kan rapportere et brudd ...
+    ctx.report.violation({
+      message: "Manglende presentasjonskomponent",
+      file,
+      fix: 'Legg til "// @no-presentational: <begrunnelse>" øverst i filen for å gjøre opt-out',
+    });
+  }
+}
+```
+
+Utvikleren gjør opt-out ved å legge til direktivet i filen sin:
+
+```typescript
+// @no-presentational: denne komponenten bare omdirigerer, ingen UI å rendre
+import { useNavigate } from "react-router";
+```
+
+### Når bruke hva
+
+| Tilnærming            | Best for                                                | Hvem kontrollerer             |
+| --------------------- | ------------------------------------------------------- | ----------------------------- |
+| `archgate-ignore`     | Ad-hoc-unntak for alle regler                           | Utvikleren som bruker regelen |
+| Egendefinert direktiv | Domenespesifikke opt-outs med strukturerte begrunnelser | Regelforfatteren              |
+
+Bruk `archgate-ignore` når en utvikler trenger å undertrykke et engangsbrudd. Bruk egendefinerte direktiver når opt-outen er et førsteklasses konsept i regelens domene — for eksempel å markere en komponent som med vilje uparet, eller en fil som automatisk generert.
+
 ## Neste steg
 
 - [Vanlige regelmønstre](/examples/common-rule-patterns/) -- Kopier-og-lim-inn-mønstre organisert etter kategori: avhengighetshåndtering, importrestriksjoner, filstruktur, kodekvalitet, databaseskjema og arkitekturgrenser.

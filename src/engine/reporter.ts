@@ -18,6 +18,10 @@ export interface ReportSummary {
   /** True when a `maxWarnings` threshold was set and the warning count exceeded it. */
   warningsExceeded: boolean;
   truncated: boolean;
+  /** Number of violations suppressed by archgate-ignore comments. */
+  suppressed: number;
+  /** Warnings from the suppression system (missing reason, unused suppression). */
+  suppressionWarnings: Array<{ message: string; file: string; line: number }>;
   results: Array<{
     adrId: string;
     ruleId: string;
@@ -127,6 +131,12 @@ export function buildSummary(
     ruleErrors,
     warningsExceeded,
     truncated: anyTruncated,
+    suppressed: result.suppressedCount ?? 0,
+    suppressionWarnings: (result.suppressionWarnings ?? []).map((w) => ({
+      message: w.message,
+      file: w.file,
+      line: w.line,
+    })),
     results,
     durationMs: result.totalDurationMs,
   };
@@ -190,6 +200,14 @@ export function reportConsole(
     }
   }
 
+  // Print suppression warnings
+  for (const w of summary.suppressionWarnings) {
+    const loc = w.line ? `${w.file}:${w.line}` : w.file;
+    console.log(
+      `    ${styleText("yellow", "[suppression]")} ${w.message} ${styleText("dim", loc)}`
+    );
+  }
+
   // Summary line
   console.log();
   const parts: string[] = [];
@@ -201,6 +219,8 @@ export function reportConsole(
     parts.push(styleText("red", `${summary.ruleErrors} errors`));
   if (summary.warnings > 0)
     parts.push(styleText("yellow", `${summary.warnings} warnings`));
+  if (summary.suppressed > 0)
+    parts.push(styleText("dim", `${summary.suppressed} suppressed`));
 
   const durationStr = styleText("dim", `(${summary.durationMs.toFixed(0)}ms)`);
   const status = summary.pass
@@ -266,6 +286,15 @@ export function reportCI(
         `::${level}${filePart}${linePart} title=${r.adrId}/${r.ruleId}::${v.message}`
       );
     }
+  }
+
+  // Suppression warnings
+  for (const w of summary.suppressionWarnings) {
+    const filePart = w.file ? ` file=${w.file}` : "";
+    const linePart = w.line ? `,line=${w.line}` : "";
+    console.log(
+      `::warning${filePart}${linePart} title=suppression::${w.message}`
+    );
   }
 
   // Also output summary

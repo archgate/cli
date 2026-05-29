@@ -193,6 +193,8 @@ const EMPTY_SUMMARY: ReportSummary = {
   ruleErrors: 0,
   warningsExceeded: false,
   truncated: false,
+  suppressed: 0,
+  suppressionWarnings: [],
   results: [],
   durationMs: 0,
 };

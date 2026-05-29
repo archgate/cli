@@ -301,6 +301,19 @@ interface ViolationDetail {
 
 ---
 
+## Inline suppression
+
+Violations can be suppressed in source code using `archgate-ignore` comments. The engine handles this automatically — rules do not need any special logic.
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
+import chalk from "chalk";
+```
+
+A reason is required. File-level suppression uses `archgate-ignore-file`. Stack multiple comments to suppress more than one rule on the same line. See [Opt-out directives](/guides/writing-rules/#opt-out-directives) for full details and custom directive patterns.
+
+---
+
 ## RuleSet
 
 The type used with `satisfies` to type-check your rules object. Export a plain object that conforms to this shape.
