@@ -47,6 +47,9 @@ shims/go/cmd/archgate/archgate
 shims/go/cmd/archgate/archgate.exe
 shims/rubygem/pkg/
 shims/rubygem/*.gem
+shims/rubygem/Gemfile.lock
+shims/rubygem/.bundle/
+shims/rubygem/vendor/
 shims/pypi/**/__pycache__/
 shims/pypi/.pytest_cache/
 
