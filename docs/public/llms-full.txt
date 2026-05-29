@@ -2993,6 +2993,89 @@ ARCH-006/no-unapproved-deps
 
 7. **Handle missing files gracefully.** If your rule reads a specific file like `package.json`, wrap the read in a try/catch and return early if the file does not exist.
 
+## Opt-out directives
+
+There are two ways to handle exceptions in Archgate: **engine-level suppression** (works with any rule automatically) and **custom rule-level directives** (implemented by the rule author for domain-specific opt-outs).
+
+### Engine-level suppression
+
+Archgate supports inline `archgate-ignore` comments that suppress violations without modifying the rule itself. The engine parses these comments and filters matching violations before reporting.
+
+**Next-line suppression** — suppresses the violation on the immediately following line:
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned for Q3
+
+```
+
+**File-level suppression** — suppresses all matching violations anywhere in the file:
+
+```typescript
+// archgate-ignore-file ARCH-005/test-mirrors-src generated file, no manual test
+```
+
+**Multiple rules** — stack comments to suppress more than one rule on the same line:
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy dep
+// archgate-ignore ARCH-003/use-style-text third-party lib handles colors
+
+```
+
+Consecutive suppression comments all target the first non-suppression line that follows.
+
+The format is `ADR-ID/rule-id` followed by a reason. The reason is **required** — a suppression without a reason is ignored and produces a warning:
+
+```
+[suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
+```
+
+Both `//` and `#` comment styles are supported, so suppressions work in TypeScript, JavaScript, YAML, Python, shell scripts, and other file types your rules may scan.
+
+:::tip
+Unused suppression comments (comments that don't match any violation) also produce warnings, helping you clean up stale exceptions as code evolves.
+
+### Custom rule-level directives
+
+For domain-specific opt-outs, rule authors can implement their own comment-based directives inside the `check` function. This pattern gives the rule full control over the directive syntax, placement, and validation.
+
+```typescript
+// In your .rules.ts file:
+async check(ctx) {
+  const files = await ctx.glob("src/components/**/*Connected.tsx");
+
+  for (const file of files) {
+    const content = await ctx.readFile(file);
+
+    // Support opt-out directive at the top of the file
+    if (/^\/\/\s*@no-presentational:/u.test(content.trimStart())) continue;
+
+    // ... rule logic that may report a violation ...
+    ctx.report.violation({
+      message: "Missing presentational component",
+      file,
+      fix: 'Add "// @no-presentational: <reason>" at the top of the file to opt out',
+    });
+  }
+}
+```
+
+The developer opts out by adding the directive to their file:
+
+```typescript
+// @no-presentational: this component only redirects, no UI to render
+
+```
+
+### When to use which
+
+| Approach          | Best for                                         | Who controls it          |
+| ----------------- | ------------------------------------------------ | ------------------------ |
+| `archgate-ignore` | Ad-hoc exceptions for any rule                   | Developer using the rule |
+| Custom directive  | Domain-specific opt-outs with structured reasons | Rule author              |
+
+Use `archgate-ignore` when a developer needs to suppress a one-off violation. Use custom directives when the opt-out is a first-class concept in your rule's domain — for example, marking a component as intentionally unpaired, or a file as auto-generated.
+
 ## Next steps
 
 - [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns organized by category: dependency management, import restrictions, file structure, code quality, database schema, and architecture boundaries.
@@ -4972,6 +5055,19 @@ interface ViolationDetail {
 | `endColumn` | `number?`  | End column (0-based) — for precise editor highlighting |
 | `fix`       | `string?`  | Suggested fix                                          |
 | `severity`  | `Severity` | Effective severity of this violation                   |
+
+---
+
+## Inline suppression
+
+Violations can be suppressed in source code using `archgate-ignore` comments. The engine handles this automatically — rules do not need any special logic.
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
+
+```
+
+A reason is required. File-level suppression uses `archgate-ignore-file`. Stack multiple comments to suppress more than one rule on the same line. See [Opt-out directives](/guides/writing-rules/#opt-out-directives) for full details and custom directive patterns.
 
 ---
 

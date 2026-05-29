@@ -301,6 +301,19 @@ interface ViolationDetail {
 
 ---
 
+## Inline undertrykkelse
+
+Brudd kan undertrykkes i kildekoden ved hjelp av `archgate-ignore`-kommentarer. Motoren håndterer dette automatisk — regler trenger ingen spesiell logikk.
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps legacy-avhengighet, migrering planlagt
+import chalk from "chalk";
+```
+
+En begrunnelse er påkrevd. Filnivå-undertrykkelse bruker `archgate-ignore-file`. Stable flere kommentarer for å undertrykke mer enn én regel på samme linje. Se [Opt-out-direktiver](/guides/writing-rules/#opt-out-direktiver) for fullstendige detaljer og egendefinerte direktivmønstre.
+
+---
+
 ## RuleSet
 
 Typen brukt med `satisfies` for a typekontrollere regelobjektet ditt. Eksporter et vanlig objekt som samsvarer med denne formen.

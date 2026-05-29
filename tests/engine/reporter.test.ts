@@ -333,5 +333,31 @@ describe("reporter", () => {
       expect(summary.warningsExceeded).toBe(false);
       expect(summary.pass).toBe(true);
     });
+
+    test("includes suppressed count from CheckResult", () => {
+      const result: CheckResult = {
+        ...makeResult(),
+        suppressedCount: 3,
+        suppressionWarnings: [
+          {
+            message: "Unused suppression: ARCH-002/no-console",
+            file: "src/foo.ts",
+            line: 1,
+          },
+        ],
+      };
+      const summary = buildSummary(result);
+      expect(summary.suppressed).toBe(3);
+      expect(summary.suppressionWarnings).toHaveLength(1);
+      expect(summary.suppressionWarnings[0].message).toContain(
+        "Unused suppression"
+      );
+    });
+
+    test("defaults suppressed to 0 when not present", () => {
+      const summary = buildSummary(makeResult());
+      expect(summary.suppressed).toBe(0);
+      expect(summary.suppressionWarnings).toHaveLength(0);
+    });
   });
 });

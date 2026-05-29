@@ -17,6 +17,7 @@ import {
   getGitTrackedFiles,
 } from "./git-files";
 import { type LoadResult, blockedToRuleResult } from "./loader";
+import { applySuppressions, type SuppressionWarning } from "./suppressions";
 
 /**
  * Resolve a user-supplied path and ensure it stays within projectRoot.
@@ -63,7 +64,7 @@ function safeGlob(pattern: string): void {
 }
 const RULE_TIMEOUT_MS = 30_000;
 
-interface RuleResult {
+export interface RuleResult {
   ruleId: string;
   adrId: string;
   description: string;
@@ -75,6 +76,8 @@ interface RuleResult {
 export interface CheckResult {
   results: RuleResult[];
   totalDurationMs: number;
+  suppressedCount?: number;
+  suppressionWarnings?: SuppressionWarning[];
 }
 
 /**
@@ -351,5 +354,22 @@ export async function runChecks(
     }
   }
 
-  return { results, totalDurationMs: performance.now() - startTime };
+  // Apply inline suppressions (archgate-ignore / archgate-ignore-file comments)
+  const suppression = await applySuppressions(projectRoot, results);
+
+  // Filter suppressed violations from each rule result
+  if (suppression.suppressedCount > 0) {
+    for (const r of results) {
+      r.violations = r.violations.filter((v) =>
+        suppression.activeViolations.has(v)
+      );
+    }
+  }
+
+  return {
+    results,
+    totalDurationMs: performance.now() - startTime,
+    suppressedCount: suppression.suppressedCount,
+    suppressionWarnings: suppression.warnings,
+  };
 }

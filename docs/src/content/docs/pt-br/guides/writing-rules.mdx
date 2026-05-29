@@ -301,6 +301,90 @@ ARCH-006/no-unapproved-deps
 
 7. **Trate arquivos ausentes com elegância.** Se sua regra lê um arquivo específico como `package.json`, envolva a leitura em um try/catch e retorne antecipadamente se o arquivo não existir.
 
+## Diretivas de opt-out
+
+Existem duas formas de lidar com exceções no Archgate: **supressão no nível do engine** (funciona com qualquer regra automaticamente) e **diretivas customizadas no nível da regra** (implementadas pelo autor da regra para opt-outs específicos do domínio).
+
+### Supressão no nível do engine
+
+O Archgate suporta comentários inline `archgate-ignore` que suprimem violações sem modificar a regra em si. O engine analisa esses comentários e filtra as violações correspondentes antes de reportar.
+
+**Supressão da próxima linha** — suprime a violação na linha imediatamente seguinte:
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps dep legada, migração planejada para Q3
+import chalk from "chalk";
+```
+
+**Supressão no nível do arquivo** — suprime todas as violações correspondentes em qualquer lugar do arquivo:
+
+```typescript
+// archgate-ignore-file ARCH-005/test-mirrors-src arquivo gerado, sem teste manual
+```
+
+**Múltiplas regras** — empilhe comentários para suprimir mais de uma regra na mesma linha:
+
+```typescript
+// archgate-ignore ARCH-006/no-unapproved-deps dep legada
+// archgate-ignore ARCH-003/use-style-text lib de terceiros lida com cores
+import chalk from "chalk";
+```
+
+Comentários de supressão consecutivos todos visam a primeira linha que não é uma supressão após o bloco.
+
+O formato é `ADR-ID/rule-id` seguido de um motivo. O motivo é **obrigatório** — uma supressão sem motivo é ignorada e produz um aviso:
+
+```
+[suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
+```
+
+Ambos os estilos de comentário `//` e `#` são suportados, então as supressões funcionam em TypeScript, JavaScript, YAML, Python, shell scripts e outros tipos de arquivo que suas regras podem analisar.
+
+:::tip
+Comentários de supressão não utilizados (comentários que não correspondem a nenhuma violação) também produzem avisos, ajudando a limpar exceções obsoletas à medida que o código evolui.
+:::
+
+### Diretivas customizadas no nível da regra
+
+Para opt-outs específicos do domínio, autores de regras podem implementar suas próprias diretivas baseadas em comentários dentro da função `check`. Esse padrão dá à regra controle total sobre a sintaxe, posicionamento e validação da diretiva.
+
+```typescript
+// No seu arquivo .rules.ts:
+async check(ctx) {
+  const files = await ctx.glob("src/components/**/*Connected.tsx");
+
+  for (const file of files) {
+    const content = await ctx.readFile(file);
+
+    // Suportar diretiva de opt-out no topo do arquivo
+    if (/^\/\/\s*@no-presentational:/u.test(content.trimStart())) continue;
+
+    // ... lógica da regra que pode reportar uma violação ...
+    ctx.report.violation({
+      message: "Componente presentational ausente",
+      file,
+      fix: 'Adicione "// @no-presentational: <motivo>" no topo do arquivo para fazer opt-out',
+    });
+  }
+}
+```
+
+O desenvolvedor faz opt-out adicionando a diretiva ao seu arquivo:
+
+```typescript
+// @no-presentational: este componente apenas redireciona, sem UI para renderizar
+import { useNavigate } from "react-router";
+```
+
+### Quando usar qual
+
+| Abordagem            | Melhor para                                              | Quem controla                |
+| -------------------- | -------------------------------------------------------- | ---------------------------- |
+| `archgate-ignore`    | Exceções ad-hoc para qualquer regra                      | Desenvolvedor usando a regra |
+| Diretiva customizada | Opt-outs específicos do domínio com motivos estruturados | Autor da regra               |
+
+Use `archgate-ignore` quando um desenvolvedor precisa suprimir uma violação pontual. Use diretivas customizadas quando o opt-out é um conceito de primeira classe no domínio da sua regra — por exemplo, marcar um componente como intencionalmente sem par, ou um arquivo como auto-gerado.
+
 ## Próximos passos
 
 - [Padrões Comuns de Regras](/examples/common-rule-patterns/) — Padrões prontos para copiar e colar, organizados por categoria: gerenciamento de dependências, restrições de import, estrutura de arquivos, qualidade de código, esquema de banco de dados e limites de arquitetura.

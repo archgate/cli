@@ -49,6 +49,8 @@ const MOCK_SUMMARY: ReportSummary = {
   ruleErrors: 0,
   warningsExceeded: false,
   truncated: false,
+  suppressed: 0,
+  suppressionWarnings: [],
   results: [
     {
       adrId: "TEST-001",
