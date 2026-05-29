@@ -1,3 +1,17 @@
+## [0.41.0](https://github.com/archgate/cli/compare/v0.40.0...v0.41.0) (2026-05-29)
+
+### Features
+
+* **adr:** convert agent-memory patterns into enforced ADR rules ([#376](https://github.com/archgate/cli/issues/376)) ([267e7e4](https://github.com/archgate/cli/commit/267e7e434c9c935c758ba2e56689b76828dc95d7))
+* **check:** add --max-warnings flag to fail on warnings ([#374](https://github.com/archgate/cli/issues/374)) ([20920de](https://github.com/archgate/cli/commit/20920de3c8ebe8bd59aa42401a65b85ef0ff56ba))
+* **lint:** add bun:test expect-expect oxlint plugin ([#373](https://github.com/archgate/cli/issues/373)) ([1bda975](https://github.com/archgate/cli/commit/1bda975c9e1d0b2abc6311c6bcdc14573fe3a60a)), closes [#353](https://github.com/archgate/cli/issues/353)
+
+### Bug Fixes
+
+* **ci:** pin pip build dependency by hash for Scorecard compliance ([#361](https://github.com/archgate/cli/issues/361)) ([2282b1e](https://github.com/archgate/cli/commit/2282b1ec207bbd813a1d5f72d754ff412b0d9613)), closes [#16](https://github.com/archgate/cli/issues/16)
+* **release:** repair shim publishing and distribute synced package READMEs ([#368](https://github.com/archgate/cli/issues/368)) ([059a4db](https://github.com/archgate/cli/commit/059a4db0fa114b422369c3567931617ba2c6b2d4))
+* **shims:** add per-package LICENSE files and enforce shim license sync ([#370](https://github.com/archgate/cli/issues/370)) ([15bdb47](https://github.com/archgate/cli/commit/15bdb473c0720fe0fa0882bdf4a8e69e85fbe863))
+
 ## [0.40.0](https://github.com/archgate/cli/compare/v0.39.0...v0.40.0) (2026-05-28)
 
 ### Features
