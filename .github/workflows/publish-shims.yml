@@ -59,11 +59,11 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          python-version: "3.12"
       - name: Build package
         working-directory: shims/pypi
-        run: uv build
+        # `uv build` provisions an isolated, version-pinned build environment
+        # itself — no unpinned `pip install build` (Scorecard Pinned-Dependencies).
+        run: uv build --python 3.12
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
