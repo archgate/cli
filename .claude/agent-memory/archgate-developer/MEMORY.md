@@ -28,22 +28,9 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 - **Content filtering on policy/legal text** — Writing files containing Contributor Covenant, license text, or similar legal boilerplate (e.g., `CODE_OF_CONDUCT.md`) may trigger API content filtering and block output. Do NOT attempt to auto-generate these files. Instead, tell the user to copy the content manually from the official source (e.g., https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 
-## Enforced by ADRs
-
-These conventions are now machine-checked by `archgate check` — the ADR + its `.rules.ts` own the full rationale and do/don'ts. This is just a map; read the ADR before relying on specifics.
-
-- **GEN-003** — no `bunx`/`npx` of lint/format tools (prettier, oxfmt, oxlint, eslint, biome); use `bun run <script>`. Also bans bare `bun test` in CI (use `bun run test`, append flags after). This repo's formatter is **oxfmt**.
-- **ARCH-001** — no top-level `await` in `src/cli.ts`; wrap async bootstrap in `async function main()` (`--bytecode` rejects it).
-- **ARCH-013** — shim `LICENSE.md`/`README.md`/version files stay byte-identical to root (propagated by `.simple-release.js`).
-- **ARCH-017** — no `main` field in root `package.json` (keeps the npm thin shim lean).
-- **ARCH-018** — lazy-load heavy deps (`inquirer`, `@sentry/*`, `posthog-node`) via dynamic `import()`; `import type` is exempt.
-- **ARCH-019** — wrap every `inquirer.prompt()` in `withPromptFix()` (Windows newline corruption).
-- **ARCH-020** — `Bun.Glob.scan()` must pass `{ dot: true }` (else dot-dirs silently skipped on Windows).
-- **ARCH-021** — `.ps1` files must be ASCII-only (Windows PowerShell 5.1 mis-decodes BOM-less UTF-8).
-
 ## Patterns & Fixes
 
-Non-enforceable lessons — environment/CI/platform quirks no static rule can reliably catch.
+Non-enforceable lessons — environment/CI/platform quirks no static rule can reliably catch. (Conventions that ARE machine-checked live in their ADRs under `.archgate/adrs/`; the agent reads those before coding, so they are intentionally not duplicated here.)
 
 - **YAML double-quoted strings require escaped backslashes for Windows paths in tests** — YAML interprets `\` as an escape character inside double-quoted strings. Writing `cwd: "E:\project"` silently corrupts the parsed value because `\p` is not a valid escape sequence. Fix: use `JSON.stringify(path)` to produce properly escaped YAML values (e.g., `cwd: ${JSON.stringify(cwd)}`). JSON and YAML double-quoted strings share the same escape syntax. Encountered in Copilot CLI session-context tests (`workspace.yaml` with Windows paths).
 - **`git commit` in temp repos requires local identity** — CI runners have no global `user.email`/`user.name` configured. Any test that runs `git commit` on a temp repo MUST call `git config user.email` and `git config user.name` locally after `git init`. Fails with a cryptic `ShellPromise` error in CI; passes locally. Also captured in ARCH-005 Do's.
@@ -84,4 +71,4 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 - **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs`). On first run, the shim downloads the platform binary from GitHub Releases and caches it to `~/.archgate/bin/`. No platform-specific npm packages.
 - **`.cjs` extension is mandatory** — Root `package.json` has `"type": "module"`. Any Node.js CJS wrapper script placed at the package root MUST use `.cjs`, not `.js`, or Node.js will attempt to parse it as ESM and fail.
 - [Shim publishing pipeline gotchas](project_shim_publishing.md) — PyPI README, RubyGem Rakefile/working-dir, Maven waitUntil; build reqs not caught by `archgate check`
-- **Each shim needs its own `LICENSE.md`** — Now ENFORCED by the `ARCH-013/shim-license-sync` rule (fails `archgate check` on drift) and propagated at release by `.simple-release.js` `bump()`, parallel to the README sync. Operational detail: a subdir Go module's zip only contains files under its subtree, so root `LICENSE.md` is excluded and pkg.go.dev shows "no license" until `shims/go/LICENSE.md` exists. To register a subdir Go module, hit the proxy: `curl https://proxy.golang.org/<module>/@v/<version>.info`.
+- **Registering a subdir Go module on pkg.go.dev** — A subdir Go module's zip only contains files under its subtree, so the repo-root `LICENSE.md` is excluded and pkg.go.dev shows "no license" until `shims/go/LICENSE.md` exists (the shim LICENSE sync is enforced by ARCH-013). To trigger registration, hit the proxy: `curl https://proxy.golang.org/<module>/@v/<version>.info`.
