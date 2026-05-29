@@ -1,3 +1,9 @@
+## [0.41.1](https://github.com/archgate/cli/compare/v0.41.0...v0.41.1) (2026-05-29)
+
+### Bug Fixes
+
+* **shims:** fix rubygem and pypi publish failures ([#377](https://github.com/archgate/cli/issues/377)) ([76324d1](https://github.com/archgate/cli/commit/76324d163526038f8ebb3d4d6f07aa23ed65e5f4)), closes [#378](https://github.com/archgate/cli/issues/378)
+
 ## [0.41.0](https://github.com/archgate/cli/compare/v0.40.0...v0.41.0) (2026-05-29)
 
 ### Features
