@@ -4,6 +4,10 @@ source "https://rubygems.org"
 
 gemspec
 
+# rake is required by `bundle exec rake release` (rubygems/release-gem action).
+# Ruby 4.0 no longer ships rake as a bundled default gem, so it must be declared.
+gem "rake", "~> 13.0"
+
 group :test do
   gem "minitest", "~> 6.0"
   gem "minitest-mock", "~> 5.0"
