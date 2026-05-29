@@ -200,7 +200,8 @@ export function registerAdrCommand(program: Command) {
 
 - **Archgate rule** ARCH-001/register-function-export: Scans all command files under src/commands/ (excluding index.ts group files) and verifies each exports a register\*Command function. Severity: error.
 - **Archgate rule** ARCH-001/no-business-logic: Detects complex data transformation patterns in command files that should be in helpers. Severity: error.
-- **Build check** bun run build:check: Compiles src/cli.ts with bun build --compile --bytecode as part of bun run validate. A top-level await regression causes an immediate, descriptive parse error.
+- **Archgate rule** ARCH-001\no-top-level-await-in-entry: Scans src/cli.ts for top-level await (await outside an indented function body) and flags it before a compile is needed. Severity: error.
+- **Build check** bun run build:check: Compiles src/cli.ts with bun build --compile --bytecode as part of bun run validate. A top-level await regression causes an immediate, descriptive parse error. This remains the authoritative check; the rule above is a fast local early-warning.
 
 ### Manual Enforcement
 

@@ -12,8 +12,8 @@
       "Bash(ls *)",
       "Bash(rm *)",
       "Bash(proto *)",
-      "Skill(archgate:architect)",
-      "Skill(archgate:quality-manager)",
+      "Skill(archgate:reviewer)",
+      "Skill(archgate:lessons-learned)",
       "Skill(archgate:adr-author)",
       "WebSearch",
       "Read",
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | xargs -I {} bunx oxfmt --write {}"
+            "command": "jq -r '.tool_input.file_path' | xargs -I {} bun run format:file {}"
           }
         ]
       }

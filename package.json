@@ -46,6 +46,7 @@
     "docs:preview": "cd docs && bunx --bun astro preview",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
+    "format:file": "oxfmt --write",
     "knip": "knip",
     "lint": "oxlint --deny-warnings .",
     "test": "bun test --timeout 60000",

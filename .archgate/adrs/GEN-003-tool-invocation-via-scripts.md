@@ -2,7 +2,7 @@
 id: GEN-003
 title: Tool Invocation via Package Scripts
 domain: general
-rules: false
+rules: true
 ---
 
 # Tool Invocation via Package Scripts
@@ -91,7 +91,12 @@ All linting, formatting, and validation MUST be invoked through `package.json` s
 
 ## Compliance and Enforcement
 
-**Automated enforcement**: The Archgate developer agent definition (`agents/developer.md`) MUST instruct agents to use `bun run format`, `bun run lint`, and `bun run validate` — never direct tool invocation. Agent memory records reinforce this rule across sessions.
+**Automated enforcement** (companion `GEN-003-tool-invocation-via-scripts.rules.ts`):
+
+- **GEN-003/no-direct-lint-format-invocation**: Scans `.github/workflows/*` and `package.json` for `bunx`/`npx` invocations of lint/format tools (`prettier`, `oxfmt`, `oxlint`, `eslint`, `biome`). The only acceptable place for a direct tool binary is inside a `package.json` script body. Scope deliberately excludes Markdown so this ADR's own prohibited-example text is not self-flagged, and excludes non-lint tools so legitimate invocations like `bunx --bun astro` (docs build) remain allowed.
+- **GEN-003/no-bare-bun-test-in-ci**: Scans `.github/workflows/*` for bare `bun test` (as opposed to `bun run test`). Bare `bun test` skips the script-level flags in `package.json` (e.g. `--timeout 60000`), which causes filesystem/subprocess tests to time out on slow runners.
+
+The Archgate developer agent definition also instructs agents to use `bun run format`, `bun run lint`, `bun run test`, and `bun run validate` — never direct tool invocation. Agent memory records reinforce this across sessions.
 
 **Manual enforcement**: Code reviewers MUST reject PRs that introduce direct tool invocations (e.g., `bunx prettier --write`, `npx oxlint`) in scripts, CI workflows, or documentation. The only acceptable place for direct tool invocation is inside the `package.json` scripts themselves.
 
