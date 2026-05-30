@@ -52,7 +52,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Context check
         id: check
-        uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1
+        uses: TrigenSoftware/simple-release-action@e7293dad843693d8692d443c3f21b78338048f13 # v1.1.8
         with:
           workflow: check
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -112,7 +112,7 @@ jobs:
           HOOK
           chmod +x .git/hooks/prepare-commit-msg
       - name: Create or update pull request
-        uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1
+        uses: TrigenSoftware/simple-release-action@e7293dad843693d8692d443c3f21b78338048f13 # v1.1.8
         with:
           workflow: pull-request
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -156,7 +156,7 @@ jobs:
       - name: Ensure main is up-to-date before release
         run: git pull --rebase origin main
       - name: Release
-        uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1
+        uses: TrigenSoftware/simple-release-action@e7293dad843693d8692d443c3f21b78338048f13 # v1.1.8
         with:
           workflow: release
           github-token: ${{ steps.generate_token.outputs.token }}
