@@ -2,9 +2,6 @@ bun = "1.3.14"
 node = "24"
 npm = "11.15.0"
 gh = "2.92.0"
-go = "1.21"
-dotnet = "8.0"
-java = "11"
 
 [settings]
 auto-install = true
@@ -15,5 +12,3 @@ shared-globals-dir = true
 
 [plugins.tools]
 gh = "https://raw.githubusercontent.com/appthrust/proto-toml-plugins/main/gh/plugin.toml"
-dotnet = "https://raw.githubusercontent.com/RemiKalbe/proto-dotnet-plugin/main/plugin.toml"
-java = "github://eplightning/openjdk-adoptium-proto-plugin"
