@@ -39,61 +39,22 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 
 ## Installation
 
-**Standalone** (no Node.js required):
-
-```bash
-# macOS / Linux
-curl -fsSL https://cli.archgate.dev/install-unix | sh
-
-# Windows (PowerShell)
-irm https://cli.archgate.dev/install-windows | iex
-
-# Windows (Git Bash / MSYS2)
-curl -fsSL https://cli.archgate.dev/install-unix | sh
-```
-
-**Via npm** (or any Node.js package manager):
-
-```bash
-# npm
-npm install -g archgate
-
-# Bun
-bun install -g archgate
-
-# Yarn
-yarn global add archgate
-
-# pnpm
-pnpm add -g archgate
-```
-
-You can also install as a dev dependency:
-
-```bash
-npm install -D archgate    # or: bun add -d archgate
-npx archgate check         # run via package manager
-```
-
-**Requirements:** macOS (arm64), Linux (x86_64), or Windows (x86_64). See the [installation guide](https://cli.archgate.dev/getting-started/installation/) for more options.
+Install via standalone script, npm, pip, dotnet, Go, gem, Maven, or proto. See the **[installation guide](https://cli.archgate.dev/getting-started/installation/)** for all options and platform support.
 
 ## Quick start
 
 ```bash
-# 1. Install
-curl -fsSL https://cli.archgate.dev/install-unix | sh  # or: npm install -g archgate
-
-# 2. Initialize governance in your project
+# 1. Initialize governance in your project
 cd my-project
 archgate init
 
-# 3. Edit the generated ADR to document a real decision
+# 2. Edit the generated ADR to document a real decision
 # .archgate/adrs/ARCH-001-*.md
 
-# 4. Add a companion .rules.ts to enforce it automatically
+# 3. Add a companion .rules.ts to enforce it automatically
 # .archgate/adrs/ARCH-001-*.rules.ts
 
-# 5. Run checks
+# 4. Run checks
 archgate check
 ```
 
