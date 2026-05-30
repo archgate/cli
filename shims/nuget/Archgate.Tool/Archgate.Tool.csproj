@@ -6,7 +6,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>archgate</ToolCommandName>
     <PackageId>archgate</PackageId>
-    <Version>0.41.1</Version>
+    <Version>0.42.0</Version>
     <Description>Enforce Architecture Decision Records as executable rules — for both humans and AI agents</Description>
     <Authors>Archgate</Authors>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

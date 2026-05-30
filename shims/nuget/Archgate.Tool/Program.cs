@@ -8,7 +8,7 @@ namespace Archgate.Tool;
 
 internal static class Program
 {
-    private const string Version = "0.41.1";
+    private const string Version = "0.42.0";
 
     private static readonly string CacheDir = Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
