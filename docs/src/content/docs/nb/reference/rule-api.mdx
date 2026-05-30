@@ -3,7 +3,7 @@ title: Rule API
 description: TypeScript API-referanse for skriving av Archgate-regler. Lær RuleSet med satisfies, RuleContext, rapportering av brudd, filmatchning og AST-baserte samsvarskontroller.
 ---
 
-Archgate-regler er TypeScript-filer som eksporterer et vanlig objekt typet med `satisfies RuleSet`. Hver regel mottar en `RuleContext` med verktoy for a soke i filer, lese innhold og rapportere brudd.
+Archgate-regler er TypeScript-filer som eksporterer et vanlig objekt typet med `satisfies RuleSet`. Hver regel mottar en `RuleContext` med verktøy for å søke i filer, lese innhold og rapportere brudd.
 
 ## RuleSet
 
@@ -23,7 +23,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-En regelfil eksporterer som standard et vanlig objekt med en `rules`-post indeksert etter regel-ID. Noklene blir regel-ID-ene som vises i sjekkutdata og bruddrapporter. Annotasjonen `satisfies RuleSet` gir typekontroll uten a pakke inn i et funksjonskall.
+En regelfil eksporterer som standard et vanlig objekt med en `rules`-post indeksert etter regel-ID. Nøklene blir regel-ID-ene som vises i sjekkutdata og bruddrapporter. Annotasjonen `satisfies RuleSet` gir typekontroll uten å pakke inn i et funksjonskall.
 
 ```typescript
 type RuleSet = { rules: Record<string, RuleConfig> };
@@ -33,7 +33,7 @@ type RuleSet = { rules: Record<string, RuleConfig> };
 
 ## RuleConfig
 
-Hver regel i posten ma samsvare med `RuleConfig`-grensesnittet.
+Hver regel i posten må samsvare med `RuleConfig`-grensesnittet.
 
 ```typescript
 interface RuleConfig {
@@ -43,7 +43,7 @@ interface RuleConfig {
 }
 ```
 
-| Felt          | Type                                  | Pakrevd | Beskrivelse                                                |
+| Felt          | Type                                  | Påkrevd | Beskrivelse                                                |
 | ------------- | ------------------------------------- | ------- | ---------------------------------------------------------- |
 | `description` | `string`                              | Ja      | Lesbar beskrivelse som vises i sjekkutdata                 |
 | `severity`    | `Severity`                            | Nei     | Standard alvorlighetsgrad for brudd. Standard er `"error"` |
@@ -85,7 +85,7 @@ Absolutt sti til prosjektets rotkatalog (der `.archgate/` ligger).
 scopedFiles: string[];
 ```
 
-Filer som matcher ADR-ens `files`-globmonstre fra frontmatter. Hvis ADR-en ikke har et `files`-felt, inneholder denne alle prosjektfiler. Bruk denne som den primaere fillisten for regelkontrollene dine.
+Filer som matcher ADR-ens `files`-globmønstre fra frontmatter. Hvis ADR-en ikke har et `files`-felt, inneholder denne alle prosjektfiler. Bruk denne som den primære fillisten for regelkontrollene dine.
 
 #### changedFiles
 
@@ -93,7 +93,7 @@ Filer som matcher ADR-ens `files`-globmonstre fra frontmatter. Hvis ADR-en ikke 
 changedFiles: string[];
 ```
 
-Filer som har blitt endret ifolge git. Som standard fylles denne automatisk med branch-diffen mot den detekterte basisgrenen (f.eks. `origin/main`). Nar `--staged` brukes, inneholder den kun stagede filer. Nar `--base <ref>` brukes, inneholder den alle filer som er endret siden den referansen. Tom nar basisdeteksjon feiler eller ingen endringer finnes. Bruk denne til a bygge regler for avhengigheter mellom filer (f.eks. "hvis fil A endret seg, ma fil B ogsa endres").
+Filer som har blitt endret ifølge git. Som standard fylles denne automatisk med branch-diffen mot den detekterte basisgrenen (f.eks. `origin/main`). Når `--staged` brukes, inneholder den kun stagede filer. Når `--base <ref>` brukes, inneholder den alle filer som er endret siden den referansen. Tom når basisdeteksjon feiler eller ingen endringer finnes. Bruk denne til å bygge regler for avhengigheter mellom filer (f.eks. "hvis fil A endret seg, må fil B også endres").
 
 #### report
 
@@ -101,7 +101,7 @@ Filer som har blitt endret ifolge git. Som standard fylles denne automatisk med 
 report: RuleReport;
 ```
 
-Rapporteringsgrensesnittet for a registrere brudd, advarsler og informasjonsmeldinger. Se [RuleReport](#rulereport) nedenfor.
+Rapporteringsgrensesnittet for å registrere brudd, advarsler og informasjonsmeldinger. Se [RuleReport](#rulereport) nedenfor.
 
 ### Metoder
 
@@ -111,7 +111,7 @@ Rapporteringsgrensesnittet for a registrere brudd, advarsler og informasjonsmeld
 glob(pattern: string): Promise<string[]>;
 ```
 
-Finn filer som matcher et globmonster relativt til prosjektroten. Returnerer en matrise med filstier. Filer som ignoreres av `.gitignore` er ekskludert som standard. Sett `respectGitignore: false` i ADR-ens frontmatter for a inkludere dem.
+Finn filer som matcher et globmønster relativt til prosjektroten. Returnerer en matrise med filstier. Filer som ignoreres av `.gitignore` er ekskludert som standard. Sett `respectGitignore: false` i ADR-ens frontmatter for å inkludere dem.
 
 ```typescript
 const testFiles = await ctx.glob("tests/**/*.test.ts");
@@ -123,7 +123,7 @@ const testFiles = await ctx.glob("tests/**/*.test.ts");
 grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
 ```
 
-Sok i en enkelt fil etter linjer som matcher et regulaert uttrykk. Returnerer en matrise med `GrepMatch`-objekter med filsti, linjenummer, kolonne og matchet innhold.
+Søk i en enkelt fil etter linjer som matcher et regulært uttrykk. Returnerer en matrise med `GrepMatch`-objekter med filsti, linjenummer, kolonne og matchet innhold.
 
 ```typescript
 const matches = await ctx.grep(file, /console\.error\(/);
@@ -135,7 +135,7 @@ const matches = await ctx.grep(file, /console\.error\(/);
 grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
 ```
 
-Sok i flere filer som matcher et globmonster etter linjer som matcher et regulaert uttrykk. Kombinerer `glob` og `grep` i ett enkelt kall. Filer som ignoreres av `.gitignore` er ekskludert som standard. Sett `respectGitignore: false` i ADR-ens frontmatter for a inkludere dem.
+Søk i flere filer som matcher et globmønster etter linjer som matcher et regulært uttrykk. Kombinerer `glob` og `grep` i ett enkelt kall. Filer som ignoreres av `.gitignore` er ekskludert som standard. Sett `respectGitignore: false` i ADR-ens frontmatter for å inkludere dem.
 
 ```typescript
 const matches = await ctx.grepFiles(/TODO:/i, "src/**/*.ts");
@@ -171,7 +171,7 @@ const pkg = (await ctx.readJSON("package.json")) as {
 
 ## RuleReport
 
-Rapporteringsgrensesnittet for a registrere sjekkresultater. Hver metode aksepterer et detalobjekt som beskriver problemet.
+Rapporteringsgrensesnittet for å registrere sjekkresultater. Hver metode aksepterer et detalobjekt som beskriver problemet.
 
 ```typescript
 interface RuleReport {
@@ -187,7 +187,7 @@ interface RuleReport {
 report.violation(detail: ReportDetail): void;
 ```
 
-Rapporter et regelbrudd. Brudd far sjekken til a feile med avslutningskode 1. Bruk for harde begrensninger som ikke skal merges.
+Rapporter et regelbrudd. Brudd får sjekken til å feile med avslutningskode 1. Bruk for harde begrensninger som ikke skal merges.
 
 #### warning
 
@@ -195,7 +195,7 @@ Rapporter et regelbrudd. Brudd far sjekken til a feile med avslutningskode 1. Br
 report.warning(detail: ReportDetail): void;
 ```
 
-Rapporter en advarsel. Advarsler vises i sjekkutdata, men far ikke sjekken til a feile. Bruk for ikke-blokkerende veiledning.
+Rapporter en advarsel. Advarsler vises i sjekkutdata, men får ikke sjekken til å feile. Bruk for ikke-blokkerende veiledning.
 
 #### info
 
@@ -203,7 +203,7 @@ Rapporter en advarsel. Advarsler vises i sjekkutdata, men far ikke sjekken til a
 report.info(detail: ReportDetail): void;
 ```
 
-Rapporter en informasjonsmelding. Pavirker ikke avslutningskoden for sjekken. Bruk for forslag eller notater.
+Rapporter en informasjonsmelding. Påvirker ikke avslutningskoden for sjekken. Bruk for forslag eller notater.
 
 ### ReportDetail
 
@@ -220,16 +220,16 @@ interface ReportDetail {
 }
 ```
 
-| Felt        | Type     | Pakrevd | Beskrivelse                                                                |
+| Felt        | Type     | Påkrevd | Beskrivelse                                                                |
 | ----------- | -------- | ------- | -------------------------------------------------------------------------- |
 | `message`   | `string` | Ja      | Lesbar beskrivelse av problemet                                            |
 | `file`      | `string` | Nei     | Filsti der problemet ble funnet                                            |
 | `line`      | `number` | Nei     | Startlinjenummer (1-basert)                                                |
-| `endLine`   | `number` | Nei     | Sluttlinjenummer (1-basert) -- for presis uthevning av omrade i editoren   |
-| `endColumn` | `number` | Nei     | Sluttkolonnenummer (0-basert) -- for presis uthevning av omrade i editoren |
-| `fix`       | `string` | Nei     | Foreslatt rettelse eller utbedringstiltak                                  |
+| `endLine`   | `number` | Nei     | Sluttlinjenummer (1-basert) -- for presis uthevning av område i editoren   |
+| `endColumn` | `number` | Nei     | Sluttkolonnenummer (0-basert) -- for presis uthevning av område i editoren |
+| `fix`       | `string` | Nei     | Foreslått rettelse eller utbedringstiltak                                  |
 
-Nar `endLine` og `endColumn` er oppgitt, kan editorer (VS Code, Cursor) utheve det noyaktige uttrykket som bryter regelen, i stedet for hele linjen. Hvis de utelates, utheves hele linjen ved `line`.
+Når `endLine` og `endColumn` er oppgitt, kan editorer (VS Code, Cursor) utheve det nøyaktige uttrykket som bryter regelen, i stedet for hele linjen. Hvis de utelates, utheves hele linjen ved `line`.
 
 ---
 
@@ -261,11 +261,11 @@ interface GrepMatch {
 type Severity = "error" | "warning" | "info";
 ```
 
-| Verdi       | Pavirkning pa avslutningskode | Beskrivelse                                |
+| Verdi       | Påvirkning på avslutningskode | Beskrivelse                                |
 | ----------- | ----------------------------- | ------------------------------------------ |
-| `"error"`   | Forarsakar avslutningskode 1  | Hard begrensning, blokkerer sammenslainger |
-| `"warning"` | Ingen pavirkning              | Ikke-blokkerende veiledning                |
-| `"info"`    | Ingen pavirkning              | Informasjon, kun forslag                   |
+| `"error"`   | Forårsaker avslutningskode 1  | Hard begrensning, blokkerer sammenslåinger |
+| `"warning"` | Ingen påvirkning              | Ikke-blokkerende veiledning                |
+| `"info"`    | Ingen påvirkning              | Informasjon, kun forslag                   |
 
 ---
 
@@ -289,14 +289,14 @@ interface ViolationDetail {
 
 | Felt        | Type       | Beskrivelse                                                |
 | ----------- | ---------- | ---------------------------------------------------------- |
-| `ruleId`    | `string`   | Regel-ID fra `rules`-objektnokelen                         |
+| `ruleId`    | `string`   | Regel-ID fra `rules`-objektnøkkelen                        |
 | `adrId`     | `string`   | ADR-ID fra frontmatter                                     |
 | `message`   | `string`   | Lesbar beskrivelse                                         |
 | `file`      | `string?`  | Filsti der problemet ble funnet                            |
 | `line`      | `number?`  | Startlinjenummer (1-basert)                                |
 | `endLine`   | `number?`  | Sluttlinje (1-basert) -- for presis uthevning i editoren   |
 | `endColumn` | `number?`  | Sluttkolonne (0-basert) -- for presis uthevning i editoren |
-| `fix`       | `string?`  | Foreslatt rettelse                                         |
+| `fix`       | `string?`  | Foreslått rettelse                                         |
 | `severity`  | `Severity` | Effektiv alvorlighetsgrad for dette bruddet                |
 
 ---
@@ -316,7 +316,7 @@ En begrunnelse er påkrevd. Filnivå-undertrykkelse bruker `archgate-ignore-file
 
 ## RuleSet
 
-Typen brukt med `satisfies` for a typekontrollere regelobjektet ditt. Eksporter et vanlig objekt som samsvarer med denne formen.
+Typen brukt med `satisfies` for å typekontrollere regelobjektet ditt. Eksporter et vanlig objekt som samsvarer med denne formen.
 
 ```typescript
 type RuleSet = { rules: Record<string, RuleConfig> };

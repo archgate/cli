@@ -1,15 +1,15 @@
 ---
 title: required-export-pattern
-description: Verifiser at filer i en spesifikk mappe eksporterer en p&aring;krevd funksjonssignatur for &aring; h&aring;ndheve konsistent modulstruktur.
+description: Verifiser at filer i en spesifikk mappe eksporterer en påkrevd funksjonssignatur for å håndheve konsistent modulstruktur.
 ---
 
-Verifiser at filer i en spesifikk mappe eksporterer en p&aring;krevd funksjonssignatur.
+Verifiser at filer i en spesifikk mappe eksporterer en påkrevd funksjonssignatur.
 
 ## Regeldetaljer
 
-Konvensjonsbaserte arkitekturer (CLI-kommandofiler, rutebehandlere, pluginmoduler) krever ofte at hver fil eksporterer en funksjon med et spesifikt navnem&oslash;nster. Denne regelen skanner omfangsfiler etter en p&aring;krevd eksport og rapporterer enhver fil som ikke samsvarer. Den bruker `Promise.all()` for &aring; sjekke filer parallelt for ytelse.
+Konvensjonsbaserte arkitekturer (CLI-kommandofiler, rutebehandlere, pluginmoduler) krever ofte at hver fil eksporterer en funksjon med et spesifikt navnemønster. Denne regelen skanner omfangsfiler etter en påkrevd eksport og rapporterer enhver fil som ikke samsvarer. Den bruker `Promise.all()` for å sjekke filer parallelt for ytelse.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```typescript title="src/commands/deploy.ts"
 // Missing the required register*Command export
@@ -18,7 +18,7 @@ export function deploy() {
 }
 ```
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```typescript title="src/commands/deploy.ts"
 import type { Command } from "commander";
@@ -60,7 +60,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-Tilpass m&oslash;nsteret for andre konvensjoner:
+Tilpass mønsteret for andre konvensjoner:
 
 ```typescript
 // Express/Hono route handlers
@@ -73,10 +73,10 @@ Tilpass m&oslash;nsteret for andre konvensjoner:
 /export\s+const\s+plugin\s*[:=]/
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r arkitekturen din krever et spesifikt eksportm&oslash;nster fra filer i en mappe. Kombiner denne med ADR-ens `files`-frontmatter-felt for &aring; avgrense den til riktig mappe.
+Når arkitekturen din krever et spesifikt eksportmønster fra filer i en mappe. Kombiner denne med ADR-ens `files`-frontmatter-felt for å avgrense den til riktig mappe.
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-N&aring;r mappen inneholder blandede filtyper som ikke alle trenger &aring; f&oslash;lge det samme eksportm&oslash;nsteret.
+Når mappen inneholder blandede filtyper som ikke alle trenger å følge det samme eksportmønsteret.

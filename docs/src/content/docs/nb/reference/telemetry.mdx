@@ -1,49 +1,49 @@
 ---
 title: Telemetri
-description: Hvilke anonyme bruksdata Archgate samler inn, hvordan du kan reservere deg, og vare personvernforpliktelser.
+description: Hvilke anonyme bruksdata Archgate samler inn, hvordan du kan reservere deg, og våre personvernforpliktelser.
 ---
 
-Archgate samler inn **anonyme bruksdata** for a hjelpe oss med a forsta hvordan CLI-en brukes, prioritere funksjoner og fikse krasjer. Denne siden forklarer noyaktig hva som samles inn, hva som ikke samles inn, og hvordan du kan reservere deg.
+Archgate samler inn **anonyme bruksdata** for å hjelpe oss med å forstå hvordan CLI-en brukes, prioritere funksjoner og fikse krasjer. Denne siden forklarer nøyaktig hva som samles inn, hva som ikke samles inn, og hvordan du kan reservere deg.
 
 ## Hva vi samler inn
 
 ### Bruksanalyse (PostHog)
 
-Nar du kjorer en Archgate-kommando, registrerer vi:
+Når du kjører en Archgate-kommando, registrerer vi:
 
-- **Kommandonavn** og **hvilke flagg som ble brukt** (f.eks. `check --json` -- kun flaggtilstedevaerelse, aldri flaggverdier)
-- **Avslutningskode** (0, 1, 2 eller 130) og **kjoretid** (millisekunder), pluss en kort **utfallstagg** (`success`, `user_error`, `internal_error`, `cancelled`)
-- **Miljo**: OS, arkitektur, Bun-versjon, Archgate-versjon, CI-deteksjon (inkludert leverandor: GitHub Actions / GitLab CI / CircleCI / osv.), TTY-deteksjon, WSL-deteksjon, shell (bash, zsh, pwsh...) og locale
-- **Installasjonskontekst**: hvordan CLI-en ble installert (binaerfil, proto, lokal dev-avhengighet eller global pakkebehandler)
+- **Kommandonavn** og **hvilke flagg som ble brukt** (f.eks. `check --json` -- kun flaggtilstedeværelse, aldri flaggverdier)
+- **Avslutningskode** (0, 1, 2 eller 130) og **kjøretid** (millisekunder), pluss en kort **utfallstagg** (`success`, `user_error`, `internal_error`, `cancelled`)
+- **Miljø**: OS, arkitektur, Bun-versjon, Archgate-versjon, CI-deteksjon (inkludert leverandør: GitHub Actions / GitLab CI / CircleCI / osv.), TTY-deteksjon, WSL-deteksjon, shell (bash, zsh, pwsh...) og locale
+- **Installasjonskontekst**: hvordan CLI-en ble installert (binærfil, proto, lokal dev-avhengighet eller global pakkebehandler)
 - **Prosjektkontekst**: om et Archgate-prosjekt finnes i gjeldende katalog, hvor mange ADR-er det har, hvor mange som har automatiserte regler, og hvor mange distinkte ADR-domener som brukes
 - **Repokontekst** (ikke-identifiserende): om gjeldende katalog er et git-repository, vertsboksen (`github` / `gitlab` / `bitbucket` / `azure-devops` / `other`), en **hashet `repo_id`** (SHA-256 av den normaliserte fjern-URL-en, avkortet til 16 heksadesimale tegn -- ikke reverserbar), og standard grennavn
-- **Grov lokasjon**: land og region (resolveres pa serversiden fra IP-adressen din, deretter forkastes IP-en -- se [IP-anonymisering](#ip-anonymisering))
-- **Anonym installasjons-ID**: en tilfeldig UUID generert ved forste kjoring -- ikke avledet fra personopplysninger
+- **Grov lokasjon**: land og region (resolveres på serversiden fra IP-adressen din, deretter forkastes IP-en -- se [IP-anonymisering](#ip-anonymisering))
+- **Anonym installasjons-ID**: en tilfeldig UUID generert ved første kjøring -- ikke avledet fra personopplysninger
 
 I tillegg til de generelle livssyklushendelsene for kommandoer (`command_executed` / `command_completed`), sender spesifikke kommandoer berikede utfallshendelser:
 
-- **`check`**: aggregerte regeltellinger (totalt, bestaatt, feilet, advarsler, feil), brukt utdataformat, om filtre ble brukt, skannede filer, lastetid, sjekktid -- ingen filstier eller bruddinnhold
-- **`init`**: editorvalg, om pluginen ble installert, om prosjektet allerede eksisterte. En separat engangshendelse `project_initialized` sendes med repovertsboksen, `repo_is_git` og et `repo_public`-flagg. For repoer bekreftet som offentlige pa GitHub / GitLab / Bitbucket, inneholder denne hendelsen ogsa fjern-URL, eier og reponavn -- se [Repoidentitet](#repoidentitet). Private og selvhostede repoer far aldri identitet delt.
-- **`upgrade`**: versjonsovergang (fra -> til), installasjonsmetode, suksess/feil og en valgfri feilarsak
-- **`login`**: underkommando brukt (login, logout, refresh, status), suksess/feil og en feilboks (`network`, `tls`, `denied`, `other`) nar det feiler
-- **`telemetry_preference_changed`**: utloses en gang nar du aktiverer eller deaktiverer telemetri, slik at vi kan forsta reservasjonsrater
+- **`check`**: aggregerte regeltellinger (totalt, bestått, feilet, advarsler, feil), brukt utdataformat, om filtre ble brukt, skannede filer, lastetid, sjekktid -- ingen filstier eller bruddinnhold
+- **`init`**: editorvalg, om pluginen ble installert, om prosjektet allerede eksisterte. En separat engangshendelse `project_initialized` sendes med repovertsboksen, `repo_is_git` og et `repo_public`-flagg. For repoer bekreftet som offentlige på GitHub / GitLab / Bitbucket, inneholder denne hendelsen også fjern-URL, eier og reponavn -- se [Repoidentitet](#repoidentitet). Private og selvhostede repoer får aldri identitet delt.
+- **`upgrade`**: versjonsovergang (fra -> til), installasjonsmetode, suksess/feil og en valgfri feilårsak
+- **`login`**: underkommando brukt (login, logout, refresh, status), suksess/feil og en feilboks (`network`, `tls`, `denied`, `other`) når det feiler
+- **`telemetry_preference_changed`**: utløses en gang når du aktiverer eller deaktiverer telemetri, slik at vi kan forstå reservasjonsrater
 
 ## Repoidentitet
 
-Archgate sender en **hashet** `repo_id` med hver hendelse slik at vi kan telle distinkte repositorier som bruker CLI-en uten a laere navnene deres. Den ra fjern-URL-en, eieren og reponavnet er **ikke** inkludert i den generelle hendelsesstrommen.
+Archgate sender en **hashet** `repo_id` med hver hendelse slik at vi kan telle distinkte repositorier som bruker CLI-en uten å lære navnene deres. Den rå fjern-URL-en, eieren og reponavnet er **ikke** inkludert i den generelle hendelsesstrømmen.
 
-Ved `archgate init` sendes en engangshendelse `project_initialized`. Hvis -- og bare hvis -- repositoriet er bekreftet **offentlig** pa GitHub, GitLab, Bitbucket eller Azure DevOps (via en uautentisert API-probing mot verten), inneholder den hendelsen i tillegg `remote_url`, `repo_owner` og `repo_name`. Dette lar oss se hvilke offentlige repositorier som tar i bruk Archgate uten a noensinne eksponere private.
+Ved `archgate init` sendes en engangshendelse `project_initialized`. Hvis -- og bare hvis -- repositoriet er bekreftet **offentlig** på GitHub, GitLab, Bitbucket eller Azure DevOps (via en uautentisert API-probing mot verten), inneholder den hendelsen i tillegg `remote_url`, `repo_owner` og `repo_name`. Dette lar oss se hvilke offentlige repositorier som tar i bruk Archgate uten å noensinne eksponere private.
 
 **Hva som aldri deles:**
 
 - Private repositorier (API-probing returnerer 404, 401 eller `private: true`)
 - Selvhostede Git-verter (probingen hopper over disse helt)
-- Repositorier der probingen far tidsavbrudd, ratebegrensning eller pa annen mate ikke klarer a returnere et definitivt offentlig svar
+- Repositorier der probingen får tidsavbrudd, ratebegrensning eller på annen måte ikke klarer å returnere et definitivt offentlig svar
 
 **Vil du ikke ha hendelsen i det hele tatt?** Deaktiver telemetri helt -- hele `project_initialized`-hendelsen undertrykkes da sammen med alt annet:
 
 ```bash
-# Per shell / per kjoring
+# Per shell / per kjøring
 export ARCHGATE_TELEMETRY=0
 
 # Eller permanent
@@ -54,43 +54,43 @@ Se [Slik reserverer du deg](#slik-reserverer-du-deg) nedenfor for fullstendige d
 
 ### Feilsporing (Sentry)
 
-Nar CLI-en krasjer (avslutningskode 2), sender vi:
+Når CLI-en krasjer (avslutningskode 2), sender vi:
 
 - **Feiltype, melding og stacktrace** (filstier strippes til relative stier som `src/cli.ts`)
-- **Kjoretidskontekst**: OS, arkitektur, Bun-versjon, Archgate-versjon
+- **Kjøretidskontekst**: OS, arkitektur, Bun-versjon, Archgate-versjon
 - **Anonym installasjons-ID** (samme tilfeldige UUID som analyse)
 
 ## Hva vi IKKE samler inn
 
-- **Ingen personopplysninger**: ingen brukernavn, e-postadresser eller IP-adresser. GitHub / GitLab / Bitbucket eier-/reponavn sendes kun pa engangshendelsen `project_initialized` for repositorier som er bekreftet offentlige av verten sin -- se [Repoidentitet](#repoidentitet). Private og selvhostede repoer far aldri identitet delt.
+- **Ingen personopplysninger**: ingen brukernavn, e-postadresser eller IP-adresser. GitHub / GitLab / Bitbucket eier-/reponavn sendes kun på engangshendelsen `project_initialized` for repositorier som er bekreftet offentlige av verten sin -- se [Repoidentitet](#repoidentitet). Private og selvhostede repoer får aldri identitet delt.
 - **Intet filinnhold**: ingen ADR-innhold, kildekode eller filstier
 - **Ingen prompt- eller AI-kontekst**: ingenting fra agentinteraksjoner, prompter eller AI-generert innhold
 - **Ingen flaggverdier**: vi registrerer at `--json` ble brukt, ikke hva JSON-utdataene inneholdt
-- **Ingen nettverksaktivitet**: ingen URL-er, API-nokler eller tokener
+- **Ingen nettverksaktivitet**: ingen URL-er, API-nøkler eller tokener
 
 ## IP-anonymisering
 
 Archgate bruker PostHogs innebygde IP-anonymisering:
 
 1. CLI-en din sender en hendelse til PostHog med `$ip: null`
-2. PostHog resolver IP-adressen din til et **land og en region** (f.eks. "US", "California") pa serversiden
+2. PostHog resolver IP-adressen din til et **land og en region** (f.eks. "US", "California") på serversiden
 3. IP-adressen **forkastes** deretter -- den lagres aldri i PostHog
 
-For Sentry feilsporing har prosjektet **"Prevent Storing of IP Addresses"** aktivert, slik at IP-adresser fjernes for lagring.
+For Sentry feilsporing har prosjektet **"Prevent Storing of IP Addresses"** aktivert, slik at IP-adresser fjernes før lagring.
 
 ## Slik reserverer du deg
 
-Du kan deaktivere all telemetri (bade analyse og feilsporing) pa to mater:
+Du kan deaktivere all telemetri (både analyse og feilsporing) på to måter:
 
-### Miljovariabel
+### Miljøvariabel
 
 ```bash
 export ARCHGATE_TELEMETRY=0
 ```
 
-Aksepterte verdier: `0`, `false`, `no`, `off` (uavhengig av store/sma bokstaver).
+Aksepterte verdier: `0`, `false`, `no`, `off` (uavhengig av store/små bokstaver).
 
-Legg dette til i shellprofilen din (`.bashrc`, `.zshrc`, osv.) for a deaktivere permanent.
+Legg dette til i shellprofilen din (`.bashrc`, `.zshrc`, osv.) for å deaktivere permanent.
 
 ### CLI-kommando
 
@@ -98,50 +98,50 @@ Legg dette til i shellprofilen din (`.bashrc`, `.zshrc`, osv.) for a deaktivere 
 archgate telemetry disable
 ```
 
-For a reaktivere:
+For å reaktivere:
 
 ```bash
 archgate telemetry enable
 ```
 
-For a sjekke gjeldende status:
+For å sjekke gjeldende status:
 
 ```bash
 archgate telemetry status
 ```
 
-Miljovariabelen har forrang over CLI-innstillingen. Hvis `ARCHGATE_TELEMETRY=0` er satt, er telemetri deaktivert uavhengig av CLI-konfigurasjonen.
+Miljøvariabelen har forrang over CLI-innstillingen. Hvis `ARCHGATE_TELEMETRY=0` er satt, er telemetri deaktivert uavhengig av CLI-konfigurasjonen.
 
 ## Rettslig grunnlag
 
-Archgate CLI-telemetri opererer pa **reservasjonsbasis** under GDPR artikkel 6(1)(f) og LGPD artikkel 7, IX c/c artikkel 10 -- behandlingsansvarliges berettigede interesser. Vi har publisert en formell [Vurdering av berettigede interesser](https://archgate.dev/legitimate-interest-assessment) som dokumenterer hvorfor dette er forholdsmessig og lovlig.
+Archgate CLI-telemetri opererer på **reservasjonsbasis** under GDPR artikkel 6(1)(f) og LGPD artikkel 7, IX c/c artikkel 10 -- behandlingsansvarliges berettigede interesser. Vi har publisert en formell [Vurdering av berettigede interesser](https://archgate.dev/legitimate-interest-assessment) som dokumenterer hvorfor dette er forholdsmessig og lovlig.
 
-Oppsummert: dataene er anonyme (tilfeldig UUID, ingen personopplysninger), pavirkningen pa brukere er minimal, robuste sikkerhetstiltak er pa plass (IP-anonymisering, EU-lagring, begrenset oppbevaringstid, transparens), og brukere beholder full kontroll via en enkel, permanent reservasjonsmulighet.
+Oppsummert: dataene er anonyme (tilfeldig UUID, ingen personopplysninger), påvirkningen på brukere er minimal, robuste sikkerhetstiltak er på plass (IP-anonymisering, EU-lagring, begrenset oppbevaringstid, transparens), og brukere beholder full kontroll via en enkel, permanent reservasjonsmulighet.
 
 ## Hvor data lagres
 
 | Tjeneste      | Data                                   | Region         | Oppbevaringstid    |
 | ------------- | -------------------------------------- | -------------- | ------------------ |
-| PostHog Cloud | Anonym bruksanalyse                    | EU (Frankfurt) | 1 ar               |
+| PostHog Cloud | Anonym bruksanalyse                    | EU (Frankfurt) | 1 år               |
 | Sentry Cloud  | Krasjrapporter                         | EU (Frankfurt) | 90 dager           |
 | Lokal konfig  | Telemetripreferanse + installasjons-ID | Din maskin     | Til du sletter den |
 
-Analysehendelser rutes gjennom `n.archgate.dev` og feilrapporter gjennom `s.archgate.dev`. Disse er transparente reverseproksier driftet av Dasolve AS pa Cloudflare-infrastruktur -- de videresender foresporsler uten a logge, lagre eller inspisere nyttelast.
+Analysehendelser rutes gjennom `n.archgate.dev` og feilrapporter gjennom `s.archgate.dev`. Disse er transparente reverseproksier driftet av Dasolve AS på Cloudflare-infrastruktur -- de videresender forespørsler uten å logge, lagre eller inspisere nyttelast.
 
 ## Dine rettigheter
 
 - **Rett til innsyn**: Be om en kopi av alle data knyttet til din installasjons-ID. Send e-post til [privacy@archgate.dev](mailto:privacy@archgate.dev) med din installasjons-ID (finnes via `archgate telemetry status` eller i `~/.archgate/config.json`). Svar innen 30 dager.
-- **Rett til sletting**: Be om sletting av historiske analyse- og krasjdata. A deaktivere telemetri stopper fremtidig innsamling, men sletter ikke tidligere hendelser. Send e-post til [privacy@archgate.dev](mailto:privacy@archgate.dev) med din installasjons-ID for sletting.
-- **Rett til a protestere**: Deaktiver telemetri nar som helst via `archgate telemetry disable` eller `ARCHGATE_TELEMETRY=0`.
-- **Rett til a klage**: Kontakt Datatilsynet ([Datatilsynet](https://www.datatilsynet.no)) eller, for brasilianske brukere, ANPD ([www.gov.br/anpd](https://www.gov.br/anpd)).
+- **Rett til sletting**: Be om sletting av historiske analyse- og krasjdata. Å deaktivere telemetri stopper fremtidig innsamling, men sletter ikke tidligere hendelser. Send e-post til [privacy@archgate.dev](mailto:privacy@archgate.dev) med din installasjons-ID for sletting.
+- **Rett til å protestere**: Deaktiver telemetri når som helst via `archgate telemetry disable` eller `ARCHGATE_TELEMETRY=0`.
+- **Rett til å klage**: Kontakt Datatilsynet ([Datatilsynet](https://www.datatilsynet.no)) eller, for brasilianske brukere, ANPD ([www.gov.br/anpd](https://www.gov.br/anpd)).
 
 **Behandlingsansvarlig:** Dasolve AS (Org.nr 936 035 019), Lillogata 5P, 0484 Oslo, Norge. Kontakt: [privacy@archgate.dev](mailto:privacy@archgate.dev).
 
-**Brasilianske brukere (LGPD):** For LGPD-spesifikke rettigheter (art. 18), detaljer om internasjonal overforing (art. 33) og ANPD-kontaktinformasjon, se [personvernerklaering pa portugisisk](https://archgate.dev/pt-br/privacy-policy).
+**Brasilianske brukere (LGPD):** For LGPD-spesifikke rettigheter (art. 18), detaljer om internasjonal overføring (art. 33) og ANPD-kontaktinformasjon, se [personvernerklæring på portugisisk](https://archgate.dev/pt-br/privacy-policy).
 
-## Apen kildekode
+## Åpen kildekode
 
-Telemetriimplementasjonen er fullstendig apen kildekode. Du kan inspisere noyaktig hvilke data som samles inn ved a lese:
+Telemetriimplementasjonen er fullstendig åpen kildekode. Du kan inspisere nøyaktig hvilke data som samles inn ved å lese:
 
 - [`src/helpers/telemetry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry.ts) -- PostHog-hendelsessporing
 - [`src/helpers/sentry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/sentry.ts) -- Sentry-feilfangst

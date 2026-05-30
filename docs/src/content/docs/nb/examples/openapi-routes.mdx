@@ -1,15 +1,15 @@
 ---
 title: openapi-routes
-description: S&oslash;rg for at alle backend-rutefiler bruker OpenAPI-typede rutedefinisjoner i stedet for r&aring; HTTP-metodebehandlere.
+description: Sørg for at alle backend-rutefiler bruker OpenAPI-typede rutedefinisjoner i stedet for rå HTTP-metodebehandlere.
 ---
 
-S&oslash;rg for at alle backend-rutefiler bruker OpenAPI-typede rutedefinisjoner.
+Sørg for at alle backend-rutefiler bruker OpenAPI-typede rutedefinisjoner.
 
 ## Regeldetaljer
 
-N&aring;r et backend-rammeverk st&oslash;tter OpenAPI-integrasjon (f.eks. `@hono/zod-openapi`), omg&aring;r r&aring; HTTP-metodebehandlere (`.get()`, `.post()`) skjemavalidering og dokumentasjonsgenerering. Denne regelen sjekker at rutefiler importerer OpenAPI-integrasjonen og bruker `.openapi()` i stedet for r&aring; metoder.
+Når et backend-rammeverk støtter OpenAPI-integrasjon (f.eks. `@hono/zod-openapi`), omgår rå HTTP-metodebehandlere (`.get()`, `.post()`) skjemavalidering og dokumentasjonsgenerering. Denne regelen sjekker at rutefiler importerer OpenAPI-integrasjonen og bruker `.openapi()` i stedet for rå metoder.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```typescript title="packages/backend/src/routes/users.ts"
 import { Hono } from "hono";
@@ -22,7 +22,7 @@ app.get("/users", async (c) => {
 });
 ```
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```typescript title="packages/backend/src/routes/users.ts"
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
@@ -91,9 +91,9 @@ export default {
 } satisfies RuleSet;
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r backend-rammeverket ditt st&oslash;tter OpenAPI-integrasjon og du vil sikre at alle ruter er dokumentert og skjemavalidert. Tilpass importm&oslash;nsteret og metodedeteksjonen for ditt rammeverk:
+Når backend-rammeverket ditt støtter OpenAPI-integrasjon og du vil sikre at alle ruter er dokumentert og skjemavalidert. Tilpass importmønsteret og metodedeteksjonen for ditt rammeverk:
 
 ```typescript
 // For Express with express-openapi-validator
@@ -103,6 +103,6 @@ N&aring;r backend-rammeverket ditt st&oslash;tter OpenAPI-integrasjon og du vil 
 /from\s+["']@fastify\/swagger["']/
 ```
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-N&aring;r ikke alle ruter krever OpenAPI-dokumentasjon (f.eks. interne helsesjekker, metrikk-endepunkter), eller n&aring;r OpenAPI-spesifikasjoner vedlikeholdes separat fra rutekoden.
+Når ikke alle ruter krever OpenAPI-dokumentasjon (f.eks. interne helsesjekker, metrikk-endepunkter), eller når OpenAPI-spesifikasjoner vedlikeholdes separat fra rutekoden.

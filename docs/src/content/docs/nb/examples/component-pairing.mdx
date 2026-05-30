@@ -7,7 +7,7 @@ Krev at tilstandsfulle "Connected"-komponenter har en tilhørende presentasjonsk
 
 ## Regeldetaljer
 
-Container/presentational-monsteret skiller datahentende (Connected) komponenter fra rene UI- (presentasjons-) komponenter. Denne regelen sjekker at hver `*Connected.tsx`-fil har en matchende `*.tsx` presentasjonsmotstykke. Den stotter et unntak-direktiv (`// @no-presentational: <grunn>`) for tilfeller der en Connected-komponent ikke trenger et presentasjonspar.
+Container/presentational-mønsteret skiller datahentende (Connected) komponenter fra rene UI- (presentasjons-) komponenter. Denne regelen sjekker at hver `*Connected.tsx`-fil har en matchende `*.tsx` presentasjonsmotstykke. Den støtter et unntak-direktiv (`// @no-presentational: <grunn>`) for tilfeller der en Connected-komponent ikke trenger et presentasjonspar.
 
 ## Eksempler på **feil** kode
 
@@ -75,8 +75,8 @@ export default {
 
 ## Når bør du bruke den
 
-Når frontend-arkitekturen din folger container/presentational-monsteret og du vil håndheve at datahentingslogikk alltid er adskilt fra UI-rendering.
+Når frontend-arkitekturen din følger container/presentational-mønsteret og du vil håndheve at datahentingslogikk alltid er adskilt fra UI-rendering.
 
 ## Når bør du ikke bruke den
 
-Når prosjektet ditt bruker en annen komponentarkitektur (f.eks. kun hooks, eller serverkomponenter), eller når monsteret brukes selektivt i stedet for universelt.
+Når prosjektet ditt bruker en annen komponentarkitektur (f.eks. kun hooks, eller serverkomponenter), eller når mønsteret brukes selektivt i stedet for universelt.

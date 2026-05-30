@@ -9,7 +9,7 @@ Krev avhengighetsretning i ren arkitektur -- indre lag må ikke referere til ytr
 
 Ren arkitektur krever at avhengigheter peker innover: API -> Application -> Domain. Domain-laget må ha null eksterne avhengigheter, Application-laget må ikke referere til Infrastructure direkte, og ingen lavere lag skal referere til API-prosjektet. Denne regelen sjekker `using`-direktiver (C#) eller `import`-setninger for å håndheve disse grensene.
 
-Det samme monsteret gjelder for enhver lagdelt arkitektur i ethvert språk -- tilpass importmonstrene og lagstiene deretter.
+Det samme mønsteret gjelder for enhver lagdelt arkitektur i ethvert språk -- tilpass importmønstrene og lagstiene deretter.
 
 ## Eksempler på **feil** kode
 
@@ -109,7 +109,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-For TypeScript-prosjekter, tilpass monstrene:
+For TypeScript-prosjekter, tilpass mønstrene:
 
 ```typescript
 // Check that domain/ does not import from infrastructure/
@@ -121,7 +121,7 @@ For TypeScript-prosjekter, tilpass monstrene:
 
 ## Når bør du bruke den
 
-Når prosjektet ditt folger ren arkitektur, heksagonal arkitektur, eller en annen lagdelt arkitektur der avhengighetsretning må håndheves.
+Når prosjektet ditt følger ren arkitektur, heksagonal arkitektur, eller en annen lagdelt arkitektur der avhengighetsretning må håndheves.
 
 ## Når bør du ikke bruke den
 

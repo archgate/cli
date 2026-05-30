@@ -9,7 +9,7 @@ Administrer anonym bruksdatainnsamling for Archgate CLI. Telemetri er opt-out: a
 archgate telemetry <subcommand>
 ```
 
-Se [CLI-telemetri](/reference/telemetry/) for den fullstendige personvernpolicyen, listen over hendelser som sendes, og hvordan telemetri samhandler med `ARCHGATE_TELEMETRY=0` og CI-miljoer.
+Se [CLI-telemetri](/reference/telemetry/) for den fullstendige personvernpolicyen, listen over hendelser som sendes, og hvordan telemetri samhandler med `ARCHGATE_TELEMETRY=0` og CI-miljøer.
 
 ## Underkommandoer
 
@@ -57,9 +57,9 @@ archgate telemetry enable
 Telemetry enabled. Thank you for helping improve Archgate.
 ```
 
-## Overstyring via miljovariabel
+## Overstyring via miljøvariabel
 
-Å sette `ARCHGATE_TELEMETRY=0` (eller `false`, `no`, `off`, uavhengig av store/små bokstaver) deaktiverer telemetri for en enkelt kjøring uavhengig av den lagrede tilstanden. Bruk dette i CI eller delte miljoer der du ønsker fravalg uten å endre brukerens konfigurasjon:
+Å sette `ARCHGATE_TELEMETRY=0` (eller `false`, `no`, `off`, uavhengig av store/små bokstaver) deaktiverer telemetri for en enkelt kjøring uavhengig av den lagrede tilstanden. Bruk dette i CI eller delte miljøer der du ønsker fravalg uten å endre brukerens konfigurasjon:
 
 ```bash
 ARCHGATE_TELEMETRY=0 archgate check
@@ -71,4 +71,4 @@ ARCHGATE_TELEMETRY=0 archgate check
 Telemetry is disabled (ARCHGATE_TELEMETRY environment variable).
 ```
 
-Når overstyringen er aktiv og du kjører `archgate telemetry enable`, lagres opt-in, men det skrives ut en merknad om at miljovariabelen fortsetter å deaktivere telemetri til den fjernes.
+Når overstyringen er aktiv og du kjører `archgate telemetry enable`, lagres opt-in, men det skrives ut en merknad om at miljøvariabelen fortsetter å deaktivere telemetri til den fjernes.

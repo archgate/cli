@@ -1,23 +1,23 @@
 ---
 title: no-unapproved-deps
-description: Begrens produksjonsavhengigheter til en godkjent tillatelsesliste for &aring; kontrollere forsyningskjederisiko og avhengighetsoppbl&aring;sing.
+description: Begrens produksjonsavhengigheter til en godkjent tillatelsesliste for å kontrollere forsyningskjederisiko og avhengighetsoppblåsing.
 ---
 
 Begrens produksjonsavhengigheter til en godkjent tillatelsesliste.
 
 ## Regeldetaljer
 
-Store avhengighetstrær &oslash;ker forsyningskjederisiko og bl&aring;ser opp pakkest&oslash;rrelser. Denne regelen leser `package.json` og rapporterer enhver produksjonsavhengighet som ikke st&aring;r p&aring; en eksplisitt tillatelsesliste. Utviklingsavhengigheter sjekkes ikke.
+Store avhengighetstrær øker forsyningskjederisiko og blåser opp pakkestørrelser. Denne regelen leser `package.json` og rapporterer enhver produksjonsavhengighet som ikke står på en eksplisitt tillatelsesliste. Utviklingsavhengigheter sjekkes ikke.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```json title="package.json"
 { "dependencies": { "zod": "^3.23.0", "chalk": "^5.3.0" } }
 ```
 
-Hvis bare `zod` st&aring;r p&aring; den godkjente listen, utl&oslash;ser `chalk` et brudd.
+Hvis bare `zod` står på den godkjente listen, utløser `chalk` et brudd.
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```json title="package.json"
 {
@@ -26,7 +26,7 @@ Hvis bare `zod` st&aring;r p&aring; den godkjente listen, utl&oslash;ser `chalk`
 }
 ```
 
-Alle produksjonsavhengigheter st&aring;r p&aring; den godkjente listen. Biblioteker som bare trengs ved byggetidspunkt ligger i `devDependencies`.
+Alle produksjonsavhengigheter står på den godkjente listen. Biblioteker som bare trengs ved byggetidspunkt ligger i `devDependencies`.
 
 ## Regelimplementasjon
 
@@ -68,10 +68,10 @@ export default {
 } satisfies RuleSet;
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r teamet ditt har en eksplisitt policy for avhengighetsstyring og &oslash;nsker &aring; forhindre at ikke-godkjente pakker havner i produksjonspakken.
+Når teamet ditt har en eksplisitt policy for avhengighetsstyring og ønsker å forhindre at ikke-godkjente pakker havner i produksjonspakken.
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-I prosjekter i tidlig fase der avhengighetslisten fortsatt utvikles raskt, eller n&aring;r avhengighetsstyring h&aring;ndteres av et eget verkt&oslash;y som Socket eller Snyk.
+I prosjekter i tidlig fase der avhengighetslisten fortsatt utvikles raskt, eller når avhengighetsstyring håndteres av et eget verktøy som Socket eller Snyk.

@@ -7,7 +7,7 @@ Hver Archgate ADR er en Markdown-fil lagret i `.archgate/adrs/` med YAML frontma
 
 ## Frontmatter-skjema
 
-YAML frontmatter-blokken ligger mellom `---`-skilletegn overst i filen.
+YAML frontmatter-blokken ligger mellom `---`-skilletegn øverst i filen.
 
 ```yaml
 ---
@@ -21,44 +21,44 @@ files: ["src/commands/**/*.ts"]
 
 ### Felt
 
-| Felt               | Type       | Pakrevd | Beskrivelse                                                                                                                                                                                                                               |
+| Felt               | Type       | Påkrevd | Beskrivelse                                                                                                                                                                                                                               |
 | ------------------ | ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`               | `string`   | Ja      | Unik identifikator. Ma vaere ikke-tom. Konvensjon: `PREFIX-NNN` (f.eks. `ARCH-001`).                                                                                                                                                      |
-| `title`            | `string`   | Ja      | Lesbar tittel pa beslutningen. Ma vaere ikke-tom.                                                                                                                                                                                         |
-| `domain`           | `string`   | Ja      | Et registrert domenenavn i kebab-case med sma bokstaver. Innebygde: `backend`, `frontend`, `data`, `architecture`, `general`. Egendefinerte domener registreres via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
-| `rules`            | `boolean`  | Ja      | Om denne ADR-en har en tilhorende `.rules.ts`-fil med automatiserte kontroller.                                                                                                                                                           |
-| `files`            | `string[]` | Nei     | Globmonstre som avgrenser hvilke filer reglene gjelder for.                                                                                                                                                                               |
+| `id`               | `string`   | Ja      | Unik identifikator. Må være ikke-tom. Konvensjon: `PREFIX-NNN` (f.eks. `ARCH-001`).                                                                                                                                                       |
+| `title`            | `string`   | Ja      | Lesbar tittel på beslutningen. Må være ikke-tom.                                                                                                                                                                                          |
+| `domain`           | `string`   | Ja      | Et registrert domenenavn i kebab-case med små bokstaver. Innebygde: `backend`, `frontend`, `data`, `architecture`, `general`. Egendefinerte domener registreres via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). |
+| `rules`            | `boolean`  | Ja      | Om denne ADR-en har en tilhørende `.rules.ts`-fil med automatiserte kontroller.                                                                                                                                                           |
+| `files`            | `string[]` | Nei     | Globmønstre som avgrenser hvilke filer reglene gjelder for.                                                                                                                                                                               |
 | `respectGitignore` | `boolean`  | Nei     | Om `.gitignore`-filer skal filtreres bort. Standard er `true`.                                                                                                                                                                            |
 
 ### id
 
 ADR-identifikatoren. Etter konvensjon brukes domeneprefikset etterfulgt av et null-utfylt sekvensnummer (f.eks. `ARCH-001`, `BE-003`). Kommandoen `archgate adr create` genererer ID-er automatisk.
 
-Enhver ikke-tom streng er gyldig, men a folge prefikskonvensjonen holder ADR-ene organisert og sorterbare.
+Enhver ikke-tom streng er gyldig, men å følge prefikskonvensjonen holder ADR-ene organisert og sorterbare.
 
 ### title
 
-Et kort, beskrivende navn for den arkitektoniske beslutningen. Vises i `archgate adr list`-utdata og brukes som overskrift nar AI-agenter refererer til ADR-en.
+Et kort, beskrivende navn for den arkitektoniske beslutningen. Vises i `archgate adr list`-utdata og brukes som overskrift når AI-agenter refererer til ADR-en.
 
 ### domain
 
-Grupperer relaterte ADR-er sammen. Domenet bestemmer ogsa ID-prefikset som brukes av `archgate adr create`.
+Grupperer relaterte ADR-er sammen. Domenet bestemmer også ID-prefikset som brukes av `archgate adr create`.
 
-Prosjekter kan utvide det innebygde settet med egendefinerte domener via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Egendefinerte domene-til-prefiks-tilordninger lagres i `.archgate/config.json` og slAs sammen med de innebygde ved lesing.
+Prosjekter kan utvide det innebygde settet med egendefinerte domener via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Egendefinerte domene-til-prefiks-tilordninger lagres i `.archgate/config.json` og slås sammen med de innebygde ved lesing.
 
 ### rules
 
-Sett til `true` nar denne ADR-en har en tilhorende `.rules.ts`-fil. Nar `archgate check` kjorer, hopper den over ADR-er der `rules` er `false`.
+Sett til `true` når denne ADR-en har en tilhørende `.rules.ts`-fil. Når `archgate check` kjører, hopper den over ADR-er der `rules` er `false`.
 
 ### files
 
-En valgfri matrise med globmonstre som avgrenser regelens fildekning. Nar den er til stede, inneholder `ctx.scopedFiles` i regelfilen kun filer som matcher disse monstrene. Nar den er fravarende, er alle prosjektfiler i omfang.
+En valgfri matrise med globmønstre som avgrenser regelens fildekning. Når den er til stede, inneholder `ctx.scopedFiles` i regelfilen kun filer som matcher disse mønstrene. Når den er fraværende, er alle prosjektfiler i omfang.
 
 ```yaml
 files: ["src/commands/**/*.ts"]
 ```
 
-Flere monstre kan spesifiseres:
+Flere mønstre kan spesifiseres:
 
 ```yaml
 files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
@@ -66,16 +66,16 @@ files: ["src/api/**/*.ts", "src/middleware/**/*.ts"]
 
 ### respectGitignore
 
-Styrer om `.gitignore`-filer ekskluderes fra `ctx.scopedFiles`, `ctx.glob()` og `ctx.grepFiles()`. Standard er `true` nar feltet utelates -- gitignorerte filer (f.eks. `node_modules/`, `dist/`) filtreres automatisk bort.
+Styrer om `.gitignore`-filer ekskluderes fra `ctx.scopedFiles`, `ctx.glob()` og `ctx.grepFiles()`. Standard er `true` når feltet utelates -- gitignorerte filer (f.eks. `node_modules/`, `dist/`) filtreres automatisk bort.
 
-Sett til `false` nar en regel med vilje trenger a inspisere ignorerte filer, for eksempel for a sjekke strukturen pa byggeutdata:
+Sett til `false` når en regel med vilje trenger å inspisere ignorerte filer, for eksempel for å sjekke strukturen på byggeutdata:
 
 ```yaml
 respectGitignore: false
 files: ["dist/**/*.js"]
 ```
 
-Nar `respectGitignore` er `false`, inkluderes alle filer som matcher `files`-globene uavhengig av `.gitignore`-regler. Nar man ikke er inne i et git-repository, har dette feltet ingen effekt -- alle matchede filer inkluderes.
+Når `respectGitignore` er `false`, inkluderes alle filer som matcher `files`-globene uavhengig av `.gitignore`-regler. Når man ikke er inne i et git-repository, har dette feltet ingen effekt -- alle matchede filer inkluderes.
 
 ---
 
@@ -93,23 +93,23 @@ Hvert domene tilordnes et prefiks som brukes i ADR-ID-konvensjonen.
 | `architecture` | `ARCH`  | `ARCH-001`  |
 | `general`      | `GEN`   | `GEN-001`   |
 
-Kommandoen `archgate adr create` bruker denne tilordningen til a autogenerere ID-er.
+Kommandoen `archgate adr create` bruker denne tilordningen til å autogenerere ID-er.
 
 ### Egendefinerte domener
 
-Prosjekter kan registrere ytterligere domene-til-prefiks-tilordninger via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Nar de er registrert, oppforer egendefinerte domener seg som innebygde: `archgate adr create --domain <name>` autogenererer ID-er med det tilhorende prefikset, og ADR-er med egendefinerte domener parses uten problemer.
+Prosjekter kan registrere ytterligere domene-til-prefiks-tilordninger via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Når de er registrert, oppfører egendefinerte domener seg som innebygde: `archgate adr create --domain <name>` autogenererer ID-er med det tilhørende prefikset, og ADR-er med egendefinerte domener parses uten problemer.
 
-Se [konseptsiden for domener](/concepts/domains/) for veiledning om nar du bor introdusere et egendefinert domene.
+Se [konseptsiden for domener](/concepts/domains/) for veiledning om når du bør introdusere et egendefinert domene.
 
 ---
 
 ## Konvensjon for filnavn
 
-ADR-filer folger en navnekonvensjon som koder inn ID-en og en lesbar slug:
+ADR-filer følger en navnekonvensjon som koder inn ID-en og en lesbar slug:
 
 ```
 {ID}-{slug}.md              # Dokumentet
-{ID}-{slug}.rules.ts        # Den tilhorende regelfilen (valgfri)
+{ID}-{slug}.rules.ts        # Den tilhørende regelfilen (valgfri)
 ```
 
 For eksempel:
@@ -125,11 +125,11 @@ Slugen er en kebab-case-versjon av tittelen, autogenerert av `archgate adr creat
 
 ## Markdown-seksjoner
 
-Etter frontmatter folger ADR-kroppen en standard seksjonsstruktur. Selv om Archgate ikke pahvinger spesifikke seksjoner, anbefales folgende struktur for konsistens.
+Etter frontmatter følger ADR-kroppen en standard seksjonsstruktur. Selv om Archgate ikke påtvinger spesifikke seksjoner, anbefales følgende struktur for konsistens.
 
 ### Context
 
-Beskriver problemet eller situasjonen som utloste beslutningen. Inkluder alternativer som ble vurdert og hvorfor de ble forkastet.
+Beskriver problemet eller situasjonen som utløste beslutningen. Inkluder alternativer som ble vurdert og hvorfor de ble forkastet.
 
 ```markdown
 ## Context
@@ -148,7 +148,7 @@ custom formatting.
 
 ### Decision
 
-Angir selve beslutningen og dens viktigste begrensninger. Dette er den primaere seksjonen AI-agenter leser for de skriver kode.
+Angir selve beslutningen og dens viktigste begrensninger. Dette er den primære seksjonen AI-agenter leser før de skriver kode.
 
 ```markdown
 ## Decision
@@ -202,7 +202,7 @@ Delt i tre underseksjoner som dokumenterer avveininger.
 
 ### Compliance and Enforcement
 
-Beskriver hvordan beslutningen handheves gjennom automatiserte regler og manuell gjennomgang.
+Beskriver hvordan beslutningen håndheves gjennom automatiserte regler og manuell gjennomgang.
 
 ```markdown
 ## Compliance and Enforcement
@@ -233,16 +233,16 @@ Lenker til relaterte ADR-er, ekstern dokumentasjon eller designdokumenter.
 
 ---
 
-## Tilhorende regelfil
+## Tilhørende regelfil
 
-Nar `rules: true`, leter Archgate etter en tilhorende fil med samme navn men `.rules.ts`-endelse.
+Når `rules: true`, leter Archgate etter en tilhørende fil med samme navn men `.rules.ts`-endelse.
 
 ```
 ARCH-002-error-handling.md          # rules: true i frontmatter
-ARCH-002-error-handling.rules.ts    # tilhorende regelfil
+ARCH-002-error-handling.rules.ts    # tilhørende regelfil
 ```
 
-Regelfilen ma eksportere et standard `RuleSet` ved hjelp av et vanlig objekt med `satisfies RuleSet`:
+Regelfilen må eksportere et standard `RuleSet` ved hjelp av et vanlig objekt med `satisfies RuleSet`:
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -275,11 +275,11 @@ Se [Rule API](/reference/rule-api/) for den komplette TypeScript API-referansen.
 
 ## Validering
 
-YAML frontmatter valideres ved parsetidspunkt ved hjelp av et Zod-skjema. Ugyldig frontmatter forarsakar en parsefeil med en beskrivende melding.
+YAML frontmatter valideres ved parsetidspunkt ved hjelp av et Zod-skjema. Ugyldig frontmatter forårsaker en parsefeil med en beskrivende melding.
 
-### Pakrevde felt
+### Påkrevde felt
 
-Hvis et pakrevd felt mangler, feiler ADR-parsingen:
+Hvis et påkrevd felt mangler, feiler ADR-parsingen:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
@@ -295,7 +295,7 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')
 ```
 
-Merk: parseren aksepterer ethvert navn som matcher kebab-case-monsteret. Om et spesifikt navn er "kjent" for prosjektet -- og dermed har et prefiks som `archgate adr create` kan bruke -- avhenger av det innebygde settet pluss eventuelle egendefinerte domener registrert via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). A opprette en ADR med et uregistrert domenenavn feiler med en "Unknown ADR domain"-feil som foreslar a kjore `archgate adr domain add`.
+Merk: parseren aksepterer ethvert navn som matcher kebab-case-mønsteret. Om et spesifikt navn er "kjent" for prosjektet -- og dermed har et prefiks som `archgate adr create` kan bruke -- avhenger av det innebygde settet pluss eventuelle egendefinerte domener registrert via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Å opprette en ADR med et uregistrert domenenavn feiler med en "Unknown ADR domain"-feil som foreslår å kjøre `archgate adr domain add`.
 
 ### Typefeil
 

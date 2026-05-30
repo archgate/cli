@@ -3,23 +3,23 @@ title: opencode-integrasjon
 description: Integrer Archgate med opencode for AI-assistert utvikling med arkitekturstyring. Konfigurer agenter og underagenter for ADR-samsvar.
 ---
 
-Archgate integreres med [opencode](https://opencode.ai) for aa gi AI-agenter en strukturert styringsarbeidsflyt. Agenten leser ADR-ene dine for den skriver kode, validerer etterpaa, og fanger opp nye monstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
+Archgate integreres med [opencode](https://opencode.ai) for å gi AI-agenter en strukturert styringsarbeidsflyt. Agenten leser ADR-ene dine før den skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
 
 ## Oppsett
 
-Kjor `archgate init` med `--editor opencode`-flagget for aa konfigurere opencode-integrasjon i prosjektet ditt:
+Kjør `archgate init` med `--editor opencode`-flagget for å konfigurere opencode-integrasjon i prosjektet ditt:
 
 ```bash
 archgate init --editor opencode
 ```
 
 :::note[Betatilgang kreves]
-opencode-agentpakken er for oyeblikket i beta. Kjor `archgate login` for aa registrere deg og autentisere.
+opencode-agentpakken er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere.
 :::
 
-I motsetning til Claude Code- eller Cursor-integrasjonene skrives opencode-agentene **ikke til prosjekttreet ditt**. De installeres i stedet paa brukernivaa -- saa de bor paa maskinen din, ikke i repositoriet ditt, og er tilgjengelige paa tvers av alle prosjekter du aapner med opencode.
+I motsetning til Claude Code- eller Cursor-integrasjonene skrives opencode-agentene **ikke til prosjekttreet ditt**. De installeres i stedet på brukernivå -- så de bor på maskinen din, ikke i repositoriet ditt, og er tilgjengelige på tvers av alle prosjekter du åpner med opencode.
 
-opencode bruker XDG Base Directory-konvensjonen paa alle plattformer (via `xdg-basedir`-pakken), saa installasjonsplasseringen resolves til `$XDG_CONFIG_HOME/opencode/agents/` naar den variabelen er satt, og faller tilbake til `$HOME/.config/opencode/agents/` ellers. Det betyr at Windows-installasjoner havner under `C:\Users\<brukernavn>\.config\opencode\agents\`, ikke under `%APPDATA%`:
+opencode bruker XDG Base Directory-konvensjonen på alle plattformer (via `xdg-basedir`-pakken), så installasjonsplasseringen resolves til `$XDG_CONFIG_HOME/opencode/agents/` når den variabelen er satt, og faller tilbake til `$HOME/.config/opencode/agents/` ellers. Det betyr at Windows-installasjoner havner under `C:\Users\<brukernavn>\.config\opencode\agents\`, ikke under `%APPDATA%`:
 
 | Plattform     | Installasjonsplassering                          |
 | ------------- | ------------------------------------------------ |
@@ -28,34 +28,34 @@ opencode bruker XDG Base Directory-konvensjonen paa alle plattformer (via `xdg-b
 
 ### Autentisert installasjon
 
-:::caution[opencode maa vaere installert forst]
-Installasjonstrinnet kjorer bare naar `opencode`-CLI-en er paa PATH. Archgate maa bekrefte at opencode er tilstede for den skriver filer til brukernivaaets konfigurasjonskatalog -- ellers ville agentene ligge paa en plassering ingenting leser. Installer opencode fra [opencode.ai](https://opencode.ai/docs/) forst, og kjor deretter `archgate init --editor opencode` eller `archgate plugin install --editor opencode` paa nytt.
+:::caution[opencode må være installert først]
+Installasjonstrinnet kjører bare når `opencode`-CLI-en er på PATH. Archgate må bekrefte at opencode er tilstede før den skriver filer til brukernivåets konfigurasjonskatalog -- ellers ville agentene ligge på en plassering ingenting leser. Installer opencode fra [opencode.ai](https://opencode.ai/docs/) først, og kjør deretter `archgate init --editor opencode` eller `archgate plugin install --editor opencode` på nytt.
 :::
 
-Hvis du har logget inn via `archgate login` **og** `opencode` er paa PATH, laster init-kommandoen ned og installerer Archgate-agentpakken for opencode. Pakken tilbyr en ferdigbygd primaer agent og fire underagenter som gir opencode sin AI en komplett styringsarbeidsflyt.
+Hvis du har logget inn via `archgate login` **og** `opencode` er på PATH, laster init-kommandoen ned og installerer Archgate-agentpakken for opencode. Pakken tilbyr en ferdigbygd primær agent og fire underagenter som gir opencode sin AI en komplett styringsarbeidsflyt.
 
-For aa eksplisitt installere agentene:
+For å eksplisitt installere agentene:
 
 ```bash
 archgate login                                  # engangsoppsett
 archgate init --editor opencode --install-plugin
 ```
 
-For aa installere eller reinstallere paa et allerede initialisert prosjekt:
+For å installere eller reinstallere på et allerede initialisert prosjekt:
 
 ```bash
 archgate plugin install --editor opencode
 ```
 
-Installasjonstrinnet laster ned en autentisert tarball fra Archgate plugins-tjenesten og pakker ut de fem `archgate-*.md`-agentfilene i opencode brukernivaa-katalogen.
+Installasjonstrinnet laster ned en autentisert tarball fra Archgate plugins-tjenesten og pakker ut de fem `archgate-*.md`-agentfilene i opencode brukernivå-katalogen.
 
-### Genererte filer (brukernivaa)
+### Genererte filer (brukernivå)
 
-| Fil                                             | Formaal                                                                 |
+| Fil                                             | Formål                                                                  |
 | ----------------------------------------------- | ----------------------------------------------------------------------- |
-| `<opencode-agents>/archgate-developer.md`       | Primaer agent (velges med Tab) som kjorer den fulle ADR-arbeidsflyten   |
+| `<opencode-agents>/archgate-developer.md`       | Primær agent (velges med Tab) som kjører den fulle ADR-arbeidsflyten    |
 | `<opencode-agents>/archgate-architect.md`       | Underagent som validerer kodeendringer mot alle prosjektets ADR-er      |
-| `<opencode-agents>/archgate-quality-manager.md` | Underagent som fanger opp laeringer og foreslar nye ADR-er              |
+| `<opencode-agents>/archgate-quality-manager.md` | Underagent som fanger opp læringer og foreslår nye ADR-er               |
 | `<opencode-agents>/archgate-adr-author.md`      | Underagent som oppretter og redigerer ADR-er i henhold til konvensjoner |
 | `<opencode-agents>/archgate-cli-reference.md`   | Intern referanseunderagent med Archgate CLI-kommandoguiden (skjult)     |
 
@@ -63,76 +63,76 @@ Installasjonstrinnet laster ned en autentisert tarball fra Archgate plugins-tjen
 
 ## Hva pakken tilbyr
 
-`archgate-`-prefikset unngaar kollisjoner med brukeropprettede opencode-agenter i samme katalog. Underagenter aktiveres via opencodes `@-mention`-syntaks.
+`archgate-`-prefikset unngår kollisjoner med brukeropprettede opencode-agenter i samme katalog. Underagenter aktiveres via opencodes `@-mention`-syntaks.
 
-### Primaer agent
+### Primær agent
 
-| Navn                 | Formaal                                                                    |
-| -------------------- | -------------------------------------------------------------------------- |
-| `archgate-developer` | Generell utviklingsagent som leser ADR-er for koding og validerer etterpaa |
+| Navn                 | Formål                                                                    |
+| -------------------- | ------------------------------------------------------------------------- |
+| `archgate-developer` | Generell utviklingsagent som leser ADR-er før koding og validerer etterpå |
 
 `archgate-developer`-agenten orkestrerer underagentene nedenfor automatisk som en del av arbeidsflyten.
 
 ### Underagenter
 
-| Navn                       | Formaal                                                                       |
+| Navn                       | Formål                                                                        |
 | -------------------------- | ----------------------------------------------------------------------------- |
 | `archgate-architect`       | Validerer kodeendringer mot alle prosjektets ADR-er for strukturell samsvar   |
-| `archgate-quality-manager` | Gjennomgaar regeldekning og foreslar nye ADR-er naar monstre dukker opp       |
+| `archgate-quality-manager` | Gjennomgår regeldekning og foreslår nye ADR-er når mønstre dukker opp         |
 | `archgate-adr-author`      | Oppretter og redigerer ADR-er i henhold til prosjektets konvensjoner          |
 | `archgate-cli-reference`   | Intern referanse for AI-agenter med den komplette Archgate CLI-kommandoguiden |
 
-Disse er de samme rollene som er tilgjengelige i Claude Code-pluginet, tilpasset opencodes opprinnelige primaer-/underagentmodell.
+Disse er de samme rollene som er tilgjengelige i Claude Code-pluginet, tilpasset opencodes opprinnelige primær-/underagentmodell.
 
 ## Hvordan det fungerer i praksis
 
-Velg `archgate-developer` som din primaere agent (bruk Tab-tasten i opencode) naar du starter en kodeoppgave. Agenten folger en strukturert arbeidsflyt for hver endring:
+Velg `archgate-developer` som din primære agent (bruk Tab-tasten i opencode) når du starter en kodeoppgave. Agenten følger en strukturert arbeidsflyt for hver endring:
 
-1. **Les gjeldende ADR-er** -- Agenten kjorer `archgate review-context` for aa se hvilke ADR-er som gjelder for filene som endres. Den skriver ikke kode for den har lest de gjeldende ADR-ene.
+1. **Les gjeldende ADR-er** -- Agenten kjører `archgate review-context` for å se hvilke ADR-er som gjelder for filene som endres. Den skriver ikke kode før den har lest de gjeldende ADR-ene.
 
 2. **Skriv kode i henhold til ADR-begrensninger** -- Agenten implementerer endringer i henhold til Do's and Don'ts fra de gjeldende ADR-ene.
 
-3. **Kjor samsvarssjekker** -- Agenten kjorer `archgate check` for aa utfore automatiserte regler. Eventuelle brudd utbedres for man gaar videre.
+3. **Kjør samsvarssjekker** -- Agenten kjører `archgate check` for å utføre automatiserte regler. Eventuelle brudd utbedres før man går videre.
 
-4. **Arkitektgjennomgang** -- Agenten nevner `@archgate-architect` for aa validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp.
+4. **Arkitektgjennomgang** -- Agenten nevner `@archgate-architect` for å validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp.
 
-5. **Fang opp laeringer** -- Agenten nevner `@archgate-quality-manager` for aa gjennomgaa arbeidet og identifisere monstre som er verdt aa fange opp som nye ADR-er eller oppdateringer til eksisterende.
+5. **Fang opp læringer** -- Agenten nevner `@archgate-quality-manager` for å gjennomgå arbeidet og identifisere mønstre som er verdt å fange opp som nye ADR-er eller oppdateringer til eksisterende.
 
 ## ADR-drevet avvisning
 
-Naar `archgate-developer` moter en oppgave som ville kreve brudd paa en ADR, avviser den og forklarer hvilken ADR som ville bli brutt. Den foreslar deretter hvordan man kan oppnaa det samme maalet uten aa bryte reglene.
+Når `archgate-developer` møter en oppgave som ville kreve brudd på en ADR, avviser den og forklarer hvilken ADR som ville bli brutt. Den foreslår deretter hvordan man kan oppnå det samme målet uten å bryte reglene.
 
-Hvis for eksempel en utvikler ber agenten om aa legge til `chalk` som en avhengighet i et prosjekt styrt av en ADR for avhengighetspolicy, vil agenten:
+Hvis for eksempel en utvikler ber agenten om å legge til `chalk` som en avhengighet i et prosjekt styrt av en ADR for avhengighetspolicy, vil agenten:
 
 1. Avvise, med henvisning til ADR-en og den godkjente avhengighetslisten
-2. Foresla det godkjente alternativet i stedet
-3. Tilby aa implementere oppgaven med den samsvarende tilnaermingen
+2. Foreslå det godkjente alternativet i stedet
+3. Tilby å implementere oppgaven med den samsvarende tilnærmingen
 
-Denne oppforselen er konsistent uavhengig av hvordan utvikleren formulerer forsporselen. ADR-er behandles som obligatoriske begrensninger, ikke forslag.
+Denne oppførselen er konsistent uavhengig av hvordan utvikleren formulerer forespørselen. ADR-er behandles som obligatoriske begrensninger, ikke forslag.
 
-## Naar du skal bruke hver agent eller underagent
+## Når du skal bruke hver agent eller underagent
 
-| Scenario                                           | Agent / Underagent             |
-| -------------------------------------------------- | ------------------------------ |
-| Daglige kodeoppgaver                               | `archgate-developer` (primaer) |
-| Gjennomgaa en endring for ADR-samsvar              | `@archgate-architect`          |
-| Oppdage et gjentagende monster verdt aa kodifisere | `@archgate-quality-manager`    |
-| Opprette eller redigere en ADR                     | `@archgate-adr-author`         |
+| Scenario                                          | Agent / Underagent            |
+| ------------------------------------------------- | ----------------------------- |
+| Daglige kodeoppgaver                              | `archgate-developer` (primær) |
+| Gjennomgå en endring for ADR-samsvar              | `@archgate-architect`         |
+| Oppdage et gjentagende mønster verdt å kodifisere | `@archgate-quality-manager`   |
+| Opprette eller redigere en ADR                    | `@archgate-adr-author`        |
 
-`archgate-developer`-agenten orkestrerer underagentene automatisk -- den nevner `@archgate-architect` og `@archgate-quality-manager` som en del av arbeidsflyten. Mesteparten av tiden trenger du bare aa velge `archgate-developer` og la den kjore.
+`archgate-developer`-agenten orkestrerer underagentene automatisk -- den nevner `@archgate-architect` og `@archgate-quality-manager` som en del av arbeidsflyten. Mesteparten av tiden trenger du bare å velge `archgate-developer` og la den kjøre.
 
-## Brukernivaa vs. prosjektnivaa
+## Brukernivå vs. prosjektnivå
 
-opencode-pakken bor i opencode-katalogen paa brukernivaa i stedet for i `.opencode/` inne i prosjektet ditt. Konsekvenser:
+opencode-pakken bor i opencode-katalogen på brukernivå i stedet for i `.opencode/` inne i prosjektet ditt. Konsekvenser:
 
-- **En installasjon per maskin.** `archgate plugin install --editor opencode` installerer pakken globalt. Alle prosjekter du aapner med opencode ser de samme `archgate-*`-agentene.
-- **Repositoriet ditt forblir rent.** Ingen `.opencode/`-mappe opprettes noensinne av `archgate init`. Teammedlemmer som onsker agentene kjorer sin egen `archgate plugin install --editor opencode`.
-- **Oppgraderinger er globale.** Aa kjore `archgate plugin install --editor opencode` paa nytt overskriver de eksisterende filene med den nyeste pakken.
+- **En installasjon per maskin.** `archgate plugin install --editor opencode` installerer pakken globalt. Alle prosjekter du åpner med opencode ser de samme `archgate-*`-agentene.
+- **Repositoriet ditt forblir rent.** Ingen `.opencode/`-mappe opprettes noensinne av `archgate init`. Teammedlemmer som ønsker agentene kjører sin egen `archgate plugin install --editor opencode`.
+- **Oppgraderinger er globale.** Å kjøre `archgate plugin install --editor opencode` på nytt overskriver de eksisterende filene med den nyeste pakken.
 
 ## Tips for effektiv bruk
 
-- **Velg `archgate-developer` ved starten av kodeokter.** Den orkestrerer hele les-valider-fang-opp-arbeidsflyten automatisk.
+- **Velg `archgate-developer` ved starten av kodeøkter.** Den orkestrerer hele les-valider-fang-opp-arbeidsflyten automatisk.
 - **Bruk `@archgate-architect` for gjennomganger.** Den validerer strukturelt samsvar utover det automatiserte regler fanger opp.
-- **Bruk `@archgate-quality-manager` etter aa ha lost vanskelige problemer.** Den fanger opp laeringer slik at de samme feilene ikke gjentas.
-- **Hold ADR-regelfiler oppdatert.** Agenten haandterer det reglene sjekker for -- hvis en regel mangler, vil bruddet ikke bli fanget opp.
-- **Kjor `archgate plugin install --editor opencode` paa nytt for aa oppgradere.** Tjenesten returnerer den nyeste agentpakken ved hver autentisert nedlasting.
+- **Bruk `@archgate-quality-manager` etter å ha løst vanskelige problemer.** Den fanger opp læringer slik at de samme feilene ikke gjentas.
+- **Hold ADR-regelfiler oppdatert.** Agenten håndterer det reglene sjekker for -- hvis en regel mangler, vil bruddet ikke bli fanget opp.
+- **Kjør `archgate plugin install --editor opencode` på nytt for å oppgradere.** Tjenesten returnerer den nyeste agentpakken ved hver autentisert nedlasting.

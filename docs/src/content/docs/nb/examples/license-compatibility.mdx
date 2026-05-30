@@ -18,7 +18,7 @@ Når du kompilerer eller bundler avhengigheter inn i applikasjonen din, gjelder 
 }
 ```
 
-Hvis `readline-sync` bruker GPL-3.0, utloses et brudd selv som devDependency.
+Hvis `readline-sync` bruker GPL-3.0, utløses et brudd selv som devDependency.
 
 ## Eksempler på **riktig** kode
 
@@ -122,7 +122,7 @@ export default {
 
 ## Tilpasning
 
-- **Endre tillatt-listen**: Legg til eller fjern lisensidentifikatorer basert på prosjektets lisens. GPL-prosjekter kan tillate GPL-avhengigheter; Apache-2.0-prosjekter bor blokkere dem.
+- **Endre tillatt-listen**: Legg til eller fjern lisensidentifikatorer basert på prosjektets lisens. GPL-prosjekter kan tillate GPL-avhengigheter; Apache-2.0-prosjekter bør blokkere dem.
 - **Sjekk kun produksjonsavhengigheter**: Fjern `devDependencies` fra `allDeps` hvis du bare bryr deg om bundlet/levert kode.
 - **Skann transitive avhengigheter**: Bruk `ctx.glob("node_modules/{*,@*/*}/package.json")` for å skanne alle installerte pakker (inkludert scoped) rekursivt, ikke bare direkte avhengigheter.
 
@@ -132,4 +132,4 @@ Når prosjektet ditt bruker en permissiv lisens (MIT, Apache-2.0, ISC, BSD) og d
 
 ## Når bør du ikke bruke den
 
-I GPL-lisensierte prosjekter (der copyleft-avhengigheter er kompatible), eller når du har et dedikert lisensskanningsverktoy (FOSSA, Snyk) som allerede beskytter CI-pipelinen din.
+I GPL-lisensierte prosjekter (der copyleft-avhengigheter er kompatible), eller når du har et dedikert lisensskanningsverktøy (FOSSA, Snyk) som allerede beskytter CI-pipelinen din.

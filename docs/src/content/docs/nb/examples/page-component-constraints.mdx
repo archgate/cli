@@ -1,18 +1,18 @@
 ---
 title: page-component-constraints
-description: H&aring;ndhev at sidekomponenter er tynne layout-innpakninger ved &aring; begrense st&oslash;rrelsen og forby datahentings-hooks.
+description: Håndhev at sidekomponenter er tynne layout-innpakninger ved å begrense størrelsen og forby datahentings-hooks.
 ---
 
-H&aring;ndhev at sidekomponenter er tynne layout-innpakninger -- sm&aring; i st&oslash;rrelse og fri for datahentingslogikk.
+Håndhev at sidekomponenter er tynne layout-innpakninger -- små i størrelse og fri for datahentingslogikk.
 
 ## Regeldetaljer
 
-I frontend-arkitekturer som skiller ruting fra logikk, b&oslash;r sidekomponenter bare sette sammen layout og delegere datahenting til Connected-komponenter. Denne regelen h&aring;ndhever to begrensninger i en enkelt regelfil:
+I frontend-arkitekturer som skiller ruting fra logikk, bør sidekomponenter bare sette sammen layout og delegere datahenting til Connected-komponenter. Denne regelen håndhever to begrensninger i en enkelt regelfil:
 
-1. **St&oslash;rrelsesgrense** -- Sidekomponenter m&aring; holde seg under et konfigurerbart linjetall (standard: 75 linjer).
-2. **Ingen data-hooks** -- Sidekomponenter m&aring; ikke bruke `useState`, `useQuery`, `useMutation` eller andre datahentings-hooks direkte.
+1. **Størrelsesgrense** -- Sidekomponenter må holde seg under et konfigurerbart linjetall (standard: 75 linjer).
+2. **Ingen data-hooks** -- Sidekomponenter må ikke bruke `useState`, `useQuery`, `useMutation` eller andre datahentings-hooks direkte.
 
-## Eksempler p&aring; **feil** kode
+## Eksempler på **feil** kode
 
 ```tsx title="src/pages/DashboardPage.tsx"
 import { useQuery } from "@tanstack/react-query";
@@ -25,7 +25,7 @@ export default function DashboardPage() {
 }
 ```
 
-## Eksempler p&aring; **riktig** kode
+## Eksempler på **riktig** kode
 
 ```tsx title="src/pages/DashboardPage.tsx"
 import { DashboardConnected } from "../components/DashboardConnected";
@@ -108,10 +108,10 @@ export default {
 } satisfies RuleSet;
 ```
 
-## N&aring;r du b&oslash;r bruke den
+## Når du bør bruke den
 
-N&aring;r frontend-arkitekturen din f&oslash;lger page/container/presentational-m&oslash;nsteret og du vil h&aring;ndheve at sider forblir tynne rutingsendepunkter. Juster `PAGE_MAX_LINES` og hook-listene for ditt rammeverk.
+Når frontend-arkitekturen din følger page/container/presentational-mønsteret og du vil håndheve at sider forblir tynne rutingsendepunkter. Juster `PAGE_MAX_LINES` og hook-listene for ditt rammeverk.
 
-## N&aring;r du ikke b&oslash;r bruke den
+## Når du ikke bør bruke den
 
-N&aring;r sider forventes &aring; inneholde logikk (f.eks. i Next.js server-komponenter der datahenting i siden er idiomatisk), eller n&aring;r prosjektet ditt ikke f&oslash;lger dette arkitekturm&oslash;nsteret.
+Når sider forventes å inneholde logikk (f.eks. i Next.js server-komponenter der datahenting i siden er idiomatisk), eller når prosjektet ditt ikke følger dette arkitekturmønsteret.
