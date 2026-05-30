@@ -227,7 +227,7 @@ interface ReportDetail {
 | `line`      | `number` | Nei     | Startlinjenummer (1-basert)                                                |
 | `endLine`   | `number` | Nei     | Sluttlinjenummer (1-basert) -- for presis uthevning av område i editoren   |
 | `endColumn` | `number` | Nei     | Sluttkolonnenummer (0-basert) -- for presis uthevning av område i editoren |
-| `fix`       | `string` | Nei     | Foreslatt rettelse eller utbedringstiltak                                  |
+| `fix`       | `string` | Nei     | Foreslått rettelse eller utbedringstiltak                                  |
 
 Når `endLine` og `endColumn` er oppgitt, kan editorer (VS Code, Cursor) utheve det nøyaktige uttrykket som bryter regelen, i stedet for hele linjen. Hvis de utelates, utheves hele linjen ved `line`.
 
@@ -296,7 +296,7 @@ interface ViolationDetail {
 | `line`      | `number?`  | Startlinjenummer (1-basert)                                |
 | `endLine`   | `number?`  | Sluttlinje (1-basert) -- for presis uthevning i editoren   |
 | `endColumn` | `number?`  | Sluttkolonne (0-basert) -- for presis uthevning i editoren |
-| `fix`       | `string?`  | Foreslatt rettelse                                         |
+| `fix`       | `string?`  | Foreslått rettelse                                         |
 | `severity`  | `Severity` | Effektiv alvorlighetsgrad for dette bruddet                |
 
 ---
