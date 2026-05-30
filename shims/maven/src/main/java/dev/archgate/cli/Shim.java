@@ -194,7 +194,16 @@ public final class Shim {
 
             // Parse size (bytes 124-136, octal)
             String sizeStr = stripNulls(new String(header, 124, 12, StandardCharsets.UTF_8)).trim();
-            long size = sizeStr.isEmpty() ? 0 : Long.parseLong(sizeStr, 8);
+            long size;
+            if (sizeStr.isEmpty()) {
+                size = 0;
+            } else {
+                try {
+                    size = Long.parseLong(sizeStr, 8);
+                } catch (NumberFormatException e) {
+                    throw new IOException("Corrupt tar header: invalid octal size '" + sizeStr + "'", e);
+                }
+            }
 
             // File data follows, padded to 512-byte boundary
             int blocks = (int) ((size + 511) / 512);

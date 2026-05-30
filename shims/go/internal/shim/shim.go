@@ -71,20 +71,23 @@ func download(artifact, cacheDir, binaryPath string) int {
 	checksumURL := fmt.Sprintf("%s/v%s/%s.%s.sha256", releaseBaseURL, Version, artifact, ext)
 	checksumBytes, checksumErr := httpGet(checksumURL)
 	if checksumErr != nil {
-		fmt.Fprintf(os.Stderr, "archgate: checksum file unavailable, skipping verification.\n")
-	} else {
-		expected := strings.TrimSpace(string(checksumBytes))
-		if len(expected) >= 64 {
-			expected = expected[:64]
-		}
+		fmt.Fprintf(os.Stderr, "archgate: failed to download checksum file: %v\n", checksumErr)
+		fmt.Fprintf(os.Stderr, "archgate: refusing to install without checksum verification.\n")
+		fmt.Fprintf(os.Stderr, "Visit %s for alternative install methods.\n", installHelpURL)
+		return 2
+	}
 
-		hash := sha256.Sum256(archiveBytes)
-		actual := hex.EncodeToString(hash[:])
+	expected := strings.TrimSpace(string(checksumBytes))
+	if len(expected) >= 64 {
+		expected = expected[:64]
+	}
 
-		if !strings.EqualFold(expected, actual) {
-			fmt.Fprintf(os.Stderr, "archgate: checksum verification failed for v%s (expected %s, got %s)\n", Version, expected, actual)
-			return 2
-		}
+	hash := sha256.Sum256(archiveBytes)
+	actual := hex.EncodeToString(hash[:])
+
+	if !strings.EqualFold(expected, actual) {
+		fmt.Fprintf(os.Stderr, "archgate: checksum verification failed for v%s (expected %s, got %s)\n", Version, expected, actual)
+		return 2
 	}
 
 	// Ensure cache directory exists

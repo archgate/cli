@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
-import unittest
-from unittest import mock
+from unittest import TestCase, main, mock
 
 # ---------------------------------------------------------------------------
 # Ensure the package is importable regardless of working directory.
@@ -25,7 +24,7 @@ from archgate._shim import (  # noqa: E402
 )
 
 
-class TestPlatformDetection(unittest.TestCase):
+class TestPlatformDetection(TestCase):
     """Verify the platform → artifact mapping."""
 
     def test_darwin_arm64(self):
@@ -73,7 +72,7 @@ class TestPlatformDetection(unittest.TestCase):
             self.assertEqual(ctx.exception.code, 2)
 
 
-class TestArtifactNaming(unittest.TestCase):
+class TestArtifactNaming(TestCase):
     """Verify artifact name, binary name, and archive extension."""
 
     def test_artifact_names_in_platform_map(self):
@@ -107,7 +106,7 @@ class TestArtifactNaming(unittest.TestCase):
                 self.assertEqual(_archive_ext(), "tar.gz")
 
 
-class TestChecksumVerification(unittest.TestCase):
+class TestChecksumVerification(TestCase):
     """Verify SHA256 checksum logic."""
 
     def test_checksum_pass(self):
@@ -141,4 +140,4 @@ class TestChecksumVerification(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()

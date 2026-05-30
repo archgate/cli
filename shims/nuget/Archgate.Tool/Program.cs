@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
@@ -9,7 +10,7 @@ internal static class Program
 {
     private const string Version = "0.39.0";
 
-    private static readonly string CacheDir = Path.Combine(
+    private static readonly string CacheDir = Path.Join(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".archgate",
         "bin"
@@ -25,7 +26,31 @@ internal static class Program
             {
                 DownloadBinary(binaryPath).GetAwaiter().GetResult();
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
+            {
+                Console.Error.WriteLine(
+                    $"archgate: failed to download binary: {ex.Message}\n"
+                    + "Visit https://cli.archgate.dev/getting-started/installation/ for alternative install methods."
+                );
+                return 2;
+            }
+            catch (IOException ex)
+            {
+                Console.Error.WriteLine(
+                    $"archgate: failed to download binary: {ex.Message}\n"
+                    + "Visit https://cli.archgate.dev/getting-started/installation/ for alternative install methods."
+                );
+                return 2;
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.Error.WriteLine(
+                    $"archgate: failed to download binary: {ex.Message}\n"
+                    + "Visit https://cli.archgate.dev/getting-started/installation/ for alternative install methods."
+                );
+                return 2;
+            }
+            catch (PlatformNotSupportedException ex)
             {
                 Console.Error.WriteLine(
                     $"archgate: failed to download binary: {ex.Message}\n"
@@ -73,7 +98,7 @@ internal static class Program
 
     private static string GetBinaryPath()
     {
-        return Path.Combine(CacheDir, GetBinaryName());
+        return Path.Join(CacheDir, GetBinaryName());
     }
 
     // -------------------------------------------------------------------------
@@ -137,10 +162,11 @@ internal static class Program
             string checksumContent = await http.GetStringAsync(checksumUrl);
             expectedHash = checksumContent.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
         }
-        catch
+        catch (HttpRequestException)
         {
-            Console.Error.WriteLine("archgate: warning: checksum file not available, skipping verification");
-            return;
+            throw new InvalidOperationException(
+                $"checksum verification failed for v{Version}: unable to fetch checksum file"
+            );
         }
 
         byte[] hashBytes = SHA256.HashData(archiveBytes);
@@ -159,16 +185,8 @@ internal static class Program
         using var stream = new MemoryStream(archiveBytes);
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
 
-        ZipArchiveEntry? entry = null;
-        foreach (var e in archive.Entries)
-        {
-            // Match exact name or nested path ending with the binary name
-            if (string.Equals(e.Name, binaryName, StringComparison.OrdinalIgnoreCase))
-            {
-                entry = e;
-                break;
-            }
-        }
+        ZipArchiveEntry? entry = archive.Entries
+            .FirstOrDefault(e => string.Equals(e.Name, binaryName, StringComparison.OrdinalIgnoreCase));
 
         if (entry is null)
         {
@@ -182,7 +200,7 @@ internal static class Program
 
     private static void ExtractFromTarGz(byte[] archiveBytes, string binaryName, string destPath)
     {
-        string tempDir = Path.Combine(CacheDir, "archgate-extract");
+        string tempDir = Path.Join(CacheDir, "archgate-extract");
         Directory.CreateDirectory(tempDir);
 
         try
@@ -204,7 +222,7 @@ internal static class Program
         }
         finally
         {
-            try { Directory.Delete(tempDir, recursive: true); } catch { /* cleanup */ }
+            try { Directory.Delete(tempDir, recursive: true); } catch (IOException) { /* best-effort cleanup */ }
         }
     }
 

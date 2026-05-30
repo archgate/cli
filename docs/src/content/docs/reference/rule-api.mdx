@@ -246,12 +246,12 @@ interface GrepMatch {
 }
 ```
 
-| Field     | Type     | Description                          |
-| --------- | -------- | ------------------------------------ |
-| `file`    | `string` | Absolute path to the matched file    |
-| `line`    | `number` | Line number of the match (1-based)   |
-| `column`  | `number` | Column number of the match (1-based) |
-| `content` | `string` | Full content of the matched line     |
+| Field     | Type     | Description                               |
+| --------- | -------- | ----------------------------------------- |
+| `file`    | `string` | Project-relative path to the matched file |
+| `line`    | `number` | Line number of the match (1-based)        |
+| `column`  | `number` | Column number of the match (1-based)      |
+| `content` | `string` | Full content of the matched line          |
 
 ---
 
@@ -311,13 +311,3 @@ import chalk from "chalk";
 ```
 
 A reason is required. File-level suppression uses `archgate-ignore-file`. Stack multiple comments to suppress more than one rule on the same line. See [Opt-out directives](/guides/writing-rules/#opt-out-directives) for full details and custom directive patterns.
-
----
-
-## RuleSet
-
-The type used with `satisfies` to type-check your rules object. Export a plain object that conforms to this shape.
-
-```typescript
-type RuleSet = { rules: Record<string, RuleConfig> };
-```
