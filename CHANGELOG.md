@@ -1,3 +1,16 @@
+## [0.43.0](https://github.com/archgate/cli/compare/v0.41.1...v0.43.0) (2026-05-30)
+
+### Features
+
+* **engine:** add inline suppression via archgate-ignore comments ([#383](https://github.com/archgate/cli/issues/383)) ([1240860](https://github.com/archgate/cli/commit/12408603724f2bcb7be22950624e83563179e6ab))
+
+### Bug Fixes
+
+* **ci:** stop cancelling main branch CI runs on concurrent pushes ([#392](https://github.com/archgate/cli/issues/392)) ([9edabde](https://github.com/archgate/cli/commit/9edabde98ac23bf1fdeb244be634c4b54805f5ad))
+* **deps:** resolve dependency dashboard deprecation and lookup warnings ([#387](https://github.com/archgate/cli/issues/387)) ([18eae44](https://github.com/archgate/cli/commit/18eae4481b2210c796276ff0718fcd91cc9a8144)), closes [#107](https://github.com/archgate/cli/issues/107)
+* **docs:** restore Norwegian Bokmål diacritical marks across nb/ locale ([#384](https://github.com/archgate/cli/issues/384)) ([ef98b39](https://github.com/archgate/cli/commit/ef98b39ec0b85bc7f48c1325810b5d27323a138e))
+* **shims,docs:** resolve CodeQL and AI code quality findings ([#388](https://github.com/archgate/cli/issues/388)) ([63ec93f](https://github.com/archgate/cli/commit/63ec93fc3ebe603a856a24f5ffef8120e357ce4c))
+
 ## [0.42.0](https://github.com/archgate/cli/compare/v0.41.1...v0.42.0) (2026-05-30)
 
 ### Features
