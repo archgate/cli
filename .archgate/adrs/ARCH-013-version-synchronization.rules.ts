@@ -60,6 +60,11 @@ export default {
             label: "NuGet .csproj",
           },
           {
+            file: "shims/nuget/Archgate.Tool/Program.cs",
+            pattern: /private const string Version = "([^"]+)"/u,
+            label: "NuGet Program.cs",
+          },
+          {
             file: "shims/go/internal/shim/shim.go",
             pattern: /const Version = "([^"]+)"/u,
             label: "Go shim.go",
@@ -69,6 +74,11 @@ export default {
             pattern:
               /<artifactId>archgate-cli<\/artifactId>\s*<version>([^<]+)<\/version>/u,
             label: "Maven pom.xml",
+          },
+          {
+            file: "shims/maven/src/main/java/dev/archgate/cli/Shim.java",
+            pattern: /private static final String VERSION = "([^"]+)"/u,
+            label: "Maven Shim.java",
           },
           {
             file: "shims/rubygem/lib/archgate/version.rb",
