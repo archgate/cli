@@ -70,6 +70,20 @@ class ArchgateProject extends NpmProject {
         }
       }
 
+      // NuGet: Program.cs version constant (download URL)
+      const csProgramPath = "shims/nuget/Archgate.Tool/Program.cs";
+      if (existsSync(csProgramPath)) {
+        const content = readFileSync(csProgramPath, "utf8");
+        const updated = content.replace(
+          /private const string Version = "[^"]+"/u,
+          `private const string Version = "${version}"`
+        );
+        if (updated !== content) {
+          writeFileSync(csProgramPath, updated);
+          this.changedFiles.push(csProgramPath);
+        }
+      }
+
       // Go: shim.go version constant
       const goShimPath = "shims/go/internal/shim/shim.go";
       if (existsSync(goShimPath)) {
@@ -95,6 +109,21 @@ class ArchgateProject extends NpmProject {
         if (updated !== content) {
           writeFileSync(pomPath, updated);
           this.changedFiles.push(pomPath);
+        }
+      }
+
+      // Maven: Shim.java version constant (download URL)
+      const javaShimPath =
+        "shims/maven/src/main/java/dev/archgate/cli/Shim.java";
+      if (existsSync(javaShimPath)) {
+        const content = readFileSync(javaShimPath, "utf8");
+        const updated = content.replace(
+          /private static final String VERSION = "[^"]+"/u,
+          `private static final String VERSION = "${version}"`
+        );
+        if (updated !== content) {
+          writeFileSync(javaShimPath, updated);
+          this.changedFiles.push(javaShimPath);
         }
       }
 

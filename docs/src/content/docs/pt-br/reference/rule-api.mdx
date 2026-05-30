@@ -246,12 +246,12 @@ interface GrepMatch {
 }
 ```
 
-| Campo     | Tipo     | Descrição                                    |
-| --------- | -------- | -------------------------------------------- |
-| `file`    | `string` | Caminho absoluto do arquivo correspondente   |
-| `line`    | `number` | Número da linha da correspondência (base 1)  |
-| `column`  | `number` | Número da coluna da correspondência (base 1) |
-| `content` | `string` | Conteúdo completo da linha correspondente    |
+| Campo     | Tipo     | Descrição                                             |
+| --------- | -------- | ----------------------------------------------------- |
+| `file`    | `string` | Caminho relativo ao projeto do arquivo correspondente |
+| `line`    | `number` | Número da linha da correspondência (base 1)           |
+| `column`  | `number` | Número da coluna da correspondência (base 1)          |
+| `content` | `string` | Conteúdo completo da linha correspondente             |
 
 ---
 
@@ -311,13 +311,3 @@ import chalk from "chalk";
 ```
 
 Um motivo é obrigatório. A supressão no nível do arquivo usa `archgate-ignore-file`. Empilhe múltiplos comentários para suprimir mais de uma regra na mesma linha. Veja [Diretivas de opt-out](/guides/writing-rules/#diretivas-de-opt-out) para detalhes completos e padrões de diretivas customizadas.
-
----
-
-## RuleSet
-
-O tipo usado com `satisfies` para verificar a tipagem do seu objeto de regras. Exporte um objeto simples que esteja em conformidade com esta forma.
-
-```typescript
-type RuleSet = { rules: Record<string, RuleConfig> };
-```

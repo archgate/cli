@@ -4,7 +4,6 @@ invocation and then executes it.  Zero runtime dependencies — stdlib only."""
 from __future__ import annotations
 
 import hashlib
-import os
 import platform
 import stat
 import subprocess

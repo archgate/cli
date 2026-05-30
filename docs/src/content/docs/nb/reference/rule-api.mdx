@@ -246,12 +246,12 @@ interface GrepMatch {
 }
 ```
 
-| Felt      | Type     | Beskrivelse                          |
-| --------- | -------- | ------------------------------------ |
-| `file`    | `string` | Absolutt sti til den matchede filen  |
-| `line`    | `number` | Linjenummer for treffet (1-basert)   |
-| `column`  | `number` | Kolonnenummer for treffet (1-basert) |
-| `content` | `string` | Fullt innhold av den matchede linjen |
+| Felt      | Type     | Beskrivelse                                |
+| --------- | -------- | ------------------------------------------ |
+| `file`    | `string` | Prosjektrelativ sti til den matchede filen |
+| `line`    | `number` | Linjenummer for treffet (1-basert)         |
+| `column`  | `number` | Kolonnenummer for treffet (1-basert)       |
+| `content` | `string` | Fullt innhold av den matchede linjen       |
 
 ---
 
@@ -311,13 +311,3 @@ import chalk from "chalk";
 ```
 
 En begrunnelse er påkrevd. Filnivå-undertrykkelse bruker `archgate-ignore-file`. Stable flere kommentarer for å undertrykke mer enn én regel på samme linje. Se [Opt-out-direktiver](/guides/writing-rules/#opt-out-direktiver) for fullstendige detaljer og egendefinerte direktivmønstre.
-
----
-
-## RuleSet
-
-Typen brukt med `satisfies` for å typekontrollere regelobjektet ditt. Eksporter et vanlig objekt som samsvarer med denne formen.
-
-```typescript
-type RuleSet = { rules: Record<string, RuleConfig> };
-```
