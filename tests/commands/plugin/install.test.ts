@@ -23,6 +23,7 @@ const mockInstallClaudePlugin = mock(() => Promise.resolve());
 const mockInstallCopilotPlugin = mock(() => Promise.resolve());
 const mockInstallVscodeExtension = mock((_token: string) => Promise.resolve());
 const mockInstallOpencodePlugin = mock((_token: string) => Promise.resolve());
+const mockInstallCursorPlugin = mock((_token: string) => Promise.resolve());
 const mockIsClaudeCliAvailable = mock(() => Promise.resolve(false));
 const mockIsCopilotCliAvailable = mock(() => Promise.resolve(false));
 const mockIsVscodeCliAvailable = mock(() => Promise.resolve(false));
@@ -37,6 +38,7 @@ mock.module("../../../src/helpers/plugin-install", () => ({
   installCopilotPlugin: mockInstallCopilotPlugin,
   installVscodeExtension: mockInstallVscodeExtension,
   installOpencodePlugin: mockInstallOpencodePlugin,
+  installCursorPlugin: mockInstallCursorPlugin,
   isClaudeCliAvailable: mockIsClaudeCliAvailable,
   isCopilotCliAvailable: mockIsCopilotCliAvailable,
   isVscodeCliAvailable: mockIsVscodeCliAvailable,
@@ -229,19 +231,15 @@ describe("plugin install action", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
-  test("prints cursor marketplace URL for --editor cursor", async () => {
+  test("installs cursor plugin for --editor cursor", async () => {
     mockLoadCredentials.mockImplementation(() =>
       Promise.resolve({ token: "tok", github_user: "user" })
     );
 
     await runInstall(["--editor", "cursor"]);
 
-    // Cursor case prints URL, never calls an install function
-    expect(logSpy).toHaveBeenCalled();
-    const allLogOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    expect(allLogOutput).toContain("Cursor Settings");
+    // Cursor case calls installCursorPlugin with the token
+    expect(mockInstallCursorPlugin).toHaveBeenCalledWith("tok");
   });
 
   test("installs copilot plugin when CLI is available", async () => {

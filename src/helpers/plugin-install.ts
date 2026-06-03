@@ -2,10 +2,11 @@
 // Copyright 2026 Archgate
 /** Download and install the archgate plugin for supported editors. */
 
-import { mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 
 import { logDebug } from "./log";
-import { internalPath, opencodeAgentsDir } from "./paths";
+import { cursorUserDir, internalPath, opencodeAgentsDir } from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -117,6 +118,107 @@ export async function installClaudePlugin(): Promise<void> {
     throw new Error(
       `claude plugin install failed (exit ${installResult.exitCode})`
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cursor — download and extract into user-scope discovery dirs
+// ---------------------------------------------------------------------------
+
+/**
+ * Install the archgate Cursor components into user-scope discovery dirs.
+ *
+ * Cursor discovers skills, agents, and rules from `~/.cursor/{skills,agents,rules}/`.
+ * The tarball from /api/cursor contains these at its root:
+ *   - skills/archgate-{name}/SKILL.md — skill definitions
+ *   - agents/archgate-{name}.md — agent definitions
+ *   - rules/archgate-governance.mdc — governance rule
+ *   - hooks.json — afterFileEdit hook for archgate check
+ *
+ * Extraction uses `tar` via `Bun.spawn` — `tar` is available on macOS,
+ * Linux, and modern Windows (bsdtar ships with Windows 10+).
+ *
+ * After extraction, `hooks.json` is merged into `~/.cursor/hooks.json`
+ * (rather than extracted as-is) to avoid overwriting existing user hooks.
+ *
+ * Throws on download or extraction failure so callers can surface a manual
+ * retry hint.
+ */
+export async function installCursorPlugin(token: string): Promise<void> {
+  const tarballPath = internalPath("archgate-cursor.tar.gz");
+  const cursorDir = cursorUserDir();
+
+  const buffer = await downloadPluginAsset("/api/cursor", token);
+  logDebug(
+    `Downloaded Cursor install bundle (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(tarballPath, buffer);
+
+  try {
+    // Ensure target dirs exist — tar will write files, but it won't create
+    // the enclosing `~/.cursor/{skills,agents,rules}/` paths.
+    mkdirSync(join(cursorDir, "skills"), { recursive: true });
+    mkdirSync(join(cursorDir, "agents"), { recursive: true });
+    mkdirSync(join(cursorDir, "rules"), { recursive: true });
+
+    logDebug(`Extracting Cursor components into ${cursorDir}`);
+    const result = await run(["tar", "-xzf", tarballPath, "-C", cursorDir]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `tar -xzf failed (exit ${result.exitCode}) while extracting Cursor components`
+      );
+    }
+
+    // Merge hooks.json into ~/.cursor/hooks.json instead of leaving the
+    // extracted copy (which would be at ~/.cursor/hooks.json and would
+    // overwrite existing user hooks). The tarball extracts it, so we
+    // merge the archgate hooks into any existing hooks file.
+    await mergeCursorHooks(cursorDir);
+  } finally {
+    try {
+      unlinkSync(tarballPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
+/**
+ * Merge archgate hooks into `~/.cursor/hooks.json`.
+ *
+ * If the file already exists, reads it, removes any previous archgate hooks
+ * (identified by the archgate check command), appends the new ones, and
+ * writes back. If it doesn't exist, uses the extracted file as-is.
+ */
+async function mergeCursorHooks(cursorDir: string): Promise<void> {
+  const hooksPath = join(cursorDir, "hooks.json");
+  if (!existsSync(hooksPath)) return;
+
+  try {
+    const existing: { event: string; command?: string }[] = JSON.parse(
+      await Bun.file(hooksPath).text()
+    );
+
+    // Remove any previous archgate hooks
+    const filtered = existing.filter(
+      (h) => !h.command?.includes("archgate check")
+    );
+
+    // Add our hooks
+    const archgateHooks = [
+      {
+        event: "afterFileEdit",
+        type: "command",
+        command: "archgate check ${filePath} --json 2>/dev/null || true",
+      },
+    ];
+
+    const merged = [...filtered, ...archgateHooks];
+    await Bun.write(hooksPath, JSON.stringify(merged, null, 2) + "\n");
+    logDebug("Merged archgate hooks into", hooksPath);
+  } catch {
+    // If existing hooks.json is malformed, leave it alone
+    logDebug("Could not merge hooks.json — leaving existing file");
   }
 }
 

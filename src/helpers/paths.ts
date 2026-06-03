@@ -94,6 +94,19 @@ export function opencodeDbPath(): string {
   return join(base, "opencode", "opencode.db");
 }
 
+/**
+ * Resolve the Cursor user-scope config directory (`~/.cursor/`).
+ *
+ * Cursor discovers skills, agents, and rules from `~/.cursor/{skills,agents,rules}/`.
+ * These are user-level (global) — they apply to all projects when using
+ * `cursor agent` locally. Cloud VMs do NOT have this directory.
+ *
+ * Resolved at call time (not cached) so tests can override HOME.
+ */
+export function cursorUserDir(): string {
+  return join(archgateHomeDir(), ".cursor");
+}
+
 export const paths = { cacheFolder: internalPath("cache") } as const;
 
 export function projectPath(projectRoot: string, ...path: string[]) {

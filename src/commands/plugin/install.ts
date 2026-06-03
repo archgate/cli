@@ -16,7 +16,6 @@ import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot } from "../../helpers/paths";
 import {
-  buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
@@ -83,16 +82,12 @@ export async function installForEditor(
       break;
     }
     case "cursor": {
-      // Cursor supports plugins via Team Private Marketplaces — not VSIX.
-      // See https://cursor.com/docs/plugins#team-marketplaces
-      const url = buildCursorMarketplaceUrl();
-      logInfo(
-        `To install the Archgate plugin for ${label}, add the team marketplace URL in Cursor Settings:`
-      );
-      console.log(`  ${styleText("bold", url)}`);
-      console.log(
-        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
-      );
+      // Install directly into ~/.cursor/{skills,agents,rules}/ — Cursor's
+      // plugin subsystem is unreliable in CLI mode and absent in cloud.
+      const { installCursorPlugin } =
+        await import("../../helpers/plugin-install");
+      await installCursorPlugin(token);
+      logInfo(`Archgate plugin installed for ${label}.`);
       break;
     }
     case "opencode": {
@@ -166,11 +161,9 @@ export function printManualInstructions(editor: EditorTarget): void {
       break;
     }
     case "cursor": {
-      const url = buildCursorMarketplaceUrl();
-      logInfo("Add the team marketplace URL in Cursor Settings:");
-      console.log(`  ${styleText("bold", url)}`);
+      logInfo("To install the plugin manually, run:");
       console.log(
-        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
+        `  ${styleText("bold", "archgate plugin install --editor cursor")}`
       );
       break;
     }
