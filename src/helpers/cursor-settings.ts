@@ -3,27 +3,27 @@
 /**
  * Cursor editor integration.
  *
- * The archgate Cursor plugin (skills, agents, governance rules) is now
- * embedded inside the VS Code extension (.vsix). When the extension
- * activates in Cursor it calls `vscode.cursor.plugins.registerPath()`
- * to expose the plugin — no project-level files are needed.
+ * The archgate Cursor plugin is installed to the user-scope local plugins
+ * directory (`~/.cursor/plugins/local/archgate/`). Cursor automatically
+ * discovers plugins from this directory — no project-level files are needed.
  *
- * `configureCursorSettings` is kept as a no-op for call-site
- * compatibility (init-project.ts, etc.) and returns the `.cursor/`
- * directory path for the init summary output.
+ * `configureCursorSettings` returns the resolved user-scope plugins
+ * directory so the init summary has something meaningful to print (matching
+ * the opencode pattern where user-scope paths replace project-tree paths).
  */
 
-import { join } from "node:path";
+import { cursorPluginsLocalDir } from "./paths";
 
 /**
  * Configure Cursor settings for archgate integration.
  *
- * No-op — the archgate VSIX extension embeds the Cursor plugin and
- * registers it via `vscode.cursor.plugins.registerPath()` at runtime.
- * No project-level files are written.
+ * No project-level files are written — the Cursor plugin is delivered to
+ * the user-scope `~/.cursor/plugins/local/` directory by
+ * `installCursorPlugin()`. Returns the resolved local plugins directory
+ * path for the init summary display.
  *
- * @returns Path to the `.cursor/` directory (for init summary display).
+ * @returns Path to the `~/.cursor/plugins/local/` directory.
  */
-export function configureCursorSettings(projectRoot: string): string {
-  return join(projectRoot, ".cursor");
+export function configureCursorSettings(): string {
+  return cursorPluginsLocalDir();
 }

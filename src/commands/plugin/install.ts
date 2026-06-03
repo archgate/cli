@@ -21,6 +21,7 @@ import {
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
   installCopilotPlugin,
+  installCursorPlugin,
   installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
@@ -83,16 +84,8 @@ export async function installForEditor(
       break;
     }
     case "cursor": {
-      // Cursor supports plugins via Team Private Marketplaces — not VSIX.
-      // See https://cursor.com/docs/plugins#team-marketplaces
-      const url = buildCursorMarketplaceUrl();
-      logInfo(
-        `To install the Archgate plugin for ${label}, add the team marketplace URL in Cursor Settings:`
-      );
-      console.log(`  ${styleText("bold", url)}`);
-      console.log(
-        `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`
-      );
+      await installCursorPlugin(token);
+      logInfo(`Archgate plugin installed for ${label}.`);
       break;
     }
     case "opencode": {
@@ -166,8 +159,15 @@ export function printManualInstructions(editor: EditorTarget): void {
       break;
     }
     case "cursor": {
+      logInfo(
+        "Retry the install, or refresh your credentials if they have expired:"
+      );
+      console.log(`  ${styleText("bold", "archgate login refresh")}`);
+      console.log(
+        `  ${styleText("bold", "archgate plugin install --editor cursor")}`
+      );
       const url = buildCursorMarketplaceUrl();
-      logInfo("Add the team marketplace URL in Cursor Settings:");
+      logInfo("Or add the team marketplace URL in Cursor Settings:");
       console.log(`  ${styleText("bold", url)}`);
       console.log(
         `  Cursor Settings → Extensions → Team Private Plugin Marketplaces → Add URL`

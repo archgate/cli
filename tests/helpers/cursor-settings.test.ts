@@ -9,22 +9,26 @@ import { configureCursorSettings } from "../../src/helpers/cursor-settings";
 
 describe("configureCursorSettings", () => {
   let tempDir: string;
+  let savedHome: string | undefined;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-cursor-settings-test-"));
+    savedHome = Bun.env.HOME;
+    Bun.env.HOME = tempDir;
   });
 
   afterEach(() => {
+    Bun.env.HOME = savedHome;
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("returns .cursor/ directory path (no files written)", () => {
-    const result = configureCursorSettings(tempDir);
-    expect(result).toBe(join(tempDir, ".cursor"));
+  test("returns user-scope ~/.cursor/plugins/local/ path", () => {
+    const result = configureCursorSettings();
+    expect(result).toBe(join(tempDir, ".cursor", "plugins", "local"));
   });
 
-  test("does not create .cursor/ directory", () => {
-    configureCursorSettings(tempDir);
+  test("does not create directories", () => {
+    configureCursorSettings();
     expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
   });
 });

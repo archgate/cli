@@ -5,7 +5,11 @@
 import { mkdirSync, unlinkSync } from "node:fs";
 
 import { logDebug } from "./log";
-import { internalPath, opencodeAgentsDir } from "./paths";
+import {
+  cursorPluginsLocalDir,
+  internalPath,
+  opencodeAgentsDir,
+} from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -117,6 +121,55 @@ export async function installClaudePlugin(): Promise<void> {
     throw new Error(
       `claude plugin install failed (exit ${installResult.exitCode})`
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cursor — download plugin tarball into user-scope plugins dir
+// ---------------------------------------------------------------------------
+
+/**
+ * Install the archgate Cursor plugin into the user-scope local plugins
+ * directory (`~/.cursor/plugins/local/archgate/`).
+ *
+ * Cursor discovers local plugins from `~/.cursor/plugins/local/<name>/`
+ * where each plugin has a `.cursor-plugin/plugin.json` manifest. The
+ * archgate plugin is downloaded as an authenticated tarball from
+ * `/api/cursor` and extracted directly into the target directory.
+ *
+ * The tarball contains files rooted at `archgate/` (the plugin directory
+ * name), so extracting with `-C ~/.cursor/plugins/local/` places everything
+ * at `~/.cursor/plugins/local/archgate/`.
+ *
+ * Throws on download or extraction failure so callers can surface a manual
+ * retry hint.
+ */
+export async function installCursorPlugin(token: string): Promise<void> {
+  const tarballPath = internalPath("archgate-cursor.tar.gz");
+  const pluginsDir = cursorPluginsLocalDir();
+
+  const buffer = await downloadPluginAsset("/api/cursor", token);
+  logDebug(
+    `Downloaded Cursor plugin bundle (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(tarballPath, buffer);
+
+  try {
+    mkdirSync(pluginsDir, { recursive: true });
+
+    logDebug(`Extracting Cursor plugin into ${pluginsDir}`);
+    const result = await run(["tar", "-xzf", tarballPath, "-C", pluginsDir]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `tar -xzf failed (exit ${result.exitCode}) while extracting Cursor plugin`
+      );
+    }
+  } finally {
+    try {
+      unlinkSync(tarballPath);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 

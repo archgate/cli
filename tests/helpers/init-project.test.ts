@@ -72,19 +72,26 @@ describe("initProject", () => {
     );
   });
 
-  test("configures Cursor settings when editor is cursor (no project files)", async () => {
-    const result = await initProject(tempDir, { editor: "cursor" });
+  test("configures Cursor settings when editor is cursor (user-scope path)", async () => {
+    const savedHome = Bun.env.HOME;
+    try {
+      Bun.env.HOME = tempDir;
+      const result = await initProject(tempDir, { editor: "cursor" });
 
-    // Cursor plugin is embedded in the VSIX — no project-level files written
-    expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
+      // Cursor plugin installs to user-scope — no project-level files written
+      expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
 
-    // Claude settings should NOT exist
-    expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
-      false
-    );
+      // Claude settings should NOT exist
+      expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
+        false
+      );
 
-    // Result should point to .cursor/ directory
-    expect(result.editorSettingsPath).toBe(join(tempDir, ".cursor"));
+      // Result should point to user-scope plugins directory
+      const expectedDir = join(tempDir, ".cursor", "plugins", "local");
+      expect(result.editorSettingsPath).toBe(expectedDir);
+    } finally {
+      Bun.env.HOME = savedHome;
+    }
   });
 
   test("skips example ADR when ADRs already exist", async () => {
@@ -267,8 +274,31 @@ describe("tryInstallPlugin via initProject", () => {
     expect(result.plugin!.detail).toContain("No stored credentials");
   });
 
-  test("cursor returns marketplace URL", async () => {
+  test("cursor auto-installs plugin on success", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const installSpy = spyOn(
+      pluginInstall,
+      "installCursorPlugin"
+    ).mockResolvedValue();
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "cursor",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.autoInstalled).toBe(true);
+      expect(installSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      installSpy.mockRestore();
+    }
+  });
+
+  test("cursor falls back to marketplace URL on install failure", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const installSpy = spyOn(
+      pluginInstall,
+      "installCursorPlugin"
+    ).mockRejectedValue(new Error("download failed"));
     const urlSpy = spyOn(
       pluginInstall,
       "buildCursorMarketplaceUrl"
@@ -280,7 +310,9 @@ describe("tryInstallPlugin via initProject", () => {
       });
       expect(result.plugin!.installed).toBe(true);
       expect(result.plugin!.detail).toBe("https://cursor.example");
+      expect(result.plugin!.autoInstalled).toBeUndefined();
     } finally {
+      installSpy.mockRestore();
       urlSpy.mockRestore();
     }
   });

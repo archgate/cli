@@ -79,6 +79,18 @@ export function copilotSessionStateDir(): string {
 }
 
 /**
+ * Resolve the Cursor user-scope local plugins directory.
+ *
+ * Cursor discovers local plugins from `~/.cursor/plugins/local/<name>/`.
+ * The archgate plugin extracts into `archgate/` under this directory.
+ *
+ * Resolved at call time (not cached) so tests can override HOME.
+ */
+export function cursorPluginsLocalDir(): string {
+  return join(archgateHomeDir(), ".cursor", "plugins", "local");
+}
+
+/**
  * Resolve the opencode SQLite database path.
  *
  * Opencode stores session/message/part data in a SQLite database at

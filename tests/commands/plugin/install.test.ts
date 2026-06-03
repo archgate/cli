@@ -21,6 +21,7 @@ let mockLoadCredentials: ReturnType<typeof spyOn>;
 
 const mockInstallClaudePlugin = mock(() => Promise.resolve());
 const mockInstallCopilotPlugin = mock(() => Promise.resolve());
+const mockInstallCursorPlugin = mock((_token: string) => Promise.resolve());
 const mockInstallVscodeExtension = mock((_token: string) => Promise.resolve());
 const mockInstallOpencodePlugin = mock((_token: string) => Promise.resolve());
 const mockIsClaudeCliAvailable = mock(() => Promise.resolve(false));
@@ -35,6 +36,7 @@ mock.module("../../../src/helpers/plugin-install", () => ({
     "https://plugins.archgate.dev/archgate/cursor.git",
   installClaudePlugin: mockInstallClaudePlugin,
   installCopilotPlugin: mockInstallCopilotPlugin,
+  installCursorPlugin: mockInstallCursorPlugin,
   installVscodeExtension: mockInstallVscodeExtension,
   installOpencodePlugin: mockInstallOpencodePlugin,
   isClaudeCliAvailable: mockIsClaudeCliAvailable,
@@ -117,6 +119,7 @@ beforeEach(() => {
   // Reset all mocks
   mockInstallClaudePlugin.mockReset();
   mockInstallCopilotPlugin.mockReset();
+  mockInstallCursorPlugin.mockReset();
   mockInstallVscodeExtension.mockReset();
   mockInstallOpencodePlugin.mockReset();
   mockIsClaudeCliAvailable.mockReset();
@@ -130,6 +133,9 @@ beforeEach(() => {
   // Default implementations
   mockInstallClaudePlugin.mockImplementation(() => Promise.resolve());
   mockInstallCopilotPlugin.mockImplementation(() => Promise.resolve());
+  mockInstallCursorPlugin.mockImplementation((_token: string) =>
+    Promise.resolve()
+  );
   mockInstallVscodeExtension.mockImplementation((_token: string) =>
     Promise.resolve()
   );
@@ -229,19 +235,14 @@ describe("plugin install action", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
-  test("prints cursor marketplace URL for --editor cursor", async () => {
+  test("installs cursor plugin via authenticated download", async () => {
     mockLoadCredentials.mockImplementation(() =>
       Promise.resolve({ token: "tok", github_user: "user" })
     );
 
     await runInstall(["--editor", "cursor"]);
 
-    // Cursor case prints URL, never calls an install function
-    expect(logSpy).toHaveBeenCalled();
-    const allLogOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    expect(allLogOutput).toContain("Cursor Settings");
+    expect(mockInstallCursorPlugin).toHaveBeenCalledWith("tok");
   });
 
   test("installs copilot plugin when CLI is available", async () => {

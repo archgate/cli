@@ -152,7 +152,7 @@ async function configureEditorSettings(
 ): Promise<string> {
   switch (editor) {
     case "cursor":
-      return configureCursorSettings(projectRoot);
+      return configureCursorSettings();
     case "vscode": {
       // VS Code: marketplace URL to user settings (credentials provided by git credential manager)
       const { loadCredentials } = await import("./credential-store");
@@ -264,10 +264,16 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "cursor") {
-    // Cursor uses Team Private Plugin Marketplaces — not VSIX or CLI install.
-    // The user must add the marketplace URL manually in Cursor Settings.
-    const { buildCursorMarketplaceUrl } = await import("./plugin-install");
-    return { installed: true, detail: buildCursorMarketplaceUrl() };
+    const { installCursorPlugin, buildCursorMarketplaceUrl } =
+      await import("./plugin-install");
+
+    try {
+      await installCursorPlugin(credentials.token);
+      return { installed: true, autoInstalled: true };
+    } catch (error) {
+      logDebug("Failed to install Cursor plugin:", error);
+      return { installed: true, detail: buildCursorMarketplaceUrl() };
+    }
   }
 
   if (editor === "vscode") {
