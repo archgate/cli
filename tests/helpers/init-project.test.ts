@@ -75,11 +75,11 @@ describe("initProject", () => {
   test("configures Cursor settings when editor is cursor (writes project files)", async () => {
     const result = await initProject(tempDir, { editor: "cursor" });
 
-    // Cursor governance rule and hooks are written to .cursor/
-    expect(
-      existsSync(join(tempDir, ".cursor", "rules", "archgate-governance.mdc"))
-    ).toBe(true);
+    // Cursor hooks are written to .cursor/ (no governance rule — Cursor
+    // doesn't support user-level rules as files, and the rule alone can't
+    // enforce agent delegation)
     expect(existsSync(join(tempDir, ".cursor", "hooks.json"))).toBe(true);
+    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
 
     // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(

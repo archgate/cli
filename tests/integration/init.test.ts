@@ -64,11 +64,9 @@ describe("init integration", () => {
 
     expect(result.exitCode).toBe(0);
 
-    // Cursor governance rule and hooks are written to .cursor/
-    expect(
-      existsSync(join(tempDir, ".cursor", "rules", "archgate-governance.mdc"))
-    ).toBe(true);
+    // Cursor hooks are written to .cursor/ (no governance rule)
     expect(existsSync(join(tempDir, ".cursor", "hooks.json"))).toBe(true);
+    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
   });
 
   test("init with --editor copilot creates copilot directory", async () => {

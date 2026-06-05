@@ -23,23 +23,9 @@ describe("configureCursorSettings", () => {
     expect(result).toBe(join(tempDir, ".cursor"));
   });
 
-  test("creates .cursor/rules/ directory and governance rule", () => {
+  test("creates .cursor/ directory with hooks.json", () => {
     configureCursorSettings(tempDir);
-    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(true);
-    const rulePath = join(
-      tempDir,
-      ".cursor",
-      "rules",
-      "archgate-governance.mdc"
-    );
-    expect(existsSync(rulePath)).toBe(true);
-    const content = readFileSync(rulePath, "utf-8");
-    expect(content).toContain("alwaysApply: true");
-    expect(content).toContain("archgate check");
-  });
-
-  test("creates .cursor/hooks.json", () => {
-    configureCursorSettings(tempDir);
+    expect(existsSync(join(tempDir, ".cursor"))).toBe(true);
     const hooksPath = join(tempDir, ".cursor", "hooks.json");
     expect(existsSync(hooksPath)).toBe(true);
     const hooks = JSON.parse(readFileSync(hooksPath, "utf-8"));
@@ -48,18 +34,17 @@ describe("configureCursorSettings", () => {
     expect(hooks[0].command).toContain("archgate check");
   });
 
-  test("does not overwrite existing governance rule", async () => {
+  test("does not create rules directory", () => {
     configureCursorSettings(tempDir);
-    // Write a custom rule
-    const rulePath = join(
-      tempDir,
-      ".cursor",
-      "rules",
-      "archgate-governance.mdc"
-    );
-    await Bun.write(rulePath, "custom rule");
+    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
+  });
+
+  test("does not overwrite existing hooks.json", async () => {
+    configureCursorSettings(tempDir);
+    const hooksPath = join(tempDir, ".cursor", "hooks.json");
+    await Bun.write(hooksPath, "custom hooks");
     // Re-run — should not overwrite
     configureCursorSettings(tempDir);
-    expect(readFileSync(rulePath, "utf-8")).toBe("custom rule");
+    expect(readFileSync(hooksPath, "utf-8")).toBe("custom hooks");
   });
 });
