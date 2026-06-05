@@ -97,7 +97,7 @@ export function opencodeDbPath(): string {
 /**
  * Resolve the Cursor user-scope config directory (`~/.cursor/`).
  *
- * Cursor discovers skills, agents, and rules from `~/.cursor/{skills,agents,rules}/`.
+ * Cursor discovers skills and agents from `~/.cursor/{skills,agents}/`.
  * These are user-level (global) — they apply to all projects when using
  * `cursor agent` locally. Cloud VMs do NOT have this directory.
  *

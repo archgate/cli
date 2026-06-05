@@ -264,7 +264,7 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "cursor") {
-    // Install directly into ~/.cursor/{skills,agents,rules}/ — Cursor's
+    // Install directly into ~/.cursor/{skills,agents}/ — Cursor's
     // plugin subsystem is unreliable in CLI mode and absent in cloud.
     const { installCursorPlugin } = await import("./plugin-install");
     try {

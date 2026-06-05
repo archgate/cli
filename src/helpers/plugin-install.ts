@@ -128,11 +128,10 @@ export async function installClaudePlugin(): Promise<void> {
 /**
  * Install the archgate Cursor components into user-scope discovery dirs.
  *
- * Cursor discovers skills, agents, and rules from `~/.cursor/{skills,agents,rules}/`.
+ * Cursor discovers skills and agents from `~/.cursor/{skills,agents}/`.
  * The tarball from /api/cursor contains these at its root:
  *   - skills/archgate-{name}/SKILL.md — skill definitions
  *   - agents/archgate-{name}.md — agent definitions
- *   - rules/archgate-governance.mdc — governance rule
  *   - hooks.json — afterFileEdit hook for archgate check
  *
  * Extraction uses `tar` via `Bun.spawn` — `tar` is available on macOS,
@@ -156,10 +155,9 @@ export async function installCursorPlugin(token: string): Promise<void> {
 
   try {
     // Ensure target dirs exist — tar will write files, but it won't create
-    // the enclosing `~/.cursor/{skills,agents,rules}/` paths.
+    // the enclosing `~/.cursor/{skills,agents}/` paths.
     mkdirSync(join(cursorDir, "skills"), { recursive: true });
     mkdirSync(join(cursorDir, "agents"), { recursive: true });
-    mkdirSync(join(cursorDir, "rules"), { recursive: true });
 
     logDebug(`Extracting Cursor components into ${cursorDir}`);
     const result = await run(["tar", "-xzf", tarballPath, "-C", cursorDir]);
