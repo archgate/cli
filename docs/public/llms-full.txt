@@ -29,7 +29,7 @@ Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercont
 - [Guide — Claude Code Plugin](https://cli.archgate.dev/guides/claude-code-plugin/): Give AI agents a governance workflow that reads ADRs, validates code, and captures patterns.
 - [Guide — VS Code Plugin](https://cli.archgate.dev/guides/vscode-plugin/): Real-time ADR compliance in VS Code.
 - [Guide — Copilot CLI Plugin](https://cli.archgate.dev/guides/copilot-cli-plugin/): Add architecture governance to GitHub Copilot CLI.
-- [Guide — Cursor Integration](https://cli.archgate.dev/guides/cursor-integration/): Configure Cursor with Archgate agents, skills, and hooks.
+- [Guide — Cursor Integration](https://cli.archgate.dev/guides/cursor-integration/): Configure Cursor IDE with Archgate agent rules and skills.
 - [Guide — Pre-commit Hooks](https://cli.archgate.dev/guides/pre-commit-hooks/): Automatically check ADR compliance before every commit.
 - [Reference — CLI Commands](https://cli.archgate.dev/reference/cli-commands/): Complete reference for init, check, adr create/list/show, login, and more.
 - [Reference — Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for RuleSet with satisfies, RuleContext, and violation reporting.
@@ -100,7 +100,7 @@ The Archgate CLI works standalone, but **editor plugins** unlock a full AI gover
     read-validate-capture loop on every task.
   
   
-    The Cursor plugin provides agents, skills, and hooks that give
+    The Cursor plugin provides pre-built agent rules and skills that give
     Cursor's AI agent the same governance workflow as Claude Code.
   
 
@@ -1572,21 +1572,23 @@ archgate plugin install --editor cursor
 
 **User scope** (`~/.cursor/`):
 
-| File                                              | Purpose                                                            |
-| ------------------------------------------------- | ------------------------------------------------------------------ |
-| `~/.cursor/skills/archgate-reviewer.md`           | Validates code changes against all project ADRs                    |
-| `~/.cursor/skills/archgate-lessons-learned.md`    | Captures learnings and proposes new ADRs when patterns emerge      |
-| `~/.cursor/skills/archgate-adr-author.md`         | Creates and edits ADRs following project conventions               |
-| `~/.cursor/skills/archgate-onboard.md`            | One-time setup: explores the codebase, interviews you, creates ADRs |
-| `~/.cursor/skills/archgate-cli-reference.md`      | Internal reference for AI agents with the Archgate CLI guide       |
-| `~/.cursor/agents/archgate-developer.md`          | Primary development agent with the full ADR governance workflow    |
-| `~/.cursor/agents/archgate-planner.md`            | Planning agent for scoping and breaking down work                  |
+| File                                           | Purpose                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------- |
+| `~/.cursor/skills/archgate-reviewer.md`        | Validates code changes against all project ADRs                     |
+| `~/.cursor/skills/archgate-lessons-learned.md` | Captures learnings and proposes new ADRs when patterns emerge       |
+| `~/.cursor/skills/archgate-adr-author.md`      | Creates and edits ADRs following project conventions                |
+| `~/.cursor/skills/archgate-onboard.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
+| `~/.cursor/skills/archgate-cli-reference.md`   | Internal reference for AI agents with the Archgate CLI guide        |
+| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR governance workflow     |
+| `~/.cursor/agents/archgate-planner.md`         | Planning agent for scoping and breaking down work                   |
 
 **Project scope**:
 
-| File                  | Purpose                                                               |
-| --------------------- | --------------------------------------------------------------------- |
-| `.cursor/hooks.json`  | `afterFileEdit` hook that runs `archgate check` after every file edit |
+| File                 | Purpose                                                               |
+| -------------------- | --------------------------------------------------------------------- |
+| `.cursor/hooks.json` | `afterFileEdit` hook that runs `archgate check` after every file edit |
+
+The `.cursor/hooks.json` file is the only file written to your project tree. It ensures `archgate check` runs automatically after every file edit, catching ADR violations in real time.
 
 ## What the plugin provides
 
@@ -1618,6 +1620,8 @@ These are the same roles available in the Claude Code plugin (`archgate:reviewer
 | Hook            | Trigger         | Action                                                     |
 | --------------- | --------------- | ---------------------------------------------------------- |
 | `afterFileEdit` | Every file edit | Runs `archgate check` to catch ADR violations in real time |
+
+The hook is defined in `.cursor/hooks.json` at the project level, so it works both locally and in cloud agent environments.
 
 ## Initial setup with onboard
 
@@ -1658,20 +1662,22 @@ This behavior is consistent regardless of how the developer phrases the request.
 
 ## When to use each agent or skill
 
-| Scenario                                     | Agent / Skill              |
-| -------------------------------------------- | -------------------------- |
+| Scenario                                     | Agent / Skill                                  |
+| -------------------------------------------- | ---------------------------------------------- |
 | Starting a new project with Archgate         | `/archgate-developer` (then ask it to onboard) |
-| Day-to-day coding tasks                      | `/archgate-developer`      |
-| Planning and scoping work                    | `/archgate-planner`        |
-| Reviewing a change for ADR compliance        | `archgate-reviewer`        |
-| Noticing a recurring pattern worth codifying | `archgate-lessons-learned` |
-| Creating or editing an ADR                   | `archgate-adr-author`      |
+| Day-to-day coding tasks                      | `/archgate-developer`                          |
+| Planning and scoping work                    | `/archgate-planner`                            |
+| Reviewing a change for ADR compliance        | `archgate-reviewer`                            |
+| Noticing a recurring pattern worth codifying | `archgate-lessons-learned`                     |
+| Creating or editing an ADR                   | `archgate-adr-author`                          |
 
 The `archgate-developer` agent orchestrates the skills automatically -- it invokes `archgate-reviewer` and `archgate-lessons-learned` as part of its workflow. Most of the time, you only need to invoke `/archgate-developer` and let it run.
 
 ## Cloud agent support
 
 Cursor supports cloud agents that run on remote VMs. These environments do not have access to `~/.cursor/`, so user-scoped skills and agents are not available. However, the `.cursor/hooks.json` file is part of your project tree and works in cloud VMs. This means `archgate check` still runs automatically after every file edit, even in cloud agent sessions.
+
+For full governance in cloud environments, ensure `archgate` is available on the VM's PATH (e.g., via the install script in your project's setup).
 
 ## Session transcript access
 
@@ -2687,7 +2693,7 @@ The `--id` and `--body` flags are required. All other frontmatter fields (`--tit
 
 7. **Use domain prefixes to organize.** The domain field determines the ID prefix and helps filter ADRs by area. Prefer the five built-ins (`backend`, `frontend`, `data`, `architecture`, `general`); register a [custom domain](/concepts/domains/#custom-domains) only when none of them is a genuine fit.
 
-The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include an ADR authoring skill that creates and updates ADRs following your project's conventions. The lessons-learned skill also proposes new ADRs when it detects recurring patterns. [Sign up for beta access](https://plugins.archgate.dev).
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include an ADR Author skill that creates and updates ADRs following your project's conventions. The Quality Manager skill also proposes new ADRs when it detects recurring patterns. [Sign up for beta access](https://plugins.archgate.dev).
 
 ---
 
@@ -3949,7 +3955,7 @@ archgate doctor [options]
 - **Archgate** -- CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
 - **Project** -- Whether an `.archgate/` project exists, ADR count, domains
 - **Editor CLIs** -- Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
-- **Project Integrations** -- Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/hooks.json`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+- **Project Integrations** -- Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
 
 ## Example
 
@@ -3984,7 +3990,7 @@ Editor CLIs
 
 Project Integrations
   Claude:       OK (.claude/settings.local.json)
-  Cursor:       MISSING (.cursor/hooks.json)
+  Cursor:       MISSING (.cursor/rules/archgate-governance.mdc)
   VS Code:      OK (.vscode/settings.json)
   Copilot:      MISSING (.github/copilot/instructions.md)
 ```
@@ -5403,7 +5409,7 @@ Browse complete, copy-pasteable rule examples organized by category. Each rule p
 | [openapi-routes](/examples/openapi-routes/)                       | Ensure backend routes use OpenAPI-typed definitions   |
 | [clean-architecture-layers](/examples/clean-architecture-layers/) | Enforce dependency direction in layered architectures |
 
-The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include a lessons-learned skill that identifies recurring patterns in your codebase and proposes new rules to enforce them. [Sign up for beta access](https://plugins.archgate.dev).
+The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) include a Quality Manager skill that identifies recurring patterns in your codebase and proposes new rules to enforce them. [Sign up for beta access](https://plugins.archgate.dev).
 
 ---
 
