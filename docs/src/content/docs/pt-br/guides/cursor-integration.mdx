@@ -1,6 +1,6 @@
 ---
 title: Integração com Cursor
-description: Integre o Archgate com o Cursor IDE para desenvolvimento assistido por IA com governança arquitetural. Configure regras e skills de agente para conformidade ADR.
+description: Integre o Archgate com o Cursor para desenvolvimento assistido por IA com governança arquitetural. Configure agentes, skills e hooks para conformidade com ADRs.
 ---
 
 O Archgate se integra com o [Cursor](https://cursor.com) para oferecer aos agentes de IA um fluxo de governança estruturado. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
@@ -13,18 +13,13 @@ Execute `archgate init` com a flag `--editor cursor` para configurar a integraç
 archgate init --editor cursor
 ```
 
-### Com plugin (beta)
-
 :::note[Acesso beta necessário]
 O plugin para Cursor está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
 :::
 
-Se você fez login via `archgate login`, o comando init também instala o plugin Archgate para o Cursor. O plugin fornece regras de agente pré-configuradas e skills que dão ao agente de IA do Cursor um fluxo de governança completo.
+Se você fez login via `archgate login`, o comando init também instala o plugin Archgate para o Cursor. O plugin fornece agentes, skills e hooks pré-configurados que dão ao agente de IA do Cursor um fluxo de governança completo.
 
-O plugin é distribuído de duas formas:
-
-1. **Cursor Team Marketplace** -- O plugin é publicado em um repositório team marketplace baseado em git. Após a instalação, o Cursor o descobre a partir da URL do team marketplace impressa pela CLI.
-2. **Extensão VS Code (VSIX)** -- Uma extensão `.vsix` é instalada no Cursor via o comando `cursor --install-extension`.
+O plugin é distribuído como um tarball autenticado. A CLI faz o download e extrai skills, agentes e hooks em `~/.cursor/`. Nenhuma detecção de CLI é necessária -- os arquivos são gravados diretamente no diretório de usuário do Cursor.
 
 Para instalar o plugin explicitamente:
 
@@ -33,51 +28,70 @@ archgate login              # configuração única
 archgate init --editor cursor --install-plugin
 ```
 
-O comando `archgate plugin install --editor cursor` instala a extensão VS Code via CLI `cursor` se disponível e exibe a URL do team marketplace; exibe instruções manuais caso contrário.
-
 Para instalar ou reinstalar o plugin em um projeto já inicializado:
 
 ```bash
 archgate plugin install --editor cursor
 ```
 
-### Sem plugin (gratuito)
-
-Sem o plugin, `archgate init --editor cursor` ainda configura uma regra de governança básica. O agente de IA pode consultar ADRs e executar verificações via comandos CLI, mas não recebe as skills baseadas em papéis descritas abaixo.
-
 ### Arquivos gerados
 
-| Arquivo                                 | Propósito                                                             |
-| --------------------------------------- | --------------------------------------------------------------------- |
-| `.cursor/rules/archgate-governance.mdc` | Regra sempre ativa do Cursor que instrui o agente a consultar os ADRs |
+**Escopo de usuário** (`~/.cursor/`):
+
+| Arquivo                                        | Propósito                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------- |
+| `~/.cursor/skills/archgate-reviewer.md`        | Valida alterações de código contra todos os ADRs do projeto            |
+| `~/.cursor/skills/archgate-lessons-learned.md` | Captura aprendizados e propõe novos ADRs quando padrões emergem        |
+| `~/.cursor/skills/archgate-adr-author.md`      | Cria e edita ADRs seguindo as convenções do projeto                    |
+| `~/.cursor/skills/archgate-onboard.md`         | Configuração única: explora o codebase, entrevista você e cria ADRs    |
+| `~/.cursor/skills/archgate-cli-reference.md`   | Referência interna para agentes de IA com o guia CLI do Archgate       |
+| `~/.cursor/agents/archgate-developer.md`       | Agente principal de desenvolvimento com o fluxo completo de governança |
+| `~/.cursor/agents/archgate-planner.md`         | Agente de planejamento para escopo e divisão de trabalho               |
+
+**Escopo do projeto**:
+
+| Arquivo              | Propósito                                                                     |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `.cursor/hooks.json` | Hook `afterFileEdit` que executa `archgate check` após cada edição de arquivo |
+
+O arquivo `.cursor/hooks.json` é o único arquivo gravado na árvore do seu projeto. Ele garante que `archgate check` seja executado automaticamente após cada edição de arquivo, detectando violações de ADR em tempo real.
 
 ## O que o plugin oferece
 
-O plugin adiciona um agente e skills baseadas em papéis ao Cursor. O sistema de plugins do Cursor gerencia o namespacing, então as skills usam seus nomes diretos sem prefixo.
+O plugin adiciona agentes e skills ao Cursor, instalados no escopo de usuário para que estejam disponíveis em todos os seus projetos.
 
-### Agente
+### Agentes
 
-| Nome        | Propósito                                                                      |
-| ----------- | ------------------------------------------------------------------------------ |
-| `developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+| Nome                 | Propósito                                                                         |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `archgate-developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois    |
+| `archgate-planner`   | Agente de planejamento para escopo de trabalho e divisão de tarefas conforme ADRs |
 
-O agente `developer` orquestra as skills abaixo automaticamente como parte do seu fluxo.
+Os usuários invocam agentes explicitamente via `/archgate-developer` ou `/archgate-planner` no chat do Cursor.
 
 ### Skills
 
-| Nome              | Propósito                                                                                  |
-| ----------------- | ------------------------------------------------------------------------------------------ |
-| `architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
-| `quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
-| `adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
-| `onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
-| `cli-reference`   | Referência interna para agentes de IA com o guia completo de comandos CLI do Archgate      |
+| Nome                       | Propósito                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `archgate-reviewer`        | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural |
+| `archgate-lessons-learned` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                  |
+| `archgate-adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                      |
+| `archgate-onboard`         | Configuração única: explora o codebase, entrevista você e cria os ADRs iniciais          |
+| `archgate-cli-reference`   | Referência interna para agentes de IA com o guia completo de comandos CLI do Archgate    |
 
-Esses são o mesmo agente e skills disponíveis no plugin para Claude Code (`archgate:developer`, `archgate:architect`, etc.), adaptados para o sistema de plugins do Cursor.
+Esses são os mesmos papéis disponíveis no plugin para Claude Code (`archgate:reviewer`, `archgate:lessons-learned`, etc.), adaptados para o sistema de skills e agentes do Cursor.
+
+### Hooks
+
+| Hook            | Gatilho                | Ação                                                                  |
+| --------------- | ---------------------- | --------------------------------------------------------------------- |
+| `afterFileEdit` | Cada edição de arquivo | Executa `archgate check` para detectar violações de ADR em tempo real |
+
+O hook é definido em `.cursor/hooks.json` no nível do projeto, então funciona tanto localmente quanto em ambientes de agentes na nuvem.
 
 ## Configuração inicial com onboard
 
-Após instalar o plugin, execute a skill `onboard` no seu projeto uma vez. Essa skill:
+Após instalar o plugin, invoque `/archgate-developer` e peça para ele executar a skill de onboard no seu projeto. Essa skill:
 
 1. Explora a estrutura do seu codebase (diretórios, arquivos-chave, configuração de pacotes)
 2. Entrevista você sobre as convenções, restrições e decisões arquiteturais da sua equipe
@@ -88,31 +102,17 @@ A skill de onboard foi projetada para ser executada uma vez por projeto. Após o
 
 ## Como funciona na prática
 
-### Com o plugin
-
-O agente `developer` segue um fluxo estruturado para cada tarefa de codificação:
+Invoque `/archgate-developer` no chat do Cursor ao iniciar uma tarefa de codificação. O agente segue um fluxo estruturado para cada alteração:
 
 1. **Ler os ADRs aplicáveis** -- O agente executa `archgate review-context` para ver quais ADRs se aplicam aos arquivos sendo alterados. Ele não escreve código até ter lido os ADRs aplicáveis.
 
 2. **Escrever código seguindo as restrições dos ADRs** -- O agente implementa as alterações seguindo as seções Do's and Don'ts dos ADRs aplicáveis.
 
-3. **Executar verificações de conformidade** -- O agente executa `archgate check --staged` para rodar as regras automatizadas. Qualquer violação é corrigida antes de prosseguir.
+3. **Executar verificações de conformidade** -- O agente executa `archgate check` para rodar as regras automatizadas. O hook `afterFileEdit` também detecta violações em tempo real. Qualquer violação é corrigida antes de prosseguir.
 
-4. **Revisão do arquiteto** -- O agente invoca a skill `architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
+4. **Revisar alterações** -- O agente invoca a skill `archgate-reviewer` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
 
-5. **Capturar aprendizados** -- O agente invoca a skill `quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs ou atualizações em existentes.
-
-### Sem o plugin
-
-O agente usa a regra de governança e comandos CLI para seguir quatro passos manuais:
-
-1. **Revisar contexto** -- Executar `archgate review-context` para ver quais ADRs se aplicam aos arquivos sendo alterados.
-
-2. **Ler ADRs individuais** -- Para contexto completo sobre uma decisão específica, executar `archgate adr show <id>` (por exemplo, `archgate adr show ARCH-001`).
-
-3. **Escrever código** -- Implementar as alterações seguindo as restrições dos ADRs aplicáveis.
-
-4. **Executar verificações de conformidade** -- Executar `archgate check --staged` para validar que o código está em conformidade com todas as regras dos ADRs.
+5. **Capturar aprendizados** -- O agente invoca a skill `archgate-lessons-learned` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs ou atualizações em existentes.
 
 ## Recusa orientada por ADRs
 
@@ -128,25 +128,38 @@ Esse comportamento é consistente independentemente de como o desenvolvedor form
 
 ## Quando usar cada agente ou skill
 
-| Cenário                                                 | Skill             |
-| ------------------------------------------------------- | ----------------- |
-| Iniciando um novo projeto com Archgate                  | `onboard`         |
-| Tarefas de codificação do dia a dia                     | `developer`       |
-| Revisando um PR para conformidade com ADRs              | `architect`       |
-| Percebendo um padrão recorrente que vale ser codificado | `quality-manager` |
-| Criando ou editando um ADR                              | `adr-author`      |
+| Cenário                                                 | Agente / Skill                                      |
+| ------------------------------------------------------- | --------------------------------------------------- |
+| Iniciando um novo projeto com Archgate                  | `/archgate-developer` (e peça para fazer o onboard) |
+| Tarefas de codificação do dia a dia                     | `/archgate-developer`                               |
+| Planejamento e escopo de trabalho                       | `/archgate-planner`                                 |
+| Revisando uma alteração para conformidade com ADRs      | `archgate-reviewer`                                 |
+| Percebendo um padrão recorrente que vale ser codificado | `archgate-lessons-learned`                          |
+| Criando ou editando um ADR                              | `archgate-adr-author`                               |
 
-O agente `developer` orquestra as skills automaticamente -- ele invoca `architect` e `quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa usar `developer` diretamente.
+O agente `archgate-developer` orquestra as skills automaticamente -- ele invoca `archgate-reviewer` e `archgate-lessons-learned` como parte do seu fluxo. Na maioria das vezes, você só precisa invocar `/archgate-developer` e deixá-lo executar.
 
-## Regra de governança
+## Suporte a agentes na nuvem
 
-A regra de governança em `.cursor/rules/archgate-governance.mdc` usa `alwaysApply: true`, o que significa que o agente do Cursor sempre tem o contexto de governança disponível sem ativação manual. Ela instrui o agente a executar `archgate review-context` antes de codificar e `archgate check --staged` depois.
+O Cursor suporta agentes na nuvem que executam em VMs remotas. Esses ambientes não têm acesso a `~/.cursor/`, então skills e agentes no escopo de usuário não estão disponíveis. No entanto, o arquivo `.cursor/hooks.json` faz parte da árvore do seu projeto e funciona em VMs na nuvem. Isso significa que `archgate check` ainda é executado automaticamente após cada edição de arquivo, mesmo em sessões de agentes na nuvem.
+
+Para governança completa em ambientes na nuvem, garanta que `archgate` esteja disponível no PATH da VM (ex: via o script de instalação no setup do seu projeto).
+
+## Acesso à transcrição da sessão
+
+O comando `archgate session-context cursor` lê transcrições de sessão do agente Cursor do disco. Isso permite que skills acessem o histórico da conversa atual, o que é útil para recuperar contexto que pode ter sido compactado ou truncado.
+
+O comando aceita dois flags opcionais:
+
+- `--max-entries <n>` -- Número máximo de entradas a retornar (padrão: 200, entradas mais recentes).
+- `--session-id <uuid>` -- Um UUID de sessão específico para ler. Se omitido, a sessão mais recente é usada.
 
 ## Dicas para uso eficaz
 
-- **Use a skill `developer` para tarefas de codificação.** Ela orquestra todo o fluxo de leitura-validação-captura automaticamente.
-- **Execute `onboard` uma vez por projeto.** Ela configura seus ADRs iniciais com base no seu codebase e convenções reais.
-- **Use `architect` para revisões de PR.** Ela valida a conformidade estrutural além do que as regras automatizadas capturam.
-- **Use `quality-manager` após resolver problemas complexos.** Ela captura aprendizados para que os mesmos erros não se repitam.
-- **Faça commit do diretório `.cursor/`.** Isso garante que cada membro da equipe receba a mesma configuração de governança ao clonar o repositório.
+- **Invoque `/archgate-developer` para tarefas de codificação.** Ele orquestra todo o fluxo de leitura-validação-captura automaticamente.
+- **Execute onboard uma vez por projeto.** Ele configura seus ADRs iniciais com base no seu codebase e convenções reais.
+- **Use `archgate-reviewer` para revisões.** Ele valida a conformidade estrutural além do que as regras automatizadas capturam.
+- **Use `archgate-lessons-learned` após resolver problemas complexos.** Ele captura aprendizados para que os mesmos erros não se repitam.
+- **Faça commit do diretório `.cursor/`.** O arquivo `hooks.json` garante que cada membro da equipe receba `archgate check` em edições de arquivo ao clonar o repositório.
 - **Mantenha os arquivos de regras dos ADRs atualizados.** O agente aplica o que as regras verificam -- se uma regra estiver faltando, a violação não será detectada.
+- **Execute `archgate plugin install --editor cursor` para atualizar.** O serviço retorna o bundle de plugin mais recente em cada download autenticado.

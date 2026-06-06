@@ -24,7 +24,7 @@ Når `--install-plugin` sendes med, installerer CLI-en Archgate-pluginen for den
 
 **Claude Code:** Hvis `claude`-CLI-en er på din PATH, installeres pluginen automatisk via `claude plugin marketplace add` og `claude plugin install`. Hvis `claude`-CLI-en ikke finnes, skriver kommandoen ut de manuelle installasjonskommandoene i stedet.
 
-**Cursor:** Hvis `cursor`-CLI-en er på din PATH, installeres VS Code-utvidelsen automatisk via `cursor --install-extension`. Team-markedsplassen-URL-en skrives ut for manuell plugin-oppdagelse.
+**Cursor:** Laster ned en autentisert tarball med skills, agenter og hooks i `~/.cursor/`. Skriver også `.cursor/hooks.json` til prosjektet for kompatibilitet med skyagenter. Ingen CLI-deteksjon nødvendig.
 
 **opencode:** Krever at `opencode`-CLI-en er på din PATH -- hvis den ikke er det, hoppes installasjonen over og en melding ber deg installere opencode først. Når den er til stede, laster CLI-en ned en autentisert tarball med agentfiler fra Archgate plugins-tjenesten og pakker den ut i opencode-agentkatalogen for brukerskoopet (`$XDG_CONFIG_HOME/opencode/agents/`, faller tilbake til `$HOME/.config/opencode/agents/` på alle plattformer inkludert Windows -- opencode bruker XDG-stier via `xdg-basedir` og leser ikke `%APPDATA%`). Ingen filer skrives til prosjekttreet. Se [opencode-integrasjonsguiden](/guides/opencode-integration/) for detaljer.
 
@@ -39,7 +39,7 @@ Initialized Archgate governance in /path/to/project
 Archgate plugin installed for Claude Code.
 ```
 
-Når `--editor cursor` brukes, viser utdataene `.cursor/` i stedet for `.claude/`.
+Når `--editor cursor` brukes, viser utdataene `.cursor/` for filer på prosjektnivå og noterer at brukerscope-komponenter ble installert til `~/.cursor/`.
 
 ## Deteksjon av hovedgren
 
