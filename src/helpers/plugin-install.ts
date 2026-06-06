@@ -2,10 +2,11 @@
 // Copyright 2026 Archgate
 /** Download and install the archgate plugin for supported editors. */
 
-import { mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 
 import { logDebug } from "./log";
-import { internalPath, opencodeAgentsDir } from "./paths";
+import { cursorUserDir, internalPath, opencodeAgentsDir } from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -121,6 +122,80 @@ export async function installClaudePlugin(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Cursor — download and extract into user-scope discovery dirs
+// ---------------------------------------------------------------------------
+
+/**
+ * Install the archgate Cursor components into user-scope discovery dirs.
+ *
+ * Cursor discovers skills and agents from `~/.cursor/{skills,agents}/`.
+ * The tarball from /api/cursor contains these at its root:
+ *   - skills/archgate-{name}/SKILL.md — skill definitions
+ *   - agents/archgate-{name}.md — agent definitions
+ *   - hooks.json — afterFileEdit hook for archgate check
+ *
+ * After extraction, `hooks.json` is merged into `~/.cursor/hooks.json`
+ * (rather than extracted as-is) to avoid overwriting existing user hooks.
+ *
+ * Throws on download or extraction failure so callers can surface a manual
+ * retry hint.
+ */
+export async function installCursorPlugin(token: string): Promise<void> {
+  const cursorDir = cursorUserDir();
+  mkdirSync(join(cursorDir, "skills"), { recursive: true });
+  mkdirSync(join(cursorDir, "agents"), { recursive: true });
+
+  await downloadAndExtractTarball({
+    apiPath: "/api/cursor",
+    token,
+    targetDir: cursorDir,
+    label: "Cursor",
+    tempFile: "archgate-cursor.tar.gz",
+  });
+
+  await mergeCursorHooks(cursorDir);
+}
+
+/**
+ * Merge archgate hooks into `~/.cursor/hooks.json`.
+ *
+ * If the file already exists, reads it, removes any previous archgate hooks
+ * (identified by the archgate check command), appends the new ones, and
+ * writes back. If it doesn't exist, uses the extracted file as-is.
+ */
+async function mergeCursorHooks(cursorDir: string): Promise<void> {
+  const hooksPath = join(cursorDir, "hooks.json");
+  if (!existsSync(hooksPath)) return;
+
+  try {
+    const existing: { event: string; command?: string }[] = JSON.parse(
+      await Bun.file(hooksPath).text()
+    );
+
+    // Remove any previous archgate hooks
+    const filtered = existing.filter(
+      (h) => !h.command?.includes("archgate check")
+    );
+
+    // Add our hooks
+    const archgateHooks = [
+      {
+        event: "afterFileEdit",
+        type: "command",
+        command: "archgate check ${filePath} --json 2>/dev/null || true",
+      },
+    ];
+
+    const merged = [...filtered, ...archgateHooks];
+    await Bun.write(hooksPath, JSON.stringify(merged, null, 2) + "\n");
+    logDebug("Merged archgate hooks into", hooksPath);
+  } catch {
+    // If existing hooks.json is malformed, leave it alone
+    logDebug("Could not merge hooks.json — leaving existing file");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared — authenticated asset download
 // ---------------------------------------------------------------------------
 
@@ -149,6 +224,54 @@ async function downloadPluginAsset(
   return response.arrayBuffer();
 }
 
+/**
+ * Download and extract a tarball from the plugins API into a target directory.
+ *
+ * Shared by `installCursorPlugin` and `installOpencodePlugin` — both follow
+ * the same pattern: authenticated download → write to temp → tar extract →
+ * cleanup temp file.
+ *
+ * Uses `tar` via `Bun.spawn` (ARCH-007) — `tar` is available on macOS,
+ * Linux, and modern Windows (bsdtar ships with Windows 10+).
+ */
+async function downloadAndExtractTarball(opts: {
+  apiPath: string;
+  token: string;
+  targetDir: string;
+  label: string;
+  tempFile: string;
+}): Promise<void> {
+  const tarballPath = internalPath(opts.tempFile);
+
+  const buffer = await downloadPluginAsset(opts.apiPath, opts.token);
+  logDebug(
+    `Downloaded ${opts.label} bundle (${Math.round(buffer.byteLength / 1024)} KB)`
+  );
+  await Bun.write(tarballPath, buffer);
+
+  try {
+    logDebug(`Extracting ${opts.label} components into ${opts.targetDir}`);
+    const result = await run([
+      "tar",
+      "-xzf",
+      tarballPath,
+      "-C",
+      opts.targetDir,
+    ]);
+    if (result.exitCode !== 0) {
+      throw new Error(
+        `tar -xzf failed (exit ${result.exitCode}) while extracting ${opts.label} components`
+      );
+    }
+  } finally {
+    try {
+      unlinkSync(tarballPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // opencode — download agent bundle into user-scope agents dir
 // ---------------------------------------------------------------------------
@@ -170,41 +293,20 @@ export async function isOpencodeCliAvailable(): Promise<boolean> {
  * tarball contains `archgate-*.md` files at its root which extract directly
  * into the resolved `opencodeAgentsDir()`.
  *
- * The extraction uses `tar` via `Bun.spawn` (ARCH-007) — `tar` is available
- * on macOS, Linux, and modern Windows (bsdtar ships with Windows 10+).
- *
  * Throws on download or extraction failure so callers can surface a manual
  * retry hint.
  */
 export async function installOpencodePlugin(token: string): Promise<void> {
-  const tarballPath = internalPath("archgate-opencode.tar.gz");
   const agentsDir = opencodeAgentsDir();
+  mkdirSync(agentsDir, { recursive: true });
 
-  const buffer = await downloadPluginAsset("/api/opencode", token);
-  logDebug(
-    `Downloaded opencode agent bundle (${Math.round(buffer.byteLength / 1024)} KB)`
-  );
-  await Bun.write(tarballPath, buffer);
-
-  try {
-    // Ensure target dir exists — tar will write files, but it won't create
-    // the enclosing `<config>/opencode/agents/` path.
-    mkdirSync(agentsDir, { recursive: true });
-
-    logDebug(`Extracting opencode agents into ${agentsDir}`);
-    const result = await run(["tar", "-xzf", tarballPath, "-C", agentsDir]);
-    if (result.exitCode !== 0) {
-      throw new Error(
-        `tar -xzf failed (exit ${result.exitCode}) while extracting opencode agents`
-      );
-    }
-  } finally {
-    try {
-      unlinkSync(tarballPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
+  await downloadAndExtractTarball({
+    apiPath: "/api/opencode",
+    token,
+    targetDir: agentsDir,
+    label: "opencode",
+    tempFile: "archgate-opencode.tar.gz",
+  });
 
   // Configure opencode.json with default_agent (idempotent — only sets if absent)
   const { configureOpencodeSettings } = await import("./opencode-settings");

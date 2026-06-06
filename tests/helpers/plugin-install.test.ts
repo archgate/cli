@@ -32,6 +32,7 @@ import {
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
   installCopilotPlugin,
+  installCursorPlugin,
   installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
@@ -443,6 +444,50 @@ describe("plugin-install", () => {
       mockFetch(503);
 
       await expect(installOpencodePlugin("test-token")).rejects.toThrow(
+        "Download failed (HTTP 503)"
+      );
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // installCursorPlugin
+  // -----------------------------------------------------------------------
+
+  describe("installCursorPlugin", () => {
+    test("downloads tarball and extracts via tar on success", async () => {
+      const tarContent = new ArrayBuffer(256);
+      mockFetch(200, tarContent);
+      spawnSpy.mockImplementation(() => fakeSpawnResult(0));
+
+      await installCursorPlugin("test-token");
+
+      // One spawn call for tar extraction
+      expect(spawnSpy).toHaveBeenCalledTimes(1);
+      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      expect(callArgs[0]).toBe("tar");
+    });
+
+    test("throws when tar extraction fails", async () => {
+      mockFetch(200, new ArrayBuffer(64));
+      spawnSpy.mockImplementation(() => fakeSpawnResult(2));
+
+      await expect(installCursorPlugin("test-token")).rejects.toThrow(
+        "tar -xzf failed"
+      );
+    });
+
+    test("throws re-login message on 401 download", async () => {
+      mockFetch(401);
+
+      await expect(installCursorPlugin("expired-token")).rejects.toThrow(
+        "expired"
+      );
+    });
+
+    test("throws generic error on non-401 HTTP failure", async () => {
+      mockFetch(503);
+
+      await expect(installCursorPlugin("test-token")).rejects.toThrow(
         "Download failed (HTTP 503)"
       );
     });

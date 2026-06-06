@@ -31,9 +31,9 @@ import { isTlsError, tlsHintMessage } from "../helpers/tls";
 
 const EDITOR_DIRS: Record<EditorTarget, string> = {
   claude: ".claude/",
-  // Cursor plugin is embedded in the VSIX extension — no project-level
-  // files are written. Shown as a label in the init summary.
-  cursor: "(VSIX)",
+  // Cursor governance rule + hooks are written to .cursor/ in the project.
+  // Skills and agents are installed to ~/.cursor/ (user-scope).
+  cursor: ".cursor/",
   vscode: ".vscode/",
   copilot: ".github/copilot/",
   // Opencode agents install to a user-scope directory, not the project tree.
@@ -350,19 +350,16 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       }
       break;
     case "cursor":
-      if (detail && !detail.startsWith("download")) {
-        // detail is the VSIX path or the error message from installCursorPlugin
-        logWarn("Cursor CLI not found. The VSIX has been downloaded:");
-        console.log(`  ${styleText("bold", detail)}`);
-        console.log(
-          `  Open Cursor → Ctrl+Shift+P → ${styleText("bold", "Extensions: Install from VSIX...")} → select the file above`
-        );
-      } else {
-        logWarn(
-          "Could not download the VSIX. Retry with:",
-          `  ${styleText("bold", "archgate plugin install --editor cursor")}`
-        );
-      }
+      logWarn(
+        "Failed to install Cursor components.",
+        detail ?? "Check your credentials and retry."
+      );
+      console.log(
+        `  Retry with: ${styleText("bold", "archgate plugin install --editor cursor")}`
+      );
+      console.log(
+        `  If the token has expired: ${styleText("bold", "archgate login refresh")}`
+      );
       break;
     default:
       // vscode auto-install — should not reach here

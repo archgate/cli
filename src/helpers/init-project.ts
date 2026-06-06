@@ -264,10 +264,19 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "cursor") {
-    // Cursor uses Team Private Plugin Marketplaces — not VSIX or CLI install.
-    // The user must add the marketplace URL manually in Cursor Settings.
-    const { buildCursorMarketplaceUrl } = await import("./plugin-install");
-    return { installed: true, detail: buildCursorMarketplaceUrl() };
+    // Install directly into ~/.cursor/{skills,agents}/ — Cursor's
+    // plugin subsystem is unreliable in CLI mode and absent in cloud.
+    const { installCursorPlugin } = await import("./plugin-install");
+    try {
+      await installCursorPlugin(credentials.token);
+      return { installed: true, autoInstalled: true };
+    } catch (error) {
+      logDebug("Failed to install Cursor components:", error);
+      return {
+        installed: true,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   if (editor === "vscode") {

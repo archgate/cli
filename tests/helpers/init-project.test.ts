@@ -72,11 +72,14 @@ describe("initProject", () => {
     );
   });
 
-  test("configures Cursor settings when editor is cursor (no project files)", async () => {
+  test("configures Cursor settings when editor is cursor (writes project files)", async () => {
     const result = await initProject(tempDir, { editor: "cursor" });
 
-    // Cursor plugin is embedded in the VSIX — no project-level files written
-    expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
+    // Cursor hooks are written to .cursor/ (no governance rule — Cursor
+    // doesn't support user-level rules as files, and the rule alone can't
+    // enforce agent delegation)
+    expect(existsSync(join(tempDir, ".cursor", "hooks.json"))).toBe(true);
+    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
 
     // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
@@ -267,21 +270,22 @@ describe("tryInstallPlugin via initProject", () => {
     expect(result.plugin!.detail).toContain("No stored credentials");
   });
 
-  test("cursor returns marketplace URL", async () => {
+  test("cursor installs via tarball download", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const urlSpy = spyOn(
+    const installSpy = spyOn(
       pluginInstall,
-      "buildCursorMarketplaceUrl"
-    ).mockReturnValue("https://cursor.example");
+      "installCursorPlugin"
+    ).mockResolvedValue();
     try {
       const result = await initProject(tempDir, {
         installPlugin: true,
         editor: "cursor",
       });
       expect(result.plugin!.installed).toBe(true);
-      expect(result.plugin!.detail).toBe("https://cursor.example");
+      expect(result.plugin!.autoInstalled).toBe(true);
+      expect(installSpy).toHaveBeenCalledWith("tok");
     } finally {
-      urlSpy.mockRestore();
+      installSpy.mockRestore();
     }
   });
 

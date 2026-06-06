@@ -55,7 +55,7 @@ describe("init integration", () => {
     );
   });
 
-  test("init with --editor cursor does not create project-level files", async () => {
+  test("init with --editor cursor creates project-level governance files", async () => {
     const result = await runCli(
       ["init", "--editor", "cursor"],
       tempDir,
@@ -64,8 +64,9 @@ describe("init integration", () => {
 
     expect(result.exitCode).toBe(0);
 
-    // Cursor plugin is embedded in the VSIX — no .cursor/ files written
-    expect(existsSync(join(tempDir, ".cursor"))).toBe(false);
+    // Cursor hooks are written to .cursor/ (no governance rule)
+    expect(existsSync(join(tempDir, ".cursor", "hooks.json"))).toBe(true);
+    expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
   });
 
   test("init with --editor copilot creates copilot directory", async () => {

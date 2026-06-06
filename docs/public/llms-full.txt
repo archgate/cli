@@ -1549,16 +1549,11 @@ Run `archgate init` with the `--editor cursor` flag to configure Cursor integrat
 archgate init --editor cursor
 ```
 
-### With plugin (beta)
-
 The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
 
-If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agent rules and skills that give Cursor's AI agent a full governance workflow.
+If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full governance workflow.
 
-The plugin is distributed in two ways:
-
-1. **Cursor Team Marketplace** -- The plugin is published to a git-based team marketplace repository. After installation, Cursor discovers it from the team marketplace URL printed by the CLI.
-2. **VS Code Extension (VSIX)** -- A `.vsix` extension is installed into Cursor via the `cursor --install-extension` command.
+The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection is needed -- files are written directly to the Cursor user directory.
 
 To explicitly install the plugin:
 
@@ -1567,51 +1562,70 @@ archgate login              # one-time setup
 archgate init --editor cursor --install-plugin
 ```
 
-The `archgate plugin install --editor cursor` command installs the VS Code extension via `cursor` CLI if available and prints the team marketplace URL; it prints manual instructions otherwise.
-
 To install or reinstall the plugin on an already-initialized project:
 
 ```bash
 archgate plugin install --editor cursor
 ```
 
-### Without plugin (free)
-
-Without the plugin, `archgate init --editor cursor` still configures a basic governance rule. The AI agent can consult ADRs and run checks via CLI commands, but does not get the role-based skills described below.
-
 ### Generated files
 
-| File                                    | Purpose                                                        |
-| --------------------------------------- | -------------------------------------------------------------- |
-| `.cursor/rules/archgate-governance.mdc` | Always-on Cursor rule that instructs the agent to consult ADRs |
+**User scope** (`~/.cursor/`):
+
+| File                                           | Purpose                                                             |
+| ---------------------------------------------- | ------------------------------------------------------------------- |
+| `~/.cursor/skills/archgate-reviewer.md`        | Validates code changes against all project ADRs                     |
+| `~/.cursor/skills/archgate-lessons-learned.md` | Captures learnings and proposes new ADRs when patterns emerge       |
+| `~/.cursor/skills/archgate-adr-author.md`      | Creates and edits ADRs following project conventions                |
+| `~/.cursor/skills/archgate-onboard.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
+| `~/.cursor/skills/archgate-cli-reference.md`   | Internal reference for AI agents with the Archgate CLI guide        |
+| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR governance workflow     |
+| `~/.cursor/agents/archgate-planner.md`         | Planning agent for scoping and breaking down work                   |
+
+**Project scope**:
+
+| File                 | Purpose                                                               |
+| -------------------- | --------------------------------------------------------------------- |
+| `.cursor/hooks.json` | `afterFileEdit` hook that runs `archgate check` after every file edit |
+
+The `.cursor/hooks.json` file is the only file written to your project tree. It ensures `archgate check` runs automatically after every file edit, catching ADR violations in real time.
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Cursor. Cursor's plugin system handles namespacing, so skills use their direct names without a prefix.
+The plugin adds agents and skills to Cursor, installed at the user scope so they are available across all your projects.
 
-### Agent
+### Agents
 
-| Name        | Purpose                                                                     |
-| ----------- | --------------------------------------------------------------------------- |
-| `developer` | General development agent that reads ADRs before coding and validates after |
+| Name                 | Purpose                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `archgate-developer` | General development agent that reads ADRs before coding and validates after |
+| `archgate-planner`   | Planning agent for scoping work and breaking tasks into ADR-compliant steps |
 
-The `developer` agent orchestrates the skills below automatically as part of its workflow.
+Users invoke agents explicitly via `/archgate-developer` or `/archgate-planner` in the Cursor chat.
 
 ### Skills
 
-| Name              | Purpose                                                                               |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `architect`       | Validates code changes against all project ADRs for structural compliance             |
-| `quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
-| `adr-author`      | Creates and edits ADRs following project conventions                                  |
-| `onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
-| `cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide         |
+| Name                       | Purpose                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------- |
+| `archgate-reviewer`        | Validates code changes against all project ADRs for structural compliance     |
+| `archgate-lessons-learned` | Reviews rule coverage and proposes new ADRs when patterns emerge              |
+| `archgate-adr-author`      | Creates and edits ADRs following project conventions                          |
+| `archgate-onboard`         | One-time setup: explores the codebase, interviews you, creates initial ADRs   |
+| `archgate-cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide |
 
-These are the same agent and skills available in the Claude Code plugin (`archgate:developer`, `archgate:architect`, etc.), adapted for Cursor's plugin system.
+These are the same roles available in the Claude Code plugin (`archgate:reviewer`, `archgate:lessons-learned`, etc.), adapted for Cursor's skill and agent system.
+
+### Hooks
+
+| Hook            | Trigger         | Action                                                     |
+| --------------- | --------------- | ---------------------------------------------------------- |
+| `afterFileEdit` | Every file edit | Runs `archgate check` to catch ADR violations in real time |
+
+The hook is defined in `.cursor/hooks.json` at the project level, so it works both locally and in cloud agent environments.
 
 ## Initial setup with onboard
 
-After installing the plugin, run the `onboard` skill in your project once. This skill:
+After installing the plugin, invoke `/archgate-developer` and ask it to run the onboard skill in your project. This skill:
 
 1. Explores your codebase structure (directories, key files, package configuration)
 2. Interviews you about your team's conventions, constraints, and architectural decisions
@@ -1622,31 +1636,17 @@ The onboard skill is designed to run once per project. After onboarding, the oth
 
 ## How it works in practice
 
-### With the plugin
-
-The `developer` agent follows a structured workflow for every coding task:
+Invoke `/archgate-developer` in Cursor's chat when starting a coding task. The agent follows a structured workflow for every change:
 
 1. **Read applicable ADRs** -- The agent runs `archgate review-context` to see which ADRs apply to the files being changed. It does not write code until it has read the applicable ADRs.
 
 2. **Write code following ADR constraints** -- The agent implements changes following the Do's and Don'ts from the applicable ADRs.
 
-3. **Run compliance checks** -- The agent runs `archgate check --staged` to execute automated rules. Any violations are fixed before proceeding.
+3. **Run compliance checks** -- The agent runs `archgate check` to execute automated rules. The `afterFileEdit` hook also catches violations in real time. Any violations are fixed before proceeding.
 
-4. **Architect review** -- The agent invokes the `architect` skill to validate structural ADR compliance beyond what automated rules catch.
+4. **Review changes** -- The agent invokes the `archgate-reviewer` skill to validate structural ADR compliance beyond what automated rules catch.
 
-5. **Capture learnings** -- The agent invokes the `quality-manager` skill to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
-
-### Without the plugin
-
-The agent uses the governance rule and CLI commands to follow four manual steps:
-
-1. **Review context** -- Run `archgate review-context` to see which ADRs apply to the files being changed.
-
-2. **Read individual ADRs** -- For full context on a specific decision, run `archgate adr show <id>` (for example, `archgate adr show ARCH-001`).
-
-3. **Write code** -- Implement changes following the constraints from the applicable ADRs.
-
-4. **Run compliance checks** -- Run `archgate check --staged` to validate that the code complies with all ADR rules.
+5. **Capture learnings** -- The agent invokes the `archgate-lessons-learned` skill to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
 
 ## ADR-driven refusal
 
@@ -1662,19 +1662,22 @@ This behavior is consistent regardless of how the developer phrases the request.
 
 ## When to use each agent or skill
 
-| Scenario                                     | Skill             |
-| -------------------------------------------- | ----------------- |
-| Starting a new project with Archgate         | `onboard`         |
-| Day-to-day coding tasks                      | `developer`       |
-| Reviewing a PR for ADR compliance            | `architect`       |
-| Noticing a recurring pattern worth codifying | `quality-manager` |
-| Creating or editing an ADR                   | `adr-author`      |
+| Scenario                                     | Agent / Skill                                  |
+| -------------------------------------------- | ---------------------------------------------- |
+| Starting a new project with Archgate         | `/archgate-developer` (then ask it to onboard) |
+| Day-to-day coding tasks                      | `/archgate-developer`                          |
+| Planning and scoping work                    | `/archgate-planner`                            |
+| Reviewing a change for ADR compliance        | `archgate-reviewer`                            |
+| Noticing a recurring pattern worth codifying | `archgate-lessons-learned`                     |
+| Creating or editing an ADR                   | `archgate-adr-author`                          |
 
-The `developer` agent orchestrates the skills automatically -- it invokes `architect` and `quality-manager` as part of its workflow. Most of the time, you only need to use `developer` directly.
+The `archgate-developer` agent orchestrates the skills automatically -- it invokes `archgate-reviewer` and `archgate-lessons-learned` as part of its workflow. Most of the time, you only need to invoke `/archgate-developer` and let it run.
 
-## Governance rule
+## Cloud agent support
 
-The governance rule in `.cursor/rules/archgate-governance.mdc` uses `alwaysApply: true`, which means the Cursor agent always has governance context available without manual activation. It instructs the agent to run `archgate review-context` before coding and `archgate check --staged` after.
+Cursor supports cloud agents that run on remote VMs. These environments do not have access to `~/.cursor/`, so user-scoped skills and agents are not available. However, the `.cursor/hooks.json` file is part of your project tree and works in cloud VMs. This means `archgate check` still runs automatically after every file edit, even in cloud agent sessions.
+
+For full governance in cloud environments, ensure `archgate` is available on the VM's PATH (e.g., via the install script in your project's setup).
 
 ## Session transcript access
 
@@ -1687,12 +1690,13 @@ The command accepts two optional flags:
 
 ## Tips for effective usage
 
-- **Use the `developer` skill for coding tasks.** It orchestrates the full read-validate-capture workflow automatically.
-- **Run `onboard` once per project.** It sets up your initial ADRs based on your actual codebase and conventions.
-- **Use `architect` for PR reviews.** It validates structural compliance beyond what automated rules catch.
-- **Use `quality-manager` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
-- **Commit the `.cursor/` directory.** This ensures every team member gets the same governance configuration when they clone the repository.
+- **Invoke `/archgate-developer` for coding tasks.** It orchestrates the full read-validate-capture workflow automatically.
+- **Run onboard once per project.** It sets up your initial ADRs based on your actual codebase and conventions.
+- **Use `archgate-reviewer` for reviews.** It validates structural compliance beyond what automated rules catch.
+- **Use `archgate-lessons-learned` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
+- **Commit the `.cursor/` directory.** The `hooks.json` file ensures every team member gets `archgate check` on file edits when they clone the repository.
 - **Keep ADR rules files up to date.** The agent enforces what the rules check for -- if a rule is missing, the violation will not be caught.
+- **Re-run `archgate plugin install --editor cursor` to upgrade.** The service returns the latest plugin bundle on every authenticated download.
 
 ---
 
@@ -4053,7 +4057,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Claude Code:** If the `claude` CLI is on your PATH, the plugin is installed automatically via `claude plugin marketplace add` and `claude plugin install`. If the `claude` CLI is not found, the command prints the manual installation commands instead.
 
-**Cursor:** If the `cursor` CLI is on your PATH, the VS Code extension is installed automatically via `cursor --install-extension`. The team marketplace URL is printed for manual plugin discovery.
+**Cursor:** Downloads an authenticated tarball of skills, agents, and hooks into `~/.cursor/`. Also writes `.cursor/hooks.json` to the project for cloud agent compatibility. No CLI detection needed.
 
 **opencode:** Requires the `opencode` CLI to be on your PATH — if it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows — opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
@@ -4068,7 +4072,7 @@ Initialized Archgate governance in /path/to/project
 Archgate plugin installed for Claude Code.
 ```
 
-When `--editor cursor` is used, the output shows `.cursor/` instead of `.claude/`.
+When `--editor cursor` is used, the output shows `.cursor/` for project-level files and notes that user-scope components were installed to `~/.cursor/`.
 
 ## Base branch detection
 
@@ -4270,7 +4274,7 @@ Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
 - **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
-- **Cursor:** Prints the [Team Private Plugin Marketplace](https://cursor.com/docs/plugins#team-marketplaces) URL with instructions to add it in Cursor Settings. Cursor does not support VSIX installation from the CLI.
+- **Cursor:** Downloads an authenticated tarball and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection needed — files are written directly to the Cursor user directory.
 - **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
 - **opencode:** Requires the `opencode` CLI to be on PATH — skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" — opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
