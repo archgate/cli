@@ -1,8 +1,10 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
+import remarkGfm from "remark-gfm";
 
 export default defineConfig({
   site: "https://cli.archgate.dev",
+  markdown: { remarkPlugins: [remarkGfm] },
   integrations: [
     starlight({
       title: "Archgate",
