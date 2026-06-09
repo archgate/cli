@@ -28,6 +28,21 @@ bun run commit                # conventional commit wizard
 
 **`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check → knip → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
 
+## Git Hooks (Git 2.54+)
+
+Config-based hooks in `.githooks` run validation locally before commits and pushes:
+
+- **pre-commit:** lint + typecheck + format:check (~15s)
+- **pre-push:** full `bun run validate` (~60s, mirrors CI)
+
+Activate once per clone:
+
+```bash
+git config --local include.path ../.githooks
+```
+
+Opt out of a specific hook: `git config --local hook.<name>.enabled false`. Skip all hooks for a single commit: `git commit --no-verify`.
+
 ## Architecture
 
 ### Commands
@@ -75,7 +90,7 @@ YAML frontmatter (`id`, `title`, `domain`, `rules`, optional `files`). Sections:
 Editor integrations share the `EditorTarget` union. Adding a new editor requires coordinated edits — missing any one breaks detection, init, or tests:
 
 1. `src/helpers/init-project.ts` — extend `EditorTarget` union, `EDITOR_LABELS`, the `configureEditorSettings` switch, and (when authenticated install applies) the `tryInstallPlugin` branch
-2. `src/helpers/plugin-install.ts` — add `is<Editor>CliAvailable()` and any install/download helper
+2. `src/helpers/plugin-install.ts` — add `is<Editor>CliAvailable()` and any install/download helper. For tarball-based editors (no marketplace CLI), use `installEditorPluginBundle()` — it handles directory creation, old-file cleanup, and tarball extraction in one call
 3. `src/helpers/editor-detect.ts` — append to the `Promise.all` and the returned array
 4. `src/commands/init.ts` — extend `EDITOR_DIRS`, `SIGNUP_EDITORS`, the `--editor` `.choices([...] as const)`, and `printManualInstructions`
 5. `src/commands/plugin/install.ts` — extend `.choices([...] as const)` and add a case to `installForEditor` + the manual-instructions `catch`

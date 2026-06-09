@@ -2,11 +2,11 @@
 // Copyright 2026 Archgate
 /** Download and install the archgate plugin for supported editors. */
 
-import { existsSync, mkdirSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import { logDebug } from "./log";
-import { cursorUserDir, internalPath, opencodeAgentsDir } from "./paths";
+import { cursorUserDir, internalPath, opencodeConfigDir } from "./paths";
 import { resolveCommand } from "./platform";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -142,13 +142,11 @@ export async function installClaudePlugin(): Promise<void> {
  */
 export async function installCursorPlugin(token: string): Promise<void> {
   const cursorDir = cursorUserDir();
-  mkdirSync(join(cursorDir, "skills"), { recursive: true });
-  mkdirSync(join(cursorDir, "agents"), { recursive: true });
 
-  await downloadAndExtractTarball({
+  await installEditorPluginBundle({
+    baseDir: cursorDir,
     apiPath: "/api/cursor",
     token,
-    targetDir: cursorDir,
     label: "Cursor",
     tempFile: "archgate-cursor.tar.gz",
   });
@@ -224,25 +222,60 @@ async function downloadPluginAsset(
   return response.arrayBuffer();
 }
 
+// ---------------------------------------------------------------------------
+// Shared — editor plugin bundle install (agents + skills)
+// ---------------------------------------------------------------------------
+
 /**
- * Download and extract a tarball from the plugins API into a target directory.
+ * Install an archgate editor plugin bundle (agents + skills).
  *
- * Shared by `installCursorPlugin` and `installOpencodePlugin` — both follow
- * the same pattern: authenticated download → write to temp → tar extract →
- * cleanup temp file.
+ * Shared by Cursor and opencode — both follow the same pattern:
+ *   1. Ensure `agents/` and `skills/` subdirectories exist
+ *   2. Clean previous archgate files (avoids dangling/renamed artifacts)
+ *   3. Download and extract the authenticated tarball
+ *
+ * Old archgate files are removed via `Bun.Glob` before extraction so
+ * renamed or removed components don't linger. Only `archgate-*` entries
+ * are touched — other editors'/users' files are left untouched.
  *
  * Uses `tar` via `Bun.spawn` (ARCH-007) — `tar` is available on macOS,
  * Linux, and modern Windows (bsdtar ships with Windows 10+).
+ *
+ * Editor-specific post-install steps (hooks merging, settings config) are
+ * handled by each editor's install function after this returns.
  */
-async function downloadAndExtractTarball(opts: {
+async function installEditorPluginBundle(opts: {
+  baseDir: string;
   apiPath: string;
   token: string;
-  targetDir: string;
   label: string;
   tempFile: string;
 }): Promise<void> {
-  const tarballPath = internalPath(opts.tempFile);
+  const agentsDir = join(opts.baseDir, "agents");
+  const skillsDir = join(opts.baseDir, "skills");
+  mkdirSync(agentsDir, { recursive: true });
+  mkdirSync(skillsDir, { recursive: true });
 
+  // Clean old archgate agents (flat .md files)
+  for (const file of new Bun.Glob("archgate-*.md").scanSync({
+    cwd: agentsDir,
+    dot: true,
+  })) {
+    unlinkSync(join(agentsDir, file));
+  }
+
+  // Clean old archgate skill directories (archgate-*/SKILL.md)
+  const staleSkillDirs = new Set(
+    [
+      ...new Bun.Glob("archgate-*/*").scanSync({ cwd: skillsDir, dot: true }),
+    ].map((f) => f.split(/[/\\]/u)[0])
+  );
+  for (const dir of staleSkillDirs) {
+    rmSync(join(skillsDir, dir), { recursive: true, force: true });
+  }
+
+  // Download and extract the tarball
+  const tarballPath = internalPath(opts.tempFile);
   const buffer = await downloadPluginAsset(opts.apiPath, opts.token);
   logDebug(
     `Downloaded ${opts.label} bundle (${Math.round(buffer.byteLength / 1024)} KB)`
@@ -250,14 +283,8 @@ async function downloadAndExtractTarball(opts: {
   await Bun.write(tarballPath, buffer);
 
   try {
-    logDebug(`Extracting ${opts.label} components into ${opts.targetDir}`);
-    const result = await run([
-      "tar",
-      "-xzf",
-      tarballPath,
-      "-C",
-      opts.targetDir,
-    ]);
+    logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
+    const result = await run(["tar", "-xzf", tarballPath, "-C", opts.baseDir]);
     if (result.exitCode !== 0) {
       throw new Error(
         `tar -xzf failed (exit ${result.exitCode}) while extracting ${opts.label} components`
@@ -273,7 +300,7 @@ async function downloadAndExtractTarball(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// opencode — download agent bundle into user-scope agents dir
+// opencode — download plugin bundle into user-scope config dir
 // ---------------------------------------------------------------------------
 
 /**
@@ -286,24 +313,23 @@ export async function isOpencodeCliAvailable(): Promise<boolean> {
 }
 
 /**
- * Install the archgate opencode agents into the user-scope agents directory.
+ * Install archgate agents and skills into opencode's user-scope directories.
  *
- * Opencode has no plugin marketplace — agents are plain markdown files.
- * Archgate ships them as an authenticated tarball at `/api/opencode`. The
- * tarball contains `archgate-*.md` files at its root which extract directly
- * into the resolved `opencodeAgentsDir()`.
+ * Opencode has no plugin marketplace — agents and skills are plain markdown
+ * files. Archgate ships them as an authenticated tarball at `/api/opencode`.
+ * The tarball contains `agents/` and `skills/` directories which extract
+ * into the resolved `opencodeConfigDir()`.
  *
  * Throws on download or extraction failure so callers can surface a manual
  * retry hint.
  */
 export async function installOpencodePlugin(token: string): Promise<void> {
-  const agentsDir = opencodeAgentsDir();
-  mkdirSync(agentsDir, { recursive: true });
+  const baseDir = opencodeConfigDir();
 
-  await downloadAndExtractTarball({
+  await installEditorPluginBundle({
+    baseDir,
     apiPath: "/api/opencode",
     token,
-    targetDir: agentsDir,
     label: "opencode",
     tempFile: "archgate-opencode.tar.gz",
   });

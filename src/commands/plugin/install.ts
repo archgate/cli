@@ -91,12 +91,12 @@ export async function installForEditor(
       break;
     }
     case "opencode": {
-      // Writing agent files to `~/.config/opencode/agents/` is only useful
-      // if opencode is actually installed. Skip the install and surface a
-      // clear message otherwise, matching every other editor's guard.
+      // Writing files to `~/.config/opencode/{agents,skills}/` is only
+      // useful if opencode is actually installed. Skip the install and
+      // surface a clear message otherwise, matching every other editor's guard.
       if (!(await isOpencodeCliAvailable())) {
         logWarn(
-          "opencode CLI not found on PATH — skipping agent install.",
+          "opencode CLI not found on PATH — skipping plugin install.",
           "Install opencode from https://opencode.ai/docs/, then re-run:"
         );
         console.log(
@@ -105,7 +105,7 @@ export async function installForEditor(
         break;
       }
       await installOpencodePlugin(token);
-      logInfo(`Archgate agents installed for ${label}.`);
+      logInfo(`Archgate plugin installed for ${label}.`);
       break;
     }
     case "vscode": {
