@@ -35,7 +35,10 @@ mock.module("../../src/helpers/platform", () => ({
 // Imports under test — loaded AFTER mocks are registered.
 // ---------------------------------------------------------------------------
 
-import { installOpencodePlugin } from "../../src/helpers/plugin-install";
+import {
+  installCursorPlugin,
+  installOpencodePlugin,
+} from "../../src/helpers/plugin-install";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -183,9 +186,41 @@ describe("plugin install — stale file cleanup", () => {
     });
   });
 
-  // Cursor cleanup is NOT tested here — cursorUserDir() resolves via HOME,
-  // and setting Bun.env.HOME leaks to parallel test files (Bun shares a
-  // single process). The cleanup behavior is identical for all editors since
-  // both Cursor and opencode use installEditorPluginBundle(), so the opencode
-  // tests above provide full coverage.
+  describe("cursor", () => {
+    // cursorUserDir() resolves via HOME (not XDG_CONFIG_HOME), so we
+    // redirect HOME to tempDir inside a nested beforeEach. The top-level
+    // afterEach restores the original value after each test.
+    beforeEach(() => {
+      Bun.env.HOME = tempDir;
+    });
+
+    test("removes archgate-* agents and skills before extraction", async () => {
+      const agentsDir = join(tempDir, ".cursor", "agents");
+      const skillsDir = join(tempDir, ".cursor", "skills");
+      mkdirSync(agentsDir, { recursive: true });
+      mkdirSync(skillsDir, { recursive: true });
+
+      writeFileSync(join(agentsDir, "archgate-developer.md"), "old");
+      mkdirSync(join(skillsDir, "archgate-reviewer"));
+      writeFileSync(join(skillsDir, "archgate-reviewer", "SKILL.md"), "old");
+
+      mockFetch(200, new ArrayBuffer(64));
+
+      await installCursorPlugin("test-token");
+
+      expect(existsSync(join(agentsDir, "archgate-developer.md"))).toBe(false);
+      expect(existsSync(join(skillsDir, "archgate-reviewer"))).toBe(false);
+    });
+
+    test("extracts into cursor user dir, not a subdirectory", async () => {
+      mockFetch(200, new ArrayBuffer(64));
+
+      await installCursorPlugin("test-token");
+
+      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      const targetIdx = callArgs.indexOf("-C");
+      const targetDir = callArgs[targetIdx + 1];
+      expect(targetDir).toMatch(/\.cursor$/u);
+    });
+  });
 });
