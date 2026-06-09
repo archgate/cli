@@ -199,6 +199,7 @@ describe("plugin install — stale file cleanup", () => {
 
       const callArgs = spawnSpy.mock.calls[0][0] as string[];
       const targetIdx = callArgs.indexOf("-C");
+      expect(targetIdx).toBeGreaterThanOrEqual(0);
       const targetDir = callArgs[targetIdx + 1];
       // Must end with /opencode (config dir), not /opencode/agents
       expect(targetDir).toMatch(/opencode$/u);
@@ -241,6 +242,7 @@ describe("plugin install — stale file cleanup", () => {
 
       const callArgs = spawnSpy.mock.calls[0][0] as string[];
       const targetIdx = callArgs.indexOf("-C");
+      expect(targetIdx).toBeGreaterThanOrEqual(0);
       const targetDir = callArgs[targetIdx + 1];
       expect(targetDir).toMatch(/\.cursor$/u);
     });
