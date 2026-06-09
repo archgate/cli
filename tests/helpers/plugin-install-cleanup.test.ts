@@ -31,6 +31,26 @@ mock.module("../../src/helpers/platform", () => ({
   resolveCommand: mockResolveCommand,
 }));
 
+// Mock paths so cursorUserDir can be redirected without modifying
+// Bun.env.HOME — env changes leak to parallel test files because Bun
+// runs all tests in a single process sharing Bun.env.
+let cursorDirOverride: string | undefined;
+mock.module("../../src/helpers/paths", () => ({
+  cursorUserDir: () =>
+    cursorDirOverride ??
+    join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "", ".cursor"),
+  internalPath: (...parts: string[]) =>
+    join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "", ".archgate", ...parts),
+  opencodeConfigDir: () => {
+    const xdg = Bun.env.XDG_CONFIG_HOME;
+    const base =
+      xdg && xdg !== "undefined"
+        ? xdg
+        : join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "", ".config");
+    return join(base, "opencode");
+  },
+}));
+
 // ---------------------------------------------------------------------------
 // Imports under test — loaded AFTER mocks are registered.
 // ---------------------------------------------------------------------------
@@ -187,11 +207,13 @@ describe("plugin install — stale file cleanup", () => {
   });
 
   describe("cursor", () => {
-    // cursorUserDir() resolves via HOME (not XDG_CONFIG_HOME), so we
-    // redirect HOME to tempDir inside a nested beforeEach. The top-level
-    // afterEach restores the original value after each test.
+    // Redirect cursorUserDir() via mock — NOT via Bun.env.HOME, because
+    // env changes leak to parallel test files in Bun's single-process runner.
     beforeEach(() => {
-      Bun.env.HOME = tempDir;
+      cursorDirOverride = join(tempDir, ".cursor");
+    });
+    afterEach(() => {
+      cursorDirOverride = undefined;
     });
 
     test("removes archgate-* agents and skills before extraction", async () => {
