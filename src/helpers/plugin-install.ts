@@ -2,13 +2,7 @@
 // Copyright 2026 Archgate
 /** Download and install the archgate plugin for supported editors. */
 
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  unlinkSync,
-} from "node:fs";
+import { existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import { logDebug } from "./log";
@@ -228,25 +222,60 @@ async function downloadPluginAsset(
   return response.arrayBuffer();
 }
 
+// ---------------------------------------------------------------------------
+// Shared — editor plugin bundle install (agents + skills)
+// ---------------------------------------------------------------------------
+
 /**
- * Download and extract a tarball from the plugins API into a target directory.
+ * Install an archgate editor plugin bundle (agents + skills).
  *
- * Shared by `installCursorPlugin` and `installOpencodePlugin` — both follow
- * the same pattern: authenticated download → write to temp → tar extract →
- * cleanup temp file.
+ * Shared by Cursor and opencode — both follow the same pattern:
+ *   1. Ensure `agents/` and `skills/` subdirectories exist
+ *   2. Clean previous archgate files (avoids dangling/renamed artifacts)
+ *   3. Download and extract the authenticated tarball
+ *
+ * Old archgate files are removed via `Bun.Glob` before extraction so
+ * renamed or removed components don't linger. Only `archgate-*` entries
+ * are touched — other editors'/users' files are left untouched.
  *
  * Uses `tar` via `Bun.spawn` (ARCH-007) — `tar` is available on macOS,
  * Linux, and modern Windows (bsdtar ships with Windows 10+).
+ *
+ * Editor-specific post-install steps (hooks merging, settings config) are
+ * handled by each editor's install function after this returns.
  */
-async function downloadAndExtractTarball(opts: {
+async function installEditorPluginBundle(opts: {
+  baseDir: string;
   apiPath: string;
   token: string;
-  targetDir: string;
   label: string;
   tempFile: string;
 }): Promise<void> {
-  const tarballPath = internalPath(opts.tempFile);
+  const agentsDir = join(opts.baseDir, "agents");
+  const skillsDir = join(opts.baseDir, "skills");
+  mkdirSync(agentsDir, { recursive: true });
+  mkdirSync(skillsDir, { recursive: true });
 
+  // Clean old archgate agents (flat .md files)
+  for (const file of new Bun.Glob("archgate-*.md").scanSync({
+    cwd: agentsDir,
+    dot: true,
+  })) {
+    unlinkSync(join(agentsDir, file));
+  }
+
+  // Clean old archgate skill directories (archgate-*/SKILL.md)
+  const staleSkillDirs = new Set(
+    [
+      ...new Bun.Glob("archgate-*/*").scanSync({ cwd: skillsDir, dot: true }),
+    ].map((f) => f.split(/[/\\]/u)[0])
+  );
+  for (const dir of staleSkillDirs) {
+    rmSync(join(skillsDir, dir), { recursive: true, force: true });
+  }
+
+  // Download and extract the tarball
+  const tarballPath = internalPath(opts.tempFile);
   const buffer = await downloadPluginAsset(opts.apiPath, opts.token);
   logDebug(
     `Downloaded ${opts.label} bundle (${Math.round(buffer.byteLength / 1024)} KB)`
@@ -254,14 +283,8 @@ async function downloadAndExtractTarball(opts: {
   await Bun.write(tarballPath, buffer);
 
   try {
-    logDebug(`Extracting ${opts.label} components into ${opts.targetDir}`);
-    const result = await run([
-      "tar",
-      "-xzf",
-      tarballPath,
-      "-C",
-      opts.targetDir,
-    ]);
+    logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
+    const result = await run(["tar", "-xzf", tarballPath, "-C", opts.baseDir]);
     if (result.exitCode !== 0) {
       throw new Error(
         `tar -xzf failed (exit ${result.exitCode}) while extracting ${opts.label} components`
@@ -274,71 +297,6 @@ async function downloadAndExtractTarball(opts: {
       // Ignore cleanup errors
     }
   }
-}
-
-// ---------------------------------------------------------------------------
-// Shared — editor plugin bundle install (agents + skills)
-// ---------------------------------------------------------------------------
-
-/**
- * Remove previously-installed archgate agents and skills from an editor's
- * discovery directories so fresh extractions don't leave dangling files
- * from renamed or removed components.
- *
- * Only touches `archgate-*` entries — other editors'/users' files are left
- * untouched.
- */
-function cleanArchgateFiles(baseDir: string): void {
-  const agentsDir = join(baseDir, "agents");
-  const skillsDir = join(baseDir, "skills");
-
-  if (existsSync(agentsDir)) {
-    for (const entry of readdirSync(agentsDir)) {
-      if (entry.startsWith("archgate-") && entry.endsWith(".md")) {
-        unlinkSync(join(agentsDir, entry));
-      }
-    }
-  }
-
-  if (existsSync(skillsDir)) {
-    for (const entry of readdirSync(skillsDir)) {
-      if (entry.startsWith("archgate-")) {
-        rmSync(join(skillsDir, entry), { recursive: true, force: true });
-      }
-    }
-  }
-}
-
-/**
- * Install an archgate editor plugin bundle (agents + skills).
- *
- * Shared by Cursor and opencode — both follow the same pattern:
- *   1. Ensure `agents/` and `skills/` subdirectories exist
- *   2. Clean previous archgate files (avoids dangling/renamed artifacts)
- *   3. Download and extract the authenticated tarball
- *
- * Editor-specific post-install steps (hooks merging, settings config) are
- * handled by each editor's install function after this returns.
- */
-async function installEditorPluginBundle(opts: {
-  baseDir: string;
-  apiPath: string;
-  token: string;
-  label: string;
-  tempFile: string;
-}): Promise<void> {
-  mkdirSync(join(opts.baseDir, "agents"), { recursive: true });
-  mkdirSync(join(opts.baseDir, "skills"), { recursive: true });
-
-  cleanArchgateFiles(opts.baseDir);
-
-  await downloadAndExtractTarball({
-    apiPath: opts.apiPath,
-    token: opts.token,
-    targetDir: opts.baseDir,
-    label: opts.label,
-    tempFile: opts.tempFile,
-  });
 }
 
 // ---------------------------------------------------------------------------
