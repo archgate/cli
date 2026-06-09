@@ -1,3 +1,13 @@
+## [0.44.0](https://github.com/archgate/cli/compare/v0.43.0...v0.44.0) (2026-06-09)
+
+### Features
+
+* **cursor:** automated plugin install via tarball download ([#395](https://github.com/archgate/cli/issues/395)) ([41eb37e](https://github.com/archgate/cli/commit/41eb37ec8fed506ca3b29f1095eb62b001880219))
+
+### Bug Fixes
+
+* **opencode:** extract to config dir and clean stale files on install ([#400](https://github.com/archgate/cli/issues/400)) ([51b41e7](https://github.com/archgate/cli/commit/51b41e7dcc28e13111658020102d0ae98b526d42))
+
 ## [0.43.0](https://github.com/archgate/cli/compare/v0.41.1...v0.43.0) (2026-05-30)
 
 ### Features
