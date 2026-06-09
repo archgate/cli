@@ -1,0 +1,43 @@
+# Git 2.54+ config-based hooks for the archgate CLI repo.
+#
+# Activate (once per clone):
+#   git config --local include.path ../.githooks
+#
+# Opt out of a specific hook without removing config:
+#   git config --local hook.<name>.enabled false
+#
+# List active hooks:
+#   git hook list pre-commit
+#   git hook list pre-push
+#
+# Skip hooks for a single commit (escape hatch, not routine):
+#   git commit --no-verify
+
+# ---------------------------------------------------------------------------
+# pre-commit — fast lint/typecheck/format gate
+# ---------------------------------------------------------------------------
+# Catches syntax errors, type violations, and formatting drift before
+# a commit is created. Runs in ~15s (lint + typecheck + format:check).
+# Full validation (tests, ADR checks, knip, build) runs in pre-push.
+
+[hook "lint"]
+	event = pre-commit
+	command = bun run lint
+
+[hook "typecheck"]
+	event = pre-commit
+	command = bun run typecheck
+
+[hook "format-check"]
+	event = pre-commit
+	command = bun run format:check
+
+# ---------------------------------------------------------------------------
+# pre-push — full CI validation gate
+# ---------------------------------------------------------------------------
+# Runs the complete validation pipeline before pushing. Mirrors the CI
+# job in .github/workflows/code-pull-request.yml. Takes ~60s.
+
+[hook "validate"]
+	event = pre-push
+	command = bun run validate

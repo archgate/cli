@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run format:file \"$(jq -r .tool_input.file_path)\""
+            "command": "bun run format:file \"$(jq -r .tool_input.file_path)\" || true"
           }
         ]
       }

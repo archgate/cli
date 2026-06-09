@@ -28,6 +28,21 @@ bun run commit                # conventional commit wizard
 
 **`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check → knip → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
 
+## Git Hooks (Git 2.54+)
+
+Config-based hooks in `.githooks` run validation locally before commits and pushes:
+
+- **pre-commit:** lint + typecheck + format:check (~15s)
+- **pre-push:** full `bun run validate` (~60s, mirrors CI)
+
+Activate once per clone:
+
+```bash
+git config --local include.path ../.githooks
+```
+
+Opt out of a specific hook: `git config --local hook.<name>.enabled false`. Skip all hooks for a single commit: `git commit --no-verify`.
+
 ## Architecture
 
 ### Commands
