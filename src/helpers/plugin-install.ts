@@ -166,9 +166,8 @@ async function mergeCursorHooks(cursorDir: string): Promise<void> {
   if (!existsSync(hooksPath)) return;
 
   try {
-    const existing: { event: string; command?: string }[] = JSON.parse(
-      await Bun.file(hooksPath).text()
-    );
+    const existing: { event: string; command?: string }[] =
+      await Bun.file(hooksPath).json();
 
     // Remove any previous archgate hooks
     const filtered = existing.filter(
