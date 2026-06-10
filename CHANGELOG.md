@@ -1,3 +1,9 @@
+## [0.45.1](https://github.com/archgate/cli/compare/v0.45.0...v0.45.1) (2026-06-10)
+
+### Bug Fixes
+
+* **install:** verify release assets exist before trusting advertised version; test isolation fixes ([#404](https://github.com/archgate/cli/issues/404)) ([be5e7d9](https://github.com/archgate/cli/commit/be5e7d95eb76a07a066b06abb318efa141272a3f))
+
 ## [0.45.0](https://github.com/archgate/cli/compare/v0.43.0...v0.45.0) (2026-06-10)
 
 ### Features
