@@ -61,7 +61,7 @@ function Get-LatestVersion {
             Write-Warning "$($versionInfo.version) is advertised but its release assets are not available yet (release may be in progress). Falling back to the newest installable release..."
         }
     } catch {
-        # Fall through to GitHub API
+        Write-Verbose "version.json lookup failed: $($_.Exception.Message); falling back to GitHub API"
     }
 
     # Fallback: walk recent GitHub releases (newest first) and pick the first
