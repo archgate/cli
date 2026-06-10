@@ -12,23 +12,11 @@ import {
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
 // ---------------------------------------------------------------------------
-// Module mocks — declared before imports that use them.
-// ---------------------------------------------------------------------------
-
-/** Mock resolveCommand so CLI availability checks are deterministic. */
-const mockResolveCommand = mock<(name: string) => Promise<string | null>>(() =>
-  Promise.resolve(null)
-);
-mock.module("../../src/helpers/platform", () => ({
-  resolveCommand: mockResolveCommand,
-}));
-
-// ---------------------------------------------------------------------------
-// Imports under test — loaded AFTER mocks are registered.
+// Imports under test
 // ---------------------------------------------------------------------------
 
+import * as platform from "../../src/helpers/platform";
 import {
   buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
@@ -98,10 +86,19 @@ let tempHome: string;
 let savedHome: string | undefined;
 let savedXdg: string | undefined;
 
+/**
+ * Per-test spy on resolveCommand so CLI availability checks are deterministic.
+ * spyOn (not mock.module) — mock.module on a first-party module is
+ * process-global, replaces the WHOLE module for every other test file, and is
+ * not undone by mock.restore() (ARCH-005).
+ */
+let mockResolveCommand: ReturnType<typeof spyOn>;
+
 beforeEach(() => {
   originalFetch = globalThis.fetch;
-  mockResolveCommand.mockReset();
-  mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+  mockResolveCommand = spyOn(platform, "resolveCommand").mockImplementation(
+    () => Promise.resolve(null)
+  );
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
 
   // Redirect user-scope paths into a temp dir. The install functions create
