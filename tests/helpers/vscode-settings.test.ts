@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { tmpdir } from "node:os";
+import * as os from "node:os";
 import { join } from "node:path";
 
 import {
@@ -18,6 +17,21 @@ import {
   addMarketplaceToUserSettings,
   getVscodeUserSettingsPath,
 } from "../../src/helpers/vscode-settings";
+
+/**
+ * Restore saved env vars, deleting keys that were originally unset.
+ * `Object.assign(process.env, saved)` would stringify `undefined` into the
+ * literal "undefined", corrupting the env for subsequent test files.
+ */
+function restoreEnv(saved: Record<string, string | undefined>): void {
+  for (const [key, value] of Object.entries(saved)) {
+    if (value === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = value;
+    }
+  }
+}
 
 describe("mergeMarketplaceUrl", () => {
   const URL = "https://user:token@plugins.archgate.dev/archgate.git";
@@ -66,16 +80,23 @@ describe("mergeMarketplaceUrl", () => {
 describe("configureVscodeSettings", () => {
   let tempDir: string;
   let savedEnv: Record<string, string | undefined>;
+  let homedirSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-vscode-settings-test-"));
-    savedEnv = { APPDATA: process.env.APPDATA, HOME: process.env.HOME };
+    tempDir = mkdtempSync(join(os.tmpdir(), "archgate-vscode-settings-test-"));
+    // Redirect user-scope path resolution into tempDir so these tests NEVER
+    // touch the real VS Code settings.json:
+    // - Windows branch reads Bun.env.APPDATA → env override works
+    // - macOS/Linux branches call os.homedir() → must be mocked, because Bun
+    //   caches homedir() on Linux and ignores runtime HOME env overrides
+    savedEnv = { APPDATA: process.env.APPDATA };
     process.env.APPDATA = tempDir;
-    process.env.HOME = tempDir;
+    homedirSpy = spyOn(os, "homedir").mockReturnValue(tempDir);
   });
 
   afterEach(() => {
-    Object.assign(process.env, savedEnv);
+    homedirSpy.mockRestore();
+    restoreEnv(savedEnv);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -124,17 +145,20 @@ describe("configureVscodeSettings", () => {
 describe("addMarketplaceToUserSettings", () => {
   let tempDir: string;
   let savedEnv: Record<string, string | undefined>;
+  let homedirSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-user-settings-test-"));
-    // Save and override env so getVscodeUserSettingsPath() resolves into tempDir
-    savedEnv = { APPDATA: process.env.APPDATA, HOME: process.env.HOME };
+    tempDir = mkdtempSync(join(os.tmpdir(), "archgate-user-settings-test-"));
+    // Redirect user-scope path resolution into tempDir so these tests NEVER
+    // touch the real VS Code settings.json (see configureVscodeSettings above).
+    savedEnv = { APPDATA: process.env.APPDATA };
     process.env.APPDATA = tempDir; // Windows
-    process.env.HOME = tempDir; // macOS/Linux (homedir())
+    homedirSpy = spyOn(os, "homedir").mockReturnValue(tempDir); // macOS/Linux
   });
 
   afterEach(() => {
-    Object.assign(process.env, savedEnv);
+    homedirSpy.mockRestore();
+    restoreEnv(savedEnv);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -199,7 +223,7 @@ describe("addMarketplaceToUserSettings", () => {
     // Use a deeply nested subdir that definitely doesn't exist yet
     const deepHome = join(tempDir, "non", "existent", "deep");
     process.env.APPDATA = deepHome; // Windows
-    process.env.HOME = deepHome; // macOS/Linux
+    homedirSpy.mockReturnValue(deepHome); // macOS/Linux
 
     // addMarketplaceToUserSettings should create the entire directory tree
     await addMarketplaceToUserSettings(URL);
@@ -259,7 +283,7 @@ describe("getVscodeUserSettingsPath", () => {
     if (isWindows()) {
       // Windows: %APPDATA%/Code/User/settings.json
       const appData = (
-        process.env.APPDATA ?? join(homedir(), "AppData", "Roaming")
+        process.env.APPDATA ?? join(os.homedir(), "AppData", "Roaming")
       ).replaceAll("\\", "/");
       expect(normalized.startsWith(appData.replaceAll("\\", "/"))).toBe(true);
     } else if (isMacOS()) {
@@ -269,7 +293,7 @@ describe("getVscodeUserSettingsPath", () => {
       );
     } else if (!isWSL()) {
       // Linux (non-WSL): ~/.config/Code/User/settings.json
-      const home = homedir().replaceAll("\\", "/");
+      const home = os.homedir().replaceAll("\\", "/");
       expect(normalized.startsWith(home)).toBe(true);
       expect(normalized).toContain(".config/Code/User/settings.json");
     }

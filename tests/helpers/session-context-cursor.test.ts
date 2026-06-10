@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import * as os from "node:os";
 import { join } from "node:path";
 
 import { readCursorSession } from "../../src/helpers/session-context";
@@ -11,20 +11,24 @@ import { readCursorSession } from "../../src/helpers/session-context";
 // Error cases for readCursorSession live in session-context.test.ts.
 
 describe("readCursorSession", () => {
-  // Use a unique encoded project name under the *real* homedir so that
-  // homedir() caching on Linux doesn't break the tests.
-  const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const projectRoot = `/__archgate_cursor_test_${uniqueId}`;
+  // Redirect homedir() into a temp dir so these tests never touch the real
+  // ~/.cursor/projects. A HOME env override does NOT work here — Bun caches
+  // homedir() on Linux — so the implementation is mocked instead (ARCH-005).
+  const projectRoot = "/__archgate_cursor_test_project";
   const encodedProject = projectRoot
     .replaceAll("/", "-")
     .replaceAll("\\", "-")
     .replaceAll(":", "")
     .replaceAll(".", "-");
+  let tempHome: string;
+  let homedirSpy: ReturnType<typeof spyOn>;
   let transcriptsDir: string;
 
   beforeEach(() => {
+    tempHome = mkdtempSync(join(os.tmpdir(), "archgate-cursor-session-"));
+    homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHome);
     transcriptsDir = join(
-      homedir(),
+      tempHome,
       ".cursor",
       "projects",
       encodedProject,
@@ -34,9 +38,8 @@ describe("readCursorSession", () => {
   });
 
   afterEach(() => {
-    // Clean up from .cursor/projects/<encoded> level
-    const projectDir = join(homedir(), ".cursor", "projects", encodedProject);
-    rmSync(projectDir, { recursive: true, force: true });
+    homedirSpy.mockRestore();
+    rmSync(tempHome, { recursive: true, force: true });
   });
 
   function makeSession(sessionId: string, lines: string[]): void {

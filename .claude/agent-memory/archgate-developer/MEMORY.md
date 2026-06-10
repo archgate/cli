@@ -20,6 +20,10 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 - [Always commit with --signoff](feedback_git_signoff.md) — DCO CI check rejects commits without `Signed-off-by`
 
+## Approach Guidance
+
+- [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock implementations in tests (spyOn os.homedir works cross-module); never alter prod semantics for test isolation
+
 ## Known Bugs
 
 - _(none currently)_

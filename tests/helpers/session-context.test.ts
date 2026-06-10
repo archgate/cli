@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import * as os from "node:os";
 import { join } from "node:path";
 
 import {
@@ -102,24 +102,29 @@ describe("readClaudeCodeSession", () => {
   });
 
   describe("happy path", () => {
-    // Use a unique encoded project name under the *real* homedir so that
-    // homedir() caching on Linux doesn't break the tests.
-    const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const projectRoot = `/__archgate_test_${uniqueId}`;
+    // Redirect homedir() into a temp dir so these tests never touch the real
+    // ~/.claude/projects. A HOME env override does NOT work here — Bun caches
+    // homedir() on Linux — so the implementation is mocked instead (ARCH-005).
+    const projectRoot = "/__archgate_test_project";
     const encodedProject = projectRoot
       .replaceAll("/", "-")
       .replaceAll("\\", "-")
       .replaceAll(":", "-")
       .replaceAll(".", "-");
+    let tempHome: string;
+    let homedirSpy: ReturnType<typeof spyOn>;
     let projectsDir: string;
 
     beforeEach(() => {
-      projectsDir = join(homedir(), ".claude", "projects", encodedProject);
+      tempHome = mkdtempSync(join(os.tmpdir(), "archgate-claude-session-"));
+      homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHome);
+      projectsDir = join(tempHome, ".claude", "projects", encodedProject);
       mkdirSync(projectsDir, { recursive: true });
     });
 
     afterEach(() => {
-      rmSync(projectsDir, { recursive: true, force: true });
+      homedirSpy.mockRestore();
+      rmSync(tempHome, { recursive: true, force: true });
     });
 
     function writeSession(entries: object[]): void {

@@ -19,42 +19,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
 // ---------------------------------------------------------------------------
-// Module mocks — declared before imports that use them.
-// ---------------------------------------------------------------------------
-
-const mockResolveCommand = mock<(name: string) => Promise<string | null>>(() =>
-  Promise.resolve(null)
-);
-mock.module("../../src/helpers/platform", () => ({
-  resolveCommand: mockResolveCommand,
-}));
-
-// Mock paths so cursorUserDir can be redirected without modifying
-// Bun.env.HOME — env changes leak to parallel test files because Bun
-// runs all tests in a single process sharing Bun.env.
-let cursorDirOverride: string | undefined;
-mock.module("../../src/helpers/paths", () => ({
-  cursorUserDir: () =>
-    cursorDirOverride ??
-    join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "", ".cursor"),
-  internalPath: (...parts: string[]) =>
-    join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "", ".archgate", ...parts),
-  opencodeConfigDir: () => {
-    const xdg = Bun.env.XDG_CONFIG_HOME;
-    const base =
-      xdg && xdg !== "undefined"
-        ? xdg
-        : join(Bun.env.HOME ?? Bun.env.USERPROFILE ?? "", ".config");
-    return join(base, "opencode");
-  },
-}));
-
-// ---------------------------------------------------------------------------
-// Imports under test — loaded AFTER mocks are registered.
+// Imports under test
 // ---------------------------------------------------------------------------
 
+import * as platform from "../../src/helpers/platform";
 import {
   installCursorPlugin,
   installOpencodePlugin,
@@ -106,24 +75,41 @@ let tempDir: string;
 let savedHome: string | undefined;
 let savedXdg: string | undefined;
 
+/**
+ * Per-test spy on resolveCommand so CLI availability checks are deterministic.
+ * spyOn (not mock.module) — mock.module on a first-party module is
+ * process-global, replaces the WHOLE module for every other test file, and is
+ * not undone by mock.restore() (ARCH-005).
+ */
+let mockResolveCommand: ReturnType<typeof spyOn>;
+
 beforeEach(() => {
   originalFetch = globalThis.fetch;
-  mockResolveCommand.mockReset();
-  mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+  mockResolveCommand = spyOn(platform, "resolveCommand").mockImplementation(
+    () => Promise.resolve(null)
+  );
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
 
+  // Redirect user-scope paths into a temp dir. cursorUserDir(),
+  // opencodeConfigDir(), and internalPath() all read Bun.env.HOME /
+  // XDG_CONFIG_HOME at call time, so an env override (saved and restored
+  // per-test) isolates the real paths.ts resolvers — no module mock needed.
   tempDir = realpathSync(mkdtempSync(join(tmpdir(), "archgate-plugin-test-")));
   savedHome = Bun.env.HOME;
   savedXdg = Bun.env.XDG_CONFIG_HOME;
+  Bun.env.HOME = tempDir;
   Bun.env.XDG_CONFIG_HOME = tempDir;
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
   spawnSpy.mockRestore();
+  mockResolveCommand.mockRestore();
   mock.restore();
-  Bun.env.HOME = savedHome;
-  Bun.env.XDG_CONFIG_HOME = savedXdg;
+  if (savedHome === undefined) delete Bun.env.HOME;
+  else Bun.env.HOME = savedHome;
+  if (savedXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
+  else Bun.env.XDG_CONFIG_HOME = savedXdg;
   try {
     rmSync(tempDir, { recursive: true, force: true });
   } catch {
@@ -208,15 +194,8 @@ describe("plugin install — stale file cleanup", () => {
   });
 
   describe("cursor", () => {
-    // Redirect cursorUserDir() via mock — NOT via Bun.env.HOME, because
-    // env changes leak to parallel test files in Bun's single-process runner.
-    beforeEach(() => {
-      cursorDirOverride = join(tempDir, ".cursor");
-    });
-    afterEach(() => {
-      cursorDirOverride = undefined;
-    });
-
+    // cursorUserDir() resolves to tempDir/.cursor via the Bun.env.HOME
+    // override installed in the file-level beforeEach.
     test("removes archgate-* agents and skills before extraction", async () => {
       const agentsDir = join(tempDir, ".cursor", "agents");
       const skillsDir = join(tempDir, ".cursor", "skills");
