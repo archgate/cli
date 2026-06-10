@@ -9,6 +9,9 @@ import {
   spyOn,
   test,
 } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
 // Module mocks — declared before imports that use them.
@@ -91,18 +94,39 @@ function mockFetch(status: number, body: ArrayBuffer | null = null): void {
 // ---------------------------------------------------------------------------
 
 let spawnSpy: ReturnType<typeof spyOn>;
+let tempHome: string;
+let savedHome: string | undefined;
+let savedXdg: string | undefined;
 
 beforeEach(() => {
   originalFetch = globalThis.fetch;
   mockResolveCommand.mockReset();
   mockResolveCommand.mockImplementation(() => Promise.resolve(null));
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
+
+  // Redirect user-scope paths into a temp dir. The install functions create
+  // directories AND delete stale archgate-* files under cursorUserDir() /
+  // opencodeConfigDir() / internalPath() before the (mocked) tar extraction —
+  // without this override they destroy the developer's real installed plugin
+  // files in ~/.cursor and ~/.config/opencode. All three resolvers read
+  // Bun.env.HOME / XDG_CONFIG_HOME at call time, so an env override works.
+  tempHome = mkdtempSync(join(tmpdir(), "archgate-plugin-install-"));
+  savedHome = Bun.env.HOME;
+  savedXdg = Bun.env.XDG_CONFIG_HOME;
+  Bun.env.HOME = tempHome;
+  delete Bun.env.XDG_CONFIG_HOME;
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
   spawnSpy.mockRestore();
   mock.restore();
+
+  if (savedHome === undefined) delete Bun.env.HOME;
+  else Bun.env.HOME = savedHome;
+  if (savedXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
+  else Bun.env.XDG_CONFIG_HOME = savedXdg;
+  rmSync(tempHome, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------------------

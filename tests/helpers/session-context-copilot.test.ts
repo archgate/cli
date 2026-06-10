@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { readCopilotSession } from "../../src/helpers/session-context-copilot";
@@ -13,23 +13,27 @@ describe("readCopilotSession", () => {
   const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   // Use a fake project root that we'll put in workspace.yaml cwd
   const projectRoot = resolve(`/__archgate_copilot_test_${uniqueId}`);
+  let tempHome: string;
+  let savedHome: string | undefined;
   let stateDir: string;
 
   beforeEach(() => {
-    stateDir = join(homedir(), ".copilot", "session-state");
+    // Redirect copilotSessionStateDir() into a temp dir so these tests never
+    // touch the real ~/.copilot/session-state. The resolver reads Bun.env.HOME
+    // at call time (paths.ts), so an env override works here — unlike
+    // os.homedir() consumers, which require mocking (ARCH-005).
+    tempHome = mkdtempSync(join(tmpdir(), "archgate-copilot-session-"));
+    savedHome = Bun.env.HOME;
+    Bun.env.HOME = tempHome;
+    stateDir = join(tempHome, ".copilot", "session-state");
     mkdirSync(stateDir, { recursive: true });
   });
 
   afterEach(() => {
-    // Clean up only the session dirs we created (identifiable by uniqueId in events)
-    // We use a tracking array instead
-    for (const dir of createdDirs) {
-      rmSync(dir, { recursive: true, force: true });
-    }
-    createdDirs.length = 0;
+    if (savedHome === undefined) delete Bun.env.HOME;
+    else Bun.env.HOME = savedHome;
+    rmSync(tempHome, { recursive: true, force: true });
   });
-
-  const createdDirs: string[] = [];
 
   function makeSession(
     sessionId: string,
@@ -38,7 +42,6 @@ describe("readCopilotSession", () => {
   ): void {
     const sessionDir = join(stateDir, sessionId);
     mkdirSync(sessionDir, { recursive: true });
-    createdDirs.push(sessionDir);
 
     // Write workspace.yaml — use JSON.stringify to escape backslashes
     // in Windows paths (YAML double-quoted strings use the same escaping)
@@ -186,7 +189,6 @@ describe("readCopilotSession", () => {
     const sessionId = `copilot-${uniqueId}-bad`;
     const sessionDir = join(stateDir, sessionId);
     mkdirSync(sessionDir, { recursive: true });
-    createdDirs.push(sessionDir);
     writeFileSync(
       join(sessionDir, "workspace.yaml"),
       `cwd: ${JSON.stringify(projectRoot)}\nid: ${JSON.stringify(sessionId)}\n`
