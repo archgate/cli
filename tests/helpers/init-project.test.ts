@@ -8,6 +8,7 @@ import { join } from "node:path";
 import * as credentialStore from "../../src/helpers/credential-store";
 import { initProject } from "../../src/helpers/init-project";
 import * as pluginInstall from "../../src/helpers/plugin-install";
+import * as vscodeSettings from "../../src/helpers/vscode-settings";
 import { safeRmSync } from "../test-utils";
 
 describe("initProject", () => {
@@ -291,12 +292,29 @@ describe("tryInstallPlugin via initProject", () => {
 
   test("vscode returns auto-installed", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const result = await initProject(tempDir, {
-      installPlugin: true,
-      editor: "vscode",
-    });
-    expect(result.plugin!.installed).toBe(true);
-    expect(result.plugin!.autoInstalled).toBe(true);
+    // With credentials present, configureEditorSettings (vscode branch) writes
+    // the REAL user-level VS Code settings.json — spy it out so the test never
+    // touches user state. (This previously polluted ~/.config/Code/User/
+    // settings.json on CI runners and dev machines, causing order-dependent
+    // failures in vscode-settings.test.ts.)
+    const settingsSpy = spyOn(
+      vscodeSettings,
+      "configureVscodeSettings"
+    ).mockResolvedValue(join(tempDir, ".vscode"));
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "vscode",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.autoInstalled).toBe(true);
+      expect(settingsSpy).toHaveBeenCalledWith(
+        tempDir,
+        expect.stringContaining("vscode.git")
+      );
+    } finally {
+      settingsSpy.mockRestore();
+    }
   });
 
   test("claude with CLI available auto-installs", async () => {
