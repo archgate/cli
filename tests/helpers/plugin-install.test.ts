@@ -117,6 +117,7 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   spawnSpy.mockRestore();
+  mockResolveCommand.mockRestore();
   mock.restore();
 
   if (savedHome === undefined) delete Bun.env.HOME;
