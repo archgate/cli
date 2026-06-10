@@ -48,6 +48,34 @@ detect_platform() {
   fi
 
   ARTIFACT="archgate-${platform}-${arch}"
+
+  if [ "$platform" = "win32" ]; then
+    EXT="zip"
+  else
+    EXT="tar.gz"
+  fi
+}
+
+# --- Release asset helpers ---
+
+asset_url() {
+  echo "https://github.com/${REPO}/releases/download/${1}/${ARTIFACT}.${EXT}"
+}
+
+# Returns 0 when the platform asset for the given version tag actually exists
+# on GitHub Releases. A version being advertised (version.json, releases/latest)
+# does not guarantee its assets are uploaded yet - releases are published
+# before the binary build workflow finishes, and a failed release pipeline can
+# advertise a version that never gets assets at all.
+asset_exists() {
+  check_url="$(asset_url "$1")"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsIL -o /dev/null "$check_url" 2>/dev/null
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q --spider "$check_url" 2>/dev/null
+  else
+    return 1
+  fi
 }
 
 # --- Resolve version ---
@@ -55,6 +83,11 @@ detect_platform() {
 resolve_version() {
   if [ -n "${ARCHGATE_VERSION:-}" ]; then
     VERSION="$ARCHGATE_VERSION"
+    if ! asset_exists "$VERSION"; then
+      echo "Error: no ${ARTIFACT}.${EXT} asset found for pinned ARCHGATE_VERSION='${VERSION}'." >&2
+      echo "Check that the release exists and has finished building: https://github.com/${REPO}/releases" >&2
+      exit 1
+    fi
     return
   fi
 
@@ -69,19 +102,30 @@ resolve_version() {
   fi
 
   if [ -n "$static_response" ]; then
+    # tr -d '\r': jq on Windows (Git Bash) emits CRLF line endings, which
+    # would otherwise leave a stray carriage return in the parsed value.
     if command -v jq >/dev/null 2>&1; then
-      static_version="$(printf '%s' "$static_response" | jq -r '.version // empty')"
+      static_version="$(printf '%s' "$static_response" | jq -r '.version // empty' | tr -d '\r')"
     else
-      static_version="$(printf '%s' "$static_response" | grep '"version"' | sed 's/.*"version": *"//;s/".*//')"
+      static_version="$(printf '%s' "$static_response" | grep '"version"' | sed 's/.*"version": *"//;s/".*//' | tr -d '\r')"
     fi
     if [ -n "$static_version" ]; then
-      VERSION="$static_version"
-      return
+      # The version endpoint can advertise a release before its binaries are
+      # uploaded (or one whose release pipeline failed). Trust it only when
+      # the platform asset is actually downloadable.
+      if asset_exists "$static_version"; then
+        VERSION="$static_version"
+        return
+      fi
+      echo "Warning: ${static_version} is advertised but its release assets are not available yet (release may be in progress)." >&2
+      echo "Falling back to the newest installable release..." >&2
     fi
   fi
 
-  # Fallback: GitHub releases API
-  api_url="https://api.github.com/repos/${REPO}/releases/latest"
+  # Fallback: walk recent GitHub releases (newest first) and pick the first
+  # one whose platform asset exists. 'releases/latest' alone is not enough -
+  # it returns a release as soon as it is published, before assets upload.
+  api_url="https://api.github.com/repos/${REPO}/releases?per_page=10"
   auth_header=""
   if [ -n "${GITHUB_TOKEN:-}" ]; then
     auth_header="Authorization: token ${GITHUB_TOKEN}"
@@ -96,9 +140,9 @@ resolve_version() {
     exit 1
   fi
 
-  # Basic sanity check that we got a JSON-like response
+  # Basic sanity check that we got a JSON array back
   case "$response" in
-    \{*)
+    \[*)
       ;;
     *)
       echo "Error: unexpected response from GitHub releases API." >&2
@@ -107,36 +151,39 @@ resolve_version() {
       ;;
   esac
 
+  # tr -d '\r': jq on Windows (Git Bash) emits CRLF line endings, which would
+  # otherwise leave a carriage return on every tag and fail validation below.
   if command -v jq >/dev/null 2>&1; then
-    VERSION="$(printf '%s' "$response" | jq -r '.tag_name // empty')"
+    tags="$(printf '%s' "$response" | jq -r '.[].tag_name // empty' | tr -d '\r' || true)"
   else
-    VERSION="$(printf '%s' "$response" | grep "tag_name" | sed 's/.*"tag_name": *"//;s/".*//')"
+    tags="$(printf '%s' "$response" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//' | tr -d '\r' || true)"
   fi
 
-  if [ -z "$VERSION" ]; then
-    echo "Error: could not determine latest version (empty tag_name)." >&2
+  if [ -z "$tags" ]; then
+    echo "Error: could not determine latest version (no release tags found)." >&2
     exit 1
   fi
 
-  # Validate that VERSION looks reasonable (non-empty and not an obvious error)
-  case "$VERSION" in
-    *[!A-Za-z0-9._-]*)
-      echo "Error: invalid version tag received: '$VERSION'" >&2
-      exit 1
-      ;;
-  esac
+  for tag in $tags; do
+    # Validate that the tag looks reasonable before using it in a URL
+    case "$tag" in
+      *[!A-Za-z0-9._-]*) continue ;;
+    esac
+    if asset_exists "$tag"; then
+      VERSION="$tag"
+      return
+    fi
+  done
+
+  echo "Error: none of the recent releases have a ${ARTIFACT}.${EXT} asset." >&2
+  echo "Visit https://github.com/${REPO}/releases or https://cli.archgate.dev/getting-started/installation/ for alternative install methods." >&2
+  exit 1
 }
 
 # --- Download and install ---
 
 download_and_install() {
-  if [ "$platform" = "win32" ]; then
-    ext="zip"
-  else
-    ext="tar.gz"
-  fi
-
-  url="https://github.com/${REPO}/releases/download/${VERSION}/${ARTIFACT}.${ext}"
+  url="$(asset_url "$VERSION")"
 
   echo "Installing archgate ${VERSION} (${ARTIFACT})..."
 
@@ -144,9 +191,9 @@ download_and_install() {
   trap 'rm -rf "$tmpdir"' EXIT
 
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$tmpdir/archgate.${ext}"
+    curl -fsSL "$url" -o "$tmpdir/archgate.${EXT}"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO "$tmpdir/archgate.${ext}" "$url"
+    wget -qO "$tmpdir/archgate.${EXT}" "$url"
   else
     echo "Error: neither 'curl' nor 'wget' is installed. Please install one of them to download archgate." >&2
     exit 1
