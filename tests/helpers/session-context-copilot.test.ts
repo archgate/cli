@@ -227,12 +227,16 @@ describe("readCopilotSession", () => {
   });
 
   test("returns error when session-state directory does not exist", async () => {
+    // beforeEach creates stateDir — remove it so this test actually exercises
+    // the missing-directory branch (afterEach recreates the temp home anyway)
+    rmSync(stateDir, { recursive: true, force: true });
     const result = await readCopilotSession(
       "/nonexistent/path/that/wont/match"
     );
-    // This may return "no sessions found for this project" or "no session-state dir"
-    // depending on whether ~/.copilot/session-state/ exists
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("No Copilot CLI session-state directory found");
+    }
   });
 
   test("skip option reads the second-most-recent matching session", async () => {

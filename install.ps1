@@ -14,10 +14,37 @@ if ($Arch -ne "AMD64") {
     exit 1
 }
 
+# --- Release asset helpers ---
+
+function Get-AssetUrl {
+    param([string]$Version)
+    return "https://github.com/$Repo/releases/download/$Version/$Artifact.zip"
+}
+
+# Returns $true when the platform asset for the given version tag actually
+# exists on GitHub Releases. A version being advertised (version.json,
+# releases/latest) does not guarantee its assets are uploaded yet - releases
+# are published before the binary build workflow finishes, and a failed
+# release pipeline can advertise a version that never gets assets at all.
+function Test-AssetExists {
+    param([string]$Version)
+    try {
+        Invoke-WebRequest -Uri (Get-AssetUrl $Version) -Method Head -UseBasicParsing -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 # --- Resolve version ---
 
 function Get-LatestVersion {
     if ($env:ARCHGATE_VERSION) {
+        if (-not (Test-AssetExists $env:ARCHGATE_VERSION)) {
+            Write-Host "Error: no $Artifact.zip asset found for pinned ARCHGATE_VERSION='$($env:ARCHGATE_VERSION)'." -ForegroundColor Red
+            Write-Host "Check that the release exists and has finished building: https://github.com/$Repo/releases"
+            return $null
+        }
         return $env:ARCHGATE_VERSION
     }
 
@@ -25,24 +52,42 @@ function Get-LatestVersion {
     try {
         $versionInfo = Invoke-RestMethod -Uri "https://cli.archgate.dev/version.json" -ErrorAction Stop
         if ($versionInfo.version) {
-            return $versionInfo.version
+            # The version endpoint can advertise a release before its binaries
+            # are uploaded (or one whose release pipeline failed). Trust it
+            # only when the platform asset is actually downloadable.
+            if (Test-AssetExists $versionInfo.version) {
+                return $versionInfo.version
+            }
+            Write-Warning "$($versionInfo.version) is advertised but its release assets are not available yet (release may be in progress). Falling back to the newest installable release..."
         }
     } catch {
-        # Fall through to GitHub API
+        Write-Verbose "version.json lookup failed: $($_.Exception.Message); falling back to GitHub API"
     }
 
-    # Fallback: GitHub releases API
+    # Fallback: walk recent GitHub releases (newest first) and pick the first
+    # one whose platform asset exists. 'releases/latest' alone is not enough -
+    # it returns a release as soon as it is published, before assets upload.
+    $releases = $null
     try {
         $headers = @{ "Accept" = "application/vnd.github+json" }
         if ($env:GITHUB_TOKEN) {
             $headers["Authorization"] = "token $($env:GITHUB_TOKEN)"
         }
-        $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers -ErrorAction Stop
-        return $release.tag_name
+        $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases?per_page=10" -Headers $headers -ErrorAction Stop
     } catch {
         Write-Error "Error: failed to query latest archgate version. Details: $($_.Exception.Message)"
         return $null
     }
+
+    foreach ($release in $releases) {
+        if ($release.tag_name -and (Test-AssetExists $release.tag_name)) {
+            return $release.tag_name
+        }
+    }
+
+    Write-Host "Error: none of the recent releases have a $Artifact.zip asset." -ForegroundColor Red
+    Write-Host "Visit https://github.com/$Repo/releases or https://cli.archgate.dev/getting-started/installation/ for alternative install methods."
+    return $null
 }
 
 $Version = Get-LatestVersion
@@ -53,7 +98,7 @@ if (-not $Version) {
 
 # --- Download and install ---
 
-$Url = "https://github.com/$Repo/releases/download/$Version/$Artifact.zip"
+$Url = Get-AssetUrl $Version
 
 Write-Host "Installing archgate $Version ($Artifact)..."
 
