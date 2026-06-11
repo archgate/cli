@@ -849,11 +849,11 @@ The `check` function receives a `RuleContext` object that provides everything a 
 
 ### Project Information
 
-| Property           | Type       | Description                                                                        |
-| ------------------ | ---------- | ---------------------------------------------------------------------------------- |
-| `ctx.projectRoot`  | `string`   | Absolute path to the project root directory                                        |
-| `ctx.scopedFiles`  | `string[]` | Files matching the ADR's `files` globs, or all project files if no globs are set   |
-| `ctx.changedFiles` | `string[]` | Files changed in git (auto-detected from branch diff, or from `--staged`/`--base`) |
+| Property           | Type       | Description                                                                         |
+| ------------------ | ---------- | ----------------------------------------------------------------------------------- |
+| `ctx.projectRoot`  | `string`   | Absolute path to the project root directory                                         |
+| `ctx.scopedFiles`  | `string[]` | Files matching the ADR's `files` globs, or all project files if no globs are set    |
+| `ctx.changedFiles` | `string[]` | Files changed in git (branch diff plus uncommitted changes, or `--staged`/`--base`) |
 
 ### File Operations
 
@@ -957,7 +957,7 @@ Rules execute with the following guarantees:
 - **Parallel across ADRs** -- Rules from different ADRs run concurrently for faster execution.
 - **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
 - **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
-- **Changed files auto-detected** -- `ctx.changedFiles` is automatically populated with the branch diff against the base branch (e.g., `main`). Use `--staged` for pre-commit hooks (staged files only) or `--base <ref>` for an explicit base. This enables cross-file dependency rules to work locally, not just in CI.
+- **Changed files auto-detected** -- `ctx.changedFiles` is automatically populated with the branch diff against the base branch (e.g., `main`) plus uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). Use `--staged` for pre-commit hooks (staged files only) or `--base <ref>` for an explicit base. This enables cross-file dependency rules to work locally, not just in CI.
 
 The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) run `archgate check` automatically after every code change. The agent reads the applicable ADRs, writes compliant code, and validates -- no manual check commands needed. [Sign up for beta access](https://plugins.archgate.dev).
 
@@ -2795,7 +2795,7 @@ Use `ctx.scopedFiles` when your rule should only apply to files the ADR governs.
 
 ### ctx.changedFiles
 
-An array of file paths that differ from the base branch. Auto-detected by default, or populated from `--staged` / `--base <ref>`. Useful for incremental checking and cross-file dependency rules.
+An array of file paths that differ from the base branch, including uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). Auto-detected by default, or populated from `--staged` / `--base <ref>`. Useful for incremental checking and cross-file dependency rules.
 
 ```typescript
 // Incremental checking -- only validate changed files
@@ -2981,7 +2981,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
+2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff plus uncommitted working-tree changes (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
 
 3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
 
@@ -3818,17 +3818,17 @@ archgate check --ci
 
 ## Changed files detection
 
-By default, `archgate check` auto-detects the base branch and populates `ctx.changedFiles` with the branch diff (`git diff <base>...HEAD`). This enables cross-file dependency rules to work locally -- not just in CI.
+By default, `archgate check` auto-detects the base branch and populates `ctx.changedFiles` with the branch diff (`git diff <base>...HEAD`) plus any uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). This enables cross-file dependency rules to work locally -- not just in CI -- and ensures edits that haven't been committed yet are still checked.
 
 The base ref is resolved in priority order:
 
-| Priority | Source                               | `changedFiles` populated with    |
-| -------- | ------------------------------------ | -------------------------------- |
-| 1        | `--staged`                           | Git staging area only            |
-| 2        | `--base <ref>`                       | `git diff <ref>...HEAD`          |
-| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` |
-| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` |
-| 5        | Detection fails                      | Empty (full-scan mode)           |
+| Priority | Source                               | `changedFiles` populated with                   |
+| -------- | ------------------------------------ | ----------------------------------------------- |
+| 1        | `--staged`                           | Git staging area only                           |
+| 2        | `--base <ref>`                       | `git diff <ref>...HEAD` + working-tree changes  |
+| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + working tree |
+| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` + working tree |
+| 5        | Detection fails                      | Empty (full-scan mode)                          |
 
 Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, and local `master`. To set a project default, add `baseBranch` to `.archgate/config.json`:
 
@@ -4854,7 +4854,7 @@ Files matching the ADR's `files` glob patterns from its frontmatter. If the ADR 
 changedFiles: string[];
 ```
 
-Files that have been modified according to git. By default, this is auto-populated with the branch diff against the detected base branch (e.g., `origin/main`). When `--staged` is used, this contains only staged files. When `--base <ref>` is used, this contains all files changed since that ref. Empty when base detection fails or no changes are found. Use this to build cross-file dependency rules (e.g., "if file A changed, file B must also change").
+Files that have been modified according to git. By default, this is auto-populated with the branch diff against the detected base branch (e.g., `origin/main`) plus any uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). When `--staged` is used, this contains only staged files. When `--base <ref>` is used, this contains all files changed since that ref plus uncommitted working-tree changes. Empty when base detection fails or no changes are found. Use this to build cross-file dependency rules (e.g., "if file A changed, file B must also change").
 
 #### report
 
