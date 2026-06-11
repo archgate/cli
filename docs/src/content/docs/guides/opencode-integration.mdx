@@ -1,9 +1,9 @@
 ---
 title: opencode Integration
-description: Integrate Archgate with opencode for AI-assisted development with architecture governance. Configure agents and subagents for ADR compliance.
+description: Integrate Archgate with opencode for AI-assisted development with architecture guardrails. Configure agents and subagents for ADR compliance.
 ---
 
-Archgate integrates with [opencode](https://opencode.ai) to give AI agents a structured governance workflow. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+Archgate integrates with [opencode](https://opencode.ai) to give AI agents built-in guardrails. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
 
 ## Setup
 
@@ -32,7 +32,7 @@ opencode uses the XDG Base Directory convention on every platform (via the `xdg-
 The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory — otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
 :::
 
-If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full governance workflow.
+If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full guardrails workflow.
 
 To explicitly install the agents:
 

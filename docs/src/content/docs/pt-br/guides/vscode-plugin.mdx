@@ -1,9 +1,9 @@
 ---
 title: Plugin para VS Code
-description: Instale a extensão Archgate para VS Code com desenvolvimento assistido por IA e governança arquitetural. Verificação de conformidade ADR em tempo real.
+description: Instale a extensão Archgate para VS Code com desenvolvimento assistido por IA e guardrails arquiteturais. Verificação de conformidade ADR em tempo real.
 ---
 
-O plugin Archgate para VS Code oferece aos agentes de IA que trabalham no [VS Code](https://code.visualstudio.com/) um fluxo de governança estruturado. Os agentes leem seus ADRs antes de escrever código, validam depois e capturam novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
+O plugin Archgate para VS Code oferece aos agentes de IA que trabalham no [VS Code](https://code.visualstudio.com/) guardrails integrados. Os agentes leem seus ADRs antes de escrever código, validam depois e capturam novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
 
 ## Como funciona
 
@@ -41,7 +41,7 @@ archgate init --editor vscode
 
 Se você já estiver logado, este comando:
 
-1. Cria o diretório de governança `.archgate/` (ADRs, regras de lint)
+1. Cria o diretório `.archgate/` com ADRs e regras de lint
 2. Adiciona a URL autenticada do marketplace nas suas **configurações de usuário** do VS Code
 3. Baixa e instala a extensão Archgate para VS Code (`.vsix`) se o CLI `code` estiver disponível
 
@@ -106,7 +106,7 @@ Substitua `<token>` pelo seu token archgate (obtenha-o via `archgate plugin url 
 
 ## O que o plugin oferece
 
-O plugin adiciona um agente e skills baseadas em papéis ao VS Code. O agente orquestra o fluxo de governança, invocando skills conforme necessário.
+O plugin adiciona um agente e skills baseadas em papéis ao VS Code. O agente orquestra o fluxo de guardrails, invocando skills conforme necessário.
 
 ### Agente
 

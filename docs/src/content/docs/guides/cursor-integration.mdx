@@ -1,9 +1,9 @@
 ---
 title: Cursor Integration
-description: Integrate Archgate with Cursor for AI-assisted development with architecture governance. Configure agents, skills, and hooks for ADR compliance.
+description: Integrate Archgate with Cursor for AI-assisted development with architecture guardrails. Configure agents, skills, and hooks for ADR compliance.
 ---
 
-Archgate integrates with [Cursor](https://cursor.com) to give AI agents a structured governance workflow. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+Archgate integrates with [Cursor](https://cursor.com) to give AI agents built-in guardrails. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
 
 ## Setup
 
@@ -17,7 +17,7 @@ archgate init --editor cursor
 The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
 :::
 
-If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full governance workflow.
+If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full guardrails workflow.
 
 The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection is needed -- files are written directly to the Cursor user directory.
 
@@ -45,7 +45,7 @@ archgate plugin install --editor cursor
 | `~/.cursor/skills/archgate-adr-author.md`      | Creates and edits ADRs following project conventions                |
 | `~/.cursor/skills/archgate-onboard.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
 | `~/.cursor/skills/archgate-cli-reference.md`   | Internal reference for AI agents with the Archgate CLI guide        |
-| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR governance workflow     |
+| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR guardrails workflow     |
 | `~/.cursor/agents/archgate-planner.md`         | Planning agent for scoping and breaking down work                   |
 
 **Project scope**:

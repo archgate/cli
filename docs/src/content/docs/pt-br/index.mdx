@@ -1,9 +1,9 @@
 ---
 title: Archgate
-description: O Archgate CLI aplica Architecture Decision Records (ADRs) como regras executáveis em TypeScript. Automatize a governança de código para humanos e agentes de IA.
+description: Linting e guardrails de nível enterprise para trabalho com IA. Transforme as decisões arquiteturais da sua equipe em verificações executáveis que rodam no CI, hooks de pre-commit e dentro de ferramentas de codificação com IA.
 template: splash
 hero:
-  tagline: Escreva um ADR uma vez. Aplique em todo lugar. Alimente agentes de IA automaticamente.
+  tagline: Linting e guardrails de nível enterprise para trabalho com IA.
   actions:
     - text: Primeiros Passos
       link: /getting-started/installation/
@@ -46,12 +46,12 @@ Quando você executa `archgate check`, a CLI carrega cada ADR que possui `rules:
     quando regras são violadas. Funciona com GitHub Actions, GitLab CI ou
     qualquer sistema de CI que respeite códigos de saída.
   </Card>
-  <Card title="Governança com IA" icon="star">
+  <Card title="Integração com Agentes de IA" icon="star">
     Plugins de editor dão aos agentes de IA acesso direto aos seus ADRs via
     comandos CLI. Eles leem as decisões antes de escrever código e validam
     depois. Sem copiar e colar regras nos prompts.
   </Card>
-  <Card title="Auto-Governança" icon="approve-check-circle">
+  <Card title="Auto-Guardrails" icon="approve-check-circle">
     O Archgate governa seu próprio desenvolvimento. A mesma ferramenta que
     verifica seu código verifica o nosso. Nossos próprios ADRs aplicam estrutura
     de comandos, tratamento de erros, formatação de saída, testes e mais — [veja
@@ -61,7 +61,7 @@ Quando você executa `archgate check`, a CLI carrega cada ADR que possui `rules:
 
 ## Plugins para editores
 
-A CLI do Archgate funciona de forma independente, mas os **plugins para editores** habilitam um fluxo completo de governança com IA. Os plugins dão aos agentes de IA habilidades baseadas em papéis para que leiam seus ADRs antes de programar, validem depois e capturem novos padrões para sua equipe -- automaticamente.
+A CLI do Archgate funciona de forma independente, mas os **plugins para editores** habilitam um fluxo completo de guardrails com IA. Os plugins dão aos agentes de IA habilidades baseadas em papéis para que leiam seus ADRs antes de programar, validem depois e capturem novos padrões para sua equipe -- automaticamente.
 
 <CardGrid>
   <Card title="Claude Code" icon="star">
@@ -71,7 +71,7 @@ A CLI do Archgate funciona de forma independente, mas os **plugins para editores
   </Card>
   <Card title="Cursor" icon="pencil">
     O plugin para Cursor fornece regras e habilidades pré-configuradas para
-    agentes, dando ao agente de IA do Cursor o mesmo fluxo de governança do
+    agentes, dando ao agente de IA do Cursor o mesmo fluxo de guardrails do
     Claude Code.
   </Card>
 </CardGrid>

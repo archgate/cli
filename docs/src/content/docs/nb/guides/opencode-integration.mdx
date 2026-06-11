@@ -1,9 +1,9 @@
 ---
 title: opencode-integrasjon
-description: Integrer Archgate med opencode for AI-assistert utvikling med arkitekturstyring. Konfigurer agenter og underagenter for ADR-samsvar.
+description: Integrer Archgate med opencode for AI-assistert utvikling med arkitektur-guardrails. Konfigurer agenter og underagenter for ADR-samsvar.
 ---
 
-Archgate integreres med [opencode](https://opencode.ai) for å gi AI-agenter en strukturert styringsarbeidsflyt. Agenten leser ADR-ene dine før den skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
+Archgate integreres med [opencode](https://opencode.ai) for å gi AI-agenter innebygde guardrails. Agenten leser ADR-ene dine før den skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
 
 ## Oppsett
 
@@ -32,7 +32,7 @@ opencode bruker XDG Base Directory-konvensjonen på alle plattformer (via `xdg-b
 Installasjonstrinnet kjører bare når `opencode`-CLI-en er på PATH. Archgate må bekrefte at opencode er tilstede før den skriver filer til brukernivåets konfigurasjonskatalog -- ellers ville agentene ligge på en plassering ingenting leser. Installer opencode fra [opencode.ai](https://opencode.ai/docs/) først, og kjør deretter `archgate init --editor opencode` eller `archgate plugin install --editor opencode` på nytt.
 :::
 
-Hvis du har logget inn via `archgate login` **og** `opencode` er på PATH, laster init-kommandoen ned og installerer Archgate-agentpakken for opencode. Pakken tilbyr en ferdigbygd primær agent og fire underagenter som gir opencode sin AI en komplett styringsarbeidsflyt.
+Hvis du har logget inn via `archgate login` **og** `opencode` er på PATH, laster init-kommandoen ned og installerer Archgate-agentpakken for opencode. Pakken tilbyr en ferdigbygd primær agent og fire underagenter som gir opencode sin AI en komplett guardrails-arbeidsflyt.
 
 For å eksplisitt installere agentene:
 
