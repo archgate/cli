@@ -6,7 +6,7 @@ This document describes what Archgate intends to build, improve, and explicitly 
 
 ## Vision
 
-Archgate becomes the standard governance layer for AI-assisted development. ADRs are the universal format for expressing architectural decisions, and Archgate enforces them automatically — across AI tools, CI systems, and teams.
+Archgate becomes the standard linting and guardrails for AI-assisted development. ADRs are the universal format for expressing architectural decisions, and Archgate enforces them automatically — across AI tools, CI systems, and teams.
 
 ## What's Done (Phases 0–2.5)
 
