@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**Enforce Architecture Decision Records as executable rules — for both humans and AI agents.**
+**Enterprise-grade linting and guardrails for AI work.**
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE.md)
 [![Release](https://github.com/archgate/cli/actions/workflows/release.yml/badge.svg)](https://github.com/archgate/cli/actions/workflows/release.yml)
@@ -13,7 +13,7 @@
 
 ---
 
-Archgate turns your Architecture Decision Records into a governance layer that runs in CI, enforces rules in pre-commit hooks, and feeds live context to AI coding agents — so architectural decisions don't stay in documents, they stay in the code.
+AI agents write code fast, but they don't know your rules. Archgate turns your team's decisions into executable checks — a lint step for architecture, conventions, and AI output. Your agents read the rules before writing code, and `archgate check` blocks what slips through. In CI, in pre-commit hooks, and inside every major AI coding tool.
 
 **Write an ADR once. Enforce it everywhere.**
 
