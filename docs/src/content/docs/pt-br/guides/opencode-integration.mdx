@@ -1,9 +1,9 @@
 ---
 title: Integração com opencode
-description: Integre o Archgate com o opencode para desenvolvimento assistido por IA com governança arquitetural. Configure agentes e subagentes para conformidade ADR.
+description: Integre o Archgate com o opencode para desenvolvimento assistido por IA com guardrails arquiteturais. Configure agentes e subagentes para conformidade ADR.
 ---
 
-O Archgate se integra com o [opencode](https://opencode.ai) para oferecer aos agentes de IA um fluxo de governança estruturado. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
+O Archgate se integra com o [opencode](https://opencode.ai) para oferecer aos agentes de IA guardrails integrados. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
 
 ## Configuração
 
@@ -32,7 +32,7 @@ O opencode usa a convenção XDG Base Directory em todas as plataformas (via o p
 A instalação só é executada quando a CLI `opencode` está no seu PATH. O Archgate precisa confirmar que o opencode está presente antes de gravar arquivos no diretório de configuração do escopo do usuário -- caso contrário, os agentes ficariam em um local que ninguém lê. Instale o opencode em [opencode.ai](https://opencode.ai/docs/) primeiro, depois re-execute `archgate init --editor opencode` ou `archgate plugin install --editor opencode`.
 :::
 
-Se você fez login via `archgate login` **e** o `opencode` está no seu PATH, o comando init também baixa e instala o bundle de agentes Archgate para o opencode. O bundle fornece um agente primário pré-configurado e quatro subagentes que dão à IA do opencode um fluxo de governança completo.
+Se você fez login via `archgate login` **e** o `opencode` está no seu PATH, o comando init também baixa e instala o bundle de agentes Archgate para o opencode. O bundle fornece um agente primário pré-configurado e quatro subagentes que dão à IA do opencode um fluxo completo de guardrails.
 
 Para instalar os agentes explicitamente:
 

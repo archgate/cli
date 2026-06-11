@@ -1,9 +1,9 @@
 ---
 title: VS Code-plugin
-description: Installer Archgate VS Code-utvidelsen for AI-assistert utvikling med arkitekturstyring. Sanntids ADR-samsvarskontroll i editoren din.
+description: Installer Archgate VS Code-utvidelsen for AI-assistert utvikling med arkitektur-guardrails. Sanntids ADR-samsvarskontroll i editoren din.
 ---
 
-Archgate VS Code-pluginet gir AI-agenter som jobber i [VS Code](https://code.visualstudio.com/) en strukturert styringsarbeidsflyt. Agenter leser ADR-ene dine før de skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
+Archgate VS Code-pluginet gir AI-agenter som jobber i [VS Code](https://code.visualstudio.com/) innebygde guardrails. Agenter leser ADR-ene dine før de skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
 
 ## Hvordan det fungerer
 
@@ -41,7 +41,7 @@ archgate init --editor vscode
 
 Hvis du allerede er logget inn, vil denne kommandoen:
 
-1. Opprette `.archgate/`-styringsmappen (ADR-er, lint-regler)
+1. Opprette `.archgate/`-mappen med ADR-er og lint-regler
 2. Legge til den autentiserte markedsplassens URL i VS Code-**brukerinnstillingene** dine
 3. Laste ned og installere Archgate VS Code-utvidelsen (`.vsix`) hvis `code`-CLI-en er tilgjengelig
 
@@ -106,7 +106,7 @@ Erstatt `<token>` med archgate-tokenet ditt (hent det via `archgate plugin url v
 
 ## Hva pluginet tilbyr
 
-Pluginet legger til en agent og rollebaserte ferdigheter i VS Codes AI. Agenten orkestrerer styringsarbeidsflyten og aktiverer ferdigheter etter behov.
+Pluginet legger til en agent og rollebaserte ferdigheter i VS Codes AI. Agenten orkestrerer guardrails-arbeidsflyten og aktiverer ferdigheter etter behov.
 
 ### Agent
 

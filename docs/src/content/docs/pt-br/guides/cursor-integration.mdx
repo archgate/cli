@@ -1,9 +1,9 @@
 ---
 title: Integração com Cursor
-description: Integre o Archgate com o Cursor para desenvolvimento assistido por IA com governança arquitetural. Configure agentes, skills e hooks para conformidade com ADRs.
+description: Integre o Archgate com o Cursor para desenvolvimento assistido por IA com guardrails arquiteturais. Configure agentes, skills e hooks para conformidade com ADRs.
 ---
 
-O Archgate se integra com o [Cursor](https://cursor.com) para oferecer aos agentes de IA um fluxo de governança estruturado. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
+O Archgate se integra com o [Cursor](https://cursor.com) para oferecer aos agentes de IA guardrails integrados. O agente lê seus ADRs antes de escrever código, valida depois e captura novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
 
 ## Configuração
 
@@ -17,7 +17,7 @@ archgate init --editor cursor
 O plugin para Cursor está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
 :::
 
-Se você fez login via `archgate login`, o comando init também instala o plugin Archgate para o Cursor. O plugin fornece agentes, skills e hooks pré-configurados que dão ao agente de IA do Cursor um fluxo de governança completo.
+Se você fez login via `archgate login`, o comando init também instala o plugin Archgate para o Cursor. O plugin fornece agentes, skills e hooks pré-configurados que dão ao agente de IA do Cursor um fluxo completo de guardrails.
 
 O plugin é distribuído como um tarball autenticado. A CLI faz o download e extrai skills, agentes e hooks em `~/.cursor/`. Nenhuma detecção de CLI é necessária -- os arquivos são gravados diretamente no diretório de usuário do Cursor.
 
@@ -38,15 +38,15 @@ archgate plugin install --editor cursor
 
 **Escopo de usuário** (`~/.cursor/`):
 
-| Arquivo                                        | Propósito                                                              |
-| ---------------------------------------------- | ---------------------------------------------------------------------- |
-| `~/.cursor/skills/archgate-reviewer.md`        | Valida alterações de código contra todos os ADRs do projeto            |
-| `~/.cursor/skills/archgate-lessons-learned.md` | Captura aprendizados e propõe novos ADRs quando padrões emergem        |
-| `~/.cursor/skills/archgate-adr-author.md`      | Cria e edita ADRs seguindo as convenções do projeto                    |
-| `~/.cursor/skills/archgate-onboard.md`         | Configuração única: explora o codebase, entrevista você e cria ADRs    |
-| `~/.cursor/skills/archgate-cli-reference.md`   | Referência interna para agentes de IA com o guia CLI do Archgate       |
-| `~/.cursor/agents/archgate-developer.md`       | Agente principal de desenvolvimento com o fluxo completo de governança |
-| `~/.cursor/agents/archgate-planner.md`         | Agente de planejamento para escopo e divisão de trabalho               |
+| Arquivo                                        | Propósito                                                                     |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `~/.cursor/skills/archgate-reviewer.md`        | Valida alterações de código contra todos os ADRs do projeto                   |
+| `~/.cursor/skills/archgate-lessons-learned.md` | Captura aprendizados e propõe novos ADRs quando padrões emergem               |
+| `~/.cursor/skills/archgate-adr-author.md`      | Cria e edita ADRs seguindo as convenções do projeto                           |
+| `~/.cursor/skills/archgate-onboard.md`         | Configuração única: explora o codebase, entrevista você e cria ADRs           |
+| `~/.cursor/skills/archgate-cli-reference.md`   | Referência interna para agentes de IA com o guia CLI do Archgate              |
+| `~/.cursor/agents/archgate-developer.md`       | Agente principal de desenvolvimento com o fluxo completo de guardrails de ADR |
+| `~/.cursor/agents/archgate-planner.md`         | Agente de planejamento para escopo e divisão de trabalho                      |
 
 **Escopo do projeto**:
 

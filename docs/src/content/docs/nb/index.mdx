@@ -1,9 +1,9 @@
 ---
 title: Archgate
-description: Archgate CLI håndhever Architecture Decision Records (ADR-er) som kjørbare TypeScript-regler. Automatiser kodestyring for mennesker og AI-agenter.
+description: Linting og guardrails i bedriftsklasse for AI-arbeid. Gjør teamets arkitekturbeslutninger om til kjørbare kontroller som kjøres i CI, pre-commit hooks og inne i AI-kodingsverktøy.
 template: splash
 hero:
-  tagline: Skriv en ADR én gang. Håndhev den overalt. Gi den til AI-agenter automatisk.
+  tagline: Linting og guardrails i bedriftsklasse for AI-arbeid.
   actions:
     - text: Kom i gang
       link: /getting-started/installation/
@@ -46,7 +46,7 @@ Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: tru
     når regler brytes. Fungerer med GitHub Actions, GitLab CI eller ethvert
     CI-system som respekterer utgangskoder.
   </Card>
-  <Card title="AI-bevisst styring" icon="star">
+  <Card title="AI-agentintegrasjon" icon="star">
     Editorplugins gir AI-agenter direkte tilgang til ADR-ene dine via
     CLI-kommandoer. De leser beslutninger før de skriver kode, og validerer
     etterpå. Ingen kopiering og liming av regler i ledetekster.
@@ -61,7 +61,7 @@ Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: tru
 
 ## Editorplugins
 
-Archgate CLI fungerer frittstående, men **editorplugins** låser opp en fullstendig AI-styringsarbeidsflyt. Plugins gir AI-agenter rollebaserte ferdigheter slik at de leser ADR-ene dine før de koder, validerer etterpå og fanger opp nye mønstre for teamet ditt — automatisk.
+Archgate CLI fungerer frittstående, men **editorplugins** låser opp en fullstendig AI-guardrails-arbeidsflyt. Plugins gir AI-agenter rollebaserte ferdigheter slik at de leser ADR-ene dine før de koder, validerer etterpå og fanger opp nye mønstre for teamet ditt — automatisk.
 
 <CardGrid>
   <Card title="Claude Code" icon="star">
@@ -71,7 +71,7 @@ Archgate CLI fungerer frittstående, men **editorplugins** låser opp en fullste
   </Card>
   <Card title="Cursor" icon="pencil">
     Cursor-pluginen tilbyr ferdigbygde agentregler og ferdigheter som gir
-    Cursors AI-agent den samme styringsarbeidsflyten som Claude Code.
+    Cursors AI-agent den samme guardrails-arbeidsflyten som Claude Code.
   </Card>
 </CardGrid>
 

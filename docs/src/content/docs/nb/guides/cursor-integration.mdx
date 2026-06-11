@@ -1,9 +1,9 @@
 ---
 title: Cursor-integrasjon
-description: Integrer Archgate med Cursor for AI-assistert utvikling med arkitekturstyring. Konfigurer agenter, skills og hooks for ADR-samsvar.
+description: Integrer Archgate med Cursor for AI-assistert utvikling med arkitektur-guardrails. Konfigurer agenter, skills og hooks for ADR-samsvar.
 ---
 
-Archgate integreres med [Cursor](https://cursor.com) for å gi AI-agenter en strukturert styringsarbeidsflyt. Agenten leser ADR-ene dine før den skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
+Archgate integreres med [Cursor](https://cursor.com) for å gi AI-agenter innebygde guardrails. Agenten leser ADR-ene dine før den skriver kode, validerer etterpå, og fanger opp nye mønstre for teamet -- den samme arbeidsflyten som er tilgjengelig i [Claude Code-pluginet](/guides/claude-code-plugin/).
 
 ## Oppsett
 
@@ -17,7 +17,7 @@ archgate init --editor cursor
 Cursor-pluginet er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere.
 :::
 
-Hvis du har logget inn via `archgate login`, installerer init-kommandoen også Archgate-pluginet for Cursor. Pluginet tilbyr ferdigbygde agenter, skills og hooks som gir Cursors AI-agent en komplett styringsarbeidsflyt.
+Hvis du har logget inn via `archgate login`, installerer init-kommandoen også Archgate-pluginet for Cursor. Pluginet tilbyr ferdigbygde agenter, skills og hooks som gir Cursors AI-agent en komplett guardrails-arbeidsflyt.
 
 Pluginet distribueres som en autentisert tarball. CLI-en laster det ned og pakker ut skills, agenter og hooks i `~/.cursor/`. Ingen CLI-deteksjon er nødvendig -- filene skrives direkte til Cursor-brukerkatalogen.
 
@@ -45,7 +45,7 @@ archgate plugin install --editor cursor
 | `~/.cursor/skills/archgate-adr-author.md`      | Oppretter og redigerer ADR-er i henhold til prosjektets konvensjoner    |
 | `~/.cursor/skills/archgate-onboard.md`         | Engangsoppsett: utforsker kodebasen, intervjuer deg og oppretter ADR-er |
 | `~/.cursor/skills/archgate-cli-reference.md`   | Intern referanse for AI-agenter med Archgate CLI-guiden                 |
-| `~/.cursor/agents/archgate-developer.md`       | Primær utviklingsagent med den komplette ADR-styringsarbeidsflyten      |
+| `~/.cursor/agents/archgate-developer.md`       | Primær utviklingsagent med den komplette ADR-guardrails-arbeidsflyten   |
 | `~/.cursor/agents/archgate-planner.md`         | Planleggingsagent for scoping og oppdeling av arbeid                    |
 
 **Prosjektscope**:
