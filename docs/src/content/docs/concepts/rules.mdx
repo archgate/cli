@@ -55,11 +55,11 @@ The `check` function receives a `RuleContext` object that provides everything a 
 
 ### Project Information
 
-| Property           | Type       | Description                                                                        |
-| ------------------ | ---------- | ---------------------------------------------------------------------------------- |
-| `ctx.projectRoot`  | `string`   | Absolute path to the project root directory                                        |
-| `ctx.scopedFiles`  | `string[]` | Files matching the ADR's `files` globs, or all project files if no globs are set   |
-| `ctx.changedFiles` | `string[]` | Files changed in git (auto-detected from branch diff, or from `--staged`/`--base`) |
+| Property           | Type       | Description                                                                         |
+| ------------------ | ---------- | ----------------------------------------------------------------------------------- |
+| `ctx.projectRoot`  | `string`   | Absolute path to the project root directory                                         |
+| `ctx.scopedFiles`  | `string[]` | Files matching the ADR's `files` globs, or all project files if no globs are set    |
+| `ctx.changedFiles` | `string[]` | Files changed in git (branch diff plus uncommitted changes, or `--staged`/`--base`) |
 
 ### File Operations
 
@@ -163,7 +163,7 @@ Rules execute with the following guarantees:
 - **Parallel across ADRs** -- Rules from different ADRs run concurrently for faster execution.
 - **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
 - **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
-- **Changed files auto-detected** -- `ctx.changedFiles` is automatically populated with the branch diff against the base branch (e.g., `main`). Use `--staged` for pre-commit hooks (staged files only) or `--base <ref>` for an explicit base. This enables cross-file dependency rules to work locally, not just in CI.
+- **Changed files auto-detected** -- `ctx.changedFiles` is automatically populated with the branch diff against the base branch (e.g., `main`) plus uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). Use `--staged` for pre-commit hooks (staged files only) or `--base <ref>` for an explicit base. This enables cross-file dependency rules to work locally, not just in CI.
 
 :::tip[Run checks automatically with editor plugins]
 The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) run `archgate check` automatically after every code change. The agent reads the applicable ADRs, writes compliant code, and validates -- no manual check commands needed. [Sign up for beta access](https://plugins.archgate.dev).

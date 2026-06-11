@@ -93,6 +93,26 @@ Obter anotações do GitHub Actions:
 archgate check --ci
 ```
 
+## Detecção de arquivos alterados
+
+Por padrão, `archgate check` auto-detecta a branch base e preenche `ctx.changedFiles` com o diff da branch (`git diff <base>...HEAD`) mais quaisquer alterações não commitadas da árvore de trabalho (arquivos staged, não staged e não rastreados que não sejam ignorados). Isso permite que regras de dependência entre arquivos funcionem localmente -- não apenas no CI -- e garante que edições ainda não commitadas também sejam verificadas.
+
+A ref base é resolvida nesta ordem de prioridade:
+
+| Prioridade | Fonte                                | `changedFiles` preenchido com                              |
+| ---------- | ------------------------------------ | ---------------------------------------------------------- |
+| 1          | `--staged`                           | Apenas a área de staging do git                            |
+| 2          | `--base <ref>`                       | `git diff <ref>...HEAD` + alterações da árvore de trabalho |
+| 3          | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + árvore de trabalho      |
+| 4          | Auto-detecção do git                 | `git diff <detected-ref>...HEAD` + árvore de trabalho      |
+| 5          | Detecção falha                       | Vazio (modo de varredura completa)                         |
+
+A auto-detecção tenta `origin/HEAD`, depois `origin/main`, `origin/master`, `main` local e `master` local. Para definir um padrão do projeto, adicione `baseBranch` ao `.archgate/config.json`:
+
+```json
+{ "baseBranch": "main" }
+```
+
 ## Diagnósticos
 
 Durante a execução, `archgate check` emite avisos para configurações incorretas comuns que podem causar resultados lentos ou inesperados:

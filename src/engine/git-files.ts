@@ -262,22 +262,36 @@ export async function resolveBaseRef(
 }
 
 /**
- * Get files changed between a base ref and HEAD.
- * Uses three-dot diff (`base...HEAD`) to find the merge-base automatically.
+ * Get files changed between a base ref and the working tree.
+ *
+ * Unions three sources so uncommitted work is never silently omitted
+ * (see archgate/cli#403):
+ * 1. `git diff base...HEAD` — committed branch changes (three-dot diff
+ *    finds the merge-base automatically)
+ * 2. staged + unstaged edits to tracked files
+ * 3. untracked (non-gitignored) files
+ *
+ * Returns an empty array when the ref cannot be diffed (bad ref or not
+ * a git repo), matching the previous behavior.
  */
 export async function getFilesChangedSinceRef(
   projectRoot: string,
   ref: string
 ): Promise<string[]> {
   try {
-    const result = await runGit(
-      ["diff", "--name-only", `${ref}...HEAD`],
-      projectRoot
-    );
+    const [committed, workingTree, untracked] = await Promise.all([
+      runGit(["diff", "--name-only", `${ref}...HEAD`], projectRoot),
+      getChangedFiles(projectRoot),
+      runGit(["ls-files", "--others", "--exclude-standard"], projectRoot),
+    ]);
     const files = [
-      ...new Set(result.trim().split("\n").filter(Boolean)),
+      ...new Set([
+        ...committed.trim().split("\n").filter(Boolean),
+        ...workingTree,
+        ...untracked.trim().split("\n").filter(Boolean),
+      ]),
     ].sort();
-    logDebug(`Files changed since ${ref}:`, files.length);
+    logDebug(`Files changed since ${ref} (incl. working tree):`, files.length);
     return files;
   } catch {
     logDebug(`Failed to get files changed since ${ref}`);
