@@ -1,3 +1,9 @@
+## [0.45.3](https://github.com/archgate/cli/compare/v0.45.2...v0.45.3) (2026-06-11)
+
+### Bug Fixes
+
+* **engine:** include uncommitted working-tree changes in base-ref change detection ([#409](https://github.com/archgate/cli/issues/409)) ([ee0b1c1](https://github.com/archgate/cli/commit/ee0b1c1deb810761af842623ebf6ee0ab5184d4b)), closes [#403](https://github.com/archgate/cli/issues/403)
+
 ## [0.45.2](https://github.com/archgate/cli/compare/v0.45.1...v0.45.2) (2026-06-11)
 
 ### Bug Fixes
