@@ -95,17 +95,17 @@ archgate check --ci
 
 ## Changed files detection
 
-By default, `archgate check` auto-detects the base branch and populates `ctx.changedFiles` with the branch diff (`git diff <base>...HEAD`). This enables cross-file dependency rules to work locally -- not just in CI.
+By default, `archgate check` auto-detects the base branch and populates `ctx.changedFiles` with the branch diff (`git diff <base>...HEAD`) plus any uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). This enables cross-file dependency rules to work locally -- not just in CI -- and ensures edits that haven't been committed yet are still checked.
 
 The base ref is resolved in priority order:
 
-| Priority | Source                               | `changedFiles` populated with    |
-| -------- | ------------------------------------ | -------------------------------- |
-| 1        | `--staged`                           | Git staging area only            |
-| 2        | `--base <ref>`                       | `git diff <ref>...HEAD`          |
-| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` |
-| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` |
-| 5        | Detection fails                      | Empty (full-scan mode)           |
+| Priority | Source                               | `changedFiles` populated with                           |
+| -------- | ------------------------------------ | ------------------------------------------------------- |
+| 1        | `--staged`                           | Git staging area only                                   |
+| 2        | `--base <ref>`                       | `git diff <ref>...HEAD` + working-tree changes          |
+| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + working-tree changes |
+| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` + working-tree changes |
+| 5        | Detection fails                      | Empty (full-scan mode)                                  |
 
 Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, and local `master`. To set a project default, add `baseBranch` to `.archgate/config.json`:
 

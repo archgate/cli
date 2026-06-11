@@ -59,7 +59,7 @@ A função `check` recebe um objeto `RuleContext` que fornece tudo que uma regra
 | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------ |
 | `ctx.projectRoot`  | `string`   | Caminho absoluto para o diretório raiz do projeto                                                      |
 | `ctx.scopedFiles`  | `string[]` | Arquivos que correspondem aos globs `files` do ADR, ou todos os arquivos se não houver globs definidos |
-| `ctx.changedFiles` | `string[]` | Arquivos alterados no git (auto-detectado a partir do diff da branch, ou via `--staged`/`--base`)      |
+| `ctx.changedFiles` | `string[]` | Arquivos alterados no git (diff da branch mais alterações não commitadas, ou `--staged`/`--base`)      |
 
 ### Operações de Arquivo
 
@@ -163,7 +163,7 @@ As regras são executadas com as seguintes garantias:
 - **Paralelo entre ADRs** -- Regras de diferentes ADRs são executadas concorrentemente para maior velocidade.
 - **Sequencial dentro de um ADR** -- Regras pertencentes ao mesmo ADR são executadas uma após a outra, para que regras anteriores possam estabelecer contexto para as posteriores.
 - **Arquivos no escopo são pré-resolvidos** -- O array `ctx.scopedFiles` é preenchido antes que sua função `check` seja chamada, com base nos globs `files` do ADR.
-- **Arquivos alterados auto-detectados** -- `ctx.changedFiles` é automaticamente preenchido com o diff da branch contra a branch base (ex: `main`). Use `--staged` para hooks de pre-commit (apenas arquivos staged) ou `--base <ref>` para uma base explícita. Isso permite que regras de dependência entre arquivos funcionem localmente, não apenas no CI.
+- **Arquivos alterados auto-detectados** -- `ctx.changedFiles` é automaticamente preenchido com o diff da branch contra a branch base (ex: `main`) mais as alterações não commitadas da árvore de trabalho (arquivos staged, não staged e não rastreados que não sejam ignorados). Use `--staged` para hooks de pre-commit (apenas arquivos staged) ou `--base <ref>` para uma base explícita. Isso permite que regras de dependência entre arquivos funcionem localmente, não apenas no CI.
 
 :::tip[Execute verificações automaticamente com plugins de editor]
 Os plugins de editor para [Claude Code](/guides/claude-code-plugin/) e [Cursor](/guides/cursor-integration/) executam `archgate check` automaticamente após cada alteração de código. O agente lê os ADRs aplicáveis, escreve código em conformidade e valida -- sem necessidade de executar comandos de verificação manualmente. [Inscreva-se para acesso beta](https://plugins.archgate.dev).

@@ -99,7 +99,7 @@ Use `ctx.scopedFiles` when your rule should only apply to files the ADR governs.
 
 ### ctx.changedFiles
 
-An array of file paths that differ from the base branch. Auto-detected by default, or populated from `--staged` / `--base <ref>`. Useful for incremental checking and cross-file dependency rules.
+An array of file paths that differ from the base branch, including uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). Auto-detected by default, or populated from `--staged` / `--base <ref>`. Useful for incremental checking and cross-file dependency rules.
 
 ```typescript
 // Incremental checking -- only validate changed files
@@ -285,7 +285,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
+2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff plus uncommitted working-tree changes (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
 
 3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
 

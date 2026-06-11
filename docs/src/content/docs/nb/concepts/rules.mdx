@@ -59,7 +59,7 @@ Når `archgate check` kjøres, betyr exit code 1 at minst ett brudd med alvorlig
 | ------------------ | ---------- | -------------------------------------------------------------------------------------------- |
 | `ctx.projectRoot`  | `string`   | Absolutt sti til prosjektets rotmappe                                                        |
 | `ctx.scopedFiles`  | `string[]` | Filer som matcher ADR-ens `files`-glober, eller alle prosjektfiler hvis ingen glober er satt |
-| `ctx.changedFiles` | `string[]` | Filer endret i git (auto-oppdaget fra branch-diff, eller fra `--staged`/`--base`)            |
+| `ctx.changedFiles` | `string[]` | Filer endret i git (branch-diff pluss ikke-committede endringer, eller `--staged`/`--base`)  |
 
 ### Filoperasjoner
 
@@ -163,7 +163,7 @@ Regler kjøres med følgende garantier:
 - **Parallelt mellom ADR-er** -- Regler fra forskjellige ADR-er kjøres samtidig for raskere kjøring.
 - **Sekvensielt innenfor en ADR** -- Regler som tilhører samme ADR kjøres etter hverandre, slik at tidligere regler kan etablere kontekst for senere.
 - **Avgrensede filer er forhåndsløst** -- `ctx.scopedFiles`-arrayet er fylt ut før `check`-funksjonen din kalles, basert på ADR-ens `files`-glober.
-- **Endrede filer auto-oppdaget** -- `ctx.changedFiles` fylles automatisk med branch-diffen mot base-branchen (f.eks. `main`). Bruk `--staged` for pre-commit hooks (kun staged-filer) eller `--base <ref>` for en eksplisitt base. Dette gjør at kryss-fil-avhengighetsregler fungerer lokalt, ikke bare i CI.
+- **Endrede filer auto-oppdaget** -- `ctx.changedFiles` fylles automatisk med branch-diffen mot base-branchen (f.eks. `main`) pluss ikke-committede endringer i arbeidstreet (stagede, ustagede og usporede ikke-ignorerte filer). Bruk `--staged` for pre-commit hooks (kun staged-filer) eller `--base <ref>` for en eksplisitt base. Dette gjør at kryss-fil-avhengighetsregler fungerer lokalt, ikke bare i CI.
 
 :::tip[Kjør sjekker automatisk med editorplugins]
 Editorpluginene for [Claude Code](/guides/claude-code-plugin/) og [Cursor](/guides/cursor-integration/) kjører `archgate check` automatisk etter hver kodeendring. Agenten leser de gjeldende ADR-ene, skriver samsvarende kode og validerer -- ingen manuelle sjekkkommandoer nødvendig. [Registrer deg for beta-tilgang](https://plugins.archgate.dev).

@@ -230,6 +230,60 @@ describe("git-files", () => {
       expect(files).toEqual([]);
     });
 
+    // Regression: archgate/cli#403 — base...HEAD only sees committed
+    // changes, so uncommitted working-tree edits were silently omitted
+    // whenever a base ref was detected (i.e., almost always).
+    test("includes uncommitted edits to tracked files (regression archgate/cli#403)", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+      await git(["add", "base.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      await git(["checkout", "-b", "feature"], tempDir);
+      writeFileSync(join(tempDir, "committed.ts"), "export const y = 2;");
+      await git(["add", "committed.ts"], tempDir);
+      await git(["commit", "-m", "add committed file"], tempDir);
+      // Unstaged edit to a tracked file — not committed, not staged
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 99;");
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toContain("committed.ts");
+      expect(files).toContain("base.ts");
+    }, 15_000);
+
+    test("includes staged-but-uncommitted files", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+      await git(["add", "base.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      await git(["checkout", "-b", "feature"], tempDir);
+      writeFileSync(join(tempDir, "staged.ts"), "export const s = 1;");
+      await git(["add", "staged.ts"], tempDir);
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toContain("staged.ts");
+    }, 15_000);
+
+    test("includes untracked files but not gitignored ones", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, ".gitignore"), "dist/\n");
+      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+      await git(["add", "."], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      await git(["checkout", "-b", "feature"], tempDir);
+      // Untracked new file — never staged
+      writeFileSync(join(tempDir, "untracked.ts"), "export const u = 1;");
+      // Gitignored file — must stay excluded
+      mkdirSync(join(tempDir, "dist"), { recursive: true });
+      writeFileSync(join(tempDir, "dist", "out.js"), "var u = 1;");
+      const files = await getFilesChangedSinceRef(tempDir, "main");
+      expect(files).toContain("untracked.ts");
+      expect(files).not.toContain("dist/out.js");
+    }, 15_000);
+
     test("returns multiple changed files sorted", async () => {
       await git(["init", "--initial-branch=main"], tempDir);
       await git(["config", "user.email", "test@test.com"], tempDir);

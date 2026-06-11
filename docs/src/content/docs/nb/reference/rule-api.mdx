@@ -93,7 +93,7 @@ Filer som matcher ADR-ens `files`-globmønstre fra frontmatter. Hvis ADR-en ikke
 changedFiles: string[];
 ```
 
-Filer som har blitt endret ifølge git. Som standard fylles denne automatisk med branch-diffen mot den detekterte basisgrenen (f.eks. `origin/main`). Når `--staged` brukes, inneholder den kun stagede filer. Når `--base <ref>` brukes, inneholder den alle filer som er endret siden den referansen. Tom når basisdeteksjon feiler eller ingen endringer finnes. Bruk denne til å bygge regler for avhengigheter mellom filer (f.eks. "hvis fil A endret seg, må fil B også endres").
+Filer som har blitt endret ifølge git. Som standard fylles denne automatisk med branch-diffen mot den detekterte basisgrenen (f.eks. `origin/main`) pluss eventuelle ikke-committede endringer i arbeidstreet (stagede, ustagede og usporede ikke-ignorerte filer). Når `--staged` brukes, inneholder den kun stagede filer. Når `--base <ref>` brukes, inneholder den alle filer som er endret siden den referansen pluss ikke-committede endringer i arbeidstreet. Tom når basisdeteksjon feiler eller ingen endringer finnes. Bruk denne til å bygge regler for avhengigheter mellom filer (f.eks. "hvis fil A endret seg, må fil B også endres").
 
 #### report
 

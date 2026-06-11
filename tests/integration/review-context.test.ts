@@ -190,6 +190,52 @@ describe("review-context integration", () => {
     expect(ctx.allChangedFiles).not.toContain("src/base.ts");
   }, 30_000);
 
+  // Regression: archgate/cli#403 — with a base ref detected, review-context
+  // only listed committed branch changes and silently omitted uncommitted
+  // working-tree edits (the files actually under review in an agent session).
+  test("--base includes uncommitted working-tree changes (regression archgate/cli#403)", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ARCH-022.md",
+      makeAdr({
+        id: "ARCH-022",
+        title: "Working Tree ADR",
+        domain: "architecture",
+        rules: false,
+        body: "## Decision\nTest.\n\n## Do's and Don'ts\nDo test.",
+      })
+    );
+    await git(["init", "--initial-branch=main"], dir);
+    await git(["config", "user.email", "test@test.com"], dir);
+    await git(["config", "user.name", "Test"], dir);
+
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "base.ts"), "export const x = 1;\n");
+    await commitAll(dir, "initial commit");
+
+    await git(["checkout", "-b", "feature"], dir);
+    writeFileSync(join(dir, "src", "committed.ts"), "export const c = 3;\n");
+    await commitAll(dir, "committed change");
+
+    // Uncommitted edit to a tracked file + a brand-new untracked file —
+    // the typical state of an AI-agent dev session before any commit.
+    writeFileSync(join(dir, "src", "base.ts"), "export const x = 99;\n");
+    writeFileSync(join(dir, "src", "untracked.ts"), "export const u = 5;\n");
+
+    const { exitCode, stdout } = await runCli(
+      ["review-context", "--base", "main"],
+      dir,
+      { GIT_CONFIG_NOSYSTEM: "", GIT_CONFIG_GLOBAL: "" }
+    );
+    expect(exitCode).toBe(0);
+
+    const ctx = JSON.parse(stdout) as { allChangedFiles: string[] };
+    expect(ctx.allChangedFiles).toContain("src/committed.ts");
+    expect(ctx.allChangedFiles).toContain("src/base.ts");
+    expect(ctx.allChangedFiles).toContain("src/untracked.ts");
+  }, 30_000);
+
   test("--staged takes precedence over --base for review-context", async () => {
     scaffoldProject(dir);
     writeAdr(
