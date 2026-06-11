@@ -102,7 +102,7 @@ export async function promptSingleEditorSelection(
   const { selected } = await withPromptFix(() =>
     inquirer.prompt([
       {
-        type: "list",
+        type: "select",
         name: "selected",
         message: "Select editor:",
         choices: detected.map((e) => ({
