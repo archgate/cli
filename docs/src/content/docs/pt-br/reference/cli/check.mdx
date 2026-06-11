@@ -99,13 +99,13 @@ Por padrão, `archgate check` autodetecta a branch base e preenche `ctx.changedF
 
 A referência base é resolvida nesta ordem de prioridade:
 
-| Prioridade | Fonte                                | `changedFiles` preenchido com                              |
-| ---------- | ------------------------------------ | ---------------------------------------------------------- |
-| 1          | `--staged`                           | Apenas a área de staging do git                            |
-| 2          | `--base <ref>`                       | `git diff <ref>...HEAD` + alterações da árvore de trabalho |
-| 3          | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + árvore de trabalho      |
-| 4          | Autodetecção do git                  | `git diff <detected-ref>...HEAD` + árvore de trabalho      |
-| 5          | Detecção falha                       | Vazio (modo de varredura completa)                         |
+| Prioridade | Fonte                                | `changedFiles` preenchido com                                       |
+| ---------- | ------------------------------------ | ------------------------------------------------------------------- |
+| 1          | `--staged`                           | Apenas a área de staging do git                                     |
+| 2          | `--base <ref>`                       | `git diff <ref>...HEAD` + alterações da árvore de trabalho          |
+| 3          | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + alterações da árvore de trabalho |
+| 4          | Autodetecção do git                  | `git diff <detected-ref>...HEAD` + alterações da árvore de trabalho |
+| 5          | Detecção falha                       | Vazio (modo de varredura completa)                                  |
 
 A autodetecção tenta `origin/HEAD`, depois `origin/main`, `origin/master`, `main` local e `master` local. Para definir um padrão do projeto, adicione `baseBranch` ao `.archgate/config.json`:
 

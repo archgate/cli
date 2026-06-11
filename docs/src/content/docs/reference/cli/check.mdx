@@ -99,13 +99,13 @@ By default, `archgate check` auto-detects the base branch and populates `ctx.cha
 
 The base ref is resolved in priority order:
 
-| Priority | Source                               | `changedFiles` populated with                   |
-| -------- | ------------------------------------ | ----------------------------------------------- |
-| 1        | `--staged`                           | Git staging area only                           |
-| 2        | `--base <ref>`                       | `git diff <ref>...HEAD` + working-tree changes  |
-| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + working tree |
-| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` + working tree |
-| 5        | Detection fails                      | Empty (full-scan mode)                          |
+| Priority | Source                               | `changedFiles` populated with                           |
+| -------- | ------------------------------------ | ------------------------------------------------------- |
+| 1        | `--staged`                           | Git staging area only                                   |
+| 2        | `--base <ref>`                       | `git diff <ref>...HEAD` + working-tree changes          |
+| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + working-tree changes |
+| 4        | Git auto-detect                      | `git diff <detected-ref>...HEAD` + working-tree changes |
+| 5        | Detection fails                      | Empty (full-scan mode)                                  |
 
 Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, and local `master`. To set a project default, add `baseBranch` to `.archgate/config.json`:
 
