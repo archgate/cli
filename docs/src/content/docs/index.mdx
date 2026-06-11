@@ -1,9 +1,9 @@
 ---
 title: Archgate
-description: Archgate CLI enforces Architecture Decision Records (ADRs) as executable TypeScript rules. Automate code governance for humans and AI agents.
+description: Enterprise-grade linting and guardrails for AI work. Turn your team's architectural decisions into executable checks that run in CI, pre-commit hooks, and inside AI coding tools.
 template: splash
 hero:
-  tagline: Write an ADR once. Enforce it everywhere. Feed it to AI agents automatically.
+  tagline: Enterprise-grade linting and guardrails for AI work.
   actions:
     - text: Get Started
       link: /getting-started/installation/
@@ -46,7 +46,7 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
     rules are violated. Works with GitHub Actions, GitLab CI, or any CI system
     that respects exit codes.
   </Card>
-  <Card title="AI-Aware Governance" icon="star">
+  <Card title="AI Agent Integration" icon="star">
     Editor plugins give AI agents direct access to your ADRs via CLI commands.
     They read decisions before writing code and validate after. No copy-pasting
     rules into prompts.
@@ -61,7 +61,7 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
 
 ## Editor plugins
 
-The Archgate CLI works standalone, but **editor plugins** unlock a full AI governance workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
+The Archgate CLI works standalone, but **editor plugins** unlock a full AI guardrails workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
 
 <CardGrid>
   <Card title="Claude Code" icon="star">
@@ -71,7 +71,7 @@ The Archgate CLI works standalone, but **editor plugins** unlock a full AI gover
   </Card>
   <Card title="Cursor" icon="pencil">
     The Cursor plugin provides pre-built agent rules and skills that give
-    Cursor's AI agent the same governance workflow as Claude Code.
+    Cursor's AI agent the same guardrails workflow as Claude Code.
   </Card>
 </CardGrid>
 

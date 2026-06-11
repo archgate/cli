@@ -14,8 +14,7 @@ export default defineConfig({
         "pt-br": { label: "Português (Brasil)", lang: "pt-BR" },
         nb: { label: "Norsk (Bokmål)", lang: "nb" },
       },
-      description:
-        "Enforce Architecture Decision Records as executable rules — for both humans and AI agents.",
+      description: "Enterprise-grade linting and guardrails for AI work.",
       customCss: ["./src/styles/custom.css"],
       expressiveCode: {
         // Use the pure-JS regex engine instead of the WASM-based oniguruma
@@ -133,7 +132,7 @@ export default defineConfig({
           attrs: {
             property: "og:image:alt",
             content:
-              "Archgate — Architecture Decision Records as Executable Rules",
+              "Archgate — Enterprise-grade linting and guardrails for AI work",
           },
         },
         // ── Twitter / X card ──────────────────────────────────────
@@ -156,7 +155,7 @@ export default defineConfig({
           attrs: {
             name: "keywords",
             content:
-              "archgate, architecture decision records, ADR, executable rules, code governance, AI governance, TypeScript rules, CLI, compliance automation",
+              "archgate, linting, guardrails, AI coding, architecture decision records, ADR, executable rules, TypeScript rules, CLI, compliance automation",
           },
         },
         // ── JSON-LD: WebSite ──────────────────────────────────────
@@ -169,7 +168,7 @@ export default defineConfig({
             name: "Archgate CLI Documentation",
             url: "https://cli.archgate.dev",
             description:
-              "Documentation for Archgate — enforce Architecture Decision Records as executable TypeScript rules for automated code governance.",
+              "Documentation for Archgate — enterprise-grade linting and guardrails for AI work.",
             inLanguage: ["en", "pt-BR", "nb"],
           }),
         },
@@ -182,7 +181,7 @@ export default defineConfig({
             "@type": "SoftwareApplication",
             name: "Archgate CLI",
             applicationCategory: "DeveloperApplication",
-            applicationSubCategory: "Code Governance",
+            applicationSubCategory: "Code Linting",
             operatingSystem: "macOS, Linux, Windows",
             softwareVersion: "0.45.2",
             license: "https://github.com/archgate/cli/blob/main/LICENSE",
@@ -190,7 +189,7 @@ export default defineConfig({
             url: "https://cli.archgate.dev",
             downloadUrl: "https://www.npmjs.com/package/archgate",
             description:
-              "CLI tool that enforces Architecture Decision Records (ADRs) as executable TypeScript rules for automated code governance.",
+              "Enterprise-grade linting and guardrails for AI work. Enforce your team's architecture decisions as executable TypeScript rules.",
             author: {
               "@type": "Organization",
               name: "Archgate",

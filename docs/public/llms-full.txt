@@ -92,7 +92,7 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
 
 ## Editor plugins
 
-The Archgate CLI works standalone, but **editor plugins** unlock a full AI governance workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
+The Archgate CLI works standalone, but **editor plugins** unlock a full AI guardrails workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
 
   
     The Claude Code plugin adds five skills: developer, architect,
@@ -101,7 +101,7 @@ The Archgate CLI works standalone, but **editor plugins** unlock a full AI gover
   
   
     The Cursor plugin provides pre-built agent rules and skills that give
-    Cursor's AI agent the same governance workflow as Claude Code.
+    Cursor's AI agent the same guardrails workflow as Claude Code.
   
 
 Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate, then `archgate init --install-plugin` to set up the plugin.
@@ -323,9 +323,9 @@ If you prefer `npm install -g archgate` instead of the proto plugin, you need to
 
 ## Next steps
 
-Once installed, run `archgate init` in your project to set up governance. See the [Quick Start](/getting-started/quick-start/) guide for a walkthrough.
+Once installed, run `archgate init` in your project to set up linting and guardrails. See the [Quick Start](/getting-started/quick-start/) guide for a walkthrough.
 
-Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full governance workflow on top of the CLI. Run `archgate login` to sign up and get started.
+Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full guardrails workflow on top of the CLI. Run `archgate login` to sign up and get started.
 
 ---
 
@@ -468,7 +468,7 @@ Now that you have a working setup, dive deeper:
 
 - [CI Integration](/guides/ci-integration/) — Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
 - [Pre-commit Hooks](/guides/pre-commit-hooks/) — Run checks locally before every commit.
-- [Claude Code Plugin](/guides/claude-code-plugin/) — Give AI agents a full governance workflow with role-based skills.
+- [Claude Code Plugin](/guides/claude-code-plugin/) — Give AI agents architecture-aware guardrails with role-based skills.
 - [Cursor Integration](/guides/cursor-integration/) — Use Archgate with Cursor IDE for AI-assisted development.
 
 Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign up and authenticate, then run `archgate init --install-plugin` to set up the plugin.
@@ -1257,11 +1257,11 @@ CI catches violations at merge time. Editor plugins catch them at coding time. W
 
 Source: https://cli.archgate.dev/guides/claude-code-plugin/
 
-The Archgate Claude Code plugin gives AI agents working in [Claude Code](https://claude.ai/code) a structured governance workflow. Instead of relying on prompt instructions that drift over time, agents read your ADRs directly via Archgate CLI commands and validate their own code against your rules.
+The Archgate Claude Code plugin gives AI agents working in [Claude Code](https://claude.ai/code) built-in guardrails. Instead of relying on prompt instructions that drift over time, agents read your ADRs directly via Archgate CLI commands and validate their own code against your rules.
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Claude Code. The agent orchestrates the governance workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
+The plugin adds an agent and role-based skills to Claude Code. The agent orchestrates the guardrails workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
 
 ### Agent
 
@@ -1410,7 +1410,7 @@ The `archgate:developer` agent orchestrates the skills automatically -- it invok
 
 Source: https://cli.archgate.dev/guides/copilot-cli-plugin/
 
-The Archgate Copilot CLI plugin gives AI agents working in [GitHub Copilot CLI](https://github.com/features/copilot) a structured governance workflow. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+The Archgate Copilot CLI plugin gives AI agents working in [GitHub Copilot CLI](https://github.com/features/copilot) built-in guardrails. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
 
 ## How it works
 
@@ -1474,7 +1474,7 @@ You can find your authenticated URL by running `archgate plugin url copilot`.
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Copilot CLI. The agent orchestrates the governance workflow, invoking skills as needed.
+The plugin adds an agent and role-based skills to Copilot CLI. The agent orchestrates the guardrails workflow, invoking skills as needed.
 
 ### Agent
 
@@ -1539,7 +1539,7 @@ The agent invokes `archgate:quality-manager` to review the work and identify pat
 
 Source: https://cli.archgate.dev/guides/cursor-integration/
 
-Archgate integrates with [Cursor](https://cursor.com) to give AI agents a structured governance workflow. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+Archgate integrates with [Cursor](https://cursor.com) to give AI agents built-in guardrails. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
 
 ## Setup
 
@@ -1551,7 +1551,7 @@ archgate init --editor cursor
 
 The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
 
-If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full governance workflow.
+If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full guardrails workflow.
 
 The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection is needed -- files are written directly to the Cursor user directory.
 
@@ -1579,7 +1579,7 @@ archgate plugin install --editor cursor
 | `~/.cursor/skills/archgate-adr-author.md`      | Creates and edits ADRs following project conventions                |
 | `~/.cursor/skills/archgate-onboard.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
 | `~/.cursor/skills/archgate-cli-reference.md`   | Internal reference for AI agents with the Archgate CLI guide        |
-| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR governance workflow     |
+| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR guardrails workflow     |
 | `~/.cursor/agents/archgate-planner.md`         | Planning agent for scoping and breaking down work                   |
 
 **Project scope**:
@@ -1835,7 +1835,7 @@ This manifest lets you track provenance — where each imported ADR came from an
 
 Source: https://cli.archgate.dev/guides/opencode-integration/
 
-Archgate integrates with [opencode](https://opencode.ai) to give AI agents a structured governance workflow. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+Archgate integrates with [opencode](https://opencode.ai) to give AI agents built-in guardrails. The agent reads your ADRs before writing code, validates after, and captures new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
 
 ## Setup
 
@@ -1860,7 +1860,7 @@ opencode uses the XDG Base Directory convention on every platform (via the `xdg-
 
 The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory — otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
 
-If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full governance workflow.
+If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full guardrails workflow.
 
 To explicitly install the agents:
 
@@ -2211,7 +2211,7 @@ If you discover a security issue in Archgate, please report it responsibly by op
 
 Source: https://cli.archgate.dev/guides/vscode-plugin/
 
-The Archgate VS Code plugin gives AI agents working in [VS Code](https://code.visualstudio.com/) a structured governance workflow. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+The Archgate VS Code plugin gives AI agents working in [VS Code](https://code.visualstudio.com/) built-in guardrails. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
 
 ## How it works
 
@@ -2245,7 +2245,7 @@ archgate init --editor vscode
 
 If you are already logged in, this command:
 
-1. Creates the `.archgate/` governance directory (ADRs, lint rules)
+1. Creates the `.archgate/` directory with ADRs and lint rules
 2. Adds the authenticated marketplace URL to your VS Code **user settings**
 3. Downloads and installs the Archgate VS Code extension (`.vsix`) if the `code` CLI is available
 
@@ -2310,7 +2310,7 @@ Replace `<token>` with your archgate token (retrieve it via `archgate plugin url
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to VS Code's AI. The agent orchestrates the governance workflow, invoking skills as needed.
+The plugin adds an agent and role-based skills to VS Code's AI. The agent orchestrates the guardrails workflow, invoking skills as needed.
 
 ### Agent
 
