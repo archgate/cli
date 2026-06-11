@@ -1,3 +1,9 @@
+## [0.45.2](https://github.com/archgate/cli/compare/v0.45.1...v0.45.2) (2026-06-11)
+
+### Bug Fixes
+
+* **prompts:** replace removed inquirer "list" prompt type with "select" ([#406](https://github.com/archgate/cli/issues/406)) ([34b72d7](https://github.com/archgate/cli/commit/34b72d7201025447db1cde58fe10e5b0ca4312b1))
+
 ## [0.45.1](https://github.com/archgate/cli/compare/v0.45.0...v0.45.1) (2026-06-10)
 
 ### Bug Fixes
