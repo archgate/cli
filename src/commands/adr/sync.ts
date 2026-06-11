@@ -402,7 +402,7 @@ export function registerAdrSyncCommand(adr: Command) {
             const { choice } = await withPromptFix(() =>
               inquirer.prompt([
                 {
-                  type: "list",
+                  type: "select",
                   name: "choice",
                   message: `${diff.adrId}: What would you like to do?`,
                   choices: [

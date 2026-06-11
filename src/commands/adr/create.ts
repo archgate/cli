@@ -65,7 +65,7 @@ export function registerAdrCreateCommand(adr: Command) {
           const answers = await withPromptFix(() =>
             inquirer.prompt([
               {
-                type: "list",
+                type: "select",
                 name: "domain",
                 message: "Domain:",
                 choices: choices.map((d) => ({ name: d, value: d })),

@@ -1,5 +1,5 @@
 {
-  "jsPlugins": ["./lint/expect-expect.ts"],
+  "jsPlugins": ["./lint/expect-expect.ts", "./.archgate/lint/oxlint.ts"],
   "categories": {
     "correctness": "error",
     "pedantic": "error",
@@ -10,6 +10,7 @@
     "max-lines-per-function": "off",
     "max-nested-callbacks": "off",
     "max-depth": "off",
+    "archgate/valid-inquirer-prompt-type": "error",
     "no-await-in-loop": "warn",
     "no-inline-comments": "off",
     "prefer-top-level-await": "off",

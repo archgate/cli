@@ -23,6 +23,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 ## Approach Guidance
 
 - [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock implementations in tests (spyOn os.homedir works cross-module); never alter prod semantics for test isolation
+- [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — static syntactic invariants → custom oxlint rule in `.archgate/lint/oxlint.ts`; tests are for executable behavior; ADR .rules.ts for cross-file/governance checks
 
 ## Known Bugs
 

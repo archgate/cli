@@ -132,7 +132,7 @@ async function runSignupPrompt(
   if (!editor) {
     const ans = await withPromptFix(() =>
       inquirer.prompt({
-        type: "list",
+        type: "select",
         name: "editor",
         message: "Which editor will you use with archgate?",
         choices: [

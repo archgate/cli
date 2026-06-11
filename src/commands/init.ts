@@ -219,7 +219,7 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
   const { wantPacks } = await withPromptFix(() =>
     inquirer.prompt([
       {
-        type: "list",
+        type: "select",
         name: "wantPacks",
         message:
           "No existing ADRs detected. Would you like to import starter packs?",
