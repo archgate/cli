@@ -95,17 +95,17 @@ archgate check --ci
 
 ## Deteksjon av endrede filer
 
-Som standard autodetekterer `archgate check` hovedgrenen og fyller `ctx.changedFiles` med grendifferansen (`git diff <base>...HEAD`). Dette gjør at regler for avhengigheter på tvers av filer fungerer lokalt -- ikke bare i CI.
+Som standard autodetekterer `archgate check` hovedgrenen og fyller `ctx.changedFiles` med grendifferansen (`git diff <base>...HEAD`) pluss eventuelle ikke-committede endringer i arbeidstreet (stagede, ustagede og usporede ikke-ignorerte filer). Dette gjør at regler for avhengigheter på tvers av filer fungerer lokalt -- ikke bare i CI -- og sikrer at endringer som ennå ikke er committet, også sjekkes.
 
 Basisreferansen løses i denne prioritetsrekkefølgen:
 
-| Prioritet | Kilde                                | `changedFiles` fylles med        |
-| --------- | ------------------------------------ | -------------------------------- |
-| 1         | `--staged`                           | Kun git-stagingområdet           |
-| 2         | `--base <ref>`                       | `git diff <ref>...HEAD`          |
-| 3         | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` |
-| 4         | Git-autodeteksjon                    | `git diff <detected-ref>...HEAD` |
-| 5         | Deteksjon mislykkes                  | Tom (fullskanmodus)              |
+| Prioritet | Kilde                                | `changedFiles` fylles med                               |
+| --------- | ------------------------------------ | ------------------------------------------------------- |
+| 1         | `--staged`                           | Kun git-stagingområdet                                  |
+| 2         | `--base <ref>`                       | `git diff <ref>...HEAD` + arbeidstre-endringer          |
+| 3         | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + arbeidstre-endringer |
+| 4         | Git-autodeteksjon                    | `git diff <detected-ref>...HEAD` + arbeidstre-endringer |
+| 5         | Deteksjon mislykkes                  | Tom (fullskanmodus)                                     |
 
 Autodeteksjon prøver `origin/HEAD`, deretter `origin/main`, `origin/master`, lokal `main` og lokal `master`. For å sette en prosjektstandard, legg til `baseBranch` i `.archgate/config.json`:
 
