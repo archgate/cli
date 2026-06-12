@@ -4020,7 +4020,7 @@ archgate check --help
 | Command                                          | Description                                           |
 | ------------------------------------------------ | ----------------------------------------------------- |
 | [`archgate login`](./login/)                     | Authenticate with GitHub                              |
-| [`archgate init`](./init/)                       | Initialize Archgate governance                        |
+| [`archgate init`](./init/)                       | Set up linting and rules enforcement                  |
 | [`archgate plugin`](./plugin/)                   | Manage editor plugins                                 |
 | [`archgate check`](./check/)                     | Run ADR compliance checks                             |
 | [`archgate adr`](./adr/)                         | Create, list, show, and update ADRs                   |
@@ -4036,7 +4036,7 @@ archgate check --help
 
 Source: https://cli.archgate.dev/reference/cli/init/
 
-Initialize Archgate governance in the current project.
+Set up Archgate linting and rules enforcement in the current project.
 
 ```bash
 archgate init [options]
