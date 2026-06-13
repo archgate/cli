@@ -38,6 +38,7 @@ export function registerAdrImportCommand(adr: Command) {
     .option("--dry-run", "Preview changes without writing", false)
     .option("--list", "List previously imported ADRs", false)
     .action(async (sources, opts) => {
+      let tempDirs: string[] = [];
       try {
         const projectRoot = findProjectRoot();
         if (!projectRoot) {
@@ -72,7 +73,9 @@ export function registerAdrImportCommand(adr: Command) {
 
         // ---------- Resolve & clone ----------
 
-        const { resolved, tempDirs } = await resolveAndCloneSources(sources);
+        const cloned = await resolveAndCloneSources(sources);
+        const { resolved } = cloned;
+        tempDirs = cloned.tempDirs;
 
         // ---------- Collect ADR files ----------
 
@@ -80,7 +83,6 @@ export function registerAdrImportCommand(adr: Command) {
 
         if (adrsToImport.length === 0) {
           console.log("No ADRs found to import.");
-          cleanupTempDirs(tempDirs);
           return;
         }
 
@@ -132,7 +134,6 @@ export function registerAdrImportCommand(adr: Command) {
           } else {
             console.log("Dry run — no files written.");
           }
-          cleanupTempDirs(tempDirs);
           return;
         }
 
@@ -152,7 +153,6 @@ export function registerAdrImportCommand(adr: Command) {
           );
           if (!confirm) {
             console.log("Import cancelled.");
-            cleanupTempDirs(tempDirs);
             return;
           }
         }
@@ -171,9 +171,7 @@ export function registerAdrImportCommand(adr: Command) {
 
         await ensureRulesShim(projectRoot, paths.adrsDir);
 
-        // ---------- Cleanup & summary ----------
-
-        cleanupTempDirs(tempDirs);
+        // ---------- Summary ----------
 
         if (useJson) {
           console.log(
@@ -200,6 +198,8 @@ export function registerAdrImportCommand(adr: Command) {
         if (err instanceof Error && err.name === "ExitPromptError") throw err;
         logError(err instanceof Error ? err.message : String(err));
         await exitWith(1);
+      } finally {
+        if (tempDirs.length > 0) cleanupTempDirs(tempDirs);
       }
     });
 }

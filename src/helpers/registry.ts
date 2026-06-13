@@ -242,7 +242,7 @@ export async function detectTarget(
   // Build a context-aware error message
   const pathExists = existsSync(fullPath);
 
-  if (sourceKind === "official") {
+  if (!pathExists && sourceKind === "official") {
     const packName = subpath.replace(/^packs\//u, "");
     const available = listAvailablePacks(cloneDir);
     const availableList =

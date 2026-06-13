@@ -46,7 +46,13 @@ export async function loadImportsManifest(
   const importsPath = join(projectRoot, ".archgate", "imports.json");
   if (!existsSync(importsPath)) return { imports: [] };
   const raw = await Bun.file(importsPath).json();
-  return ImportsManifestSchema.parse(raw);
+  const result = ImportsManifestSchema.safeParse(raw);
+  if (!result.success) {
+    throw new Error(
+      `Invalid imports manifest at ${importsPath}: ${result.error.issues.map((i) => i.message).join(", ")}`
+    );
+  }
+  return result.data;
 }
 
 export function saveImportsManifest(
