@@ -3,14 +3,14 @@ title: page-component-constraints
 description: Garanta que componentes de página sejam wrappers finos de layout limitando seu tamanho e proibindo hooks de busca de dados.
 ---
 
-Garanta que componentes de página sejam wrappers finos de layout — pequenos em tamanho e livres de lógica de busca de dados.
+Garanta que componentes de página sejam wrappers finos de layout, pequenos e livres de lógica de busca de dados.
 
 ## Detalhes da regra
 
 Em arquiteturas frontend que separam roteamento de lógica, componentes de página devem apenas compor o layout e delegar a busca de dados para componentes Connected. Esta regra aplica duas restrições em um único arquivo de regras:
 
-1. **Limite de tamanho** — Componentes de página devem ter menos de um número configurável de linhas (padrão: 75 linhas).
-2. **Sem hooks de dados** — Componentes de página não devem usar `useState`, `useQuery`, `useMutation` ou outros hooks de busca de dados diretamente.
+1. **Limite de tamanho:** Componentes de página devem ter menos de um número configurável de linhas (padrão: 75 linhas).
+2. **Sem hooks de dados:** Componentes de página não devem usar `useState`, `useQuery`, `useMutation` ou outros hooks de busca de dados diretamente.
 
 ## Exemplos de código **incorreto**
 

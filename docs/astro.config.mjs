@@ -25,7 +25,7 @@ export default defineConfig({
         // hand-picked colors from archgate.dev take full effect.
         useStarlightUiThemeColors: false,
         styleOverrides: {
-          // ── Frame chrome — matches archgate.dev marketing site ───
+          // ── Frame chrome, matches archgate.dev marketing site ───
           borderRadius: "0.75rem",
           borderColor: "#333",
           borderWidth: "1px",
@@ -69,7 +69,7 @@ export default defineConfig({
             inlineButtonForeground: "#999",
             inlineButtonBorder: "#555",
 
-            // No shadow — flat design like the website
+            // No shadow, flat design like the website
             frameBoxShadowCssValue: "none",
 
             // Tooltip
@@ -132,7 +132,7 @@ export default defineConfig({
           attrs: {
             property: "og:image:alt",
             content:
-              "Archgate — Enterprise-grade linting and guardrails for AI work",
+              "Archgate: Enterprise-grade linting and guardrails for AI work",
           },
         },
         // ── Twitter / X card ──────────────────────────────────────
@@ -168,7 +168,7 @@ export default defineConfig({
             name: "Archgate CLI Documentation",
             url: "https://cli.archgate.dev",
             description:
-              "Documentation for Archgate — enterprise-grade linting and guardrails for AI work.",
+              "Documentation for Archgate, enterprise-grade linting and guardrails for AI work.",
             inLanguage: ["en", "pt-BR", "nb"],
           }),
         },

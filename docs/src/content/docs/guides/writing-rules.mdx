@@ -309,20 +309,20 @@ There are two ways to handle exceptions in Archgate: **engine-level suppression*
 
 Archgate supports inline `archgate-ignore` comments that suppress violations without modifying the rule itself. The engine parses these comments and filters matching violations before reporting.
 
-**Next-line suppression** — suppresses the violation on the immediately following line:
+**Next-line suppression** suppresses the violation on the immediately following line:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned for Q3
 import chalk from "chalk";
 ```
 
-**File-level suppression** — suppresses all matching violations anywhere in the file:
+**File-level suppression** suppresses all matching violations anywhere in the file:
 
 ```typescript
 // archgate-ignore-file ARCH-005/test-mirrors-src generated file, no manual test
 ```
 
-**Multiple rules** — stack comments to suppress more than one rule on the same line:
+**Multiple rules**: stack comments to suppress more than one rule on the same line:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep
@@ -332,7 +332,7 @@ import chalk from "chalk";
 
 Consecutive suppression comments all target the first non-suppression line that follows.
 
-The format is `ADR-ID/rule-id` followed by a reason. The reason is **required** — a suppression without a reason is ignored and produces a warning:
+The format is `ADR-ID/rule-id` followed by a reason. The reason is **required**. A suppression without a reason is ignored and produces a warning:
 
 ```
 [suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
@@ -383,10 +383,10 @@ import { useNavigate } from "react-router";
 | `archgate-ignore` | Ad-hoc exceptions for any rule                   | Developer using the rule |
 | Custom directive  | Domain-specific opt-outs with structured reasons | Rule author              |
 
-Use `archgate-ignore` when a developer needs to suppress a one-off violation. Use custom directives when the opt-out is a first-class concept in your rule's domain — for example, marking a component as intentionally unpaired, or a file as auto-generated.
+Use `archgate-ignore` when a developer needs to suppress a one-off violation. Use custom directives when the opt-out is a first-class concept in your rule's domain, for example, marking a component as intentionally unpaired, or a file as auto-generated.
 
 ## Next steps
 
-- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns organized by category: dependency management, import restrictions, file structure, code quality, database schema, and architecture boundaries.
-- [Rule API Reference](/reference/rule-api/) — Full reference for all rule API types and functions.
-- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into your pipeline to enforce rules on every PR.
+- [Common Rule Patterns](/examples/common-rule-patterns/): Copy-pasteable patterns organized by category: dependency management, import restrictions, file structure, code quality, database schema, and architecture boundaries.
+- [Rule API Reference](/reference/rule-api/): Full reference for all rule API types and functions.
+- [CI Integration](/guides/ci-integration/): Wire `archgate check` into your pipeline to enforce rules on every PR.

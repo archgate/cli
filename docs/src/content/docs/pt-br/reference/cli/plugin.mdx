@@ -54,7 +54,7 @@ O comportamento de instalação varia por editor:
 
 - **Claude Code:** Instala automaticamente via CLI `claude` se disponível; exibe comandos manuais caso contrário.
 - **Copilot CLI:** Instala automaticamente via CLI `copilot` se disponível; exibe comandos manuais caso contrário.
-- **Cursor:** Faz o download de um tarball autenticado e extrai skills, agentes e hooks em `~/.cursor/`. Nenhuma detecção de CLI é necessária -- os arquivos são gravados diretamente no diretório de usuário do Cursor.
+- **Cursor:** Faz o download de um tarball autenticado e extrai skills, agentes e hooks em `~/.cursor/`. Nenhuma detecção de CLI é necessária. Os arquivos são gravados diretamente no diretório de usuário do Cursor.
 - **VS Code:** Instala a extensão VS Code (`.vsix`) via CLI `code` se disponível; exibe instruções manuais caso contrário.
 - **opencode:** Requer que a CLI `opencode` esteja no PATH -- pula a instalação com uma mensagem clara caso contrário. Quando presente, baixa um tarball autenticado de arquivos de agente e o extrai no diretório de agentes opencode do escopo do usuário. `archgate plugin url --editor opencode` exibe "N/A" -- opencode não tem URL de marketplace. Veja o [guia de integração com opencode](/guides/opencode-integration/) para detalhes.
 

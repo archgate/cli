@@ -52,7 +52,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                "Do not access process.platform directly — use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
+                "Não acesse process.platform diretamente. Use isWindows(), isMacOS(), isLinux() ou getPlatformInfo() de src/helpers/platform.ts.",
               file: m.file,
               line: m.line,
               fix: 'Import { isWindows } from "../helpers/platform" and use it instead of process.platform',

@@ -97,7 +97,7 @@ When in doubt between `architecture` and a specific domain, prefer the more spec
 
 ## Custom Domains
 
-When the built-in five are a genuine mismatch for a category of decisions — for example, `security`, `ml-ops`, or `compliance` — you can register a custom domain via the CLI:
+When the built-in five are a genuine mismatch for a category of decisions (for example, `security`, `ml-ops`, or `compliance`), you can register a custom domain via the CLI:
 
 ```bash
 # See what's currently recognised in this project
@@ -114,8 +114,8 @@ Custom domain-to-prefix mappings persist in [`.archgate/config.json`](/reference
 
 ### Naming rules
 
-- **Name** — lowercase kebab-case, 2–32 characters (e.g., `security`, `ml-ops`, `compliance`).
-- **Prefix** — uppercase letters, digits, or underscores, 2–10 characters (e.g., `SEC`, `MLOPS`, `COMP`).
+- **Name**: lowercase kebab-case, 2–32 characters (e.g., `security`, `ml-ops`, `compliance`).
+- **Prefix**: uppercase letters, digits, or underscores, 2–10 characters (e.g., `SEC`, `MLOPS`, `COMP`).
 - Custom names and prefixes cannot collide with built-ins or any other custom entry.
 
 ### When to prefer a built-in
@@ -126,7 +126,7 @@ The built-in five are deliberately opinionated. Before registering a custom doma
 - A decision about schema versioning usually fits under `data`, even if the motivation is compliance.
 - A decision that spans multiple technical areas usually fits under `architecture`.
 
-Reach for a custom domain only when none of the built-ins is a genuine fit — for example, when you have a dedicated team or compliance regime that needs its own governance surface.
+Reach for a custom domain only when none of the built-ins is a genuine fit: for example, when you have a dedicated team or compliance regime that needs its own governance surface.
 
 ### AI agent guidance
 

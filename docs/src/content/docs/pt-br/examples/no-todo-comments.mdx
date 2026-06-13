@@ -41,7 +41,7 @@ export default {
         );
         for (const match of matches) {
           ctx.report.warning({
-            message: `${match.content.trim()} — resolve before merging`,
+            message: `${match.content.trim()} (resolve before merging)`,
             file: match.file,
             line: match.line,
           });

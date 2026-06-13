@@ -309,20 +309,20 @@ Existem duas formas de lidar com exceções no Archgate: **supressão no nível 
 
 O Archgate suporta comentários inline `archgate-ignore` que suprimem violações sem modificar a regra em si. O engine analisa esses comentários e filtra as violações correspondentes antes de reportar.
 
-**Supressão da próxima linha** — suprime a violação na linha imediatamente seguinte:
+**Supressão da próxima linha**: suprime a violação na linha imediatamente seguinte:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps dep legada, migração planejada para Q3
 import chalk from "chalk";
 ```
 
-**Supressão no nível do arquivo** — suprime todas as violações correspondentes em qualquer lugar do arquivo:
+**Supressão no nível do arquivo**: suprime todas as violações correspondentes em qualquer lugar do arquivo:
 
 ```typescript
 // archgate-ignore-file ARCH-005/test-mirrors-src arquivo gerado, sem teste manual
 ```
 
-**Múltiplas regras** — empilhe comentários para suprimir mais de uma regra na mesma linha:
+**Múltiplas regras**: empilhe comentários para suprimir mais de uma regra na mesma linha:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps dep legada
@@ -332,7 +332,7 @@ import chalk from "chalk";
 
 Comentários de supressão consecutivos todos visam a primeira linha que não é uma supressão após o bloco.
 
-O formato é `ADR-ID/rule-id` seguido de um motivo. O motivo é **obrigatório** — uma supressão sem motivo é ignorada e produz um aviso:
+O formato é `ADR-ID/rule-id` seguido de um motivo. O motivo é **obrigatório**: uma supressão sem motivo é ignorada e produz um aviso:
 
 ```
 [suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
@@ -383,10 +383,10 @@ import { useNavigate } from "react-router";
 | `archgate-ignore`    | Exceções ad-hoc para qualquer regra                      | Desenvolvedor usando a regra |
 | Diretiva customizada | Opt-outs específicos do domínio com motivos estruturados | Autor da regra               |
 
-Use `archgate-ignore` quando um desenvolvedor precisa suprimir uma violação pontual. Use diretivas customizadas quando o opt-out é um conceito de primeira classe no domínio da sua regra — por exemplo, marcar um componente como intencionalmente sem par, ou um arquivo como auto-gerado.
+Use `archgate-ignore` quando um desenvolvedor precisa suprimir uma violação pontual. Use diretivas customizadas quando o opt-out é um conceito de primeira classe no domínio da sua regra. Por exemplo, marcar um componente como intencionalmente sem par, ou um arquivo como auto-gerado.
 
 ## Próximos passos
 
-- [Padrões Comuns de Regras](/examples/common-rule-patterns/) — Padrões prontos para copiar e colar, organizados por categoria: gerenciamento de dependências, restrições de import, estrutura de arquivos, qualidade de código, esquema de banco de dados e limites de arquitetura.
-- [Referência da API de Regras](/reference/rule-api/) — Referência completa de todos os tipos e funções da API de regras.
-- [Integração com CI](/guides/ci-integration/) — Integre `archgate check` ao seu pipeline para aplicar regras em cada PR.
+- [Padrões Comuns de Regras](/examples/common-rule-patterns/): padrões prontos para copiar e colar, organizados por categoria: gerenciamento de dependências, restrições de import, estrutura de arquivos, qualidade de código, esquema de banco de dados e limites de arquitetura.
+- [Referência da API de Regras](/reference/rule-api/): referência completa de todos os tipos e funções da API de regras.
+- [Integração com CI](/guides/ci-integration/): integre `archgate check` ao seu pipeline para aplicar regras em cada PR.

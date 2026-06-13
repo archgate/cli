@@ -27,7 +27,7 @@ Archgate collects **anonymous usage analytics** (via PostHog) and **crash report
 | Sentry Cloud  | Crash reports                | EU (Frankfurt) | 90 days                  |
 | Turso         | Plugins Service account data | EU             | Until deletion requested |
 
-Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.archgate.dev` (errors) — transparent forwarders operated by Dasolve AS on Cloudflare, with no logging or storage.
+Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.archgate.dev` (errors). These are transparent forwarders operated by Dasolve AS on Cloudflare, with no logging or storage.
 
 ### Archgate Plugins Service
 
@@ -49,8 +49,8 @@ Note: telemetry opt-out disables CLI analytics and crash reporting. It does not 
 
 ### Your rights
 
-- **Access:** Request a copy of your data — email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (from `~/.archgate/config.json` or `archgate telemetry status`).
-- **Erasure:** Request deletion of historical data — email with your install ID. Completed within 30 days.
+- **Access:** Request a copy of your data. Email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (from `~/.archgate/config.json` or `archgate telemetry status`).
+- **Erasure:** Request deletion of historical data. Email with your install ID. Completed within 30 days.
 - **Object:** Disable telemetry at any time via `archgate telemetry disable`.
 - **Portability:** Request data export in JSON or CSV format.
 - **Complaint:** Contact the Norwegian Data Protection Authority ([Datatilsynet](https://www.datatilsynet.no)).

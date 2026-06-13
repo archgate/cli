@@ -295,7 +295,7 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')
 ```
 
-Note: the parser accepts any name that matches the kebab-case pattern. Whether a specific name is "known" to the project — and therefore has a prefix that `archgate adr create` can use — depends on the built-in set plus any custom domains registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Creating an ADR with an unregistered domain name fails with a "Unknown ADR domain" error that suggests running `archgate adr domain add`.
+Note: the parser accepts any name that matches the kebab-case pattern. Whether a specific name is "known" to the project (and therefore has a prefix that `archgate adr create` can use) depends on the built-in set plus any custom domains registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Creating an ADR with an unregistered domain name fails with a "Unknown ADR domain" error that suggests running `archgate adr domain add`.
 
 ### Type mismatches
 

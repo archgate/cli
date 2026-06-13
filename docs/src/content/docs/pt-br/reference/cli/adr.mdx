@@ -152,7 +152,7 @@ archgate adr update \
 
 Gerencia domínios ADR personalizados. Domínios personalizados são mapeamentos nome → prefixo de ID persistidos em `.archgate/config.json` e mesclados com os cinco integrados (`backend`, `frontend`, `data`, `architecture`, `general`) no momento da leitura.
 
-Use este comando quando uma decisão não se encaixar claramente em nenhum domínio integrado. Antes de registrar um novo, verifique se a decisão pode ser agrupada sob um domínio existente — integrados são o padrão e um domínio personalizado deve ser introduzido apenas quando nenhum integrado for uma opção genuína.
+Use este comando quando uma decisão não se encaixar claramente em nenhum domínio integrado. Antes de registrar um novo, verifique se a decisão pode ser agrupada sob um domínio existente. Integrados são o padrão, e um domínio personalizado deve ser introduzido apenas quando nenhum integrado for uma opção genuína.
 
 ```bash
 archgate adr domain <subcommand> [options]
@@ -168,8 +168,8 @@ archgate adr domain <subcommand> [options]
 
 ### Regras de nomenclatura
 
-- `<name>` — kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`)
-- `<prefix>` — letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`)
+- `<name>`: kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`)
+- `<prefix>`: letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`)
 - Nomes e prefixos personalizados não podem colidir com integrados ou com qualquer outra entrada personalizada.
 
 ### Opções
@@ -284,7 +284,7 @@ O comando compara os ADRs importados locais com a fonte upstream e mostra quais 
 
 | Argumento     | Descrição                                                                    |
 | ------------- | ---------------------------------------------------------------------------- |
-| `[source...]` | Filtro(s) de fonte opcionais — sincroniza apenas importações correspondentes |
+| `[source...]` | Filtro(s) de fonte opcionais. Sincroniza apenas importações correspondentes. |
 
 ### Opções
 
@@ -308,7 +308,7 @@ Verificar apenas importações de uma fonte específica:
 archgate adr sync archgate/packs/typescript
 ```
 
-Modo CI — falha o build se algum ADR importado estiver desatualizado:
+Modo CI (falha o build se algum ADR importado estiver desatualizado):
 
 ```bash
 archgate adr sync --check

@@ -15,7 +15,7 @@ O objetivo não é eliminar revisão humana, e sim levar debates repetitivos e p
 
 Leia a publicação canônica (metodologia, métricas, índice de ADRs) em:
 
-- [**Visão geral — atrito em PRs do Sentry**](https://studies.archgate.dev/studies/sentry-pr-review-friction/) — mesmo conteúdo que as páginas narrativas em [`archgate/studies`](https://github.com/archgate/studies)
+- [**Visão geral: atrito em PRs do Sentry**](https://studies.archgate.dev/studies/sentry-pr-review-friction/), mesmo conteúdo que as páginas narrativas em [`archgate/studies`](https://github.com/archgate/studies)
 
 ## Escopo e método
 
@@ -63,7 +63,7 @@ Só PRs mesclados podem omitir **ambiguidade de decisão**: PRs com muita discus
 - **Tempo mediano até merge:** ~`4.98h`; **P90** ~`70.54h` (~14× a mediana)
 - **Tamanho do PR é o principal preditor de atrito:** PRs grandes (≥10 arquivos ou ≥400 de churn) entram no quartil de alto atrito em **~57%** dos casos vs **~10%** para PRs minúsculos
 
-Uma taxa baixa de `CHANGES_REQUESTED` formal não significa pouco retrabalho—muitos ciclos ficam nos comentários.
+Uma taxa baixa de `CHANGES_REQUESTED` formal não significa pouco retrabalho: muitos ciclos ficam nos comentários.
 
 ### Tamanho importa (PRs mesclados)
 
@@ -74,7 +74,7 @@ PRs grandes são minoria, mas dominam o custo de review.
 
 ### Domínios, escopo e temas
 
-O estudo detalha atrito por domínio, escopo do título do commit (`feat` vs `fix`, etc.) e temas de discussão a partir de **604 comentários não-bot** em **60** PRs de alto atrito—veja [temas](https://studies.archgate.dev/studies/sentry-pr-review-friction/themes/) e [mapa de atrito](https://studies.archgate.dev/studies/sentry-pr-review-friction/friction-map/).
+O estudo detalha atrito por domínio, escopo do título do commit (`feat` vs `fix`, etc.) e temas de discussão a partir de **604 comentários não-bot** em **60** PRs de alto atrito. Veja [temas](https://studies.archgate.dev/studies/sentry-pr-review-friction/themes/) e [mapa de atrito](https://studies.archgate.dev/studies/sentry-pr-review-friction/friction-map/).
 
 ## PRs abandonados e estagnados
 
@@ -85,7 +85,7 @@ Na visão geral publicada:
 - **12** PRs fechados sem merge (**2.4%**) tinham **≥10** itens de discussão; esses casos **abandonados** mostram **~2×** TTM mediano e **~2.5×** eventos de review vs PRs mesclados de alto atrito
 - **92** PRs abertos estagnados há **14+** dias; **33** há **30+** dias (exemplo estagnado mais discutido: **55** eventos de review)
 
-Se você mede só PRs mesclados, a governança pode parecer mais saudável do que é. Trate coortes fechadas sem merge e abertas estagnadas como métricas de primeira classe—detalhes em [**PRs abandonados**](https://studies.archgate.dev/studies/sentry-pr-review-friction/abandoned/).
+Se você mede só PRs mesclados, a governança pode parecer mais saudável do que é. Trate coortes fechadas sem merge e abertas estagnadas como métricas de primeira classe. Detalhes em [**PRs abandonados**](https://studies.archgate.dev/studies/sentry-pr-review-friction/abandoned/).
 
 ## Exemplos de PRs de alto atrito
 
@@ -118,7 +118,7 @@ São exatamente decisões de equipe que ADRs podem codificar e regras podem faze
 
 ## Pacote de ADRs proposto para o Sentry
 
-O conjunto fundamentado em evidências—com ADRs em Markdown, arquivos `.rules.ts` e artefatos de lint—está indexado no site do estudo em [**Propostas de ADR**](https://studies.archgate.dev/studies/sentry-pr-review-friction/adr-proposals/) e em [`archgate/studies` em `proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs).
+O conjunto fundamentado em evidências (com ADRs em Markdown, arquivos `.rules.ts` e artefatos de lint) está indexado no site do estudo em [**Propostas de ADR**](https://studies.archgate.dev/studies/sentry-pr-review-friction/adr-proposals/) e em [`archgate/studies` em `proposed-adrs/`](https://github.com/archgate/studies/tree/main/studies/sentry-pr-review-friction/proposed-adrs).
 
 A narrativa abaixo está priorizada pela redução esperada de atrito em review.
 

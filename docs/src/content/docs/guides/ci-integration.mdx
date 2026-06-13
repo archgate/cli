@@ -24,7 +24,7 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-That's it — no Node.js setup, no install step. If any rule reports a violation with `error` severity, the job fails with exit code 1.
+That's it. No Node.js setup, no install step. If any rule reports a violation with `error` severity, the job fails with exit code 1.
 
 ### Pin a version
 
@@ -84,7 +84,7 @@ Use `--ci` to output violations as GitHub Actions workflow annotations. These ap
 The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
 
 :::note
-The `archgate/check-action` passes `--ci` automatically — you only need this flag when running `archgate check` manually.
+The `archgate/check-action` passes `--ci` automatically. You only need this flag when running `archgate check` manually.
 :::
 
 ## Machine-readable output
@@ -236,7 +236,7 @@ jobs:
       - run: ~/.archgate/bin/archgate check --ci
 ```
 
-This works in any environment with `curl` and `tar` — no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
+This works in any environment with `curl` and `tar`, no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
 
 ```yaml
 - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | ARCHGATE_VERSION=v0.11.2 sh

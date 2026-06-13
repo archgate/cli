@@ -7,7 +7,7 @@ Bane APIs de runtime especificas que causam problemas de compatibilidade entre p
 
 ## Detalhes da regra
 
-Algumas APIs funcionam corretamente em uma plataforma mas falham em outra. Por exemplo, a API shell do Bun (`Bun.$`) trava no Windows devido a deadlocks de pipe. Esta regra detecta multiplas variantes de uma API banida — a chamada direta, o import e o uso desestruturado — garantindo que nenhuma forma passe despercebida.
+Algumas APIs funcionam corretamente em uma plataforma, mas falham em outra. Por exemplo, a API shell do Bun (`Bun.$`) trava no Windows devido a deadlocks de pipe. Esta regra detecta multiplas variantes de uma API banida (a chamada direta, o import e o uso desestruturado), garantindo que nenhuma forma passe despercebida.
 
 Este padrao se generaliza para qualquer API que voce queira banir enquanto permite uma alternativa segura.
 
@@ -54,7 +54,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                "Do not use Bun.$ template literals — they hang on Windows. Use Bun.spawn instead.",
+                "Do not use Bun.$ template literals. They hang on Windows. Use Bun.spawn instead.",
               file: m.file,
               line: m.line,
               fix: "Replace Bun.$`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
@@ -72,7 +72,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                'Do not import $ from "bun" — the shell API hangs on Windows. Use Bun.spawn instead.',
+                'Do not import $ from "bun". The shell API hangs on Windows. Use Bun.spawn instead.',
               file: m.file,
               line: m.line,
               fix: "Remove the $ import and replace shell calls with Bun.spawn",
@@ -88,7 +88,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                "Do not use $` template literals — they hang on Windows. Use Bun.spawn instead.",
+                "Do not use $` template literals. They hang on Windows. Use Bun.spawn instead.",
               file: m.file,
               line: m.line,
               fix: "Replace $`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",

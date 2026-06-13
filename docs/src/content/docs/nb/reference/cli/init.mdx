@@ -26,7 +26,7 @@ Når `--install-plugin` sendes med, installerer CLI-en Archgate-pluginen for den
 
 **Cursor:** Laster ned en autentisert tarball med skills, agenter og hooks i `~/.cursor/`. Skriver også `.cursor/hooks.json` til prosjektet for kompatibilitet med skyagenter. Ingen CLI-deteksjon nødvendig.
 
-**opencode:** Krever at `opencode`-CLI-en er på din PATH -- hvis den ikke er det, hoppes installasjonen over og en melding ber deg installere opencode først. Når den er til stede, laster CLI-en ned en autentisert tarball med agentfiler fra Archgate plugins-tjenesten og pakker den ut i opencode-agentkatalogen for brukerskoopet (`$XDG_CONFIG_HOME/opencode/agents/`, faller tilbake til `$HOME/.config/opencode/agents/` på alle plattformer inkludert Windows -- opencode bruker XDG-stier via `xdg-basedir` og leser ikke `%APPDATA%`). Ingen filer skrives til prosjekttreet. Se [opencode-integrasjonsguiden](/guides/opencode-integration/) for detaljer.
+**opencode:** Krever at `opencode`-CLI-en er på din PATH. Hvis den ikke er det, hoppes installasjonen over og en melding ber deg installere opencode først. Når den er til stede, laster CLI-en ned en autentisert tarball med agentfiler fra Archgate plugins-tjenesten og pakker den ut i opencode-agentkatalogen for brukerskoopet (`$XDG_CONFIG_HOME/opencode/agents/`, faller tilbake til `$HOME/.config/opencode/agents/` på alle plattformer inkludert Windows; opencode bruker XDG-stier via `xdg-basedir` og leser ikke `%APPDATA%`). Ingen filer skrives til prosjekttreet. Se [opencode-integrasjonsguiden](/guides/opencode-integration/) for detaljer.
 
 ## Utdata
 

@@ -89,7 +89,7 @@ Isso lê `.archgate/imports.json` e exibe cada fonte, versão e os IDs de ADR pr
 
 ## Como funciona o remapeamento de IDs
 
-Quando você importa ADRs, os IDs originais são **remapeados** para corresponder aos prefixos de domínio do seu projeto. O campo `domain` de cada ADR determina qual prefixo ele recebe — por exemplo, um ADR com `domain: frontend` vira `FE-XXX`, enquanto um com `domain: backend` vira `BE-XXX`. Cada domínio tem seu próprio contador, então importar um pack com domínios mistos produz IDs corretamente prefixados sem colisões.
+Quando você importa ADRs, os IDs originais são **remapeados** para corresponder aos prefixos de domínio do seu projeto. O campo `domain` de cada ADR determina qual prefixo ele recebe. Por exemplo, um ADR com `domain: frontend` vira `FE-XXX`, enquanto um com `domain: backend` vira `BE-XXX`. Cada domínio tem seu próprio contador, então importar um pack com domínios mistos produz IDs corretamente prefixados sem colisões.
 
 Por exemplo, importar um pack com três ADRs de frontend e dois de backend em um projeto que já tem `FE-001` e `BE-001` produz:
 
@@ -119,7 +119,7 @@ Cada importação é registrada em `.archgate/imports.json`:
 }
 ```
 
-Este manifesto permite rastrear a proveniência — de onde cada ADR importado veio e quando. Faça commit dele no controle de versão junto com seus ADRs.
+Este manifesto permite rastrear a proveniência: de onde cada ADR importado veio e quando. Faça commit dele no controle de versão junto com seus ADRs.
 
 ## Referência de opções do comando
 

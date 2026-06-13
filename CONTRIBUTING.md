@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Archgate CLI! We welcome all kind
 
 ## Architecture Decision Records (ADRs)
 
-Archgate dogfoods itself — the CLI is governed by its own ADRs in `.archgate/adrs/`. **Before writing any code, read the ADRs that apply to the area you're changing.**
+Archgate dogfoods itself. The CLI is governed by its own ADRs in `.archgate/adrs/`. **Before writing any code, read the ADRs that apply to the area you're changing.**
 
 ### Quick reference
 
@@ -29,7 +29,7 @@ bun run src/cli.ts adr list
 bun run src/cli.ts adr show ARCH-001
 ```
 
-ADR compliance is enforced automatically — `bun run validate` includes an ADR check step that verifies your changes against every rule. **Pull requests that violate an ADR will not pass CI.**
+ADR compliance is enforced automatically. `bun run validate` includes an ADR check step that verifies your changes against every rule. **Pull requests that violate an ADR will not pass CI.**
 
 ## Quick Start
 
@@ -199,8 +199,8 @@ git rebase --signoff HEAD~N  # where N is the number of commits to sign
 
 ## Guidelines
 
-- **Read the ADRs first** — all code changes must comply with the project's Architecture Decision Records
-- **Sign your commits** — all commits must include a `Signed-off-by` line (see DCO section above)
+- **Read the ADRs first**: all code changes must comply with the project's Architecture Decision Records
+- **Sign your commits**: all commits must include a `Signed-off-by` line (see DCO section above)
 - Follow the existing code style and conventions
 - Write clear, descriptive commit messages using [Conventional Commits](https://www.conventionalcommits.org/)
 - Add tests for new functionality when applicable

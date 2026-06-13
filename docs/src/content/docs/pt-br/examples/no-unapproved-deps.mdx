@@ -49,7 +49,7 @@ export default {
         try {
           pkg = (await ctx.readJSON("package.json")) as typeof pkg;
         } catch {
-          return; // No package.json — nothing to check
+          return; // No package.json, nothing to check
         }
 
         const deps = Object.keys(pkg.dependencies ?? {});

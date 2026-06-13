@@ -17,7 +17,7 @@ archgate init --editor opencode
 opencode-agentpakken er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere.
 :::
 
-I motsetning til Claude Code- eller Cursor-integrasjonene skrives opencode-agentene **ikke til prosjekttreet ditt**. De installeres i stedet på brukernivå -- så de bor på maskinen din, ikke i repositoriet ditt, og er tilgjengelige på tvers av alle prosjekter du åpner med opencode.
+I motsetning til Claude Code- eller Cursor-integrasjonene skrives opencode-agentene **ikke til prosjekttreet ditt**. De installeres i stedet på brukernivå, så de bor på maskinen din, ikke i repositoriet ditt, og er tilgjengelige på tvers av alle prosjekter du åpner med opencode.
 
 opencode bruker XDG Base Directory-konvensjonen på alle plattformer (via `xdg-basedir`-pakken), så installasjonsplasseringen resolves til `$XDG_CONFIG_HOME/opencode/agents/` når den variabelen er satt, og faller tilbake til `$HOME/.config/opencode/agents/` ellers. Det betyr at Windows-installasjoner havner under `C:\Users\<brukernavn>\.config\opencode\agents\`, ikke under `%APPDATA%`:
 

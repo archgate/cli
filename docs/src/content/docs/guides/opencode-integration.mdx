@@ -17,7 +17,7 @@ archgate init --editor opencode
 The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
 :::
 
-Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead — so they live on your machine, not in your repository, and are available across every project you open with opencode.
+Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead, so they live on your machine, not in your repository, and are available across every project you open with opencode.
 
 opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/agents/` when that variable is set, and falls back to `$HOME/.config/opencode/agents/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\agents\`, not under `%APPDATA%`:
 
@@ -29,7 +29,7 @@ opencode uses the XDG Base Directory convention on every platform (via the `xdg-
 ### Authenticated install
 
 :::caution[opencode must be installed first]
-The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory — otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
+The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory. Otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
 :::
 
 If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full guardrails workflow.
@@ -59,7 +59,7 @@ The install step downloads an authenticated tarball from the Archgate plugins se
 | `<opencode-agents>/archgate-adr-author.md`      | Subagent that creates and edits ADRs following project conventions       |
 | `<opencode-agents>/archgate-cli-reference.md`   | Internal reference subagent with the Archgate CLI command guide (hidden) |
 
-`.archgate/adrs/` and `.archgate/lint/` are still created in your project as usual — only the opencode-specific agent files live outside the project tree.
+`.archgate/adrs/` and `.archgate/lint/` are still created in your project as usual. Only the opencode-specific agent files live outside the project tree.
 
 ## What the bundle provides
 

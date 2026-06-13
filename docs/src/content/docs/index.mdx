@@ -22,9 +22,9 @@ import CodeShowcase from "../../components/CodeShowcase.astro";
 
 Archgate has two layers that work together:
 
-1. **ADRs as documents** — Markdown files with YAML frontmatter that describe architectural decisions in plain language. Humans read them. AI agents read them. Everyone stays aligned.
+1. **ADRs as documents**: Markdown files with YAML frontmatter that describe architectural decisions in plain language. Humans read them. AI agents read them. Everyone stays aligned.
 
-2. **ADRs as rules** — Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
+2. **ADRs as rules**: Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
 
 <CodeShowcase
   heading="ADRs that enforce themselves"
@@ -54,7 +54,7 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
   <Card title="Self-Governance" icon="approve-check-circle">
     Archgate governs its own development. The same tool that checks your code
     checks ours. Our own ADRs enforce command structure, error handling, output
-    formatting, testing, and more — [see them on
+    formatting, testing, and more. [See them on
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   </Card>
 </CardGrid>

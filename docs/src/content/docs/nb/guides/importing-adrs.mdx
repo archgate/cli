@@ -89,7 +89,7 @@ Dette leser `.archgate/imports.json` og viser hver kilde, versjon og ADR-ID-ene 
 
 ## Hvordan ID-nytilordning fungerer
 
-Når du importerer ADR-er, blir de opprinnelige ID-ene **nytilordnet** for å matche prosjektets domeneprefikser. Hver ADRs `domain`-felt bestemmer hvilket prefiks den får -- for eksempel blir en ADR med `domain: frontend` til `FE-XXX`, mens en med `domain: backend` blir `BE-XXX`. Hvert domene har sin egen teller, så import av en pakke med blandede domener produserer korrekt prefiksede ID-er uten kollisjoner.
+Når du importerer ADR-er, blir de opprinnelige ID-ene **nytilordnet** for å matche prosjektets domeneprefikser. Hver ADRs `domain`-felt bestemmer hvilket prefiks den får. For eksempel blir en ADR med `domain: frontend` til `FE-XXX`, mens en med `domain: backend` blir `BE-XXX`. Hvert domene har sin egen teller, så import av en pakke med blandede domener produserer korrekt prefiksede ID-er uten kollisjoner.
 
 For eksempel, når du importerer en pakke med tre frontend-ADR-er og to backend-ADR-er inn i et prosjekt som allerede har `FE-001` og `BE-001`, produseres:
 

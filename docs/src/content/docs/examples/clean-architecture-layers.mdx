@@ -3,13 +3,13 @@ title: clean-architecture-layers
 description: Enforce dependency direction in clean architecture by preventing inner layers from referencing outer layers.
 ---
 
-Enforce dependency direction in clean architecture — inner layers must not reference outer layers.
+Enforce dependency direction in clean architecture: inner layers must not reference outer layers.
 
 ## Rule details
 
 Clean architecture mandates that dependencies point inward: API → Application → Domain. The Domain layer must have zero external dependencies, the Application layer must not reference Infrastructure directly, and no lower layer should reference the API project. This rule checks `using` directives (C#) or `import` statements to enforce these boundaries.
 
-The same pattern applies to any layered architecture in any language — adjust the import patterns and layer paths accordingly.
+The same pattern applies to any layered architecture in any language. Adjust the import patterns and layer paths accordingly.
 
 ## Examples of **incorrect** code
 
@@ -27,7 +27,7 @@ using StavangerChallenge.API;               // ✗ Application → API
 
 ```csharp title="Domain/Entities/User.cs"
 namespace StavangerChallenge.Domain.Entities;
-// No external dependencies — pure domain logic
+// No external dependencies, pure domain logic
 ```
 
 ```csharp title="Application/Services/UserService.cs"

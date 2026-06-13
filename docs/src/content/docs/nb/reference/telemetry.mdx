@@ -11,7 +11,7 @@ Archgate samler inn **anonyme bruksdata** for å hjelpe oss med å forstå hvord
 
 Når du kjører en Archgate-kommando, registrerer vi:
 
-- **Kommandonavn** og **hvilke flagg som ble brukt** (f.eks. `check --json` -- kun flaggtilstedeværelse, aldri flaggverdier)
+- **Kommandonavn** og **hvilke flagg som ble brukt** (f.eks. `check --json`; kun flaggtilstedeværelse, aldri flaggverdier)
 - **Avslutningskode** (0, 1, 2 eller 130) og **kjøretid** (millisekunder), pluss en kort **utfallstagg** (`success`, `user_error`, `internal_error`, `cancelled`)
 - **Miljø**: OS, arkitektur, Bun-versjon, Archgate-versjon, CI-deteksjon (inkludert leverandør: GitHub Actions / GitLab CI / CircleCI / osv.), TTY-deteksjon, WSL-deteksjon, shell (bash, zsh, pwsh...) og locale
 - **Installasjonskontekst**: hvordan CLI-en ble installert (binærfil, proto, lokal dev-avhengighet eller global pakkebehandler)
@@ -62,8 +62,8 @@ Når CLI-en krasjer (avslutningskode 2), sender vi:
 
 ## Hva vi IKKE samler inn
 
-- **Ingen personopplysninger**: ingen brukernavn, e-postadresser eller IP-adresser. GitHub / GitLab / Bitbucket eier-/reponavn sendes kun på engangshendelsen `project_initialized` for repositorier som er bekreftet offentlige av verten sin -- se [Repoidentitet](#repoidentitet). Private og selvhostede repoer får aldri identitet delt.
-- **Intet filinnhold**: ingen ADR-innhold, kildekode eller filstier
+- **Ingen personopplysninger**: ingen e-postadresser, passord, hemmeligheter eller IP-adresser. Engangshendelsen `project_initialized` kan inkludere `repo_owner` og `repo_name` for repositorier som er bekreftet offentlige av verten sin; se [Repoidentitet](#repoidentitet). Private og selvhostede repoer får aldri identitet delt.
+- **Intet filinnhold**: ingen ADR-innhold eller kildekode. Feilrapporter (Sentry) kan inkludere relative filstier i stakkspor, men aldri absolutte stier eller filinnhold.
 - **Ingen prompt- eller AI-kontekst**: ingenting fra agentinteraksjoner, prompter eller AI-generert innhold
 - **Ingen flaggverdier**: vi registrerer at `--json` ble brukt, ikke hva JSON-utdataene inneholdt
 - **Ingen nettverksaktivitet**: ingen URL-er, API-nøkler eller tokener

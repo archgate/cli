@@ -3,14 +3,14 @@ title: page-component-constraints
 description: Enforce that page components are thin layout wrappers by limiting their size and banning data-fetching hooks.
 ---
 
-Enforce that page components are thin layout wrappers — small in size and free of data-fetching logic.
+Enforce that page components are thin layout wrappers: small in size and free of data-fetching logic.
 
 ## Rule details
 
 In frontend architectures that separate routing from logic, page components should only compose layout and delegate data-fetching to Connected components. This rule enforces two constraints in a single rules file:
 
-1. **Size limit** — Page components must stay under a configurable line count (default: 75 lines).
-2. **No data hooks** — Page components must not use `useState`, `useQuery`, `useMutation`, or other data-fetching hooks directly.
+1. **Size limit**: Page components must stay under a configurable line count (default: 75 lines).
+2. **No data hooks**: Page components must not use `useState`, `useQuery`, `useMutation`, or other data-fetching hooks directly.
 
 ## Examples of **incorrect** code
 
