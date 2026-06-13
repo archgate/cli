@@ -19,8 +19,8 @@ Archgate is a CLI tool that enforces Architecture Decision Records (ADRs) as exe
 Archgate does **not**:
 
 - Modify source code or project files during checks
-- Store credentials on disk — authentication tokens are managed by the OS credential manager (macOS Keychain, Windows Credential Manager, Linux secret service)
-- Send telemetry or source code to external servers (telemetry is opt-in, anonymized, and contains only usage counts — see [Telemetry docs](https://cli.archgate.dev/reference/telemetry/))
+- Store credentials on disk. Authentication tokens are managed by the OS credential manager (macOS Keychain, Windows Credential Manager, Linux secret service)
+- Send telemetry or source code to external servers (telemetry is opt-in, anonymized, and contains only usage counts; see [Telemetry docs](https://cli.archgate.dev/reference/telemetry/))
 - Require network access for core functionality (`archgate check` is fully offline)
 
 ### 1.2 Threat Categories
@@ -83,32 +83,32 @@ Archgate does **not**:
                     └─────────────┘
 ```
 
-**Boundary 1 — Rule Sandbox:** `.rules.ts` files are untrusted code. They execute within a restricted context that blocks dangerous APIs and scopes file access to the project root.
+**Boundary 1, Rule Sandbox:** `.rules.ts` files are untrusted code. They execute within a restricted context that blocks dangerous APIs and scopes file access to the project root.
 
-**Boundary 2 — CLI Process:** The CLI itself runs with the user's permissions. It reads project files and manages its own cache directory (`~/.archgate/`). Authentication tokens are delegated to the OS credential manager. It does not require elevated privileges.
+**Boundary 2, CLI Process:** The CLI itself runs with the user's permissions. It reads project files and manages its own cache directory (`~/.archgate/`). Authentication tokens are delegated to the OS credential manager. It does not require elevated privileges.
 
-**Boundary 3 — Network:** Network access is only used for binary downloads (install/upgrade), plugin installation (authenticated), and optional anonymized telemetry. No analytics services are contacted. Core functionality (`archgate check`) is fully offline.
+**Boundary 3, Network:** Network access is only used for binary downloads (install/upgrade), plugin installation (authenticated), and optional anonymized telemetry. No analytics services are contacted. Core functionality (`archgate check`) is fully offline.
 
 ## 3. Secure Design Principles Applied
 
 ### 3.1 Least Privilege
 
-- **Rule sandbox is read-only.** The `RuleContext` API exposes `readFile`, `readJSON`, `grep`, `grepFiles`, and `glob` — all read-only operations. Rules cannot write files, spawn processes, or access the network.
-- **CI jobs use minimal permissions.** The documented CI configuration requests only `contents: read` — no secrets, deployment keys, or write permissions ([Security guide](https://cli.archgate.dev/guides/security/)).
-- **Credentials are delegated to the OS.** Authentication tokens are stored in the operating system's credential manager (macOS Keychain, Windows Credential Manager, Linux secret service) — never written to disk as plain-text files.
+- **Rule sandbox is read-only.** The `RuleContext` API exposes `readFile`, `readJSON`, `grep`, `grepFiles`, and `glob`, all read-only operations. Rules cannot write files, spawn processes, or access the network.
+- **CI jobs use minimal permissions.** The documented CI configuration requests only `contents: read`, with no secrets, deployment keys, or write permissions ([Security guide](https://cli.archgate.dev/guides/security/)).
+- **Credentials are delegated to the OS.** Authentication tokens are stored in the operating system's credential manager (macOS Keychain, Windows Credential Manager, Linux secret service). They are never written to disk as plain-text files.
 
 ### 3.2 Defense in Depth
 
 Two independent layers protect against malicious rules:
 
-1. **Static analysis security scanner** — Before any `.rules.ts` file is executed, the CLI parses its AST and rejects files containing dangerous patterns:
+1. **Static analysis security scanner.** Before any `.rules.ts` file is executed, the CLI parses its AST and rejects files containing dangerous patterns:
    - Imports of `node:fs`, `child_process`, `net`, `http`, `vm`, and other system modules
    - Bun-specific APIs: `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`
    - Network access: `fetch()`
    - Code generation: `eval()`, `new Function()`
    - Obfuscation patterns: computed property access (`Bun[variable]`), `globalThis` assignment, dynamic `import()`
 
-2. **Runtime sandbox** — Even if a pattern bypasses the static scanner, the `RuleContext` API enforces path scoping (blocks `../`, absolute paths, and symlinks) and a 30-second timeout per rule.
+2. **Runtime sandbox.** Even if a pattern bypasses the static scanner, the `RuleContext` API enforces path scoping (blocks `../`, absolute paths, and symlinks) and a 30-second timeout per rule.
 
 ### 3.3 Input Validation
 
@@ -124,7 +124,7 @@ Two independent layers protect against malicious rules:
 
 ### 3.5 Minimal Attack Surface
 
-- **Minimal dependencies.** The project follows [ARCH-006 (Dependency Policy)](/.archgate/adrs/ARCH-006-dependency-policy.md): prefer Bun built-ins over third-party packages. All runtime dependencies are bundled into the compiled binary — the npm package has zero runtime `dependencies`.
+- **Minimal dependencies.** The project follows [ARCH-006 (Dependency Policy)](/.archgate/adrs/ARCH-006-dependency-policy.md): prefer Bun built-ins over third-party packages. All runtime dependencies are bundled into the compiled binary. The npm package has zero runtime `dependencies`.
 - **No daemon or server mode.** The CLI runs as a short-lived process. The MCP server uses stdio transport (no network listener).
 - **No shell execution.** The CLI never spawns shell commands. Git operations use `git ls-files` via Bun's process API with explicit arguments (no shell interpolation).
 
@@ -150,11 +150,11 @@ Two independent layers protect against malicious rules:
 
 ### 4.3 Information Disclosure
 
-| Risk                 | Countermeasure                                                                                                                                                                                                                                                                                              |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Credential leakage   | Authentication tokens are stored in the OS credential manager (macOS Keychain, Windows Credential Manager, Linux secret service) — never written to disk as plain text. Tokens are never logged. Plugin install passes credentials via authenticated git URLs (not command-line arguments visible in `ps`). |
-| Source code exposure | Rules are read-only. `archgate check` output contains only violation messages (file paths and line numbers), not file contents.                                                                                                                                                                             |
-| Error messages       | Error output uses `logError()` (ARCH-002) which writes structured messages to stderr. Stack traces are only shown with `--verbose`.                                                                                                                                                                         |
+| Risk                 | Countermeasure                                                                                                                                                                                                                                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Credential leakage   | Authentication tokens are stored in the OS credential manager (macOS Keychain, Windows Credential Manager, Linux secret service), never written to disk as plain text. Tokens are never logged. Plugin install passes credentials via authenticated git URLs (not command-line arguments visible in `ps`). |
+| Source code exposure | Rules are read-only. `archgate check` output contains only violation messages (file paths and line numbers), not file contents.                                                                                                                                                                            |
+| Error messages       | Error output uses `logError()` (ARCH-002) which writes structured messages to stderr. Stack traces are only shown with `--verbose`.                                                                                                                                                                        |
 
 ### 4.4 Availability
 
@@ -171,7 +171,7 @@ Two independent layers protect against malicious rules:
 - **CI pipeline** runs on every pull request: lint (Oxlint), typecheck (tsc --build), format check (Oxfmt), test suite (Bun test), ADR compliance check (`archgate check`), and build verification.
 - **OpenSSF Scorecard** runs weekly via GitHub Actions, publishing results to the GitHub Security tab.
 - **GitHub Security Advisories** are enabled for responsible vulnerability disclosure.
-- **Pinned dependencies** — all GitHub Actions use commit SHA pins, not mutable tags.
+- **Pinned dependencies.** All GitHub Actions use commit SHA pins, not mutable tags.
 
 ### 5.2 Manual Verification
 
@@ -181,8 +181,8 @@ Two independent layers protect against malicious rules:
 
 ## 6. References
 
-- [SECURITY.md](SECURITY.md) — Vulnerability reporting policy
-- [Security Guide](https://cli.archgate.dev/guides/security/) — Full trust model and CI best practices
-- [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?uri=github.com/archgate/cli) — Automated security analysis
-- [ARCH-006: Dependency Policy](/.archgate/adrs/ARCH-006-dependency-policy.md) — Minimal dependency governance
-- [CII Best Practices Badge](https://www.bestpractices.dev/projects/9981) — OpenSSF Best Practices compliance
+- [SECURITY.md](SECURITY.md): Vulnerability reporting policy
+- [Security Guide](https://cli.archgate.dev/guides/security/): Full trust model and CI best practices
+- [OpenSSF Scorecard](https://securityscorecards.dev/viewer/?uri=github.com/archgate/cli): Automated security analysis
+- [ARCH-006: Dependency Policy](/.archgate/adrs/ARCH-006-dependency-policy.md): Minimal dependency rules
+- [CII Best Practices Badge](https://www.bestpractices.dev/projects/9981): OpenSSF Best Practices compliance

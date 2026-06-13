@@ -13,7 +13,7 @@
 
 ---
 
-AI agents write code fast, but they don't know your rules. Archgate turns your team's decisions into executable checks — a lint step for architecture, conventions, and AI output. Your agents read the rules before writing code, and `archgate check` blocks what slips through. In CI, in pre-commit hooks, and inside every major AI coding tool.
+AI agents write code fast, but they don't know your rules. Archgate turns your team's decisions into executable checks: a lint step for architecture, conventions, and AI output. Your agents read the rules before writing code, and `archgate check` blocks what slips through. In CI, in pre-commit hooks, and inside every major AI coding tool.
 
 **Write an ADR once. Enforce it everywhere.**
 
@@ -21,8 +21,8 @@ AI agents write code fast, but they don't know your rules. Archgate turns your t
 
 Archgate has two layers:
 
-1. **ADRs as documents** — markdown files with YAML frontmatter stored in `.archgate/adrs/`. Each ADR records a decision: what was decided, why, and what to do and not do.
-2. **ADRs as rules** — each ADR can have a companion `.rules.ts` file that exports automated checks. Archgate runs these checks against your codebase and reports violations.
+1. **ADRs as documents**: markdown files with YAML frontmatter stored in `.archgate/adrs/`. Each ADR records a decision: what was decided, why, and what to do and not do.
+2. **ADRs as rules**: each ADR can have a companion `.rules.ts` file that exports automated checks. Archgate runs these checks against your codebase and reports violations.
 
 ```
 .archgate/
@@ -33,7 +33,7 @@ Archgate has two layers:
     └── ARCH-002-error-handling.rules.ts
 ```
 
-When a rule is violated, `archgate check` reports the file, line, and which ADR was broken. Exit code 1 means violations — wire it into CI and it blocks merges automatically.
+When a rule is violated, `archgate check` reports the file, line, and which ADR was broken. Exit code 1 means violations. Wire it into CI and it blocks merges automatically.
 
 **The CLI is free and open source.** Writing ADRs, enforcing rules, running checks in CI, and wiring up pre-commit hooks all work without an account or subscription.
 
@@ -64,7 +64,7 @@ Each ADR can have a companion `.rules.ts` file that exports automated checks. Se
 
 ## Supercharge with AI plugins
 
-> **Make your AI agent architecture-aware.** With the optional editor plugins, your AI coding agent reads ADRs before writing code, validates changes against your rules, and captures new architectural patterns back into ADRs — automatically.
+> **Make your AI agent architecture-aware.** With the optional editor plugins, your AI coding agent reads ADRs before writing code, validates changes against your rules, and captures new architectural patterns back into ADRs, automatically.
 >
 > Plugins are available for [**Claude Code**](https://cli.archgate.dev/guides/claude-code-plugin/) and [**Cursor**](https://cli.archgate.dev/guides/cursor-integration/).
 >
@@ -73,11 +73,11 @@ Each ADR can have a companion `.rules.ts` file that exports automated checks. Se
 > archgate init              # installs the plugin automatically
 > ```
 >
-> **[Get started with plugins](https://cli.archgate.dev/guides/claude-code-plugin/)** — the CLI works fully without them, but plugins close the loop between decisions and code.
+> **[Get started with plugins](https://cli.archgate.dev/guides/claude-code-plugin/)**. The CLI works fully without them, but plugins close the loop between decisions and code.
 
 ## Documentation
 
-Full documentation is available at **[cli.archgate.dev](https://cli.archgate.dev)** — including guides for writing ADRs, writing rules, CI integration, editor plugin setup, and the complete CLI reference.
+Full documentation is available at **[cli.archgate.dev](https://cli.archgate.dev)**, including guides for writing ADRs, writing rules, CI integration, editor plugin setup, and the complete CLI reference.
 
 ## Contributing
 

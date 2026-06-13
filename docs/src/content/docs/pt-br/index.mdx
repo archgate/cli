@@ -22,9 +22,9 @@ import CodeShowcase from "../../../components/CodeShowcase.astro";
 
 O Archgate possui duas camadas que trabalham juntas:
 
-1. **ADRs como documentos** — Arquivos Markdown com frontmatter YAML que descrevem decisões arquiteturais em linguagem natural. Humanos os leem. Agentes de IA os leem. Todos ficam alinhados.
+1. **ADRs como documentos**: arquivos Markdown com frontmatter YAML que descrevem decisões arquiteturais em linguagem natural. Humanos os leem. Agentes de IA os leem. Todos ficam alinhados.
 
-2. **ADRs como regras** — Arquivos complementares `.rules.ts` com verificações automatizadas escritas em TypeScript. Eles são executados contra sua base de código e reportam violações com caminhos de arquivos e números de linha.
+2. **ADRs como regras**: arquivos complementares `.rules.ts` com verificações automatizadas escritas em TypeScript. Eles são executados contra sua base de código e reportam violações com caminhos de arquivos e números de linha.
 
 <CodeShowcase
   heading="ADRs que se aplicam sozinhos"
@@ -54,7 +54,7 @@ Quando você executa `archgate check`, a CLI carrega cada ADR que possui `rules:
   <Card title="Auto-Guardrails" icon="approve-check-circle">
     O Archgate governa seu próprio desenvolvimento. A mesma ferramenta que
     verifica seu código verifica o nosso. Nossos próprios ADRs aplicam estrutura
-    de comandos, tratamento de erros, formatação de saída, testes e mais — [veja
+    de comandos, tratamento de erros, formatação de saída, testes e mais. [Veja
     no GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   </Card>
 </CardGrid>

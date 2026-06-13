@@ -53,11 +53,11 @@ files: ["src/**/*.ts"]
 ---
 ```
 
-- **id** — Unique identifier. Convention is `ARCH-NNN` but any string works.
-- **title** — Human-readable name for the decision.
-- **domain** — Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
-- **rules** — Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
-- **files** — Optional glob patterns that scope which files the rules apply to.
+- **id**: Unique identifier. Convention is `ARCH-NNN` but any string works.
+- **title**: Human-readable name for the decision.
+- **domain**: Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
+- **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
+- **files**: Optional glob patterns that scope which files the rules apply to.
 
 Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
 
@@ -92,9 +92,9 @@ export default {
 
 Each rule has a unique key, a description, and an async `check` function. Inside `check`, you have access to:
 
-- **`ctx.scopedFiles`** — Files matching the ADR's `files` glob patterns.
-- **`ctx.grep(file, pattern)`** — Search a file for regex matches, returning file paths and line numbers.
-- **`ctx.report.violation()`** — Report a violation with a message, file path, line number, and optional fix suggestion.
+- **`ctx.scopedFiles`**: Files matching the ADR's `files` glob patterns.
+- **`ctx.grep(file, pattern)`**: Search a file for regex matches, returning file paths and line numbers.
+- **`ctx.report.violation()`**: Report a violation with a message, file path, line number, and optional fix suggestion.
 
 ## 5. Run checks
 
@@ -124,22 +124,22 @@ Now that you have a working setup, dive deeper:
 
 **Understand the concepts:**
 
-- [ADRs](/concepts/adrs/) — What Architecture Decision Records are and how Archgate uses them.
-- [Rules](/concepts/rules/) — How companion `.rules.ts` files turn decisions into automated checks.
-- [Domains](/concepts/domains/) — How domains group related ADRs and scope file matching.
+- [ADRs](/concepts/adrs/): What Architecture Decision Records are and how Archgate uses them.
+- [Rules](/concepts/rules/): How companion `.rules.ts` files turn decisions into automated checks.
+- [Domains](/concepts/domains/): How domains group related ADRs and scope file matching.
 
 **Write your own:**
 
-- [Writing ADRs](/guides/writing-adrs/) — Learn the full ADR format and best practices for writing effective decisions.
-- [Writing Rules](/guides/writing-rules/) — Explore the rule API, advanced patterns, and how to test your rules.
-- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns for dependency checks, naming conventions, and more.
+- [Writing ADRs](/guides/writing-adrs/): Learn the full ADR format and best practices for writing effective decisions.
+- [Writing Rules](/guides/writing-rules/): Explore the rule API, advanced patterns, and how to test your rules.
+- [Common Rule Patterns](/examples/common-rule-patterns/): Copy-pasteable patterns for dependency checks, naming conventions, and more.
 
 **Integrate into your workflow:**
 
-- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
-- [Pre-commit Hooks](/guides/pre-commit-hooks/) — Run checks locally before every commit.
-- [Claude Code Plugin](/guides/claude-code-plugin/) — Give AI agents architecture-aware guardrails with role-based skills.
-- [Cursor Integration](/guides/cursor-integration/) — Use Archgate with Cursor IDE for AI-assisted development.
+- [CI Integration](/guides/ci-integration/): Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
+- [Pre-commit Hooks](/guides/pre-commit-hooks/): Run checks locally before every commit.
+- [Claude Code Plugin](/guides/claude-code-plugin/): Give AI agents architecture-aware guardrails with role-based skills.
+- [Cursor Integration](/guides/cursor-integration/): Use Archgate with Cursor IDE for AI-assisted development.
 
 :::tip[Editor plugins (beta)]
 Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign up and authenticate, then run `archgate init --install-plugin` to set up the plugin.

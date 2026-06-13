@@ -24,7 +24,7 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-Isso é tudo — sem configuração de Node.js, sem passo de instalação. Se qualquer regra reportar uma violação com severidade `error`, o job falha com código de saída 1.
+Isso é tudo. Sem configuração de Node.js, sem passo de instalação. Se qualquer regra reportar uma violação com severidade `error`, o job falha com código de saída 1.
 
 ### Fixar uma versão
 
@@ -84,7 +84,7 @@ Use `--ci` para exibir violações como anotações de workflow do GitHub Action
 A flag `--ci` produz anotações `::error` e `::warning` no formato esperado pelo GitHub Actions. Cada anotação inclui o ID do ADR, o ID da regra, o caminho do arquivo e o número da linha.
 
 :::note
-A `archgate/check-action` passa `--ci` automaticamente — você só precisa dessa flag ao executar `archgate check` manualmente.
+A `archgate/check-action` passa `--ci` automaticamente. Você só precisa dessa flag ao executar `archgate check` manualmente.
 :::
 
 ## Saída legível por máquina
@@ -236,7 +236,7 @@ jobs:
       - run: ~/.archgate/bin/archgate check --ci
 ```
 
-Isso funciona em qualquer ambiente com `curl` e `tar` — sem dependências de runtime. Você pode fixar uma versão com a variável de ambiente `ARCHGATE_VERSION`:
+Isso funciona em qualquer ambiente com `curl` e `tar`, sem dependências de runtime. Você pode fixar uma versão com a variável de ambiente `ARCHGATE_VERSION`:
 
 ```yaml
 - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | ARCHGATE_VERSION=v0.11.2 sh

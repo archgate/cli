@@ -3,7 +3,7 @@ title: no-barrel-files
 description: Detect and ban barrel files (index.ts with only re-exports) to enforce direct imports and improve tree-shaking.
 ---
 
-Detect and ban barrel files — `index.ts` files that contain only re-exports and no logic.
+Detect and ban barrel files: `index.ts` files that contain only re-exports and no logic.
 
 ## Rule details
 
@@ -31,7 +31,7 @@ export function getHelperVersion(): string {
 }
 ```
 
-Or better — delete `index.ts` entirely and import directly:
+Or better, delete `index.ts` entirely and import directly:
 
 ```typescript
 import { logInfo } from "./helpers/log";

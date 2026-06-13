@@ -22,9 +22,9 @@ import CodeShowcase from "../../../components/CodeShowcase.astro";
 
 Archgate har to lag som fungerer sammen:
 
-1. **ADR-er som dokumenter** — Markdown-filer med YAML-frontmatter som beskriver arkitekturbeslutninger i klartekst. Mennesker leser dem. AI-agenter leser dem. Alle holder seg samkjørte.
+1. **ADR-er som dokumenter**: Markdown-filer med YAML-frontmatter som beskriver arkitekturbeslutninger i klartekst. Mennesker leser dem. AI-agenter leser dem. Alle holder seg samkjørte.
 
-2. **ADR-er som regler** — Tilhørende `.rules.ts`-filer med automatiserte kontroller skrevet i TypeScript. De kjøres mot kodebasen din og rapporterer brudd med filstier og linjenumre.
+2. **ADR-er som regler**: Tilhørende `.rules.ts`-filer med automatiserte kontroller skrevet i TypeScript. De kjøres mot kodebasen din og rapporterer brudd med filstier og linjenumre.
 
 <CodeShowcase
   heading="ADR-er som håndhever seg selv"
@@ -54,14 +54,14 @@ Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: tru
   <Card title="Selvstyre" icon="approve-check-circle">
     Archgate styrer sin egen utvikling. Det samme verktøyet som sjekker koden
     din, sjekker vår. Våre egne ADR-er håndhever kommandostruktur,
-    feilhåndtering, utdataformatering, testing og mer — [se dem på
+    feilhåndtering, utdataformatering, testing og mer. [Se dem på
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   </Card>
 </CardGrid>
 
 ## Editorplugins
 
-Archgate CLI fungerer frittstående, men **editorplugins** låser opp en fullstendig AI-guardrails-arbeidsflyt. Plugins gir AI-agenter rollebaserte ferdigheter slik at de leser ADR-ene dine før de koder, validerer etterpå og fanger opp nye mønstre for teamet ditt — automatisk.
+Archgate CLI fungerer frittstående, men **editorplugins** låser opp en fullstendig AI-guardrails-arbeidsflyt. Plugins gir AI-agenter rollebaserte ferdigheter slik at de leser ADR-ene dine før de koder, validerer etterpå og fanger opp nye mønstre for teamet ditt, helt automatisk.
 
 <CardGrid>
   <Card title="Claude Code" icon="star">

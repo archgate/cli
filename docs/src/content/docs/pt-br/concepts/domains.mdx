@@ -97,7 +97,7 @@ Em caso de dúvida entre `architecture` e um domínio específico, prefira o dom
 
 ## Domínios Personalizados
 
-Quando os cinco domínios integrados realmente não encaixam uma categoria de decisões — por exemplo, `security`, `ml-ops` ou `compliance` — você pode registrar um domínio personalizado via CLI:
+Quando os cinco domínios integrados realmente não encaixam uma categoria de decisões (por exemplo, `security`, `ml-ops` ou `compliance`), você pode registrar um domínio personalizado via CLI:
 
 ```bash
 # Ver o conjunto reconhecido atualmente neste projeto
@@ -114,8 +114,8 @@ Os mapeamentos de domínio personalizado para prefixo persistem em [`.archgate/c
 
 ### Regras de nomenclatura
 
-- **Nome** — kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`, `compliance`).
-- **Prefixo** — letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`, `COMP`).
+- **Nome:** kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`, `compliance`).
+- **Prefixo:** letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`, `COMP`).
 - Nomes e prefixos personalizados não podem colidir com integrados ou com qualquer outro personalizado.
 
 ### Quando preferir um integrado
@@ -126,7 +126,7 @@ Os cinco integrados são deliberadamente opinativos. Antes de registrar um domí
 - Uma decisão sobre versionamento de schema geralmente cabe em `data`, mesmo que a motivação seja de compliance.
 - Uma decisão que abrange múltiplas áreas técnicas geralmente cabe em `architecture`.
 
-Recorra a um domínio personalizado apenas quando nenhum dos integrados for uma opção genuína — por exemplo, quando você tem uma equipe dedicada ou um regime de compliance que precisa de sua própria superfície de governança.
+Recorra a um domínio personalizado apenas quando nenhum dos integrados for uma opção genuína, por exemplo, quando você tem uma equipe dedicada ou um regime de compliance que precisa de sua própria superfície de governança.
 
 ### Orientação para agentes de IA
 

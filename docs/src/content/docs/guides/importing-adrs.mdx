@@ -89,7 +89,7 @@ This reads `.archgate/imports.json` and displays each source, version, and the A
 
 ## How ID remapping works
 
-When you import ADRs, the original IDs are **remapped** to match your project's domain prefixes. Each ADR's `domain` field determines which prefix it gets — for example, an ADR with `domain: frontend` becomes `FE-XXX`, while one with `domain: backend` becomes `BE-XXX`. Each domain has its own counter, so importing a pack with mixed domains produces correctly prefixed IDs without collisions.
+When you import ADRs, the original IDs are **remapped** to match your project's domain prefixes. Each ADR's `domain` field determines which prefix it gets. For example, an ADR with `domain: frontend` becomes `FE-XXX`, while one with `domain: backend` becomes `BE-XXX`. Each domain has its own counter, so importing a pack with mixed domains produces correctly prefixed IDs without collisions.
 
 For example, importing a pack with three frontend ADRs and two backend ADRs into a project that already has `FE-001` and `BE-001` produces:
 
@@ -119,7 +119,7 @@ Every import is recorded in `.archgate/imports.json`:
 }
 ```
 
-This manifest lets you track provenance — where each imported ADR came from and when. Commit it to version control alongside your ADRs.
+This manifest lets you track provenance: where each imported ADR came from and when. Commit it to version control alongside your ADRs.
 
 ## Command options reference
 

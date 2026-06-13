@@ -26,7 +26,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Cursor:** Downloads an authenticated tarball of skills, agents, and hooks into `~/.cursor/`. Also writes `.cursor/hooks.json` to the project for cloud agent compatibility. No CLI detection needed.
 
-**opencode:** Requires the `opencode` CLI to be on your PATH — if it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows — opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
+**opencode:** Requires the `opencode` CLI to be on your PATH. If it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows; opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Output
 

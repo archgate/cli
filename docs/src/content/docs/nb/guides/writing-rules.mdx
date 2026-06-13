@@ -309,20 +309,20 @@ Det finnes to måter å håndtere unntak i Archgate: **undertrykkelse på motorn
 
 Archgate støtter inline `archgate-ignore`-kommentarer som undertrykker brudd uten å endre selve regelen. Motoren analyserer disse kommentarene og filtrerer matchende brudd før rapportering.
 
-**Neste-linje-undertrykkelse** — undertrykker bruddet på den umiddelbart følgende linjen:
+**Neste-linje-undertrykkelse**: undertrykker bruddet på den umiddelbart følgende linjen:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy-avhengighet, migrering planlagt for Q3
 import chalk from "chalk";
 ```
 
-**Filnivå-undertrykkelse** — undertrykker alle matchende brudd hvor som helst i filen:
+**Filnivå-undertrykkelse**: undertrykker alle matchende brudd hvor som helst i filen:
 
 ```typescript
 // archgate-ignore-file ARCH-005/test-mirrors-src generert fil, ingen manuell test
 ```
 
-**Flere regler** — stable kommentarer for å undertrykke mer enn én regel på samme linje:
+**Flere regler**: stable kommentarer for å undertrykke mer enn én regel på samme linje:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy-avhengighet
@@ -332,7 +332,7 @@ import chalk from "chalk";
 
 Sammenhengende undertrykkelseskommentarer sikter alle mot den første ikke-undertrykkelseslinjen etter blokken.
 
-Formatet er `ADR-ID/rule-id` etterfulgt av en begrunnelse. Begrunnelsen er **påkrevd** — en undertrykkelse uten begrunnelse ignoreres og gir en advarsel:
+Formatet er `ADR-ID/rule-id` etterfulgt av en begrunnelse. Begrunnelsen er **påkrevd**. En undertrykkelse uten begrunnelse ignoreres og gir en advarsel:
 
 ```
 [suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
@@ -383,7 +383,7 @@ import { useNavigate } from "react-router";
 | `archgate-ignore`     | Ad-hoc-unntak for alle regler                           | Utvikleren som bruker regelen |
 | Egendefinert direktiv | Domenespesifikke opt-outs med strukturerte begrunnelser | Regelforfatteren              |
 
-Bruk `archgate-ignore` når en utvikler trenger å undertrykke et engangsbrudd. Bruk egendefinerte direktiver når opt-outen er et førsteklasses konsept i regelens domene — for eksempel å markere en komponent som med vilje uparet, eller en fil som automatisk generert.
+Bruk `archgate-ignore` når en utvikler trenger å undertrykke et engangsbrudd. Bruk egendefinerte direktiver når opt-outen er et førsteklasses konsept i regelens domene, for eksempel å markere en komponent som med vilje uparet, eller en fil som automatisk generert.
 
 ## Neste steg
 

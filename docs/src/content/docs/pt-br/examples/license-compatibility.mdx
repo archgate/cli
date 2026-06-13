@@ -52,7 +52,7 @@ function isAllowed(license: string | undefined): boolean {
   if (!license) return false;
   if (ALLOWED_LICENSES.has(license)) return true;
 
-  // Handle SPDX OR expressions — at least one option must be allowed
+  // Handle SPDX OR expressions: at least one option must be allowed
   const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
   if (ALLOWED_LICENSES.has(normalized)) return true;
 
@@ -84,7 +84,7 @@ export default {
       description:
         "All dependencies (including transitive) must use permissive licenses",
       async check(ctx) {
-        // Escaneia TODOS os pacotes em node_modules — diretos E transitivos.
+        // Escaneia TODOS os pacotes em node_modules, diretos E transitivos.
         // Brace expansion cobre pacotes regulares e escopados.
         const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
 

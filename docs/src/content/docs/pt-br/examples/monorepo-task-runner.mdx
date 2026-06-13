@@ -47,7 +47,7 @@ export default {
   rules: {
     "no-package-scripts": {
       description:
-        "package.json must not have scripts — use the task runner instead",
+        "package.json must not have scripts. Use the task runner instead.",
       async check(ctx) {
         const packageJsonFiles = [
           ...(await ctx.glob("packages/*/package.json")),
@@ -60,7 +60,7 @@ export default {
           };
           if (pkg.scripts && Object.keys(pkg.scripts).length > 0) {
             ctx.report.violation({
-              message: `${file}: has "scripts" field — use task runner config instead`,
+              message: `${file}: has "scripts" field. Use task runner config instead.`,
               file,
               fix: 'Move scripts to the task runner config and remove "scripts" from package.json',
             });

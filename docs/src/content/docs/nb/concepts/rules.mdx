@@ -152,7 +152,7 @@ Når denne regelen kjøres mot en fil som inneholder `import { readFileSync } fr
 
 ```
 ARCH-007/no-direct-fs-import  ERROR
-  src/services/config.ts:3 — Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
+  src/services/config.ts:3 - Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
   Fix: Replace the import with: import { readFile, writeFile } from "../helpers/fs"
 ```
 

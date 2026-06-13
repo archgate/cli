@@ -3,13 +3,13 @@ title: clean-architecture-layers
 description: Garanta a direção das dependências em clean architecture impedindo que camadas internas referenciem camadas externas.
 ---
 
-Garanta a direção das dependências em clean architecture — camadas internas não devem referenciar camadas externas.
+Garanta a direção das dependências em clean architecture. Camadas internas não devem referenciar camadas externas.
 
 ## Detalhes da regra
 
 Clean architecture determina que as dependências apontem para dentro: API → Application → Domain. A camada Domain não deve ter dependências externas, a camada Application não deve referenciar Infrastructure diretamente, e nenhuma camada inferior deve referenciar o projeto API. Esta regra verifica diretivas `using` (C#) ou declarações `import` para garantir essas fronteiras.
 
-O mesmo padrão se aplica a qualquer arquitetura em camadas em qualquer linguagem — ajuste os padrões de import e os caminhos das camadas conforme necessário.
+O mesmo padrão se aplica a qualquer arquitetura em camadas em qualquer linguagem. Ajuste os padrões de import e os caminhos das camadas conforme necessário.
 
 ## Exemplos de código **incorreto**
 
@@ -27,7 +27,7 @@ using StavangerChallenge.API;               // ✗ Application → API
 
 ```csharp title="Domain/Entities/User.cs"
 namespace StavangerChallenge.Domain.Entities;
-// No external dependencies — pure domain logic
+// No external dependencies, pure domain logic
 ```
 
 ```csharp title="Application/Services/UserService.cs"

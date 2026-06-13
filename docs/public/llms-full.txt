@@ -1,6 +1,6 @@
 # Archgate CLI
 
-> Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs). It combines human-readable documentation with machine-checkable TypeScript rules to enforce architectural decisions across codebases — for both humans and AI agents.
+> Archgate is a CLI for enterprise-grade linting and guardrails for AI work, built on Architecture Decision Records (ADRs). It combines human-readable documentation with machine-checkable TypeScript rules to enforce architectural decisions across codebases, for both humans and AI agents.
 
 Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdown files with YAML frontmatter that describe architectural decisions. Companion `.rules.ts` files contain automated TypeScript checks that run against the codebase and report violations with file paths and line numbers.
 
@@ -8,8 +8,8 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 - **Executable rules**: Write compliance rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
 - **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
-- **AI-aware governance**: Editor plugins give AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
-- **Editor plugins**: Claude Code, VS Code, Cursor, and Copilot CLI plugins give AI agents role-based governance skills.
+- **AI-aware guardrails**: Editor plugins give AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
+- **Editor plugins**: Claude Code, VS Code, Cursor, and Copilot CLI plugins give AI agents role-based enforcement skills.
 - **Self-governance**: Archgate governs its own development using the same tool.
 
 ## Installation
@@ -18,23 +18,23 @@ Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercont
 
 ## Documentation
 
-- [Getting Started — Installation](https://cli.archgate.dev/getting-started/installation/): Install on macOS, Linux, or Windows via npm, Homebrew, or standalone binary.
-- [Getting Started — Quick Start](https://cli.archgate.dev/getting-started/quick-start/): Set up Archgate in under 5 minutes with your first ADR and rule.
-- [Core Concepts — ADRs](https://cli.archgate.dev/concepts/adrs/): How Architecture Decision Records work as both documentation and executable rules.
-- [Core Concepts — Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
-- [Core Concepts — Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain for targeted governance.
-- [Guide — Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
-- [Guide — Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the satisfies RuleSet pattern with file matching and violation reporting.
-- [Guide — CI Integration](https://cli.archgate.dev/guides/ci-integration/): Add Archgate checks to GitHub Actions, GitLab CI, or any pipeline.
-- [Guide — Claude Code Plugin](https://cli.archgate.dev/guides/claude-code-plugin/): Give AI agents a governance workflow that reads ADRs, validates code, and captures patterns.
-- [Guide — VS Code Plugin](https://cli.archgate.dev/guides/vscode-plugin/): Real-time ADR compliance in VS Code.
-- [Guide — Copilot CLI Plugin](https://cli.archgate.dev/guides/copilot-cli-plugin/): Add architecture governance to GitHub Copilot CLI.
-- [Guide — Cursor Integration](https://cli.archgate.dev/guides/cursor-integration/): Configure Cursor IDE with Archgate agent rules and skills.
-- [Guide — Pre-commit Hooks](https://cli.archgate.dev/guides/pre-commit-hooks/): Automatically check ADR compliance before every commit.
-- [Reference — CLI Commands](https://cli.archgate.dev/reference/cli-commands/): Complete reference for init, check, adr create/list/show, login, and more.
-- [Reference — Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for RuleSet with satisfies, RuleContext, and violation reporting.
-- [Reference — ADR Schema](https://cli.archgate.dev/reference/adr-schema/): YAML frontmatter schema and markdown structure reference for ADRs.
-- [Examples — Common Rule Patterns](https://cli.archgate.dev/examples/common-rule-patterns/): Ready-to-use rule patterns for naming conventions, import restrictions, and more.
+- [Getting Started: Installation](https://cli.archgate.dev/getting-started/installation/): Install on macOS, Linux, or Windows via npm, Homebrew, or standalone binary.
+- [Getting Started: Quick Start](https://cli.archgate.dev/getting-started/quick-start/): Set up Archgate in under 5 minutes with your first ADR and rule.
+- [Core Concepts: ADRs](https://cli.archgate.dev/concepts/adrs/): How Architecture Decision Records work as both documentation and executable rules.
+- [Core Concepts: Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
+- [Core Concepts: Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain to scope and enforce rules.
+- [Guide: Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
+- [Guide: Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the satisfies RuleSet pattern with file matching and violation reporting.
+- [Guide: CI Integration](https://cli.archgate.dev/guides/ci-integration/): Add Archgate checks to GitHub Actions, GitLab CI, or any pipeline.
+- [Guide: Claude Code Plugin](https://cli.archgate.dev/guides/claude-code-plugin/): Give AI agents a guardrails workflow that reads ADRs, validates code, and captures patterns.
+- [Guide: VS Code Plugin](https://cli.archgate.dev/guides/vscode-plugin/): Real-time ADR compliance in VS Code.
+- [Guide: Copilot CLI Plugin](https://cli.archgate.dev/guides/copilot-cli-plugin/): Add architecture guardrails to GitHub Copilot CLI.
+- [Guide: Cursor Integration](https://cli.archgate.dev/guides/cursor-integration/): Configure Cursor IDE with Archgate agent rules and skills.
+- [Guide: Pre-commit Hooks](https://cli.archgate.dev/guides/pre-commit-hooks/): Automatically check ADR compliance before every commit.
+- [Reference: CLI Commands](https://cli.archgate.dev/reference/cli-commands/): Complete reference for init, check, adr create/list/show, login, and more.
+- [Reference: Rule API](https://cli.archgate.dev/reference/rule-api/): TypeScript API reference for RuleSet with satisfies, RuleContext, and violation reporting.
+- [Reference: ADR Schema](https://cli.archgate.dev/reference/adr-schema/): YAML frontmatter schema and markdown structure reference for ADRs.
+- [Examples: Common Rule Patterns](https://cli.archgate.dev/examples/common-rule-patterns/): Ready-to-use rule patterns for naming conventions, import restrictions, and more.
 
 ## Full documentation
 
@@ -60,9 +60,9 @@ Source: https://cli.archgate.dev/
 
 Archgate has two layers that work together:
 
-1. **ADRs as documents** — Markdown files with YAML frontmatter that describe architectural decisions in plain language. Humans read them. AI agents read them. Everyone stays aligned.
+1. **ADRs as documents**: Markdown files with YAML frontmatter that describe architectural decisions in plain language. Humans read them. AI agents read them. Everyone stays aligned.
 
-2. **ADRs as rules** — Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
+2. **ADRs as rules**: Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
 
 When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file, and reports any violations. Exit code 0 means your code complies. Exit code 1 means it does not.
 
@@ -86,7 +86,7 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
   
     Archgate governs its own development. The same tool that checks your code
     checks ours. Our own ADRs enforce command structure, error handling, output
-    formatting, testing, and more — [see them on
+    formatting, testing, and more. [See them on
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   
 
@@ -116,7 +116,7 @@ Source: https://cli.archgate.dev/getting-started/installation/
 
 ## Install standalone (recommended)
 
-The fastest way to install Archgate — no Node.js or package manager required:
+The fastest way to install Archgate. No Node.js or package manager required:
 
 ```bash
 # macOS / Linux
@@ -160,7 +160,7 @@ yarn global add archgate
 pnpm add -g archgate
 ```
 
-This installs a lightweight wrapper that delegates to a platform-specific binary. The CLI itself is a standalone binary compiled with Bun — Node.js is only needed for the npm/yarn/pnpm wrapper.
+This installs a lightweight wrapper that delegates to a platform-specific binary. The CLI itself is a standalone binary compiled with Bun. Node.js is only needed for the npm/yarn/pnpm wrapper.
 
 ## Install as a dev dependency
 
@@ -286,7 +286,7 @@ You should see the installed version printed to stdout.
 
 ## Install via proto
 
-If you use [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), you can install Archgate directly as a proto plugin — no Node.js or npm required.
+If you use [proto](https://moonrepo.dev/proto) (moonrepo's toolchain manager), you can install Archgate directly as a proto plugin. No Node.js or npm required.
 
 Add the plugin to your `.prototools`:
 
@@ -383,11 +383,11 @@ files: ["src/**/*.ts"]
 ---
 ```
 
-- **id** — Unique identifier. Convention is `ARCH-NNN` but any string works.
-- **title** — Human-readable name for the decision.
-- **domain** — Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
-- **rules** — Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
-- **files** — Optional glob patterns that scope which files the rules apply to.
+- **id**: Unique identifier. Convention is `ARCH-NNN` but any string works.
+- **title**: Human-readable name for the decision.
+- **domain**: Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
+- **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
+- **files**: Optional glob patterns that scope which files the rules apply to.
 
 Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
 
@@ -422,9 +422,9 @@ export default {
 
 Each rule has a unique key, a description, and an async `check` function. Inside `check`, you have access to:
 
-- **`ctx.scopedFiles`** — Files matching the ADR's `files` glob patterns.
-- **`ctx.grep(file, pattern)`** — Search a file for regex matches, returning file paths and line numbers.
-- **`ctx.report.violation()`** — Report a violation with a message, file path, line number, and optional fix suggestion.
+- **`ctx.scopedFiles`**: Files matching the ADR's `files` glob patterns.
+- **`ctx.grep(file, pattern)`**: Search a file for regex matches, returning file paths and line numbers.
+- **`ctx.report.violation()`**: Report a violation with a message, file path, line number, and optional fix suggestion.
 
 ## 5. Run checks
 
@@ -454,22 +454,22 @@ Now that you have a working setup, dive deeper:
 
 **Understand the concepts:**
 
-- [ADRs](/concepts/adrs/) — What Architecture Decision Records are and how Archgate uses them.
-- [Rules](/concepts/rules/) — How companion `.rules.ts` files turn decisions into automated checks.
-- [Domains](/concepts/domains/) — How domains group related ADRs and scope file matching.
+- [ADRs](/concepts/adrs/): What Architecture Decision Records are and how Archgate uses them.
+- [Rules](/concepts/rules/): How companion `.rules.ts` files turn decisions into automated checks.
+- [Domains](/concepts/domains/): How domains group related ADRs and scope file matching.
 
 **Write your own:**
 
-- [Writing ADRs](/guides/writing-adrs/) — Learn the full ADR format and best practices for writing effective decisions.
-- [Writing Rules](/guides/writing-rules/) — Explore the rule API, advanced patterns, and how to test your rules.
-- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns for dependency checks, naming conventions, and more.
+- [Writing ADRs](/guides/writing-adrs/): Learn the full ADR format and best practices for writing effective decisions.
+- [Writing Rules](/guides/writing-rules/): Explore the rule API, advanced patterns, and how to test your rules.
+- [Common Rule Patterns](/examples/common-rule-patterns/): Copy-pasteable patterns for dependency checks, naming conventions, and more.
 
 **Integrate into your workflow:**
 
-- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
-- [Pre-commit Hooks](/guides/pre-commit-hooks/) — Run checks locally before every commit.
-- [Claude Code Plugin](/guides/claude-code-plugin/) — Give AI agents architecture-aware guardrails with role-based skills.
-- [Cursor Integration](/guides/cursor-integration/) — Use Archgate with Cursor IDE for AI-assisted development.
+- [CI Integration](/guides/ci-integration/): Wire `archgate check` into GitHub Actions, GitLab CI, or any pipeline.
+- [Pre-commit Hooks](/guides/pre-commit-hooks/): Run checks locally before every commit.
+- [Claude Code Plugin](/guides/claude-code-plugin/): Give AI agents architecture-aware guardrails with role-based skills.
+- [Cursor Integration](/guides/cursor-integration/): Use Archgate with Cursor IDE for AI-assisted development.
 
 Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign up and authenticate, then run `archgate init --install-plugin` to set up the plugin.
 
@@ -756,7 +756,7 @@ When in doubt between `architecture` and a specific domain, prefer the more spec
 
 ## Custom Domains
 
-When the built-in five are a genuine mismatch for a category of decisions — for example, `security`, `ml-ops`, or `compliance` — you can register a custom domain via the CLI:
+When the built-in five are a genuine mismatch for a category of decisions (for example, `security`, `ml-ops`, or `compliance`), you can register a custom domain via the CLI:
 
 ```bash
 # See what's currently recognised in this project
@@ -773,8 +773,8 @@ Custom domain-to-prefix mappings persist in [`.archgate/config.json`](/reference
 
 ### Naming rules
 
-- **Name** — lowercase kebab-case, 2–32 characters (e.g., `security`, `ml-ops`, `compliance`).
-- **Prefix** — uppercase letters, digits, or underscores, 2–10 characters (e.g., `SEC`, `MLOPS`, `COMP`).
+- **Name**: lowercase kebab-case, 2–32 characters (e.g., `security`, `ml-ops`, `compliance`).
+- **Prefix**: uppercase letters, digits, or underscores, 2–10 characters (e.g., `SEC`, `MLOPS`, `COMP`).
 - Custom names and prefixes cannot collide with built-ins or any other custom entry.
 
 ### When to prefer a built-in
@@ -785,7 +785,7 @@ The built-in five are deliberately opinionated. Before registering a custom doma
 - A decision about schema versioning usually fits under `data`, even if the motivation is compliance.
 - A decision that spans multiple technical areas usually fits under `architecture`.
 
-Reach for a custom domain only when none of the built-ins is a genuine fit — for example, when you have a dedicated team or compliance regime that needs its own governance surface.
+Reach for a custom domain only when none of the built-ins is a genuine fit: for example, when you have a dedicated team or compliance regime that needs its own governance surface.
 
 ### AI agent guidance
 
@@ -946,7 +946,7 @@ When this rule runs against a file containing `import { readFileSync } from "nod
 
 ```
 ARCH-007/no-direct-fs-import  ERROR
-  src/services/config.ts:3 — Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
+  src/services/config.ts:3  Direct import from "node:fs" is not allowed. Use the fs wrapper from "src/helpers/fs" instead.
   Fix: Replace the import with: import { readFile, writeFile } from "../helpers/fs"
 ```
 
@@ -988,7 +988,7 @@ jobs:
       - uses: archgate/check-action@v1
 ```
 
-That's it — no Node.js setup, no install step. If any rule reports a violation with `error` severity, the job fails with exit code 1.
+That's it. No Node.js setup, no install step. If any rule reports a violation with `error` severity, the job fails with exit code 1.
 
 ### Pin a version
 
@@ -1048,7 +1048,7 @@ Use `--ci` to output violations as GitHub Actions workflow annotations. These ap
 The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
 
 :::note
-The `archgate/check-action` passes `--ci` automatically — you only need this flag when running `archgate check` manually.
+The `archgate/check-action` passes `--ci` automatically. You only need this flag when running `archgate check` manually.
 
 ## Machine-readable output
 
@@ -1199,7 +1199,7 @@ jobs:
       - run: ~/.archgate/bin/archgate check --ci
 ```
 
-This works in any environment with `curl` and `tar` — no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
+This works in any environment with `curl` and `tar`, no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
 
 ```yaml
 - run: curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | ARCHGATE_VERSION=v0.11.2 sh
@@ -1788,7 +1788,7 @@ This reads `.archgate/imports.json` and displays each source, version, and the A
 
 ## How ID remapping works
 
-When you import ADRs, the original IDs are **remapped** to match your project's domain prefixes. Each ADR's `domain` field determines which prefix it gets — for example, an ADR with `domain: frontend` becomes `FE-XXX`, while one with `domain: backend` becomes `BE-XXX`. Each domain has its own counter, so importing a pack with mixed domains produces correctly prefixed IDs without collisions.
+When you import ADRs, the original IDs are **remapped** to match your project's domain prefixes. Each ADR's `domain` field determines which prefix it gets. For example, an ADR with `domain: frontend` becomes `FE-XXX`, while one with `domain: backend` becomes `BE-XXX`. Each domain has its own counter, so importing a pack with mixed domains produces correctly prefixed IDs without collisions.
 
 For example, importing a pack with three frontend ADRs and two backend ADRs into a project that already has `FE-001` and `BE-001` produces:
 
@@ -1818,7 +1818,7 @@ Every import is recorded in `.archgate/imports.json`:
 }
 ```
 
-This manifest lets you track provenance — where each imported ADR came from and when. Commit it to version control alongside your ADRs.
+This manifest lets you track provenance: where each imported ADR came from and when. Commit it to version control alongside your ADRs.
 
 ## Command options reference
 
@@ -1847,7 +1847,7 @@ archgate init --editor opencode
 
 The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
 
-Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead — so they live on your machine, not in your repository, and are available across every project you open with opencode.
+Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead, so they live on your machine, not in your repository, and are available across every project you open with opencode.
 
 opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/agents/` when that variable is set, and falls back to `$HOME/.config/opencode/agents/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\agents\`, not under `%APPDATA%`:
 
@@ -1858,7 +1858,7 @@ opencode uses the XDG Base Directory convention on every platform (via the `xdg-
 
 ### Authenticated install
 
-The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory — otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
+The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory. Otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
 
 If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full guardrails workflow.
 
@@ -1887,7 +1887,7 @@ The install step downloads an authenticated tarball from the Archgate plugins se
 | `<opencode-agents>/archgate-adr-author.md`      | Subagent that creates and edits ADRs following project conventions       |
 | `<opencode-agents>/archgate-cli-reference.md`   | Internal reference subagent with the Archgate CLI command guide (hidden) |
 
-`.archgate/adrs/` and `.archgate/lint/` are still created in your project as usual — only the opencode-specific agent files live outside the project tree.
+`.archgate/adrs/` and `.archgate/lint/` are still created in your project as usual. Only the opencode-specific agent files live outside the project tree.
 
 ## What the bundle provides
 
@@ -3005,20 +3005,20 @@ There are two ways to handle exceptions in Archgate: **engine-level suppression*
 
 Archgate supports inline `archgate-ignore` comments that suppress violations without modifying the rule itself. The engine parses these comments and filters matching violations before reporting.
 
-**Next-line suppression** — suppresses the violation on the immediately following line:
+**Next-line suppression** suppresses the violation on the immediately following line:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned for Q3
 
 ```
 
-**File-level suppression** — suppresses all matching violations anywhere in the file:
+**File-level suppression** suppresses all matching violations anywhere in the file:
 
 ```typescript
 // archgate-ignore-file ARCH-005/test-mirrors-src generated file, no manual test
 ```
 
-**Multiple rules** — stack comments to suppress more than one rule on the same line:
+**Multiple rules**: stack comments to suppress more than one rule on the same line:
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep
@@ -3028,7 +3028,7 @@ Archgate supports inline `archgate-ignore` comments that suppress violations wit
 
 Consecutive suppression comments all target the first non-suppression line that follows.
 
-The format is `ADR-ID/rule-id` followed by a reason. The reason is **required** — a suppression without a reason is ignored and produces a warning:
+The format is `ADR-ID/rule-id` followed by a reason. The reason is **required**. A suppression without a reason is ignored and produces a warning:
 
 ```
 [suppression] Suppression for ARCH-006/no-unapproved-deps is missing a reason src/foo.ts:1
@@ -3078,13 +3078,13 @@ The developer opts out by adding the directive to their file:
 | `archgate-ignore` | Ad-hoc exceptions for any rule                   | Developer using the rule |
 | Custom directive  | Domain-specific opt-outs with structured reasons | Rule author              |
 
-Use `archgate-ignore` when a developer needs to suppress a one-off violation. Use custom directives when the opt-out is a first-class concept in your rule's domain — for example, marking a component as intentionally unpaired, or a file as auto-generated.
+Use `archgate-ignore` when a developer needs to suppress a one-off violation. Use custom directives when the opt-out is a first-class concept in your rule's domain, for example, marking a component as intentionally unpaired, or a file as auto-generated.
 
 ## Next steps
 
-- [Common Rule Patterns](/examples/common-rule-patterns/) — Copy-pasteable patterns organized by category: dependency management, import restrictions, file structure, code quality, database schema, and architecture boundaries.
-- [Rule API Reference](/reference/rule-api/) — Full reference for all rule API types and functions.
-- [CI Integration](/guides/ci-integration/) — Wire `archgate check` into your pipeline to enforce rules on every PR.
+- [Common Rule Patterns](/examples/common-rule-patterns/): Copy-pasteable patterns organized by category: dependency management, import restrictions, file structure, code quality, database schema, and architecture boundaries.
+- [Rule API Reference](/reference/rule-api/): Full reference for all rule API types and functions.
+- [CI Integration](/guides/ci-integration/): Wire `archgate check` into your pipeline to enforce rules on every PR.
 
 ---
 
@@ -3384,7 +3384,7 @@ Invalid ADR frontmatter in ARCH-001-example.md:
   - domain: domain must be lowercase kebab-case (e.g. 'backend', 'ml-ops')
 ```
 
-Note: the parser accepts any name that matches the kebab-case pattern. Whether a specific name is "known" to the project — and therefore has a prefix that `archgate adr create` can use — depends on the built-in set plus any custom domains registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Creating an ADR with an unregistered domain name fails with a "Unknown ADR domain" error that suggests running `archgate adr domain add`.
+Note: the parser accepts any name that matches the kebab-case pattern. Whether a specific name is "known" to the project (and therefore has a prefix that `archgate adr create` can use) depends on the built-in set plus any custom domains registered via [`archgate adr domain add`](/reference/cli/adr/#archgate-adr-domain). Creating an ADR with an unregistered domain name fails with a "Unknown ADR domain" error that suggests running `archgate adr domain add`.
 
 ### Type mismatches
 
@@ -3552,7 +3552,7 @@ archgate adr update \
 
 Manage custom ADR domains. Custom domains are name → ID-prefix mappings persisted in `.archgate/config.json` and merged with the five built-ins (`backend`, `frontend`, `data`, `architecture`, `general`) at read time.
 
-Use this command when a decision doesn't cleanly fit any built-in domain. Before registering a new one, check whether the decision can be folded under an existing domain — built-ins are the default and a custom domain should only be introduced when no built-in is a genuine fit.
+Use this command when a decision doesn't cleanly fit any built-in domain. Before registering a new one, check whether the decision can be folded under an existing domain. Built-ins are the default and a custom domain should only be introduced when no built-in is a genuine fit.
 
 ```bash
 archgate adr domain <subcommand> [options]
@@ -3568,8 +3568,8 @@ archgate adr domain <subcommand> [options]
 
 ### Naming rules
 
-- `<name>` — lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
-- `<prefix>` — uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
+- `<name>`: lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
+- `<prefix>`: uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
 - Custom names and prefixes cannot collide with built-ins or with any other custom entry.
 
 ### Options
@@ -3682,9 +3682,9 @@ The command compares local imported ADRs against their upstream source and shows
 
 ### Arguments
 
-| Argument      | Description                                            |
-| ------------- | ------------------------------------------------------ |
-| `[source...]` | Optional source filter(s) — sync only matching imports |
+| Argument      | Description                                             |
+| ------------- | ------------------------------------------------------- |
+| `[source...]` | Optional source filter(s) to sync only matching imports |
 
 ### Options
 
@@ -3708,7 +3708,7 @@ Check only imports from a specific source:
 archgate adr sync archgate/packs/typescript
 ```
 
-CI mode — fail the build if any imported ADR is outdated:
+CI mode, failing the build if any imported ADR is outdated:
 
 ```bash
 archgate adr sync --check
@@ -4059,7 +4059,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Cursor:** Downloads an authenticated tarball of skills, agents, and hooks into `~/.cursor/`. Also writes `.cursor/hooks.json` to the project for cloud agent compatibility. No CLI detection needed.
 
-**opencode:** Requires the `opencode` CLI to be on your PATH — if it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows — opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
+**opencode:** Requires the `opencode` CLI to be on your PATH. If it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows; opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Output
 
@@ -4274,9 +4274,9 @@ Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
 - **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
-- **Cursor:** Downloads an authenticated tarball and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection needed — files are written directly to the Cursor user directory.
+- **Cursor:** Downloads an authenticated tarball and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection needed. Files are written directly to the Cursor user directory.
 - **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
-- **opencode:** Requires the `opencode` CLI to be on PATH — skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" — opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
+- **opencode:** Requires the `opencode` CLI to be on PATH, and skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" because opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Examples
 
@@ -4724,7 +4724,7 @@ Archgate collects **anonymous usage analytics** (via PostHog) and **crash report
 | Sentry Cloud  | Crash reports                | EU (Frankfurt) | 90 days                  |
 | Turso         | Plugins Service account data | EU             | Until deletion requested |
 
-Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.archgate.dev` (errors) — transparent forwarders operated by Dasolve AS on Cloudflare, with no logging or storage.
+Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.archgate.dev` (errors). These are transparent forwarders operated by Dasolve AS on Cloudflare, with no logging or storage.
 
 ### Archgate Plugins Service
 
@@ -4746,8 +4746,8 @@ Note: telemetry opt-out disables CLI analytics and crash reporting. It does not 
 
 ### Your rights
 
-- **Access:** Request a copy of your data — email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (from `~/.archgate/config.json` or `archgate telemetry status`).
-- **Erasure:** Request deletion of historical data — email with your install ID. Completed within 30 days.
+- **Access:** Request a copy of your data. Email [privacy@archgate.dev](mailto:privacy@archgate.dev) with your install ID (from `~/.archgate/config.json` or `archgate telemetry status`).
+- **Erasure:** Request deletion of historical data. Email with your install ID. Completed within 30 days.
 - **Object:** Disable telemetry at any time via `archgate telemetry disable`.
 - **Portability:** Request data export in JSON or CSV format.
 - **Complaint:** Contact the Norwegian Data Protection Authority ([Datatilsynet](https://www.datatilsynet.no)).
@@ -4981,14 +4981,14 @@ interface ReportDetail {
 }
 ```
 
-| Field       | Type     | Required | Description                                                         |
-| ----------- | -------- | -------- | ------------------------------------------------------------------- |
-| `message`   | `string` | Yes      | Human-readable description of the issue                             |
-| `file`      | `string` | No       | File path where the issue was found                                 |
-| `line`      | `number` | No       | Start line number (1-based)                                         |
-| `endLine`   | `number` | No       | End line number (1-based) — for precise editor range highlighting   |
-| `endColumn` | `number` | No       | End column number (0-based) — for precise editor range highlighting |
-| `fix`       | `string` | No       | Suggested fix or remediation action                                 |
+| Field       | Type     | Required | Description                                                        |
+| ----------- | -------- | -------- | ------------------------------------------------------------------ |
+| `message`   | `string` | Yes      | Human-readable description of the issue                            |
+| `file`      | `string` | No       | File path where the issue was found                                |
+| `line`      | `number` | No       | Start line number (1-based)                                        |
+| `endLine`   | `number` | No       | End line number (1-based), for precise editor range highlighting   |
+| `endColumn` | `number` | No       | End column number (0-based), for precise editor range highlighting |
+| `fix`       | `string` | No       | Suggested fix or remediation action                                |
 
 When `endLine` and `endColumn` are provided, editors (VS Code, Cursor) can highlight the exact expression that violates the rule, rather than the entire line. If omitted, the full line at `line` is highlighted.
 
@@ -5048,23 +5048,23 @@ interface ViolationDetail {
 }
 ```
 
-| Field       | Type       | Description                                            |
-| ----------- | ---------- | ------------------------------------------------------ |
-| `ruleId`    | `string`   | Rule ID from the `rules` object key                    |
-| `adrId`     | `string`   | ADR ID from the frontmatter                            |
-| `message`   | `string`   | Human-readable description                             |
-| `file`      | `string?`  | File path where the issue was found                    |
-| `line`      | `number?`  | Start line number (1-based)                            |
-| `endLine`   | `number?`  | End line (1-based) — for precise editor highlighting   |
-| `endColumn` | `number?`  | End column (0-based) — for precise editor highlighting |
-| `fix`       | `string?`  | Suggested fix                                          |
-| `severity`  | `Severity` | Effective severity of this violation                   |
+| Field       | Type       | Description                                           |
+| ----------- | ---------- | ----------------------------------------------------- |
+| `ruleId`    | `string`   | Rule ID from the `rules` object key                   |
+| `adrId`     | `string`   | ADR ID from the frontmatter                           |
+| `message`   | `string`   | Human-readable description                            |
+| `file`      | `string?`  | File path where the issue was found                   |
+| `line`      | `number?`  | Start line number (1-based)                           |
+| `endLine`   | `number?`  | End line (1-based), for precise editor highlighting   |
+| `endColumn` | `number?`  | End column (0-based), for precise editor highlighting |
+| `fix`       | `string?`  | Suggested fix                                         |
+| `severity`  | `Severity` | Effective severity of this violation                  |
 
 ---
 
 ## Inline suppression
 
-Violations can be suppressed in source code using `archgate-ignore` comments. The engine handles this automatically — rules do not need any special logic.
+Violations can be suppressed in source code using `archgate-ignore` comments. The engine handles this automatically. Rules do not need any special logic.
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
@@ -5087,19 +5087,19 @@ Archgate collects **anonymous usage data** to help us understand how the CLI is 
 
 When you run an Archgate command, we record:
 
-- **Command name** and **which flags were used** (e.g., `check --json` — only flag presence, never flag values)
+- **Command name** and **which flags were used** (e.g., `check --json`; only flag presence, never flag values)
 - **Exit code** (0, 1, 2, or 130) and **execution duration** (milliseconds), plus a short **outcome** tag (`success`, `user_error`, `internal_error`, `cancelled`)
 - **Environment**: OS, architecture, Bun version, Archgate version, CI detection (including provider: GitHub Actions / GitLab CI / CircleCI / etc.), TTY detection, WSL detection, shell (bash, zsh, pwsh...), and locale
 - **Install context**: how the CLI was installed (binary, proto, local dev dependency, or global package manager)
 - **Project context**: whether an Archgate project exists in the current directory, how many ADRs it has, how many have automated rules, and how many distinct ADR domains are used
-- **Repo context** (non-identifying): whether the current directory is a git repository, the host bucket (`github` / `gitlab` / `bitbucket` / `azure-devops` / `other`), a **hashed `repo_id`** (SHA-256 of the normalized remote URL, truncated to 16 hex characters — not reversible), and the default branch name
-- **Coarse location**: country and region (resolved server-side from your IP, then the IP is discarded — see [IP anonymization](#ip-anonymization))
-- **Anonymous install ID**: a random UUID generated on first run — not derived from any personal data
+- **Repo context** (non-identifying): whether the current directory is a git repository, the host bucket (`github` / `gitlab` / `bitbucket` / `azure-devops` / `other`), a **hashed `repo_id`** (SHA-256 of the normalized remote URL, truncated to 16 hex characters, not reversible), and the default branch name
+- **Coarse location**: country and region (resolved server-side from your IP, then the IP is discarded; see [IP anonymization](#ip-anonymization))
+- **Anonymous install ID**: a random UUID generated on first run, not derived from any personal data
 
 In addition to the general command lifecycle events (`command_executed` / `command_completed`), specific commands send enriched outcome events:
 
-- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration — no file paths or violation content
-- **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket, this event also carries the remote URL, owner, and repo name — see [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration. No file paths or violation content
+- **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket, this event also carries the remote URL, owner, and repo name. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **`upgrade`**: version transition (from → to), install method, success/failure, and an optional failure reason
 - **`login`**: subcommand used (login, logout, refresh, status), success/failure, and a failure bucket (`network`, `tls`, `denied`, `other`) when it fails
 - **`telemetry_preference_changed`**: fires once when you enable or disable telemetry, so we can understand opt-out rates
@@ -5108,7 +5108,7 @@ In addition to the general command lifecycle events (`command_executed` / `comma
 
 Archgate sends a **hashed** `repo_id` with every event so we can count distinct repositories using the CLI without learning their names. The raw remote URL, owner, and repository name are **not** included in the common event stream.
 
-On `archgate init`, a one-time `project_initialized` event is emitted. If — and only if — the repository is confirmed **public** on GitHub, GitLab, Bitbucket, or Azure DevOps (via an unauthenticated API probe against the host), that event additionally includes `remote_url`, `repo_owner`, and `repo_name`. This lets us see which public repositories are adopting Archgate without ever exposing private ones.
+On `archgate init`, a one-time `project_initialized` event is emitted. If, and only if, the repository is confirmed **public** on GitHub, GitLab, Bitbucket, or Azure DevOps (via an unauthenticated API probe against the host), that event additionally includes `remote_url`, `repo_owner`, and `repo_name`. This lets us see which public repositories are adopting Archgate without ever exposing private ones.
 
 **What's never shared:**
 
@@ -5116,7 +5116,7 @@ On `archgate init`, a one-time `project_initialized` event is emitted. If — an
 - Self-hosted Git hosts (the probe skips these entirely)
 - Repositories where the probe times out, is rate-limited, or otherwise fails to return a definitive public answer
 
-**Don't want the event at all?** Disable telemetry entirely — the whole `project_initialized` event is then suppressed along with everything else:
+**Don't want the event at all?** Disable telemetry entirely. The whole `project_initialized` event is then suppressed along with everything else:
 
 ```bash
 # Per-shell / per-invocation
@@ -5138,7 +5138,7 @@ When the CLI crashes (exit code 2), we send:
 
 ## What we do NOT collect
 
-- **No personal information**: no usernames, emails, or IP addresses. GitHub / GitLab / Bitbucket owner/repository names are only sent on the one-time `project_initialized` event for repositories that are confirmed public by their host — see [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **No personal information**: no usernames, emails, or IP addresses. GitHub / GitLab / Bitbucket owner/repository names are only sent on the one-time `project_initialized` event for repositories that are confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **No file content**: no ADR content, source code, or file paths
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No flag values**: we record that `--json` was used, not what the JSON output contained
@@ -5150,7 +5150,7 @@ Archgate uses PostHog's built-in IP anonymization:
 
 1. Your CLI sends an event to PostHog with `$ip: null`
 2. PostHog resolves your IP to a **country and region** (e.g., "US", "California") server-side
-3. The IP address is then **discarded** — it is never stored in PostHog
+3. The IP address is then **discarded**. It is never stored in PostHog
 
 For Sentry error tracking, the project has **"Prevent Storing of IP Addresses"** enabled, so IPs are stripped before storage.
 
@@ -5190,7 +5190,7 @@ The environment variable takes precedence over the CLI setting. If `ARCHGATE_TEL
 
 ## Legal basis
 
-Archgate CLI telemetry operates on an **opt-out basis** under GDPR Article 6(1)(f) and LGPD Article 7, IX c/c Article 10 — legitimate interests of the controller. We have published a formal [Legitimate Interest Assessment](https://archgate.dev/legitimate-interest-assessment) documenting why this is proportionate and lawful.
+Archgate CLI telemetry operates on an **opt-out basis** under GDPR Article 6(1)(f) and LGPD Article 7, IX c/c Article 10: legitimate interests of the controller. We have published a formal [Legitimate Interest Assessment](https://archgate.dev/legitimate-interest-assessment) documenting why this is proportionate and lawful.
 
 In summary: the data is anonymous (random UUID, no PII), the impact on users is minimal, robust safeguards are in place (IP anonymization, EU storage, limited retention, transparency), and users retain full control via an easy, permanent opt-out.
 
@@ -5202,7 +5202,7 @@ In summary: the data is anonymous (random UUID, no PII), the impact on users is 
 | Sentry Cloud  | Crash reports                     | EU (Frankfurt) | 90 days             |
 | Local config  | Telemetry preference + install ID | Your machine   | Until you delete it |
 
-Analytics events are routed through `n.archgate.dev` and error reports through `s.archgate.dev`. These are transparent reverse proxies operated by Dasolve AS on Cloudflare infrastructure — they forward requests without logging, storing, or inspecting payloads.
+Analytics events are routed through `n.archgate.dev` and error reports through `s.archgate.dev`. These are transparent reverse proxies operated by Dasolve AS on Cloudflare infrastructure. They forward requests without logging, storing, or inspecting payloads.
 
 ## Your rights
 
@@ -5219,9 +5219,9 @@ Analytics events are routed through `n.archgate.dev` and error reports through `
 
 The telemetry implementation is fully open source. You can inspect exactly what data is collected by reading:
 
-- [`src/helpers/telemetry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry.ts) — PostHog event tracking
-- [`src/helpers/sentry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/sentry.ts) — Sentry error capture
-- [`src/helpers/telemetry-config.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry-config.ts) — Config and opt-out logic
+- [`src/helpers/telemetry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry.ts): PostHog event tracking
+- [`src/helpers/sentry.ts`](https://github.com/archgate/cli/blob/main/src/helpers/sentry.ts): Sentry error capture
+- [`src/helpers/telemetry-config.ts`](https://github.com/archgate/cli/blob/main/src/helpers/telemetry-config.ts): Config and opt-out logic
 
 ---
 
@@ -5229,13 +5229,13 @@ The telemetry implementation is fully open source. You can inspect exactly what 
 
 Source: https://cli.archgate.dev/examples/clean-architecture-layers/
 
-Enforce dependency direction in clean architecture — inner layers must not reference outer layers.
+Enforce dependency direction in clean architecture: inner layers must not reference outer layers.
 
 ## Rule details
 
 Clean architecture mandates that dependencies point inward: API → Application → Domain. The Domain layer must have zero external dependencies, the Application layer must not reference Infrastructure directly, and no lower layer should reference the API project. This rule checks `using` directives (C#) or `import` statements to enforce these boundaries.
 
-The same pattern applies to any layered architecture in any language — adjust the import patterns and layer paths accordingly.
+The same pattern applies to any layered architecture in any language. Adjust the import patterns and layer paths accordingly.
 
 ## Examples of **incorrect** code
 
@@ -5253,7 +5253,7 @@ using StavangerChallenge.API;               // ✗ Application → API
 
 ```csharp title="Domain/Entities/User.cs"
 namespace StavangerChallenge.Domain.Entities;
-// No external dependencies — pure domain logic
+// No external dependencies, pure domain logic
 ```
 
 ```csharp title="Application/Services/UserService.cs"
@@ -5752,7 +5752,7 @@ function isAllowed(license: string | undefined): boolean {
   if (!license) return false;
   if (ALLOWED_LICENSES.has(license)) return true;
 
-  // Handle SPDX OR expressions — at least one option must be allowed
+  // Handle SPDX OR expressions: at least one option must be allowed
   const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
   if (ALLOWED_LICENSES.has(normalized)) return true;
 
@@ -5784,7 +5784,7 @@ export default {
       description:
         "All dependencies (including transitive) must use permissive licenses",
       async check(ctx) {
-        // Scan ALL packages in node_modules — direct AND transitive.
+        // Scan ALL packages in node_modules, direct AND transitive.
         // Brace expansion covers both regular and scoped packages.
         const pkgFiles = await ctx.glob("node_modules/{*,@*/*}/package.json");
 
@@ -5953,7 +5953,7 @@ export default {
   rules: {
     "no-package-scripts": {
       description:
-        "package.json must not have scripts — use the task runner instead",
+        "package.json must not have scripts. Use the task runner instead",
       async check(ctx) {
         const packageJsonFiles = [
           ...(await ctx.glob("packages/*/package.json")),
@@ -5966,7 +5966,7 @@ export default {
           };
           if (pkg.scripts && Object.keys(pkg.scripts).length > 0) {
             ctx.report.violation({
-              message: `${file}: has "scripts" field — use task runner config instead`,
+              message: `${file}: has "scripts" field. Use task runner config instead`,
               file,
               fix: 'Move scripts to the task runner config and remove "scripts" from package.json',
             });
@@ -6026,7 +6026,7 @@ Ban specific runtime APIs that cause cross-platform or reliability issues.
 
 ## Rule details
 
-Some APIs work correctly on one platform but fail on another. For example, Bun's shell API (`Bun.$`) hangs on Windows due to pipe deadlocks. This rule detects multiple variants of a banned API — the direct call, the import, and destructured usage — ensuring no form slips through.
+Some APIs work correctly on one platform but fail on another. For example, Bun's shell API (`Bun.$`) hangs on Windows due to pipe deadlocks. This rule detects multiple variants of a banned API (the direct call, the import, and destructured usage), ensuring no form slips through.
 
 This pattern generalizes to any API you want to ban while allowing a safe alternative.
 
@@ -6072,7 +6072,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                "Do not use Bun.$ template literals — they hang on Windows. Use Bun.spawn instead.",
+                "Do not use Bun.$ template literals. They hang on Windows. Use Bun.spawn instead.",
               file: m.file,
               line: m.line,
               fix: "Replace Bun.$`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
@@ -6090,7 +6090,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                'Do not import $ from "bun" — the shell API hangs on Windows. Use Bun.spawn instead.',
+                'Do not import $ from "bun". The shell API hangs on Windows. Use Bun.spawn instead.',
               file: m.file,
               line: m.line,
               fix: "Remove the $ import and replace shell calls with Bun.spawn",
@@ -6106,7 +6106,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                "Do not use $` template literals — they hang on Windows. Use Bun.spawn instead.",
+                "Do not use $` template literals. They hang on Windows. Use Bun.spawn instead.",
               file: m.file,
               line: m.line,
               fix: "Replace $`cmd args` with Bun.spawn(['cmd', 'args'], { stdout: 'pipe', stderr: 'pipe' })",
@@ -6137,7 +6137,7 @@ Prevent usage of banned libraries and enforce recommended alternatives.
 
 ## Rule details
 
-Teams often ban heavy or deprecated libraries in favor of lighter or native alternatives. This rule uses a data-driven configuration — an array of objects specifying the regex pattern, the library name, and the recommended alternative. Adding a new ban is a one-line change.
+Teams often ban heavy or deprecated libraries in favor of lighter or native alternatives. This rule uses a data-driven configuration: an array of objects specifying the regex pattern, the library name, and the recommended alternative. Adding a new ban is a one-line change.
 
 ## Examples of **incorrect** code
 
@@ -6218,7 +6218,7 @@ When your project has no preference between libraries, or when the banned librar
 
 Source: https://cli.archgate.dev/examples/no-barrel-files/
 
-Detect and ban barrel files — `index.ts` files that contain only re-exports and no logic.
+Detect and ban barrel files: `index.ts` files that contain only re-exports and no logic.
 
 ## Rule details
 
@@ -6246,7 +6246,7 @@ export function getHelperVersion(): string {
 }
 ```
 
-Or better — delete `index.ts` entirely and import directly:
+Or better, delete `index.ts` entirely and import directly:
 
 ```typescript
 
@@ -6463,7 +6463,7 @@ export default {
         );
         for (const match of matches) {
           ctx.report.warning({
-            message: `${match.content.trim()} — resolve before merging`,
+            message: `${match.content.trim()} (resolve before merging)`,
             file: match.file,
             line: match.line,
           });
@@ -6534,7 +6534,7 @@ export default {
         try {
           pkg = (await ctx.readJSON("package.json")) as typeof pkg;
         } catch {
-          return; // No package.json — nothing to check
+          return; // No package.json, nothing to check
         }
 
         const deps = Object.keys(pkg.dependencies ?? {});
@@ -6675,14 +6675,14 @@ When not all routes require OpenAPI documentation (e.g., internal health checks,
 
 Source: https://cli.archgate.dev/examples/page-component-constraints/
 
-Enforce that page components are thin layout wrappers — small in size and free of data-fetching logic.
+Enforce that page components are thin layout wrappers: small in size and free of data-fetching logic.
 
 ## Rule details
 
 In frontend architectures that separate routing from logic, page components should only compose layout and delegate data-fetching to Connected components. This rule enforces two constraints in a single rules file:
 
-1. **Size limit** — Page components must stay under a configurable line count (default: 75 lines).
-2. **No data hooks** — Page components must not use `useState`, `useQuery`, `useMutation`, or other data-fetching hooks directly.
+1. **Size limit**: Page components must stay under a configurable line count (default: 75 lines).
+2. **No data hooks**: Page components must not use `useState`, `useQuery`, `useMutation`, or other data-fetching hooks directly.
 
 ## Examples of **incorrect** code
 
@@ -6877,7 +6877,7 @@ Ensure every source file declares its license with a machine-readable SPDX ident
 
 ## Rule details
 
-Open-source projects benefit from per-file license declarations — they survive file extraction, bundling, and copy-paste scenarios where the root LICENSE file is not present. This rule verifies that every TypeScript source file starts with the standard SPDX header comment.
+Open-source projects benefit from per-file license declarations. They survive file extraction, bundling, and copy-paste scenarios where the root LICENSE file is not present. This rule verifies that every TypeScript source file starts with the standard SPDX header comment.
 
 ## Examples of **incorrect** code
 
@@ -7248,7 +7248,7 @@ export default {
           for (const m of fileMatches) {
             ctx.report.violation({
               message:
-                "Do not access process.platform directly — use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
+                "Do not access process.platform directly. Use isWindows(), isMacOS(), or isLinux() from src/helpers/platform.ts instead.",
               file: m.file,
               line: m.line,
               fix: 'Import { isWindows } from "../helpers/platform" and use it instead of process.platform',

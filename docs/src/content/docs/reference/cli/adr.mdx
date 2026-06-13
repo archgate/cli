@@ -152,7 +152,7 @@ archgate adr update \
 
 Manage custom ADR domains. Custom domains are name → ID-prefix mappings persisted in `.archgate/config.json` and merged with the five built-ins (`backend`, `frontend`, `data`, `architecture`, `general`) at read time.
 
-Use this command when a decision doesn't cleanly fit any built-in domain. Before registering a new one, check whether the decision can be folded under an existing domain — built-ins are the default and a custom domain should only be introduced when no built-in is a genuine fit.
+Use this command when a decision doesn't cleanly fit any built-in domain. Before registering a new one, check whether the decision can be folded under an existing domain. Built-ins are the default and a custom domain should only be introduced when no built-in is a genuine fit.
 
 ```bash
 archgate adr domain <subcommand> [options]
@@ -168,8 +168,8 @@ archgate adr domain <subcommand> [options]
 
 ### Naming rules
 
-- `<name>` — lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
-- `<prefix>` — uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
+- `<name>`: lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
+- `<prefix>`: uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
 - Custom names and prefixes cannot collide with built-ins or with any other custom entry.
 
 ### Options
@@ -282,9 +282,9 @@ The command compares local imported ADRs against their upstream source and shows
 
 ### Arguments
 
-| Argument      | Description                                            |
-| ------------- | ------------------------------------------------------ |
-| `[source...]` | Optional source filter(s) — sync only matching imports |
+| Argument      | Description                                             |
+| ------------- | ------------------------------------------------------- |
+| `[source...]` | Optional source filter(s) to sync only matching imports |
 
 ### Options
 
@@ -308,7 +308,7 @@ Check only imports from a specific source:
 archgate adr sync archgate/packs/typescript
 ```
 
-CI mode — fail the build if any imported ADR is outdated:
+CI mode, failing the build if any imported ADR is outdated:
 
 ```bash
 archgate adr sync --check
