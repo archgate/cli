@@ -94,21 +94,26 @@ export async function resolveAndCloneSources(
   const resolved: ResolvedImport[] = [];
   const cloneCache = new Map<string, string>();
 
-  for (const source of sources) {
-    const res = resolveSource(source);
-    logDebug("Resolved source:", JSON.stringify(res));
+  try {
+    for (const source of sources) {
+      const res = resolveSource(source);
+      logDebug("Resolved source:", JSON.stringify(res));
 
-    const cacheKey = `${res.repoUrl}#${res.ref ?? ""}`;
-    let cloneDir = cloneCache.get(cacheKey);
+      const cacheKey = `${res.repoUrl}#${res.ref ?? ""}`;
+      let cloneDir = cloneCache.get(cacheKey);
 
-    if (!cloneDir) {
-      cloneDir = await shallowClone(res.repoUrl, res.ref); // eslint-disable-line no-await-in-loop -- sequential by design (dedup)
-      cloneCache.set(cacheKey, cloneDir);
-      tempDirs.push(cloneDir);
+      if (!cloneDir) {
+        cloneDir = await shallowClone(res.repoUrl, res.ref); // eslint-disable-line no-await-in-loop -- sequential by design (dedup)
+        cloneCache.set(cacheKey, cloneDir);
+        tempDirs.push(cloneDir);
+      }
+
+      const target = await detectTarget(cloneDir, res.subpath, res.kind); // eslint-disable-line no-await-in-loop -- depends on prior clone
+      resolved.push({ source, target, cloneDir });
     }
-
-    const target = await detectTarget(cloneDir, res.subpath, res.kind); // eslint-disable-line no-await-in-loop -- depends on prior clone
-    resolved.push({ source, target, cloneDir });
+  } catch (err) {
+    cleanupTempDirs(tempDirs);
+    throw err;
   }
 
   return { resolved, tempDirs };
