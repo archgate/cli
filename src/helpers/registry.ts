@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { existsSync, mkdtempSync, readdirSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -144,6 +150,7 @@ export async function shallowClone(
   const result = await run(args);
 
   if (result.exitCode !== 0) {
+    rmSync(tempDir, { recursive: true, force: true });
     throw new Error(
       `Failed to clone ${repoUrl}${ref ? ` (ref: ${ref})` : ""}:\n${result.stderr.trim()}`
     );
