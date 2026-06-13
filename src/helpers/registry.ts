@@ -8,7 +8,7 @@ import {
   statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import type { PackMetadata } from "../formats/pack";
 import { parsePackMetadata } from "../formats/pack";
@@ -147,7 +147,13 @@ export async function shallowClone(
   args.push(repoUrl, tempDir);
 
   logDebug("Cloning:", args.join(" "));
-  const result = await run(args);
+  let result: { exitCode: number; stdout: string; stderr: string };
+  try {
+    result = await run(args);
+  } catch (err) {
+    rmSync(tempDir, { recursive: true, force: true });
+    throw err;
+  }
 
   if (result.exitCode !== 0) {
     rmSync(tempDir, { recursive: true, force: true });
@@ -209,7 +215,11 @@ export async function detectTarget(
   subpath: string,
   sourceKind?: ResolvedSource["kind"]
 ): Promise<ImportTarget> {
-  const fullPath = join(cloneDir, subpath);
+  const fullPath = resolve(cloneDir, subpath);
+  const rel = relative(cloneDir, fullPath);
+  if (rel.startsWith("..") || isAbsolute(rel)) {
+    throw new Error(`Path "${subpath}" escapes the repository root.`);
+  }
 
   // Check for a pack (directory with archgate-pack.yaml)
   const packYaml = join(fullPath, "archgate-pack.yaml");
