@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -170,12 +170,37 @@ export type ImportTarget =
     };
 
 /**
+ * List available pack names from a cloned registry repo.
+ * Looks for directories under `packs/` that contain `archgate-pack.yaml`.
+ */
+function listAvailablePacks(cloneDir: string): string[] {
+  const packsDir = join(cloneDir, "packs");
+  if (!existsSync(packsDir)) return [];
+  return readdirSync(packsDir).filter((entry) => {
+    const entryPath = join(packsDir, entry);
+    try {
+      return (
+        statSync(entryPath).isDirectory() &&
+        existsSync(join(entryPath, "archgate-pack.yaml"))
+      );
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
  * Detect whether the subpath within a cloned repo points to a full pack
  * (has archgate-pack.yaml) or a single ADR file (.md).
+ *
+ * @param sourceKind - The kind of source (official, github-repo, git-url)
+ *   used to tailor error messages. When "official", the error lists available
+ *   packs from the registry.
  */
 export async function detectTarget(
   cloneDir: string,
-  subpath: string
+  subpath: string,
+  sourceKind?: ResolvedSource["kind"]
 ): Promise<ImportTarget> {
   const fullPath = join(cloneDir, subpath);
 
@@ -214,7 +239,29 @@ export async function detectTarget(
     };
   }
 
+  // Build a context-aware error message
+  const pathExists = existsSync(fullPath);
+
+  if (sourceKind === "official") {
+    const packName = subpath.replace(/^packs\//u, "");
+    const available = listAvailablePacks(cloneDir);
+    const availableList =
+      available.length > 0
+        ? `\n\nAvailable packs:\n${available.map((p) => `  - packs/${p}`).join("\n")}`
+        : "";
+    throw new Error(
+      `Pack "${packName}" not found in the official registry.${availableList}`
+    );
+  }
+
+  if (!pathExists) {
+    throw new Error(
+      `Path "${subpath}" does not exist in the repository. Verify the path and try again.`
+    );
+  }
+
   throw new Error(
-    `Cannot detect import target at "${subpath}". Expected archgate-pack.yaml (pack) or a .md file (single ADR).`
+    `Path "${subpath}" exists but is not a valid import target. ` +
+      `A pack directory must contain archgate-pack.yaml, or the path must point to a .md file.`
   );
 }
