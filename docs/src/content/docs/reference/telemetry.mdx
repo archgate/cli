@@ -23,7 +23,7 @@ When you run an Archgate command, we record:
 In addition to the general command lifecycle events (`command_executed` / `command_completed`), specific commands send enriched outcome events:
 
 - **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration. No file paths or violation content
-- **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket, this event also carries the remote URL, owner, and repo name. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket / Azure DevOps, this event also carries the remote URL, owner, and repo name. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **`upgrade`**: version transition (from → to), install method, success/failure, and an optional failure reason
 - **`login`**: subcommand used (login, logout, refresh, status), success/failure, and a failure bucket (`network`, `tls`, `denied`, `other`) when it fails
 - **`telemetry_preference_changed`**: fires once when you enable or disable telemetry, so we can understand opt-out rates
@@ -62,8 +62,8 @@ When the CLI crashes (exit code 2), we send:
 
 ## What we do NOT collect
 
-- **No personal information**: no usernames, emails, or IP addresses. GitHub / GitLab / Bitbucket owner/repository names are only sent on the one-time `project_initialized` event for repositories that are confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
-- **No file content**: no ADR content, source code, or file paths
+- **No personal information**: no emails, passwords, secrets, or IP addresses. The one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **No file content**: no ADR content or source code. Crash reports (Sentry) may include relative file paths in stack traces, but never absolute paths or file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No flag values**: we record that `--json` was used, not what the JSON output contained
 - **No network activity**: no URLs, API keys, or tokens
