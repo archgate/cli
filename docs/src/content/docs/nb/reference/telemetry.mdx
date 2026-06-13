@@ -11,7 +11,7 @@ Archgate samler inn **anonyme bruksdata** for å hjelpe oss med å forstå hvord
 
 Når du kjører en Archgate-kommando, registrerer vi:
 
-- **Kommandonavn** og **hvilke flagg som ble brukt** (f.eks. `check --json` -- kun flaggtilstedeværelse, aldri flaggverdier)
+- **Kommandonavn** og **hvilke flagg som ble brukt** (f.eks. `check --json`; kun flaggtilstedeværelse, aldri flaggverdier)
 - **Avslutningskode** (0, 1, 2 eller 130) og **kjøretid** (millisekunder), pluss en kort **utfallstagg** (`success`, `user_error`, `internal_error`, `cancelled`)
 - **Miljø**: OS, arkitektur, Bun-versjon, Archgate-versjon, CI-deteksjon (inkludert leverandør: GitHub Actions / GitLab CI / CircleCI / osv.), TTY-deteksjon, WSL-deteksjon, shell (bash, zsh, pwsh...) og locale
 - **Installasjonskontekst**: hvordan CLI-en ble installert (binærfil, proto, lokal dev-avhengighet eller global pakkebehandler)

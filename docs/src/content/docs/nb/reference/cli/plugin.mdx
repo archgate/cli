@@ -54,7 +54,7 @@ Installasjonsoppførselen varierer etter editor:
 
 - **Claude Code:** Autoinstallerer via `claude`-CLI-en hvis tilgjengelig; skriver ut manuelle kommandoer ellers.
 - **Copilot CLI:** Autoinstallerer via `copilot`-CLI-en hvis tilgjengelig; skriver ut manuelle kommandoer ellers.
-- **Cursor:** Laster ned en autentisert tarball og pakker ut skills, agenter og hooks i `~/.cursor/`. Ingen CLI-deteksjon nødvendig -- filene skrives direkte til Cursor-brukerkatalogen.
+- **Cursor:** Laster ned en autentisert tarball og pakker ut skills, agenter og hooks i `~/.cursor/`. Ingen CLI-deteksjon nødvendig. Filene skrives direkte til Cursor-brukerkatalogen.
 - **VS Code:** Installerer VS Code-utvidelsen (`.vsix`) via `code`-CLI-en hvis tilgjengelig; skriver ut manuelle instruksjoner ellers.
 - **opencode:** Krever at `opencode`-CLI-en er på PATH -- hopper over installasjonen med en tydelig melding ellers. Når den er til stede, laster den ned en autentisert tarball med agentfiler og pakker den ut i opencode-agentkatalogen for brukerskoopet. `archgate plugin url --editor opencode` skriver ut "N/A" -- opencode har ingen markedsplassURL. Se [opencode-integrasjonsguiden](/guides/opencode-integration/) for detaljer.
 

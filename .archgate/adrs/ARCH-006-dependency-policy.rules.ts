@@ -16,7 +16,7 @@ export default {
         try {
           pkg = await ctx.readJSON("package.json");
         } catch {
-          return; // No package.json — nothing to check
+          return; // No package.json, nothing to check
         }
 
         const deps = Object.keys(pkg.dependencies ?? {});

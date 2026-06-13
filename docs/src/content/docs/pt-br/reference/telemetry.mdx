@@ -13,7 +13,7 @@ Quando você executa um comando do Archgate, registramos:
 
 - **Nome do comando** e **quais flags foram usadas** (ex: `check --json`, apenas a presença da flag, nunca valores)
 - **Código de saída** (0, 1, 2 ou 130) e **duração da execução** (milissegundos), além de um **tag de desfecho** resumida (`success`, `user_error`, `internal_error`, `cancelled`)
-- **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI (incluindo provedor: GitHub Actions / GitLab CI / CircleCI / etc.), detecção de TTY, detecção de WSL, shell (bash, zsh, pwsh...) e locale
+- **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI (incluindo provedor: GitHub Actions / GitLab CI / CircleCI, etc.), detecção de TTY, detecção de WSL, shell (bash, zsh, pwsh...) e locale
 - **Contexto de instalação**: como a CLI foi instalada (binário, proto, dependência local ou gerenciador de pacotes global)
 - **Contexto do projeto**: se existe um projeto Archgate no diretório atual, quantas ADRs possui, quantas têm regras automatizadas e quantos domínios distintos de ADR estão em uso
 - **Contexto do repositório** (não identificável): se o diretório atual é um repositório git, o bucket do host (`github` / `gitlab` / `bitbucket` / `azure-devops` / `other`), um **`repo_id` com hash** (SHA-256 da URL remota normalizada, truncado em 16 caracteres hex, não reversível) e o nome do branch padrão
@@ -23,7 +23,7 @@ Quando você executa um comando do Archgate, registramos:
 Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `command_completed`), comandos específicos enviam eventos enriquecidos:
 
 - **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado, se filtros foram aplicados, arquivos analisados, duração de carregamento, duração da verificação. Sem caminhos de arquivo ou conteúdo de violação
-- **`init`**: escolha do editor, se o plugin foi instalado, se o projeto já existia. Um evento separado `project_initialized` é enviado uma única vez, contendo o bucket do host do repositório, `repo_is_git` e um flag `repo_public`. Para repositórios confirmados como públicos no GitHub / GitLab / Bitbucket, esse evento também leva URL remota, owner e nome do repositório (veja [Identidade do repositório](#identidade-do-repositório)). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
+- **`init`**: escolha do editor, se o plugin foi instalado, se o projeto já existia. Um evento separado `project_initialized` é enviado uma única vez, contendo o bucket do host do repositório, `repo_is_git` e uma flag `repo_public`. Para repositórios confirmados como públicos no GitHub / GitLab / Bitbucket, esse evento também leva URL remota, owner e nome do repositório (veja [Identidade do repositório](#identidade-do-repositório)). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
 - **`upgrade`**: transição de versão (de → para), método de instalação, sucesso/falha e uma razão de falha opcional
 - **`login`**: subcomando usado (login, logout, refresh, status), sucesso/falha e um bucket de falha (`network`, `tls`, `denied`, `other`) quando falha
 - **`telemetry_preference_changed`**: disparado uma vez quando você ativa ou desativa a telemetria, para que possamos entender as taxas de opt-out
@@ -40,7 +40,7 @@ Em `archgate init`, um evento `project_initialized` único é enviado. Se, e som
 - Hosts Git auto-hospedados (a verificação pula esses completamente)
 - Repositórios em que a consulta expira, é limitada por rate-limit ou não retorna uma resposta pública definitiva
 
-**Não quer o evento de forma alguma?** Desative a telemetria por completo. O evento `project_initialized` é suprimido junto com todos os outros:
+**Não quer o evento de forma alguma?** Desative a telemetria por completo. O evento `project_initialized` é suprimido quando você desativa a telemetria:
 
 ```bash
 # Por shell / por invocação
