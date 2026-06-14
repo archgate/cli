@@ -262,20 +262,48 @@ describe("detectTarget", () => {
     }
   });
 
-  test("throws when subpath is neither a pack nor an ADR", async () => {
+  test("throws descriptive error when directory exists but is not a valid target", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
     mkdirSync(join(tempDir, "empty-dir"));
 
     await expect(detectTarget(tempDir, "empty-dir")).rejects.toThrow(
-      /Cannot detect import target/u
+      /exists but is not a valid import target/u
     );
   });
 
-  test("throws when subpath does not exist", async () => {
+  test("throws descriptive error when subpath does not exist", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
 
     await expect(detectTarget(tempDir, "nonexistent")).rejects.toThrow(
-      /Cannot detect import target/u
+      /does not exist in the repository/u
     );
+  });
+
+  test("lists available packs when official registry pack is not found", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
+    // Simulate an official registry clone with one valid pack
+    const packsDir = join(tempDir, "packs");
+    const validPack = join(packsDir, "typescript-strict");
+    mkdirSync(validPack, { recursive: true });
+    writeFileSync(
+      join(validPack, "archgate-pack.yaml"),
+      [
+        "name: typescript-strict",
+        "version: 1.0.0",
+        "description: Strict TS",
+        "maintainers:",
+        "  - github: testuser",
+      ].join("\n")
+    );
+
+    try {
+      await detectTarget(tempDir, "packs/nonexistent", "official");
+      expect.unreachable("Should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      const message = (err as Error).message;
+      expect(message).toContain("not found in the official registry");
+      expect(message).toContain("packs/typescript-strict");
+    }
   });
 });
