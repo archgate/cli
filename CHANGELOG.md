@@ -1,3 +1,9 @@
+## [0.45.4](https://github.com/archgate/cli/compare/v0.45.3...v0.45.4) (2026-06-15)
+
+### Bug Fixes
+
+* **import:** improve error messages and extract business logic ([#413](https://github.com/archgate/cli/issues/413)) ([337beae](https://github.com/archgate/cli/commit/337beaeb62926e196c582c8946227eee500f4415))
+
 ## [0.45.3](https://github.com/archgate/cli/compare/v0.45.2...v0.45.3) (2026-06-11)
 
 ### Bug Fixes
