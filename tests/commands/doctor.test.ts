@@ -256,7 +256,7 @@ describe("doctor action handler", () => {
     }
   });
 
-  test("error path logs error message and exits with code 1", async () => {
+  test("error path logs error message and exits with code 2 (unexpected)", async () => {
     doctorSpy.mockRejectedValue(new Error("doctor failed"));
 
     const program = makeProgram();
@@ -265,7 +265,7 @@ describe("doctor action handler", () => {
       program.parseAsync(["node", "test", "doctor"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
 
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.map(String).join(" "))
@@ -273,7 +273,7 @@ describe("doctor action handler", () => {
     expect(errorOutput).toContain("doctor failed");
   });
 
-  test("error path handles non-Error thrown values", async () => {
+  test("error path handles non-Error thrown values (exits 2)", async () => {
     doctorSpy.mockRejectedValue("string error value");
 
     const program = makeProgram();
@@ -282,7 +282,7 @@ describe("doctor action handler", () => {
       program.parseAsync(["node", "test", "doctor"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
 
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.map(String).join(" "))

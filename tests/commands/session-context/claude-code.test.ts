@@ -142,7 +142,7 @@ describe("claude-code action handler", () => {
     expect(errorOutput).toContain("No session found");
   });
 
-  test("exits 1 when unexpected error is thrown", async () => {
+  test("exits 2 when unexpected error is thrown", async () => {
     mockReadClaudeCodeSession.mockRejectedValue(
       new Error("Unexpected disk failure")
     );
@@ -151,7 +151,7 @@ describe("claude-code action handler", () => {
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.join(" "))
       .join(" ");

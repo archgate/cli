@@ -192,7 +192,7 @@ export async function downloadReleaseBinary(
         .update(new Uint8Array(buffer))
         .digest("hex");
       if (actualHash !== expectedHash) {
-        throw new UserError(
+        throw new Error(
           `Checksum mismatch for ${artifact.name}${artifact.ext}: expected ${expectedHash}, got ${actualHash}`
         );
       }
@@ -228,7 +228,7 @@ export async function downloadReleaseBinary(
         normalized.includes("../") ||
         normalized === ".."
       ) {
-        throw new UserError(
+        throw new Error(
           `Unsafe path in release archive: "${entry}" — aborting extraction`
         );
       }

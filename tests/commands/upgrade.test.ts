@@ -317,15 +317,15 @@ describe("upgrade action handler", () => {
     expect(out).toContain("already up-to-date");
   });
 
-  test("exits 1 when fetch throws a network error", async () => {
+  test("exits 2 when fetch throws a network error (unexpected)", async () => {
     globalThis.fetch = (() =>
       Promise.reject(new Error("network error"))) as unknown as typeof fetch;
     const program = makeProgram();
     try {
       await program.parseAsync(["node", "test", "upgrade"]);
     } catch {
-      // exitWith(1) → process.exit(1) → throws
+      // exitWith(2) → process.exit(2) → throws
     }
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
   });
 });

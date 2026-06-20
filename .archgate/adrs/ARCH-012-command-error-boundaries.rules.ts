@@ -58,7 +58,7 @@ export default {
           // The canonical pattern is:
           //   if (err instanceof Error && err.name === "ExitPromptError") throw err;
           const hasExitPromptRethrow =
-            /ExitPromptError|handleCommandError/u.test(content);
+            /ExitPromptError|\bhandleCommandError\s*\(/u.test(content);
 
           if (!hasExitPromptRethrow) {
             ctx.report.violation({

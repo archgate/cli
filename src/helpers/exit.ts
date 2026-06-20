@@ -127,7 +127,7 @@ export async function exitWith(
  *   1. Re-throws `ExitPromptError` so `main().catch()` handles Ctrl+C (exit 130)
  *   2. Captures **unexpected** errors (non-{@link UserError}) to Sentry
  *   3. Logs the error message via `logError()`
- *   4. Exits with code 1
+ *   4. Exits with code 1 (UserError) or code 2 (unexpected bug)
  *
  * Expected user-facing errors (validation, network, auth) should be thrown as
  * {@link UserError} in helpers — these are logged but not sent to Sentry.
@@ -135,16 +135,17 @@ export async function exitWith(
 export function handleCommandError(err: unknown): Promise<never> {
   if (err instanceof Error && err.name === "ExitPromptError") throw err;
 
+  const errorKind = classifyErrorKind(err);
+  const isExpected = err instanceof UserError;
+
   // Only capture unexpected errors to Sentry — UserError is expected
-  if (!(err instanceof UserError)) {
-    captureException(err, {
-      command: currentCommand ?? "unknown",
-      errorKind: classifyErrorKind(err),
-    });
+  if (!isExpected) {
+    captureException(err, { command: currentCommand ?? "unknown", errorKind });
   }
 
   logError(err instanceof Error ? err.message : String(err));
-  return exitWith(1, { errorKind: classifyErrorKind(err) });
+  // UserError = user-fixable (code 1), everything else = internal bug (code 2)
+  return exitWith(isExpected ? 1 : 2, { errorKind });
 }
 
 // ---------------------------------------------------------------------------
