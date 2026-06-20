@@ -1,3 +1,9 @@
+## [0.45.5](https://github.com/archgate/cli/compare/v0.45.4...v0.45.5) (2026-06-20)
+
+### Bug Fixes
+
+* **sentry:** capture unexpected command errors in Sentry ([#417](https://github.com/archgate/cli/issues/417)) ([cde0600](https://github.com/archgate/cli/commit/cde060083886e575aad2c626be33b46cb9234259))
+
 ## [0.45.4](https://github.com/archgate/cli/compare/v0.45.3...v0.45.4) (2026-06-15)
 
 ### Bug Fixes
