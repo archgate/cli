@@ -10,6 +10,7 @@ import type {
   ViolationDetail,
 } from "../formats/rules";
 import { logDebug } from "../helpers/log";
+import { UserError } from "../helpers/user-error";
 import {
   resolveScopedFiles,
   getStagedFiles,
@@ -35,12 +36,16 @@ function safePath(projectRoot: string, userPath: string): string {
     !absPath.startsWith(root + "\\") &&
     absPath !== root
   ) {
-    throw new Error(`Path "${userPath}" escapes project root — access denied`);
+    throw new UserError(
+      `Path "${userPath}" escapes project root — access denied`
+    );
   }
   // Reject symlinks to prevent following links to files outside the project
   try {
     if (lstatSync(absPath).isSymbolicLink()) {
-      throw new Error(`Path "${userPath}" is a symbolic link — access denied`);
+      throw new UserError(
+        `Path "${userPath}" is a symbolic link — access denied`
+      );
     }
   } catch (err) {
     // Re-throw our own errors; ignore ENOENT (file may not exist yet for glob results)
@@ -56,10 +61,14 @@ function safePath(projectRoot: string, userPath: string): string {
  */
 function safeGlob(pattern: string): void {
   if (pattern.includes("..")) {
-    throw new Error(`Glob pattern "${pattern}" contains ".." — access denied`);
+    throw new UserError(
+      `Glob pattern "${pattern}" contains ".." — access denied`
+    );
   }
   if (isAbsolute(pattern)) {
-    throw new Error(`Glob pattern "${pattern}" is absolute — access denied`);
+    throw new UserError(
+      `Glob pattern "${pattern}" is absolute — access denied`
+    );
   }
 }
 const RULE_TIMEOUT_MS = 30_000;

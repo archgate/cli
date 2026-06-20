@@ -2,6 +2,7 @@
 // Copyright 2026 Archgate
 import { logDebug, logInfo } from "./log";
 import { isWindows, isMacOS, resolveCommand } from "./platform";
+import { UserError } from "./user-error";
 
 /**
  * Ensure git is installed, installing via brew/apt when missing on Unix.
@@ -27,7 +28,7 @@ export async function installGit() {
 
   logInfo("Git is not installed. Installing...");
   if (isWindows()) {
-    throw new Error(
+    throw new UserError(
       "Git is not installed. Install it from https://git-scm.com/download/win and make sure it is on your PATH."
     );
   }
@@ -37,6 +38,6 @@ export async function installGit() {
   const proc = Bun.spawn(cmd, { stdout: "inherit", stderr: "inherit" });
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`Failed to install git (exit code ${exitCode})`);
+    throw new UserError(`Failed to install git (exit code ${exitCode})`);
   }
 }

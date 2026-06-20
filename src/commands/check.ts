@@ -13,7 +13,7 @@ import {
   buildSummary,
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
-import { exitWith } from "../helpers/exit";
+import { exitWith, handleCommandError } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
@@ -65,11 +65,7 @@ export function registerCheckCommand(program: Command) {
       try {
         loadResults = await loadRuleAdrs(projectRoot, opts.adr);
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(
-          err instanceof Error ? err.message : `Failed to load rules: ${err}`
-        );
-        await exitWith(1);
+        await handleCommandError(err);
         return;
       }
       const loadDurationMs = Math.round(performance.now() - loadStart);

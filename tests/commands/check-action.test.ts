@@ -205,14 +205,14 @@ describe("check action handler", () => {
 
   // -- Load errors --
 
-  test("load error logs message and exits 1", async () => {
+  test("load error logs message and exits 2 (unexpected)", async () => {
     loadRuleAdrsSpy.mockRejectedValue(new Error("failed to load rules"));
 
     await expect(
       makeProgram().parseAsync(["node", "test", "check"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy.mock.calls.at(-1)?.[0]).toBe(2);
     const errOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.map(String).join(" "))
       .join("\n");

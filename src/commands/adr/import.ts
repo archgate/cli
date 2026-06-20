@@ -15,7 +15,7 @@ import {
   updateImportsManifest,
   writeImportedAdrs,
 } from "../../helpers/adr-import";
-import { exitWith } from "../../helpers/exit";
+import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
@@ -195,9 +195,7 @@ export function registerAdrImportCommand(adr: Command) {
           );
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       } finally {
         if (tempDirs.length > 0) cleanupTempDirs(tempDirs);
       }

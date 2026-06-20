@@ -15,12 +15,14 @@ import {
   getManualInstallHint,
   replaceBinary,
 } from "../helpers/binary-upgrade";
-import { exitWith } from "../helpers/exit";
+import { exitWith, handleCommandError } from "../helpers/exit";
 import type { EditorTarget } from "../helpers/init-project";
 import { logDebug, logError, logInfo } from "../helpers/log";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
+import { captureException } from "../helpers/sentry";
 import { trackUpgradeResult } from "../helpers/telemetry";
+import { UserError } from "../helpers/user-error";
 
 type InstallMethod =
   | { type: "binary"; binaryPath: string }
@@ -280,6 +282,9 @@ async function upgradeBinary(tag: string): Promise<void> {
   } catch (err) {
     if (err instanceof Error && err.name === "ExitPromptError") throw err;
     finishDownloadProgress();
+    if (!(err instanceof UserError)) {
+      captureException(err, { command: "upgrade" });
+    }
     logError(
       "Failed to upgrade binary.",
       `${err instanceof Error ? err.message : String(err)}\nTry running \`${hint}\` manually.`
@@ -443,8 +448,7 @@ export function registerUpgradeCommand(program: Command) {
           install_method: "unknown",
           success: false,
         });
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

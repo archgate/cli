@@ -4,7 +4,7 @@ import type { Command } from "@commander-js/extra-typings";
 
 import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
-import { exitWith } from "../../helpers/exit";
+import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
@@ -113,10 +113,7 @@ export function registerAdrCreateCommand(adr: Command) {
           console.log(`Created ADR: ${result.filePath}`);
         }
       } catch (err) {
-        // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

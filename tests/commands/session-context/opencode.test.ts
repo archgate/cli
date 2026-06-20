@@ -147,7 +147,7 @@ describe("opencode action handler", () => {
     expect(errorOutput).toContain("No opencode session found");
   });
 
-  test("exits 1 when unexpected error is thrown", async () => {
+  test("exits 2 when unexpected error is thrown", async () => {
     mockReadOpencodeSession.mockRejectedValue(
       new Error("ENOENT: no such file")
     );
@@ -156,7 +156,7 @@ describe("opencode action handler", () => {
       makeProgram().parseAsync(["node", "session-context", "opencode"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.join(" "))
       .join(" ");

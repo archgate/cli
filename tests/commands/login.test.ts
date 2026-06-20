@@ -141,7 +141,7 @@ describe("login action handlers", () => {
       expect(allOutput).toContain("Not logged in");
     });
 
-    test("exits with code 1 when loadCredentials throws", async () => {
+    test("exits with code 2 when loadCredentials throws (unexpected)", async () => {
       loadCredentialsSpy.mockRejectedValueOnce(
         new Error("credential store unavailable")
       );
@@ -149,9 +149,9 @@ describe("login action handlers", () => {
       const program = makeProgram();
       await expect(
         program.parseAsync(["node", "test", "login", "status"])
-      ).rejects.toThrow("exitWith(1)");
+      ).rejects.toThrow("exitWith(2)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -177,15 +177,15 @@ describe("login action handlers", () => {
       expect(allOutput).toContain("Logged out successfully");
     });
 
-    test("exits with code 1 when clearCredentials throws", async () => {
+    test("exits with code 2 when clearCredentials throws (unexpected)", async () => {
       clearCredentialsSpy.mockRejectedValueOnce(new Error("clear failed"));
 
       const program = makeProgram();
       await expect(
         program.parseAsync(["node", "test", "login", "logout"])
-      ).rejects.toThrow("exitWith(1)");
+      ).rejects.toThrow("exitWith(2)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -224,9 +224,10 @@ describe("login action handlers", () => {
       const program = makeProgram();
       await expect(
         program.parseAsync(["node", "test", "login"])
-      ).rejects.toThrow("exitWith(1)");
+      ).rejects.toThrow(/exitWith/u);
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      // First exitWith call is the direct exitWith(1) from the command
+      expect(exitWithSpy.mock.calls[0]?.[0]).toBe(1);
     });
 
     test("prints next step after successful login flow", async () => {
@@ -264,16 +265,16 @@ describe("login action handlers", () => {
       expect(allErrors).toContain("TLS certificate verification failed");
     });
 
-    test("exits with code 1 on non-TLS error", async () => {
+    test("exits with code 2 on non-TLS unexpected error", async () => {
       loadCredentialsSpy.mockResolvedValueOnce(null);
       runLoginFlowSpy.mockRejectedValueOnce(new Error("network timeout"));
 
       const program = makeProgram();
       await expect(
         program.parseAsync(["node", "test", "login"])
-      ).rejects.toThrow("exitWith(1)");
+      ).rejects.toThrow("exitWith(2)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -307,9 +308,10 @@ describe("login action handlers", () => {
       const program = makeProgram();
       await expect(
         program.parseAsync(["node", "test", "login", "refresh"])
-      ).rejects.toThrow("exitWith(1)");
+      ).rejects.toThrow(/exitWith/u);
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      // First exitWith call is the direct exitWith(1) from the command
+      expect(exitWithSpy.mock.calls[0]?.[0]).toBe(1);
     });
 
     test("exits with code 1 and prints TLS hint on TLS error during refresh", async () => {
@@ -330,16 +332,16 @@ describe("login action handlers", () => {
       expect(allErrors).toContain("TLS certificate verification failed");
     });
 
-    test("exits with code 1 on non-TLS error during refresh", async () => {
+    test("exits with code 2 on non-TLS unexpected error during refresh", async () => {
       clearCredentialsSpy.mockResolvedValueOnce();
       runLoginFlowSpy.mockRejectedValueOnce(new Error("server unreachable"));
 
       const program = makeProgram();
       await expect(
         program.parseAsync(["node", "test", "login", "refresh"])
-      ).rejects.toThrow("exitWith(1)");
+      ).rejects.toThrow("exitWith(2)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");

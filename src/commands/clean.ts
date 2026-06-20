@@ -5,8 +5,7 @@ import { join } from "node:path";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith } from "../helpers/exit";
-import { logError } from "../helpers/log";
+import { handleCommandError } from "../helpers/exit";
 import { internalPath } from "../helpers/paths";
 
 /**
@@ -48,13 +47,7 @@ export function registerCleanCommand(program: Command) {
           console.log(`${destinationPath} cleaned up`);
         }
       } catch (error) {
-        if (error instanceof Error && error.name === "ExitPromptError")
-          throw error;
-        logError(
-          `Failed to clean ${destinationPath}.`,
-          error instanceof Error ? error.message : String(error)
-        );
-        await exitWith(1);
+        await handleCommandError(error);
       }
     });
 }

@@ -4,10 +4,12 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 
 import {
   beginCommand,
+  classifyErrorKind,
   finalizeCommand,
   _getExitState,
   _resetExitState,
 } from "../../src/helpers/exit";
+import { UserError } from "../../src/helpers/user-error";
 
 describe("exit helper", () => {
   let originalNodeEnv: string | undefined;
@@ -63,6 +65,59 @@ describe("exit helper", () => {
       // The Commander postAction hook could race beginCommand if Commander
       // ever changes its lifecycle — finalizeCommand must degrade gracefully.
       expect(() => finalizeCommand("", 0, "success")).not.toThrow();
+    });
+  });
+
+  describe("classifyErrorKind", () => {
+    test("returns 'unknown' for non-Error values", () => {
+      expect(classifyErrorKind("string error")).toBe("unknown");
+      expect(classifyErrorKind(42)).toBe("unknown");
+      expect(classifyErrorKind(null)).toBe("unknown");
+    });
+
+    test("classifies network errors", () => {
+      expect(classifyErrorKind(new Error("ECONNREFUSED"))).toBe("network");
+      expect(classifyErrorKind(new Error("ENOTFOUND some.host"))).toBe(
+        "network"
+      );
+      expect(classifyErrorKind(new Error("ETIMEDOUT"))).toBe("network");
+      expect(classifyErrorKind(new Error("EAI_AGAIN"))).toBe("network");
+    });
+
+    test("classifies TLS errors", () => {
+      expect(classifyErrorKind(new Error("certificate has expired"))).toBe(
+        "tls"
+      );
+      expect(classifyErrorKind(new Error("SELF_SIGNED_CERT"))).toBe("tls");
+      expect(classifyErrorKind(new Error("UNABLE_TO_VERIFY"))).toBe("tls");
+    });
+
+    test("classifies permission errors", () => {
+      expect(classifyErrorKind(new Error("EACCES: permission denied"))).toBe(
+        "permission"
+      );
+      expect(
+        classifyErrorKind(new Error("EPERM: operation not permitted"))
+      ).toBe("permission");
+    });
+
+    test("classifies SyntaxError and TypeError by name", () => {
+      expect(classifyErrorKind(new SyntaxError("unexpected token"))).toBe(
+        "syntax"
+      );
+      expect(
+        classifyErrorKind(new TypeError("undefined is not a function"))
+      ).toBe("type");
+    });
+
+    test("classifies UserError", () => {
+      expect(classifyErrorKind(new UserError("invalid input"))).toBe("user");
+    });
+
+    test("falls back to error name for unrecognized errors", () => {
+      expect(classifyErrorKind(new RangeError("out of range"))).toBe(
+        "RangeError"
+      );
     });
   });
 });

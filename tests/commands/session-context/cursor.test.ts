@@ -147,14 +147,14 @@ describe("cursor action handler", () => {
     expect(errorOutput).toContain("No cursor session found");
   });
 
-  test("exits 1 when unexpected error is thrown", async () => {
+  test("exits 2 when unexpected error is thrown", async () => {
     mockReadCursorSession.mockRejectedValue(new Error("File system error"));
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "cursor"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.join(" "))
       .join(" ");

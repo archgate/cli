@@ -2,8 +2,7 @@
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith } from "../helpers/exit";
-import { logError } from "../helpers/log";
+import { handleCommandError } from "../helpers/exit";
 import {
   flushTelemetry,
   initTelemetry,
@@ -73,9 +72,7 @@ export function registerTelemetryCommand(program: Command) {
           "Telemetry enabled. Thank you for helping improve Archgate."
         );
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 
@@ -92,9 +89,7 @@ export function registerTelemetryCommand(program: Command) {
         await setTelemetryEnabled(false);
         console.log("Telemetry disabled. No usage data will be collected.");
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

@@ -7,9 +7,8 @@ import {
   detectEditors,
   promptSingleEditorSelection,
 } from "../../helpers/editor-detect";
-import { exitWith } from "../../helpers/exit";
+import { handleCommandError } from "../../helpers/exit";
 import type { EditorTarget } from "../../helpers/init-project";
-import { logError } from "../../helpers/log";
 import {
   buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
@@ -57,9 +56,7 @@ export function registerPluginUrlCommand(plugin: Command) {
 
         console.log(url);
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

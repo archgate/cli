@@ -209,7 +209,7 @@ describe("telemetry enable", () => {
     expect(setTelemetryEnabledSpy).toHaveBeenCalledWith(true);
   });
 
-  test("catches errors and calls logError + exitWith(1)", async () => {
+  test("catches unexpected errors and exits with code 2", async () => {
     setTelemetryEnabledSpy.mockRejectedValue(new Error("disk full"));
 
     const program = makeProgram();
@@ -218,7 +218,7 @@ describe("telemetry enable", () => {
     ).rejects.toThrow("process.exit");
 
     expect(logErrorSpy).toHaveBeenCalledWith("disk full");
-    expect(exitWithSpy).toHaveBeenCalledWith(1);
+    expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
   });
 
   test("re-throws ExitPromptError without catching", async () => {
@@ -306,7 +306,7 @@ describe("telemetry disable", () => {
     expect(callOrder).toEqual(["track", "flush", "disable"]);
   });
 
-  test("catches errors and calls logError + exitWith(1)", async () => {
+  test("catches unexpected errors and exits with code 2", async () => {
     setTelemetryEnabledSpy.mockRejectedValue(new Error("permission denied"));
 
     const program = makeProgram();
@@ -315,7 +315,7 @@ describe("telemetry disable", () => {
     ).rejects.toThrow("process.exit");
 
     expect(logErrorSpy).toHaveBeenCalledWith("permission denied");
-    expect(exitWithSpy).toHaveBeenCalledWith(1);
+    expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
   });
 
   test("re-throws ExitPromptError without catching", async () => {

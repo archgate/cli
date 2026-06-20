@@ -13,6 +13,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import type { PackMetadata } from "../formats/pack";
 import { parsePackMetadata } from "../formats/pack";
 import { logDebug } from "./log";
+import { UserError } from "./user-error";
 
 // ---------- Source resolution ----------
 
@@ -105,7 +106,7 @@ export function resolveSource(input: string): ResolvedSource {
   }
 
   // 4. None matched
-  throw new Error(
+  throw new UserError(
     `Cannot resolve source "${input}". Expected one of:\n` +
       `  - packs/<name>             (official registry)\n` +
       `  - <org>/<repo>/<path>      (GitHub repo)\n` +
@@ -157,7 +158,7 @@ export async function shallowClone(
 
   if (result.exitCode !== 0) {
     rmSync(tempDir, { recursive: true, force: true });
-    throw new Error(
+    throw new UserError(
       `Failed to clone ${repoUrl}${ref ? ` (ref: ${ref})` : ""}:\n${result.stderr.trim()}`
     );
   }
@@ -218,7 +219,7 @@ export async function detectTarget(
   const fullPath = resolve(cloneDir, subpath);
   const rel = relative(cloneDir, fullPath);
   if (rel.startsWith("..") || isAbsolute(rel)) {
-    throw new Error(`Path "${subpath}" escapes the repository root.`);
+    throw new UserError(`Path "${subpath}" escapes the repository root.`);
   }
 
   // Check for a pack (directory with archgate-pack.yaml)
@@ -266,18 +267,18 @@ export async function detectTarget(
       available.length > 0
         ? `\n\nAvailable packs:\n${available.map((p) => `  - packs/${p}`).join("\n")}`
         : "";
-    throw new Error(
+    throw new UserError(
       `Pack "${packName}" not found in the official registry.${availableList}`
     );
   }
 
   if (!pathExists) {
-    throw new Error(
+    throw new UserError(
       `Path "${subpath}" does not exist in the repository. Verify the path and try again.`
     );
   }
 
-  throw new Error(
+  throw new UserError(
     `Path "${subpath}" exists but is not a valid import target. ` +
       `A pack directory must contain archgate-pack.yaml, or the path must point to a .md file.`
   );

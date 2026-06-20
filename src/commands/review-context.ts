@@ -4,7 +4,7 @@ import type { Command } from "@commander-js/extra-typings";
 
 import { buildReviewContext } from "../engine/context";
 import { resolveBaseRef } from "../engine/git-files";
-import { exitWith } from "../helpers/exit";
+import { exitWith, handleCommandError } from "../helpers/exit";
 import { logError } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
@@ -50,9 +50,7 @@ export function registerReviewContextCommand(program: Command) {
 
         console.log(formatJSON(context));
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

@@ -4,7 +4,7 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith } from "../../../helpers/exit";
+import { exitWith, handleCommandError } from "../../../helpers/exit";
 import { logError } from "../../../helpers/log";
 import { formatJSON, isAgentContext } from "../../../helpers/output";
 import { findProjectRoot } from "../../../helpers/paths";
@@ -15,11 +15,11 @@ export function registerDomainListCommand(domain: Command) {
     .command("list")
     .description("List all ADR domains (built-in and custom)")
     .option("--json", "Output as JSON")
-    .action((options) => {
+    .action(async (options) => {
       const projectRoot = findProjectRoot();
       if (!projectRoot) {
         logError("No .archgate/ directory found. Run `archgate init` first.");
-        exitWith(1);
+        await exitWith(1);
         return;
       }
 
@@ -53,8 +53,7 @@ export function registerDomainListCommand(domain: Command) {
           );
         }
       } catch (err) {
-        logError(err instanceof Error ? err.message : String(err));
-        exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

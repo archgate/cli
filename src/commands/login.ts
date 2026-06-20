@@ -5,7 +5,7 @@ import { styleText } from "node:util";
 import type { Command } from "@commander-js/extra-typings";
 
 import { loadCredentials, clearCredentials } from "../helpers/credential-store";
-import { exitWith } from "../helpers/exit";
+import { exitWith, handleCommandError } from "../helpers/exit";
 import { logError, logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
@@ -47,9 +47,9 @@ export function registerLoginCommand(program: Command) {
       if (isTlsError(err)) {
         logError(tlsHintMessage());
         await exitWith(1);
+        return;
       }
-      logError(err instanceof Error ? err.message : String(err));
-      await exitWith(1);
+      await handleCommandError(err);
     }
   });
 
@@ -66,9 +66,7 @@ export function registerLoginCommand(program: Command) {
           console.log("Not logged in. Run `archgate login` to authenticate.");
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 
@@ -81,9 +79,7 @@ export function registerLoginCommand(program: Command) {
         trackLoginResult({ subcommand: "logout", success: true });
         console.log("Logged out successfully.");
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 
@@ -111,9 +107,9 @@ export function registerLoginCommand(program: Command) {
         if (isTlsError(err)) {
           logError(tlsHintMessage());
           await exitWith(1);
+          return;
         }
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

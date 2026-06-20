@@ -147,14 +147,14 @@ describe("copilot action handler", () => {
     expect(errorOutput).toContain("No copilot session found");
   });
 
-  test("exits 1 when unexpected error is thrown", async () => {
+  test("exits 2 when unexpected error is thrown", async () => {
     mockReadCopilotSession.mockRejectedValue(new Error("Permission denied"));
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "copilot"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.join(" "))
       .join(" ");

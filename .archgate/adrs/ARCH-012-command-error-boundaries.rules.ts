@@ -57,7 +57,8 @@ export default {
           // Check for the ExitPromptError re-throw pattern anywhere in the file.
           // The canonical pattern is:
           //   if (err instanceof Error && err.name === "ExitPromptError") throw err;
-          const hasExitPromptRethrow = /ExitPromptError/u.test(content);
+          const hasExitPromptRethrow =
+            /ExitPromptError|\bhandleCommandError\s*\(/u.test(content);
 
           if (!hasExitPromptRethrow) {
             ctx.report.violation({

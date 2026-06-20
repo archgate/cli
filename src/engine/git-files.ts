@@ -4,6 +4,7 @@
 
 import { logDebug, logWarn } from "../helpers/log";
 import { ensureBaseBranch } from "../helpers/project-config";
+import { UserError } from "../helpers/user-error";
 
 /** Warn when an ADR's resolved file scope exceeds this many files. */
 export const SCOPE_FILE_WARN_THRESHOLD = 1000;
@@ -24,7 +25,7 @@ async function runGit(args: string[], cwd: string): Promise<string> {
   const text = await new Response(proc.stdout).text();
   const exitCode = await proc.exited;
   if (exitCode !== 0) {
-    throw new Error(`git ${args[0]} exited with code ${exitCode}`);
+    throw new UserError(`git ${args[0]} exited with code ${exitCode}`);
   }
   return text;
 }
