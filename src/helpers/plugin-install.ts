@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { logDebug } from "./log";
 import { cursorUserDir, internalPath, opencodeConfigDir } from "./paths";
 import { resolveCommand } from "./platform";
+import { UserError } from "./user-error";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
 
@@ -102,7 +103,7 @@ export async function installClaudePlugin(): Promise<void> {
   logDebug("Adding archgate marketplace to claude CLI");
   const addResult = await run([cmd, "plugin", "marketplace", "add", url]);
   if (addResult.exitCode !== 0) {
-    throw new Error(
+    throw new UserError(
       `claude plugin marketplace add failed (exit ${addResult.exitCode})`
     );
   }
@@ -115,7 +116,7 @@ export async function installClaudePlugin(): Promise<void> {
     "archgate@archgate",
   ]);
   if (installResult.exitCode !== 0) {
-    throw new Error(
+    throw new UserError(
       `claude plugin install failed (exit ${installResult.exitCode})`
     );
   }
@@ -208,12 +209,12 @@ async function downloadPluginAsset(
   });
 
   if (response.status === 401) {
-    throw new Error(
+    throw new UserError(
       "Download unauthorized. Your token may have expired — run `archgate login refresh`."
     );
   }
   if (!response.ok) {
-    throw new Error(
+    throw new UserError(
       `Download failed (HTTP ${response.status}). Try again later.`
     );
   }
@@ -285,7 +286,7 @@ async function installEditorPluginBundle(opts: {
     logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
     const result = await run(["tar", "-xzf", tarballPath, "-C", opts.baseDir]);
     if (result.exitCode !== 0) {
-      throw new Error(
+      throw new UserError(
         `tar -xzf failed (exit ${result.exitCode}) while extracting ${opts.label} components`
       );
     }
@@ -372,7 +373,7 @@ export async function installCopilotPlugin(): Promise<void> {
     const combined = addResult.stdout + addResult.stderr;
     if (!combined.includes("already registered")) {
       const detail = combined.trim();
-      throw new Error(
+      throw new UserError(
         `copilot plugin marketplace add failed (exit ${addResult.exitCode})` +
           (detail ? `\n${detail}` : "")
       );
@@ -388,7 +389,7 @@ export async function installCopilotPlugin(): Promise<void> {
     "archgate@archgate",
   ]);
   if (installResult.exitCode !== 0) {
-    throw new Error(
+    throw new UserError(
       `copilot plugin install failed (exit ${installResult.exitCode})`
     );
   }
@@ -426,7 +427,7 @@ export async function installVscodeExtension(token: string): Promise<void> {
   const result = await run([codeCmd, "--install-extension", vsixPath]);
   if (result.exitCode !== 0) {
     // Keep the VSIX on disk so the user can install it manually
-    throw new Error(
+    throw new UserError(
       `code --install-extension failed (exit ${result.exitCode}). ` +
         `The VSIX was saved to ${vsixPath} — install it manually: ` +
         `code --install-extension "${vsixPath}"`

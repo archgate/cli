@@ -9,7 +9,7 @@ import { Option } from "@commander-js/extra-typings";
 
 import { loadCredentials } from "../helpers/credential-store";
 import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
-import { exitWith } from "../helpers/exit";
+import { exitWith, handleCommandError } from "../helpers/exit";
 import { EDITOR_LABELS, initProject } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
@@ -194,14 +194,13 @@ export function registerInitCommand(program: Command) {
           await runGreenfieldWizard(process.cwd());
         }
       } catch (err) {
-        // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
         if (err instanceof Error && err.name === "ExitPromptError") throw err;
         if (isTlsError(err)) {
           logError(tlsHintMessage());
           await exitWith(1);
+          return;
         }
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

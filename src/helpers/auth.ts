@@ -10,6 +10,7 @@
 
 import { logDebug } from "./log";
 import { SignupRequiredError, isSignupRequiredError } from "./signup";
+import { UserError } from "./user-error";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -77,7 +78,7 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
 
   if (!response.ok) {
     logDebug("Device code request failed, status:", response.status);
-    throw new Error(
+    throw new UserError(
       `GitHub device code request failed (HTTP ${response.status})`
     );
   }
@@ -122,7 +123,7 @@ export async function pollForAccessToken(
     });
 
     if (!response.ok) {
-      throw new Error(`GitHub token poll failed (HTTP ${response.status})`);
+      throw new UserError(`GitHub token poll failed (HTTP ${response.status})`);
     }
 
     const data = (await response.json()) as DeviceTokenResponse;
@@ -143,14 +144,14 @@ export async function pollForAccessToken(
         continue;
       }
       // expired_token, access_denied, or other terminal error
-      throw new Error(
+      throw new UserError(
         data.error_description ?? `GitHub authorization failed: ${data.error}`
       );
     }
   }
   /* oxlint-enable no-await-in-loop */
 
-  throw new Error("Device code expired. Please try again.");
+  throw new UserError("Device code expired. Please try again.");
 }
 
 interface GitHubUserInfo {
@@ -174,7 +175,9 @@ export async function getGitHubUser(
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch GitHub user (HTTP ${response.status})`);
+    throw new UserError(
+      `Failed to fetch GitHub user (HTTP ${response.status})`
+    );
   }
 
   const data = (await response.json()) as {
@@ -220,7 +223,7 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
 
     const message =
       body.error ?? `Token claim failed (HTTP ${response.status})`;
-    throw new Error(message);
+    throw new UserError(message);
   }
 
   const data = (await response.json()) as { token?: string };

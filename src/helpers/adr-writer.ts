@@ -11,6 +11,7 @@ import {
 } from "../formats/adr";
 import { generateAdrTemplate } from "./adr-templates";
 import { generateRulesTemplate } from "./rules-shim";
+import { UserError } from "./user-error";
 
 export function slugify(title: string): string {
   return title
@@ -93,7 +94,7 @@ export async function createAdrFile(
   const prefix =
     opts.prefix ?? DOMAIN_PREFIXES[opts.domain as keyof typeof DOMAIN_PREFIXES];
   if (!prefix) {
-    throw new Error(
+    throw new UserError(
       `No prefix registered for domain '${opts.domain}'. Pass opts.prefix or register via \`archgate domain add\`.`
     );
   }
@@ -165,7 +166,7 @@ export async function updateAdrFile(
   const existing = await findAdrFileById(adrsDir, opts.id);
 
   if (!existing) {
-    throw new Error(`ADR ${opts.id} not found in ${adrsDir}`);
+    throw new UserError(`ADR ${opts.id} not found in ${adrsDir}`);
   }
 
   const fm = existing.frontmatter;

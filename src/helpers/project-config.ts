@@ -24,6 +24,7 @@ import {
 } from "../formats/project-config";
 import { logDebug } from "./log";
 import { createPathIfNotExists, projectPath, projectPaths } from "./paths";
+import { UserError } from "./user-error";
 
 const CONFIG_FILE = "config.json";
 
@@ -99,7 +100,7 @@ export function resolveDomainPrefix(
   const prefix = prefixes[domain];
   if (!prefix) {
     const known = Object.keys(prefixes).sort().join(", ");
-    throw new Error(
+    throw new UserError(
       `Unknown ADR domain '${domain}'. Known domains: ${known}. ` +
         `Register a custom domain with \`archgate domain add <name> <prefix>\`.`
     );
@@ -182,14 +183,14 @@ export async function addCustomDomain(
 ): Promise<ProjectConfig> {
   const nameResult = DomainNameSchema.safeParse(domain);
   if (!nameResult.success) {
-    throw new Error(nameResult.error.issues[0].message);
+    throw new UserError(nameResult.error.issues[0].message);
   }
   const prefixResult = DomainPrefixSchema.safeParse(prefix);
   if (!prefixResult.success) {
-    throw new Error(prefixResult.error.issues[0].message);
+    throw new UserError(prefixResult.error.issues[0].message);
   }
   if (isDefaultDomain(domain)) {
-    throw new Error(
+    throw new UserError(
       `'${domain}' is a built-in domain and cannot be overridden.`
     );
   }
@@ -199,7 +200,7 @@ export async function addCustomDomain(
     ([, p]) => p === prefix
   );
   if (usedDefaultPrefix) {
-    throw new Error(
+    throw new UserError(
       `Prefix '${prefix}' is already used by built-in domain '${usedDefaultPrefix[0]}'.`
     );
   }
@@ -209,7 +210,7 @@ export async function addCustomDomain(
     ([name, p]) => name !== domain && p === prefix
   );
   if (collision) {
-    throw new Error(
+    throw new UserError(
       `Prefix '${prefix}' is already used by custom domain '${collision[0]}'.`
     );
   }
@@ -227,7 +228,9 @@ export async function removeCustomDomain(
   domain: string
 ): Promise<{ config: ProjectConfig; removed: boolean }> {
   if (isDefaultDomain(domain)) {
-    throw new Error(`'${domain}' is a built-in domain and cannot be removed.`);
+    throw new UserError(
+      `'${domain}' is a built-in domain and cannot be removed.`
+    );
   }
   const config = loadProjectConfig(projectRoot);
   if (!(domain in config.domains)) {

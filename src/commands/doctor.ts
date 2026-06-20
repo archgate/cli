@@ -6,8 +6,7 @@ import type { Command } from "@commander-js/extra-typings";
 
 import type { DoctorReport } from "../helpers/doctor";
 import { runDoctor } from "../helpers/doctor";
-import { exitWith } from "../helpers/exit";
-import { logError } from "../helpers/log";
+import { handleCommandError } from "../helpers/exit";
 import { formatJSON, isAgentContext } from "../helpers/output";
 
 const CHECK = styleText("green", "OK");
@@ -99,9 +98,7 @@ export function registerDoctorCommand(program: Command) {
           printConsole(report);
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        logError(err instanceof Error ? err.message : String(err));
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

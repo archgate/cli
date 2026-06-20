@@ -151,7 +151,7 @@ describe("login action handlers", () => {
         program.parseAsync(["node", "test", "login", "status"])
       ).rejects.toThrow("exitWith(1)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -185,7 +185,7 @@ describe("login action handlers", () => {
         program.parseAsync(["node", "test", "login", "logout"])
       ).rejects.toThrow("exitWith(1)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -273,7 +273,7 @@ describe("login action handlers", () => {
         program.parseAsync(["node", "test", "login"])
       ).rejects.toThrow("exitWith(1)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -339,7 +339,7 @@ describe("login action handlers", () => {
         program.parseAsync(["node", "test", "login", "refresh"])
       ).rejects.toThrow("exitWith(1)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");

@@ -24,8 +24,10 @@
  * Commander `postAction` hook fire for the same invocation.
  */
 
-import { flushSentry } from "./sentry";
+import { logError } from "./log";
+import { captureException, flushSentry } from "./sentry";
 import { flushTelemetry, trackCommandResult } from "./telemetry";
+import { UserError } from "./user-error";
 
 export type CommandOutcome =
   | "success"
@@ -114,6 +116,57 @@ export async function exitWith(
   }
 
   process.exit(code);
+}
+
+/**
+ * Centralized error handler for command catch blocks.
+ *
+ * Every async command action's catch block should delegate here instead of
+ * inlining `logError + exitWith`.  The handler:
+ *
+ *   1. Re-throws `ExitPromptError` so `main().catch()` handles Ctrl+C (exit 130)
+ *   2. Captures **unexpected** errors (non-{@link UserError}) to Sentry
+ *   3. Logs the error message via `logError()`
+ *   4. Exits with code 1
+ *
+ * Expected user-facing errors (validation, network, auth) should be thrown as
+ * {@link UserError} in helpers — these are logged but not sent to Sentry.
+ */
+export function handleCommandError(err: unknown): Promise<never> {
+  if (err instanceof Error && err.name === "ExitPromptError") throw err;
+
+  // Only capture unexpected errors to Sentry — UserError is expected
+  if (!(err instanceof UserError)) {
+    captureException(err, {
+      command: currentCommand ?? "unknown",
+      errorKind: classifyErrorKind(err),
+    });
+  }
+
+  logError(err instanceof Error ? err.message : String(err));
+  return exitWith(1, { errorKind: classifyErrorKind(err) });
+}
+
+// ---------------------------------------------------------------------------
+// Error classification
+// ---------------------------------------------------------------------------
+
+/**
+ * Classify an error into a high-level bucket for telemetry.
+ * Returns a short tag — never the raw error message.
+ */
+export function classifyErrorKind(err: unknown): string {
+  if (!(err instanceof Error)) return "unknown";
+  const name = err.name || "Error";
+  const msg = err.message || "";
+  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/iu.test(msg))
+    return "network";
+  if (/certificate|SELF_SIGNED|UNABLE_TO_VERIFY/iu.test(msg)) return "tls";
+  if (/EACCES|EPERM/u.test(msg)) return "permission";
+  if (name === "SyntaxError") return "syntax";
+  if (name === "TypeError") return "type";
+  if (name === "UserError") return "user";
+  return name;
 }
 
 // ---------------------------------------------------------------------------

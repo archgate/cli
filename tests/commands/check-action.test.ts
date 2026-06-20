@@ -212,7 +212,7 @@ describe("check action handler", () => {
       makeProgram().parseAsync(["node", "test", "check"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy.mock.calls.at(-1)?.[0]).toBe(1);
     const errOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.map(String).join(" "))
       .join("\n");

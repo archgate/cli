@@ -13,6 +13,7 @@ import {
   detectTarget,
   type ImportTarget,
 } from "./registry";
+import { UserError } from "./user-error";
 
 // ---------- Types ----------
 
@@ -48,7 +49,7 @@ export async function loadImportsManifest(
   const raw = await Bun.file(importsPath).json();
   const result = ImportsManifestSchema.safeParse(raw);
   if (!result.success) {
-    throw new Error(
+    throw new UserError(
       `Invalid imports manifest at ${importsPath}: ${result.error.issues.map((i) => i.message).join(", ")}`
     );
   }

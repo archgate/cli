@@ -218,7 +218,7 @@ describe("telemetry enable", () => {
     ).rejects.toThrow("process.exit");
 
     expect(logErrorSpy).toHaveBeenCalledWith("disk full");
-    expect(exitWithSpy).toHaveBeenCalledWith(1);
+    expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
   });
 
   test("re-throws ExitPromptError without catching", async () => {
@@ -315,7 +315,7 @@ describe("telemetry disable", () => {
     ).rejects.toThrow("process.exit");
 
     expect(logErrorSpy).toHaveBeenCalledWith("permission denied");
-    expect(exitWithSpy).toHaveBeenCalledWith(1);
+    expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
   });
 
   test("re-throws ExitPromptError without catching", async () => {

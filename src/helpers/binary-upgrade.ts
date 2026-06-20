@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { logDebug } from "./log";
 import { internalPath } from "./paths";
 import { isWindows } from "./platform";
+import { UserError } from "./user-error";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -140,7 +141,7 @@ export async function downloadReleaseBinary(
   });
 
   if (!response.ok) {
-    throw new Error(`Download failed (HTTP ${response.status})`);
+    throw new UserError(`Download failed (HTTP ${response.status})`);
   }
 
   let buffer: ArrayBuffer;
@@ -191,7 +192,7 @@ export async function downloadReleaseBinary(
         .update(new Uint8Array(buffer))
         .digest("hex");
       if (actualHash !== expectedHash) {
-        throw new Error(
+        throw new UserError(
           `Checksum mismatch for ${artifact.name}${artifact.ext}: expected ${expectedHash}, got ${actualHash}`
         );
       }
@@ -227,7 +228,7 @@ export async function downloadReleaseBinary(
         normalized.includes("../") ||
         normalized === ".."
       ) {
-        throw new Error(
+        throw new UserError(
           `Unsafe path in release archive: "${entry}" — aborting extraction`
         );
       }
@@ -239,7 +240,9 @@ export async function downloadReleaseBinary(
     });
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
-      throw new Error(`Failed to extract archive (tar exit code ${exitCode})`);
+      throw new UserError(
+        `Failed to extract archive (tar exit code ${exitCode})`
+      );
     }
   } else {
     const proc = Bun.spawn(
@@ -253,7 +256,7 @@ export async function downloadReleaseBinary(
     );
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
-      throw new Error(
+      throw new UserError(
         `Failed to extract archive (PowerShell exit code ${exitCode})`
       );
     }

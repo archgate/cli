@@ -3,7 +3,7 @@
 import type { Command } from "@commander-js/extra-typings";
 
 import { updateAdrFile } from "../../helpers/adr-writer";
-import { exitWith } from "../../helpers/exit";
+import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
@@ -68,10 +68,7 @@ export function registerAdrUpdateCommand(adr: Command) {
           console.log(`Updated ADR: ${result.filePath}`);
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        const message = err instanceof Error ? err.message : String(err);
-        logError(message);
-        await exitWith(1);
+        await handleCommandError(err);
       }
     });
 }

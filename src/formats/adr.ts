@@ -2,6 +2,7 @@
 // Copyright 2026 Archgate
 import { z } from "zod";
 
+import { UserError } from "../helpers/user-error";
 import { DOMAIN_NAME_PATTERN } from "./project-config";
 
 /**
@@ -75,7 +76,7 @@ export function parseAdr(content: string, filePath: string): AdrDocument {
   const match = content.match(frontmatterRegex);
 
   if (!match) {
-    throw new Error(`No frontmatter found in ${filePath}`);
+    throw new UserError(`No frontmatter found in ${filePath}`);
   }
 
   const rawFrontmatter = match[1];
@@ -85,7 +86,7 @@ export function parseAdr(content: string, filePath: string): AdrDocument {
 
   if (!result.success) {
     const errors = formatZodErrors(result.error);
-    throw new Error(
+    throw new UserError(
       `Invalid ADR frontmatter in ${filePath}:\n  - ${errors.join("\n  - ")}`
     );
   }

@@ -17,7 +17,12 @@ import { registerSessionContextCommand } from "./commands/session-context/index"
 import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { cleanupStaleBinary } from "./helpers/binary-upgrade";
-import { beginCommand, exitWith, finalizeCommand } from "./helpers/exit";
+import {
+  beginCommand,
+  classifyErrorKind,
+  exitWith,
+  finalizeCommand,
+} from "./helpers/exit";
 import { installGit } from "./helpers/git";
 import { type LogLevel, logError, setLogLevel } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
@@ -200,20 +205,3 @@ main().catch(async (err: unknown) => {
     errorKind: classifyErrorKind(err),
   });
 });
-
-/**
- * Classify an error into a high-level bucket for telemetry.
- * Returns a short tag — never the raw error message.
- */
-function classifyErrorKind(err: unknown): string {
-  if (!(err instanceof Error)) return "unknown";
-  const name = err.name || "Error";
-  const msg = err.message || "";
-  if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|EAI_AGAIN/iu.test(msg))
-    return "network";
-  if (/certificate|SELF_SIGNED|UNABLE_TO_VERIFY/iu.test(msg)) return "tls";
-  if (/EACCES|EPERM/u.test(msg)) return "permission";
-  if (name === "SyntaxError") return "syntax";
-  if (name === "TypeError") return "type";
-  return name;
-}
