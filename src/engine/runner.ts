@@ -71,6 +71,32 @@ function safeGlob(pattern: string): void {
     );
   }
 }
+/**
+ * Expand brace patterns that contain path separators into separate patterns.
+ *
+ * Bun.Glob scanning silently returns empty results for brace groups whose
+ * alternatives contain `/` (e.g. `svc/{src/env.ts,env.ts}`).  match() handles
+ * them correctly — only the scanner is broken.  Filed upstream as
+ * https://github.com/oven-sh/bun/issues/32596.
+ *
+ * This function detects `{alt1,alt2,...}` groups where at least one alternative
+ * contains `/` and expands them into separate patterns so each one can be
+ * scanned individually.  Braces whose alternatives are all simple names (no `/`)
+ * are left for Bun.Glob to handle natively.
+ */
+export function expandBracePattern(pattern: string): string[] {
+  const match = pattern.match(/^(.*?)\{([^{}]+)\}(.*)$/u);
+  if (!match) return [pattern];
+
+  const [, prefix, alternatives, suffix] = match;
+  if (!alternatives.includes("/")) return [pattern];
+
+  const parts = alternatives.split(",");
+  return parts.flatMap((part) =>
+    expandBracePattern(`${prefix}${part}${suffix}`)
+  );
+}
+
 const RULE_TIMEOUT_MS = 30_000;
 
 export interface RuleResult {
@@ -121,17 +147,23 @@ function createRuleContext(
 
     async glob(pattern: string): Promise<string[]> {
       safeGlob(pattern);
-      const g = new Bun.Glob(pattern);
-      const results: string[] = [];
-      // dot: true so rules can target dot-prefixed paths like `.github/`,
-      // `.husky/`, `.vscode/` — first-class source dirs in code repos.
-      // See https://github.com/archgate/cli/issues/222.
-      for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
-        const normalized = file.replaceAll("\\", "/");
-        if (trackedFiles && !trackedFiles.has(normalized)) continue;
-        results.push(normalized);
+      // Expand brace patterns with path separators that Bun.Glob scanning drops.
+      // See https://github.com/oven-sh/bun/issues/32596.
+      const patterns = expandBracePattern(pattern);
+      const seen = new Set<string>();
+      for (const p of patterns) {
+        const g = new Bun.Glob(p);
+        // dot: true so rules can target dot-prefixed paths like `.github/`,
+        // `.husky/`, `.vscode/` — first-class source dirs in code repos.
+        // See https://github.com/archgate/cli/issues/222.
+        // oxlint-disable-next-line no-await-in-loop -- sequential scan per expanded brace alternative
+        for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
+          const normalized = file.replaceAll("\\", "/");
+          if (trackedFiles && !trackedFiles.has(normalized)) continue;
+          seen.add(normalized);
+        }
       }
-      return results.sort();
+      return [...seen].sort();
     },
 
     async grep(file: string, pattern: RegExp): Promise<GrepMatch[]> {
@@ -157,17 +189,24 @@ function createRuleContext(
 
     async grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]> {
       safeGlob(fileGlob);
-      const g = new Bun.Glob(fileGlob);
+      // Expand brace patterns with path separators that Bun.Glob scanning drops.
+      // See https://github.com/oven-sh/bun/issues/32596.
+      const globs = expandBracePattern(fileGlob);
 
       // Collect paths first, then read in parallel batches for I/O throughput.
       // dot: true to match dot-prefixed source dirs (`.github/`, etc.).
       // See https://github.com/archgate/cli/issues/222.
-      const files: string[] = [];
-      for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
-        const normalized = file.replaceAll("\\", "/");
-        if (trackedFiles && !trackedFiles.has(normalized)) continue;
-        files.push(normalized);
+      const seen = new Set<string>();
+      for (const p of globs) {
+        const g = new Bun.Glob(p);
+        // oxlint-disable-next-line no-await-in-loop -- sequential scan per expanded brace alternative
+        for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
+          const normalized = file.replaceAll("\\", "/");
+          if (trackedFiles && !trackedFiles.has(normalized)) continue;
+          seen.add(normalized);
+        }
       }
+      const files = [...seen];
 
       const BATCH_SIZE = 32;
       const allMatches: GrepMatch[] = [];
