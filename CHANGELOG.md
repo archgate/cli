@@ -1,3 +1,10 @@
+## [0.45.6](https://github.com/archgate/cli/compare/v0.45.5...v0.45.6) (2026-06-22)
+
+### Bug Fixes
+
+* **engine:** pre-expand brace patterns with path separators in ctx.glob() ([#422](https://github.com/archgate/cli/issues/422)) ([6eade7a](https://github.com/archgate/cli/commit/6eade7a7d74244044140e4032ebad3e6a7d088ca)), closes [#421](https://github.com/archgate/cli/issues/421)
+* **engine:** re-validate expanded brace patterns against safeGlob ([#424](https://github.com/archgate/cli/issues/424)) ([09593e7](https://github.com/archgate/cli/commit/09593e7b36ad9cff4c3142a4b10d51ef97d57e69)), closes [#422](https://github.com/archgate/cli/issues/422)
+
 ## [0.45.5](https://github.com/archgate/cli/compare/v0.45.4...v0.45.5) (2026-06-20)
 
 ### Bug Fixes
