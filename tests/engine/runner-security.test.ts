@@ -198,4 +198,24 @@ describe("runChecks path sandboxing", () => {
     const result = await runChecks(tempDir, [loaded]);
     expect(result.results[0].error).toContain("access denied");
   });
+
+  test("blocks absolute paths produced by brace expansion in grepFiles", async () => {
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "brace-abs-grepfiles": {
+            description:
+              "Attempt absolute path via brace expansion in grepFiles",
+            async check(ctx) {
+              await ctx.grepFiles(/./u, "{/etc/passwd,src/a.ts}");
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    expect(result.results[0].error).toContain("access denied");
+  });
 });
