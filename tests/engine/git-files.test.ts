@@ -493,5 +493,25 @@ describe("git-files", () => {
         warnSpy.mockRestore();
       }
     });
+
+    // Regression: oven-sh/bun#32596 — Bun.Glob.scan() silently returns empty
+    // results for brace patterns whose alternatives contain path separators.
+    test("resolves brace patterns with path separators (regression oven-sh/bun#32596)", async () => {
+      await git(["init"], tempDir);
+      mkdirSync(join(tempDir, "svc", "src"), { recursive: true });
+      writeFileSync(
+        join(tempDir, "svc", "src", "env.ts"),
+        "export const A = 1;"
+      );
+      writeFileSync(join(tempDir, "svc", "env.ts"), "export const B = 2;");
+      await git(["add", "."], tempDir);
+
+      const files = await resolveScopedFiles(tempDir, [
+        "svc/{src/env.ts,env.ts}",
+      ]);
+      expect(files).toContain("svc/src/env.ts");
+      expect(files).toContain("svc/env.ts");
+      expect(files).toHaveLength(2);
+    });
   });
 });

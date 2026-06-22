@@ -5,6 +5,7 @@
 import { logDebug, logWarn } from "../helpers/log";
 import { ensureBaseBranch } from "../helpers/project-config";
 import { UserError } from "../helpers/user-error";
+import { expandBracePattern } from "./runner";
 
 /** Warn when an ADR's resolved file scope exceeds this many files. */
 export const SCOPE_FILE_WARN_THRESHOLD = 1000;
@@ -93,9 +94,13 @@ export async function resolveScopedFiles(
     ? await getGitTrackedFiles(projectRoot)
     : null;
 
+  // Expand brace patterns with path separators that Bun.Glob scanning drops.
+  // See https://github.com/oven-sh/bun/issues/32596.
+  const expanded = patterns.flatMap((p) => expandBracePattern(p));
+
   const scanStart = performance.now();
   const results = await Promise.all(
-    patterns.map(async (pattern) => {
+    expanded.map(async (pattern) => {
       const glob = new Bun.Glob(pattern);
       const files: string[] = [];
       // dot: true so ADR `files:` globs can target dot-prefixed source dirs
