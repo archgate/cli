@@ -179,4 +179,23 @@ describe("runChecks path sandboxing", () => {
     const result = await runChecks(tempDir, [loaded]);
     expect(result.results[0].error).toContain("escapes project root");
   });
+
+  test("blocks absolute paths produced by brace expansion", async () => {
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "brace-abs-glob": {
+            description: "Attempt absolute path via brace expansion",
+            async check(ctx) {
+              await ctx.glob("{/etc/passwd,src/a.ts}");
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    expect(result.results[0].error).toContain("access denied");
+  });
 });

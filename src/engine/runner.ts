@@ -159,6 +159,7 @@ function createRuleContext(
       const patterns = expandBracePattern(pattern);
       const seen = new Set<string>();
       for (const p of patterns) {
+        safeGlob(p);
         const g = new Bun.Glob(p);
         // dot: true so rules can target dot-prefixed paths like `.github/`,
         // `.husky/`, `.vscode/` — first-class source dirs in code repos.
@@ -205,6 +206,7 @@ function createRuleContext(
       // See https://github.com/archgate/cli/issues/222.
       const seen = new Set<string>();
       for (const p of globs) {
+        safeGlob(p);
         const g = new Bun.Glob(p);
         // oxlint-disable-next-line no-await-in-loop -- sequential scan per expanded brace alternative
         for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
