@@ -89,7 +89,14 @@ export function expandBracePattern(pattern: string): string[] {
   if (!match) return [pattern];
 
   const [, prefix, alternatives, suffix] = match;
-  if (!alternatives.includes("/")) return [pattern];
+  if (!alternatives.includes("/")) {
+    // This brace group is safe for Bun.Glob, but check the suffix for others.
+    const expandedSuffixes = expandBracePattern(suffix);
+    if (expandedSuffixes.length === 1 && expandedSuffixes[0] === suffix) {
+      return [pattern];
+    }
+    return expandedSuffixes.map((s) => `${prefix}{${alternatives}}${s}`);
+  }
 
   const parts = alternatives.split(",");
   return parts.flatMap((part) =>

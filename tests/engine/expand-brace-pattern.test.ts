@@ -43,6 +43,11 @@ describe("expandBracePattern", () => {
     const result = expandBracePattern("{src/a,lib/b}.ts");
     expect(result).toEqual(["src/a.ts", "lib/b.ts"]);
   });
+
+  test("expands later brace group when first group has no path separators", () => {
+    const result = expandBracePattern("a/{b,c}/{d/e,f}");
+    expect(result).toEqual(["a/{b,c}/d/e", "a/{b,c}/f"]);
+  });
 });
 
 // Regression: oven-sh/bun#32596 — Bun.Glob.scan() silently returns empty
