@@ -57,7 +57,7 @@
     "validate:coverage": "bun run lint && bun run typecheck && bun run format:check && bun run test:coverage && bun run check && bun run knip && bun run build:check"
   },
   "devDependencies": {
-    "@commander-js/extra-typings": "14.0.0",
+    "@commander-js/extra-typings": "15.0.0",
     "@commitlint/cli": "21.0.1",
     "@commitlint/config-conventional": "21.0.1",
     "@sentry/node-core": "10.54.0",
