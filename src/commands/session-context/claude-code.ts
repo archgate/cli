@@ -12,13 +12,13 @@ import { readClaudeCodeSession } from "../../helpers/session-context";
 const maxEntriesOption = new Option(
   "--max-entries <n>",
   "maximum entries to return (default: 200)"
-).argParser((val) => parseInt(val, 10));
+).argParser((val) => Math.trunc(Number(val)));
 
 const skipOption = new Option(
   "--skip <n>",
   "skip the N most recent sessions (useful when running as a sub-agent)"
 )
-  .argParser((val) => parseInt(val, 10))
+  .argParser((val) => Math.trunc(Number(val)))
   .default(0);
 
 export function registerClaudeCodeSessionContextCommand(parent: Command) {

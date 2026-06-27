@@ -196,7 +196,7 @@ export function buildIdMap(
     const nextId = nextIdByPrefix.get(prefix)!;
     idMap.push({ original: adr.originalId, newId: nextId, title: adr.title });
 
-    const num = parseInt(nextId.replace(`${prefix}-`, ""), 10) + 1;
+    const num = Math.trunc(Number(nextId.replace(`${prefix}-`, ""))) + 1;
     nextIdByPrefix.set(prefix, `${prefix}-${String(num).padStart(3, "0")}`);
   }
 
