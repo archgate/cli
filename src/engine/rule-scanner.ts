@@ -46,8 +46,45 @@ import { remapViolations, type RawViolation } from "./source-positions";
  */
 export function scanRuleSource(source: string): ScanViolation[] {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
-  const js = transpiler.transformSync(source);
-  const ast = parseModule(js, { next: true, loc: true, module: true });
+  let js: string;
+  try {
+    js = transpiler.transformSync(source);
+  } catch (err) {
+    // Bun.Transpiler throws AggregateError for syntax errors in the source.
+    // Return a single violation pointing at line 1 so the caller can report
+    // the file as blocked rather than crashing.
+    const msg =
+      err instanceof AggregateError && err.errors.length > 0
+        ? String(err.errors[0])
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return [
+      {
+        message: `Parse error: ${msg}`,
+        line: 1,
+        column: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    ];
+  }
+
+  let ast: ReturnType<typeof parseModule>;
+  try {
+    ast = parseModule(js, { next: true, loc: true, module: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return [
+      {
+        message: `Parse error: ${msg}`,
+        line: 1,
+        column: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    ];
+  }
   const rawViolations: RawViolation[] = [];
 
   /** Track how many times each searchText has been seen, to match by occurrence. */
@@ -204,8 +241,42 @@ const IMPORTED_BLOCKED_GLOBALS = new Set(["require", "WebSocket"]);
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
   const transpiler = new Bun.Transpiler({ loader: "ts" });
-  const js = transpiler.transformSync(source);
-  const ast = parseModule(js, { next: true, loc: true, module: true });
+  let js: string;
+  try {
+    js = transpiler.transformSync(source);
+  } catch (err) {
+    const msg =
+      err instanceof AggregateError && err.errors.length > 0
+        ? String(err.errors[0])
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    return [
+      {
+        message: `Parse error: ${msg}`,
+        line: 1,
+        column: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    ];
+  }
+
+  let ast: ReturnType<typeof parseModule>;
+  try {
+    ast = parseModule(js, { next: true, loc: true, module: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return [
+      {
+        message: `Parse error: ${msg}`,
+        line: 1,
+        column: 0,
+        endLine: 1,
+        endColumn: 0,
+      },
+    ];
+  }
   const rawViolations: RawViolation[] = [];
 
   const seenCounts = new Map<string, number>();
