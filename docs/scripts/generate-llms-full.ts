@@ -96,8 +96,16 @@ const indexContent = readFileSync(indexPath, "utf-8");
 const indexTitle = extractTitle(indexContent) ?? "Home";
 const indexBody = stripJsx(stripFrontmatter(indexContent)).trim();
 if (indexBody) {
-  parts.push(`## ${indexTitle}`, "", `Source: ${fileToUrl(indexPath)}`, "");
-  parts.push(indexBody, "", "---", "");
+  parts.push(
+    `## ${indexTitle}`,
+    "",
+    `Source: ${fileToUrl(indexPath)}`,
+    "",
+    indexBody,
+    "",
+    "---",
+    ""
+  );
 }
 
 // Process each section in order
@@ -126,9 +134,12 @@ for (const section of sections) {
       `## ${section.label}: ${title}`,
       "",
       `Source: ${fileToUrl(file)}`,
+      "",
+      body,
+      "",
+      "---",
       ""
     );
-    parts.push(body, "", "---", "");
   }
 }
 

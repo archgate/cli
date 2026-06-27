@@ -29,7 +29,7 @@ export function getNextId(adrsDir: string, prefix: string): string {
   for (const file of files) {
     const match = file.match(new RegExp(`^${prefix}-(\\d+)`, "u"));
     if (match) {
-      const num = parseInt(match[1], 10);
+      const num = Math.trunc(Number(match[1]));
       if (num > maxNum) maxNum = num;
     }
   }

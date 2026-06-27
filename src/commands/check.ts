@@ -23,7 +23,7 @@ import { trackCheckResult } from "../helpers/telemetry";
 const maxWarningsOption = new Option(
   "--max-warnings <n>",
   "Fail (exit 1) when the number of warnings exceeds this threshold (0 = fail on any warning)"
-).argParser((val) => parseInt(val, 10));
+).argParser((val) => Math.trunc(Number(val)));
 
 export function registerCheckCommand(program: Command) {
   program

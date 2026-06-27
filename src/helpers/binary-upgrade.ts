@@ -149,7 +149,7 @@ export async function downloadReleaseBinary(
   if (onProgress && response.body) {
     // Stream the response so we can report progress incrementally.
     const contentLength = response.headers.get("content-length");
-    const totalBytes = contentLength ? parseInt(contentLength, 10) : null;
+    const totalBytes = contentLength ? Math.trunc(Number(contentLength)) : null;
 
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];

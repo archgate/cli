@@ -26,7 +26,7 @@ export async function checkForUpdatesIfNeeded(
 
     if (cacheExists) {
       const raw = await cacheEntry.text();
-      const lastCheck = parseInt(raw.trim(), 10);
+      const lastCheck = Math.trunc(Number(raw.trim()));
       if (!isNaN(lastCheck) && Date.now() - lastCheck < CACHE_TTL_MS) {
         logDebug("Update check skipped — checked recently");
         return null;

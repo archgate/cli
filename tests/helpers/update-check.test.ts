@@ -152,7 +152,7 @@ describe("checkForUpdatesIfNeeded", () => {
 
     // Cache file should contain a numeric timestamp
     const content = await Bun.file(cacheFile).text();
-    const timestamp = parseInt(content.trim(), 10);
+    const timestamp = Math.trunc(Number(content.trim()));
     expect(isNaN(timestamp)).toBe(false);
     // Timestamp should be within the last 5 seconds
     expect(Date.now() - timestamp).toBeLessThan(5_000);
@@ -182,7 +182,7 @@ describe("checkForUpdatesIfNeeded", () => {
 
     // Cache file should have been rewritten with a fresh timestamp
     const content = await Bun.file(cacheFile).text();
-    const newTimestamp = parseInt(content.trim(), 10);
+    const newTimestamp = Math.trunc(Number(content.trim()));
     expect(newTimestamp).toBeGreaterThan(staleTimestamp);
     expect(Date.now() - newTimestamp).toBeLessThan(5_000);
   });
