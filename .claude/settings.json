@@ -35,6 +35,18 @@
           }
         ]
       }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun install",
+            "timeout": 60,
+            "statusMessage": "Installing dependencies in worktree..."
+          }
+        ]
+      }
     ]
   },
   "agent": "archgate:developer"
