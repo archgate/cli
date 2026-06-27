@@ -68,11 +68,11 @@
     "czg": "1.13.1",
     "fast-check": "4.8.0",
     "inquirer": "14.0.2",
-    "knip": "6.18.0",
+    "knip": "6.20.0",
     "meriyah": "7.1.0",
     "oxfmt": "0.56.0",
     "oxlint": "1.71.0",
-    "posthog-node": "5.38.4",
+    "posthog-node": "5.38.5",
     "zod": "4.4.3"
   },
   "peerDependencies": {
