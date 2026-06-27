@@ -254,6 +254,23 @@ describe("scanRuleSource", () => {
     });
   });
 
+  describe("parse error handling", () => {
+    test("returns violation instead of throwing for unparseable source", () => {
+      const source = `export default { invalid syntax here !!! }`;
+      const violations = scanRuleSource(source);
+      expect(violations).toHaveLength(1);
+      expect(violations[0].message).toContain("Parse error");
+      expect(violations[0].line).toBe(1);
+    });
+
+    test("returns violation for completely broken TypeScript", () => {
+      const source = `<<<<<<< HEAD\nconst x = 1;\n=======\nconst x = 2;\n>>>>>>> branch`;
+      const violations = scanRuleSource(source);
+      expect(violations.length).toBeGreaterThanOrEqual(1);
+      expect(violations[0].message).toContain("Parse error");
+    });
+  });
+
   // Position remapping tests are in rule-scanner-positions.test.ts
 });
 
@@ -400,6 +417,15 @@ export default {
 `;
       const violations = scanImportedRuleSource(source);
       expect(violations).toHaveLength(0);
+    });
+  });
+
+  describe("parse error handling", () => {
+    test("returns violation instead of throwing for unparseable source", () => {
+      const source = `export default { invalid syntax here !!! }`;
+      const violations = scanImportedRuleSource(source);
+      expect(violations.length).toBeGreaterThanOrEqual(1);
+      expect(violations[0].message).toContain("Parse error");
     });
   });
 

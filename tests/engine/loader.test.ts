@@ -205,6 +205,32 @@ export default {
     expect(blocked.value.violations).toHaveLength(2);
   });
 
+  test("returns blocked result when .rules.ts has syntax errors", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    copyFileSync(
+      join(fixturesDir, "TEST-001-sample.md"),
+      join(adrsDir, "TEST-001-sample.md")
+    );
+    writeFileSync(
+      join(adrsDir, "TEST-001-sample.rules.ts"),
+      `/// <reference path="../rules.d.ts" />
+
+export default { invalid syntax here !!! } satisfies RuleSet;
+`
+    );
+
+    const results = await loadRuleAdrs(tempDir);
+    expect(results).toHaveLength(1);
+    expect(results[0].type).toBe("blocked");
+    const blocked = results[0] as Extract<
+      (typeof results)[0],
+      { type: "blocked" }
+    >;
+    expect(blocked.value.error).toContain("security scanner");
+    expect(blocked.value.violations.length).toBeGreaterThanOrEqual(1);
+    expect(blocked.value.violations[0].message).toContain("Parse error");
+  });
+
   test("loads ADRs from custom directory configured in config.json", async () => {
     // Create a custom ADR directory outside .archgate/
     const customAdrsDir = join(tempDir, "docs", "adrs");

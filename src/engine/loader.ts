@@ -309,7 +309,37 @@ export async function loadRuleAdrs(
       }
 
       // Use file:// URL to handle Windows backslash paths in import().
-      const mod = await import(pathToFileURL(rulesFile).href);
+      let mod: Record<string, unknown>;
+      try {
+        mod = await import(pathToFileURL(rulesFile).href);
+      } catch (err) {
+        // Bun throws AggregateError with "Parse error" for files with syntax
+        // errors that pass the transpiler-based scanner but fail the full
+        // import parser.  Surface the first inner error for a useful message.
+        const msg =
+          err instanceof AggregateError && err.errors.length > 0
+            ? String(err.errors[0])
+            : err instanceof Error
+              ? err.message
+              : String(err);
+        return {
+          type: "blocked",
+          value: {
+            adr,
+            error: `ADR ${adr.frontmatter.id}: failed to import companion rule file — ${msg}`,
+            violations: [
+              {
+                message: `Failed to load rule file: ${msg}`,
+                file: rulesFile,
+                line: 1,
+                column: 0,
+                endLine: 1,
+                endColumn: 0,
+              },
+            ],
+          },
+        };
+      }
       const parsed = RuleSetSchema.safeParse(mod.default);
 
       if (!parsed.success) {
