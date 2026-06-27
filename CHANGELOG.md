@@ -1,3 +1,11 @@
+## [0.45.7](https://github.com/archgate/cli/compare/v0.45.6...v0.45.7) (2026-06-27)
+
+### Bug Fixes
+
+* **deps:** update docs dependencies ([#437](https://github.com/archgate/cli/issues/437)) ([e8f10c1](https://github.com/archgate/cli/commit/e8f10c1c670691ca6433bacc1f7150c2482f3003))
+* handle parse errors in rule scanner and loader gracefully ([#432](https://github.com/archgate/cli/issues/432)) ([7c384d2](https://github.com/archgate/cli/commit/7c384d216655d892294cc33940adac53c87ecb77)), closes [#130690158](https://github.com/archgate/cli/issues/130690158)
+* resolve all knip unused dependency and unlisted binary warnings ([#434](https://github.com/archgate/cli/issues/434)) ([d7690b2](https://github.com/archgate/cli/commit/d7690b2e9e3576446b356899518692b8979449a5))
+
 ## [0.45.6](https://github.com/archgate/cli/compare/v0.45.5...v0.45.6) (2026-06-22)
 
 ### Bug Fixes
