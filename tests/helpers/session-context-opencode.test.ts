@@ -88,12 +88,13 @@ describe("readOpencodeSession", () => {
     sessionId: string,
     sessionDir: string,
     messages?: Array<{ id: string; role: string; content: string }>,
-    timeUpdated?: number
+    timeUpdated?: number,
+    parentId?: string
   ): void {
     const now = timeUpdated ?? Date.now();
     db.run(
-      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
-      [sessionId, sessionDir, now, now]
+      "INSERT INTO session (id, parent_id, directory, time_created, time_updated) VALUES (?, ?, ?, ?, ?)",
+      [sessionId, parentId ?? null, sessionDir, now, now]
     );
 
     if (!messages) return;
@@ -123,6 +124,53 @@ describe("readOpencodeSession", () => {
         ]
       );
     }
+  }
+
+  /** Insert a session under `projectRoot` with a single user message. */
+  function makeSimpleSession(
+    db: Database,
+    id: string,
+    content: string,
+    timeUpdated: number,
+    parentId?: string
+  ): void {
+    makeSession(
+      db,
+      id,
+      projectRoot,
+      [{ id: `msg_${id}`, role: "user", content }],
+      timeUpdated,
+      parentId
+    );
+  }
+
+  /** Insert a raw message row with the given role. */
+  function insertMessage(
+    db: Database,
+    id: string,
+    sessionId: string,
+    t: number,
+    role: string
+  ): void {
+    db.run(
+      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+      [id, sessionId, t, t, JSON.stringify({ role })]
+    );
+  }
+
+  /** Insert a raw part row with arbitrary JSON data. */
+  function insertPart(
+    db: Database,
+    id: string,
+    messageId: string,
+    sessionId: string,
+    t: number,
+    data: Record<string, unknown>
+  ): void {
+    db.run(
+      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
+      [id, messageId, sessionId, t, t, JSON.stringify(data)]
+    );
   }
 
   test("returns data for most recent session matching project", async () => {
@@ -156,20 +204,8 @@ describe("readOpencodeSession", () => {
     const sessionId1 = `ses_${uniqueId}_first`;
     const sessionId2 = `ses_${uniqueId}_second`;
 
-    makeSession(
-      db,
-      sessionId1,
-      projectRoot,
-      [{ id: "msg_001", role: "user", content: "first session" }],
-      1000
-    );
-    makeSession(
-      db,
-      sessionId2,
-      projectRoot,
-      [{ id: "msg_002", role: "user", content: "second session" }],
-      2000
-    );
+    makeSimpleSession(db, sessionId1, "first session", 1000);
+    makeSimpleSession(db, sessionId2, "second session", 2000);
     db.close();
 
     const result = await readOpencodeSession(projectRoot, {
@@ -185,9 +221,7 @@ describe("readOpencodeSession", () => {
   test("returns error when sessionId not found (with available list)", async () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_real`;
-    makeSession(db, sessionId, projectRoot, [
-      { id: "msg_001", role: "user", content: "real" },
-    ]);
+    makeSimpleSession(db, sessionId, "real", 1000);
     db.close();
 
     const result = await readOpencodeSession(projectRoot, {
@@ -206,36 +240,17 @@ describe("readOpencodeSession", () => {
 
     // Insert messages with various roles — system and tool should be filtered out
     const now = Date.now();
-    db.run(
-      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
-      [sessionId, projectRoot, now, now]
-    );
+    makeSession(db, sessionId, projectRoot, undefined, now);
 
     const roles = ["system", "tool", "user", "assistant"];
     const contents = ["system msg", "tool output", "visible", "also visible"];
     for (let i = 0; i < roles.length; i++) {
       const msgId = `msg_${String(i).padStart(3, "0")}`;
-      db.run(
-        "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
-        [
-          msgId,
-          sessionId,
-          now + i + 1,
-          now + i + 1,
-          JSON.stringify({ role: roles[i] }),
-        ]
-      );
-      db.run(
-        "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          `prt_${msgId}`,
-          msgId,
-          sessionId,
-          now + i + 1,
-          now + i + 1,
-          JSON.stringify({ type: "text", text: contents[i] }),
-        ]
-      );
+      insertMessage(db, msgId, sessionId, now + i + 1, roles[i] ?? "");
+      insertPart(db, `prt_${msgId}`, msgId, sessionId, now + i + 1, {
+        type: "text",
+        text: contents[i],
+      });
     }
     db.close();
 
@@ -338,46 +353,19 @@ describe("readOpencodeSession", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_synthetic`;
     const now = Date.now();
+    makeSession(db, sessionId, projectRoot, undefined, now);
 
-    db.run(
-      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
-      [sessionId, projectRoot, now, now]
-    );
-
-    // User message with a synthetic part and a real part
-    const msgId = "msg_syn_001";
-    db.run(
-      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
-      [msgId, sessionId, now + 1, now + 1, JSON.stringify({ role: "user" })]
-    );
-    // Synthetic part (editor context)
-    db.run(
-      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        "prt_syn_001",
-        msgId,
-        sessionId,
-        now + 1,
-        now + 1,
-        JSON.stringify({
-          type: "text",
-          text: "<system-reminder>Note: The user opened the file</system-reminder>",
-          synthetic: true,
-        }),
-      ]
-    );
-    // Real part (user input)
-    db.run(
-      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        "prt_real_001",
-        msgId,
-        sessionId,
-        now + 2,
-        now + 2,
-        JSON.stringify({ type: "text", text: "actual user question" }),
-      ]
-    );
+    // User message with a synthetic part (editor context) and a real part
+    insertMessage(db, "msg_syn", sessionId, now + 1, "user");
+    insertPart(db, "prt_syn", "msg_syn", sessionId, now + 1, {
+      type: "text",
+      text: "<system-reminder>Note: The user opened the file</system-reminder>",
+      synthetic: true,
+    });
+    insertPart(db, "prt_real", "msg_syn", sessionId, now + 2, {
+      type: "text",
+      text: "actual user question",
+    });
     db.close();
 
     const result = await readOpencodeSession(projectRoot);
@@ -393,94 +381,106 @@ describe("readOpencodeSession", () => {
     );
   });
 
-  test("skip=1 reads the parent session instead of the sub-agent session", async () => {
+  test("excludes sub-agent child sessions from recency selection", async () => {
     const db = createDb();
-    makeSession(
-      db,
-      "ses_parent",
-      projectRoot,
-      [{ id: "msg_p1", role: "user", content: "parent question" }],
-      1000
-    );
-    makeSession(
-      db,
-      "ses_subagent",
-      projectRoot,
-      [{ id: "msg_s1", role: "user", content: "sub-agent init" }],
-      2000
-    );
+    makeSimpleSession(db, "ses_parent", "parent question", 1000);
+    // Child session is newer — it must NOT shadow the parent session
+    makeSimpleSession(db, "ses_sub", "sub-agent init", 2000, "ses_parent");
+    db.close();
+
+    const result = await readOpencodeSession(projectRoot);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.sessionId).toBe("ses_parent");
+      expect(result.data.transcript[0]?.contentPreview).toBe("parent question");
+    }
+  });
+
+  test("sessionId can read a sub-agent child session explicitly", async () => {
+    const db = createDb();
+    makeSimpleSession(db, "ses_parent", "parent question", 1000);
+    makeSimpleSession(db, "ses_sub", "sub-agent init", 2000, "ses_parent");
+    db.close();
+
+    const result = await readOpencodeSession(projectRoot, {
+      sessionId: "ses_sub",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.sessionId).toBe("ses_sub");
+      expect(result.data.transcript[0]?.contentPreview).toBe("sub-agent init");
+    }
+  });
+
+  test("skip indexes over top-level sessions only", async () => {
+    const db = createDb();
+    makeSimpleSession(db, "ses_older", "older top-level", 1000);
+    makeSimpleSession(db, "ses_newer", "newer top-level", 2000);
+    // Child session between the two — must not consume a skip index
+    makeSimpleSession(db, "ses_child", "child", 1500, "ses_older");
     db.close();
 
     const noSkip = await readOpencodeSession(projectRoot);
     expect(noSkip.ok).toBe(true);
-    if (noSkip.ok) expect(noSkip.data.sessionId).toBe("ses_subagent");
+    if (noSkip.ok) expect(noSkip.data.sessionId).toBe("ses_newer");
 
     const skipped = await readOpencodeSession(projectRoot, { skip: 1 });
     expect(skipped.ok).toBe(true);
-    if (skipped.ok) expect(skipped.data.sessionId).toBe("ses_parent");
+    if (skipped.ok) expect(skipped.data.sessionId).toBe("ses_older");
   });
 
-  test("skip beyond available matching sessions returns error", async () => {
+  test("root resolves to the top-level ancestor session", async () => {
     const db = createDb();
-    makeSession(
-      db,
-      "ses_only",
-      projectRoot,
-      [{ id: "msg_001", role: "user", content: "only" }],
-      1000
-    );
+    makeSimpleSession(db, "ses_parent", "parent question", 1000);
+    makeSimpleSession(db, "ses_sub", "sub-agent init", 2000, "ses_parent");
+    // Grandchild — root must walk the whole parent_id chain
+    makeSimpleSession(db, "ses_grand", "grandchild", 3000, "ses_sub");
     db.close();
 
-    const result = await readOpencodeSession(projectRoot, { skip: 3 });
+    const viaChild = await readOpencodeSession(projectRoot, {
+      sessionId: "ses_grand",
+      root: true,
+    });
+    expect(viaChild.ok).toBe(true);
+    if (viaChild.ok) expect(viaChild.data.sessionId).toBe("ses_parent");
+
+    const noId = await readOpencodeSession(projectRoot, { root: true });
+    expect(noId.ok).toBe(true);
+    if (noId.ok) expect(noId.data.sessionId).toBe("ses_parent");
+  });
+
+  test("skip beyond available top-level sessions returns error", async () => {
+    const db = createDb();
+    makeSimpleSession(db, "ses_only", "only", 1000);
+    // Child sessions must not count toward the top-level total
+    makeSimpleSession(db, "ses_child", "child", 2000, "ses_only");
+    db.close();
+
+    const result = await readOpencodeSession(projectRoot, { skip: 1 });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("--skip 3 requested");
+    if (!result.ok) {
+      expect(result.error).toContain(
+        "Only 1 top-level session(s) available but --skip 1 requested"
+      );
+      expect(result.available).toEqual(["ses_only"]);
+    }
   });
 
   test("includes tool parts as [tool: name]", async () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_tools`;
     const now = Date.now();
+    makeSession(db, sessionId, projectRoot, undefined, now);
 
-    db.run(
-      "INSERT INTO session (id, directory, time_created, time_updated) VALUES (?, ?, ?, ?)",
-      [sessionId, projectRoot, now, now]
-    );
-
-    const msgId = "msg_tool_001";
-    db.run(
-      "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
-      [
-        msgId,
-        sessionId,
-        now + 1,
-        now + 1,
-        JSON.stringify({ role: "assistant" }),
-      ]
-    );
-    // Text part
-    db.run(
-      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        "prt_t1",
-        msgId,
-        sessionId,
-        now + 1,
-        now + 1,
-        JSON.stringify({ type: "text", text: "Let me check that." }),
-      ]
-    );
-    // Tool part
-    db.run(
-      "INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)",
-      [
-        "prt_t2",
-        msgId,
-        sessionId,
-        now + 2,
-        now + 2,
-        JSON.stringify({ type: "tool", tool: "glob" }),
-      ]
-    );
+    insertMessage(db, "msg_tool", sessionId, now + 1, "assistant");
+    insertPart(db, "prt_t1", "msg_tool", sessionId, now + 1, {
+      type: "text",
+      text: "Let me check that.",
+    });
+    insertPart(db, "prt_t2", "msg_tool", sessionId, now + 2, {
+      type: "tool",
+      tool: "glob",
+    });
     db.close();
 
     const result = await readOpencodeSession(projectRoot);

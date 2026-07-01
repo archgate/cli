@@ -54,17 +54,18 @@ archgate session-context cursor [options]
 
 ### archgate session-context opencode
 
-Lê a transcrição de sessão do opencode para o projeto. Sessões são correspondidas pelo campo `path` do projeto nos metadados da sessão.
+Lê a transcrição de sessão do opencode para o projeto. Sessões são correspondidas comparando o campo `directory` da sessão com a raiz do projeto. O opencode registra execuções de sub-agentes como sessões filhas que compartilham o diretório da sessão pai — elas são excluídas da seleção por recência, de modo que a sessão de nível superior mais recente é sempre a sessão principal de desenvolvimento. Use `--session-id` para ler uma sessão específica, incluindo uma sessão filha de sub-agente.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Opção               | Descrição                                                           |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                         |
-| `--skip <n>`        | Pular as N sessões mais recentes (útil ao executar como sub-agente) |
-| `--session-id <id>` | ID específico da sessão a ser lida                                  |
+| Opção               | Descrição                                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                                                                          |
+| `--skip <n>`        | Pular as N sessões de nível superior mais recentes (sessões de sub-agente são excluídas)                             |
+| `--session-id <id>` | ID específico da sessão a ser lida                                                                                   |
+| `--root`            | Resolve para a sessão de nível superior (raiz) — com `--session-id`, sobe a partir de uma sessão filha de sub-agente |
 
 ## Exemplos
 

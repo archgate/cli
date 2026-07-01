@@ -184,6 +184,7 @@ describe("opencode action handler", () => {
       maxEntries: undefined,
       skip: 0,
       sessionId: undefined,
+      root: undefined,
     });
   });
 });

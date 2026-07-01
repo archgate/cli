@@ -54,17 +54,18 @@ archgate session-context cursor [options]
 
 ### archgate session-context opencode
 
-Read the opencode session transcript for the project. Sessions are matched by the project `path` field in session metadata.
+Read the opencode session transcript for the project. Sessions are matched by comparing the session `directory` field to the project root. opencode records sub-agent runs as child sessions that share the parent's directory — these are excluded from recency selection, so the most recent top-level session is always the main development session. Use `--session-id` to read a specific session, including a sub-agent child session.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Option              | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
-| `--session-id <id>` | Specific session ID to read                                        |
+| Option              | Description                                                                                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                                                               |
+| `--skip <n>`        | Skip the N most recent top-level sessions (sub-agent sessions always excluded)                         |
+| `--session-id <id>` | Specific session ID to read                                                                            |
+| `--root`            | Resolve to the top-level (root) session — with `--session-id`, walks up from a sub-agent child session |
 
 ## Examples
 
