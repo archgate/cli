@@ -23,6 +23,18 @@ interface OpencodeSessionSummary {
 
 interface ReadOpencodeSessionOptions extends ReadSessionOptions {
   sessionId?: string;
+  /**
+   * Restrict selection to root sessions only (`parent_id IS NULL`) before
+   * applying `skip`. Opencode is the only session-context backend with a
+   * real parent/child session graph, so this option lives here rather than
+   * in the shared `ReadSessionOptions`.
+   *
+   * Use this — not a bare `skip: 1` — when you need "the top-level
+   * development session" from a sub-agent or an inline Skill invocation:
+   * a plain recency-based skip cannot distinguish the true parent from a
+   * sibling sub-agent session once more than one sibling exists.
+   */
+  root?: boolean;
 }
 
 type OpencodeSessionResult =
@@ -50,6 +62,12 @@ function normalizePath(p: string): string {
  *
  * Sessions are matched by comparing the `directory` field in session rows
  * to the provided project root.
+ *
+ * Opencode sessions form a real parent/child tree via the `session.parent_id`
+ * column (sub-agent spawns create a child row; an inline Skill invocation
+ * reuses the current row and creates no child at all). Pass `root: true` to
+ * resolve the top-level session for the directory instead of guessing by
+ * recency via `skip` — see `ReadOpencodeSessionOptions.root`.
  */
 export function readOpencodeSession(
   projectRoot: string | null,
@@ -80,10 +98,11 @@ export function readOpencodeSession(
       id: string;
       directory: string;
       time_updated: number;
+      parent_id: string | null;
     }
     const allSessions = db
       .query<SessionRow, []>(
-        "SELECT id, directory, time_updated FROM session ORDER BY time_updated DESC"
+        "SELECT id, directory, time_updated, parent_id FROM session ORDER BY time_updated DESC"
       )
       .all();
 
@@ -105,17 +124,34 @@ export function readOpencodeSession(
       };
     }
 
-    // 3. Select session by ID or most recent (with optional skip)
+    // 3. Select session by ID, or by recency within the chosen scope (with
+    // optional skip).
+    //
+    // Opencode records true parent/child linkage via `parent_id` — a
+    // sub-agent session (or an inline Skill invocation, which appends to the
+    // *current* session row instead of creating a new one) can have any
+    // number of sibling sessions sharing this directory. Sorting every
+    // matching session by recency and taking the Nth (the plain `--skip`
+    // behavior) cannot reliably reach "the top-level session": once more
+    // than one sibling exists, whichever sibling was touched most recently
+    // occupies that slot, not the parent. `root: true` sidesteps the
+    // guesswork by filtering to sessions with no parent (the true root of
+    // the tree) before applying `skip`.
     const skip = options?.skip ?? 0;
+    const rootOnly = options?.root ?? false;
+    const candidates = rootOnly
+      ? matching.filter((s) => s.parent_id === null)
+      : matching;
     const target = options?.sessionId
       ? matching.find((s) => s.id === options.sessionId)
-      : matching[skip];
+      : candidates[skip];
 
     if (!target) {
+      const scope = rootOnly ? "root session(s)" : "session(s)";
       const error = options?.sessionId
         ? `Session not found: ${options.sessionId}`
-        : `Only ${String(matching.length)} session(s) available but --skip ${String(skip)} requested`;
-      return { ok: false, error, available: matching.map((s) => s.id) };
+        : `Only ${String(candidates.length)} ${scope} available but --skip ${String(skip)} requested`;
+      return { ok: false, error, available: candidates.map((s) => s.id) };
     }
 
     // 4. Read messages for the session

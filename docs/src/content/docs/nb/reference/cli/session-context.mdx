@@ -54,17 +54,20 @@ archgate session-context cursor [options]
 
 ### archgate session-context opencode
 
-Les opencode-sesjonsloggen for prosjektet. Sesjoner matches etter prosjektets `path`-felt i sesjonsmetadataene.
+Les opencode-sesjonsloggen for prosjektet. Sesjoner matches etter `directory`-feltet i sesjonsmetadataene.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Valg                | Beskrivelse                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
-| `--session-id <id>` | Spesifikk sesjons-ID å lese                                         |
+| Valg                | Beskrivelse                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)                                                                                   |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene (kombiner med `--root` for å hoppe kun blant rotsesjoner)                                                  |
+| `--session-id <id>` | Spesifikk sesjons-ID å lese                                                                                                                |
+| `--root`            | Les toppnivåsesjonen (uten forelder) i stedet for å gjette basert på nylighet — bruk dette ved kjøring som underagent eller innebygd skill |
+
+Opencode registrerer ekte forelder/barn-koblinger mellom sesjoner. En enkel `--skip 1` velger den nest nyeste oppdaterte sesjonen som deler denne mappen, noe som bare er forelderen når nøyaktig én annen sesjon har rørt den — en vifte av søsken-underagenter kan gjøre at `--skip 1` havner på et urelatert søsken i stedet. `--root` løser den faktiske toppnivåsesjonen direkte, uansett hvor mange underagent- eller innebygd-skill-sesjoner som finnes under den.
 
 ## Eksempler
 
@@ -96,4 +99,10 @@ Les foreldresesjonen (hopp over underagentens egen sesjon):
 
 ```bash
 archgate session-context claude-code --skip 1
+```
+
+Les toppnivåsesjonen for opencode fra en underagent eller innebygd skill:
+
+```bash
+archgate session-context opencode --root
 ```

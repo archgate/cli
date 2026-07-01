@@ -70,6 +70,14 @@ describe("registerOpencodeSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--session-id");
     expect(opt).toBeDefined();
   });
+
+  test("accepts --root option", () => {
+    const parent = new Command("session-context");
+    registerOpencodeSessionContextCommand(parent);
+    const sub = parent.commands.find((c) => c.name() === "opencode")!;
+    const opt = sub.options.find((o) => o.long === "--root");
+    expect(opt).toBeDefined();
+  });
 });
 
 describe("opencode action handler", () => {
@@ -184,6 +192,25 @@ describe("opencode action handler", () => {
       maxEntries: undefined,
       skip: 0,
       sessionId: undefined,
+      root: undefined,
+    });
+  });
+
+  test("passes root: true when --root is given", async () => {
+    mockReadOpencodeSession.mockResolvedValue({ ok: true, data: {} });
+
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "opencode",
+      "--root",
+    ]);
+
+    expect(mockReadOpencodeSession).toHaveBeenCalledWith(tempDir, {
+      maxEntries: undefined,
+      skip: 0,
+      sessionId: undefined,
+      root: true,
     });
   });
 });

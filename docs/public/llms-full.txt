@@ -4388,17 +4388,20 @@ archgate session-context cursor [options]
 
 ### archgate session-context opencode
 
-Read the opencode session transcript for the project. Sessions are matched by the project `path` field in session metadata.
+Read the opencode session transcript for the project. Sessions are matched by the `directory` field in session metadata.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Option              | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
-| `--session-id <id>` | Specific session ID to read                                        |
+| Option              | Description                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                                                                                     |
+| `--skip <n>`        | Skip the N most recent sessions (combine with `--root` to skip within root sessions only)                                    |
+| `--session-id <id>` | Specific session ID to read                                                                                                  |
+| `--root`            | Read the top-level session (no parent) instead of guessing by recency — use this when running as a sub-agent or inline skill |
+
+Opencode records real parent/child session links. A plain `--skip 1` picks the second most-recently-updated session sharing this directory, which is only the parent when exactly one other session touched it — a fan-out of sibling sub-agents can land `--skip 1` on an unrelated sibling instead. `--root` resolves the actual top-level session directly, regardless of how many sub-agent or inline-skill sessions exist underneath it.
 
 ## Examples
 
@@ -4430,6 +4433,12 @@ Read the parent session (skip the sub-agent's own session):
 
 ```bash
 archgate session-context claude-code --skip 1
+```
+
+Read the top-level opencode session from a sub-agent or inline skill:
+
+```bash
+archgate session-context opencode --root
 ```
 
 ---

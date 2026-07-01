@@ -80,6 +80,11 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 
 - **`archgate` command = `bun run cli`** — This is the CLI repo itself, so the `archgate` binary is not installed in PATH. Use `bun run cli <command>` (e.g., `bun run cli check`, `bun run cli adr list`) instead of `archgate <command>`. The `bun run cli` script maps to `bun run src/cli.ts`.
 
+## Sibling Repo: archgate/plugins
+
+- [Skill files for opencode/cursor are GENERATED, not hand-authored](project_plugins_generated_skill_files.md) — canonical source is `claude-code/plugins/archgate/skills/<name>/SKILL.md`; edit build scripts (`scripts/build-<platform>-plugin.ts`) for platform-specific wording, not the generated copies directly
+- [session-context opencode --skip 1 bug fixed via --root](project_session_context_skip_root_fix.md) — same bug class likely still open for claude-code/cursor/copilot, live-reproduced for claude-code but not fixed
+
 ## Distribution / Packaging
 
 - **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs`). On first run, the shim downloads the platform binary from GitHub Releases and caches it to `~/.archgate/bin/`. No platform-specific npm packages.

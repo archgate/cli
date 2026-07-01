@@ -54,17 +54,20 @@ archgate session-context cursor [options]
 
 ### archgate session-context opencode
 
-Lê a transcrição de sessão do opencode para o projeto. Sessões são correspondidas pelo campo `path` do projeto nos metadados da sessão.
+Lê a transcrição de sessão do opencode para o projeto. Sessões são correspondidas pelo campo `directory` nos metadados da sessão.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Opção               | Descrição                                                           |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                         |
-| `--skip <n>`        | Pular as N sessões mais recentes (útil ao executar como sub-agente) |
-| `--session-id <id>` | ID específico da sessão a ser lida                                  |
+| Opção               | Descrição                                                                                                                        |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                                                                                      |
+| `--skip <n>`        | Pular as N sessões mais recentes (combine com `--root` para pular apenas entre sessões raiz)                                     |
+| `--session-id <id>` | ID específico da sessão a ser lida                                                                                               |
+| `--root`            | Lê a sessão de nível superior (sem pai) em vez de adivinhar pela recência — use isso ao executar como sub-agente ou skill inline |
+
+O opencode registra vínculos reais de pai/filho entre sessões. Um simples `--skip 1` seleciona a segunda sessão mais recentemente atualizada que compartilha esse diretório, o que só corresponde à sessão pai quando exatamente uma outra sessão a tocou — um leque de sub-agentes irmãos pode fazer `--skip 1` cair em um irmão não relacionado. `--root` resolve diretamente a sessão de nível superior real, independentemente de quantas sessões de sub-agente ou skill inline existam abaixo dela.
 
 ## Exemplos
 
@@ -96,4 +99,10 @@ Ler a sessão pai (pular a sessão do sub-agente):
 
 ```bash
 archgate session-context claude-code --skip 1
+```
+
+Ler a sessão de nível superior do opencode a partir de um sub-agente ou skill inline:
+
+```bash
+archgate session-context opencode --root
 ```
