@@ -24,7 +24,7 @@ import {
   installVscodeExtension,
   isClaudeCliAvailable,
   isCopilotCliAvailable,
-  isOpencodeCliAvailable,
+  isOpencodeAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
 import { configureVscodeSettings } from "../../helpers/vscode-settings";
@@ -92,11 +92,13 @@ export async function installForEditor(
     }
     case "opencode": {
       // Writing files to `~/.config/opencode/{agents,skills}/` is only
-      // useful if opencode is actually installed. Skip the install and
+      // useful if opencode is actually installed. `isOpencodeAvailable()`
+      // recognizes both the CLI (on PATH) and the Desktop app (no CLI, but
+      // shares the same user-scope config directory). Skip the install and
       // surface a clear message otherwise, matching every other editor's guard.
-      if (!(await isOpencodeCliAvailable())) {
+      if (!(await isOpencodeAvailable())) {
         logWarn(
-          "opencode CLI not found on PATH — skipping plugin install.",
+          "opencode not found on this machine — skipping plugin install.",
           "Install opencode from https://opencode.ai/docs/, then re-run:"
         );
         console.log(

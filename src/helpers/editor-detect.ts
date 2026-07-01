@@ -14,7 +14,7 @@ import {
   isClaudeCliAvailable,
   isCopilotCliAvailable,
   isCursorCliAvailable,
-  isOpencodeCliAvailable,
+  isOpencodeAvailable,
   isVscodeCliAvailable,
 } from "./plugin-install";
 import { withPromptFix } from "./prompt";
@@ -37,7 +37,7 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
     isCursorCliAvailable(),
     isVscodeCliAvailable(),
     isCopilotCliAvailable(),
-    isOpencodeCliAvailable(),
+    isOpencodeAvailable(),
   ]);
 
   logDebug("Editor detection:", { claude, cursor, vscode, copilot, opencode });

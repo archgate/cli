@@ -290,19 +290,21 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   }
 
   if (editor === "opencode") {
-    const { isOpencodeCliAvailable, installOpencodePlugin } =
+    const { isOpencodeAvailable, installOpencodePlugin } =
       await import("./plugin-install");
 
     // Writing agent markdown to `~/.config/opencode/agents/` is only useful
-    // if opencode itself is on PATH — otherwise we leave stale files in a
-    // directory nothing reads. Mirror the detect-before-install guard that
-    // every other editor's install path already uses.
-    if (!(await isOpencodeCliAvailable())) {
+    // if opencode is actually installed — otherwise we leave stale files in
+    // a directory nothing reads. `isOpencodeAvailable()` recognizes both the
+    // CLI (on PATH) and the Desktop app (no CLI, but shares the same
+    // user-scope config directory), mirroring the detect-before-install
+    // guard that every other editor's install path already uses.
+    if (!(await isOpencodeAvailable())) {
       return {
         installed: true,
-        // `cli-not-found` is a marker recognized by `printManualInstructions`
+        // `not-found` is a marker recognized by `printManualInstructions`
         // in `commands/init.ts`; the user-facing message lives there.
-        detail: "cli-not-found",
+        detail: "not-found",
       };
     }
 
