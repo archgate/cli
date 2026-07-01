@@ -42,6 +42,7 @@
           {
             "type": "command",
             "command": "name=$(jq -r '.name // empty' | tr -d '\\r'); [ -z \"$name\" ] && name=\"wt-$$\"; dir=\"$CLAUDE_PROJECT_DIR/.claude/worktrees/$name\"; branch=\"claude/$name\"; if [ -d \"$dir\" ] && [ ! -e \"$dir/.git\" ]; then rm -rf \"$dir\"; fi; if [ ! -d \"$dir\" ]; then git worktree prune >&2; git worktree add \"$dir\" -B \"$branch\" >&2 || exit 1; fi; cd \"$dir\" || exit 1; bun install --silent >&2 || echo \"warning: bun install failed in $dir -- dependencies may be missing, run 'bun install' manually\" >&2; printf '%s\\n' \"$dir\"",
+            "shell": "bash",
             "timeout": 60,
             "statusMessage": "Installing dependencies in worktree..."
           }
