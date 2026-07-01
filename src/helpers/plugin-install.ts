@@ -313,6 +313,23 @@ export async function isOpencodeCliAvailable(): Promise<boolean> {
 }
 
 /**
+ * Check whether opencode is installed in any form — the CLI on PATH, or the
+ * opencode Desktop app (Electron-based GUI, ships no CLI binary at all).
+ *
+ * Both distributions read agents/skills from the same user-scope config
+ * directory (`opencodeConfigDir()` — see its doc comment for the exact
+ * resolution rules), so a directory that already exists there is reliable
+ * evidence opencode has been run and initialized on this machine, even when
+ * `isOpencodeCliAvailable()` finds nothing. This is what call sites should
+ * use to decide whether to attempt the plugin install, which itself never
+ * shells out to a CLI — it only writes files into that shared directory.
+ */
+export async function isOpencodeAvailable(): Promise<boolean> {
+  if (await isOpencodeCliAvailable()) return true;
+  return existsSync(opencodeConfigDir());
+}
+
+/**
  * Install archgate agents and skills into opencode's user-scope directories.
  *
  * Opencode has no plugin marketplace — agents and skills are plain markdown

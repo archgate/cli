@@ -437,11 +437,11 @@ describe("tryInstallPlugin via initProject", () => {
     }
   });
 
-  test("opencode with CLI available auto-installs", async () => {
+  test("opencode available auto-installs", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const cliSpy = spyOn(
+    const availableSpy = spyOn(
       pluginInstall,
-      "isOpencodeCliAvailable"
+      "isOpencodeAvailable"
     ).mockResolvedValue(true);
     const installSpy = spyOn(
       pluginInstall,
@@ -455,16 +455,16 @@ describe("tryInstallPlugin via initProject", () => {
       expect(result.plugin!.installed).toBe(true);
       expect(result.plugin!.autoInstalled).toBe(true);
     } finally {
-      cliSpy.mockRestore();
+      availableSpy.mockRestore();
       installSpy.mockRestore();
     }
   });
 
-  test("opencode without CLI returns cli-not-found", async () => {
+  test("opencode not found returns not-found", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const cliSpy = spyOn(
+    const availableSpy = spyOn(
       pluginInstall,
-      "isOpencodeCliAvailable"
+      "isOpencodeAvailable"
     ).mockResolvedValue(false);
     try {
       const result = await initProject(tempDir, {
@@ -472,17 +472,17 @@ describe("tryInstallPlugin via initProject", () => {
         editor: "opencode",
       });
       expect(result.plugin!.installed).toBe(true);
-      expect(result.plugin!.detail).toBe("cli-not-found");
+      expect(result.plugin!.detail).toBe("not-found");
     } finally {
-      cliSpy.mockRestore();
+      availableSpy.mockRestore();
     }
   });
 
   test("opencode install failure returns error detail", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const cliSpy = spyOn(
+    const availableSpy = spyOn(
       pluginInstall,
-      "isOpencodeCliAvailable"
+      "isOpencodeAvailable"
     ).mockResolvedValue(true);
     const installSpy = spyOn(
       pluginInstall,
@@ -496,7 +496,7 @@ describe("tryInstallPlugin via initProject", () => {
       expect(result.plugin!.installed).toBe(true);
       expect(result.plugin!.detail).toBe("network timeout");
     } finally {
-      cliSpy.mockRestore();
+      availableSpy.mockRestore();
       installSpy.mockRestore();
     }
   });

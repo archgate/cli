@@ -324,12 +324,13 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
       break;
     case "opencode":
-      // `cli-not-found` is the sentinel set by `tryInstallPlugin` in
-      // init-project.ts when the `opencode` binary is not on PATH. All other
+      // `not-found` is the sentinel set by `tryInstallPlugin` in
+      // init-project.ts when neither the `opencode` CLI nor a Desktop app
+      // install (detected via its shared config dir) is present. All other
       // values are error messages from a failed download/extract.
-      if (detail === "cli-not-found") {
+      if (detail === "not-found") {
         logWarn(
-          "opencode CLI not found on PATH — skipping agent install.",
+          "opencode not found on this machine — skipping agent install.",
           "Install opencode from https://opencode.ai/docs/, then run:"
         );
         console.log(

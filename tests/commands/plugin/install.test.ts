@@ -27,7 +27,7 @@ const mockInstallCursorPlugin = mock((_token: string) => Promise.resolve());
 const mockIsClaudeCliAvailable = mock(() => Promise.resolve(false));
 const mockIsCopilotCliAvailable = mock(() => Promise.resolve(false));
 const mockIsVscodeCliAvailable = mock(() => Promise.resolve(false));
-const mockIsOpencodeCliAvailable = mock(() => Promise.resolve(false));
+const mockIsOpencodeAvailable = mock(() => Promise.resolve(false));
 mock.module("../../../src/helpers/plugin-install", () => ({
   buildMarketplaceUrl: () => "https://plugins.archgate.dev/archgate.git",
   buildVscodeMarketplaceUrl: () =>
@@ -42,7 +42,7 @@ mock.module("../../../src/helpers/plugin-install", () => ({
   isClaudeCliAvailable: mockIsClaudeCliAvailable,
   isCopilotCliAvailable: mockIsCopilotCliAvailable,
   isVscodeCliAvailable: mockIsVscodeCliAvailable,
-  isOpencodeCliAvailable: mockIsOpencodeCliAvailable,
+  isOpencodeAvailable: mockIsOpencodeAvailable,
   isCursorCliAvailable: mock(() => Promise.resolve(false)),
 }));
 
@@ -124,7 +124,7 @@ beforeEach(() => {
   mockIsClaudeCliAvailable.mockReset();
   mockIsCopilotCliAvailable.mockReset();
   mockIsVscodeCliAvailable.mockReset();
-  mockIsOpencodeCliAvailable.mockReset();
+  mockIsOpencodeAvailable.mockReset();
   mockDetectEditors.mockReset();
   mockPromptEditorSelection.mockReset();
   mockConfigureVscodeSettings.mockReset();
@@ -141,7 +141,7 @@ beforeEach(() => {
   mockIsClaudeCliAvailable.mockImplementation(() => Promise.resolve(false));
   mockIsCopilotCliAvailable.mockImplementation(() => Promise.resolve(false));
   mockIsVscodeCliAvailable.mockImplementation(() => Promise.resolve(false));
-  mockIsOpencodeCliAvailable.mockImplementation(() => Promise.resolve(false));
+  mockIsOpencodeAvailable.mockImplementation(() => Promise.resolve(false));
   mockConfigureVscodeSettings.mockImplementation(() => Promise.resolve());
 });
 
@@ -281,22 +281,22 @@ describe("plugin install action", () => {
     expect(warnSpy).toHaveBeenCalled();
   });
 
-  test("installs opencode plugin when CLI is available", async () => {
+  test("installs opencode plugin when opencode is available", async () => {
     mockLoadCredentials.mockImplementation(() =>
       Promise.resolve({ token: "tok", github_user: "user" })
     );
-    mockIsOpencodeCliAvailable.mockImplementation(() => Promise.resolve(true));
+    mockIsOpencodeAvailable.mockImplementation(() => Promise.resolve(true));
 
     await runInstall(["--editor", "opencode"]);
 
     expect(mockInstallOpencodePlugin).toHaveBeenCalledWith("tok");
   });
 
-  test("skips opencode install when CLI not available", async () => {
+  test("skips opencode install when opencode not available", async () => {
     mockLoadCredentials.mockImplementation(() =>
       Promise.resolve({ token: "tok", github_user: "user" })
     );
-    mockIsOpencodeCliAvailable.mockImplementation(() => Promise.resolve(false));
+    mockIsOpencodeAvailable.mockImplementation(() => Promise.resolve(false));
 
     await runInstall(["--editor", "opencode"]);
 

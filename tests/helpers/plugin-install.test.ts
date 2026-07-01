@@ -9,13 +9,14 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // ---------------------------------------------------------------------------
 // Imports under test
 // ---------------------------------------------------------------------------
 
+import { opencodeConfigDir } from "../../src/helpers/paths";
 import * as platform from "../../src/helpers/platform";
 import {
   buildCursorMarketplaceUrl,
@@ -29,6 +30,7 @@ import {
   isClaudeCliAvailable,
   isCopilotCliAvailable,
   isCursorCliAvailable,
+  isOpencodeAvailable,
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../src/helpers/plugin-install";
@@ -258,6 +260,32 @@ describe("plugin-install", () => {
     test("returns false when resolveCommand returns null", async () => {
       mockResolveCommand.mockImplementation(() => Promise.resolve(null));
       const result = await isOpencodeCliAvailable();
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("isOpencodeAvailable", () => {
+    test("returns true when the CLI is on PATH", async () => {
+      mockResolveCommand.mockImplementation(() => Promise.resolve("opencode"));
+      const result = await isOpencodeAvailable();
+      expect(result).toBe(true);
+    });
+
+    test("returns true when the Desktop app's config dir exists but no CLI is on PATH", async () => {
+      // Regression test: the opencode Desktop app is Electron-based and
+      // ships no CLI binary at all, so isOpencodeCliAvailable() alone would
+      // never detect it. Both distributions read/write the same user-scope
+      // config directory, so its presence is a reliable signal on its own.
+      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mkdirSync(opencodeConfigDir(), { recursive: true });
+
+      const result = await isOpencodeAvailable();
+      expect(result).toBe(true);
+    });
+
+    test("returns false when neither the CLI nor the config dir is present", async () => {
+      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      const result = await isOpencodeAvailable();
       expect(result).toBe(false);
     });
   });
