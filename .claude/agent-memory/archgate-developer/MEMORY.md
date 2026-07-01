@@ -8,7 +8,7 @@ Every work loop MUST end with these steps — no exceptions, even for trivial ch
 2. **`@reviewer` skill** — Invoke via `Skill tool` with skill `"archgate:reviewer"`. Validates structural ADR compliance beyond automated rules.
 3. **`@lessons-learned` skill** — Invoke via `Skill tool` with skill `"archgate:lessons-learned"`. Captures learnings and governance gaps.
 
-Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to invoke these manually. (Note: `.claude/settings.json` still allowlists the older `archgate:architect`/`archgate:quality-manager` names — update it to match.)
+Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to invoke these manually. (`.claude/settings.json` permissions now correctly allowlist `archgate:reviewer`/`archgate:lessons-learned`/`archgate:adr-author` — the older `archgate:architect`/`archgate:quality-manager` naming issue noted here previously has been fixed; verified 2026-07-01.)
 
 ## Version References
 
@@ -59,6 +59,11 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 - **Don't test that well-known tools exist on PATH** — Tests like `expect(resolveCommand("bun")).toBe("bun")` assert CI environment state, not application logic. They fail when the runner installs tools via shims (e.g., proto on macOS ARM64 where `Bun.which` returns null). Delete such tests entirely — the "returns null for non-existent command" tests already cover `resolveCommand`'s actual logic, and WSL-specific tests cover the `.exe` fallback path.
 - **`Bun.Glob.scan()` silently fails for brace patterns with path separators** — `new Bun.Glob("svc/{src/env.ts,env.ts}").scan(...)` returns zero results (no error), while `.match()` works correctly for the same pattern. The match engine was rewritten in Bun 1.2.3 (PR #16824) to expand braces recursively, but the scanner (`GlobWalker.zig`) was not updated. Filed upstream as [oven-sh/bun#32596](https://github.com/oven-sh/bun/issues/32596). Workaround: `expandBracePattern()` in `src/engine/runner.ts` pre-expands brace groups containing `/` before scanning. Applied in `ctx.glob()`, `ctx.grepFiles()`, and `resolveScopedFiles()`.
 - **ARCH-020 `glob-scan-dot` rule triggers on `.scan()` in comments** — The rule uses regex `/\.scan\(([^)]*)\)/gu` which matches `.scan()` text in JSDoc/inline comments (e.g., `Bun.Glob.scan() silently...`). Workaround: rephrase comments to avoid the exact `.scan()` text — e.g., "Bun.Glob scanning silently..." instead of "Bun.Glob.scan() silently...".
+
+## Claude Code Harness Config
+
+- [WorktreeCreate hook contract](project_worktree_create_hook_contract.md) — stdin JSON in, path-only stdout out; hook owns the entire worktree creation once configured, not just post-setup
+- [Cursor Approval Agent is external, not in-repo](reference_cursor_approval_agent.md) — "Archgate CLI Approver" automation lives on cursor.com; no APPROVAL_POLICY.md/ROUTING.md exist in this repo
 
 ## Translation Quality
 

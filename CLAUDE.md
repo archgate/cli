@@ -43,6 +43,10 @@ git config --local include.path ../.githooks
 
 Opt out of a specific hook: `git config --local hook.<name>.enabled false`. Skip all hooks for a single commit: `git commit --no-verify`.
 
+## Claude Code Harness Config (`.claude/settings.json`)
+
+The `hooks.WorktreeCreate` entry is **not** a post-creation setup step — once it's configured, the Claude Code harness defers the _entire_ worktree creation to it (it does not also create a git worktree on its own). The hook receives a JSON payload on stdin (`{ "cwd", "name", ... }`, same pattern as the `PostToolUse` hook reading `.tool_input.file_path` via `jq`) and **must** create the worktree itself and echo _only_ the resulting absolute path as its final stdout line — any other stdout (e.g. unsilenced `bun install` or `git worktree add` output) gets misread as the path and breaks `EnterWorktree`/`ExitWorktree` with errors like `path contains control characters` or `ENOENT: ... chdir`. Redirect all setup-command output to stderr (`>&2`) and keep the trailing `printf` as the only real stdout. Do not simplify this hook back down to a bare `bun install` — that regression is exactly what caused the worktree-creation bug fixed here.
+
 ## Architecture
 
 ### Commands
