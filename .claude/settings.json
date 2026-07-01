@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "name=$(jq -r '.name // empty'); [ -z \"$name\" ] && name=\"wt-$$\"; dir=\"$CLAUDE_PROJECT_DIR/.claude/worktrees/$name\"; branch=\"claude/$name\"; if [ ! -d \"$dir\" ]; then git worktree add \"$dir\" -B \"$branch\" >&2 || exit 1; fi; cd \"$dir\" || exit 1; bun install --silent >&2; printf '%s\\n' \"$dir\"",
+            "command": "name=$(jq -r '.name // empty' | tr -d '\\r'); [ -z \"$name\" ] && name=\"wt-$$\"; dir=\"$CLAUDE_PROJECT_DIR/.claude/worktrees/$name\"; branch=\"claude/$name\"; if [ -d \"$dir\" ] && [ ! -e \"$dir/.git\" ]; then rm -rf \"$dir\"; fi; if [ ! -d \"$dir\" ]; then git worktree add \"$dir\" -B \"$branch\" >&2 || exit 1; fi; cd \"$dir\" || exit 1; bun install --silent >&2; printf '%s\\n' \"$dir\"",
             "timeout": 60,
             "statusMessage": "Installing dependencies in worktree..."
           }
