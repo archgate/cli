@@ -449,6 +449,36 @@ describe("readOpencodeSession", () => {
     if (noId.ok) expect(noId.data.sessionId).toBe("ses_parent");
   });
 
+  test("selects the true parent when sibling sub-agents fan out and are more recent", async () => {
+    // Real-world fan-out reproduced from a live incident: one parent session
+    // spawns several sibling sub-agent sessions against the same directory
+    // (e.g. the reviewer skill's parallel domain reviews). Every sibling
+    // sorts ahead of the parent by recency; none of them may shadow it.
+    // The old recency-based `--skip 1` landed on whichever sibling sat
+    // second in recency order instead of the parent.
+    const db = createDb();
+    makeSimpleSession(db, "ses_parent", "parent development session", 1000);
+    makeSimpleSession(db, "ses_sib_a", "domain review a", 2000, "ses_parent");
+    makeSimpleSession(db, "ses_sib_b", "domain review b", 3000, "ses_parent");
+    makeSimpleSession(db, "ses_sib_c", "domain review c", 4000, "ses_parent");
+    makeSimpleSession(db, "ses_sib_d", "domain review d", 5000, "ses_parent");
+    db.close();
+
+    // skip: 1 now errors honestly — only one top-level session exists, so
+    // there is no second one to skip to (previously it returned a sibling).
+    const skipped = await readOpencodeSession(projectRoot, { skip: 1 });
+    expect(skipped.ok).toBe(false);
+
+    // Default selection and explicit root both resolve to the parent.
+    const byDefault = await readOpencodeSession(projectRoot);
+    expect(byDefault.ok).toBe(true);
+    if (byDefault.ok) expect(byDefault.data.sessionId).toBe("ses_parent");
+
+    const rooted = await readOpencodeSession(projectRoot, { root: true });
+    expect(rooted.ok).toBe(true);
+    if (rooted.ok) expect(rooted.data.sessionId).toBe("ses_parent");
+  });
+
   test("skip beyond available top-level sessions returns error", async () => {
     const db = createDb();
     makeSimpleSession(db, "ses_only", "only", 1000);

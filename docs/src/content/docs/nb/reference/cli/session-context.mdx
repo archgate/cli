@@ -56,6 +56,8 @@ archgate session-context cursor [options]
 
 Les opencode-sesjonsloggen for prosjektet. Sesjoner matches ved å sammenligne sesjonens `directory`-felt med prosjektroten. opencode lagrer underagent-kjøringer som barnesesjoner som deler foreldrenes katalog — disse ekskluderes fra utvalget etter nylighet, slik at den nyeste toppnivåsesjonen alltid er hovedutviklingssesjonen. Bruk `--session-id` for å lese en bestemt sesjon, inkludert en underagent-barnesesjon.
 
+Når flere toppnivåsesjoner finnes for samme katalog, velger nylighetsutvalget den som sist ble oppdatert — som kanskje ikke er samtalen du er en del av. Hvis du kjenner en sesjons-ID i riktig samtaletre (for eksempel kjenner en underagent sin egen barnesesjons-ID), send `--session-id <id> --root` for å løse opp toppnivåforelderen deterministisk i stedet for å stole på nylighet.
+
 ```bash
 archgate session-context opencode [options]
 ```
@@ -97,4 +99,10 @@ Les foreldresesjonen (hopp over underagentens egen sesjon):
 
 ```bash
 archgate session-context claude-code --skip 1
+```
+
+Løs opp en underagent-barnesesjon i opencode til dens toppnivåforelder:
+
+```bash
+archgate session-context opencode --session-id ses_child123 --root
 ```

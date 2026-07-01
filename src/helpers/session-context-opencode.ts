@@ -25,9 +25,19 @@ interface ReadOpencodeSessionOptions extends ReadSessionOptions {
   sessionId?: string;
   /**
    * Resolve to the top-level (root) session. Without `sessionId` this is
-   * the default behavior already; combined with a `sessionId` that names a
-   * sub-agent child session, walks the `parent_id` chain up to the
+   * an explicit alias for the default behavior (recency selection already
+   * only considers top-level sessions); combined with a `sessionId` that
+   * names a sub-agent child session, walks the `parent_id` chain up to the
    * top-level ancestor.
+   *
+   * Opencode is the only session-context backend with a real parent/child
+   * session graph, so this option lives here rather than in the shared
+   * `ReadSessionOptions`. A recency-based guess (the old bare `skip: 1`)
+   * cannot distinguish the true parent from a sibling sub-agent session
+   * once more than one sibling exists — and an inline Skill invocation
+   * creates no session row at all, so there is nothing to skip past.
+   * Ancestry via `parent_id` is correct regardless of nesting depth or
+   * sibling fan-out.
    */
   root?: boolean;
 }
