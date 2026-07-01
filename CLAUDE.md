@@ -43,6 +43,12 @@ git config --local include.path ../.githooks
 
 Opt out of a specific hook: `git config --local hook.<name>.enabled false`. Skip all hooks for a single commit: `git commit --no-verify`.
 
+## GitHub Actions: `secrets.*` vs `vars.*`
+
+These are two distinct, non-overlapping namespaces in workflow expressions — configuring a value as a repo **secret** does NOT make it readable via `vars.*`, and vice versa. `.github/workflows/release.yml`'s "Annotate release in PostHog" step read `POSTHOG_PROJECT_ID` via `${{ vars.POSTHOG_PROJECT_ID }}` while the value only ever existed as a **secret** (`gh secret list`), so `vars.POSTHOG_PROJECT_ID` always resolved empty. Combined with a guard clause that does `exit 0` (not a failure) when required config is missing, plus `continue-on-error: true` and a low-visibility `::notice::` log line, the step silently no-opped on every release for weeks — annotations simply stopped appearing in PostHog with no CI failure to flag it. Fixed by reading `secrets.POSTHOG_PROJECT_ID` to match where the value actually lives.
+
+When adding any workflow step that reads repo-level config: confirm the value's actual location with `gh secret list` / `gh variable list` before writing `secrets.X` vs `vars.X`, and if the step is `continue-on-error: true` with an internal "not configured, skipping" guard, use `::warning::` (or higher) rather than `::notice::` so a misconfiguration is visible in the Actions UI instead of silently invisible indefinitely.
+
 ## Claude Code Harness Config (`.claude/settings.json`)
 
 The `hooks.WorktreeCreate` entry is **not** a post-creation setup step — once it's configured, the Claude Code harness defers the _entire_ worktree creation to it (it does not also create a git worktree on its own). The hook receives a JSON payload on stdin (`{ "cwd", "name", ... }`, same pattern as the `PostToolUse` hook reading `.tool_input.file_path` via `jq`) and **must** create the worktree itself and echo _only_ the resulting absolute path as its final stdout line — any other stdout (e.g. unsilenced `bun install` or `git worktree add` output) gets misread as the path and breaks `EnterWorktree`/`ExitWorktree` with errors like `path contains control characters` or `ENOENT: ... chdir`. Redirect all setup-command output to stderr (`>&2`) and keep the trailing `printf` as the only real stdout. Do not simplify this hook back down to a bare `bun install` — that regression is exactly what caused the worktree-creation bug fixed here.

@@ -168,12 +168,17 @@ jobs:
         if: success()
         continue-on-error: true
         env:
+          # Both values are GitHub repo secrets (Settings > Secrets and variables > Actions
+          # > Secrets), not repo variables — do NOT switch POSTHOG_PROJECT_ID to `vars.*`.
+          # It was previously read via `vars.POSTHOG_PROJECT_ID` while only ever being
+          # configured as a secret, so this step silently no-opped (exit 0) on every
+          # release for weeks without failing the build. See git history for details.
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
-          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
         run: |
           set -euo pipefail
           if [ -z "${POSTHOG_PERSONAL_API_KEY:-}" ] || [ -z "${POSTHOG_PROJECT_ID:-}" ]; then
-            echo "::notice::Skipping PostHog annotation — POSTHOG_PERSONAL_API_KEY or POSTHOG_PROJECT_ID not configured"
+            echo "::warning::Skipping PostHog annotation — POSTHOG_PERSONAL_API_KEY or POSTHOG_PROJECT_ID not configured"
             exit 0
           fi
           version=$(jq -r .version package.json)
