@@ -164,6 +164,90 @@ describe("claude-code action handler", () => {
     // findProjectRoot found our tempDir (which has .archgate/)
     expect(readSpy).toHaveBeenCalledWith(tempDir, { maxEntries: undefined });
   });
+
+  test("list subcommand prints sessions", async () => {
+    const listSpy = spyOn(sessionContextHelpers, "listClaudeCodeSessions");
+    try {
+      listSpy.mockResolvedValue({
+        ok: true,
+        data: {
+          sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }],
+        },
+      });
+
+      await makeProgram().parseAsync([
+        "node",
+        "session-context",
+        "claude-code",
+        "list",
+      ]);
+
+      expect(listSpy).toHaveBeenCalledWith(tempDir);
+      const output = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("");
+      expect(JSON.parse(output).sessions[0].id).toBe("abc");
+    } finally {
+      listSpy.mockRestore();
+    }
+  });
+
+  test("list subcommand exits 1 on error result", async () => {
+    const listSpy = spyOn(sessionContextHelpers, "listClaudeCodeSessions");
+    try {
+      listSpy.mockResolvedValue({ ok: false, error: "store missing" });
+
+      await expect(
+        makeProgram().parseAsync([
+          "node",
+          "session-context",
+          "claude-code",
+          "list",
+        ])
+      ).rejects.toThrow("process.exit");
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errorOutput = errorSpy.mock.calls
+        .map((c: unknown[]) => c.join(" "))
+        .join(" ");
+      expect(errorOutput).toContain("store missing");
+    } finally {
+      listSpy.mockRestore();
+    }
+  });
+
+  test("show subcommand reads the given session id", async () => {
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
+
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "claude-code",
+      "show",
+      "abc123",
+    ]);
+
+    expect(readSpy).toHaveBeenCalledWith(tempDir, {
+      maxEntries: undefined,
+      sessionId: "abc123",
+    });
+  });
+
+  test("show subcommand exits 1 on error result", async () => {
+    readSpy.mockResolvedValue({ ok: false, error: "Session not found: abc123" });
+
+    await expect(
+      makeProgram().parseAsync([
+        "node",
+        "session-context",
+        "claude-code",
+        "show",
+        "abc123",
+      ])
+    ).rejects.toThrow("process.exit");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
 });
 
 describe("claude-code list/show (CLI subprocess)", () => {
