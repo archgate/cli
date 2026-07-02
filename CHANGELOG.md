@@ -1,3 +1,22 @@
+## [0.46.0](https://github.com/archgate/cli/compare/v0.45.7...v0.46.0) (2026-07-02)
+
+### ⚠ BREAKING CHANGES
+
+* **session-context:** per-editor list/show subcommands; remove --skip and its false premise (#446)
+
+### Features
+
+* **session-context:** per-editor list/show subcommands; remove --skip and its false premise ([#446](https://github.com/archgate/cli/issues/446)) ([dd96230](https://github.com/archgate/cli/commit/dd96230b8bffdc5044aac48fbb9fc74f046168ac))
+
+### Bug Fixes
+
+* **ci:** read POSTHOG_PROJECT_ID from secrets, not vars, in release annotation ([#443](https://github.com/archgate/cli/issues/443)) ([a53b305](https://github.com/archgate/cli/commit/a53b30507a139db915271095a5a29ccefbd7cecf))
+* detect opencode Desktop app installs, not just the CLI ([#439](https://github.com/archgate/cli/issues/439)) ([ed92b2b](https://github.com/archgate/cli/commit/ed92b2b0dbe86f2ec7767074882ccf95e053747f))
+* **hooks:** force bash shell for WorktreeCreate hook on Windows ([#442](https://github.com/archgate/cli/issues/442)) ([9da86cf](https://github.com/archgate/cli/commit/9da86cfac8ddf6c564fcf243e7f870df83a512e5))
+* **release:** cap breaking-change bumps to minor while pre-1.0 ([#447](https://github.com/archgate/cli/issues/447)) ([3df6c91](https://github.com/archgate/cli/commit/3df6c91972de196efdbf22e7830fa9d3b53f07d8)), closes [#446](https://github.com/archgate/cli/issues/446) [#440](https://github.com/archgate/cli/issues/440) [#440](https://github.com/archgate/cli/issues/440) [#440](https://github.com/archgate/cli/issues/440)
+* repair broken WorktreeCreate hook and add PR approval policy ([#441](https://github.com/archgate/cli/issues/441)) ([de5e97d](https://github.com/archgate/cli/commit/de5e97dcbd3b0f3d0d4e3a5b36ec0feb7bcd395c))
+* **session-context:** select top-level opencode sessions, add --root flag ([#445](https://github.com/archgate/cli/issues/445)) ([29b13f4](https://github.com/archgate/cli/commit/29b13f49fce76a5f7afdc9d6c5264ebe4e3c120c))
+
 ## [0.45.7](https://github.com/archgate/cli/compare/v0.45.6...v0.45.7) (2026-06-27)
 
 ### Bug Fixes
