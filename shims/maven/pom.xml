@@ -6,7 +6,7 @@
 
     <groupId>dev.archgate</groupId>
     <artifactId>archgate-cli</artifactId>
-    <version>0.45.7</version>
+    <version>0.46.0</version>
     <packaging>jar</packaging>
 
     <name>archgate-cli</name>
