@@ -61,7 +61,7 @@ describe("registerSessionContextCommand", () => {
     expect(sub).toBeDefined();
   });
 
-  test("claude-code subcommand has --max-entries, --session-id, and --list options", () => {
+  test("claude-code subcommand has only --max-entries (read current conversation)", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -70,12 +70,12 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "claude-code")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--session-id");
-    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--session-id");
+    expect(opts).not.toContain("--list");
     expect(opts).not.toContain("--skip");
   });
 
-  test("cursor subcommand has --max-entries, --session-id, and --list options", () => {
+  test("cursor subcommand has only --max-entries (read current conversation)", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -84,12 +84,12 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "cursor")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--session-id");
-    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--session-id");
+    expect(opts).not.toContain("--list");
     expect(opts).not.toContain("--skip");
   });
 
-  test("copilot subcommand has --max-entries, --session-id, and --list options", () => {
+  test("copilot subcommand has only --max-entries (read current conversation)", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -98,12 +98,38 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "copilot")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--session-id");
-    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--session-id");
+    expect(opts).not.toContain("--list");
     expect(opts).not.toContain("--skip");
   });
 
-  test("opencode subcommand has --max-entries, --session-id, --root, and --list options", () => {
+  test("registers 'show' subcommand with --editor and --root options", () => {
+    const program = new Command();
+    registerSessionContextCommand(program);
+    const parent = program.commands.find(
+      (c) => c.name() === "session-context"
+    )!;
+    const sub = parent.commands.find((c) => c.name() === "show")!;
+    expect(sub).toBeDefined();
+    const opts = sub.options.map((o) => o.long);
+    expect(opts).toContain("--editor");
+    expect(opts).toContain("--max-entries");
+    expect(opts).toContain("--root");
+  });
+
+  test("registers 'list' subcommand with --editor choices", () => {
+    const program = new Command();
+    registerSessionContextCommand(program);
+    const parent = program.commands.find(
+      (c) => c.name() === "session-context"
+    )!;
+    const sub = parent.commands.find((c) => c.name() === "list")!;
+    expect(sub).toBeDefined();
+    const opts = sub.options.map((o) => o.long);
+    expect(opts).toContain("--editor");
+  });
+
+  test("opencode subcommand has only --max-entries (read current conversation)", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -112,9 +138,9 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "opencode")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--session-id");
-    expect(opts).toContain("--root");
-    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--session-id");
+    expect(opts).not.toContain("--root");
+    expect(opts).not.toContain("--list");
     expect(opts).not.toContain("--skip");
   });
 });

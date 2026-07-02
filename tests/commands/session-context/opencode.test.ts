@@ -25,15 +25,8 @@ const mockReadOpencodeSession = mock(
       | { ok: true; data: unknown }
       | { ok: false; error: string }
 );
-const mockListOpencodeSessions = mock(
-  () =>
-    ({ ok: true, data: { sessions: [] } }) as
-      | { ok: true; data: { sessions: unknown[] } }
-      | { ok: false; error: string }
-);
 mock.module("../../../src/helpers/session-context-opencode", () => ({
   readOpencodeSession: mockReadOpencodeSession,
-  listOpencodeSessions: mockListOpencodeSessions,
 }));
 
 // ---------------------------------------------------------------------------
@@ -69,22 +62,6 @@ describe("registerOpencodeSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--max-entries");
     expect(opt).toBeDefined();
   });
-
-  test("accepts --session-id option", () => {
-    const parent = new Command("session-context");
-    registerOpencodeSessionContextCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "opencode")!;
-    const opt = sub.options.find((o) => o.long === "--session-id");
-    expect(opt).toBeDefined();
-  });
-
-  test("accepts --list option", () => {
-    const parent = new Command("session-context");
-    registerOpencodeSessionContextCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "opencode")!;
-    const opt = sub.options.find((o) => o.long === "--list");
-    expect(opt).toBeDefined();
-  });
 });
 
 describe("opencode action handler", () => {
@@ -107,11 +84,6 @@ describe("opencode action handler", () => {
 
     mockReadOpencodeSession.mockReset();
     mockReadOpencodeSession.mockReturnValue({ ok: true, data: {} });
-    mockListOpencodeSessions.mockReset();
-    mockListOpencodeSessions.mockReturnValue({
-      ok: true,
-      data: { sessions: [] },
-    });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -204,33 +176,6 @@ describe("opencode action handler", () => {
 
     expect(mockReadOpencodeSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      sessionId: undefined,
-      root: undefined,
     });
-  });
-
-  test("prints session list when --list is given", async () => {
-    mockListOpencodeSessions.mockReturnValue({
-      ok: true,
-      data: {
-        sessions: [
-          { id: "ses_abc", title: "t", updatedAt: "2026-01-01T00:00:00Z" },
-        ],
-      },
-    });
-
-    await makeProgram().parseAsync([
-      "node",
-      "session-context",
-      "opencode",
-      "--list",
-    ]);
-
-    expect(mockListOpencodeSessions).toHaveBeenCalledWith(tempDir);
-    expect(mockReadOpencodeSession).not.toHaveBeenCalled();
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("");
-    expect(JSON.parse(output).sessions[0].id).toBe("ses_abc");
   });
 });

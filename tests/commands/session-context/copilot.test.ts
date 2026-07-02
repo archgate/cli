@@ -69,14 +69,6 @@ describe("registerCopilotSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--max-entries");
     expect(opt).toBeDefined();
   });
-
-  test("accepts --session-id option", () => {
-    const parent = new Command("session-context");
-    registerCopilotSessionContextCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "copilot")!;
-    const opt = sub.options.find((o) => o.long === "--session-id");
-    expect(opt).toBeDefined();
-  });
 });
 
 describe("copilot action handler", () => {
@@ -187,7 +179,6 @@ describe("copilot action handler", () => {
 
     expect(mockReadCopilotSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      sessionId: undefined,
     });
   });
 });

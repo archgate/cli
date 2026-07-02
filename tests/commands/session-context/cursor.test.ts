@@ -69,14 +69,6 @@ describe("registerCursorSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--max-entries");
     expect(opt).toBeDefined();
   });
-
-  test("accepts --session-id option", () => {
-    const parent = new Command("session-context");
-    registerCursorSessionContextCommand(parent);
-    const sub = parent.commands.find((c) => c.name() === "cursor")!;
-    const opt = sub.options.find((o) => o.long === "--session-id");
-    expect(opt).toBeDefined();
-  });
 });
 
 describe("cursor action handler", () => {
@@ -187,7 +179,6 @@ describe("cursor action handler", () => {
 
     expect(mockReadCursorSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      sessionId: undefined,
     });
   });
 });

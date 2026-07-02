@@ -93,7 +93,6 @@ describe("claude-code action handler", () => {
     process.chdir(tempDir);
 
     mockReadClaudeCodeSession.mockReset();
-    mockListClaudeCodeSessions.mockReset();
     mockReadClaudeCodeSession.mockResolvedValue({ ok: true, data: {} });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
@@ -186,28 +185,6 @@ describe("claude-code action handler", () => {
     // findProjectRoot found our tempDir (which has .archgate/)
     expect(mockReadClaudeCodeSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      sessionId: undefined,
     });
-  });
-
-  test("prints session list when --list is given", async () => {
-    mockListClaudeCodeSessions.mockResolvedValue({
-      ok: true,
-      data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
-    });
-
-    await makeProgram().parseAsync([
-      "node",
-      "session-context",
-      "claude-code",
-      "--list",
-    ]);
-
-    expect(mockListClaudeCodeSessions).toHaveBeenCalledWith(tempDir);
-    expect(mockReadClaudeCodeSession).not.toHaveBeenCalled();
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("");
-    expect(JSON.parse(output).sessions[0].id).toBe("abc");
   });
 });

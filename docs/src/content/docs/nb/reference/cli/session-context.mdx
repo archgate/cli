@@ -9,107 +9,122 @@ Les AI-editor-sesjonslogger for prosjektet. Nyttig for å revidere hva en AI-age
 archgate session-context <subcommand> [options]
 ```
 
+Editor-underkommandoene (`claude-code`, `copilot`, `cursor`, `opencode`) leser den **gjeldende samtalen** — den nyeste sesjonen for prosjektet. Bruk `list` for å oppdage tidligere sesjoner og `show` for å lese en bestemt en.
+
 ## Underkommandoer
 
 ### archgate session-context claude-code
 
-Les Claude Code-sesjonsloggen for prosjektet.
+Les den gjeldende Claude Code-sesjonsloggen for prosjektet.
 
 ```bash
 archgate session-context claude-code [options]
 ```
 
-| Valg                | Beskrivelse                                                           |
-| ------------------- | --------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)              |
-| `--session-id <id>` | Spesifikk sesjons-ID å lese                                           |
-| `--list`            | List opp tilgjengelige sesjoner for prosjektet i stedet for å lese én |
+| Valg                | Beskrivelse                                              |
+| ------------------- | -------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200) |
 
 ### archgate session-context copilot
 
-Les Copilot CLI-sesjonsloggen for prosjektet. Sesjoner matches etter arbeidsområdets `cwd`-felt.
+Les den gjeldende Copilot CLI-sesjonsloggen for prosjektet. Sesjoner matches via arbeidsområdets `cwd`-felt.
 
 ```bash
 archgate session-context copilot [options]
 ```
 
-| Valg                | Beskrivelse                                                           |
-| ------------------- | --------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)              |
-| `--list`            | List opp tilgjengelige sesjoner for prosjektet i stedet for å lese én |
-| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                         |
+| Valg                | Beskrivelse                                              |
+| ------------------- | -------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200) |
 
 ### archgate session-context cursor
 
-Les Cursor-agentsesjonsloggen for prosjektet.
+Les den gjeldende Cursor-agentsesjonsloggen for prosjektet.
 
 ```bash
 archgate session-context cursor [options]
 ```
 
-| Valg                | Beskrivelse                                                           |
-| ------------------- | --------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)              |
-| `--list`            | List opp tilgjengelige sesjoner for prosjektet i stedet for å lese én |
-| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                         |
+| Valg                | Beskrivelse                                              |
+| ------------------- | -------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200) |
+
+### archgate session-context list
+
+List opp tilgjengelige sesjoner for prosjektet som JSON. Med `--editor` listes bare den editorens sesjoner (og kommandoen feiler hvis sesjonslageret mangler); uten flagget aggregeres alle editorer — lagre som mangler rapporterer feilen sin inne i aggregatet i stedet for å få kommandoen til å feile.
+
+```bash
+archgate session-context list [--editor <editor>]
+```
+
+| Valg                | Beskrivelse                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--editor <editor>` | List bare opp sesjoner for denne editoren (`claude-code`, `copilot`, `cursor`, `opencode`; standard: alle) |
+
+For opencode listes bare toppnivåsesjoner — underagent-barnesesjoner ekskluderes (de kan fortsatt leses via `show`).
 
 ### archgate session-context opencode
 
-Les opencode-sesjonsloggen for prosjektet. Sesjoner matches ved å sammenligne sesjonens `directory`-felt med prosjektroten. opencode lagrer underagent-kjøringer som barnesesjoner som deler foreldrenes katalog — disse ekskluderes fra utvalget etter nylighet, slik at den nyeste toppnivåsesjonen alltid er hovedutviklingssesjonen. Bruk `--session-id` for å lese en bestemt sesjon, inkludert en underagent-barnesesjon.
+Les den gjeldende opencode-sesjonsloggen for prosjektet. Sesjoner matches ved å sammenligne sesjonens `directory`-felt med prosjektroten. opencode lagrer underagent-kjøringer som barnesesjoner som deler foreldrenes katalog — disse ekskluderes fra utvalget etter nylighet, slik at den nyeste toppnivåsesjonen alltid er hovedutviklingssesjonen.
 
-Når flere toppnivåsesjoner finnes for samme katalog, velger nylighetsutvalget den som sist ble oppdatert — som kanskje ikke er samtalen du er en del av. Hvis du kjenner en sesjons-ID i riktig samtaletre (for eksempel kjenner en underagent sin egen barnesesjons-ID), send `--session-id <id> --root` for å løse opp toppnivåforelderen deterministisk i stedet for å stole på nylighet.
+Når flere toppnivåsesjoner finnes for samme katalog, velger nylighetsutvalget den som sist ble oppdatert — som kanskje ikke er samtalen du er en del av. Hvis du kjenner en sesjons-ID i riktig samtaletre (for eksempel kjenner en underagent sin egen barnesesjons-ID), bruk `show <session-id> --editor opencode --root` for å løse opp toppnivåforelderen deterministisk i stedet for å stole på nylighet.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Valg                | Beskrivelse                                                                                           |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)                                              |
-| `--list`            | List opp tilgjengelige toppnivåsesjoner for prosjektet i stedet for å lese én                         |
-| `--session-id <id>` | Spesifikk sesjons-ID å lese                                                                           |
-| `--root`            | Løs opp til toppnivåsesjonen (rot) — med `--session-id` gås det oppover fra en underagent-barnesesjon |
+| Valg                | Beskrivelse                                              |
+| ------------------- | -------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200) |
+
+### archgate session-context show
+
+Les en bestemt sesjon etter ID. Sesjons-ID-er kommer fra `session-context list`.
+
+```bash
+archgate session-context show <session-id> --editor <editor> [options]
+```
+
+| Valg                | Beskrivelse                                                               |
+| ------------------- | ------------------------------------------------------------------------- |
+| `--editor <editor>` | Editoren hvis sesjonslager inneholder sesjonen (påkrevd)                  |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)                  |
+| `--root`            | Kun opencode: løs opp en underagent-barnesesjon til dens toppnivåforelder |
 
 ## Eksempler
 
-Les den nyeste Claude Code-sesjonen:
+Les den gjeldende Claude Code-sesjonen:
 
 ```bash
 archgate session-context claude-code
 ```
 
-Les en bestemt Cursor-sesjon:
-
-```bash
-archgate session-context cursor --session-id abc123
-```
-
-Les den nyeste Copilot CLI-sesjonen:
-
-```bash
-archgate session-context copilot
-```
-
-Les den nyeste opencode-sesjonen:
+Les den gjeldende opencode-sesjonen:
 
 ```bash
 archgate session-context opencode
 ```
 
-List opp tilgjengelige sesjoner for prosjektet:
+List opp sesjoner på tvers av alle editorer:
 
 ```bash
-archgate session-context claude-code --list
+archgate session-context list
 ```
 
-Les en bestemt tidligere sesjon med ID:
+List bare opp opencode-sesjoner:
 
 ```bash
-archgate session-context claude-code --session-id 6ee6f0a5-1b2c-4d5e-8f90-a1b2c3d4e5f6
+archgate session-context list --editor opencode
+```
+
+Les en bestemt tidligere sesjon:
+
+```bash
+archgate session-context show 6ee6f0a5-1b2c-4d5e-8f90-a1b2c3d4e5f6 --editor claude-code
 ```
 
 Løs opp en underagent-barnesesjon i opencode til dens toppnivåforelder:
 
 ```bash
-archgate session-context opencode --session-id ses_child123 --root
+archgate session-context show ses_child123 --editor opencode --root
 ```
