@@ -4353,11 +4353,11 @@ Read the Claude Code session transcript for the project.
 archgate session-context claude-code [options]
 ```
 
-| Option              | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                        |
-| `--session-id <id>` | Specific session ID to read |
-| `--list` | List available sessions for the project instead of reading one |
+| Option              | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                       |
+| `--session-id <id>` | Specific session ID to read                                    |
+| `--list`            | List available sessions for the project instead of reading one |
 
 ### archgate session-context copilot
 
@@ -4367,11 +4367,11 @@ Read the Copilot CLI session transcript for the project. Sessions are matched by
 archgate session-context copilot [options]
 ```
 
-| Option              | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                        |
-| `--list` | List available sessions for the project instead of reading one |
-| `--session-id <id>` | Specific session UUID to read                                   |
+| Option              | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                       |
+| `--list`            | List available sessions for the project instead of reading one |
+| `--session-id <id>` | Specific session UUID to read                                  |
 
 ### archgate session-context cursor
 
@@ -4381,11 +4381,11 @@ Read the Cursor agent session transcript for the project.
 archgate session-context cursor [options]
 ```
 
-| Option              | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                        |
-| `--list` | List available sessions for the project instead of reading one |
-| `--session-id <id>` | Specific session UUID to read                                   |
+| Option              | Description                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                       |
+| `--list`            | List available sessions for the project instead of reading one |
+| `--session-id <id>` | Specific session UUID to read                                  |
 
 ### archgate session-context opencode
 
@@ -4400,7 +4400,7 @@ archgate session-context opencode [options]
 | Option              | Description                                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------------ |
 | `--max-entries <n>` | Maximum entries to return (default: 200)                                                               |
-| `--list` | List available top-level sessions for the project instead of reading one |
+| `--list`            | List available top-level sessions for the project instead of reading one                               |
 | `--session-id <id>` | Specific session ID to read                                                                            |
 | `--root`            | Resolve to the top-level (root) session — with `--session-id`, walks up from a sub-agent child session |
 
