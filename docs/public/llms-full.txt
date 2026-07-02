@@ -4340,10 +4340,10 @@ Source: https://cli.archgate.dev/reference/cli/session-context/
 Read AI editor session transcripts for the project. Useful for auditing what an AI agent did during a coding session.
 
 ```bash
-archgate session-context <subcommand> [options]
+archgate session-context <editor> [subcommand] [options]
 ```
 
-The editor subcommands (`claude-code`, `copilot`, `cursor`, `opencode`) read the **current conversation** — the most recent session for the project. Use `list` to discover earlier sessions and `show` to read a specific one.
+Each editor subcommand reads the **current conversation** — the most recent session for the project. Every editor also has two nested subcommands: `list` to discover earlier sessions and `show <session-id>` to read a specific one.
 
 ## Subcommands
 
@@ -4359,6 +4359,22 @@ archgate session-context claude-code [options]
 | ------------------- | ---------------------------------------- |
 | `--max-entries <n>` | Maximum entries to return (default: 200) |
 
+#### archgate session-context claude-code list
+
+List available Claude Code sessions for the project as JSON (`id` + `updatedAt`), most recent first.
+
+```bash
+archgate session-context claude-code list
+```
+
+#### archgate session-context claude-code show
+
+Read a specific session by ID (from `list`). Accepts `--max-entries`.
+
+```bash
+archgate session-context claude-code show <session-id>
+```
+
 ### archgate session-context copilot
 
 Read the current Copilot CLI session transcript for the project. Sessions are matched by their workspace `cwd` field.
@@ -4370,6 +4386,22 @@ archgate session-context copilot [options]
 | Option              | Description                              |
 | ------------------- | ---------------------------------------- |
 | `--max-entries <n>` | Maximum entries to return (default: 200) |
+
+#### archgate session-context copilot list
+
+List available Copilot CLI sessions for the project as JSON, most recent first.
+
+```bash
+archgate session-context copilot list
+```
+
+#### archgate session-context copilot show
+
+Read a specific session by UUID (from `list`). Accepts `--max-entries`.
+
+```bash
+archgate session-context copilot show <session-id>
+```
 
 ### archgate session-context cursor
 
@@ -4383,25 +4415,27 @@ archgate session-context cursor [options]
 | ------------------- | ---------------------------------------- |
 | `--max-entries <n>` | Maximum entries to return (default: 200) |
 
-### archgate session-context list
+#### archgate session-context cursor list
 
-List available sessions for the project as JSON. With `--editor`, lists only that editor's sessions (and fails if its session store is absent); without it, aggregates all editors — stores that are absent report their error inside the aggregate instead of failing the command.
+List available Cursor agent sessions for the project as JSON, most recent first.
 
 ```bash
-archgate session-context list [--editor <editor>]
+archgate session-context cursor list
 ```
 
-| Option              | Description                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| `--editor <editor>` | Only list sessions for this editor (`claude-code`, `copilot`, `cursor`, `opencode`; default: all) |
+#### archgate session-context cursor show
 
-For opencode, only top-level sessions are listed — sub-agent child sessions are excluded (they can still be read via `show`).
+Read a specific session by UUID (from `list`). Accepts `--max-entries`.
+
+```bash
+archgate session-context cursor show <session-id>
+```
 
 ### archgate session-context opencode
 
 Read the current opencode session transcript for the project. Sessions are matched by comparing the session `directory` field to the project root. opencode records sub-agent runs as child sessions that share the parent's directory — these are excluded from recency selection, so the most recent top-level session is always the main development session.
 
-When several top-level sessions exist for the same directory, recency selection picks the most recently updated one — which may not be the conversation you are part of. If you know a session ID inside the right conversation tree (for example, a sub-agent knows its own child session ID), use `show <session-id> --editor opencode --root` to resolve its top-level ancestor deterministically instead of relying on recency.
+When several top-level sessions exist for the same directory, recency selection picks the most recently updated one — which may not be the conversation you are part of. If you know a session ID inside the right conversation tree (for example, a sub-agent knows its own child session ID), use `show <session-id> --root` to resolve its top-level ancestor deterministically instead of relying on recency.
 
 ```bash
 archgate session-context opencode [options]
@@ -4411,19 +4445,21 @@ archgate session-context opencode [options]
 | ------------------- | ---------------------------------------- |
 | `--max-entries <n>` | Maximum entries to return (default: 200) |
 
-### archgate session-context show
+#### archgate session-context opencode list
 
-Read a specific session by ID. Session IDs come from `session-context list`.
+List available top-level opencode sessions for the project as JSON (`id`, `title`, `updatedAt`), most recent first. Sub-agent child sessions are excluded (they can still be read via `show`).
 
 ```bash
-archgate session-context show <session-id> --editor <editor> [options]
+archgate session-context opencode list
 ```
 
-| Option              | Description                                                                   |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `--editor <editor>` | Editor whose session store holds the session (required)                       |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                                      |
-| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor |
+#### archgate session-context opencode show
+
+Read a specific session by ID (from `list`), including sub-agent child sessions. Accepts `--max-entries` and `--root` (resolve a sub-agent child session up to its top-level ancestor).
+
+```bash
+archgate session-context opencode show <session-id> [--root]
+```
 
 ## Examples
 
@@ -4439,28 +4475,22 @@ Read the current opencode session:
 archgate session-context opencode
 ```
 
-List sessions across all editors:
+List the project's Claude Code sessions:
 
 ```bash
-archgate session-context list
-```
-
-List opencode sessions only:
-
-```bash
-archgate session-context list --editor opencode
+archgate session-context claude-code list
 ```
 
 Read a specific earlier session:
 
 ```bash
-archgate session-context show 6ee6f0a5-1b2c-4d5e-8f90-a1b2c3d4e5f6 --editor claude-code
+archgate session-context claude-code show 6ee6f0a5-1b2c-4d5e-8f90-a1b2c3d4e5f6
 ```
 
 Resolve an opencode sub-agent child session to its top-level ancestor:
 
 ```bash
-archgate session-context show ses_child123 --editor opencode --root
+archgate session-context opencode show ses_child123 --root
 ```
 
 ---

@@ -9,7 +9,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -45,6 +45,7 @@ mock.module("../../../src/helpers/session-context", () => ({
 // ---------------------------------------------------------------------------
 
 import { registerClaudeCodeSessionContextCommand } from "../../../src/commands/session-context/claude-code";
+import { runCli } from "../../integration/cli-harness";
 import { safeRmSync } from "../../test-utils";
 
 // ---------------------------------------------------------------------------
@@ -72,6 +73,13 @@ describe("registerClaudeCodeSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "claude-code")!;
     const opt = sub.options.find((o) => o.long === "--max-entries");
     expect(opt).toBeDefined();
+  });
+
+  test("has list and show subcommands", () => {
+    const parent = new Command("session-context");
+    registerClaudeCodeSessionContextCommand(parent);
+    const sub = parent.commands.find((c) => c.name() === "claude-code")!;
+    expect(sub.commands.map((c) => c.name()).sort()).toEqual(["list", "show"]);
   });
 });
 
@@ -186,5 +194,92 @@ describe("claude-code action handler", () => {
     expect(mockReadClaudeCodeSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
     });
+  });
+});
+
+describe("claude-code list/show (CLI subprocess)", () => {
+  // Subprocess tests avoid Bun's process-global mock.module state — this
+  // file mocks the read helper for the in-process tests above, so the
+  // nested subcommands are exercised against real stores in a child
+  // process with HOME/USERPROFILE redirected.
+  let tempHome: string;
+  let projectDir: string;
+  let env: Record<string, string>;
+
+  function encodeClaude(p: string): string {
+    return p
+      .replaceAll("\\", "-")
+      .replaceAll("/", "-")
+      .replaceAll(":", "-")
+      .replaceAll(".", "-");
+  }
+
+  beforeEach(() => {
+    tempHome = realpathSync(mkdtempSync(join(tmpdir(), "archgate-cc-home-")));
+    projectDir = join(tempHome, "project");
+    mkdirSync(join(projectDir, ".archgate", "adrs"), { recursive: true });
+    env = { HOME: tempHome, USERPROFILE: tempHome };
+  });
+
+  afterEach(() => {
+    safeRmSync(tempHome);
+  });
+
+  function seedSession(id: string, content: string): void {
+    const dir = join(tempHome, ".claude", "projects", encodeClaude(projectDir));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, `${id}.jsonl`),
+      JSON.stringify({ type: "user", message: { role: "user", content } })
+    );
+  }
+
+  test("list returns the project's sessions", async () => {
+    seedSession("abc123", "hi");
+
+    const { exitCode, stdout } = await runCli(
+      ["session-context", "claude-code", "list"],
+      projectDir,
+      env
+    );
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout) as {
+      sessions: Array<{ id: string; updatedAt: string }>;
+    };
+    expect(parsed.sessions.map((s) => s.id)).toEqual(["abc123"]);
+    expect(Date.parse(parsed.sessions[0]?.updatedAt ?? "")).not.toBeNaN();
+  });
+
+  test("show reads a specific session by id", async () => {
+    seedSession("older", "earlier content");
+    seedSession("newer", "current content");
+
+    const { exitCode, stdout } = await runCli(
+      ["session-context", "claude-code", "show", "older"],
+      projectDir,
+      env
+    );
+
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout) as {
+      sessionFile: string;
+      transcript: Array<{ contentPreview: string }>;
+    };
+    expect(parsed.sessionFile).toBe("older.jsonl");
+    expect(parsed.transcript[0]?.contentPreview).toBe("earlier content");
+  });
+
+  test("show with an unknown id exits 1", async () => {
+    seedSession("only", "hi");
+
+    const { exitCode, stderr } = await runCli(
+      ["session-context", "claude-code", "show", "nope"],
+      projectDir,
+      env
+    );
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Session not found: nope");
   });
 });

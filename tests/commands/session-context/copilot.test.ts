@@ -69,6 +69,13 @@ describe("registerCopilotSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--max-entries");
     expect(opt).toBeDefined();
   });
+
+  test("has list and show subcommands", () => {
+    const parent = new Command("session-context");
+    registerCopilotSessionContextCommand(parent);
+    const sub = parent.commands.find((c) => c.name() === "copilot")!;
+    expect(sub.commands.map((c) => c.name()).sort()).toEqual(["list", "show"]);
+  });
 });
 
 describe("copilot action handler", () => {

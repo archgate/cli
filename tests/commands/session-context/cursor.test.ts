@@ -69,6 +69,13 @@ describe("registerCursorSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--max-entries");
     expect(opt).toBeDefined();
   });
+
+  test("has list and show subcommands", () => {
+    const parent = new Command("session-context");
+    registerCursorSessionContextCommand(parent);
+    const sub = parent.commands.find((c) => c.name() === "cursor")!;
+    expect(sub.commands.map((c) => c.name()).sort()).toEqual(["list", "show"]);
+  });
 });
 
 describe("cursor action handler", () => {

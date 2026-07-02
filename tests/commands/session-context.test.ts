@@ -103,30 +103,43 @@ describe("registerSessionContextCommand", () => {
     expect(opts).not.toContain("--skip");
   });
 
-  test("registers 'show' subcommand with --editor and --root options", () => {
+  test("each editor subcommand has list and show children", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
       (c) => c.name() === "session-context"
     )!;
-    const sub = parent.commands.find((c) => c.name() === "show")!;
-    expect(sub).toBeDefined();
-    const opts = sub.options.map((o) => o.long);
-    expect(opts).toContain("--editor");
-    expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--root");
+    // list/show are NOT direct children of session-context
+    expect(parent.commands.map((c) => c.name())).toEqual([
+      "claude-code",
+      "copilot",
+      "cursor",
+      "opencode",
+    ]);
+    for (const editor of ["claude-code", "copilot", "cursor", "opencode"]) {
+      const sub = parent.commands.find((c) => c.name() === editor)!;
+      const children = sub.commands.map((c) => c.name()).sort();
+      expect(children).toEqual(["list", "show"]);
+    }
   });
 
-  test("registers 'list' subcommand with --editor choices", () => {
+  test("only opencode show has --root", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
       (c) => c.name() === "session-context"
     )!;
-    const sub = parent.commands.find((c) => c.name() === "list")!;
-    expect(sub).toBeDefined();
-    const opts = sub.options.map((o) => o.long);
-    expect(opts).toContain("--editor");
+    for (const editor of ["claude-code", "copilot", "cursor", "opencode"]) {
+      const sub = parent.commands.find((c) => c.name() === editor)!;
+      const show = sub.commands.find((c) => c.name() === "show")!;
+      const opts = show.options.map((o) => o.long);
+      expect(opts).toContain("--max-entries");
+      if (editor === "opencode") {
+        expect(opts).toContain("--root");
+      } else {
+        expect(opts).not.toContain("--root");
+      }
+    }
   });
 
   test("opencode subcommand has only --max-entries (read current conversation)", () => {

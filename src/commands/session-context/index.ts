@@ -5,9 +5,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { registerClaudeCodeSessionContextCommand } from "./claude-code";
 import { registerCopilotSessionContextCommand } from "./copilot";
 import { registerCursorSessionContextCommand } from "./cursor";
-import { registerListSessionContextCommand } from "./list";
 import { registerOpencodeSessionContextCommand } from "./opencode";
-import { registerShowSessionContextCommand } from "./show";
 
 export function registerSessionContextCommand(program: Command) {
   const sessionContext = program
@@ -17,7 +15,5 @@ export function registerSessionContextCommand(program: Command) {
   registerClaudeCodeSessionContextCommand(sessionContext);
   registerCopilotSessionContextCommand(sessionContext);
   registerCursorSessionContextCommand(sessionContext);
-  registerListSessionContextCommand(sessionContext);
   registerOpencodeSessionContextCommand(sessionContext);
-  registerShowSessionContextCommand(sessionContext);
 }
