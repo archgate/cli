@@ -4353,10 +4353,10 @@ Read the Claude Code session transcript for the project.
 archgate session-context claude-code [options]
 ```
 
-| Option              | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation    |
+| Option              | Description                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                        |
+| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation |
 
 ### archgate session-context copilot
 
@@ -4366,11 +4366,11 @@ Read the Copilot CLI session transcript for the project. Sessions are matched by
 archgate session-context copilot [options]
 ```
 
-| Option              | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation    |
-| `--session-id <id>` | Specific session UUID to read                                      |
+| Option              | Description                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                        |
+| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation |
+| `--session-id <id>` | Specific session UUID to read                                   |
 
 ### archgate session-context cursor
 
@@ -4380,11 +4380,11 @@ Read the Cursor agent session transcript for the project.
 archgate session-context cursor [options]
 ```
 
-| Option              | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation    |
-| `--session-id <id>` | Specific session UUID to read                                      |
+| Option              | Description                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                        |
+| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation |
+| `--session-id <id>` | Specific session UUID to read                                   |
 
 ### archgate session-context opencode
 
