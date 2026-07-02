@@ -5,7 +5,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { readCopilotSession } from "../../src/helpers/session-context-copilot";
+import {
+  listCopilotSessions,
+  readCopilotSession,
+} from "../../src/helpers/session-context-copilot";
 
 // This file covers readCopilotSession happy-path and error-case tests.
 
@@ -239,64 +242,75 @@ describe("readCopilotSession", () => {
     }
   });
 
-  test("skip option reads the second-most-recent matching session", async () => {
-    // Create parent session (make it older by creating first)
-    const parentId = `copilot-${uniqueId}-parent`;
-    makeSession(parentId, projectRoot, [
+  test("sessionId reads an earlier session; default reads the most recent", async () => {
+    // Create an earlier session (make it older by backdating)
+    const earlierId = `copilot-${uniqueId}-earlier`;
+    makeSession(earlierId, projectRoot, [
       JSON.stringify({
         type: "user.message",
-        data: { content: "parent question" },
+        data: { content: "earlier question" },
       }),
       JSON.stringify({
         type: "assistant.message",
-        data: { content: "parent answer" },
+        data: { content: "earlier answer" },
       }),
     ]);
 
-    // Make parent dir older so sub-agent dir is most recent
+    // Make the earlier dir older so the current dir is most recent
     const { utimesSync } = await import("node:fs");
     const past = new Date(Date.now() - 60_000);
-    utimesSync(join(stateDir, parentId), past, past);
+    utimesSync(join(stateDir, earlierId), past, past);
 
-    // Create sub-agent session (newer)
-    const subagentId = `copilot-${uniqueId}-subagent`;
-    makeSession(subagentId, projectRoot, [
+    // Create the current session (newer)
+    const currentId = `copilot-${uniqueId}-current`;
+    makeSession(currentId, projectRoot, [
       JSON.stringify({
         type: "user.message",
-        data: { content: "sub-agent init" },
+        data: { content: "current msg" },
       }),
     ]);
 
-    // Without skip → reads sub-agent session (most recent)
-    const resultNoSkip = await readCopilotSession(projectRoot);
-    expect(resultNoSkip.ok).toBe(true);
-    if (!resultNoSkip.ok) throw new Error("expected ok");
-    expect(resultNoSkip.data.sessionId).toBe(subagentId);
+    // Default → reads the most recent session (the current conversation)
+    const latest = await readCopilotSession(projectRoot);
+    expect(latest.ok).toBe(true);
+    if (!latest.ok) throw new Error("expected ok");
+    expect(latest.data.sessionId).toBe(currentId);
 
-    // With skip=1 → reads parent session
-    const resultSkip = await readCopilotSession(projectRoot, { skip: 1 });
-    expect(resultSkip.ok).toBe(true);
-    if (!resultSkip.ok) throw new Error("expected ok");
-    expect(resultSkip.data.sessionId).toBe(parentId);
-    expect(resultSkip.data.transcript[0]?.contentPreview).toBe(
-      "parent question"
-    );
+    // sessionId → reads the earlier session explicitly
+    const earlier = await readCopilotSession(projectRoot, {
+      sessionId: earlierId,
+    });
+    expect(earlier.ok).toBe(true);
+    if (!earlier.ok) throw new Error("expected ok");
+    expect(earlier.data.sessionId).toBe(earlierId);
+    expect(earlier.data.transcript[0]?.contentPreview).toBe("earlier question");
   });
 
-  test("skip beyond available matching sessions returns error", async () => {
-    const sessionId = `copilot-${uniqueId}-onlysession`;
-    makeSession(sessionId, projectRoot, [
-      JSON.stringify({
-        type: "user.message",
-        data: { content: "only session" },
-      }),
+  test("list returns matching sessions most recent first", async () => {
+    const earlierId = `copilot-${uniqueId}-list-earlier`;
+    makeSession(earlierId, projectRoot, [
+      JSON.stringify({ type: "user.message", data: { content: "old" } }),
+    ]);
+    const { utimesSync } = await import("node:fs");
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(join(stateDir, earlierId), past, past);
+    const currentId = `copilot-${uniqueId}-list-current`;
+    makeSession(currentId, projectRoot, [
+      JSON.stringify({ type: "user.message", data: { content: "new" } }),
+    ]);
+    // A session for a different project must not be listed
+    makeSession(`copilot-${uniqueId}-other`, "/some/other/project", [
+      JSON.stringify({ type: "user.message", data: { content: "other" } }),
     ]);
 
-    const result = await readCopilotSession(projectRoot, { skip: 2 });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toContain("--skip 2 requested");
-    }
+    const result = await listCopilotSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.sessions.map((s) => s.id)).toEqual([
+      currentId,
+      earlierId,
+    ]);
+    expect(Date.parse(result.data.sessions[0]?.updatedAt ?? "")).not.toBeNaN();
   });
 
   test("truncates string content preview to 500 chars", async () => {

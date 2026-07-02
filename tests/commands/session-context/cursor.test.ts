@@ -25,8 +25,15 @@ const mockReadCursorSession = mock(
       { ok: true; data: unknown } | { ok: false; error: string }
     >
 );
+const mockListCursorSessions = mock(
+  () =>
+    Promise.resolve({ ok: true, data: { sessions: [] } }) as Promise<
+      { ok: true; data: { sessions: unknown[] } } | { ok: false; error: string }
+    >
+);
 mock.module("../../../src/helpers/session-context", () => ({
   readCursorSession: mockReadCursorSession,
+  listCursorSessions: mockListCursorSessions,
 }));
 
 // ---------------------------------------------------------------------------
@@ -180,7 +187,6 @@ describe("cursor action handler", () => {
 
     expect(mockReadCursorSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      skip: 0,
       sessionId: undefined,
     });
   });

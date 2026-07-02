@@ -21,12 +21,19 @@ import { Command } from "@commander-js/extra-typings";
 
 const mockReadOpencodeSession = mock(
   () =>
-    Promise.resolve({ ok: true, data: {} }) as Promise<
-      { ok: true; data: unknown } | { ok: false; error: string }
-    >
+    ({ ok: true, data: {} }) as
+      | { ok: true; data: unknown }
+      | { ok: false; error: string }
+);
+const mockListOpencodeSessions = mock(
+  () =>
+    ({ ok: true, data: { sessions: [] } }) as
+      | { ok: true; data: { sessions: unknown[] } }
+      | { ok: false; error: string }
 );
 mock.module("../../../src/helpers/session-context-opencode", () => ({
   readOpencodeSession: mockReadOpencodeSession,
+  listOpencodeSessions: mockListOpencodeSessions,
 }));
 
 // ---------------------------------------------------------------------------
@@ -70,6 +77,14 @@ describe("registerOpencodeSessionContextCommand", () => {
     const opt = sub.options.find((o) => o.long === "--session-id");
     expect(opt).toBeDefined();
   });
+
+  test("accepts --list option", () => {
+    const parent = new Command("session-context");
+    registerOpencodeSessionContextCommand(parent);
+    const sub = parent.commands.find((c) => c.name() === "opencode")!;
+    const opt = sub.options.find((o) => o.long === "--list");
+    expect(opt).toBeDefined();
+  });
 });
 
 describe("opencode action handler", () => {
@@ -91,7 +106,12 @@ describe("opencode action handler", () => {
     process.chdir(tempDir);
 
     mockReadOpencodeSession.mockReset();
-    mockReadOpencodeSession.mockResolvedValue({ ok: true, data: {} });
+    mockReadOpencodeSession.mockReturnValue({ ok: true, data: {} });
+    mockListOpencodeSessions.mockReset();
+    mockListOpencodeSessions.mockReturnValue({
+      ok: true,
+      data: { sessions: [] },
+    });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -115,7 +135,7 @@ describe("opencode action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
-    mockReadOpencodeSession.mockResolvedValue({
+    mockReadOpencodeSession.mockReturnValue({
       ok: true,
       data: { entries: [{ role: "assistant", content: "done" }], total: 1 },
     });
@@ -131,7 +151,7 @@ describe("opencode action handler", () => {
   });
 
   test("exits 1 when reader returns error result", async () => {
-    mockReadOpencodeSession.mockResolvedValue({
+    mockReadOpencodeSession.mockReturnValue({
       ok: false,
       error: "No opencode session found",
     });
@@ -148,9 +168,9 @@ describe("opencode action handler", () => {
   });
 
   test("exits 2 when unexpected error is thrown", async () => {
-    mockReadOpencodeSession.mockRejectedValue(
-      new Error("ENOENT: no such file")
-    );
+    mockReadOpencodeSession.mockImplementation(() => {
+      throw new Error("ENOENT: no such file");
+    });
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "opencode"])
@@ -166,7 +186,9 @@ describe("opencode action handler", () => {
   test("re-throws ExitPromptError", async () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
-    mockReadOpencodeSession.mockRejectedValue(exitPromptError);
+    mockReadOpencodeSession.mockImplementation(() => {
+      throw exitPromptError;
+    });
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "opencode"])
@@ -176,15 +198,39 @@ describe("opencode action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    mockReadOpencodeSession.mockResolvedValue({ ok: true, data: {} });
+    mockReadOpencodeSession.mockReturnValue({ ok: true, data: {} });
 
     await makeProgram().parseAsync(["node", "session-context", "opencode"]);
 
     expect(mockReadOpencodeSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      skip: 0,
       sessionId: undefined,
       root: undefined,
     });
+  });
+
+  test("prints session list when --list is given", async () => {
+    mockListOpencodeSessions.mockReturnValue({
+      ok: true,
+      data: {
+        sessions: [
+          { id: "ses_abc", title: "t", updatedAt: "2026-01-01T00:00:00Z" },
+        ],
+      },
+    });
+
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "opencode",
+      "--list",
+    ]);
+
+    expect(mockListOpencodeSessions).toHaveBeenCalledWith(tempDir);
+    expect(mockReadOpencodeSession).not.toHaveBeenCalled();
+    const output = logSpy.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .join("");
+    expect(JSON.parse(output).sessions[0].id).toBe("ses_abc");
   });
 });

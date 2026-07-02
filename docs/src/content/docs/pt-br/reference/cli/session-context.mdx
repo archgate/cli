@@ -19,10 +19,11 @@ Lê a transcrição de sessão do Claude Code para o projeto.
 archgate session-context claude-code [options]
 ```
 
-| Opção               | Descrição                                                       |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                     |
-| `--skip <n>`        | Pular as N sessões mais recentes para ler uma conversa anterior |
+| Opção               | Descrição                                                 |
+| ------------------- | --------------------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)               |
+| `--session-id <id>` | ID específico da sessão a ser lida                        |
+| `--list`            | Lista as sessões disponíveis do projeto em vez de ler uma |
 
 ### archgate session-context copilot
 
@@ -32,11 +33,11 @@ Lê a transcrição de sessão do Copilot CLI para o projeto. Sessões são corr
 archgate session-context copilot [options]
 ```
 
-| Opção               | Descrição                                                       |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                     |
-| `--skip <n>`        | Pular as N sessões mais recentes para ler uma conversa anterior |
-| `--session-id <id>` | UUID específico da sessão a ser lida                            |
+| Opção               | Descrição                                                 |
+| ------------------- | --------------------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)               |
+| `--list`            | Lista as sessões disponíveis do projeto em vez de ler uma |
+| `--session-id <id>` | UUID específico da sessão a ser lida                      |
 
 ### archgate session-context cursor
 
@@ -46,11 +47,11 @@ Lê a transcrição de sessão do agente Cursor para o projeto.
 archgate session-context cursor [options]
 ```
 
-| Opção               | Descrição                                                       |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                     |
-| `--skip <n>`        | Pular as N sessões mais recentes para ler uma conversa anterior |
-| `--session-id <id>` | UUID específico da sessão a ser lida                            |
+| Opção               | Descrição                                                 |
+| ------------------- | --------------------------------------------------------- |
+| `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)               |
+| `--list`            | Lista as sessões disponíveis do projeto em vez de ler uma |
+| `--session-id <id>` | UUID específico da sessão a ser lida                      |
 
 ### archgate session-context opencode
 
@@ -65,7 +66,7 @@ archgate session-context opencode [options]
 | Opção               | Descrição                                                                                                            |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `--max-entries <n>` | Máximo de entradas a retornar (padrão: 200)                                                                          |
-| `--skip <n>`        | Pular as N sessões de nível superior mais recentes (sessões de sub-agente são sempre excluídas)                      |
+| `--list`            | Lista as sessões de nível superior disponíveis do projeto em vez de ler uma                                          |
 | `--session-id <id>` | ID específico da sessão a ser lida                                                                                   |
 | `--root`            | Resolve para a sessão de nível superior (raiz) — com `--session-id`, sobe a partir de uma sessão filha de sub-agente |
 
@@ -95,10 +96,16 @@ Ler a última sessão do opencode:
 archgate session-context opencode
 ```
 
-Ler a conversa anterior do projeto (pular a sessão atual):
+Listar as sessões disponíveis do projeto:
 
 ```bash
-archgate session-context claude-code --skip 1
+archgate session-context claude-code --list
+```
+
+Ler uma sessão anterior específica por ID:
+
+```bash
+archgate session-context claude-code --session-id 6ee6f0a5-1b2c-4d5e-8f90-a1b2c3d4e5f6
 ```
 
 Resolver uma sessão filha de sub-agente do opencode para seu ancestral de nível superior:

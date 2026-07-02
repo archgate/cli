@@ -64,6 +64,16 @@ interface ClaudeSessionSummary {
   transcript: Array<{ type: string; role?: string; contentPreview: string }>;
 }
 
+/** One entry in a `--list` result: session id + last-update timestamp. */
+export interface SessionListEntry {
+  id: string;
+  updatedAt: string;
+}
+
+export type SessionListResult =
+  | { ok: true; data: { sessions: SessionListEntry[] } }
+  | { ok: false; error: string; path?: string };
+
 interface CursorSessionSummary {
   sessionId: string;
   sessionFile: string;
@@ -74,7 +84,7 @@ interface CursorSessionSummary {
 
 type ClaudeSessionResult =
   | { ok: true; data: ClaudeSessionSummary }
-  | { ok: false; error: string; path?: string };
+  | { ok: false; error: string; path?: string; available?: string[] };
 
 type CursorSessionResult =
   | { ok: true; data: CursorSessionSummary }
@@ -109,46 +119,80 @@ export function getContentPreview(entry: TranscriptEntry): string {
 
 export interface ReadSessionOptions {
   maxEntries?: number;
-  /**
-   * Skip the N most recent sessions before selecting the one to read.
-   *
-   * This is an escape hatch for reading an earlier conversation — NOT a
-   * way to reach "the parent session" from an agent context. Editor
-   * skills run inline in the current conversation, and sub-agent
-   * transcripts are not stored as project sessions (verified for Claude
-   * Code; opencode additionally excludes its child sessions from recency
-   * selection), so the most recent session is normally the conversation
-   * running right now and `skip: 0` is the correct default.
-   */
-  skip?: number;
+}
+
+interface ReadClaudeSessionOptions extends ReadSessionOptions {
+  sessionId?: string;
 }
 
 interface ReadCursorSessionOptions extends ReadSessionOptions {
   sessionId?: string;
 }
 
+/** Resolve the Claude Code projects dir for a project root. */
+async function claudeProjectsDir(projectRoot: string | null): Promise<string> {
+  const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
+  return join(homedir(), ".claude", "projects", encodedPath);
+}
+
 /**
- * Read the most recent Claude Code session transcript for a project.
+ * Enumerate Claude Code session files for a project, most recent first.
+ * Returns null when the projects directory cannot be read.
+ */
+function enumerateClaudeSessionFiles(
+  projectsDir: string
+): Array<{ name: string; mtime: number }> | null {
+  try {
+    return readdirSync(projectsDir)
+      .filter((f) => f.endsWith(".jsonl"))
+      .map((f) => ({ name: f, mtime: statSync(join(projectsDir, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * List Claude Code sessions for a project, most recent first.
+ * Session ids are the JSONL file basenames (without extension).
+ */
+export async function listClaudeCodeSessions(
+  projectRoot: string | null
+): Promise<SessionListResult> {
+  const projectsDir = await claudeProjectsDir(projectRoot);
+  const files = enumerateClaudeSessionFiles(projectsDir);
+  if (files === null) {
+    return { ok: false, error: "No session files found", path: projectsDir };
+  }
+  return {
+    ok: true,
+    data: {
+      sessions: files.map((f) => ({
+        id: basename(f.name, ".jsonl"),
+        updatedAt: new Date(f.mtime).toISOString(),
+      })),
+    },
+  };
+}
+
+/**
+ * Read the most recent Claude Code session transcript for a project —
+ * normally the conversation that is running right now. Pass `sessionId`
+ * (from `listClaudeCodeSessions`) to read an earlier session instead.
  * Falls back to cwd when no project root is found.
  */
 export async function readClaudeCodeSession(
   projectRoot: string | null,
-  options?: ReadSessionOptions
+  options?: ReadClaudeSessionOptions
 ): Promise<ClaudeSessionResult> {
   const limit = options?.maxEntries ?? 200;
-  const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
-  const projectsDir = join(homedir(), ".claude", "projects", encodedPath);
+  const projectsDir = await claudeProjectsDir(projectRoot);
 
-  let files: string[];
-  try {
-    files = readdirSync(projectsDir)
-      .filter((f) => f.endsWith(".jsonl"))
-      .map((f) => ({ name: f, mtime: statSync(join(projectsDir, f)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime)
-      .map((f) => f.name);
-  } catch {
+  const allFiles = enumerateClaudeSessionFiles(projectsDir);
+  if (allFiles === null) {
     return { ok: false, error: "No session files found", path: projectsDir };
   }
+  const files = allFiles.map((f) => f.name);
 
   if (files.length === 0) {
     return {
@@ -158,16 +202,20 @@ export async function readClaudeCodeSession(
     };
   }
 
-  const skip = options?.skip ?? 0;
-  if (skip >= files.length) {
+  const targetName = options?.sessionId
+    ? files.find((f) => f === `${options.sessionId}.jsonl`)
+    : files[0];
+
+  if (!targetName) {
     return {
       ok: false,
-      error: `Only ${String(files.length)} session(s) available but --skip ${String(skip)} requested`,
+      error: `Session not found: ${options?.sessionId ?? ""}`,
       path: projectsDir,
+      available: files.map((f) => basename(f, ".jsonl")),
     };
   }
 
-  const sessionFile = join(projectsDir, files[skip]);
+  const sessionFile = join(projectsDir, targetName);
   let entries: TranscriptEntry[];
   try {
     const raw = await Bun.file(sessionFile).text();
@@ -202,30 +250,32 @@ export async function readClaudeCodeSession(
   };
 }
 
-/**
- * Read a Cursor agent session transcript for a project.
- * Falls back to cwd when no project root is found.
- */
-export async function readCursorSession(
-  projectRoot: string | null,
-  options?: ReadCursorSessionOptions
-): Promise<CursorSessionResult> {
-  const limit = options?.maxEntries ?? 200;
+/** Resolve the Cursor agent-transcripts dir for a project root. */
+async function cursorTranscriptsDir(
+  projectRoot: string | null
+): Promise<string> {
   const encodedPath = await encodeProjectPath(
     projectRoot ?? process.cwd(),
     "cursor"
   );
-  const transcriptsDir = join(
+  return join(
     homedir(),
     ".cursor",
     "projects",
     encodedPath,
     "agent-transcripts"
   );
+}
 
-  let sessionDirs: Array<{ name: string; mtime: number }>;
+/**
+ * Enumerate Cursor session directories for a project, most recent first.
+ * Returns null when the transcripts directory cannot be read.
+ */
+function enumerateCursorSessionDirs(
+  transcriptsDir: string
+): Array<{ name: string; mtime: number }> | null {
   try {
-    sessionDirs = readdirSync(transcriptsDir)
+    return readdirSync(transcriptsDir)
       .map((name) => {
         const fullPath = join(transcriptsDir, name);
         try {
@@ -238,6 +288,49 @@ export async function readCursorSession(
       .filter((d): d is { name: string; mtime: number } => d !== null)
       .sort((a, b) => b.mtime - a.mtime);
   } catch {
+    return null;
+  }
+}
+
+/** List Cursor agent sessions for a project, most recent first. */
+export async function listCursorSessions(
+  projectRoot: string | null
+): Promise<SessionListResult> {
+  const transcriptsDir = await cursorTranscriptsDir(projectRoot);
+  const sessionDirs = enumerateCursorSessionDirs(transcriptsDir);
+  if (sessionDirs === null) {
+    return {
+      ok: false,
+      error: "No Cursor agent-transcripts directory found",
+      path: transcriptsDir,
+    };
+  }
+  return {
+    ok: true,
+    data: {
+      sessions: sessionDirs.map((d) => ({
+        id: d.name,
+        updatedAt: new Date(d.mtime).toISOString(),
+      })),
+    },
+  };
+}
+
+/**
+ * Read the most recent Cursor agent session transcript for a project —
+ * normally the conversation that is running right now. Pass `sessionId`
+ * (from `listCursorSessions`) to read an earlier session instead.
+ * Falls back to cwd when no project root is found.
+ */
+export async function readCursorSession(
+  projectRoot: string | null,
+  options?: ReadCursorSessionOptions
+): Promise<CursorSessionResult> {
+  const limit = options?.maxEntries ?? 200;
+  const transcriptsDir = await cursorTranscriptsDir(projectRoot);
+
+  const sessionDirs = enumerateCursorSessionDirs(transcriptsDir);
+  if (sessionDirs === null) {
     return {
       ok: false,
       error: "No Cursor agent-transcripts directory found",
@@ -253,16 +346,16 @@ export async function readCursorSession(
     };
   }
 
-  const skip = options?.skip ?? 0;
   const targetDir = options?.sessionId
     ? sessionDirs.find((d) => d.name === options.sessionId)
-    : sessionDirs[skip];
+    : sessionDirs[0];
 
   if (!targetDir) {
-    const error = options?.sessionId
-      ? `Session not found: ${options.sessionId}`
-      : `Only ${String(sessionDirs.length)} session(s) available but --skip ${String(skip)} requested`;
-    return { ok: false, error, available: sessionDirs.map((d) => d.name) };
+    return {
+      ok: false,
+      error: `Session not found: ${options?.sessionId ?? ""}`,
+      available: sessionDirs.map((d) => d.name),
+    };
   }
 
   const sessionFile = join(

@@ -61,7 +61,7 @@ describe("registerSessionContextCommand", () => {
     expect(sub).toBeDefined();
   });
 
-  test("claude-code subcommand has --max-entries and --skip options", () => {
+  test("claude-code subcommand has --max-entries, --session-id, and --list options", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -70,10 +70,12 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "claude-code")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--skip");
+    expect(opts).toContain("--session-id");
+    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--skip");
   });
 
-  test("cursor subcommand has --max-entries, --skip, and --session-id options", () => {
+  test("cursor subcommand has --max-entries, --session-id, and --list options", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -82,11 +84,12 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "cursor")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--skip");
     expect(opts).toContain("--session-id");
+    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--skip");
   });
 
-  test("copilot subcommand has --max-entries, --skip, and --session-id options", () => {
+  test("copilot subcommand has --max-entries, --session-id, and --list options", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -95,11 +98,12 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "copilot")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--skip");
     expect(opts).toContain("--session-id");
+    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--skip");
   });
 
-  test("opencode subcommand has --max-entries, --skip, and --session-id options", () => {
+  test("opencode subcommand has --max-entries, --session-id, --root, and --list options", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -108,7 +112,9 @@ describe("registerSessionContextCommand", () => {
     const sub = parent.commands.find((c) => c.name() === "opencode")!;
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts).toContain("--skip");
     expect(opts).toContain("--session-id");
+    expect(opts).toContain("--root");
+    expect(opts).toContain("--list");
+    expect(opts).not.toContain("--skip");
   });
 });

@@ -7,32 +7,46 @@ import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
-import { readClaudeCodeSession } from "../../helpers/session-context";
+import {
+  listClaudeCodeSessions,
+  readClaudeCodeSession,
+} from "../../helpers/session-context";
 
 const maxEntriesOption = new Option(
   "--max-entries <n>",
   "maximum entries to return (default: 200)"
 ).argParser((val) => Math.trunc(Number(val)));
 
-const skipOption = new Option(
-  "--skip <n>",
-  "skip the N most recent sessions to read an earlier conversation"
-)
-  .argParser((val) => Math.trunc(Number(val)))
-  .default(0);
+const listOption = new Option(
+  "--list",
+  "list available sessions for the project instead of reading one"
+).conflicts("sessionId");
 
 export function registerClaudeCodeSessionContextCommand(parent: Command) {
   parent
     .command("claude-code")
     .description("Read Claude Code session transcript for the project")
     .addOption(maxEntriesOption)
-    .addOption(skipOption)
+    .option("--session-id <id>", "Specific session ID to read")
+    .addOption(listOption)
     .action(async (opts) => {
       try {
         const projectRoot = findProjectRoot();
+
+        if (opts.list) {
+          const listed = await listClaudeCodeSessions(projectRoot);
+          if (!listed.ok) {
+            logError(listed.error);
+            await exitWith(1);
+            return;
+          }
+          console.log(formatJSON(listed.data));
+          return;
+        }
+
         const result = await readClaudeCodeSession(projectRoot, {
           maxEntries: opts.maxEntries,
-          skip: opts.skip,
+          sessionId: opts.sessionId,
         });
 
         if (!result.ok) {

@@ -25,8 +25,15 @@ const mockReadCopilotSession = mock(
       { ok: true; data: unknown } | { ok: false; error: string }
     >
 );
+const mockListCopilotSessions = mock(
+  () =>
+    Promise.resolve({ ok: true, data: { sessions: [] } }) as Promise<
+      { ok: true; data: { sessions: unknown[] } } | { ok: false; error: string }
+    >
+);
 mock.module("../../../src/helpers/session-context-copilot", () => ({
   readCopilotSession: mockReadCopilotSession,
+  listCopilotSessions: mockListCopilotSessions,
 }));
 
 // ---------------------------------------------------------------------------
@@ -180,7 +187,6 @@ describe("copilot action handler", () => {
 
     expect(mockReadCopilotSession).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      skip: 0,
       sessionId: undefined,
     });
   });

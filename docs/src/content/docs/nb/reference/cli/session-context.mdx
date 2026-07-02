@@ -19,10 +19,11 @@ Les Claude Code-sesjonsloggen for prosjektet.
 archgate session-context claude-code [options]
 ```
 
-| Valg                | Beskrivelse                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)        |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene for å lese en tidligere samtale |
+| Valg                | Beskrivelse                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)              |
+| `--session-id <id>` | Spesifikk sesjons-ID å lese                                           |
+| `--list`            | List opp tilgjengelige sesjoner for prosjektet i stedet for å lese én |
 
 ### archgate session-context copilot
 
@@ -32,11 +33,11 @@ Les Copilot CLI-sesjonsloggen for prosjektet. Sesjoner matches etter arbeidsomr�
 archgate session-context copilot [options]
 ```
 
-| Valg                | Beskrivelse                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)        |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene for å lese en tidligere samtale |
-| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                   |
+| Valg                | Beskrivelse                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)              |
+| `--list`            | List opp tilgjengelige sesjoner for prosjektet i stedet for å lese én |
+| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                         |
 
 ### archgate session-context cursor
 
@@ -46,11 +47,11 @@ Les Cursor-agentsesjonsloggen for prosjektet.
 archgate session-context cursor [options]
 ```
 
-| Valg                | Beskrivelse                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)        |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene for å lese en tidligere samtale |
-| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                   |
+| Valg                | Beskrivelse                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)              |
+| `--list`            | List opp tilgjengelige sesjoner for prosjektet i stedet for å lese én |
+| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                         |
 
 ### archgate session-context opencode
 
@@ -65,7 +66,7 @@ archgate session-context opencode [options]
 | Valg                | Beskrivelse                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
 | `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)                                              |
-| `--skip <n>`        | Hopp over de N nyeste toppnivåsesjonene (underagentsesjoner ekskluderes alltid)                       |
+| `--list`            | List opp tilgjengelige toppnivåsesjoner for prosjektet i stedet for å lese én                         |
 | `--session-id <id>` | Spesifikk sesjons-ID å lese                                                                           |
 | `--root`            | Løs opp til toppnivåsesjonen (rot) — med `--session-id` gås det oppover fra en underagent-barnesesjon |
 
@@ -95,10 +96,16 @@ Les den nyeste opencode-sesjonen:
 archgate session-context opencode
 ```
 
-Les forrige samtale for prosjektet (hopp over gjeldende sesjon):
+List opp tilgjengelige sesjoner for prosjektet:
 
 ```bash
-archgate session-context claude-code --skip 1
+archgate session-context claude-code --list
+```
+
+Les en bestemt tidligere sesjon med ID:
+
+```bash
+archgate session-context claude-code --session-id 6ee6f0a5-1b2c-4d5e-8f90-a1b2c3d4e5f6
 ```
 
 Løs opp en underagent-barnesesjon i opencode til dens toppnivåforelder:
