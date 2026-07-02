@@ -19,10 +19,10 @@ Les Claude Code-sesjonsloggen for prosjektet.
 archgate session-context claude-code [options]
 ```
 
-| Valg                | Beskrivelse                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
+| Valg                | Beskrivelse                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)        |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene for å lese en tidligere samtale |
 
 ### archgate session-context copilot
 
@@ -32,11 +32,11 @@ Les Copilot CLI-sesjonsloggen for prosjektet. Sesjoner matches etter arbeidsomr�
 archgate session-context copilot [options]
 ```
 
-| Valg                | Beskrivelse                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
-| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                       |
+| Valg                | Beskrivelse                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)        |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene for å lese en tidligere samtale |
+| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                   |
 
 ### archgate session-context cursor
 
@@ -46,11 +46,11 @@ Les Cursor-agentsesjonsloggen for prosjektet.
 archgate session-context cursor [options]
 ```
 
-| Valg                | Beskrivelse                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
-| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                       |
+| Valg                | Beskrivelse                                                     |
+| ------------------- | --------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)        |
+| `--skip <n>`        | Hopp over de N nyeste sesjonene for å lese en tidligere samtale |
+| `--session-id <id>` | Spesifikk sesjons-UUID å lese                                   |
 
 ### archgate session-context opencode
 
@@ -95,7 +95,7 @@ Les den nyeste opencode-sesjonen:
 archgate session-context opencode
 ```
 
-Les foreldresesjonen (hopp over underagentens egen sesjon):
+Les forrige samtale for prosjektet (hopp over gjeldende sesjon):
 
 ```bash
 archgate session-context claude-code --skip 1

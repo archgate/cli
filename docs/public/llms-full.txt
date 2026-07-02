@@ -4356,7 +4356,7 @@ archgate session-context claude-code [options]
 | Option              | Description                                                        |
 | ------------------- | ------------------------------------------------------------------ |
 | `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
+| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation    |
 
 ### archgate session-context copilot
 
@@ -4369,7 +4369,7 @@ archgate session-context copilot [options]
 | Option              | Description                                                        |
 | ------------------- | ------------------------------------------------------------------ |
 | `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
+| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation    |
 | `--session-id <id>` | Specific session UUID to read                                      |
 
 ### archgate session-context cursor
@@ -4383,7 +4383,7 @@ archgate session-context cursor [options]
 | Option              | Description                                                        |
 | ------------------- | ------------------------------------------------------------------ |
 | `--max-entries <n>` | Maximum entries to return (default: 200)                           |
-| `--skip <n>`        | Skip the N most recent sessions (useful when running as sub-agent) |
+| `--skip <n>`        | Skip the N most recent sessions to read an earlier conversation    |
 | `--session-id <id>` | Specific session UUID to read                                      |
 
 ### archgate session-context opencode
@@ -4429,7 +4429,7 @@ Read the latest opencode session:
 archgate session-context opencode
 ```
 
-Read the parent session (skip the sub-agent's own session):
+Read the previous conversation for the project (skip the current session):
 
 ```bash
 archgate session-context claude-code --skip 1

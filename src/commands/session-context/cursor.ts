@@ -16,7 +16,7 @@ const maxEntriesOption = new Option(
 
 const skipOption = new Option(
   "--skip <n>",
-  "skip the N most recent sessions (useful when running as a sub-agent)"
+  "skip the N most recent sessions to read an earlier conversation"
 )
   .argParser((val) => Math.trunc(Number(val)))
   .default(0);

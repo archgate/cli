@@ -111,8 +111,14 @@ export interface ReadSessionOptions {
   maxEntries?: number;
   /**
    * Skip the N most recent sessions before selecting the one to read.
-   * Useful when running as a sub-agent: the sub-agent's own session is
-   * the most recent, so `skip: 1` reads the parent session instead.
+   *
+   * This is an escape hatch for reading an earlier conversation — NOT a
+   * way to reach "the parent session" from an agent context. Editor
+   * skills run inline in the current conversation, and sub-agent
+   * transcripts are not stored as project sessions (verified for Claude
+   * Code; opencode additionally excludes its child sessions from recency
+   * selection), so the most recent session is normally the conversation
+   * running right now and `skip: 0` is the correct default.
    */
   skip?: number;
 }
