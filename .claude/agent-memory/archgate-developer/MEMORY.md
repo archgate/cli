@@ -14,6 +14,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 - **Minimum version** (`>=1.2.21`): Enforced in `src/cli.ts`, documented in CLAUDE.md "Technology Stack". This is the user-facing requirement.
 - **Pinned version** (`1.3.14`): Set in `.prototools`, referenced in ADR risk sections (ARCH-005, ARCH-006) and CLAUDE.md "Toolchain" section. This is the dev toolchain version.
+- **Pre-1.0 release bump policy**: breaking changes bump MINOR, not major — enforced by the `getNextVersion` cap in `.simple-release.js`. v1.0.0 must be an explicit decision (force via the `version` bump option), never an automatic consequence of a `feat!` commit.
 - These are intentionally different. When upgrading the pinned version, update `.prototools` + ADR risk sections + CLAUDE.md toolchain. Do NOT change the minimum unless a new Bun API is required.
 
 ## Git Workflow
