@@ -8,6 +8,7 @@ import { copilotSessionStateDir } from "./paths";
 import { isWindows } from "./platform";
 import {
   type ReadSessionOptions,
+  type SessionListResult,
   type TranscriptEntry,
   getContentPreview,
 } from "./session-context";
@@ -40,8 +41,17 @@ function normalizePath(p: string): string {
 
 const COPILOT_RELEVANT_TYPES = new Set(["user.message", "assistant.message"]);
 
+interface CopilotSessionMatch {
+  name: string;
+  mtime: number;
+}
+
+type CopilotMatchResult =
+  | { ok: true; matching: CopilotSessionMatch[]; stateDir: string }
+  | { ok: false; error: string; path?: string; available?: string[] };
+
 /**
- * Read a Copilot CLI session transcript for a project.
+ * Find Copilot CLI sessions matching a project, most recent first.
  *
  * Copilot CLI stores sessions under `~/.copilot/session-state/<uuid>/`.
  * Each session directory contains:
@@ -51,11 +61,9 @@ const COPILOT_RELEVANT_TYPES = new Set(["user.message", "assistant.message"]);
  * Sessions are matched by comparing the `cwd` field in workspace.yaml
  * to the provided project root.
  */
-export async function readCopilotSession(
-  projectRoot: string | null,
-  options?: ReadCopilotSessionOptions
-): Promise<CopilotSessionResult> {
-  const limit = options?.maxEntries ?? 200;
+async function findMatchingCopilotSessions(
+  projectRoot: string | null
+): Promise<CopilotMatchResult> {
   const stateDir = copilotSessionStateDir();
   const normalizedProjectRoot = normalizePath(projectRoot ?? process.cwd());
 
@@ -87,11 +95,7 @@ export async function readCopilotSession(
   }
 
   // 2. Parse workspace.yaml for each session to match by cwd
-  interface SessionMatch {
-    name: string;
-    mtime: number;
-  }
-  const matching: SessionMatch[] = [];
+  const matching: CopilotSessionMatch[] = [];
   const allSessionIds: string[] = [];
 
   for (const dir of allDirs) {
@@ -119,17 +123,56 @@ export async function readCopilotSession(
     };
   }
 
-  // 3. Select session by ID or most recent (with optional skip)
-  const skip = options?.skip ?? 0;
+  return { ok: true, matching, stateDir };
+}
+
+/** List Copilot CLI sessions for a project, most recent first. */
+export async function listCopilotSessions(
+  projectRoot: string | null
+): Promise<SessionListResult> {
+  const found = await findMatchingCopilotSessions(projectRoot);
+  if (!found.ok) {
+    return { ok: false, error: found.error, path: found.path };
+  }
+  return {
+    ok: true,
+    data: {
+      sessions: found.matching.map((s) => ({
+        id: s.name,
+        updatedAt: new Date(s.mtime).toISOString(),
+      })),
+    },
+  };
+}
+
+/**
+ * Read the most recent Copilot CLI session transcript for a project —
+ * normally the conversation that is running right now. Pass `sessionId`
+ * (from `listCopilotSessions`) to read an earlier session instead.
+ */
+export async function readCopilotSession(
+  projectRoot: string | null,
+  options?: ReadCopilotSessionOptions
+): Promise<CopilotSessionResult> {
+  const limit = options?.maxEntries ?? 200;
+
+  const found = await findMatchingCopilotSessions(projectRoot);
+  if (!found.ok) {
+    return found;
+  }
+  const { matching, stateDir } = found;
+
+  // 3. Select session by ID or most recent
   const target = options?.sessionId
     ? matching.find((s) => s.name === options.sessionId)
-    : matching[skip];
+    : matching[0];
 
   if (!target) {
-    const error = options?.sessionId
-      ? `Session not found: ${options.sessionId}`
-      : `Only ${String(matching.length)} session(s) available but --skip ${String(skip)} requested`;
-    return { ok: false, error, available: matching.map((s) => s.name) };
+    return {
+      ok: false,
+      error: `Session not found: ${options?.sessionId ?? ""}`,
+      available: matching.map((s) => s.name),
+    };
   }
 
   // 4. Read events.jsonl

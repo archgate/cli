@@ -1,38 +1,92 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
+import { InvalidArgumentError, Option } from "@commander-js/extra-typings";
 
 import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
 import { formatJSON } from "../../helpers/output";
 import { findProjectRoot } from "../../helpers/paths";
-import { readClaudeCodeSession } from "../../helpers/session-context";
+import {
+  listClaudeCodeSessions,
+  readClaudeCodeSession,
+} from "../../helpers/session-context";
 
-const maxEntriesOption = new Option(
-  "--max-entries <n>",
-  "maximum entries to return (default: 200)"
-).argParser((val) => Math.trunc(Number(val)));
-
-const skipOption = new Option(
-  "--skip <n>",
-  "skip the N most recent sessions (useful when running as a sub-agent)"
-)
-  .argParser((val) => Math.trunc(Number(val)))
-  .default(0);
+/**
+ * Shared `--max-entries` option factory for the session-context commands.
+ * Exported from this command file (not a helper) per the cross-command I/O
+ * sharing convention. Rejects non-numeric or non-positive input — a NaN
+ * limit would silently disable transcript trimming downstream.
+ */
+export const makeMaxEntriesOption = () =>
+  new Option(
+    "--max-entries <n>",
+    "maximum entries to return (default: 200)"
+  ).argParser((val) => {
+    const n = Math.trunc(Number(val));
+    if (!Number.isFinite(n) || n < 1) {
+      throw new InvalidArgumentError("must be a positive integer");
+    }
+    return n;
+  });
 
 export function registerClaudeCodeSessionContextCommand(parent: Command) {
-  parent
+  const cmd = parent
     .command("claude-code")
-    .description("Read Claude Code session transcript for the project")
-    .addOption(maxEntriesOption)
-    .addOption(skipOption)
+    .description(
+      "Read the current Claude Code session transcript for the project"
+    )
+    .addOption(makeMaxEntriesOption())
     .action(async (opts) => {
       try {
         const projectRoot = findProjectRoot();
         const result = await readClaudeCodeSession(projectRoot, {
           maxEntries: opts.maxEntries,
-          skip: opts.skip,
+        });
+
+        if (!result.ok) {
+          logError(result.error);
+          await exitWith(1);
+          return;
+        }
+
+        console.log(formatJSON(result.data));
+      } catch (err) {
+        await handleCommandError(err);
+      }
+    });
+
+  cmd
+    .command("list")
+    .description("List available Claude Code sessions for the project")
+    .action(async () => {
+      try {
+        const projectRoot = findProjectRoot();
+        const result = await listClaudeCodeSessions(projectRoot);
+
+        if (!result.ok) {
+          logError(result.error);
+          await exitWith(1);
+          return;
+        }
+
+        console.log(formatJSON(result.data));
+      } catch (err) {
+        await handleCommandError(err);
+      }
+    });
+
+  cmd
+    .command("show")
+    .description("Read a specific Claude Code session by ID")
+    .argument("<session-id>", "session ID from `list`")
+    .addOption(makeMaxEntriesOption())
+    .action(async (sessionId, opts) => {
+      try {
+        const projectRoot = findProjectRoot();
+        const result = await readClaudeCodeSession(projectRoot, {
+          maxEntries: opts.maxEntries,
+          sessionId,
         });
 
         if (!result.ok) {

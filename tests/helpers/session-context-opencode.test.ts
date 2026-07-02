@@ -6,7 +6,10 @@ import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { readOpencodeSession } from "../../src/helpers/session-context-opencode";
+import {
+  listOpencodeSessions,
+  readOpencodeSession,
+} from "../../src/helpers/session-context-opencode";
 
 /**
  * Tests for readOpencodeSession — reads session data from
@@ -412,21 +415,22 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  test("skip indexes over top-level sessions only", async () => {
+  test("list returns top-level sessions only, most recent first", () => {
     const db = createDb();
     makeSimpleSession(db, "ses_older", "older top-level", 1000);
     makeSimpleSession(db, "ses_newer", "newer top-level", 2000);
-    // Child session between the two — must not consume a skip index
+    // Child session between the two — must not appear in the list
     makeSimpleSession(db, "ses_child", "child", 1500, "ses_older");
     db.close();
 
-    const noSkip = await readOpencodeSession(projectRoot);
-    expect(noSkip.ok).toBe(true);
-    if (noSkip.ok) expect(noSkip.data.sessionId).toBe("ses_newer");
-
-    const skipped = await readOpencodeSession(projectRoot, { skip: 1 });
-    expect(skipped.ok).toBe(true);
-    if (skipped.ok) expect(skipped.data.sessionId).toBe("ses_older");
+    const result = listOpencodeSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.sessions.map((s) => s.id)).toEqual([
+      "ses_newer",
+      "ses_older",
+    ]);
+    expect(Date.parse(result.data.sessions[0]?.updatedAt ?? "")).not.toBeNaN();
   });
 
   test("root resolves to the top-level ancestor session", async () => {
@@ -464,10 +468,12 @@ describe("readOpencodeSession", () => {
     makeSimpleSession(db, "ses_sib_d", "domain review d", 5000, "ses_parent");
     db.close();
 
-    // skip: 1 now errors honestly — only one top-level session exists, so
-    // there is no second one to skip to (previously it returned a sibling).
-    const skipped = await readOpencodeSession(projectRoot, { skip: 1 });
-    expect(skipped.ok).toBe(false);
+    // The list shows only the parent — no sibling can shadow it.
+    const listed = listOpencodeSessions(projectRoot);
+    expect(listed.ok).toBe(true);
+    if (listed.ok) {
+      expect(listed.data.sessions.map((s) => s.id)).toEqual(["ses_parent"]);
+    }
 
     // Default selection and explicit root both resolve to the parent.
     const byDefault = await readOpencodeSession(projectRoot);
@@ -479,20 +485,22 @@ describe("readOpencodeSession", () => {
     if (rooted.ok) expect(rooted.data.sessionId).toBe("ses_parent");
   });
 
-  test("skip beyond available top-level sessions returns error", async () => {
+  test("returns error when only child sessions match the project", async () => {
     const db = createDb();
-    makeSimpleSession(db, "ses_only", "only", 1000);
-    // Child sessions must not count toward the top-level total
-    makeSimpleSession(db, "ses_child", "child", 2000, "ses_only");
+    // Parent lives in a different directory; only the child matches here
+    makeSession(db, "ses_parent", "/some/other/project", [
+      { id: "msg_p", role: "user", content: "elsewhere" },
+    ]);
+    makeSimpleSession(db, "ses_child", "child", 2000, "ses_parent");
     db.close();
 
-    const result = await readOpencodeSession(projectRoot, { skip: 1 });
+    const result = await readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(
-        "Only 1 top-level session(s) available but --skip 1 requested"
+        "No top-level opencode session found for this project"
       );
-      expect(result.available).toEqual(["ses_only"]);
+      expect(result.available).toEqual(["ses_child"]);
     }
   });
 

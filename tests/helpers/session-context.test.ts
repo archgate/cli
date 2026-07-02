@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 import {
   encodeProjectPath,
+  listClaudeCodeSessions,
   readClaudeCodeSession,
   readCursorSession,
 } from "../../src/helpers/session-context";
@@ -248,65 +249,100 @@ describe("readClaudeCodeSession", () => {
       expect(result.data.transcript[2]?.contentPreview).toBe("message 9");
     });
 
-    test("skip option reads the second-most-recent session file", async () => {
-      // Write a newer session file (the sub-agent's session)
+    test("sessionId reads a specific earlier session file", async () => {
+      // Write a newer session file (the current conversation)
       writeFileSync(
-        join(projectsDir, "subagent.jsonl"),
+        join(projectsDir, "current.jsonl"),
         [
           JSON.stringify({
             type: "user",
-            message: { role: "user", content: "sub-agent msg" },
+            message: { role: "user", content: "current msg" },
           }),
         ].join("\n")
       );
 
-      // Write an older session file (the parent's session)
-      const olderFile = join(projectsDir, "parent.jsonl");
+      // Write an older session file (an earlier conversation)
+      const olderFile = join(projectsDir, "earlier.jsonl");
       writeFileSync(
         olderFile,
         [
           JSON.stringify({
             type: "user",
-            message: { role: "user", content: "parent msg" },
+            message: { role: "user", content: "earlier msg" },
           }),
           JSON.stringify({
             type: "assistant",
-            message: { role: "assistant", content: "parent reply" },
+            message: { role: "assistant", content: "earlier reply" },
           }),
         ].join("\n")
       );
 
-      // Make parent older than subagent by backdating its mtime
+      // Backdate the earlier session's mtime
       const { utimesSync } = await import("node:fs");
       const past = new Date(Date.now() - 60_000);
       utimesSync(olderFile, past, past);
 
-      // Without skip → reads subagent (most recent)
-      const resultNoSkip = await readClaudeCodeSession(projectRoot);
-      expect(resultNoSkip.ok).toBe(true);
-      if (!resultNoSkip.ok) throw new Error("expected ok");
-      expect(resultNoSkip.data.transcript[0]?.contentPreview).toBe(
-        "sub-agent msg"
-      );
+      // Default → reads the most recent session (the current conversation)
+      const latest = await readClaudeCodeSession(projectRoot);
+      expect(latest.ok).toBe(true);
+      if (!latest.ok) throw new Error("expected ok");
+      expect(latest.data.transcript[0]?.contentPreview).toBe("current msg");
 
-      // With skip=1 → reads parent session
-      const resultSkip = await readClaudeCodeSession(projectRoot, { skip: 1 });
-      expect(resultSkip.ok).toBe(true);
-      if (!resultSkip.ok) throw new Error("expected ok");
-      expect(resultSkip.data.transcript[0]?.contentPreview).toBe("parent msg");
-      expect(resultSkip.data.relevantEntries).toBe(2);
+      // sessionId → reads the earlier conversation explicitly
+      const earlier = await readClaudeCodeSession(projectRoot, {
+        sessionId: "earlier",
+      });
+      expect(earlier.ok).toBe(true);
+      if (!earlier.ok) throw new Error("expected ok");
+      expect(earlier.data.transcript[0]?.contentPreview).toBe("earlier msg");
+      expect(earlier.data.relevantEntries).toBe(2);
     });
 
-    test("skip beyond available sessions returns error", async () => {
+    test("sessionId not found returns error with available ids", async () => {
       writeSession([
         { type: "user", message: { role: "user", content: "only session" } },
       ]);
 
-      const result = await readClaudeCodeSession(projectRoot, { skip: 5 });
+      const result = await readClaudeCodeSession(projectRoot, {
+        sessionId: "nonexistent",
+      });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toContain("--skip 5 requested");
+        expect(result.error).toContain("Session not found: nonexistent");
+        expect(result.available).toEqual(["session"]);
       }
+    });
+
+    test("list returns sessions most recent first with timestamps", async () => {
+      writeFileSync(
+        join(projectsDir, "current.jsonl"),
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "hi" },
+        })
+      );
+      const olderFile = join(projectsDir, "earlier.jsonl");
+      writeFileSync(
+        olderFile,
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "old" },
+        })
+      );
+      const { utimesSync } = await import("node:fs");
+      const past = new Date(Date.now() - 60_000);
+      utimesSync(olderFile, past, past);
+
+      const result = await listClaudeCodeSessions(projectRoot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      expect(result.data.sessions.map((s) => s.id)).toEqual([
+        "current",
+        "earlier",
+      ]);
+      expect(
+        Date.parse(result.data.sessions[0]?.updatedAt ?? "")
+      ).not.toBeNaN();
     });
 
     test("returns error when directory exists but has no .jsonl files", async () => {

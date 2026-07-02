@@ -1,39 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-// ---------------------------------------------------------------------------
-// Module mocks — declared before the import under test.
-// ---------------------------------------------------------------------------
-
-const mockReadCursorSession = mock(
-  () =>
-    Promise.resolve({ ok: true, data: {} }) as Promise<
-      { ok: true; data: unknown } | { ok: false; error: string }
-    >
-);
-mock.module("../../../src/helpers/session-context", () => ({
-  readCursorSession: mockReadCursorSession,
-}));
-
-// ---------------------------------------------------------------------------
-// Import under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-
 import { registerCursorSessionContextCommand } from "../../../src/commands/session-context/cursor";
+import * as sessionContextHelpers from "../../../src/helpers/session-context";
 import { safeRmSync } from "../../test-utils";
 
 // ---------------------------------------------------------------------------
@@ -63,12 +38,11 @@ describe("registerCursorSessionContextCommand", () => {
     expect(opt).toBeDefined();
   });
 
-  test("accepts --session-id option", () => {
+  test("has list and show subcommands", () => {
     const parent = new Command("session-context");
     registerCursorSessionContextCommand(parent);
     const sub = parent.commands.find((c) => c.name() === "cursor")!;
-    const opt = sub.options.find((o) => o.long === "--session-id");
-    expect(opt).toBeDefined();
+    expect(sub.commands.map((c) => c.name()).sort()).toEqual(["list", "show"]);
   });
 });
 
@@ -78,6 +52,18 @@ describe("cursor action handler", () => {
   let logSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
+  let readSpy: ReturnType<typeof spyOn>;
+
+  /** Minimal complete summary for the default happy-path spy. */
+  function emptySummary() {
+    return {
+      sessionId: "s",
+      sessionFile: "s.jsonl",
+      totalEntries: 0,
+      relevantEntries: 0,
+      transcript: [],
+    };
+  }
 
   beforeEach(() => {
     // realpathSync normalizes macOS /var → /private/var symlink so the
@@ -90,8 +76,8 @@ describe("cursor action handler", () => {
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     process.chdir(tempDir);
 
-    mockReadCursorSession.mockReset();
-    mockReadCursorSession.mockResolvedValue({ ok: true, data: {} });
+    readSpy = spyOn(sessionContextHelpers, "readCursorSession");
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -103,6 +89,7 @@ describe("cursor action handler", () => {
     process.chdir(originalCwd);
     delete Bun.env.ARCHGATE_PROJECT_CEILING;
     safeRmSync(tempDir);
+    readSpy.mockRestore();
     logSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
@@ -115,7 +102,7 @@ describe("cursor action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
-    mockReadCursorSession.mockResolvedValue({
+    readSpy.mockResolvedValue({
       ok: true,
       data: { entries: [{ role: "user", content: "test" }], total: 1 },
     });
@@ -131,10 +118,7 @@ describe("cursor action handler", () => {
   });
 
   test("exits 1 when reader returns error result", async () => {
-    mockReadCursorSession.mockResolvedValue({
-      ok: false,
-      error: "No cursor session found",
-    });
+    readSpy.mockResolvedValue({ ok: false, error: "No cursor session found" });
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "cursor"])
@@ -148,7 +132,7 @@ describe("cursor action handler", () => {
   });
 
   test("exits 2 when unexpected error is thrown", async () => {
-    mockReadCursorSession.mockRejectedValue(new Error("File system error"));
+    readSpy.mockRejectedValue(new Error("File system error"));
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "cursor"])
@@ -164,7 +148,7 @@ describe("cursor action handler", () => {
   test("re-throws ExitPromptError", async () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
-    mockReadCursorSession.mockRejectedValue(exitPromptError);
+    readSpy.mockRejectedValue(exitPromptError);
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "cursor"])
@@ -174,14 +158,90 @@ describe("cursor action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    mockReadCursorSession.mockResolvedValue({ ok: true, data: {} });
+    readSpy.mockResolvedValue({ ok: true, data: {} });
 
     await makeProgram().parseAsync(["node", "session-context", "cursor"]);
 
-    expect(mockReadCursorSession).toHaveBeenCalledWith(tempDir, {
+    expect(readSpy).toHaveBeenCalledWith(tempDir, { maxEntries: undefined });
+  });
+
+  test("list subcommand prints sessions", async () => {
+    const listSpy = spyOn(sessionContextHelpers, "listCursorSessions");
+    try {
+      listSpy.mockResolvedValue({
+        ok: true,
+        data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
+      });
+
+      await makeProgram().parseAsync([
+        "node",
+        "session-context",
+        "cursor",
+        "list",
+      ]);
+
+      expect(listSpy).toHaveBeenCalledWith(tempDir);
+      const output = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("");
+      expect(JSON.parse(output).sessions[0].id).toBe("abc");
+    } finally {
+      listSpy.mockRestore();
+    }
+  });
+
+  test("list subcommand exits 1 on error result", async () => {
+    const listSpy = spyOn(sessionContextHelpers, "listCursorSessions");
+    try {
+      listSpy.mockResolvedValue({ ok: false, error: "store missing" });
+
+      await expect(
+        makeProgram().parseAsync(["node", "session-context", "cursor", "list"])
+      ).rejects.toThrow("process.exit");
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errorOutput = errorSpy.mock.calls
+        .map((c: unknown[]) => c.join(" "))
+        .join(" ");
+      expect(errorOutput).toContain("store missing");
+    } finally {
+      listSpy.mockRestore();
+    }
+  });
+
+  test("show subcommand reads the given session id", async () => {
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
+
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "cursor",
+      "show",
+      "abc123",
+    ]);
+
+    expect(readSpy).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      skip: 0,
-      sessionId: undefined,
+      sessionId: "abc123",
     });
+  });
+
+  test("show subcommand exits 1 on error result", async () => {
+    readSpy.mockResolvedValue({
+      ok: false,
+      error: "Session not found: abc123",
+    });
+
+    await expect(
+      makeProgram().parseAsync([
+        "node",
+        "session-context",
+        "cursor",
+        "show",
+        "abc123",
+      ])
+    ).rejects.toThrow("process.exit");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

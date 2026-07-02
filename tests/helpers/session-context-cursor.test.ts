@@ -5,7 +5,10 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
 
-import { readCursorSession } from "../../src/helpers/session-context";
+import {
+  listCursorSessions,
+  readCursorSession,
+} from "../../src/helpers/session-context";
 
 // This file covers readCursorSession happy-path tests.
 // Error cases for readCursorSession live in session-context.test.ts.
@@ -201,49 +204,49 @@ describe("readCursorSession", () => {
     expect(result.data.transcript[1]?.contentPreview).toBe("msg 7");
   });
 
-  test("skip option reads the second-most-recent session directory", async () => {
-    // Create parent session (make it older)
-    makeSession("session-parent", [
+  test("sessionId reads an earlier session; default reads the most recent", async () => {
+    // Create an earlier session (make it older)
+    makeSession("session-earlier", [
       JSON.stringify({
         role: "user",
-        message: { role: "user", content: "parent question" },
+        message: { role: "user", content: "earlier question" },
       }),
       JSON.stringify({
         role: "assistant",
-        message: { role: "assistant", content: "parent answer" },
+        message: { role: "assistant", content: "earlier answer" },
       }),
     ]);
 
-    // Make parent dir older
+    // Make the earlier dir older
     const { utimesSync } = await import("node:fs");
     const past = new Date(Date.now() - 60_000);
-    utimesSync(join(transcriptsDir, "session-parent"), past, past);
+    utimesSync(join(transcriptsDir, "session-earlier"), past, past);
 
-    // Create sub-agent session (newer)
-    makeSession("session-subagent", [
+    // Create the current session (newer)
+    makeSession("session-current", [
       JSON.stringify({
         role: "user",
-        message: { role: "user", content: "sub-agent init" },
+        message: { role: "user", content: "current msg" },
       }),
     ]);
 
-    // Without skip → reads sub-agent session (most recent)
-    const resultNoSkip = await readCursorSession(projectRoot);
-    expect(resultNoSkip.ok).toBe(true);
-    if (!resultNoSkip.ok) throw new Error("expected ok");
-    expect(resultNoSkip.data.sessionId).toBe("session-subagent");
+    // Default → reads the most recent session (the current conversation)
+    const latest = await readCursorSession(projectRoot);
+    expect(latest.ok).toBe(true);
+    if (!latest.ok) throw new Error("expected ok");
+    expect(latest.data.sessionId).toBe("session-current");
 
-    // With skip=1 → reads parent session
-    const resultSkip = await readCursorSession(projectRoot, { skip: 1 });
-    expect(resultSkip.ok).toBe(true);
-    if (!resultSkip.ok) throw new Error("expected ok");
-    expect(resultSkip.data.sessionId).toBe("session-parent");
-    expect(resultSkip.data.transcript[0]?.contentPreview).toBe(
-      "parent question"
-    );
+    // sessionId → reads the earlier session explicitly
+    const earlier = await readCursorSession(projectRoot, {
+      sessionId: "session-earlier",
+    });
+    expect(earlier.ok).toBe(true);
+    if (!earlier.ok) throw new Error("expected ok");
+    expect(earlier.data.sessionId).toBe("session-earlier");
+    expect(earlier.data.transcript[0]?.contentPreview).toBe("earlier question");
   });
 
-  test("skip beyond available sessions returns error", async () => {
+  test("sessionId not found returns error with available ids", async () => {
     makeSession("session-only", [
       JSON.stringify({
         role: "user",
@@ -251,11 +254,41 @@ describe("readCursorSession", () => {
       }),
     ]);
 
-    const result = await readCursorSession(projectRoot, { skip: 2 });
+    const result = await readCursorSession(projectRoot, {
+      sessionId: "session-nope",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toContain("--skip 2 requested");
+      expect(result.error).toContain("Session not found: session-nope");
+      expect(result.available).toEqual(["session-only"]);
     }
+  });
+
+  test("list returns sessions most recent first with timestamps", async () => {
+    makeSession("session-earlier", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "old" },
+      }),
+    ]);
+    const { utimesSync } = await import("node:fs");
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(join(transcriptsDir, "session-earlier"), past, past);
+    makeSession("session-current", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "new" },
+      }),
+    ]);
+
+    const result = await listCursorSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.sessions.map((s) => s.id)).toEqual([
+      "session-current",
+      "session-earlier",
+    ]);
+    expect(Date.parse(result.data.sessions[0]?.updatedAt ?? "")).not.toBeNaN();
   });
 
   test("ignores non-directory entries in transcripts dir", async () => {

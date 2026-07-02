@@ -10,6 +10,7 @@ import { isWindows } from "./platform";
 import {
   RELEVANT_ROLES,
   type ReadSessionOptions,
+  type SessionListResult,
   type TranscriptEntry,
   getContentPreview,
 } from "./session-context";
@@ -32,12 +33,11 @@ interface ReadOpencodeSessionOptions extends ReadSessionOptions {
    *
    * Opencode is the only session-context backend with a real parent/child
    * session graph, so this option lives here rather than in the shared
-   * `ReadSessionOptions`. A recency-based guess (the old bare `skip: 1`)
-   * cannot distinguish the true parent from a sibling sub-agent session
-   * once more than one sibling exists — and an inline Skill invocation
-   * creates no session row at all, so there is nothing to skip past.
-   * Ancestry via `parent_id` is correct regardless of nesting depth or
-   * sibling fan-out.
+   * `ReadSessionOptions`. A recency-based guess cannot distinguish the
+   * true parent from a sibling sub-agent session once more than one
+   * sibling exists — and an inline Skill invocation creates no session
+   * row at all. Ancestry via `parent_id` is correct regardless of nesting
+   * depth or sibling fan-out.
    */
   root?: boolean;
 }
@@ -56,6 +56,78 @@ function normalizePath(p: string): string {
   return isWindows() ? resolved.toLowerCase() : resolved;
 }
 
+interface SessionRow {
+  id: string;
+  directory: string;
+  parent_id: string | null;
+  title: string;
+  time_updated: number;
+}
+
+/** Query all sessions from an open opencode DB, most recent first. */
+function queryAllSessions(db: Database): SessionRow[] {
+  return db
+    .query<SessionRow, []>(
+      "SELECT id, directory, parent_id, title, time_updated FROM session ORDER BY time_updated DESC"
+    )
+    .all();
+}
+
+/**
+ * List opencode sessions for a project, most recent first.
+ * Only top-level sessions are listed — sub-agent child sessions are
+ * excluded (they can still be read explicitly via `sessionId`).
+ */
+export function listOpencodeSessions(
+  projectRoot: string | null
+): SessionListResult {
+  const dbPath = opencodeDbPath();
+  const normalizedProjectRoot = normalizePath(projectRoot ?? process.cwd());
+
+  if (!existsSync(dbPath)) {
+    return { ok: false, error: "No opencode database found", path: dbPath };
+  }
+
+  let db: Database;
+  try {
+    db = new Database(dbPath, { readonly: true });
+  } catch {
+    return {
+      ok: false,
+      error: "Failed to open opencode database",
+      path: dbPath,
+    };
+  }
+
+  try {
+    const topLevel = queryAllSessions(db).filter(
+      (s) =>
+        s.parent_id === null &&
+        s.directory &&
+        normalizePath(s.directory) === normalizedProjectRoot
+    );
+    return {
+      ok: true,
+      data: {
+        sessions: topLevel.map((s) => ({
+          id: s.id,
+          title: s.title,
+          updatedAt: new Date(s.time_updated).toISOString(),
+        })),
+      },
+    };
+  } catch (err) {
+    logDebug(`Failed to read opencode database: ${String(err)}`);
+    return {
+      ok: false,
+      error: "Failed to read opencode database",
+      path: dbPath,
+    };
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Read an opencode session transcript for a project.
  *
@@ -70,12 +142,12 @@ function normalizePath(p: string): string {
  * to the provided project root.
  *
  * Sub-agent runs are stored as child sessions (`parent_id` set) that share
- * the parent's `directory`, so recency-based selection (`skip`) only
- * considers top-level sessions — otherwise sub-agent transcripts shadow the
- * main session. Note that opencode skills run inline in the calling session
- * (they do NOT create their own session), so no `skip` is needed to read
- * the current development session. An explicit `sessionId` can still read
- * any session, including sub-agent children.
+ * the parent's `directory`, so recency selection only considers top-level
+ * sessions — otherwise sub-agent transcripts shadow the main session. Note
+ * that opencode skills run inline in the calling session (they do NOT
+ * create their own session), so the most recent top-level session is the
+ * current development session. An explicit `sessionId` can still read any
+ * session, including sub-agent children.
  */
 export function readOpencodeSession(
   projectRoot: string | null,
@@ -102,17 +174,7 @@ export function readOpencodeSession(
 
   try {
     // 1. Find all sessions, sorted by most recently updated first
-    interface SessionRow {
-      id: string;
-      directory: string;
-      parent_id: string | null;
-      time_updated: number;
-    }
-    const allSessions = db
-      .query<SessionRow, []>(
-        "SELECT id, directory, parent_id, time_updated FROM session ORDER BY time_updated DESC"
-      )
-      .all();
+    const allSessions = queryAllSessions(db);
 
     if (allSessions.length === 0) {
       return { ok: false, error: "No opencode sessions found", path: dbPath };
@@ -132,16 +194,14 @@ export function readOpencodeSession(
       };
     }
 
-    // 3. Select session by ID or most recent (with optional skip).
+    // 3. Select session by ID or most recent.
     // Recency selection only considers top-level sessions: sub-agent runs
     // are child sessions (parent_id set) sharing the parent's directory,
-    // and would otherwise shadow the main session in the skip index.
+    // and would otherwise shadow the main session.
     // An explicit --session-id can read any session, including children.
-    const topLevel = matching.filter((s) => s.parent_id === null);
-    const skip = options?.skip ?? 0;
     const target = options?.sessionId
       ? matching.find((s) => s.id === options.sessionId)
-      : topLevel[skip];
+      : matching.find((s) => s.parent_id === null);
 
     if (!target) {
       if (options?.sessionId) {
@@ -153,8 +213,8 @@ export function readOpencodeSession(
       }
       return {
         ok: false,
-        error: `Only ${String(topLevel.length)} top-level session(s) available but --skip ${String(skip)} requested`,
-        available: topLevel.map((s) => s.id),
+        error: "No top-level opencode session found for this project",
+        available: matching.map((s) => s.id),
       };
     }
 

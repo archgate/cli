@@ -1,39 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-// ---------------------------------------------------------------------------
-// Module mocks — declared before the import under test.
-// ---------------------------------------------------------------------------
-
-const mockReadCopilotSession = mock(
-  () =>
-    Promise.resolve({ ok: true, data: {} }) as Promise<
-      { ok: true; data: unknown } | { ok: false; error: string }
-    >
-);
-mock.module("../../../src/helpers/session-context-copilot", () => ({
-  readCopilotSession: mockReadCopilotSession,
-}));
-
-// ---------------------------------------------------------------------------
-// Import under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-
 import { registerCopilotSessionContextCommand } from "../../../src/commands/session-context/copilot";
+import * as copilotHelpers from "../../../src/helpers/session-context-copilot";
 import { safeRmSync } from "../../test-utils";
 
 // ---------------------------------------------------------------------------
@@ -63,12 +38,11 @@ describe("registerCopilotSessionContextCommand", () => {
     expect(opt).toBeDefined();
   });
 
-  test("accepts --session-id option", () => {
+  test("has list and show subcommands", () => {
     const parent = new Command("session-context");
     registerCopilotSessionContextCommand(parent);
     const sub = parent.commands.find((c) => c.name() === "copilot")!;
-    const opt = sub.options.find((o) => o.long === "--session-id");
-    expect(opt).toBeDefined();
+    expect(sub.commands.map((c) => c.name()).sort()).toEqual(["list", "show"]);
   });
 });
 
@@ -78,6 +52,18 @@ describe("copilot action handler", () => {
   let logSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
+  let readSpy: ReturnType<typeof spyOn>;
+
+  /** Minimal complete summary for the default happy-path spy. */
+  function emptySummary() {
+    return {
+      sessionId: "s",
+      sessionFile: "events.jsonl",
+      totalEntries: 0,
+      relevantEntries: 0,
+      transcript: [],
+    };
+  }
 
   beforeEach(() => {
     // realpathSync normalizes macOS /var → /private/var symlink so the
@@ -90,8 +76,8 @@ describe("copilot action handler", () => {
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     process.chdir(tempDir);
 
-    mockReadCopilotSession.mockReset();
-    mockReadCopilotSession.mockResolvedValue({ ok: true, data: {} });
+    readSpy = spyOn(copilotHelpers, "readCopilotSession");
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -103,6 +89,7 @@ describe("copilot action handler", () => {
     process.chdir(originalCwd);
     delete Bun.env.ARCHGATE_PROJECT_CEILING;
     safeRmSync(tempDir);
+    readSpy.mockRestore();
     logSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
@@ -115,7 +102,7 @@ describe("copilot action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
-    mockReadCopilotSession.mockResolvedValue({
+    readSpy.mockResolvedValue({
       ok: true,
       data: { entries: [{ role: "assistant", content: "hi" }], total: 1 },
     });
@@ -131,10 +118,7 @@ describe("copilot action handler", () => {
   });
 
   test("exits 1 when reader returns error result", async () => {
-    mockReadCopilotSession.mockResolvedValue({
-      ok: false,
-      error: "No copilot session found",
-    });
+    readSpy.mockResolvedValue({ ok: false, error: "No copilot session found" });
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "copilot"])
@@ -148,7 +132,7 @@ describe("copilot action handler", () => {
   });
 
   test("exits 2 when unexpected error is thrown", async () => {
-    mockReadCopilotSession.mockRejectedValue(new Error("Permission denied"));
+    readSpy.mockRejectedValue(new Error("Permission denied"));
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "copilot"])
@@ -164,7 +148,7 @@ describe("copilot action handler", () => {
   test("re-throws ExitPromptError", async () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
-    mockReadCopilotSession.mockRejectedValue(exitPromptError);
+    readSpy.mockRejectedValue(exitPromptError);
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "copilot"])
@@ -174,14 +158,90 @@ describe("copilot action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    mockReadCopilotSession.mockResolvedValue({ ok: true, data: {} });
+    readSpy.mockResolvedValue({ ok: true, data: {} });
 
     await makeProgram().parseAsync(["node", "session-context", "copilot"]);
 
-    expect(mockReadCopilotSession).toHaveBeenCalledWith(tempDir, {
+    expect(readSpy).toHaveBeenCalledWith(tempDir, { maxEntries: undefined });
+  });
+
+  test("list subcommand prints sessions", async () => {
+    const listSpy = spyOn(copilotHelpers, "listCopilotSessions");
+    try {
+      listSpy.mockResolvedValue({
+        ok: true,
+        data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
+      });
+
+      await makeProgram().parseAsync([
+        "node",
+        "session-context",
+        "copilot",
+        "list",
+      ]);
+
+      expect(listSpy).toHaveBeenCalledWith(tempDir);
+      const output = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("");
+      expect(JSON.parse(output).sessions[0].id).toBe("abc");
+    } finally {
+      listSpy.mockRestore();
+    }
+  });
+
+  test("list subcommand exits 1 on error result", async () => {
+    const listSpy = spyOn(copilotHelpers, "listCopilotSessions");
+    try {
+      listSpy.mockResolvedValue({ ok: false, error: "store missing" });
+
+      await expect(
+        makeProgram().parseAsync(["node", "session-context", "copilot", "list"])
+      ).rejects.toThrow("process.exit");
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errorOutput = errorSpy.mock.calls
+        .map((c: unknown[]) => c.join(" "))
+        .join(" ");
+      expect(errorOutput).toContain("store missing");
+    } finally {
+      listSpy.mockRestore();
+    }
+  });
+
+  test("show subcommand reads the given session id", async () => {
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
+
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "copilot",
+      "show",
+      "abc123",
+    ]);
+
+    expect(readSpy).toHaveBeenCalledWith(tempDir, {
       maxEntries: undefined,
-      skip: 0,
-      sessionId: undefined,
+      sessionId: "abc123",
     });
+  });
+
+  test("show subcommand exits 1 on error result", async () => {
+    readSpy.mockResolvedValue({
+      ok: false,
+      error: "Session not found: abc123",
+    });
+
+    await expect(
+      makeProgram().parseAsync([
+        "node",
+        "session-context",
+        "copilot",
+        "show",
+        "abc123",
+      ])
+    ).rejects.toThrow("process.exit");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });
