@@ -178,9 +178,7 @@ describe("opencode action handler", () => {
     try {
       listSpy.mockReturnValue({
         ok: true,
-        data: {
-          sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }],
-        },
+        data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
       });
 
       await makeProgram().parseAsync([

@@ -170,9 +170,7 @@ describe("claude-code action handler", () => {
     try {
       listSpy.mockResolvedValue({
         ok: true,
-        data: {
-          sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }],
-        },
+        data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
       });
 
       await makeProgram().parseAsync([
@@ -234,7 +232,10 @@ describe("claude-code action handler", () => {
   });
 
   test("show subcommand exits 1 on error result", async () => {
-    readSpy.mockResolvedValue({ ok: false, error: "Session not found: abc123" });
+    readSpy.mockResolvedValue({
+      ok: false,
+      error: "Session not found: abc123",
+    });
 
     await expect(
       makeProgram().parseAsync([
