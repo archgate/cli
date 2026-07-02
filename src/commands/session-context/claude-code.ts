@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
+import { InvalidArgumentError, Option } from "@commander-js/extra-typings";
 
 import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
@@ -12,11 +12,23 @@ import {
   readClaudeCodeSession,
 } from "../../helpers/session-context";
 
-const makeMaxEntriesOption = () =>
+/**
+ * Shared `--max-entries` option factory for the session-context commands.
+ * Exported from this command file (not a helper) per the cross-command I/O
+ * sharing convention. Rejects non-numeric or non-positive input — a NaN
+ * limit would silently disable transcript trimming downstream.
+ */
+export const makeMaxEntriesOption = () =>
   new Option(
     "--max-entries <n>",
     "maximum entries to return (default: 200)"
-  ).argParser((val) => Math.trunc(Number(val)));
+  ).argParser((val) => {
+    const n = Math.trunc(Number(val));
+    if (!Number.isFinite(n) || n < 1) {
+      throw new InvalidArgumentError("must be a positive integer");
+    }
+    return n;
+  });
 
 export function registerClaudeCodeSessionContextCommand(parent: Command) {
   const cmd = parent

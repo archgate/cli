@@ -64,9 +64,11 @@ interface ClaudeSessionSummary {
   transcript: Array<{ type: string; role?: string; contentPreview: string }>;
 }
 
-/** One entry in a `--list` result: session id + last-update timestamp. */
+/** One entry in a list result: session id + last-update timestamp. */
 export interface SessionListEntry {
   id: string;
+  /** Session title — only populated by editors that store one (opencode). */
+  title?: string;
   updatedAt: string;
 }
 

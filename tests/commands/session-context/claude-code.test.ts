@@ -1,50 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-// ---------------------------------------------------------------------------
-// Module mocks — declared before the import under test.
-//
-// Only the session reader is mocked (unique to this command, no leak risk).
-// findProjectRoot is controlled via process.chdir + ARCHGATE_PROJECT_CEILING
-// to avoid Bun mock.module global-leak issues.
-// ---------------------------------------------------------------------------
-
-const mockReadClaudeCodeSession = mock(
-  () =>
-    Promise.resolve({ ok: true, data: {} }) as Promise<
-      { ok: true; data: unknown } | { ok: false; error: string }
-    >
-);
-const mockListClaudeCodeSessions = mock(
-  () =>
-    Promise.resolve({ ok: true, data: { sessions: [] } }) as Promise<
-      { ok: true; data: { sessions: unknown[] } } | { ok: false; error: string }
-    >
-);
-mock.module("../../../src/helpers/session-context", () => ({
-  readClaudeCodeSession: mockReadClaudeCodeSession,
-  listClaudeCodeSessions: mockListClaudeCodeSessions,
-}));
-
-// ---------------------------------------------------------------------------
-// Import under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-
 import { registerClaudeCodeSessionContextCommand } from "../../../src/commands/session-context/claude-code";
+import * as sessionContextHelpers from "../../../src/helpers/session-context";
 import { runCli } from "../../integration/cli-harness";
 import { safeRmSync } from "../../test-utils";
 
@@ -89,6 +53,17 @@ describe("claude-code action handler", () => {
   let logSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
+  let readSpy: ReturnType<typeof spyOn>;
+
+  /** Minimal complete summary for the default happy-path spy. */
+  function emptySummary() {
+    return {
+      sessionFile: "s.jsonl",
+      totalEntries: 0,
+      relevantEntries: 0,
+      transcript: [],
+    };
+  }
 
   beforeEach(() => {
     // realpathSync normalizes macOS /var → /private/var symlink so the
@@ -100,8 +75,8 @@ describe("claude-code action handler", () => {
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     process.chdir(tempDir);
 
-    mockReadClaudeCodeSession.mockReset();
-    mockReadClaudeCodeSession.mockResolvedValue({ ok: true, data: {} });
+    readSpy = spyOn(sessionContextHelpers, "readClaudeCodeSession");
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -113,6 +88,7 @@ describe("claude-code action handler", () => {
     process.chdir(originalCwd);
     delete Bun.env.ARCHGATE_PROJECT_CEILING;
     safeRmSync(tempDir);
+    readSpy.mockRestore();
     logSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
@@ -125,7 +101,7 @@ describe("claude-code action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
-    mockReadClaudeCodeSession.mockResolvedValue({
+    readSpy.mockResolvedValue({
       ok: true,
       data: { entries: [{ role: "user", content: "hello" }], total: 1 },
     });
@@ -141,10 +117,7 @@ describe("claude-code action handler", () => {
   });
 
   test("exits 1 when reader returns error result", async () => {
-    mockReadClaudeCodeSession.mockResolvedValue({
-      ok: false,
-      error: "No session found",
-    });
+    readSpy.mockResolvedValue({ ok: false, error: "No session found" });
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
@@ -158,9 +131,7 @@ describe("claude-code action handler", () => {
   });
 
   test("exits 2 when unexpected error is thrown", async () => {
-    mockReadClaudeCodeSession.mockRejectedValue(
-      new Error("Unexpected disk failure")
-    );
+    readSpy.mockRejectedValue(new Error("Unexpected disk failure"));
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
@@ -176,7 +147,7 @@ describe("claude-code action handler", () => {
   test("re-throws ExitPromptError", async () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
-    mockReadClaudeCodeSession.mockRejectedValue(exitPromptError);
+    readSpy.mockRejectedValue(exitPromptError);
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
@@ -186,14 +157,12 @@ describe("claude-code action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    mockReadClaudeCodeSession.mockResolvedValue({ ok: true, data: {} });
+    readSpy.mockResolvedValue({ ok: true, data: {} });
 
     await makeProgram().parseAsync(["node", "session-context", "claude-code"]);
 
     // findProjectRoot found our tempDir (which has .archgate/)
-    expect(mockReadClaudeCodeSession).toHaveBeenCalledWith(tempDir, {
-      maxEntries: undefined,
-    });
+    expect(readSpy).toHaveBeenCalledWith(tempDir, { maxEntries: undefined });
   });
 });
 

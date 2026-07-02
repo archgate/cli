@@ -286,6 +286,25 @@ describe("readCopilotSession", () => {
     expect(earlier.data.transcript[0]?.contentPreview).toBe("earlier question");
   });
 
+  test("sessionId not found returns error with available ids", async () => {
+    const sessionId = `copilot-${uniqueId}-notfound-only`;
+    makeSession(sessionId, projectRoot, [
+      JSON.stringify({
+        type: "user.message",
+        data: { content: "only session" },
+      }),
+    ]);
+
+    const result = await readCopilotSession(projectRoot, {
+      sessionId: "copilot-nope",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Session not found: copilot-nope");
+      expect(result.available).toContain(sessionId);
+    }
+  });
+
   test("list returns matching sessions most recent first", async () => {
     const earlierId = `copilot-${uniqueId}-list-earlier`;
     makeSession(earlierId, projectRoot, [

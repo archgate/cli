@@ -246,6 +246,24 @@ describe("readCursorSession", () => {
     expect(earlier.data.transcript[0]?.contentPreview).toBe("earlier question");
   });
 
+  test("sessionId not found returns error with available ids", async () => {
+    makeSession("session-only", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "only session" },
+      }),
+    ]);
+
+    const result = await readCursorSession(projectRoot, {
+      sessionId: "session-nope",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("Session not found: session-nope");
+      expect(result.available).toEqual(["session-only"]);
+    }
+  });
+
   test("list returns sessions most recent first with timestamps", async () => {
     makeSession("session-earlier", [
       JSON.stringify({

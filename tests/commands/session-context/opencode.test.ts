@@ -1,40 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { Database } from "bun:sqlite";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-// ---------------------------------------------------------------------------
-// Module mocks — declared before the import under test.
-// ---------------------------------------------------------------------------
-
-const mockReadOpencodeSession = mock(
-  () =>
-    ({ ok: true, data: {} }) as
-      | { ok: true; data: unknown }
-      | { ok: false; error: string }
-);
-mock.module("../../../src/helpers/session-context-opencode", () => ({
-  readOpencodeSession: mockReadOpencodeSession,
-}));
-
-// ---------------------------------------------------------------------------
-// Import under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-
 import { registerOpencodeSessionContextCommand } from "../../../src/commands/session-context/opencode";
+import * as opencodeHelpers from "../../../src/helpers/session-context-opencode";
 import { runCli } from "../../integration/cli-harness";
 import { safeRmSync } from "../../test-utils";
 
@@ -82,6 +57,17 @@ describe("opencode action handler", () => {
   let logSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
+  let readSpy: ReturnType<typeof spyOn>;
+
+  /** Minimal complete summary for the default happy-path spy. */
+  function emptySummary() {
+    return {
+      sessionId: "s",
+      totalEntries: 0,
+      relevantEntries: 0,
+      transcript: [],
+    };
+  }
 
   beforeEach(() => {
     // realpathSync normalizes macOS /var → /private/var symlink so the
@@ -94,8 +80,8 @@ describe("opencode action handler", () => {
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     process.chdir(tempDir);
 
-    mockReadOpencodeSession.mockReset();
-    mockReadOpencodeSession.mockReturnValue({ ok: true, data: {} });
+    readSpy = spyOn(opencodeHelpers, "readOpencodeSession");
+    readSpy.mockReturnValue({ ok: true, data: emptySummary() });
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -107,6 +93,7 @@ describe("opencode action handler", () => {
     process.chdir(originalCwd);
     delete Bun.env.ARCHGATE_PROJECT_CEILING;
     safeRmSync(tempDir);
+    readSpy.mockRestore();
     logSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
@@ -119,7 +106,7 @@ describe("opencode action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
-    mockReadOpencodeSession.mockReturnValue({
+    readSpy.mockReturnValue({
       ok: true,
       data: { entries: [{ role: "assistant", content: "done" }], total: 1 },
     });
@@ -135,10 +122,7 @@ describe("opencode action handler", () => {
   });
 
   test("exits 1 when reader returns error result", async () => {
-    mockReadOpencodeSession.mockReturnValue({
-      ok: false,
-      error: "No opencode session found",
-    });
+    readSpy.mockReturnValue({ ok: false, error: "No opencode session found" });
 
     await expect(
       makeProgram().parseAsync(["node", "session-context", "opencode"])
@@ -152,7 +136,7 @@ describe("opencode action handler", () => {
   });
 
   test("exits 2 when unexpected error is thrown", async () => {
-    mockReadOpencodeSession.mockImplementation(() => {
+    readSpy.mockImplementation(() => {
       throw new Error("ENOENT: no such file");
     });
 
@@ -170,7 +154,7 @@ describe("opencode action handler", () => {
   test("re-throws ExitPromptError", async () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
-    mockReadOpencodeSession.mockImplementation(() => {
+    readSpy.mockImplementation(() => {
       throw exitPromptError;
     });
 
@@ -182,13 +166,11 @@ describe("opencode action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    mockReadOpencodeSession.mockReturnValue({ ok: true, data: {} });
+    readSpy.mockReturnValue({ ok: true, data: {} });
 
     await makeProgram().parseAsync(["node", "session-context", "opencode"]);
 
-    expect(mockReadOpencodeSession).toHaveBeenCalledWith(tempDir, {
-      maxEntries: undefined,
-    });
+    expect(readSpy).toHaveBeenCalledWith(tempDir, { maxEntries: undefined });
   });
 });
 

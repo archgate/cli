@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
 
 import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logError } from "../../helpers/log";
@@ -11,12 +10,7 @@ import {
   listCopilotSessions,
   readCopilotSession,
 } from "../../helpers/session-context-copilot";
-
-const makeMaxEntriesOption = () =>
-  new Option(
-    "--max-entries <n>",
-    "maximum entries to return (default: 200)"
-  ).argParser((val) => Math.trunc(Number(val)));
+import { makeMaxEntriesOption } from "./claude-code";
 
 export function registerCopilotSessionContextCommand(parent: Command) {
   const cmd = parent

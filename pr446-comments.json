@@ -1,0 +1,86 @@
+[
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🟠 Major_ | _⚡ Quick win_\n\n**Regenerate the bundled docs artifact.**\n\nCI already reports `docs/public/llms-full.txt` as out of date. Please rerun `bun run docs/scripts/generate-llms-full.ts` and commit the regenerated output so this checked-in bundle stays in sync with the source docs.    \n\n\nAlso applies to: 4369-4373, 4383-4387, 4432-4432\n\n\u003cdetails\u003e\n\u003csummary\u003e🤖 Prompt for AI Agents\u003c/summary\u003e\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@docs/public/llms-full.txt` around lines 4356 - 4359, The bundled docs\nartifact is out of date; regenerate the checked-in llms-full bundle from the\nsource docs. Re-run bun run docs/scripts/generate-llms-full.ts and commit the\nupdated output in docs/public/llms-full.txt so the generated content stays in\nsync. Use th",
+    "line": null,
+    "outdated": false,
+    "path": "docs/public/llms-full.txt"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n**Invalid `--max-entries` input silently disables trimming instead of erroring.**\n\n`Math.trunc(Number(val))` returns `NaN` for non-numeric input (e.g. `--max-entries abc`). Downstream, `readClaudeCodeSession` does `options?.maxEntries ?? 200` — nullish coalescing does not catch `NaN`, so `limit` becomes `NaN`, and `relevant.length \u003e NaN` is always `false`, meaning the transcript is never trimmed. The CLI silently returns an unbounded transcript instead of failing fast on bad input.\n\n\u003cdetails\u003e\n\u003csummary\u003e🛠️ Proposed fix\u003c/summary\u003e\n\n```diff\n const makeMaxEntriesOption = () =\u003e\n   new Option(\n     \"--max-entries \u003cn\u003e\",\n     \"maximum entries to return (default: 200)\"\n-  ).argParser((val) =\u003e Math.trunc(Number(val)));\n+  ).argParser((val) =\u003e {\n+    const n = Math.trunc(Number(val));\n+    if (!Number.isFinite(n)) {\n+      throw new InvalidArgum",
+    "line": 19,
+    "outdated": false,
+    "path": "src/commands/session-context/claude-code.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🔵 Trivial_ | _⚡ Quick win_\n\n\u003cdetails\u003e\n\u003csummary\u003e🧩 Analysis chain\u003c/summary\u003e\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\n# Compare makeMaxEntriesOption definitions across editor command files\nrg -n -A5 'makeMaxEntriesOption' src/commands/session-context/*.ts\n```\n\nRepository: archgate/cli\n\nLength of output: 5863\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nrg -n -A5 'makeMaxEntriesOption|max-entries \u003cn\u003e|cli-options' src/commands src/helpers\n```\n\nRepository: archgate/cli\n\nLength of output: 6590\n\n---\n\n\n\n\u003c/details\u003e\n\n**Extract `makeMaxEntriesOption()` into a shared helper**\n\n`makeMaxEntriesOption()` is duplicated across `src/commands/session-context/claude-code.ts`, `cursor.ts`, `copilot.ts`, and `opencode.ts`. Move it to a shared helper (for example `src/helpers/cli-options.ts`) and reuse it from each command.\n\n\u003cdetails\u003e\n\u003csummary\u003e🤖 Prompt for AI Agents\u003c/sum",
+    "line": 19,
+    "outdated": false,
+    "path": "src/commands/session-context/copilot.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_🎯 Functional Correctness_ | _🟡 Minor_ | _⚡ Quick win_\n\n\u003cdetails\u003e\n\u003csummary\u003e🧩 Analysis chain\u003c/summary\u003e\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\n\ngit ls-files 'src/commands/session-context/cursor.ts' 'src/**/session-context*' 'tests/**/session-context*' | sed -n '1,200p'\n```\n\nRepository: archgate/cli\n\nLength of output: 869\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\n\n# Show the target file with line numbers, then find where maxEntries is consumed.\ncat -n src/commands/session-context/cursor.ts | sed -n '1,220p'\nprintf '\\n--- SEARCH ---\\n'\nrg -n \"maxEntries|readCursorSession|cursor session|session-context\" src tests\n```\n\nRepository: archgate/cli\n\nLength of output: 17326\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\n\n# Inspect the relevant helper/consumer in smaller slices if present.\nfor f in $(rg -l \"maxEntries|readCursorSession\" sr",
+    "line": 19,
+    "outdated": false,
+    "path": "src/commands/session-context/cursor.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🔵 Trivial_ | _⚡ Quick win_\n\n**Duplicated option factory across editor commands.**\n\nPer the PR stack outline, this identical `makeMaxEntriesOption()` factory is independently added to `claude-code.ts`, `copilot.ts`, and `cursor.ts` as well. Consider extracting it to a shared module (e.g. `src/helpers/cli-options.ts`) to avoid four copies drifting apart over time.\n\n\u003cdetails\u003e\n\u003csummary\u003e🤖 Prompt for AI Agents\u003c/summary\u003e\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@src/commands/session-context/opencode.ts` around lines 15 - 19, The\nmakeMaxEntriesOption() factory is duplicated across multiple editor command\nfiles, so extract the shared option निर्माण into a common helper module and\nreuse it from opencode.ts, claude-code.ts, copilot.ts, and cursor.ts. M",
+    "line": 19,
+    "outdated": false,
+    "path": "src/commands/session-context/opencode.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🟡 Minor_ | _⚡ Quick win_\n\n\u003cdetails\u003e\n\u003csummary\u003e🧩 Analysis chain\u003c/summary\u003e\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\n# Verify opencode helper filesystem checks.\nrg -n -C2 '\\bexistsSync\\b' src/helpers/session-context-opencode.ts\n```\n\nRepository: archgate/cli\n\nLength of output: 719\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\n\n# Inspect the helper around both filesystem checks.\ncat -n src/helpers/session-context-opencode.ts | sed -n '1,240p'\n```\n\nRepository: archgate/cli\n\nLength of output: 9482\n\n---\n\n🌐 Web query:\n\n`Bun.file(path).exists() synchronous or async API docs`\n\n💡 Result:\n\nThe Bun.file(path).exists method in Bun is an asynchronous API [1][2]. It returns a Promise that resolves to a boolean value indicating whether the file exists [1][3]. According to the official Bun documentation, the method performs a system call to check for",
+    "line": 100,
+    "outdated": false,
+    "path": "src/helpers/session-context-opencode.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_🗄️ Data Integrity \u0026 Integration_ | _🟠 Major_ | _⚡ Quick win_\n\n**Include the fields emitted by all list APIs in the shared contract.**\n\n`SessionListEntry` omits `title`, but `listOpencodeSessions()` returns it in `src/helpers/session-context-opencode.ts` Lines 112-115. Typed callers of `SessionListResult` cannot rely on the documented/runtime opencode payload.\n\n\u003cdetails\u003e\n\u003csummary\u003eProposed fix\u003c/summary\u003e\n\n```diff\n export interface SessionListEntry {\n   id: string;\n+  title?: string;\n   updatedAt: string;\n }\n```\n\u003c/details\u003e\n\n\u003c!-- suggestion_start --\u003e\n\n\u003cdetails\u003e\n\u003csummary\u003e📝 Committable suggestion\u003c/summary\u003e\n\n\u003e ‼️ **IMPORTANT**\n\u003e Carefully review the code before committing. Ensure that it accurately replaces the highlighted code, contains no missing lines, and has no issues with indentation. Thoroughly test \u0026 benchmark the code to ensure it meets the requirements.\n\n```suggestion\n/** One entry in",
+    "line": 75,
+    "outdated": false,
+    "path": "src/helpers/session-context.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🟠 Major_ | _⚡ Quick win_\n\n\u003cdetails\u003e\n\u003csummary\u003e🧩 Analysis chain\u003c/summary\u003e\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\n# Verify new Node fs enumeration sites in session-context helpers.\nrg -n -C2 '\\b(readdirSync|statSync|existsSync)\\b' src/helpers/session-context*.ts\n```\n\nRepository: archgate/cli\n\nLength of output: 3912\n\n---\n\n🏁 Script executed:\n\n```shell\n#!/bin/bash\nset -euo pipefail\n\n# Inspect the relevant module and related helpers.\nsed -n '1,220p' src/helpers/session-context.ts\nprintf '\\n--- session-context-copilot.ts ---\\n'\nsed -n '1,220p' src/helpers/session-context-copilot.ts\nprintf '\\n--- session-context-opencode.ts ---\\n'\nsed -n '1,220p' src/helpers/session-context-opencode.ts\n\nprintf '\\n--- search for Bun.Glob usage in helpers ---\\n'\nrg -n 'new Bun\\.Glob|glob\\.scan\\(|Bun\\.file\\(|Bun\\.write\\(' src/helpers src -g '*.ts'\n```\n\nRepository: archgate/cl",
+    "line": 149,
+    "outdated": false,
+    "path": "src/helpers/session-context.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🔵 Trivial_ | _⚖️ Poor tradeoff_\n\n**`mock.module()` used on a first-party module also imported directly elsewhere.**\n\n`../../../src/helpers/session-context` is mocked here, but `tests/helpers/session-context.test.ts` imports `listClaudeCodeSessions`/`readClaudeCodeSession` from the same module unmocked. Coding guidelines require `spyOn` instead of `mock.module()` for first-party modules that other test files import, since Bun's `mock.module` state is process-global.\n\nThe accompanying comment at lines 200-204 shows this is a known, partially-mitigated tradeoff (subprocess tests were added specifically to exercise real behavior for the new subcommands), and this diff only extends the pre-existing mock rather than introducing the pattern. Worth confirming this is an accepted, deliberate exception rather than latent test-isolation risk, and that it's trac",
+    "line": 41,
+    "outdated": false,
+    "path": "tests/commands/session-context/claude-code.test.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🔵 Trivial_ | _⚖️ Poor tradeoff_\n\n**Extends existing `mock.module()` usage on a first-party module.**\n\nThe added `listCopilotSessions` mock is wired via `mock.module()` on `session-context-copilot`, which is also directly imported (unmocked) by `tests/helpers/session-context-copilot.test.ts`. Coding guidelines state: \"Do not use `mock.module()` on a first-party module that other test files import; use `spyOn` instead.\" This is an extension of a pre-existing pattern rather than a new introduction, but worth flagging since it grows the surface of the anti-pattern.\n\n\u003cdetails\u003e\n\u003csummary\u003e🤖 Prompt for AI Agents\u003c/summary\u003e\n\n```\nVerify each finding against current code. Fix only still-valid issues, skip the\nrest with a brief reason, keep changes minimal, and validate.\n\nIn `@tests/commands/session-context/copilot.test.ts` around lines 28 - 36, Replace\nthe new `m",
+    "line": 36,
+    "outdated": false,
+    "path": "tests/commands/session-context/copilot.test.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_🩺 Stability \u0026 Availability_ | _🟠 Major_ | _🏗️ Heavy lift_\n\n**`mock.module()` on `session-context` conflicts with repo guideline against mocking shared first-party modules.**\n\n`../../../src/helpers/session-context` is imported directly (not mocked) by other test files in this PR stack (e.g. `tests/helpers/session-context-cursor.test.ts`). Bun's `mock.module()` replaces the module in the global registry for the whole test run, which is a documented source of cross-file leakage in Bun (oven-sh/bun#12823, `#6024`). As per coding guidelines: \"Do not use `mock.module()` on a first-party module that other test files import; use `spyOn` instead.\"\n\n\u003cdetails\u003e\n\u003csummary\u003e♻️ Suggested direction\u003c/summary\u003e\n\n```diff\n-const mockReadCursorSession = mock(...);\n-const mockListCursorSessions = mock(...);\n-mock.module(\"../../../src/helpers/session-context\", () =\u003e ({\n-  readCursorSession: mockReadCursorSession",
+    "line": 36,
+    "outdated": false,
+    "path": "tests/commands/session-context/cursor.test.ts"
+  },
+  {
+    "author": "coderabbitai[bot]",
+    "body": "_📐 Maintainability \u0026 Code Quality_ | _🔵 Trivial_ | _⚡ Quick win_\n\n**Coverage gap: no test for `sessionId` not found.**\n\nThe removed \"skip beyond available sessions\" test previously exercised the error path (`ok: false`, listing `available` sessions). The replacement tests only cover the happy path (default vs. valid `sessionId`) — there's no equivalent assertion that an unknown `sessionId` returns the `Session not found: ...` error with the `available` list, per `readCursorSession`'s error branch. Consider adding a case to lock down that behavior.\n\n\u003cdetails\u003e\n\u003csummary\u003e✅ Suggested addition\u003c/summary\u003e\n\n```ts\ntest(\"unknown sessionId returns not-found error with available sessions\", async () =\u003e {\n  makeSession(\"session-current\", [\n    JSON.stringify({ role: \"user\", message: { role: \"user\", content: \"hi\" } }),\n  ]);\n  const result = await readCursorSession(projectRoot, { sessionId: \"does-not-ex",
+    "line": 273,
+    "outdated": false,
+    "path": "tests/helpers/session-context-cursor.test.ts"
+  }
+]
