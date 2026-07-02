@@ -4391,8 +4391,8 @@ List available sessions for the project as JSON. With `--editor`, lists only tha
 archgate session-context list [--editor <editor>]
 ```
 
-| Option              | Description                                                                                        |
-| ------------------- | -------------------------------------------------------------------------------------------------- |
+| Option              | Description                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
 | `--editor <editor>` | Only list sessions for this editor (`claude-code`, `copilot`, `cursor`, `opencode`; default: all) |
 
 For opencode, only top-level sessions are listed — sub-agent child sessions are excluded (they can still be read via `show`).
@@ -4419,10 +4419,10 @@ Read a specific session by ID. Session IDs come from `session-context list`.
 archgate session-context show <session-id> --editor <editor> [options]
 ```
 
-| Option              | Description                                                                    |
-| ------------------- | ------------------------------------------------------------------------------ |
+| Option              | Description                                                                   |
+| ------------------- | ----------------------------------------------------------------------------- |
 | `--editor <editor>` | Editor whose session store holds the session (required)                       |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                                       |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                                      |
 | `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor |
 
 ## Examples
