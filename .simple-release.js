@@ -3,6 +3,36 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { NpmProject } from "@simple-release/npm";
 
 class ArchgateProject extends NpmProject {
+  /**
+   * Pre-1.0 semver policy: breaking changes bump the MINOR version, not
+   * the major. The project ships no support guarantees yet, so v1.0.0
+   * must be an explicit decision — force it via the `version` (or `as`)
+   * bump option when the time comes — never an automatic consequence of
+   * a `feat!`/BREAKING CHANGE commit landing on main.
+   *
+   * `bump()` derives its version from this method, so capping here keeps
+   * the manifest writes, changelog, release PR title, and tag consistent.
+   */
+  async getNextVersion(options) {
+    const next = await super.getNextVersion(options);
+
+    // Respect explicit overrides and no-op results.
+    if (!next || options?.version || options?.as) {
+      return next;
+    }
+
+    const current = await this.manifest.getVersion();
+    const isPreMajor = current?.startsWith("0.");
+    const bumpsToMajor = !next.startsWith("0.");
+
+    if (isPreMajor && bumpsToMajor) {
+      const minor = Number(current.split(".")[1] ?? 0);
+      return `0.${minor + 1}.0`;
+    }
+
+    return next;
+  }
+
   async bump(options) {
     const result = await super.bump(options);
 
