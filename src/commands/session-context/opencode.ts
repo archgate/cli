@@ -16,7 +16,7 @@ const maxEntriesOption = new Option(
 
 const skipOption = new Option(
   "--skip <n>",
-  "skip the N most recent sessions (useful when running as a sub-agent)"
+  "skip the N most recent top-level sessions (sub-agent sessions are always excluded)"
 )
   .argParser((val) => Math.trunc(Number(val)))
   .default(0);
@@ -28,6 +28,10 @@ export function registerOpencodeSessionContextCommand(parent: Command) {
     .addOption(maxEntriesOption)
     .addOption(skipOption)
     .option("--session-id <id>", "Specific session ID to read")
+    .option(
+      "--root",
+      "resolve to the top-level (root) session — with --session-id, walks up from a sub-agent child session"
+    )
     .action(async (opts) => {
       try {
         const projectRoot = findProjectRoot();
@@ -35,6 +39,7 @@ export function registerOpencodeSessionContextCommand(parent: Command) {
           maxEntries: opts.maxEntries,
           skip: opts.skip,
           sessionId: opts.sessionId,
+          root: opts.root,
         });
 
         if (!result.ok) {

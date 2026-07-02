@@ -54,17 +54,20 @@ archgate session-context cursor [options]
 
 ### archgate session-context opencode
 
-Les opencode-sesjonsloggen for prosjektet. Sesjoner matches etter prosjektets `path`-felt i sesjonsmetadataene.
+Les opencode-sesjonsloggen for prosjektet. Sesjoner matches ved å sammenligne sesjonens `directory`-felt med prosjektroten. opencode lagrer underagent-kjøringer som barnesesjoner som deler foreldrenes katalog — disse ekskluderes fra utvalget etter nylighet, slik at den nyeste toppnivåsesjonen alltid er hovedutviklingssesjonen. Bruk `--session-id` for å lese en bestemt sesjon, inkludert en underagent-barnesesjon.
+
+Når flere toppnivåsesjoner finnes for samme katalog, velger nylighetsutvalget den som sist ble oppdatert — som kanskje ikke er samtalen du er en del av. Hvis du kjenner en sesjons-ID i riktig samtaletre (for eksempel kjenner en underagent sin egen barnesesjons-ID), send `--session-id <id> --root` for å løse opp toppnivåforelderen deterministisk i stedet for å stole på nylighet.
 
 ```bash
 archgate session-context opencode [options]
 ```
 
-| Valg                | Beskrivelse                                                         |
-| ------------------- | ------------------------------------------------------------------- |
-| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)            |
-| `--skip <n>`        | Hopp over de N nyeste sesjonene (nyttig ved kjøring som underagent) |
-| `--session-id <id>` | Spesifikk sesjons-ID å lese                                         |
+| Valg                | Beskrivelse                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------- |
+| `--max-entries <n>` | Maksimalt antall oppføringer å returnere (standard: 200)                                              |
+| `--skip <n>`        | Hopp over de N nyeste toppnivåsesjonene (underagentsesjoner ekskluderes alltid)                       |
+| `--session-id <id>` | Spesifikk sesjons-ID å lese                                                                           |
+| `--root`            | Løs opp til toppnivåsesjonen (rot) — med `--session-id` gås det oppover fra en underagent-barnesesjon |
 
 ## Eksempler
 
@@ -96,4 +99,10 @@ Les foreldresesjonen (hopp over underagentens egen sesjon):
 
 ```bash
 archgate session-context claude-code --skip 1
+```
+
+Løs opp en underagent-barnesesjon i opencode til dens toppnivåforelder:
+
+```bash
+archgate session-context opencode --session-id ses_child123 --root
 ```

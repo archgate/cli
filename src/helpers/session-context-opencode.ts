@@ -23,6 +23,23 @@ interface OpencodeSessionSummary {
 
 interface ReadOpencodeSessionOptions extends ReadSessionOptions {
   sessionId?: string;
+  /**
+   * Resolve to the top-level (root) session. Without `sessionId` this is
+   * an explicit alias for the default behavior (recency selection already
+   * only considers top-level sessions); combined with a `sessionId` that
+   * names a sub-agent child session, walks the `parent_id` chain up to the
+   * top-level ancestor.
+   *
+   * Opencode is the only session-context backend with a real parent/child
+   * session graph, so this option lives here rather than in the shared
+   * `ReadSessionOptions`. A recency-based guess (the old bare `skip: 1`)
+   * cannot distinguish the true parent from a sibling sub-agent session
+   * once more than one sibling exists — and an inline Skill invocation
+   * creates no session row at all, so there is nothing to skip past.
+   * Ancestry via `parent_id` is correct regardless of nesting depth or
+   * sibling fan-out.
+   */
+  root?: boolean;
 }
 
 type OpencodeSessionResult =
@@ -45,11 +62,20 @@ function normalizePath(p: string): string {
  * Opencode stores data in a SQLite database at
  * `$XDG_DATA_HOME/opencode/opencode.db` (default `~/.local/share/opencode/opencode.db`):
  * - `session` table — session metadata with `directory` for project matching
+ *   and `parent_id` linking sub-agent sessions to their parent
  * - `message` table — messages with `role` in the `data` JSON column
  * - `part` table — content parts with `type` and `text` in the `data` JSON column
  *
  * Sessions are matched by comparing the `directory` field in session rows
  * to the provided project root.
+ *
+ * Sub-agent runs are stored as child sessions (`parent_id` set) that share
+ * the parent's `directory`, so recency-based selection (`skip`) only
+ * considers top-level sessions — otherwise sub-agent transcripts shadow the
+ * main session. Note that opencode skills run inline in the calling session
+ * (they do NOT create their own session), so no `skip` is needed to read
+ * the current development session. An explicit `sessionId` can still read
+ * any session, including sub-agent children.
  */
 export function readOpencodeSession(
   projectRoot: string | null,
@@ -79,11 +105,12 @@ export function readOpencodeSession(
     interface SessionRow {
       id: string;
       directory: string;
+      parent_id: string | null;
       time_updated: number;
     }
     const allSessions = db
       .query<SessionRow, []>(
-        "SELECT id, directory, time_updated FROM session ORDER BY time_updated DESC"
+        "SELECT id, directory, parent_id, time_updated FROM session ORDER BY time_updated DESC"
       )
       .all();
 
@@ -105,17 +132,44 @@ export function readOpencodeSession(
       };
     }
 
-    // 3. Select session by ID or most recent (with optional skip)
+    // 3. Select session by ID or most recent (with optional skip).
+    // Recency selection only considers top-level sessions: sub-agent runs
+    // are child sessions (parent_id set) sharing the parent's directory,
+    // and would otherwise shadow the main session in the skip index.
+    // An explicit --session-id can read any session, including children.
+    const topLevel = matching.filter((s) => s.parent_id === null);
     const skip = options?.skip ?? 0;
     const target = options?.sessionId
       ? matching.find((s) => s.id === options.sessionId)
-      : matching[skip];
+      : topLevel[skip];
 
     if (!target) {
-      const error = options?.sessionId
-        ? `Session not found: ${options.sessionId}`
-        : `Only ${String(matching.length)} session(s) available but --skip ${String(skip)} requested`;
-      return { ok: false, error, available: matching.map((s) => s.id) };
+      if (options?.sessionId) {
+        return {
+          ok: false,
+          error: `Session not found: ${options.sessionId}`,
+          available: matching.map((s) => s.id),
+        };
+      }
+      return {
+        ok: false,
+        error: `Only ${String(topLevel.length)} top-level session(s) available but --skip ${String(skip)} requested`,
+        available: topLevel.map((s) => s.id),
+      };
+    }
+
+    // 3b. With --root, walk the parent_id chain up to the top-level
+    // ancestor (relevant when --session-id names a sub-agent child).
+    let selected = target;
+    if (options?.root === true) {
+      const byId = new Map(allSessions.map((s) => [s.id, s]));
+      const seen = new Set<string>();
+      while (selected.parent_id !== null && !seen.has(selected.id)) {
+        seen.add(selected.id);
+        const parent = byId.get(selected.parent_id);
+        if (!parent) break;
+        selected = parent;
+      }
     }
 
     // 4. Read messages for the session
@@ -127,7 +181,7 @@ export function readOpencodeSession(
       .query<MessageRow, [string]>(
         "SELECT id, json_extract(data, '$.role') as role FROM message WHERE session_id = ? ORDER BY time_created"
       )
-      .all(target.id);
+      .all(selected.id);
 
     if (messages.length === 0) {
       return {
@@ -176,7 +230,7 @@ export function readOpencodeSession(
     return {
       ok: true,
       data: {
-        sessionId: target.id,
+        sessionId: selected.id,
         totalEntries: messages.length,
         relevantEntries: relevant.length,
         transcript: trimmed,
