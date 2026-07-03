@@ -7,7 +7,7 @@ metadata:
 
 Pick the enforcement layer by the nature of the invariant — don't default to ADR rules.
 
-**Why:** After the inquirer v14 `"list"` → `"select"` crash, an ARCH-019 `.rules.ts` allowlist rule and a bun test scanning source files were both rejected by the user (an untestable-in-CI check isn't a real test; a per-file syntax check isn't an ADR governance check). Landed as a custom oxlint JS plugin rule (`archgate/valid-inquirer-prompt-type` in `.archgate/lint/oxlint.ts`) — real AST access, runs in the existing `bun run lint` gate.
+**Why:** After the inquirer v14 `"list"` → `"select"` crash, a draft ADR `.rules.ts` allowlist rule and a bun test scanning source files were both rejected by the user (an untestable-in-CI check isn't a real test; a per-file syntax check isn't an ADR governance check). The draft rule was never assigned an ADR ID — it landed instead as a custom oxlint JS plugin rule (`archgate/valid-inquirer-prompt-type` in `.archgate/lint/oxlint.ts`) — real AST access, runs in the existing `bun run lint` gate.
 
 **How to apply:**
 
