@@ -193,6 +193,7 @@ jobs:
     timeout-minutes: 5
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
+      contents: read # actions/checkout
       security-events: write
     steps:
       - name: Checkout code
