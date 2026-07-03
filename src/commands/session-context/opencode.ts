@@ -65,11 +65,17 @@ export function registerOpencodeSessionContextCommand(parent: Command) {
       "--root",
       "resolve a sub-agent child session up to its top-level ancestor"
     )
-    .action(async (sessionId, opts) => {
+    .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
+        // The parent editor command declares --max-entries too, and
+        // commander hoists parent-known options from anywhere on the
+        // command line — so the flag is usually parsed by the parent,
+        // not this child. optsWithGlobals() merges the ancestor values.
+        const maxEntries =
+          opts.maxEntries ?? command.optsWithGlobals().maxEntries;
         const result = readOpencodeSession(projectRoot, {
-          maxEntries: opts.maxEntries,
+          maxEntries,
           sessionId,
           root: opts.root,
         });

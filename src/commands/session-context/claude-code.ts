@@ -81,11 +81,17 @@ export function registerClaudeCodeSessionContextCommand(parent: Command) {
     .description("Read a specific Claude Code session by ID")
     .argument("<session-id>", "session ID from `list`")
     .addOption(makeMaxEntriesOption())
-    .action(async (sessionId, opts) => {
+    .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
+        // The parent editor command declares --max-entries too, and
+        // commander hoists parent-known options from anywhere on the
+        // command line — so the flag is usually parsed by the parent,
+        // not this child. optsWithGlobals() merges the ancestor values.
+        const maxEntries =
+          opts.maxEntries ?? command.optsWithGlobals().maxEntries;
         const result = await readClaudeCodeSession(projectRoot, {
-          maxEntries: opts.maxEntries,
+          maxEntries,
           sessionId,
         });
 

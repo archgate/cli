@@ -256,6 +256,29 @@ describe("opencode action handler", () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
+  test("show subcommand applies --max-entries (hoisted by the parent)", async () => {
+    readSpy.mockReturnValue({ ok: true, data: emptySummary() });
+
+    // Regression: the parent editor command also declares --max-entries and
+    // commander hoists parent-known options from anywhere in argv, so the
+    // child must read the merged value via optsWithGlobals().
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "opencode",
+      "show",
+      "abc123",
+      "--max-entries",
+      "2",
+    ]);
+
+    expect(readSpy).toHaveBeenCalledWith(tempDir, {
+      maxEntries: 2,
+      sessionId: "abc123",
+      root: undefined,
+    });
+  });
+
   test("show subcommand passes --root through", async () => {
     readSpy.mockReturnValue({ ok: true, data: emptySummary() });
 
