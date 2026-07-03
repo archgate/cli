@@ -10,7 +10,7 @@ import {
   listCopilotSessions,
   readCopilotSession,
 } from "../../helpers/session-context-copilot";
-import { makeMaxEntriesOption } from "./claude-code";
+import { makeMaxEntriesOption, resolveMaxEntries } from "./claude-code";
 
 export function registerCopilotSessionContextCommand(parent: Command) {
   const cmd = parent
@@ -66,14 +66,8 @@ export function registerCopilotSessionContextCommand(parent: Command) {
     .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
-        // The parent editor command declares --max-entries too, and
-        // commander hoists parent-known options from anywhere on the
-        // command line — so the flag is usually parsed by the parent,
-        // not this child. optsWithGlobals() merges the ancestor values.
-        const maxEntries =
-          opts.maxEntries ?? command.optsWithGlobals().maxEntries;
         const result = await readCopilotSession(projectRoot, {
-          maxEntries,
+          maxEntries: resolveMaxEntries(opts, command),
           sessionId,
         });
 

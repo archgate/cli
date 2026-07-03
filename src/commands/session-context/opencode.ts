@@ -10,7 +10,7 @@ import {
   listOpencodeSessions,
   readOpencodeSession,
 } from "../../helpers/session-context-opencode";
-import { makeMaxEntriesOption } from "./claude-code";
+import { makeMaxEntriesOption, resolveMaxEntries } from "./claude-code";
 
 export function registerOpencodeSessionContextCommand(parent: Command) {
   const cmd = parent
@@ -68,14 +68,8 @@ export function registerOpencodeSessionContextCommand(parent: Command) {
     .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
-        // The parent editor command declares --max-entries too, and
-        // commander hoists parent-known options from anywhere on the
-        // command line — so the flag is usually parsed by the parent,
-        // not this child. optsWithGlobals() merges the ancestor values.
-        const maxEntries =
-          opts.maxEntries ?? command.optsWithGlobals().maxEntries;
         const result = readOpencodeSession(projectRoot, {
-          maxEntries,
+          maxEntries: resolveMaxEntries(opts, command),
           sessionId,
           root: opts.root,
         });
