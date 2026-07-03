@@ -10,7 +10,7 @@ import {
   listCursorSessions,
   readCursorSession,
 } from "../../helpers/session-context";
-import { makeMaxEntriesOption } from "./claude-code";
+import { makeMaxEntriesOption, resolveMaxEntries } from "./claude-code";
 
 export function registerCursorSessionContextCommand(parent: Command) {
   const cmd = parent
@@ -63,11 +63,11 @@ export function registerCursorSessionContextCommand(parent: Command) {
     .description("Read a specific Cursor agent session by UUID")
     .argument("<session-id>", "session UUID from `list`")
     .addOption(makeMaxEntriesOption())
-    .action(async (sessionId, opts) => {
+    .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
         const result = await readCursorSession(projectRoot, {
-          maxEntries: opts.maxEntries,
+          maxEntries: resolveMaxEntries(opts, command),
           sessionId,
         });
 

@@ -10,7 +10,7 @@ import {
   listCopilotSessions,
   readCopilotSession,
 } from "../../helpers/session-context-copilot";
-import { makeMaxEntriesOption } from "./claude-code";
+import { makeMaxEntriesOption, resolveMaxEntries } from "./claude-code";
 
 export function registerCopilotSessionContextCommand(parent: Command) {
   const cmd = parent
@@ -63,11 +63,11 @@ export function registerCopilotSessionContextCommand(parent: Command) {
     .description("Read a specific Copilot CLI session by UUID")
     .argument("<session-id>", "session UUID from `list`")
     .addOption(makeMaxEntriesOption())
-    .action(async (sessionId, opts) => {
+    .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
         const result = await readCopilotSession(projectRoot, {
-          maxEntries: opts.maxEntries,
+          maxEntries: resolveMaxEntries(opts, command),
           sessionId,
         });
 

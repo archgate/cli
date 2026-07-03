@@ -10,7 +10,7 @@ import {
   listOpencodeSessions,
   readOpencodeSession,
 } from "../../helpers/session-context-opencode";
-import { makeMaxEntriesOption } from "./claude-code";
+import { makeMaxEntriesOption, resolveMaxEntries } from "./claude-code";
 
 export function registerOpencodeSessionContextCommand(parent: Command) {
   const cmd = parent
@@ -65,11 +65,11 @@ export function registerOpencodeSessionContextCommand(parent: Command) {
       "--root",
       "resolve a sub-agent child session up to its top-level ancestor"
     )
-    .action(async (sessionId, opts) => {
+    .action(async (sessionId, opts, command) => {
       try {
         const projectRoot = findProjectRoot();
         const result = readOpencodeSession(projectRoot, {
-          maxEntries: opts.maxEntries,
+          maxEntries: resolveMaxEntries(opts, command),
           sessionId,
           root: opts.root,
         });

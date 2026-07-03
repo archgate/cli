@@ -249,6 +249,28 @@ describe("claude-code action handler", () => {
 
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
+
+  test("show subcommand applies --max-entries (hoisted by the parent)", async () => {
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
+
+    // Regression: the parent editor command also declares --max-entries and
+    // commander hoists parent-known options from anywhere in argv, so the
+    // child must read the merged value via optsWithGlobals().
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "claude-code",
+      "show",
+      "abc123",
+      "--max-entries",
+      "2",
+    ]);
+
+    expect(readSpy).toHaveBeenCalledWith(tempDir, {
+      maxEntries: 2,
+      sessionId: "abc123",
+    });
+  });
 });
 
 describe("claude-code list/show (CLI subprocess)", () => {
@@ -305,12 +327,27 @@ describe("claude-code list/show (CLI subprocess)", () => {
     expect(Date.parse(parsed.sessions[0]?.updatedAt ?? "")).not.toBeNaN();
   });
 
-  test("show reads a specific session by id", async () => {
-    seedSession("older", "earlier content");
+  test("show reads a specific session by id and applies --max-entries", async () => {
+    // Two-entry session so --max-entries 1 provably trims
+    const dir = join(tempHome, ".claude", "projects", encodeClaude(projectDir));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "older.jsonl"),
+      [
+        JSON.stringify({
+          type: "user",
+          message: { role: "user", content: "earlier content" },
+        }),
+        JSON.stringify({
+          type: "assistant",
+          message: { role: "assistant", content: "earlier reply" },
+        }),
+      ].join("\n")
+    );
     seedSession("newer", "current content");
 
     const { exitCode, stdout } = await runCli(
-      ["session-context", "claude-code", "show", "older"],
+      ["session-context", "claude-code", "show", "older", "--max-entries", "1"],
       projectDir,
       env
     );
@@ -321,7 +358,9 @@ describe("claude-code list/show (CLI subprocess)", () => {
       transcript: Array<{ contentPreview: string }>;
     };
     expect(parsed.sessionFile).toBe("older.jsonl");
-    expect(parsed.transcript[0]?.contentPreview).toBe("earlier content");
+    // --max-entries keeps the LAST entry — trimming applied through show
+    expect(parsed.transcript).toHaveLength(1);
+    expect(parsed.transcript[0]?.contentPreview).toBe("earlier reply");
   });
 
   test("show with an unknown id exits 1", async () => {
