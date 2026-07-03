@@ -171,3 +171,20 @@ jobs:
       base64-subjects: "${{ needs.combine-hashes.outputs.digests }}"
       upload-assets: true
       upload-tag-name: ${{ github.event.release.tag_name || inputs.tag }}
+
+  # Dispatch publish-shims.yml once binaries + provenance are confirmed
+  # uploaded, instead of racing it via a shared `release: published` trigger.
+  trigger-shim-publish:
+    name: Trigger shim publishing
+    needs: provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch publish-shims.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          gh workflow run publish-shims.yml --repo archgate/cli -f tag="$TAG"
