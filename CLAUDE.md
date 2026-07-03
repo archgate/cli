@@ -53,7 +53,7 @@ When adding any workflow step that reads repo-level config: confirm the value's 
 
 - **Chain downstream release workflows, don't parallel-trigger them.** `publish-shims.yml` has no `release: published` trigger — `release-binaries.yml`'s `trigger-shim-publish` job dispatches it (`gh workflow run`) after binaries + provenance succeed. Two workflows both listening to `release: published` races: if the build needs a retry, a fixed-budget wait job can time out (`cancelled`, terminal) before the retry finishes.
 - **`moonrepo/setup-toolchain`'s cache can silently break PATH.** Right after a `.prototools` bump, the first macOS/Windows CI run often restores a stale `restore-key` cache instead of an exact hit (check the log for `Cache hit for restore-key:`) — the action reports success but `bun` isn't wired onto PATH. Self-heals on retry (the failed job still saves a fresh exact-key cache).
-- **The CLI's background update-check notice can pollute stdout.** `checkForUpdatesIfNeeded()` prints to stdout after command output; `shouldPerformUpdateCheck()` in `src/helpers/update-check.ts` gates it to TTY-only, non-CI sessions so piped/agent JSON output isn't corrupted.
+- **The CLI's background update-check notice can pollute stdout.** `checkForUpdatesIfNeeded()` prints to stdout after command output; `shouldPerformUpdateCheck()` in `src/helpers/update-check.ts` gates it to TTY-only, non-CI, non-`upgrade` sessions so piped/agent JSON output isn't corrupted.
 
 ## Claude Code Harness Config (`.claude/settings.json`)
 

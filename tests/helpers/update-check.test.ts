@@ -5,51 +5,48 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import {
+  maybeCheckForUpdates,
+  shouldPerformUpdateCheck,
+} from "../../src/helpers/update-check";
+
 describe("shouldPerformUpdateCheck", () => {
-  test("true in a genuine interactive terminal", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("true in a genuine interactive terminal", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "session-context", "claude-code", "list"],
         isTTY: true,
-        ci: undefined,
+        ci: false,
       })
     ).toBe(true);
   });
 
-  test("false when CI is set, even on a TTY", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("false when CI is set, even on a TTY", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "session-context", "claude-code", "list"],
         isTTY: true,
-        ci: "1",
+        ci: true,
       })
     ).toBe(false);
   });
 
-  test("false when stdout is not a TTY (piped/redirected output)", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("false when stdout is not a TTY (piped/redirected output)", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "session-context", "claude-code", "list"],
         isTTY: false,
-        ci: undefined,
+        ci: false,
       })
     ).toBe(false);
   });
 
-  test("false for the upgrade command itself, even on an interactive TTY", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("false for the upgrade command itself, even on an interactive TTY", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "upgrade"],
         isTTY: true,
-        ci: undefined,
+        ci: false,
       })
     ).toBe(false);
   });
@@ -276,5 +273,90 @@ describe("checkForUpdatesIfNeeded", () => {
     // The outer try/catch should swallow the write error and return null
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
+  });
+});
+
+describe("maybeCheckForUpdates", () => {
+  let tempDir: string;
+  let originalHome: string | undefined;
+  let originalIsTTY: boolean | undefined;
+  let originalCI: string | undefined;
+  let originalArgv: string[];
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-maybe-update-test-"));
+    originalHome = process.env.HOME;
+    originalIsTTY = process.stdout.isTTY;
+    originalCI = Bun.env.CI;
+    originalArgv = process.argv;
+  });
+
+  afterEach(() => {
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      /* temp dir may already be removed */
+    }
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
+    Object.defineProperty(process.stdout, "isTTY", {
+      value: originalIsTTY,
+      writable: true,
+      configurable: true,
+    });
+    if (originalCI === undefined) {
+      delete Bun.env.CI;
+    } else {
+      Bun.env.CI = originalCI;
+    }
+    process.argv = originalArgv;
+    mock.restore();
+  });
+
+  test("does not touch the network when gated off", async () => {
+    Object.defineProperty(process.stdout, "isTTY", {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+    Bun.env.CI = "1";
+    process.argv = ["bun", "cli.ts", "session-context", "claude-code", "list"];
+
+    const fetchSpy = mock(() => Promise.resolve({ ok: true }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+
+    const result = await maybeCheckForUpdates("0.1.0");
+    expect(result).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  test("calls through to checkForUpdatesIfNeeded when gated on", async () => {
+    Object.defineProperty(process.stdout, "isTTY", {
+      value: true,
+      writable: true,
+      configurable: true,
+    });
+    delete Bun.env.CI;
+    process.argv = ["bun", "cli.ts", "session-context", "claude-code", "list"];
+    process.env.HOME = tempDir;
+
+    const mockFetch = mock(() =>
+      Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ tag_name: "v0.2.0" }),
+      })
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const { maybeCheckForUpdates: freshMaybeCheckForUpdates } = await import(
+      `../../src/helpers/update-check?t=${Date.now()}`
+    );
+
+    const result = await freshMaybeCheckForUpdates("0.1.0");
+    expect(result).toContain("0.1.0");
+    expect(result).toContain("0.2.0");
   });
 });

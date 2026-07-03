@@ -14,3 +14,7 @@ metadata:
 - **Maven** (`shims/maven/pom.xml`): use `<waitUntil>validated</waitUntil>` with `<autoPublish>true</autoPublish>`, NOT `<waitUntil>published</waitUntil>` — the latter blocks until Sonatype finishes publishing, which routinely exceeds the job timeout (upload succeeds, then the build hangs on "Waiting until Deployment ... is published").
 
 **Re-runs are not idempotent:** `publish-go-tag` (creates a git tag), `publish-nuget`, and an already-uploaded Maven deploy fail on "already exists" on a second run. After a partial failure, apply the fix to the next version bump or `workflow_dispatch` only the failed ecosystems.
+
+**Advertised version can lag the installable version.** `docs/public/version.json` deploys on merge to main BEFORE `release.yml`/`release-binaries.yml` finish creating the release and uploading assets (~15-25 min gap, longer if the release job fails, as in the v0.44 incident). `install.sh`/`install.ps1` verify the platform asset exists (HEAD request) before trusting the advertised version, falling back to walking `releases?per_page=10`. The shims pin version constants at release time and share this exposure — see ARCH-017 if hardening them.
+
+**Registering a subdir Go module on pkg.go.dev:** a subdir module's zip only contains files under its subtree, so the repo-root `LICENSE.md` is excluded and pkg.go.dev shows "no license" until `shims/go/LICENSE.md` exists (enforced by ARCH-013). Trigger registration via `curl https://proxy.golang.org/<module>/@v/<version>.info`.

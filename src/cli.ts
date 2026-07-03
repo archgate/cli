@@ -39,10 +39,7 @@ import {
   trackCommand,
 } from "./helpers/telemetry";
 import { showFirstRunNoticeIfNeeded } from "./helpers/telemetry-config";
-import {
-  checkForUpdatesIfNeeded,
-  shouldPerformUpdateCheck,
-} from "./helpers/update-check";
+import { maybeCheckForUpdates } from "./helpers/update-check";
 
 // Pre-main environment guards — these are user-facing errors (exit 1), not bugs.
 // The Bun check must throw (logError requires Bun APIs). The rest use logError
@@ -155,13 +152,7 @@ async function main() {
   registerDoctorCommand(program);
   registerTelemetryCommand(program);
 
-  const updateCheckPromise = shouldPerformUpdateCheck({
-    argv: process.argv,
-    isTTY: process.stdout.isTTY === true,
-    ci: Bun.env.CI,
-  })
-    ? checkForUpdatesIfNeeded(packageJson.version)
-    : Promise.resolve(null);
+  const updateCheckPromise = maybeCheckForUpdates(packageJson.version);
   await program.parseAsync(process.argv);
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);

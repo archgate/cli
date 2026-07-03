@@ -16,3 +16,7 @@ Top-level filtering fixes the common case regardless of nesting depth or sibling
 Remaining caveat (all editors): when several conversations for the same project run concurrently, most-recent-by-mtime can pick the other live conversation — for opencode, `--session-id <id> --root` is deterministic; claude-code/cursor have no equivalent linkage.
 
 **How to apply:** If asked to investigate "session context returns wrong data" for claude-code, cursor, or copilot, start here — this is the same architectural flaw already fixed once for opencode, not a new mystery.
+
+**Inspecting real opencode data:** the live `opencode.db` can't be opened with `readonly: true` while opencode is running (`SQLITE_CANTOPEN`, errno 14, on the WAL-mode DB at `~/.local/share/opencode/opencode.db`). Copy `opencode.db` + `.db-wal` + `.db-shm` to a temp dir and open the copy instead.
+
+See also [[project_cli_skill_flag_sequencing]] for the general release-sequencing rule this bug's fix triggered (the `--skip` flag removal).
