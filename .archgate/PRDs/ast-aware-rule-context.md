@@ -40,7 +40,7 @@ Representative use cases:
 ### Functional
 
 - `RuleContext` MUST expose the AST capability as a single method taking a file path and a language identifier, returning the parsed tree or throwing (see ARCH-022 for the exact signature and throw semantics).
-- Supported languages for v1: TypeScript, JavaScript, Python, Ruby.
+- Supported languages overall: TypeScript, JavaScript, Python, Ruby. TypeScript/JavaScript ship in v1; Python/Ruby follow in a later release per the rollout sequencing below.
 - The method MUST work against any file within the rule's `scopedFiles`/`changedFiles`, subject to the same sandboxing already applied to `readFile`/`glob`.
 
 ### Rollout Sequencing
