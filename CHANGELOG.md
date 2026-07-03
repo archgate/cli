@@ -1,3 +1,9 @@
+## [0.46.1](https://github.com/archgate/cli/compare/v0.46.0...v0.46.1) (2026-07-03)
+
+### Bug Fixes
+
+* **session-context:** apply --max-entries on the show subcommands ([#448](https://github.com/archgate/cli/issues/448)) ([e29c70b](https://github.com/archgate/cli/commit/e29c70b0d7497bc57d60897dc86919541648eb4b))
+
 ## [0.46.0](https://github.com/archgate/cli/compare/v0.45.7...v0.46.0) (2026-07-02)
 
 ### ⚠ BREAKING CHANGES
