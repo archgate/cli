@@ -10,6 +10,19 @@ const CACHE_FILE = "last-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
+ * Only check for updates in a genuine interactive terminal — never during
+ * `upgrade`, in CI, or when stdout is piped (avoids polluting parsed output).
+ */
+export function shouldPerformUpdateCheck(opts: {
+  argv: string[];
+  isTTY: boolean;
+  ci: string | undefined;
+}): boolean {
+  const isUpgrade = opts.argv.includes("upgrade");
+  return !isUpgrade && opts.isTTY && !opts.ci;
+}
+
+/**
  * Checks GitHub Releases for a newer Archgate release (at most once per 24h).
  * Returns a human-readable notice string if an update is available, or null otherwise.
  * All errors are swallowed — this is non-fatal and runs in the background.
