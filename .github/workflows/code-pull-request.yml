@@ -182,6 +182,35 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     uses: ./.github/workflows/smoke-test-linux.yml
 
+  # Uploads findings to the Security tab (GitHub Advanced Security, free for
+  # public repos) rather than failing the build — there's an existing
+  # unreviewed findings backlog across several workflow files. Once that's
+  # triaged, this can be promoted to a hard gate via code-scanning merge
+  # protection (repo Settings, not this workflow).
+  zizmor:
+    name: Zizmor (Workflow Security)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read # actions/checkout
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        # Fork PRs get a read-only GITHUB_TOKEN regardless of the
+        # `permissions:` above, so SARIF upload would fail — fall back to
+        # console-only output and don't let that (or the pre-existing
+        # findings backlog) fail the gate for external contributors.
+        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
+        with:
+          config: zizmor.yml
+          advanced-security: ${{ github.event.pull_request.head.repo.fork != true }}
+
   coverage:
     name: Coverage Report
     runs-on: ubuntu-latest
@@ -236,7 +265,15 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
-      [validate, shim-changes, shim-tests, smoke-windows, smoke-linux, coverage]
+      [
+        validate,
+        shim-changes,
+        shim-tests,
+        smoke-windows,
+        smoke-linux,
+        zizmor,
+        coverage,
+      ]
     steps:
       - name: Check job results
         run: |
@@ -248,12 +285,14 @@ jobs:
              [[ "$SHIM_OK" != "success" ]] || \
              [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
              [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
+             [[ "${{ needs.zizmor.result }}" != "success" ]] || \
              [[ "${{ needs.coverage.result }}" != "success" ]]; then
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
             echo "  shim-tests: ${{ needs.shim-tests.result }}"
             echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
+            echo "  zizmor: ${{ needs.zizmor.result }}"
             echo "  coverage: ${{ needs.coverage.result }}"
             exit 1
           fi

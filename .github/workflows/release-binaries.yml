@@ -44,6 +44,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
+          persist-credentials: false
 
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
         with:
@@ -98,9 +99,10 @@ jobs:
         if: runner.os != 'Windows'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          BUNDLE_PATH: ${{ steps.attest-unix.outputs.bundle-path }}
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
-          cp "${{ steps.attest-unix.outputs.bundle-path }}" "${{ matrix.artifact }}.tar.gz.sigstore.json"
+          cp "$BUNDLE_PATH" "${{ matrix.artifact }}.tar.gz.sigstore.json"
           gh release upload "$TAG" \
             "${{ matrix.artifact }}.tar.gz" \
             "${{ matrix.artifact }}.tar.gz.sha256" \
@@ -112,10 +114,11 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          BUNDLE_PATH: ${{ steps.attest-win.outputs.bundle-path }}
         run: |
-          $tag = "${{ github.event.release.tag_name || inputs.tag }}"
-          Copy-Item "${{ steps.attest-win.outputs.bundle-path }}" "${{ matrix.artifact }}.zip.sigstore.json"
-          gh release upload $tag "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" "${{ matrix.artifact }}.zip.sigstore.json" --clobber
+          Copy-Item "$env:BUNDLE_PATH" "${{ matrix.artifact }}.zip.sigstore.json"
+          gh release upload "$env:TAG" "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" "${{ matrix.artifact }}.zip.sigstore.json" --clobber
 
       - name: Upload digest for SLSA provenance (Unix)
         if: runner.os != 'Windows'
@@ -171,3 +174,20 @@ jobs:
       base64-subjects: "${{ needs.combine-hashes.outputs.digests }}"
       upload-assets: true
       upload-tag-name: ${{ github.event.release.tag_name || inputs.tag }}
+
+  # Dispatch publish-shims.yml once binaries + provenance are confirmed
+  # uploaded, instead of racing it via a shared `release: published` trigger.
+  trigger-shim-publish:
+    name: Trigger shim publishing
+    needs: provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # required by `gh workflow run` to dispatch publish-shims.yml
+    steps:
+      - name: Dispatch publish-shims.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          gh workflow run publish-shims.yml --repo archgate/cli -f tag="$TAG"

@@ -1,0 +1,7 @@
+rules:
+  # slsa-framework/slsa-github-generator MUST be referenced by tag, not SHA —
+  # its bootstrap script rejects non-tag refs. Documented exception in
+  # CI-001 (see .archgate/adrs/CI-001-pin-github-actions-by-hash.md).
+  unpinned-uses:
+    ignore:
+      - release-binaries.yml:172

@@ -1,8 +1,9 @@
 name: Publish Shims
 
+# No `release: published` trigger — release-binaries.yml dispatches this via
+# `gh workflow run` once binaries are actually uploaded. Avoids racing a
+# fixed-budget wait against a build that may need a retry (see CLAUDE.md).
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -15,21 +16,21 @@ env:
   ARCHGATE_TELEMETRY: "0"
 
 jobs:
-  # Wait for platform binaries to be uploaded by release-binaries.yml.
-  # Shim packages download binaries on first use, but smoke tests need them.
+  # Sanity-check assets are present (covers GitHub API read-after-write lag).
   wait-for-binaries:
+    name: Wait for binaries
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
     permissions:
       contents: read
     steps:
-      - name: Wait for release assets
+      - name: Verify release assets are present
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
           REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip")
-          for i in $(seq 1 60); do
+          for i in $(seq 1 10); do
             ASSETS=$(gh release view "$TAG" --repo archgate/cli --json assets --jq '.assets[].name')
             ALL_FOUND=true
             for asset in "${REQUIRED_ASSETS[@]}"; do
@@ -42,10 +43,12 @@ jobs:
               echo "All required release assets found"
               exit 0
             fi
-            echo "Waiting for release assets... attempt $i/60"
-            sleep 30
+            echo "Waiting for release assets... attempt $i/10"
+            sleep 15
           done
-          echo "::error::Timed out waiting for release assets"
+          echo "::error::Required binaries for $TAG are still missing after 10 checks (~2.5 min)."
+          echo "::error::This workflow expects release-binaries.yml to have already succeeded for this tag."
+          echo "::error::Check the Release Binaries run for $TAG, then re-run: gh workflow run publish-shims.yml -f tag=$TAG"
           exit 1
 
   publish-pypi:
@@ -57,7 +60,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           python-version: "3.12"
@@ -80,7 +84,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: "8.0.x"
@@ -91,25 +96,32 @@ jobs:
           user: rhuan.barreto
       - name: Pack and publish
         working-directory: shims/nuget/Archgate.Tool
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           dotnet pack -c Release
           dotnet nuget push bin/Release/*.nupkg \
             --source https://api.nuget.org/v3/index.json \
-            --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+            --api-key "$NUGET_API_KEY"
 
   publish-go-tag:
     needs: wait-for-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # workflows: write is required to push a new ref — GitHub rejects any
+    # ref push reachable through commits that touch .github/workflows/*
+    # without it, even for an unrelated tag like this one.
     permissions:
       contents: write
+      workflows: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
       - name: Create Go module tag
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ github.event.release.tag_name || inputs.tag }}"
           GO_TAG="shims/go/${TAG}"
           git tag "$GO_TAG"
           git push origin "$GO_TAG"
@@ -122,7 +134,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
         with:
           distribution: "temurin"
@@ -151,7 +164,8 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           ruby-version: "4.0.5"

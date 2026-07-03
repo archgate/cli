@@ -10,6 +10,19 @@ const CACHE_FILE = "last-update-check";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
+ * Only check for updates in a genuine interactive terminal — never during
+ * `upgrade`, in CI, or when stdout is piped (avoids polluting parsed output).
+ */
+export function shouldPerformUpdateCheck(opts: {
+  argv: string[];
+  isTTY: boolean;
+  ci: boolean;
+}): boolean {
+  const isUpgrade = opts.argv.includes("upgrade");
+  return !isUpgrade && opts.isTTY && !opts.ci;
+}
+
+/**
  * Checks GitHub Releases for a newer Archgate release (at most once per 24h).
  * Returns a human-readable notice string if an update is available, or null otherwise.
  * All errors are swallowed — this is non-fatal and runs in the background.
@@ -61,4 +74,22 @@ export async function checkForUpdatesIfNeeded(
     logDebug("Update check error (non-fatal):", err);
     return null;
   }
+}
+
+/**
+ * Starts the background update check for this invocation, gated by
+ * shouldPerformUpdateCheck(). Resolves to a notice string, or null if the
+ * check didn't run or found nothing.
+ */
+export function maybeCheckForUpdates(
+  currentVersion: string
+): Promise<string | null> {
+  const shouldCheck = shouldPerformUpdateCheck({
+    argv: process.argv,
+    isTTY: process.stdout.isTTY === true,
+    ci: Boolean(Bun.env.CI),
+  });
+  return shouldCheck
+    ? checkForUpdatesIfNeeded(currentVersion)
+    : Promise.resolve(null);
 }
