@@ -75,3 +75,21 @@ export async function checkForUpdatesIfNeeded(
     return null;
   }
 }
+
+/**
+ * Starts the background update check for this invocation, gated by
+ * shouldPerformUpdateCheck(). Resolves to a notice string, or null if the
+ * check didn't run or found nothing.
+ */
+export function maybeCheckForUpdates(
+  currentVersion: string
+): Promise<string | null> {
+  const shouldCheck = shouldPerformUpdateCheck({
+    argv: process.argv,
+    isTTY: process.stdout.isTTY === true,
+    ci: Boolean(Bun.env.CI),
+  });
+  return shouldCheck
+    ? checkForUpdatesIfNeeded(currentVersion)
+    : Promise.resolve(null);
+}
