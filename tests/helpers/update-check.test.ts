@@ -5,51 +5,45 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { shouldPerformUpdateCheck } from "../../src/helpers/update-check";
+
 describe("shouldPerformUpdateCheck", () => {
-  test("true in a genuine interactive terminal", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("true in a genuine interactive terminal", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "session-context", "claude-code", "list"],
         isTTY: true,
-        ci: undefined,
+        ci: false,
       })
     ).toBe(true);
   });
 
-  test("false when CI is set, even on a TTY", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("false when CI is set, even on a TTY", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "session-context", "claude-code", "list"],
         isTTY: true,
-        ci: "1",
+        ci: true,
       })
     ).toBe(false);
   });
 
-  test("false when stdout is not a TTY (piped/redirected output)", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("false when stdout is not a TTY (piped/redirected output)", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "session-context", "claude-code", "list"],
         isTTY: false,
-        ci: undefined,
+        ci: false,
       })
     ).toBe(false);
   });
 
-  test("false for the upgrade command itself, even on an interactive TTY", async () => {
-    const { shouldPerformUpdateCheck } =
-      await import("../../src/helpers/update-check");
+  test("false for the upgrade command itself, even on an interactive TTY", () => {
     expect(
       shouldPerformUpdateCheck({
         argv: ["bun", "cli.ts", "upgrade"],
         isTTY: true,
-        ci: undefined,
+        ci: false,
       })
     ).toBe(false);
   });

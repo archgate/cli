@@ -158,7 +158,7 @@ async function main() {
   const updateCheckPromise = shouldPerformUpdateCheck({
     argv: process.argv,
     isTTY: process.stdout.isTTY === true,
-    ci: Bun.env.CI,
+    ci: Boolean(Bun.env.CI),
   })
     ? checkForUpdatesIfNeeded(packageJson.version)
     : Promise.resolve(null);

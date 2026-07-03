@@ -18,6 +18,7 @@ env:
 jobs:
   # Sanity-check assets are present (covers GitHub API read-after-write lag).
   wait-for-binaries:
+    name: Wait for binaries
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -26,8 +27,8 @@ jobs:
       - name: Verify release assets are present
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ inputs.tag }}"
           REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip")
           for i in $(seq 1 10); do
             ASSETS=$(gh release view "$TAG" --repo archgate/cli --json assets --jq '.assets[].name')
@@ -60,6 +61,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           python-version: "3.12"
@@ -83,6 +85,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: "8.0.x"
@@ -93,11 +96,13 @@ jobs:
           user: rhuan.barreto
       - name: Pack and publish
         working-directory: shims/nuget/Archgate.Tool
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           dotnet pack -c Release
           dotnet nuget push bin/Release/*.nupkg \
             --source https://api.nuget.org/v3/index.json \
-            --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+            --api-key "$NUGET_API_KEY"
 
   publish-go-tag:
     needs: wait-for-binaries
@@ -114,8 +119,9 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
       - name: Create Go module tag
+        env:
+          TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ inputs.tag }}"
           GO_TAG="shims/go/${TAG}"
           git tag "$GO_TAG"
           git push origin "$GO_TAG"
@@ -129,6 +135,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
         with:
           distribution: "temurin"
@@ -158,6 +165,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           ref: ${{ inputs.tag }}
+          persist-credentials: false
       - uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           ruby-version: "4.0.5"
