@@ -44,10 +44,12 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 - [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob brace-pattern scan bug, commander option hoisting, cross-command I/O sharing pattern, verifying reviewer sub-agent ADR citations
 - [session-context --skip 1 inline-skill bug](project_session_context_skip_root_fix.md) — opencode fixed via top-level default + `--root`; other editors fixed with plain command; includes opencode.db inspection technique
 - [CLI-skill flag sequencing across releases](project_cli_skill_flag_sequencing.md) — ship CLI first for flag additions, ship plugin promptly after for removals
+- [Release pipeline gotchas](project_release_pipeline_gotchas.md) — workflow-trigger race, moonrepo/setup-toolchain cache bug, update-check stdout pollution, publish-go-tag permissions
 
 ## Claude Code Harness Config
 
-- [WorktreeCreate hook contract](project_worktree_create_hook_contract.md) — stdin JSON in, path-only stdout out; hook owns the entire worktree creation once configured, not just post-setup
+- [Hooks config (`.claude/settings.json`)](project_claude_code_hooks_config.md) — WorktreeCreate contract (stdin JSON in, path-only stdout out) + the `"shell": "bash"` requirement for POSIX hooks
+- [WorktreeCreate hook bug history](project_worktree_create_hook_contract.md) — 5 rounds of fixes, re-test all of them if this hook changes
 - [Cursor Approval Agent is external, not in-repo](reference_cursor_approval_agent.md) — "Archgate CLI Approver" automation lives on cursor.com; no APPROVAL_POLICY.md/ROUTING.md exist in this repo
 
 ## Translation Quality

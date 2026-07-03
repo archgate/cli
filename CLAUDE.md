@@ -43,21 +43,15 @@ git config --local include.path ../.githooks
 
 Opt out of a specific hook: `git config --local hook.<name>.enabled false`. Skip all hooks for a single commit: `git commit --no-verify`.
 
-## GitHub Actions: `secrets.*` vs `vars.*`
+## Agent Memory
 
-Distinct, non-overlapping namespaces — a repo **secret** is not readable via `vars.*`, and vice versa. (`release.yml`'s PostHog annotation step once read `vars.POSTHOG_PROJECT_ID` when the value only existed as a **secret**, silently no-opping for weeks behind `continue-on-error: true` + a low-visibility `::notice::`.) Before wiring a new reference, confirm the value's actual location with `gh secret list` / `gh variable list`. For any `continue-on-error` step with a skip-on-missing-config guard, use `::warning::` (not `::notice::`) so misconfiguration is visible in the Actions UI.
+Claude Code sessions in this repo maintain persistent memory at `.claude/agent-memory/archgate-developer/` (index: `MEMORY.md`). Operational gotchas that are incident history rather than standing conventions live there instead of here, including:
 
-## Release Pipeline Gotchas
+- GitHub Actions `secrets.*` vs `vars.*` namespace confusion
+- Release pipeline gotchas (workflow-trigger races, toolchain cache bugs, update-check stdout pollution)
+- Claude Code hooks config for `.claude/settings.json` (the `WorktreeCreate` contract, the `"shell": "bash"` requirement for POSIX hooks)
 
-- **Chain downstream release workflows, don't parallel-trigger them.** `publish-shims.yml` has no `release: published` trigger — `release-binaries.yml`'s `trigger-shim-publish` job dispatches it (`gh workflow run`) after binaries + provenance succeed. Two workflows both listening to `release: published` races: if the build needs a retry, a fixed-budget wait job can time out (`cancelled`, terminal) before the retry finishes.
-- **`moonrepo/setup-toolchain`'s cache can silently break PATH.** Right after a `.prototools` bump, the first macOS/Windows CI run often restores a stale `restore-key` cache instead of an exact hit (check the log for `Cache hit for restore-key:`) — the action reports success but `bun` isn't wired onto PATH. Self-heals on retry (the failed job still saves a fresh exact-key cache).
-- **The CLI's background update-check notice can pollute stdout.** `checkForUpdatesIfNeeded()` prints to stdout after command output; `shouldPerformUpdateCheck()` in `src/helpers/update-check.ts` gates it to TTY-only, non-CI, non-`upgrade` sessions so piped/agent JSON output isn't corrupted.
-
-## Claude Code Harness Config (`.claude/settings.json`)
-
-`hooks.WorktreeCreate` is **not** a post-creation setup step — once configured, the harness defers the _entire_ worktree creation to it. The hook gets `{ "cwd", "name", ... }` on stdin and **must** create the worktree itself, printing _only_ the final absolute path as its last stdout line — any other stdout (unsilenced `bun install`/`git worktree add` output) gets misread as the path, breaking `EnterWorktree`/`ExitWorktree` (`path contains control characters`, `ENOENT: ... chdir`). Redirect all setup output to `>&2`. Don't simplify this back to a bare `bun install` — see [the full bug history](.claude/agent-memory/archgate-developer/project_worktree_create_hook_contract.md) (5 rounds of fixes, all worth re-testing if this hook changes).
-
-**Command-type hooks with POSIX syntax MUST set `"shell": "bash"` explicitly**, even on Windows with Git Bash installed — hooks have a separate shell-detection path from the interactive `Bash` tool and can silently fall back to `cmd.exe` without it (symptom: `'x' is not recognized as an internal or external command...`). If Git Bash still isn't found, Claude Code checks `CLAUDE_CODE_GIT_BASH_PATH` → `C:\Program Files\Git\bin\bash.exe` (or x86) → `git` on PATH resolved to `../../bin/bash.exe`.
+If you're a memory-equipped agent, consult that index when working in these areas. If you're a fresh session, contributor, or tool without access to it, the same facts are recoverable from git history and the referenced source files (`.github/workflows/release.yml`, `publish-shims.yml`, `release-binaries.yml`, `src/helpers/update-check.ts`, `.claude/settings.json`).
 
 ## Architecture
 
