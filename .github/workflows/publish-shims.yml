@@ -103,8 +103,12 @@ jobs:
     needs: wait-for-binaries
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # workflows: write is required to push a new ref — GitHub rejects any
+    # ref push reachable through commits that touch .github/workflows/*
+    # without it, even for an unrelated tag like this one.
     permissions:
       contents: write
+      workflows: write
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
