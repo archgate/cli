@@ -211,11 +211,7 @@ jobs:
           config: zizmor.yml
           advanced-security: ${{ github.event.pull_request.head.repo.fork != true }}
 
-  # Validates workflow YAML against GitHub's actual permissions/expression
-  # schema (invalid permission scopes, bad expression syntax, shellcheck
-  # issues in run: blocks). zizmor covers security patterns; neither tool
-  # covers the other's ground — actionlint would have caught ARCH-022's
-  # PR #451 `workflows: write` invalid-permission-scope bug before merge.
+  # Validates workflow schema (zizmor covers security patterns only). See CI-002.
   actionlint:
     name: Actionlint (Workflow Schema)
     runs-on: ubuntu-latest
@@ -229,11 +225,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install actionlint
-        # Pinned to a specific commit of the maintainer's own download
-        # script (which verifies its own checksums) rather than a mutable
-        # branch ref, and to a specific actionlint version rather than
-        # "latest", for reproducibility — mirrors the spirit of CI-001
-        # even though this is a script fetch, not a `uses:` reference.
+        # Pinned script commit + pinned version, not `latest` — see CI-002.
         run: |
           bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7/scripts/download-actionlint.bash") 1.7.12
       - name: Run actionlint
