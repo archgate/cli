@@ -211,6 +211,34 @@ jobs:
           config: zizmor.yml
           advanced-security: ${{ github.event.pull_request.head.repo.fork != true }}
 
+  # Validates workflow YAML against GitHub's actual permissions/expression
+  # schema (invalid permission scopes, bad expression syntax, shellcheck
+  # issues in run: blocks). zizmor covers security patterns; neither tool
+  # covers the other's ground — actionlint would have caught ARCH-022's
+  # PR #451 `workflows: write` invalid-permission-scope bug before merge.
+  actionlint:
+    name: Actionlint (Workflow Schema)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read # actions/checkout
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        # Pinned to a specific commit of the maintainer's own download
+        # script (which verifies its own checksums) rather than a mutable
+        # branch ref, and to a specific actionlint version rather than
+        # "latest", for reproducibility — mirrors the spirit of CI-001
+        # even though this is a script fetch, not a `uses:` reference.
+        run: |
+          bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7/scripts/download-actionlint.bash") 1.7.12
+      - name: Run actionlint
+        run: ./actionlint -color
+
   coverage:
     name: Coverage Report
     runs-on: ubuntu-latest
@@ -272,6 +300,7 @@ jobs:
         smoke-windows,
         smoke-linux,
         zizmor,
+        actionlint,
         coverage,
       ]
     steps:
@@ -286,6 +315,7 @@ jobs:
              [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
              [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
              [[ "${{ needs.zizmor.result }}" != "success" ]] || \
+             [[ "${{ needs.actionlint.result }}" != "success" ]] || \
              [[ "${{ needs.coverage.result }}" != "success" ]]; then
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
@@ -293,6 +323,7 @@ jobs:
             echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
             echo "  zizmor: ${{ needs.zizmor.result }}"
+            echo "  actionlint: ${{ needs.actionlint.result }}"
             echo "  coverage: ${{ needs.coverage.result }}"
             exit 1
           fi

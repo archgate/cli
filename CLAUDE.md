@@ -19,14 +19,14 @@ bun run format                # oxfmt --write
 bun run format:check          # oxfmt --check
 bun run test                  # all tests (not bare `bun test` — picks up --timeout; see GEN-003)
 bun run knip                  # dead export detection
-bun run validate              # MANDATORY: lint + typecheck + format + test + ADR check + knip + build check
+bun run validate              # MANDATORY: lint + typecheck + format:check + test + ADR check + knip + build check
 bun run build:check            # verify build compiles (CI builds binaries via release workflow)
 bun run commit                # conventional commit wizard
 ```
 
 ## Validation Gate
 
-**`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format → test → ADR check → knip → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
+**`bun run validate` must pass before any task is considered complete.** Fail-fast pipeline: lint → typecheck → format:check → test → ADR check → knip → build check. Mirrors CI in `.github/workflows/code-pull-request.yml`.
 
 ## Git Hooks (Git 2.54+)
 

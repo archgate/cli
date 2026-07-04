@@ -4,7 +4,7 @@
 
 Every work loop MUST end with these steps — no exceptions, even for trivial changes:
 
-1. **`bun run validate`** — lint, typecheck, format, test, ADR check, knip, build check (fail-fast)
+1. **`bun run validate`** — lint, typecheck, format:check, test, ADR check, knip, build check (fail-fast)
 2. **`@reviewer` skill** — Invoke via `Skill tool` with skill `"archgate:reviewer"`. Validates structural ADR compliance beyond automated rules.
 3. **`@lessons-learned` skill** — Invoke via `Skill tool` with skill `"archgate:lessons-learned"`. Captures learnings and governance gaps.
 
@@ -43,7 +43,8 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 - [CI workflow gotchas](project_ci_workflow_gotchas.md) — GITHUB_TOKEN pushes don't trigger workflows, secrets vs vars namespaces, jq CRLF on Windows Git Bash
 - [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob brace-pattern scan bug, commander option hoisting, cross-command I/O sharing pattern, verifying reviewer sub-agent ADR citations
 - [session-context --skip 1 inline-skill bug](project_session_context_skip_root_fix.md) — opencode fixed via top-level default + `--root`; other editors fixed with plain command; includes opencode.db inspection technique
-- [CLI-skill flag sequencing across releases](project_cli_skill_flag_sequencing.md) — ship CLI first for flag additions, ship plugin promptly after for removals
+- [CLI-skill flag sequencing across releases](project_cli_skill_flag_sequencing.md) — ship CLI first for flag additions, ship plugin promptly after for removals; installed lessons-learned skill v0.13.1 confirmed still broken
+- [PR review thread triage](project_pr_review_thread_triage.md) — REST API doesn't expose resolved state; use GraphQL `reviewThreads.isResolved` to find genuinely outstanding comments
 - [Release pipeline gotchas](project_release_pipeline_gotchas.md) — workflow-trigger race, moonrepo/setup-toolchain cache bug, update-check stdout pollution, publish-go-tag permissions
 
 ## Claude Code Harness Config
