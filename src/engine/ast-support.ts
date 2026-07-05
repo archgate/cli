@@ -57,7 +57,7 @@ def convert(node):
         return node
     return repr(node)
 
-with open(sys.argv[1], encoding="utf-8") as handle:
+with open(sys.argv[1], encoding="utf-8-sig") as handle:
     source = handle.read()
 try:
     tree = ast.parse(source, filename=sys.argv[1])
@@ -73,7 +73,7 @@ print(json.dumps(convert(tree)))
  * `max_nesting: false` because real-world ASTs exceed JSON's default depth.
  */
 export const RUBY_AST_PROGRAM = `
-source = File.read(ARGV[0], encoding: "UTF-8")
+source = File.read(ARGV[0], mode: "r:bom|utf-8")
 sexp = Ripper.sexp(source)
 if sexp.nil?
   warn "Ruby syntax error"
