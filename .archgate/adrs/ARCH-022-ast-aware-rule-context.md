@@ -2,7 +2,11 @@
 id: ARCH-022
 title: AST-Aware Rule Context
 domain: architecture
-rules: false
+rules: true
+files:
+  - "src/engine/**"
+  - "src/formats/rules.ts"
+  - "src/helpers/rules-shim.ts"
 ---
 
 ## Context
@@ -99,7 +103,11 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 
 ### Automated Enforcement
 
-- None at this time. `rules: false` — this ADR documents an engine/API design decision made ahead of implementation. Once `ctx.ast()` ships, a follow-up amendment to this ADR (or a new companion ADR) MUST introduce `rules: true` with an automated check that flags any direct `Bun.spawn`/`child_process` usage inside `src/engine/runner.ts`'s `createRuleContext()` implementation that bypasses the mandated guardrail ordering, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns today.
+`ctx.ast()` has shipped, and this ADR now carries `rules: true` with three companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
+
+- **`ast-guardrail-ordering`** — parses `src/engine/runner.ts` via `ctx.ast()` itself (dogfooding the capability this ADR introduces) and verifies the `ast()` method inside `createRuleContext()` invokes the four guardrail markers — `safePath`, `AST_LANGUAGE_EXTENSIONS`, `probeInterpreter`, `runAstSubprocess` — each present and in exactly that order.
+- **`no-unsanctioned-engine-subprocess`** — flags any `Bun.spawn`/`Bun.spawnSync` call in `src/engine/` outside the sanctioned helpers (`ast-support.ts` for `ctx.ast()`, `git-files.ts` for git), and bans `child_process` imports in the engine entirely, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns.
+- **`single-ast-method`** — verifies `RuleContext` (in `src/formats/rules.ts` and the generated shim in `src/helpers/rules-shim.ts`) declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.).
 
 ### Manual Enforcement
 
