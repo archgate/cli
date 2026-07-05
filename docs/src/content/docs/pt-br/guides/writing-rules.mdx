@@ -179,9 +179,8 @@ const testFiles = await ctx.glob("tests/**/*.test.ts");
 Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. Linguagens suportadas: `"typescript"`, `"javascript"`, `"python"` e `"ruby"`. TypeScript e JavaScript são parseados in-process para um `Program` ESTree; Python e Ruby invocam como subprocesso o parser da biblioteca padrão do interpretador do sistema. Lança uma exceção em caso de falha de parse ou interpretador ausente -- nunca retorna `null`.
 
 ```typescript
-const program = (await ctx.ast("src/cli.ts", "typescript")) as {
-  body: { type: string }[];
-};
+// EsTreeProgram — .body, .sourceType are typed; no cast needed
+const program = await ctx.ast("src/cli.ts", "typescript");
 ```
 
 Veja [Verificações estruturais com ctx.ast()](#verificações-estruturais-com-ctxast) abaixo para exemplos completos, e a [Referência da API de Regras](/reference/rule-api/#ast) para o formato retornado por linguagem.
@@ -249,9 +248,8 @@ export default {
         );
 
         const checks = indexFiles.map(async (file) => {
-          const program = (await ctx.ast(file, "typescript")) as {
-            body: { type: string; source: { value: string } | null }[];
-          };
+          // EsTreeProgram — .body is EsTreeNode[]; no cast needed
+          const program = await ctx.ast(file, "typescript");
 
           const isBarrel =
             program.body.length > 0 &&
@@ -292,17 +290,16 @@ function findRequireCalls(node: unknown, lines: number[]): void {
     return;
   }
   if (node === null || typeof node !== "object") return;
-  const record = node as Record<string, unknown>;
-  const callee = record.callee as Record<string, unknown> | undefined;
+  const n = node as EsTreeNode;
+  const callee = n.callee as EsTreeNode | undefined;
   if (
-    record.type === "CallExpression" &&
+    n.type === "CallExpression" &&
     callee?.type === "Identifier" &&
     callee.name === "require"
   ) {
-    const loc = record.loc as { start: { line: number } };
-    lines.push(loc.start.line);
+    if (n.loc) lines.push(n.loc.start.line);
   }
-  for (const value of Object.values(record)) findRequireCalls(value, lines);
+  for (const value of Object.values(n)) findRequireCalls(value, lines);
 }
 
 export default {
@@ -348,11 +345,11 @@ function findBareExcepts(node: unknown, lines: number[]): void {
     return;
   }
   if (node === null || typeof node !== "object") return;
-  const record = node as Record<string, unknown>;
-  if (record._type === "ExceptHandler" && record.type === null) {
-    lines.push(record.lineno as number);
+  const n = node as PythonAstNode;
+  if (n._type === "ExceptHandler" && n.type === null) {
+    if (n.lineno !== undefined) lines.push(n.lineno);
   }
-  for (const value of Object.values(record)) findBareExcepts(value, lines);
+  for (const value of Object.values(n)) findBareExcepts(value, lines);
 }
 
 export default {

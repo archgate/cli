@@ -22,20 +22,14 @@ const SANCTIONED_SPAWN_FILES = new Set([
   "src/engine/git-files.ts", // git subprocess helper, predates ARCH-022
 ]);
 
-interface EsNode {
-  type?: string;
-  loc?: { start: { line: number; column: number } };
-  [key: string]: unknown;
-}
-
 /** Depth-first walk over an ESTree-shaped tree. */
-function walk(node: unknown, visit: (n: EsNode) => void): void {
+function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
   if (Array.isArray(node)) {
     for (const item of node) walk(item, visit);
     return;
   }
   if (!node || typeof node !== "object") return;
-  const n = node as EsNode;
+  const n = node as EsTreeNode;
   if (typeof n.type === "string") visit(n);
   for (const value of Object.values(n)) {
     if (value && typeof value === "object") walk(value, visit);
@@ -61,8 +55,8 @@ export default {
           // cast is erased by transpilation before ctx.ast() parses this file,
           // so the declarator init is a bare arrow/function expression.
           if (n.type === "VariableDeclarator") {
-            const id = n.id as (EsNode & { name?: string }) | undefined;
-            const init = n.init as EsNode | undefined;
+            const id = n.id as (EsTreeNode & { name?: string }) | undefined;
+            const init = n.init as EsTreeNode | undefined;
             if (
               id?.name === "astImpl" &&
               (init?.type === "ArrowFunctionExpression" ||
@@ -75,8 +69,8 @@ export default {
           // Fallback: inline `ast(path, language) { … }` object method, in
           // case the implementation is ever moved back onto the object.
           if (n.type === "Property") {
-            const key = n.key as (EsNode & { name?: string }) | undefined;
-            const value = n.value as EsNode | undefined;
+            const key = n.key as (EsTreeNode & { name?: string }) | undefined;
+            const value = n.value as EsTreeNode | undefined;
             if (
               key?.name === "ast" &&
               (value?.type === "FunctionExpression" ||
@@ -101,7 +95,7 @@ export default {
         const firstSeen = new Map<string, number>();
         walk(astMethodBody, (n) => {
           if (n.type !== "Identifier" || !n.loc) return;
-          const name = (n as { name?: string }).name ?? "";
+          const name = typeof n.name === "string" ? n.name : "";
           if (!GUARDRAIL_SEQUENCE.includes(name) || firstSeen.has(name)) {
             return;
           }

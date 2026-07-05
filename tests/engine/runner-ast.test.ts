@@ -19,7 +19,11 @@ import type { LoadResult } from "../../src/engine/loader";
 import { getExitCode } from "../../src/engine/reporter";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
-import type { RuleContext, RuleSet } from "../../src/formats/rules";
+import type {
+  PythonAstNode,
+  RuleContext,
+  RuleSet,
+} from "../../src/formats/rules";
 
 // Probe once at load time so interpreter-dependent tests can skipIf cleanly.
 const pythonInterpreter = await probeInterpreter(
@@ -30,17 +34,17 @@ const rubyInterpreter = await probeInterpreter(interpreterCandidates("ruby"));
 /** Recursively collect Python AST nodes matching a predicate. */
 function collectPyNodes(
   node: unknown,
-  predicate: (record: Record<string, unknown>) => boolean,
-  hits: Array<Record<string, unknown>>
+  predicate: (n: PythonAstNode) => boolean,
+  hits: PythonAstNode[]
 ): void {
   if (Array.isArray(node)) {
     for (const item of node) collectPyNodes(item, predicate, hits);
     return;
   }
   if (node && typeof node === "object") {
-    const record = node as Record<string, unknown>;
-    if (predicate(record)) hits.push(record);
-    for (const value of Object.values(record)) {
+    const n = node as PythonAstNode;
+    if (predicate(n)) hits.push(n);
+    for (const value of Object.values(n)) {
       collectPyNodes(value, predicate, hits);
     }
   }
@@ -250,18 +254,17 @@ describe("runChecks ctx.ast()", () => {
                 // so `._type` is typed.
                 const tree = await ctx.ast("src/handler.py", "python");
                 expect(tree._type).toBe("Module");
-                const hits: Array<Record<string, unknown>> = [];
+                const hits: PythonAstNode[] = [];
                 collectPyNodes(
                   tree,
-                  (record) =>
-                    record._type === "ExceptHandler" && record.type === null,
+                  (n) => n._type === "ExceptHandler" && n.type === null,
                   hits
                 );
                 for (const hit of hits) {
                   ctx.report.violation({
                     message: "Bare except: clause",
                     file: "src/handler.py",
-                    line: typeof hit.lineno === "number" ? hit.lineno : 0,
+                    line: hit.lineno ?? 0,
                   });
                 }
               },
@@ -333,10 +336,7 @@ describe("runChecks ctx.ast()", () => {
               async check(ctx) {
                 const rakefile = await ctx.ast("Rakefile", "ruby");
                 const gemfile = await ctx.ast("Gemfile", "ruby");
-                roots.push(
-                  (rakefile as unknown[])[0],
-                  (gemfile as unknown[])[0]
-                );
+                roots.push(rakefile[0], gemfile[0]);
               },
             },
           },
@@ -370,12 +370,8 @@ describe("runChecks ctx.ast()", () => {
           "jsx-dispatch": {
             description: "Parse .tsx as typescript and .jsx as javascript",
             async check(ctx) {
-              const tsx = (await ctx.ast("src/App.tsx", "typescript")) as {
-                type: string;
-              };
-              const jsx = (await ctx.ast("src/widget.jsx", "javascript")) as {
-                type: string;
-              };
+              const tsx = await ctx.ast("src/App.tsx", "typescript");
+              const jsx = await ctx.ast("src/widget.jsx", "javascript");
               programTypes.push(tsx.type, jsx.type);
             },
           },
@@ -405,10 +401,7 @@ describe("runChecks ctx.ast()", () => {
           "cjs-script-mode": {
             description: "Top-level return is legal in .cjs",
             async check(ctx) {
-              const program = (await ctx.ast(
-                "src/legacy.cjs",
-                "javascript"
-              )) as { type: string; sourceType: string };
+              const program = await ctx.ast("src/legacy.cjs", "javascript");
               cjsSourceType = program.sourceType;
             },
           },
@@ -452,9 +445,7 @@ describe("runChecks ctx.ast()", () => {
             "shadow-guard": {
               description: "Parse target.py despite a malicious ast.py",
               async check(ctx) {
-                const tree = (await ctx.ast("target.py", "python")) as {
-                  _type: string;
-                };
+                const tree = await ctx.ast("target.py", "python");
                 treeType = tree._type;
               },
             },

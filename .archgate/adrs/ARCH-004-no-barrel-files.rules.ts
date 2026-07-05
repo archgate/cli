@@ -1,15 +1,6 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * ESTree statement shape (the subset this rule inspects). ctx.ast() returns
- * an untyped AstNode, so top-level statements are narrowed through this.
- */
-interface EstreeStatement {
-  type?: unknown;
-  declaration?: unknown;
-}
-
-/**
  * A Program body is barrel-shaped when every top-level statement is purely
  * import/re-export plumbing:
  * - ImportDeclaration            — `import { x } from "./y"` / `import "./y"`
@@ -21,14 +12,13 @@ interface EstreeStatement {
  * class declarations, expression statements — is executable logic, so the
  * file is not a barrel.
  */
-function isReExportOnlyBody(body: unknown[]): boolean {
+function isReExportOnlyBody(body: EsTreeNode[]): boolean {
   return body.every((node) => {
-    const stmt = node as EstreeStatement;
-    if (stmt.type === "ImportDeclaration") return true;
-    if (stmt.type === "ExportAllDeclaration") return true;
+    if (node.type === "ImportDeclaration") return true;
+    if (node.type === "ExportAllDeclaration") return true;
     return (
-      stmt.type === "ExportNamedDeclaration" &&
-      (stmt.declaration === null || stmt.declaration === undefined)
+      node.type === "ExportNamedDeclaration" &&
+      (node.declaration === null || node.declaration === undefined)
     );
   });
 }
@@ -69,7 +59,7 @@ export default {
         );
 
         const checks = indexFiles.map(async (file) => {
-          let program: AstNode;
+          let program: EsTreeProgram;
           try {
             program = await ctx.ast(file, "typescript");
           } catch {
@@ -78,12 +68,9 @@ export default {
             return;
           }
 
-          const body = (program as { body?: unknown[] }).body;
-          if (!Array.isArray(body)) return;
-
           const barrel =
-            body.length > 0
-              ? isReExportOnlyBody(body)
+            program.body.length > 0
+              ? isReExportOnlyBody(program.body)
               : isTypeOnlyBarrel(await ctx.readFile(file));
 
           if (barrel) {

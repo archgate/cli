@@ -10,11 +10,6 @@
  * so formatting, whitespace, and string escaping no longer matter.
  */
 
-interface EsNode {
-  type?: string;
-  [key: string]: unknown;
-}
-
 /**
  * Description strings that enumerate a fixed set of values, e.g.
  * "editor integration to configure (claude, cursor, vscode, copilot)" or
@@ -31,13 +26,13 @@ const VALUE_TAKING_FLAG = /^--[\w-]+\s+<\w+>/u;
 const PARSER_IDENTIFIERS = new Set(["parseInt", "parseFloat", "Number"]);
 
 /** Depth-first walk over an ESTree-shaped tree. */
-function walk(node: unknown, visit: (n: EsNode) => void): void {
+function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
   if (Array.isArray(node)) {
     for (const item of node) walk(item, visit);
     return;
   }
   if (!node || typeof node !== "object") return;
-  const n = node as EsNode;
+  const n = node as EsTreeNode;
   if (typeof n.type === "string") visit(n);
   for (const value of Object.values(n)) {
     if (value && typeof value === "object") walk(value, visit);
@@ -45,24 +40,22 @@ function walk(node: unknown, visit: (n: EsNode) => void): void {
 }
 
 /** Collect the argument lists of every `<expr>.option(...)` call in a tree. */
-function findOptionCallArgs(tree: AstNode): EsNode[][] {
-  const calls: EsNode[][] = [];
+function findOptionCallArgs(tree: EsTreeProgram): EsTreeNode[][] {
+  const calls: EsTreeNode[][] = [];
   walk(tree, (n) => {
     if (n.type !== "CallExpression") return;
-    const callee = n.callee as EsNode | undefined;
+    const callee = n.callee as EsTreeNode | undefined;
     if (callee?.type !== "MemberExpression" || callee.computed === true) return;
-    const property = callee.property as
-      | (EsNode & { name?: string })
-      | undefined;
+    const property = callee.property as EsTreeNode | undefined;
     if (property?.type !== "Identifier" || property.name !== "option") return;
-    calls.push((n.arguments as EsNode[] | undefined) ?? []);
+    calls.push((n.arguments as EsTreeNode[] | undefined) ?? []);
   });
   return calls;
 }
 
 function isStringLiteral(
-  node: EsNode | undefined
-): node is EsNode & { value: string } {
+  node: EsTreeNode | undefined
+): node is EsTreeNode & { value: string } {
   return node?.type === "Literal" && typeof node.value === "string";
 }
 
@@ -161,7 +154,7 @@ export default {
                 third?.type === "FunctionExpression";
               const isParserIdentifier =
                 third?.type === "Identifier" &&
-                PARSER_IDENTIFIERS.has((third as { name?: string }).name ?? "");
+                PARSER_IDENTIFIERS.has(String(third.name ?? ""));
               if (!isFunctionArg && !isParserIdentifier) continue;
               const flag = args[0];
               flagged.push(isStringLiteral(flag) ? flag.value : undefined);
