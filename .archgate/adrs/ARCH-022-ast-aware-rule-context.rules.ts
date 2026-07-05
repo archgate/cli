@@ -148,6 +148,38 @@ export default {
         }
       },
     },
+    "python-subprocess-isolated": {
+      description:
+        "The Python AST subprocess must run in isolated mode (-I) so a hostile target project cannot shadow stdlib modules on sys.path and execute arbitrary code",
+      severity: "error",
+      async check(ctx) {
+        const file = "src/engine/runner.ts";
+        const content = await ctx.readFile(file);
+        // Locate the python branch of the guarded invocation and confirm the
+        // argv includes the -I isolation flag before the -c program. Without
+        // it, `python -c` puts the target project cwd on sys.path, letting a
+        // planted ast.py/json.py run when the serializer imports them.
+        const pythonCmd = content.match(
+          /language === "python"\s*\?\s*\[([^\]]*)\]/u
+        );
+        if (!pythonCmd) {
+          ctx.report.violation({
+            message: `Could not locate the Python invocation argv in ${file} — ARCH-022 requires it to run with -I isolated mode`,
+            file,
+            fix: 'Ensure the python branch builds `[interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]`',
+          });
+          return;
+        }
+        if (!/["']-I["']/u.test(pythonCmd[1])) {
+          ctx.report.violation({
+            message:
+              "Python AST subprocess is missing the -I isolation flag — a hostile project could shadow stdlib modules (ast.py/json.py) and execute arbitrary code during `archgate check`",
+            file,
+            fix: 'Add "-I" as the first argument before "-c": `[interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]`',
+          });
+        }
+      },
+    },
     "single-ast-method": {
       description:
         "RuleContext exposes exactly one ast(path, language) method — no per-language variants like pythonAst()/rubyAst()",

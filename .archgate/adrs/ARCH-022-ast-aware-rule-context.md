@@ -60,6 +60,8 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 - **DO** reuse the existing `meriyah`-based parser for `"typescript"`/`"javascript"`, factoring the duplicated `parseModule()` call in `rule-scanner.ts` into one shared helper used by both the scanner and `ctx.ast()`
 - **DO** run the path-safety, language-plausibility, interpreter-availability, and guarded-invocation checks in exactly that order, before any subprocess is spawned, for the `"python"`/`"ruby"` branches
 - **DO** use `Bun.spawn` with array-based arguments for the Python/Ruby subprocess invocations, per [ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)
+- **DO** run the Python AST subprocess in isolated mode (`python -I -c ...`). Without `-I`, `python -c` places the target project's working directory on `sys.path`, so a hostile project could plant an `ast.py` or `json.py` that executes arbitrary code the moment the serializer imports the standard library. Ruby's load path has not included the cwd since 1.9.2, so no equivalent flag is required for it.
+- **DO** strip a leading UTF-8 BOM before parsing in the Python and Ruby serializers (`open(..., encoding="utf-8-sig")` / `File.read(..., mode: "r:bom|utf-8")`). Python's plain `utf-8` codec preserves the BOM as U+FEFF, which `ast.parse` then rejects as a syntax error.
 - **DO** cache the interpreter-availability probe once per `check` invocation
 - **DO** throw from `ctx.ast()` on missing interpreter or parse failure, and let it propagate to the existing per-rule `try/catch` in `runner.ts`
 - **DO** document, in the type signature or accompanying JSDoc, that the returned node shape differs per language
@@ -72,6 +74,8 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 - **DON'T** add `tree-sitter`, `web-tree-sitter`, or any other new production dependency under this decision — Python/Ruby support MUST use only the interpreter's own standard-library AST facility
 - **DON'T** attempt to normalize Python/Ruby output into an ESTree-like shape as part of this ADR — that is explicitly out of scope
 - **DON'T** re-probe interpreter availability on every file — cache it per `check` run
+- **DON'T** trust `node.loc` line/column numbers for `language: "typescript"`. The TS branch parses `Bun.Transpiler` output, which drops type-only statements, comments, and blank lines, so `loc` refers to the transpiled text, not the original `.ts` file. Re-locate the construct in the original source (e.g. `ctx.readFile()` + `indexOf`) before reporting a line — `loc` is source-accurate only for `"javascript"`, which is parsed directly. The project's own [ARCH-008](./ARCH-008-typed-command-options.md) rules follow this pattern.
+- **DON'T** drop the `-I` flag from the Python invocation when refactoring the guarded-invocation step — the `python-subprocess-isolated` companion rule blocks this, and the integration test in `tests/engine/runner-ast.test.ts` asserts a planted shadow `ast.py` cannot run.
 
 ## Consequences
 
@@ -103,11 +107,12 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 
 ### Automated Enforcement
 
-`ctx.ast()` has shipped, and this ADR now carries `rules: true` with three companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
+`ctx.ast()` has shipped, and this ADR now carries `rules: true` with four companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
 
 - **`ast-guardrail-ordering`** — parses `src/engine/runner.ts` via `ctx.ast()` itself (dogfooding the capability this ADR introduces) and verifies the `ast()` method inside `createRuleContext()` invokes the four guardrail markers — `safePath`, `AST_LANGUAGE_EXTENSIONS`, `probeInterpreter`, `runAstSubprocess` — each present and in exactly that order.
 - **`no-unsanctioned-engine-subprocess`** — flags any `Bun.spawn`/`Bun.spawnSync` call in `src/engine/` outside the sanctioned helpers (`ast-support.ts` for `ctx.ast()`, `git-files.ts` for git), and bans `child_process` imports in the engine entirely, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns.
 - **`single-ast-method`** — verifies `RuleContext` (in `src/formats/rules.ts` and the generated shim in `src/helpers/rules-shim.ts`) declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.).
+- **`python-subprocess-isolated`** — asserts the Python branch of the guarded invocation in `src/engine/runner.ts` includes the `-I` isolation flag, so a future refactor cannot silently reintroduce the cwd stdlib-shadowing code-execution vector.
 
 ### Manual Enforcement
 
