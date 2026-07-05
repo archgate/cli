@@ -179,7 +179,6 @@ const testFiles = await ctx.glob("tests/**/*.test.ts");
 Parse en kildefil til dens språknative AST. Støttede språk: `"typescript"`, `"javascript"`, `"python"` og `"ruby"`. TypeScript og JavaScript parses i prosessen til en ESTree `Program`; Python og Ruby starter systemtolkens parser fra standardbiblioteket som en underprosess. Kaster ved parsefeil eller manglende tolk -- den returnerer aldri `null`.
 
 ```typescript
-// EsTreeProgram — .body, .sourceType are typed; no cast needed
 const program = await ctx.ast("src/cli.ts", "typescript");
 ```
 
@@ -248,7 +247,6 @@ export default {
         );
 
         const checks = indexFiles.map(async (file) => {
-          // EsTreeProgram — .body is EsTreeNode[]; no cast needed
           const program = await ctx.ast(file, "typescript");
 
           const isBarrel =

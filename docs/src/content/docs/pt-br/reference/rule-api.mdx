@@ -180,7 +180,6 @@ ast(
 Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. O caminho é relativo à raiz do projeto e passa pelo mesmo sandbox de `readFile`. TypeScript e JavaScript são parseados in-process; Python e Ruby são parseados invocando como subprocesso o recurso de AST da biblioteca padrão do próprio interpretador do sistema. O formato da árvore retornada difere por linguagem -- veja [AstNode](#astnode).
 
 ```typescript
-// EsTreeProgram — .body, .sourceType, and .type are typed
 const program = await ctx.ast("src/cli.ts", "typescript");
 for (const node of program.body) {
   console.log(node.type);
