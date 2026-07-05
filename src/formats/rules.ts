@@ -62,6 +62,25 @@ export interface PackageJson {
   [key: string]: unknown;
 }
 
+// --- AST ---
+
+/** Languages supported by `RuleContext.ast()`. */
+export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
+
+/**
+ * Root node returned by `RuleContext.ast()`.
+ *
+ * The shape is language-native and deliberately NOT unified across languages
+ * (see ARCH-022):
+ * - `"typescript"` / `"javascript"` — ESTree Program (meriyah). TypeScript is
+ *   transpiled before parsing, so type-only syntax is erased from the tree.
+ * - `"python"` — the standard `ast` module tree serialized to JSON; each node
+ *   is `{ _type: "Name", ...fields, lineno, col_offset, ... }`.
+ * - `"ruby"` — `Ripper.sexp` output: nested arrays such as
+ *   `["program", [["command", ...]]]` with `[line, column]` position pairs.
+ */
+export type AstNode = Record<string, unknown> | unknown[];
+
 // --- Rule Context ---
 
 export interface RuleContext {
@@ -74,6 +93,18 @@ export interface RuleContext {
   readFile(path: string): Promise<string>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
+  /**
+   * Parse a source file into its language-native AST.
+   *
+   * TypeScript/JavaScript parse in-process. Python and Ruby require the
+   * corresponding interpreter (`python3`/`python`, `ruby`) on PATH wherever
+   * `archgate check` runs — locally and in CI.
+   *
+   * Throws (never returns null) when the file fails to parse or the required
+   * interpreter is missing; the error message distinguishes the two cases.
+   * The returned node shape differs per language — see {@link AstNode}.
+   */
+  ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }
 

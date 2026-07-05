@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { parseModule } from "meriyah";
+import { parseJsModule, type EsTreeProgram } from "./js-parser";
 
 /**
  * Banned module pattern — matches dangerous Node.js/Bun built-in modules
@@ -70,9 +70,9 @@ export function scanRuleSource(source: string): ScanViolation[] {
     ];
   }
 
-  let ast: ReturnType<typeof parseModule>;
+  let ast: EsTreeProgram;
   try {
-    ast = parseModule(js, { next: true, loc: true, module: true });
+    ast = parseJsModule(js);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return [
@@ -262,9 +262,9 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
     ];
   }
 
-  let ast: ReturnType<typeof parseModule>;
+  let ast: EsTreeProgram;
   try {
-    ast = parseModule(js, { next: true, loc: true, module: true });
+    ast = parseJsModule(js);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return [
