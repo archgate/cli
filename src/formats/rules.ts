@@ -68,22 +68,68 @@ export interface PackageJson {
 export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
- * Root node returned by `RuleContext.ast()`.
- *
- * The shape is language-native and deliberately NOT unified across languages
- * (see ARCH-022):
- * - `"typescript"` / `"javascript"` — ESTree Program (meriyah). TypeScript is
- *   transpiled before parsing, so type-only syntax is erased from the tree
- *   AND `loc` positions refer to the transpiled output, not the original
- *   file — re-locate matches in the original source before reporting line
- *   numbers. `loc` is source-accurate for `"javascript"`, which parses the
- *   file directly.
- * - `"python"` — the standard `ast` module tree serialized to JSON; each node
- *   is `{ _type: "Name", ...fields, lineno, col_offset, ... }`.
- * - `"ruby"` — `Ripper.sexp` output: nested arrays such as
- *   `["program", [["command", ...]]]` with `[line, column]` position pairs.
+ * A node in the ESTree tree returned for `"typescript"`/`"javascript"`.
+ * `type` is the ESTree node discriminant (e.g. `"ImportDeclaration"`,
+ * `"CallExpression"`). Only the fields common to every node are typed; the
+ * rest of each node's grammar is reachable through the index signature — walk
+ * it against the ESTree spec. Note: for `"typescript"`, `loc` refers to the
+ * transpiled output (see `ast()`), not the original `.ts` source.
  */
-export type AstNode = Record<string, unknown> | unknown[];
+export interface EsTreeNode {
+  type: string;
+  loc?: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  } | null;
+  range?: [number, number];
+  [key: string]: unknown;
+}
+
+/** Root ESTree node returned for `"typescript"`/`"javascript"`. */
+export interface EsTreeProgram extends EsTreeNode {
+  type: "Program";
+  sourceType: "module" | "script";
+  body: EsTreeNode[];
+}
+
+/**
+ * A node in the Python `ast` tree returned for `"python"`, serialized to JSON.
+ * `_type` is the node class name (e.g. `"FunctionDef"`, `"Call"`,
+ * `"ExceptHandler"`). Position attributes are present on most nodes. Field
+ * values are other `PythonAstNode`s, arrays, or primitives, reachable through
+ * the index signature — walk it against the standard `ast` module's grammar.
+ */
+export interface PythonAstNode {
+  _type: string;
+  lineno?: number;
+  col_offset?: number;
+  end_lineno?: number;
+  end_col_offset?: number;
+  [key: string]: unknown;
+}
+
+/** Root Python node returned for `"python"` (`_type: "Module"`). */
+export interface PythonAstModule extends PythonAstNode {
+  _type: "Module";
+  body: PythonAstNode[];
+}
+
+/**
+ * The Ruby AST returned for `"ruby"` — `Ripper.sexp` output as nested arrays.
+ * Each node is `[nodeType, ...children]` where `nodeType` is a string tag
+ * (e.g. `"program"`, `"command"`, `"@ident"`) and children are further
+ * `RubyAstNode`s, `[line, column]` pairs, strings, or `null`. Ripper's shape
+ * is deliberately not normalized — walk it against Ripper's own grammar.
+ */
+export type RubyAstNode = unknown[];
+
+/**
+ * Return type of the language-agnostic `ast()` overload (when `language` is a
+ * non-literal `AstLanguage`). The shape is language-native and deliberately
+ * NOT unified across languages (see ARCH-022); prefer calling `ast()` with a
+ * string literal so the per-language overload narrows this union for you.
+ */
+export type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
 
 // --- Rule Context ---
 
@@ -100,14 +146,25 @@ export interface RuleContext {
   /**
    * Parse a source file into its language-native AST.
    *
+   * The return type is selected by the `language` literal: an
+   * {@link EsTreeProgram} for `"typescript"`/`"javascript"`, a
+   * {@link PythonAstModule} for `"python"`, and a {@link RubyAstNode} for
+   * `"ruby"`. The shapes are language-native and are NOT unified (see
+   * ARCH-022) — walk each against its own grammar.
+   *
    * TypeScript/JavaScript parse in-process. Python and Ruby require the
    * corresponding interpreter (`python3`/`python`, `ruby`) on PATH wherever
    * `archgate check` runs — locally and in CI.
    *
    * Throws (never returns null) when the file fails to parse or the required
    * interpreter is missing; the error message distinguishes the two cases.
-   * The returned node shape differs per language — see {@link AstNode}.
    */
+  ast(
+    path: string,
+    language: "typescript" | "javascript"
+  ): Promise<EsTreeProgram>;
+  ast(path: string, language: "python"): Promise<PythonAstModule>;
+  ast(path: string, language: "ruby"): Promise<RubyAstNode>;
   ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }

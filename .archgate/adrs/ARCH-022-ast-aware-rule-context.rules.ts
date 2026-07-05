@@ -56,15 +56,34 @@ export default {
 
         let astMethodBody: unknown = null;
         walk(tree, (n) => {
-          if (n.type !== "Property") return;
-          const key = n.key as EsNode | undefined;
-          const value = n.value as EsNode | undefined;
-          if (
-            key?.type === "Identifier" &&
-            (key as { name?: string }).name === "ast" &&
-            value?.type === "FunctionExpression"
-          ) {
-            astMethodBody = value.body;
+          // Current structure: `const astImpl = async (path, language) => {…}`
+          // referenced as `ast: astImpl` in the returned object. The `as`
+          // cast is erased by transpilation before ctx.ast() parses this file,
+          // so the declarator init is a bare arrow/function expression.
+          if (n.type === "VariableDeclarator") {
+            const id = n.id as (EsNode & { name?: string }) | undefined;
+            const init = n.init as EsNode | undefined;
+            if (
+              id?.name === "astImpl" &&
+              (init?.type === "ArrowFunctionExpression" ||
+                init?.type === "FunctionExpression")
+            ) {
+              astMethodBody = init.body;
+            }
+            return;
+          }
+          // Fallback: inline `ast(path, language) { … }` object method, in
+          // case the implementation is ever moved back onto the object.
+          if (n.type === "Property") {
+            const key = n.key as (EsNode & { name?: string }) | undefined;
+            const value = n.value as EsNode | undefined;
+            if (
+              key?.name === "ast" &&
+              (value?.type === "FunctionExpression" ||
+                value?.type === "ArrowFunctionExpression")
+            ) {
+              astMethodBody = value.body;
+            }
           }
         });
 

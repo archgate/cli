@@ -116,22 +116,20 @@ describe("runChecks ctx.ast()", () => {
           "no-hello-fn": {
             description: "Detect a function named hello via the AST",
             async check(ctx) {
-              const program = (await ctx.ast("src/app.ts", "typescript")) as {
-                type: string;
-                body: Array<{
-                  type: string;
-                  id?: { name?: string };
-                  loc?: { start: { line: number } };
-                }>;
-              };
+              // No cast: the "typescript" overload narrows to EsTreeProgram, so
+              // `.sourceType` / `.body` are typed. A regression to the broad
+              // `AstNode` union would fail this file's typecheck.
+              const program = await ctx.ast("src/app.ts", "typescript");
+              expect(program.sourceType).toBe("module");
               bodyTypes = program.body.map((node) => node.type);
               for (const node of program.body) {
+                const id = node.id as { name?: string } | undefined;
                 if (
                   node.type === "FunctionDeclaration" &&
-                  node.id?.name === "hello"
+                  id?.name === "hello"
                 ) {
                   ctx.report.violation({
-                    message: `Function "${node.id.name}" is banned`,
+                    message: `Function "${id.name}" is banned`,
                     file: "src/app.ts",
                   });
                 }
@@ -248,7 +246,10 @@ describe("runChecks ctx.ast()", () => {
             "no-bare-except": {
               description: "Disallow bare except: clauses",
               async check(ctx) {
+                // No cast: the "python" overload narrows to PythonAstModule,
+                // so `._type` is typed.
                 const tree = await ctx.ast("src/handler.py", "python");
+                expect(tree._type).toBe("Module");
                 const hits: Array<Record<string, unknown>> = [];
                 collectPyNodes(
                   tree,
@@ -291,9 +292,11 @@ describe("runChecks ctx.ast()", () => {
             "no-hello-method": {
               description: "Detect a method named hello via Ripper sexp",
               async check(ctx) {
+                // No cast: the "ruby" overload narrows to RubyAstNode (an
+                // array), so index access is typed.
                 const sexp = await ctx.ast("src/greeter.rb", "ruby");
                 expect(Array.isArray(sexp)).toBe(true);
-                expect((sexp as unknown[])[0]).toBe("program");
+                expect(sexp[0]).toBe("program");
                 if (sexpHasIdent(sexp, "hello")) {
                   ctx.report.violation({
                     message: 'Method "hello" is banned',

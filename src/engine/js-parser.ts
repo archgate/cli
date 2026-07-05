@@ -2,8 +2,13 @@
 // Copyright 2026 Archgate
 import { parseModule, parseScript } from "meriyah";
 
-/** ESTree Program produced by meriyah's `parseModule`/`parseScript`. */
-export type EsTreeProgram = ReturnType<typeof parseModule>;
+/**
+ * ESTree Program produced by meriyah's `parseModule`/`parseScript` — the
+ * parser's own richly-typed return. Distinct from the hand-authored,
+ * self-contained `EsTreeProgram` in `src/formats/rules.ts`, which is the
+ * public shape `.rules.ts` authors see through the ambient `rules.d.ts`.
+ */
+export type MeriyahProgram = ReturnType<typeof parseModule>;
 
 /**
  * Parse JavaScript source into an ESTree AST via meriyah.
@@ -22,7 +27,7 @@ export type EsTreeProgram = ReturnType<typeof parseModule>;
 export function parseJsModule(
   source: string,
   options?: { jsx?: boolean; sourceType?: "module" | "script" }
-): EsTreeProgram {
+): MeriyahProgram {
   if (options?.sourceType === "script") {
     return parseScript(source, {
       next: true,
