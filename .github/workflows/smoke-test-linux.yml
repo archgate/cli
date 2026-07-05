@@ -94,7 +94,8 @@ jobs:
           fi
           echo "Testing install.sh with version $ARCHGATE_VERSION"
 
-          export ARCHGATE_INSTALL_DIR="$(mktemp -d)"
+          ARCHGATE_INSTALL_DIR="$(mktemp -d)"
+          export ARCHGATE_INSTALL_DIR
 
           sh install.sh
 

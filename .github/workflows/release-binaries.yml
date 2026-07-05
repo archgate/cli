@@ -152,9 +152,9 @@ jobs:
         id: combine
         run: |
           echo "=== Individual digests ==="
-          cat *.sha256
+          cat ./*.sha256
           echo ""
-          DIGESTS=$(cat *.sha256 | tr -d '\r' | base64 -w0)
+          DIGESTS=$(cat ./*.sha256 | tr -d '\r' | base64 -w0)
           echo "digests=$DIGESTS" >> "$GITHUB_OUTPUT"
 
   # SLSA provenance — generates .intoto.jsonl and uploads it to the release.
