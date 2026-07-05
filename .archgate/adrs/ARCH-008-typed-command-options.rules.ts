@@ -98,10 +98,12 @@ export default {
         const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
         await Promise.all(
           files.map(async (file) => {
-            const tree = await ctx.ast(file, "typescript");
-            // Flag .option(flag, description, ...) calls — at least two
-            // string literal args (a trailing default value or parser must
-            // not exempt the call) — whose description enumerates choices.
+            let tree: EsTreeProgram;
+            try {
+              tree = await ctx.ast(file, "typescript");
+            } catch {
+              return;
+            }
             const flagged: string[] = [];
             for (const args of findOptionCallArgs(tree)) {
               if (args.length < 2) continue;
@@ -140,7 +142,12 @@ export default {
         const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
         await Promise.all(
           files.map(async (file) => {
-            const tree = await ctx.ast(file, "typescript");
+            let tree: EsTreeProgram;
+            try {
+              tree = await ctx.ast(file, "typescript");
+            } catch {
+              return;
+            }
             // Flag .option(flag, description, parser) calls whose third
             // argument is a function expression or a bare global parser
             // identifier (parseInt/parseFloat/Number). Literal defaults

@@ -15,6 +15,9 @@ import { isWindows } from "../helpers/platform";
 /** Hard cap on a single AST parser subprocess, well under the rule timeout. */
 export const AST_SUBPROCESS_TIMEOUT_MS = 15_000;
 
+/** Timeout for the interpreter availability probe (shorter than a real parse). */
+const PROBE_TIMEOUT_MS = 5_000;
+
 /**
  * Guardrail 2 (language plausibility): extensions accepted per language.
  * Checked before any interpreter is invoked on the file.
@@ -114,12 +117,26 @@ export async function probeInterpreter(
         stdout: "pipe",
         stderr: "pipe",
       });
+      let probeTimer: ReturnType<typeof setTimeout> | undefined;
+      const probeTimeout = new Promise<"timeout">((resolve) => {
+        probeTimer = setTimeout(() => resolve("timeout"), PROBE_TIMEOUT_MS);
+      });
       // oxlint-disable-next-line no-await-in-loop -- candidates probed in priority order
-      const [exitCode, version] = await Promise.all([
+      const raceResult = await Promise.race([
         proc.exited,
-        new Response(proc.stdout).text(),
-      ]);
-      if (exitCode === 0) {
+        probeTimeout,
+      ]).finally(() => {
+        if (probeTimer) clearTimeout(probeTimer);
+      });
+      if (raceResult === "timeout") {
+        proc.kill();
+        // oxlint-disable-next-line no-await-in-loop -- must confirm kill before trying next candidate
+        await proc.exited;
+        continue;
+      }
+      // oxlint-disable-next-line no-await-in-loop -- drain stdout only for the winning candidate
+      const version = await new Response(proc.stdout).text();
+      if (raceResult === 0) {
         logDebug(
           `ctx.ast interpreter probe: ${candidate} -> ${version.trim()}`
         );
@@ -158,6 +175,7 @@ export async function runAstSubprocess(
   });
   if (result === "timeout") {
     proc.kill();
+    await proc.exited;
     throw new Error(
       `AST parser subprocess timed out after ${AST_SUBPROCESS_TIMEOUT_MS}ms`
     );

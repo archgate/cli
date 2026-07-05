@@ -40,12 +40,12 @@ function isTypeOnlyBarrel(source: string): boolean {
 
   if (stripped === "") return false;
 
-  const statements = stripped
-    .split(";")
-    .map((s) => s.trim())
-    .filter((s) => s !== "");
+  const lines = stripped
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l !== "" && l !== ";");
 
-  return statements.every((s) => /^(?:import|export)\b/u.test(s));
+  return lines.every((l) => /^(?:import|export)\b/u.test(l));
 }
 
 export default {
