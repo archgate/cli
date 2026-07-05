@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -13,7 +19,7 @@ import type { LoadResult } from "../../src/engine/loader";
 import { getExitCode } from "../../src/engine/reporter";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
-import type { RuleSet } from "../../src/formats/rules";
+import type { RuleContext, RuleSet } from "../../src/formats/rules";
 
 // Probe once at load time so interpreter-dependent tests can skipIf cleanly.
 const pythonInterpreter = await probeInterpreter(
@@ -305,4 +311,198 @@ describe("runChecks ctx.ast()", () => {
       expect(result.results[0].violations).toHaveLength(1);
     }
   );
+
+  test.skipIf(!rubyInterpreter)(
+    "ruby: extensionless Rakefile and Gemfile basenames are accepted",
+    async () => {
+      // "Rakefile"/"Gemfile" carry no extension — plausibility relies on the
+      // lowercased-basename membership in RUBY_BASENAMES.
+      writeFileSync(join(tempDir, "Rakefile"), "task :default do\nend\n");
+      writeFileSync(join(tempDir, "Gemfile"), 'gem "rake"\n');
+
+      const roots: unknown[] = [];
+      const loaded = makeLoadedAdr(
+        {},
+        {
+          rules: {
+            "ruby-basenames": {
+              description: "Parse extensionless Ruby basenames",
+              async check(ctx) {
+                const rakefile = await ctx.ast("Rakefile", "ruby");
+                const gemfile = await ctx.ast("Gemfile", "ruby");
+                roots.push(
+                  (rakefile as unknown[])[0],
+                  (gemfile as unknown[])[0]
+                );
+              },
+            },
+          },
+        }
+      );
+
+      const result = await runChecks(tempDir, [loaded]);
+      expect(result.results[0].error).toBeUndefined();
+      expect(roots).toEqual(["program", "program"]);
+    }
+  );
+
+  test("tsx/jsx dispatch: JSX parses under the tsx loader and the jsx branch", async () => {
+    // The .tsx file mixes type-only syntax with a JSX element — it must go
+    // through the `loader: "tsx"` Bun.Transpiler branch to survive both.
+    writeFileSync(
+      join(tempDir, "src", "App.tsx"),
+      "type Props = { name: string };\nexport function App(props: Props) {\n  return <div>{props.name}</div>;\n}\n"
+    );
+    // The .jsx file exercises the meriyah `jsx: true` branch (no transpile).
+    writeFileSync(
+      join(tempDir, "src", "widget.jsx"),
+      "export const el = <span>hi</span>;\n"
+    );
+
+    const programTypes: string[] = [];
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "jsx-dispatch": {
+            description: "Parse .tsx as typescript and .jsx as javascript",
+            async check(ctx) {
+              const tsx = (await ctx.ast("src/App.tsx", "typescript")) as {
+                type: string;
+              };
+              const jsx = (await ctx.ast("src/widget.jsx", "javascript")) as {
+                type: string;
+              };
+              programTypes.push(tsx.type, jsx.type);
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    expect(result.results[0].error).toBeUndefined();
+    expect(programTypes).toEqual(["Program", "Program"]);
+  });
+
+  test(".cjs parses in sloppy script mode while .mjs rejects top-level return", async () => {
+    // Node permits a top-level `return` in CommonJS files but never in ESM,
+    // so the same source must parse as .cjs and throw as .mjs — proving the
+    // .cjs sourceType special-case is real, not incidental.
+    const source =
+      "if (process.env.ARCHGATE_DISABLED) return;\nmodule.exports = { ok: true };\n";
+    writeFileSync(join(tempDir, "src", "legacy.cjs"), source);
+    writeFileSync(join(tempDir, "src", "modern.mjs"), source);
+
+    let cjsSourceType = "";
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "cjs-script-mode": {
+            description: "Top-level return is legal in .cjs",
+            async check(ctx) {
+              const program = (await ctx.ast(
+                "src/legacy.cjs",
+                "javascript"
+              )) as { type: string; sourceType: string };
+              cjsSourceType = program.sourceType;
+            },
+          },
+          "mjs-module-mode": {
+            description: "Top-level return is illegal in .mjs",
+            async check(ctx) {
+              await ctx.ast("src/modern.mjs", "javascript");
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    const cjs = result.results.find((r) => r.ruleId === "cjs-script-mode");
+    const mjs = result.results.find((r) => r.ruleId === "mjs-module-mode");
+    expect(cjs?.error).toBeUndefined();
+    expect(cjsSourceType).toBe("script");
+    expect(mjs?.error).toContain("Failed to parse");
+    expect(mjs?.error).toContain("src/modern.mjs");
+  });
+
+  test.skipIf(!pythonInterpreter)(
+    "python: -I isolation prevents a project-local ast.py from shadowing the stdlib",
+    async () => {
+      // Security regression guard: without `-I`, `python -c` prepends the
+      // cwd to sys.path, so a hostile project shipping its own ast.py would
+      // execute arbitrary code when the serializer does `import ast`.
+      const sentinel = join(tempDir, "shadow-sentinel.txt");
+      writeFileSync(
+        join(tempDir, "ast.py"),
+        `open(${JSON.stringify(sentinel.replaceAll("\\", "/"))}, "w").write("x")\nraise SystemExit("SHADOW EXECUTED")\n`
+      );
+      writeFileSync(join(tempDir, "target.py"), "x = 1\n");
+
+      let treeType = "";
+      const loaded = makeLoadedAdr(
+        {},
+        {
+          rules: {
+            "shadow-guard": {
+              description: "Parse target.py despite a malicious ast.py",
+              async check(ctx) {
+                const tree = (await ctx.ast("target.py", "python")) as {
+                  _type: string;
+                };
+                treeType = tree._type;
+              },
+            },
+          },
+        }
+      );
+
+      // Run with cwd inside the hostile project — the realistic `archgate
+      // check` invocation — and always restore it afterwards.
+      const prevCwd = process.cwd();
+      process.chdir(tempDir);
+      let result;
+      try {
+        result = await runChecks(tempDir, [loaded]);
+      } finally {
+        process.chdir(prevCwd);
+      }
+
+      expect(result.results[0].error).toBeUndefined();
+      expect(treeType).toBe("Module");
+      expect(existsSync(sentinel)).toBe(false);
+    }
+  );
+
+  test("plausibility guardrail applies per language, not only python", async () => {
+    writeFileSync(join(tempDir, "data.json"), "{}");
+    const languages = ["ruby", "typescript", "javascript"] as const;
+
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: Object.fromEntries(
+          languages.map((language) => [
+            `json-as-${language}`,
+            {
+              description: `Attempt to parse JSON as ${language}`,
+              async check(ctx: RuleContext) {
+                await ctx.ast("data.json", language);
+              },
+            },
+          ])
+        ),
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    const byId = new Map(result.results.map((r) => [r.ruleId, r]));
+    for (const language of languages) {
+      expect(byId.get(`json-as-${language}`)?.error).toContain(
+        `does not look like ${language}`
+      );
+    }
+  });
 });

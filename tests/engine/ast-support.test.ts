@@ -29,7 +29,7 @@ describe("interpreterCandidates", () => {
 
   test("python candidate order matches the platform", () => {
     const expected = isWindows()
-      ? ["python", "python3"]
+      ? ["python", "python3", "py"]
       : ["python3", "python"];
     expect(interpreterCandidates("python")).toEqual(expected);
   });
