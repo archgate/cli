@@ -106,11 +106,12 @@ export default {
         await Promise.all(
           files.map(async (file) => {
             const tree = await ctx.ast(file, "typescript");
-            // Flag .option(flag, description) calls — exactly two string
-            // literal args — whose description enumerates fixed choices.
+            // Flag .option(flag, description, ...) calls — at least two
+            // string literal args (a trailing default value or parser must
+            // not exempt the call) — whose description enumerates choices.
             const flagged: string[] = [];
             for (const args of findOptionCallArgs(tree)) {
-              if (args.length !== 2) continue;
+              if (args.length < 2) continue;
               const [flag, description] = args;
               if (!isStringLiteral(flag) || !isStringLiteral(description)) {
                 continue;

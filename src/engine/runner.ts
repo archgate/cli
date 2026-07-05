@@ -316,8 +316,12 @@ function createRuleContext(
             const js = new Bun.Transpiler({ loader }).transformSync(source);
             return parseJsModule(js) as unknown as AstNode;
           }
+          // .cjs cannot legally contain import/export in Node — parse it as
+          // a sloppy-mode script so CommonJS-isms (top-level return, `with`)
+          // do not fail under module/strict grammar.
           return parseJsModule(source, {
             jsx: lowerPath.endsWith(".jsx"),
+            sourceType: lowerPath.endsWith(".cjs") ? "script" : "module",
           }) as unknown as AstNode;
         } catch (err) {
           throw new Error(
@@ -343,9 +347,14 @@ function createRuleContext(
       }
 
       // Guardrail 4: guarded invocation — array args only, path via argv.
+      // Python runs in isolated mode (-I): without it, `python -c` puts the
+      // cwd (the target project root) on sys.path, so a hostile project
+      // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
+      // code when the serializer imports them. Ruby is safe as-is — its
+      // load path has not included the cwd since 1.9.2.
       const cmd =
         language === "python"
-          ? [interpreter, "-c", PYTHON_AST_PROGRAM, absPath]
+          ? [interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]
           : [
               interpreter,
               "-rripper",

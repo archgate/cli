@@ -73,7 +73,11 @@ export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
  * The shape is language-native and deliberately NOT unified across languages
  * (see ARCH-022):
  * - `"typescript"` / `"javascript"` — ESTree Program (meriyah). TypeScript is
- *   transpiled before parsing, so type-only syntax is erased from the tree.
+ *   transpiled before parsing, so type-only syntax is erased from the tree
+ *   AND `loc` positions refer to the transpiled output, not the original
+ *   file — re-locate matches in the original source before reporting line
+ *   numbers. `loc` is source-accurate for `"javascript"`, which parses the
+ *   file directly.
  * - `"python"` — the standard `ast` module tree serialized to JSON; each node
  *   is `{ _type: "Name", ...fields, lineno, col_offset, ... }`.
  * - `"ruby"` — `Ripper.sexp` output: nested arrays such as
