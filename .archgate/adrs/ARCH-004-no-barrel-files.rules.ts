@@ -1,40 +1,61 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * Determines whether a file is a barrel (re-export-only index.ts).
- *
- * A barrel file contains only export/import statements and no executable
- * logic — no function definitions, class definitions, variable declarations,
- * or statements beyond re-exports.
+ * ESTree statement shape (the subset this rule inspects). ctx.ast() returns
+ * an untyped AstNode, so top-level statements are narrowed through this.
  */
-function isBarrelFile(content: string): boolean {
-  const lines = content
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(
-      (l) =>
-        l !== "" &&
-        !l.startsWith("//") &&
-        !l.startsWith("/*") &&
-        !l.startsWith("*")
+interface EstreeStatement {
+  type?: unknown;
+  declaration?: unknown;
+}
+
+/**
+ * A Program body is barrel-shaped when every top-level statement is purely
+ * import/re-export plumbing:
+ * - ImportDeclaration            — `import { x } from "./y"` / `import "./y"`
+ * - ExportAllDeclaration         — `export * from "./y"`
+ * - ExportNamedDeclaration with  — `export { x } from "./y"` / `export { x }`
+ *   declaration === null
+ *
+ * Anything else — `export const x = ...`, `export default ...`, function or
+ * class declarations, expression statements — is executable logic, so the
+ * file is not a barrel.
+ */
+function isReExportOnlyBody(body: unknown[]): boolean {
+  return body.every((node) => {
+    const stmt = node as EstreeStatement;
+    if (stmt.type === "ImportDeclaration") return true;
+    if (stmt.type === "ExportAllDeclaration") return true;
+    return (
+      stmt.type === "ExportNamedDeclaration" &&
+      (stmt.declaration === null || stmt.declaration === undefined)
     );
+  });
+}
 
-  if (lines.length === 0) return false;
+/**
+ * Fallback for files whose transpiled Program body is EMPTY: ctx.ast()
+ * transpiles TypeScript before parsing, which erases type-only syntax
+ * (`export type { X } from "./y"`, `import type ...`), so a pure
+ * type-re-export barrel parses to an empty Program. Conservatively inspect
+ * the source: strip comments and blank space, then require every remaining
+ * statement to start with `import` or `export`. A comment-only/empty file
+ * is not a barrel.
+ */
+function isTypeOnlyBarrel(source: string): boolean {
+  const stripped = source
+    .replaceAll(/\/\*[\s\S]*?\*\//gu, "")
+    .replaceAll(/\/\/[^\n]*/gu, "")
+    .trim();
 
-  return lines.every(
-    (line) =>
-      // export { Foo } from "./bar"  /  export type { Foo } from "./bar"
-      line.startsWith("export ") ||
-      line.startsWith("export{") ||
-      // import type { Foo } from "./bar"
-      line.startsWith("import ") ||
-      // Continuation of multi-line export blocks
-      line.startsWith("} from") ||
-      line.startsWith("type ") ||
-      /^[A-Za-z_$,\s]+$/u.test(line) ||
-      line === "}" ||
-      line === "};"
-  );
+  if (stripped === "") return false;
+
+  const statements = stripped
+    .split(";")
+    .map((s) => s.trim())
+    .filter((s) => s !== "");
+
+  return statements.every((s) => /^(?:import|export)\b/u.test(s));
 }
 
 export default {
@@ -48,8 +69,24 @@ export default {
         );
 
         const checks = indexFiles.map(async (file) => {
-          const content = await ctx.readFile(file);
-          if (isBarrelFile(content)) {
+          let program: AstNode;
+          try {
+            program = await ctx.ast(file, "typescript");
+          } catch {
+            // A syntactically broken index.ts must not kill this rule for
+            // every other file — typecheck/lint report real syntax errors.
+            return;
+          }
+
+          const body = (program as { body?: unknown[] }).body;
+          if (!Array.isArray(body)) return;
+
+          const barrel =
+            body.length > 0
+              ? isReExportOnlyBody(body)
+              : isTypeOnlyBarrel(await ctx.readFile(file));
+
+          if (barrel) {
             ctx.report.violation({
               message: `Barrel file detected: ${file} contains only re-exports and no logic. Import directly from source modules instead.`,
               file,
