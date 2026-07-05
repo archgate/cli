@@ -277,7 +277,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-Fordi TypeScript transpileres før parsing, fjernes `export type { ... } from`-re-eksporter -- en barrel som bare inneholder type-re-eksporter parses til en tom `body`, som `body.length > 0`-vakten hopper over. Hvis du også trenger å flagge rene type-barrels, kombiner AST-sjekken med en tekstsjekk.
+Fordi TypeScript transpileres før parsing, fjernes `export type { ... } from`-re-eksporter -- en barrel som bare inneholder type-re-eksporter parses til en tom `body`, som `body.length > 0`-vakten hopper over. Hvis du også trenger å flagge rene type-barrels, kombiner AST-sjekken med en tekstsjekk. Den samme transpileringen forskyver også posisjoner: `loc`-linjenumre refererer til den transpilerte teksten, ikke den opprinnelige `.ts`-filen, så en `"typescript"`-regel må finne konstruksjonen på nytt i den opprinnelige kildekoden (for eksempel med `ctx.readFile()` og `indexOf`) før den rapporterer en `line` -- eller utelate `line`.
 
 ### JavaScript: ingen require() i ES-moduler
 
@@ -332,6 +332,8 @@ export default {
   },
 } satisfies RuleSet;
 ```
+
+`loc.start.line`-rapporteringen her er gyldig bare fordi `"javascript"` parser den opprinnelige kildekoden utranspilert -- en `"typescript"`-regel må i stedet finne linjen i den opprinnelige kildekoden, siden dens `loc` refererer til det transpilerte resultatet.
 
 ### Python: ingen nakne except-klausuler
 

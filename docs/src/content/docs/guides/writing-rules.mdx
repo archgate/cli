@@ -277,7 +277,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-Because TypeScript is transpiled before parsing, `export type { ... } from` re-exports are erased -- a barrel containing only type re-exports parses to an empty `body`, which the `body.length > 0` guard skips. If you also need to flag type-only barrels, combine the AST check with a text check.
+Because TypeScript is transpiled before parsing, `export type { ... } from` re-exports are erased -- a barrel containing only type re-exports parses to an empty `body`, which the `body.length > 0` guard skips. If you also need to flag type-only barrels, combine the AST check with a text check. The same transpilation also shifts positions: `loc` line numbers refer to the transpiled text, not your original `.ts` file, so a `"typescript"` rule must re-locate the construct in the original source (for example with `ctx.readFile()` and `indexOf`) before reporting a `line` -- or omit `line`.
 
 ### JavaScript: no require() in ES modules
 
@@ -332,6 +332,8 @@ export default {
   },
 } satisfies RuleSet;
 ```
+
+The `loc.start.line` reporting here is valid only because `"javascript"` parses the original source untranspiled -- a `"typescript"` rule must locate the line in the original source instead, since its `loc` refers to the transpiled output.
 
 ### Python: no bare except clauses
 

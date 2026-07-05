@@ -277,7 +277,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-Como o TypeScript é transpilado antes do parse, re-exports `export type { ... } from` são apagados -- um barrel contendo apenas re-exports de tipos parseia para um `body` vazio, que a guarda `body.length > 0` ignora. Se você também precisa sinalizar barrels exclusivamente de tipos, combine a verificação de AST com uma verificação textual.
+Como o TypeScript é transpilado antes do parse, re-exports `export type { ... } from` são apagados -- um barrel contendo apenas re-exports de tipos parseia para um `body` vazio, que a guarda `body.length > 0` ignora. Se você também precisa sinalizar barrels exclusivamente de tipos, combine a verificação de AST com uma verificação textual. A mesma transpilação também desloca posições: os números de linha em `loc` referem-se ao texto transpilado, não ao seu arquivo `.ts` original, então uma regra `"typescript"` precisa relocalizar a construção no código-fonte original (por exemplo com `ctx.readFile()` e `indexOf`) antes de reportar um `line` -- ou omitir `line`.
 
 ### JavaScript: sem require() em módulos ES
 
@@ -332,6 +332,8 @@ export default {
   },
 } satisfies RuleSet;
 ```
+
+O reporte via `loc.start.line` aqui é válido apenas porque `"javascript"` parseia o código-fonte original sem transpilação -- uma regra `"typescript"` precisa localizar a linha no código-fonte original, já que seu `loc` refere-se à saída transpilada.
 
 ### Python: sem cláusulas except vazias
 
