@@ -19,6 +19,7 @@ import type { CheckResult } from "../../src/engine/runner";
 import * as runnerModule from "../../src/engine/runner";
 import * as exitModule from "../../src/helpers/exit";
 import * as pathsModule from "../../src/helpers/paths";
+import * as stackDetectModule from "../../src/helpers/stack-detect";
 import * as telemetryModule from "../../src/helpers/telemetry";
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,7 @@ describe("check action handler", () => {
   let reportConsoleSpy: ReturnType<typeof spyOn>;
   let reportJSONSpy: ReturnType<typeof spyOn>;
   let reportCISpy: ReturnType<typeof spyOn>;
+  let detectStackSpy: ReturnType<typeof spyOn>;
   let trackCheckResultSpy: ReturnType<typeof spyOn>;
   let originalIsTTY: boolean | undefined;
 
@@ -116,6 +118,11 @@ describe("check action handler", () => {
     reportCISpy = spyOn(reporterModule, "reportCI").mockImplementation(
       () => {}
     );
+    detectStackSpy = spyOn(stackDetectModule, "detectStack").mockResolvedValue({
+      languages: ["typescript"],
+      runtimes: ["bun"],
+      frameworks: [],
+    });
     trackCheckResultSpy = spyOn(
       telemetryModule,
       "trackCheckResult"
@@ -141,6 +148,7 @@ describe("check action handler", () => {
     reportConsoleSpy.mockRestore();
     reportJSONSpy.mockRestore();
     reportCISpy.mockRestore();
+    detectStackSpy.mockRestore();
     trackCheckResultSpy.mockRestore();
     Object.defineProperty(process.stdout, "isTTY", {
       value: originalIsTTY,
@@ -402,5 +410,36 @@ describe("check action handler", () => {
     const data = trackCheckResultSpy.mock.calls[0][0];
     expect(data.used_staged).toBe(true);
     expect(data.used_adr_filter).toBe(true);
+  });
+
+  test("telemetry includes detected project stack", async () => {
+    detectStackSpy.mockResolvedValue({
+      languages: ["typescript", "python"],
+      runtimes: ["bun", "node"],
+      frameworks: ["react", "nextjs"],
+    });
+
+    await expect(
+      makeProgram().parseAsync(["node", "test", "check"])
+    ).rejects.toThrow("process.exit");
+
+    const data = trackCheckResultSpy.mock.calls[0][0];
+    expect(data.languages).toEqual(["typescript", "python"]);
+    expect(data.runtimes).toEqual(["bun", "node"]);
+    expect(data.frameworks).toEqual(["react", "nextjs"]);
+  });
+
+  test("telemetry still fires when stack detection fails", async () => {
+    detectStackSpy.mockRejectedValue(new Error("fs error"));
+
+    await expect(
+      makeProgram().parseAsync(["node", "test", "check"])
+    ).rejects.toThrow("process.exit");
+
+    expect(trackCheckResultSpy).toHaveBeenCalledTimes(1);
+    const data = trackCheckResultSpy.mock.calls[0][0];
+    expect(data.languages).toBeUndefined();
+    expect(data.runtimes).toBeUndefined();
+    expect(data.frameworks).toBeUndefined();
   });
 });
