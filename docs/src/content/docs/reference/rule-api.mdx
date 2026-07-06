@@ -65,6 +65,7 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   readJSON(path: string): Promise<unknown>;
+  ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }
 ```
@@ -167,6 +168,36 @@ const pkg = (await ctx.readJSON("package.json")) as {
 };
 ```
 
+#### ast
+
+```typescript
+ast(
+  path: string,
+  language: "typescript" | "javascript" | "python" | "ruby"
+): Promise<AstNode>;
+```
+
+Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
+
+```typescript
+const program = await ctx.ast("src/cli.ts", "typescript");
+for (const node of program.body) {
+  console.log(node.type);
+}
+```
+
+`ast()` **throws** on failure -- it never returns `null`:
+
+- **Parse failure**: the file does not parse as the requested language. The error message includes the parser's diagnostic.
+- **Missing interpreter** (`python`/`ruby` only): no suitable interpreter was found on `PATH`.
+- **Implausible input**: the file's extension does not match the requested language (e.g. `ctx.ast("config.json", "python")` throws before any interpreter is invoked).
+
+A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The two throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error".
+
+:::caution
+Python and Ruby rules require the corresponding interpreter (`python3`/`python`, `ruby`) on `PATH` wherever `archgate check` runs -- on every developer machine **and** in CI. TypeScript and JavaScript parsing is built into Archgate and needs no interpreter.
+:::
+
 ---
 
 ## RuleReport
@@ -252,6 +283,26 @@ interface GrepMatch {
 | `line`    | `number` | Line number of the match (1-based)        |
 | `column`  | `number` | Column number of the match (1-based)      |
 | `content` | `string` | Full content of the matched line          |
+
+---
+
+## AstNode
+
+Returned by `ctx.ast()`. The shape is language-native and deliberately **not** unified across languages -- each language returns its own standard AST vocabulary, so a rule inspecting Python code works against a different grammar than one inspecting TypeScript.
+
+```typescript
+type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
+type AstNode = Record<string, unknown> | unknown[];
+```
+
+| Language     | Backing parser                                                                                                     | Returned shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript` | [meriyah](https://github.com/meriyah/meriyah), in-process, after transpiling TypeScript away with `Bun.Transpiler` | [ESTree](https://github.com/estree/estree) `Program` with `loc` position info. Type-only syntax (`interface`, type aliases, `export type { ... } from`) is erased before parsing -- a file containing only type-level statements parses to an empty `Program` body. `loc` positions refer to the **transpiled output**, not the original `.ts` file -- dropped type-only statements, comments, and blank lines make line numbers drift, so re-locate the construct in the original source (e.g. `ctx.readFile()` plus `indexOf`) before reporting a `line`, or omit `line` entirely; `loc` is source-accurate only for `javascript` |
+| `javascript` | [meriyah](https://github.com/meriyah/meriyah), in-process                                                          | [ESTree](https://github.com/estree/estree) `Program` with `loc` position info                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `python`     | Python's standard-library [`ast` module](https://docs.python.org/3/library/ast.html), via the system interpreter   | JSON-serialized `ast` nodes: `{ "_type": "Module", "body": [...] }` -- each node carries `_type`, the node's own fields, and `lineno` / `col_offset` positions                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ruby`       | Ruby's standard-library [`Ripper`](https://docs.ruby-lang.org/en/master/Ripper.html), via the system interpreter   | `Ripper.sexp` nested arrays: `["program", [["command", ...]]]` with `[line, column]` position pairs embedded in token entries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+See [Structural checks with ctx.ast()](/guides/writing-rules/#structural-checks-with-ctxast) for a complete example rule per language.
 
 ---
 

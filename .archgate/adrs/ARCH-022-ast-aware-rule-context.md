@@ -2,7 +2,11 @@
 id: ARCH-022
 title: AST-Aware Rule Context
 domain: architecture
-rules: false
+rules: true
+files:
+  - "src/engine/**"
+  - "src/formats/rules.ts"
+  - "src/helpers/rules-shim.ts"
 ---
 
 ## Context
@@ -33,13 +37,13 @@ ast(path: string, language: "typescript" | "javascript" | "python" | "ruby"): Pr
 This method dispatches internally based on `language`, and the dispatch mechanism MUST be invisible to rule authors — a `.rules.ts` file calls `ctx.ast(path, language)` and receives a parsed tree or an exception; it never sees which mechanism produced it.
 
 - **`"typescript"` / `"javascript"`** MUST reuse the in-process `meriyah` parser already used by `src/engine/rule-scanner.ts`. No subprocess is spawned for this branch. The inline `parseModule()` invocation currently duplicated in `scanRuleSource()` and `scanImportedRuleSource()` MUST be factored into a shared, exported parse helper that both `rule-scanner.ts` and the new `ctx.ast()` implementation call, rather than introducing a third inline copy.
-- **`"python"` / `"ruby"`** MUST invoke the language's own standard-library AST facility as a subprocess via `Bun.spawn`, per [ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md): Python's built-in `ast` module (`<probed-python> -c "..."`, serializing the tree to JSON), Ruby's built-in `Ripper` (`ruby -rripper -rjson -e "..."`, serializing its s-expression output to JSON). `<probed-python>` is whichever candidate name (`python3`/`python`) the interpreter availability probe below resolved for this platform — never hardcoded. No third-party parser, native binding, or WASM grammar is introduced for these languages under this decision.
+- **`"python"` / `"ruby"`** MUST invoke the language's own standard-library AST facility as a subprocess via `Bun.spawn`, per [ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md): Python's built-in `ast` module (`<probed-python> -c "..."`, serializing the tree to JSON), Ruby's built-in `Ripper` (`ruby -rripper -rjson -e "..."`, serializing its s-expression output to JSON). `<probed-python>` is whichever candidate name (`python3`/`python`, plus the `py` launcher on Windows) the interpreter availability probe below resolved for this platform — never hardcoded. No third-party parser, native binding, or WASM grammar is introduced for these languages under this decision.
 
 **Guardrail ordering — this is the core architectural constraint of this ADR.** A rule author MUST NEVER be able to reach `Bun.spawn`, `child_process`, or any other subprocess/filesystem primitive directly; `ctx.ast()` is the only door, exactly as `glob`/`grep`/`readFile` are today, and this is consistent with the sandbox `rule-scanner.ts` already enforces on `.rules.ts` source (which explicitly blocks `Bun.spawn` and `Bun.spawnSync` from rule code). All of the following MUST execute inside `createRuleContext()` in `src/engine/runner.ts`, in this order, before any subprocess is spawned:
 
 1. **Path safety** — the requested `path` MUST pass through the same `safePath()` sandboxing already applied to `readFile`/`glob` (no traversal outside `scopedFiles`, no symlink escapes).
 2. **Language plausibility check** — the file's extension and/or leading content MUST be sanity-checked against the requested `language` before any interpreter is invoked on it. A rule calling `ctx.ast("config.json", "python")` MUST fail this check rather than hand arbitrary file content to a Python interpreter.
-3. **Interpreter availability probe** — for `"python"`/`"ruby"`, an availability check (e.g. `Bun.spawn([candidate, "--version"])` wrapped in `try/catch`, following the exact pattern `isClaudeCliAvailable()` uses in ARCH-007) MUST run before the real invocation. `python3` is not a universal PATH alias on Windows (the common installer exposes `python`, not `python3`); the probe MUST try platform-appropriate candidate executable names in order (e.g. `python3` then `python` on non-Windows, `python` then `python3` on Windows, using [ARCH-009](./ARCH-009-platform-detection-helper.md)'s `isWindows()`) and use the first one that resolves for both the probe and the real invocation. This probe result MUST be cached once per `check` invocation, not re-run per file.
+3. **Interpreter availability probe** — for `"python"`/`"ruby"`, an availability check (e.g. `Bun.spawn([candidate, "--version"])` wrapped in `try/catch`, following the exact pattern `isClaudeCliAvailable()` uses in ARCH-007) MUST run before the real invocation. `python3` is not a universal PATH alias on Windows (the common installer exposes `python`, not `python3`); the probe MUST try platform-appropriate candidate executable names in order (e.g. `python3` then `python` on non-Windows; `python`, then `python3`, then the `py` launcher on Windows — the python.org installer registers `py` even when "Add python.exe to PATH" is unchecked — using [ARCH-009](./ARCH-009-platform-detection-helper.md)'s `isWindows()`) and use the first one that resolves for both the probe and the real invocation. This probe result MUST be cached once per `check` invocation, not re-run per file.
 4. **Guarded invocation** — the actual `Bun.spawn` call MUST use array-based arguments only, per ARCH-007, with no shell interpolation of file contents or paths.
 
 **Failure semantics.** `ctx.ast()` MUST throw — it MUST NOT return `null` or any other sentinel — both when the required interpreter is unavailable and when the target file fails to parse. This is a deliberate choice, not an oversight: this ADR does not introduce any new error-boundary or exit-code behavior, and none is needed, because `ctx.ast()`'s failure mode composes directly with contracts `src/engine/runner.ts` and `src/engine/reporter.ts` already implement. Every rule's `check(ctx)` call already runs inside a per-rule `try/catch` (`runner.ts`, the loop over `Object.entries(ruleSet.rules)`) that isolates a thrown error to that single rule — other ADRs and rules in the same `check` run continue and report normally. `reporter.ts`'s `getExitCode()` already reserves exit code `2` specifically for rule execution errors, distinct from exit `1` (ADR violations found) and exit `0` (pass). A thrown `ctx.ast()` error therefore surfaces as a visible, correctly-categorized failure through machinery that already exists; a `null` return would instead let a rule silently no-op and report as a false "0 violations," masking a real capability gap as a pass. The exit-code/reporter distinction is coarse by design (exit `2` means "a rule could not complete," full stop) — the two throw cases MUST still be distinguishable from each other in the thrown error's message text (e.g. "Python interpreter not found on PATH" vs. "Failed to parse `<path>`: `<parser error>`"), since a user reading `check` output needs to tell "this environment can't run this rule" apart from "this specific file has a syntax error" even though both land on the same exit code.
@@ -56,6 +60,8 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 - **DO** reuse the existing `meriyah`-based parser for `"typescript"`/`"javascript"`, factoring the duplicated `parseModule()` call in `rule-scanner.ts` into one shared helper used by both the scanner and `ctx.ast()`
 - **DO** run the path-safety, language-plausibility, interpreter-availability, and guarded-invocation checks in exactly that order, before any subprocess is spawned, for the `"python"`/`"ruby"` branches
 - **DO** use `Bun.spawn` with array-based arguments for the Python/Ruby subprocess invocations, per [ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)
+- **DO** run the Python AST subprocess in isolated mode (`python -I -c ...`). Without `-I`, `python -c` places the target project's working directory on `sys.path`, so a hostile project could plant an `ast.py` or `json.py` that executes arbitrary code the moment the serializer imports the standard library. Ruby's load path has not included the cwd since 1.9.2, so no equivalent flag is required for it.
+- **DO** strip a leading UTF-8 BOM before parsing in the Python and Ruby serializers (`open(..., encoding="utf-8-sig")` / `File.read(..., mode: "r:bom|utf-8")`). Python's plain `utf-8` codec preserves the BOM as U+FEFF, which `ast.parse` then rejects as a syntax error.
 - **DO** cache the interpreter-availability probe once per `check` invocation
 - **DO** throw from `ctx.ast()` on missing interpreter or parse failure, and let it propagate to the existing per-rule `try/catch` in `runner.ts`
 - **DO** document, in the type signature or accompanying JSDoc, that the returned node shape differs per language
@@ -68,6 +74,8 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 - **DON'T** add `tree-sitter`, `web-tree-sitter`, or any other new production dependency under this decision — Python/Ruby support MUST use only the interpreter's own standard-library AST facility
 - **DON'T** attempt to normalize Python/Ruby output into an ESTree-like shape as part of this ADR — that is explicitly out of scope
 - **DON'T** re-probe interpreter availability on every file — cache it per `check` run
+- **DON'T** trust `node.loc` line/column numbers for `language: "typescript"`. The TS branch parses `Bun.Transpiler` output, which drops type-only statements, comments, and blank lines, so `loc` refers to the transpiled text, not the original `.ts` file. Re-locate the construct in the original source (e.g. `ctx.readFile()` + `indexOf`) before reporting a line — `loc` is source-accurate only for `"javascript"`, which is parsed directly. The project's own [ARCH-008](./ARCH-008-typed-command-options.md) rules follow this pattern.
+- **DON'T** drop the `-I` flag from the Python invocation when refactoring the guarded-invocation step — the `python-subprocess-isolated` companion rule blocks this, and the integration test in `tests/engine/runner-ast.test.ts` asserts a planted shadow `ast.py` cannot run.
 
 ## Consequences
 
@@ -99,7 +107,12 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 
 ### Automated Enforcement
 
-- None at this time. `rules: false` — this ADR documents an engine/API design decision made ahead of implementation. Once `ctx.ast()` ships, a follow-up amendment to this ADR (or a new companion ADR) MUST introduce `rules: true` with an automated check that flags any direct `Bun.spawn`/`child_process` usage inside `src/engine/runner.ts`'s `createRuleContext()` implementation that bypasses the mandated guardrail ordering, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns today.
+`ctx.ast()` has shipped, and this ADR now carries `rules: true` with four companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
+
+- **`ast-guardrail-ordering`** — parses `src/engine/runner.ts` via `ctx.ast()` itself (dogfooding the capability this ADR introduces) and verifies the `ast()` method inside `createRuleContext()` invokes the four guardrail markers — `safePath`, `AST_LANGUAGE_EXTENSIONS`, `probeInterpreter`, `runAstSubprocess` — each present and in exactly that order.
+- **`no-unsanctioned-engine-subprocess`** — flags any `Bun.spawn`/`Bun.spawnSync` call in `src/engine/` outside the sanctioned helpers (`ast-support.ts` for `ctx.ast()`, `git-files.ts` for git), and bans `child_process` imports in the engine entirely, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns.
+- **`single-ast-method`** — verifies `RuleContext` (in `src/formats/rules.ts` and the generated shim in `src/helpers/rules-shim.ts`) declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.).
+- **`python-subprocess-isolated`** — asserts the Python branch of the guarded invocation in `src/engine/runner.ts` includes the `-I` isolation flag, so a future refactor cannot silently reintroduce the cwd stdlib-shadowing code-execution vector.
 
 ### Manual Enforcement
 

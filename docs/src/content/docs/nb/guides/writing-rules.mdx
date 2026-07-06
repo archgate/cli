@@ -174,6 +174,16 @@ Finn filer etter glob-mønster. Returnerer en matrise med filstier relative til 
 const testFiles = await ctx.glob("tests/**/*.test.ts");
 ```
 
+### ctx.ast(path, language)
+
+Parse en kildefil til dens språknative AST. Støttede språk: `"typescript"`, `"javascript"`, `"python"` og `"ruby"`. TypeScript og JavaScript parses i prosessen til en ESTree `Program`; Python og Ruby starter systemtolkens parser fra standardbiblioteket som en underprosess. Kaster ved parsefeil eller manglende tolk -- den returnerer aldri `null`.
+
+```typescript
+const program = await ctx.ast("src/cli.ts", "typescript");
+```
+
+Se [Strukturelle sjekker med ctx.ast()](#strukturelle-sjekker-med-ctxast) nedenfor for komplette eksempler, og [Regel-API-referansen](/reference/rule-api/#ast) for den returnerte formen per språk.
+
 ### ctx.report
 
 Rapporteringsgrensesnittet med tre alvorlighetsgradsmetoder:
@@ -203,6 +213,223 @@ ctx.report.violation({
 ### ctx.projectRoot
 
 Den absolutte stien til prosjektets rotkatalog. Nyttig når du trenger å konstruere absolutte stier.
+
+## Strukturelle sjekker med ctx.ast()
+
+Regulære uttrykk fungerer for overflatemønstre, men kommer til kort for strukturelle spørsmål som "inneholder denne filen bare re-eksporter?" eller "er dette en naken `except:`-klausul?" -- flerlinjesetninger, kommentarer og strenginnhold slår alle beina under linjebasert matching. `ctx.ast()` parser en fil til et ekte syntakstre slik at regelen din kan sjekke strukturen direkte.
+
+Det returnerte treet er språknativt, ikke enhetlig på tvers av språk:
+
+- **TypeScript / JavaScript** -- en [ESTree](https://github.com/estree/estree) `Program` parset i prosessen av [meriyah](https://github.com/meriyah/meriyah). TypeScript transpileres først, så typenivå-syntaks (`interface`, typealiaser, `export type { ... } from`) fjernes fra treet; en fil som bare inneholder setninger på typenivå parses til en tom `Program`-body.
+- **Python** -- treet fra standardbibliotekets [`ast`-modul](https://docs.python.org/3/library/ast.html) serialisert til JSON. Hver node er et objekt med et `_type`-felt pluss nodens egne felt og posisjonene `lineno` / `col_offset`.
+- **Ruby** -- `Ripper.sexp`-utdata fra standardbibliotekets [`Ripper`](https://docs.ruby-lang.org/en/master/Ripper.html): nestede matriser som `["program", [["command", ...]]]` med `[line, column]`-posisjonspar.
+
+`ctx.ast()` kaster ved parsefeil eller manglende tolk -- den returnerer aldri `null`. Kastet er isolert til regelen som feiler og vises som en regelkjøringsfeil (exit-kode 2), slik at et ødelagt miljø dukker opp som en synlig feil i stedet for en falsk godkjenning.
+
+:::caution
+Python- og Ruby-parsing starter systemtolken. Den tilhørende tolken (`python3`/`python`, `ruby`) må finnes på `PATH` overalt der `archgate check` kjører -- på hver utviklermaskin **og** i CI. TypeScript- og JavaScript-parsing er innebygd i Archgate og trenger ingen tolk.
+:::
+
+### TypeScript: ingen barrel-filer
+
+En barrel-fil er en `index.ts` der hver setning på toppnivå er en re-eksport. Med ESTree-`Program`-et blir det spørsmålet en direkte sjekk av setningstyper i stedet for en linjematchende heuristikk:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-barrel-files": {
+      description: "index.ts files must not be pure re-export barrels",
+      async check(ctx) {
+        const indexFiles = ctx.scopedFiles.filter((f) =>
+          f.endsWith("/index.ts")
+        );
+
+        const checks = indexFiles.map(async (file) => {
+          const program = await ctx.ast(file, "typescript");
+
+          const isBarrel =
+            program.body.length > 0 &&
+            program.body.every(
+              (node) =>
+                node.type === "ExportAllDeclaration" ||
+                (node.type === "ExportNamedDeclaration" && node.source !== null)
+            );
+
+          if (isBarrel) {
+            ctx.report.violation({
+              message: `Barrel file detected: ${file} contains only re-exports`,
+              file,
+              fix: "Delete the barrel and import directly from the source modules",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Fordi TypeScript transpileres før parsing, fjernes `export type { ... } from`-re-eksporter -- en barrel som bare inneholder type-re-eksporter parses til en tom `body`, som `body.length > 0`-vakten hopper over. Hvis du også trenger å flagge rene type-barrels, kombiner AST-sjekken med en tekstsjekk. Den samme transpileringen forskyver også posisjoner: `loc`-linjenumre refererer til den transpilerte teksten, ikke den opprinnelige `.ts`-filen, så en `"typescript"`-regel må finne konstruksjonen på nytt i den opprinnelige kildekoden (for eksempel med `ctx.readFile()` og `indexOf`) før den rapporterer en `line` -- eller utelate `line`.
+
+### JavaScript: ingen require() i ES-moduler
+
+Gå gjennom ESTree-treet etter `CallExpression`-noder der callee er identifikatoren `require`. En rekursiv gjennomgang av objektverdier og matriser dekker alle nodetyper uten å måtte liste dem opp:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function findRequireCalls(node: unknown, lines: number[]): void {
+  if (Array.isArray(node)) {
+    for (const item of node) findRequireCalls(item, lines);
+    return;
+  }
+  if (node === null || typeof node !== "object") return;
+  const n = node as EsTreeNode;
+  const callee = n.callee as EsTreeNode | undefined;
+  if (
+    n.type === "CallExpression" &&
+    callee?.type === "Identifier" &&
+    callee.name === "require"
+  ) {
+    if (n.loc) lines.push(n.loc.start.line);
+  }
+  for (const value of Object.values(n)) findRequireCalls(value, lines);
+}
+
+export default {
+  rules: {
+    "no-require-in-esm": {
+      description: ".mjs files must not call CommonJS require()",
+      async check(ctx) {
+        const files = await ctx.glob("src/**/*.mjs");
+
+        const checks = files.map(async (file) => {
+          const program = await ctx.ast(file, "javascript");
+          const lines: number[] = [];
+          findRequireCalls(program, lines);
+          for (const line of lines) {
+            ctx.report.violation({
+              message: "CommonJS require() call in an ES module",
+              file,
+              line,
+              fix: "Use a static import or await import() instead",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+`loc.start.line`-rapporteringen her er gyldig bare fordi `"javascript"` parser den opprinnelige kildekoden utranspilert -- en `"typescript"`-regel må i stedet finne linjen i den opprinnelige kildekoden, siden dens `loc` refererer til det transpilerte resultatet.
+
+### Python: ingen nakne except-klausuler
+
+I Pythons `ast`-modul er en `except:`-klausul en `ExceptHandler`-node der `type`-feltet holder uttrykket for unntaket som fanges -- en naken `except:` har `"type": null`. Gå gjennom JSON-treet etter den formen:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function findBareExcepts(node: unknown, lines: number[]): void {
+  if (Array.isArray(node)) {
+    for (const item of node) findBareExcepts(item, lines);
+    return;
+  }
+  if (node === null || typeof node !== "object") return;
+  const n = node as PythonAstNode;
+  if (n._type === "ExceptHandler" && n.type === null) {
+    if (n.lineno !== undefined) lines.push(n.lineno);
+  }
+  for (const value of Object.values(n)) findBareExcepts(value, lines);
+}
+
+export default {
+  rules: {
+    "no-bare-except": {
+      description: "Python code must not use bare except: clauses",
+      async check(ctx) {
+        const files = await ctx.glob("**/*.py");
+
+        const checks = files.map(async (file) => {
+          const tree = await ctx.ast(file, "python");
+          const lines: number[] = [];
+          findBareExcepts(tree, lines);
+          for (const line of lines) {
+            ctx.report.violation({
+              message:
+                "Bare except: catches every exception, including SystemExit",
+              file,
+              line,
+              fix: "Catch a specific exception class, e.g. except ValueError:",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+### Ruby: ingen puts-kall
+
+`Ripper.sexp` representerer `puts "hello"` som `["command", ["@ident", "puts", [1, 0]], [...args]]` -- `[line, column]`-paret ligger inne i `@ident`-tokenet. Gå gjennom de nestede matrisene etter den formen:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function findPutsCalls(node: unknown, lines: number[]): void {
+  if (!Array.isArray(node)) return;
+  const [kind, first] = node;
+  if (
+    kind === "command" &&
+    Array.isArray(first) &&
+    first[0] === "@ident" &&
+    first[1] === "puts"
+  ) {
+    const [line] = first[2] as [number, number];
+    lines.push(line);
+  }
+  for (const child of node) findPutsCalls(child, lines);
+}
+
+export default {
+  rules: {
+    "no-puts": {
+      description: "Ruby code must use the application logger, not puts",
+      async check(ctx) {
+        const files = await ctx.glob("app/**/*.rb");
+
+        const checks = files.map(async (file) => {
+          const sexp = await ctx.ast(file, "ruby");
+          const lines: number[] = [];
+          findPutsCalls(sexp, lines);
+          for (const line of lines) {
+            ctx.report.violation({
+              message: "puts writes to stdout directly",
+              file,
+              line,
+              fix: "Replace puts with logger.info",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Ripper bruker en annen nodeform for varianten med parenteser -- `puts("hello")` vises under et `method_add_arg` / `fcall`-par i stedet for `command` -- så en produksjonsregel ville matchet `fcall`-tokenet på samme måte.
 
 ## Alvorlighetsgrader
 

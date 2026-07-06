@@ -2870,6 +2870,16 @@ Find files by glob pattern. Returns an array of file paths relative to the proje
 const testFiles = await ctx.glob("tests/**/*.test.ts");
 ```
 
+### ctx.ast(path, language)
+
+Parse a source file into its language-native AST. Supported languages: `"typescript"`, `"javascript"`, `"python"`, and `"ruby"`. TypeScript and JavaScript parse in-process into an ESTree `Program`; Python and Ruby shell out to the system interpreter's standard-library parser. Throws on parse failure or missing interpreter -- it never returns `null`.
+
+```typescript
+const program = await ctx.ast("src/cli.ts", "typescript");
+```
+
+See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language.
+
 ### ctx.report
 
 The reporting interface with three severity methods:
@@ -2899,6 +2909,222 @@ ctx.report.violation({
 ### ctx.projectRoot
 
 The absolute path to the project root directory. Useful when you need to construct absolute paths.
+
+## Structural checks with ctx.ast()
+
+Regex works for surface patterns, but breaks down for structural questions like "does this file contain only re-exports?" or "is this a bare `except:` clause?" -- multi-line statements, comments, and string contents all defeat line-based matching. `ctx.ast()` parses a file into a real syntax tree so your rule can check structure directly.
+
+The returned tree is language-native, not unified across languages:
+
+- **TypeScript / JavaScript** -- an [ESTree](https://github.com/estree/estree) `Program` parsed in-process by [meriyah](https://github.com/meriyah/meriyah). TypeScript is transpiled first, so type-only syntax (`interface`, type aliases, `export type { ... } from`) is erased from the tree; a file containing only type-level statements parses to an empty `Program` body.
+- **Python** -- the standard-library [`ast` module](https://docs.python.org/3/library/ast.html)'s tree serialized to JSON. Each node is an object with a `_type` field plus the node's own fields and `lineno` / `col_offset` positions.
+- **Ruby** -- the standard-library [`Ripper`](https://docs.ruby-lang.org/en/master/Ripper.html)'s `Ripper.sexp` output: nested arrays like `["program", [["command", ...]]]` with `[line, column]` position pairs.
+
+`ctx.ast()` throws on parse failure or a missing interpreter -- it never returns `null`. The throw is isolated to the failing rule and surfaces as a rule execution error (exit code 2), so a broken environment shows up as a visible failure rather than a false pass.
+
+:::caution
+Python and Ruby parsing invokes the system interpreter. The corresponding interpreter (`python3`/`python`, `ruby`) must be on `PATH` wherever `archgate check` runs -- on every developer machine **and** in CI. TypeScript and JavaScript parsing is built into Archgate and needs no interpreter.
+
+### TypeScript: no barrel files
+
+A barrel file is an `index.ts` whose every top-level statement is a re-export. With the ESTree `Program`, that question becomes a direct check on statement types instead of a line-matching heuristic:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "no-barrel-files": {
+      description: "index.ts files must not be pure re-export barrels",
+      async check(ctx) {
+        const indexFiles = ctx.scopedFiles.filter((f) =>
+          f.endsWith("/index.ts")
+        );
+
+        const checks = indexFiles.map(async (file) => {
+          const program = await ctx.ast(file, "typescript");
+
+          const isBarrel =
+            program.body.length > 0 &&
+            program.body.every(
+              (node) =>
+                node.type === "ExportAllDeclaration" ||
+                (node.type === "ExportNamedDeclaration" && node.source !== null)
+            );
+
+          if (isBarrel) {
+            ctx.report.violation({
+              message: `Barrel file detected: ${file} contains only re-exports`,
+              file,
+              fix: "Delete the barrel and import directly from the source modules",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Because TypeScript is transpiled before parsing, `export type { ... } from` re-exports are erased -- a barrel containing only type re-exports parses to an empty `body`, which the `body.length > 0` guard skips. If you also need to flag type-only barrels, combine the AST check with a text check. The same transpilation also shifts positions: `loc` line numbers refer to the transpiled text, not your original `.ts` file, so a `"typescript"` rule must re-locate the construct in the original source (for example with `ctx.readFile()` and `indexOf`) before reporting a `line` -- or omit `line`.
+
+### JavaScript: no require() in ES modules
+
+Walk the ESTree tree for `CallExpression` nodes whose callee is the identifier `require`. A recursive walk over object values and arrays covers every node type without enumerating them:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function findRequireCalls(node: unknown, lines: number[]): void {
+  if (Array.isArray(node)) {
+    for (const item of node) findRequireCalls(item, lines);
+    return;
+  }
+  if (node === null || typeof node !== "object") return;
+  const n = node as EsTreeNode;
+  const callee = n.callee as EsTreeNode | undefined;
+  if (
+    n.type === "CallExpression" &&
+    callee?.type === "Identifier" &&
+    callee.name === "require"
+  ) {
+    if (n.loc) lines.push(n.loc.start.line);
+  }
+  for (const value of Object.values(n)) findRequireCalls(value, lines);
+}
+
+export default {
+  rules: {
+    "no-require-in-esm": {
+      description: ".mjs files must not call CommonJS require()",
+      async check(ctx) {
+        const files = await ctx.glob("src/**/*.mjs");
+
+        const checks = files.map(async (file) => {
+          const program = await ctx.ast(file, "javascript");
+          const lines: number[] = [];
+          findRequireCalls(program, lines);
+          for (const line of lines) {
+            ctx.report.violation({
+              message: "CommonJS require() call in an ES module",
+              file,
+              line,
+              fix: "Use a static import or await import() instead",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+The `loc.start.line` reporting here is valid only because `"javascript"` parses the original source untranspiled -- a `"typescript"` rule must locate the line in the original source instead, since its `loc` refers to the transpiled output.
+
+### Python: no bare except clauses
+
+In the Python `ast` module, an `except:` clause is an `ExceptHandler` node whose `type` field holds the caught exception expression -- a bare `except:` has `"type": null`. Walk the JSON tree for that shape:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function findBareExcepts(node: unknown, lines: number[]): void {
+  if (Array.isArray(node)) {
+    for (const item of node) findBareExcepts(item, lines);
+    return;
+  }
+  if (node === null || typeof node !== "object") return;
+  const n = node as PythonAstNode;
+  if (n._type === "ExceptHandler" && n.type === null) {
+    if (n.lineno !== undefined) lines.push(n.lineno);
+  }
+  for (const value of Object.values(n)) findBareExcepts(value, lines);
+}
+
+export default {
+  rules: {
+    "no-bare-except": {
+      description: "Python code must not use bare except: clauses",
+      async check(ctx) {
+        const files = await ctx.glob("**/*.py");
+
+        const checks = files.map(async (file) => {
+          const tree = await ctx.ast(file, "python");
+          const lines: number[] = [];
+          findBareExcepts(tree, lines);
+          for (const line of lines) {
+            ctx.report.violation({
+              message:
+                "Bare except: catches every exception, including SystemExit",
+              file,
+              line,
+              fix: "Catch a specific exception class, e.g. except ValueError:",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+### Ruby: no puts calls
+
+`Ripper.sexp` represents `puts "hello"` as `["command", ["@ident", "puts", [1, 0]], [...args]]` -- the `[line, column]` pair sits inside the `@ident` token. Walk the nested arrays for that shape:
+
+```typescript
+/// <reference path="../rules.d.ts" />
+
+function findPutsCalls(node: unknown, lines: number[]): void {
+  if (!Array.isArray(node)) return;
+  const [kind, first] = node;
+  if (
+    kind === "command" &&
+    Array.isArray(first) &&
+    first[0] === "@ident" &&
+    first[1] === "puts"
+  ) {
+    const [line] = first[2] as [number, number];
+    lines.push(line);
+  }
+  for (const child of node) findPutsCalls(child, lines);
+}
+
+export default {
+  rules: {
+    "no-puts": {
+      description: "Ruby code must use the application logger, not puts",
+      async check(ctx) {
+        const files = await ctx.glob("app/**/*.rb");
+
+        const checks = files.map(async (file) => {
+          const sexp = await ctx.ast(file, "ruby");
+          const lines: number[] = [];
+          findPutsCalls(sexp, lines);
+          for (const line of lines) {
+            ctx.report.violation({
+              message: "puts writes to stdout directly",
+              file,
+              line,
+              fix: "Replace puts with logger.info",
+            });
+          }
+        });
+
+        await Promise.all(checks);
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+Ripper uses a different node shape for the parenthesized form -- `puts("hello")` appears under a `method_add_arg` / `fcall` pair rather than `command` -- so a production rule would match the `fcall` token the same way.
 
 ## Severity levels
 
@@ -4887,6 +5113,7 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise;
   readFile(path: string): Promise<string>;
   readJSON(path: string): Promise<unknown>;
+  ast(path: string, language: AstLanguage): Promise;
   report: RuleReport;
 }
 ```
@@ -4989,6 +5216,35 @@ const pkg = (await ctx.readJSON("package.json")) as {
 };
 ```
 
+#### ast
+
+```typescript
+ast(
+  path: string,
+  language: "typescript" | "javascript" | "python" | "ruby"
+): Promise;
+```
+
+Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
+
+```typescript
+const program = await ctx.ast("src/cli.ts", "typescript");
+for (const node of program.body) {
+  console.log(node.type);
+}
+```
+
+`ast()` **throws** on failure -- it never returns `null`:
+
+- **Parse failure**: the file does not parse as the requested language. The error message includes the parser's diagnostic.
+- **Missing interpreter** (`python`/`ruby` only): no suitable interpreter was found on `PATH`.
+- **Implausible input**: the file's extension does not match the requested language (e.g. `ctx.ast("config.json", "python")` throws before any interpreter is invoked).
+
+A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The two throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error".
+
+:::caution
+Python and Ruby rules require the corresponding interpreter (`python3`/`python`, `ruby`) on `PATH` wherever `archgate check` runs -- on every developer machine **and** in CI. TypeScript and JavaScript parsing is built into Archgate and needs no interpreter.
+
 ---
 
 ## RuleReport
@@ -5074,6 +5330,26 @@ interface GrepMatch {
 | `line`    | `number` | Line number of the match (1-based)        |
 | `column`  | `number` | Column number of the match (1-based)      |
 | `content` | `string` | Full content of the matched line          |
+
+---
+
+## AstNode
+
+Returned by `ctx.ast()`. The shape is language-native and deliberately **not** unified across languages -- each language returns its own standard AST vocabulary, so a rule inspecting Python code works against a different grammar than one inspecting TypeScript.
+
+```typescript
+type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
+type AstNode = Record<string, unknown> | unknown[];
+```
+
+| Language     | Backing parser                                                                                                     | Returned shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript` | [meriyah](https://github.com/meriyah/meriyah), in-process, after transpiling TypeScript away with `Bun.Transpiler` | [ESTree](https://github.com/estree/estree) `Program` with `loc` position info. Type-only syntax (`interface`, type aliases, `export type { ... } from`) is erased before parsing -- a file containing only type-level statements parses to an empty `Program` body. `loc` positions refer to the **transpiled output**, not the original `.ts` file -- dropped type-only statements, comments, and blank lines make line numbers drift, so re-locate the construct in the original source (e.g. `ctx.readFile()` plus `indexOf`) before reporting a `line`, or omit `line` entirely; `loc` is source-accurate only for `javascript` |
+| `javascript` | [meriyah](https://github.com/meriyah/meriyah), in-process                                                          | [ESTree](https://github.com/estree/estree) `Program` with `loc` position info                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `python`     | Python's standard-library [`ast` module](https://docs.python.org/3/library/ast.html), via the system interpreter   | JSON-serialized `ast` nodes: `{ "_type": "Module", "body": [...] }` -- each node carries `_type`, the node's own fields, and `lineno` / `col_offset` positions                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ruby`       | Ruby's standard-library [`Ripper`](https://docs.ruby-lang.org/en/master/Ripper.html), via the system interpreter   | `Ripper.sexp` nested arrays: `["program", [["command", ...]]]` with `[line, column]` position pairs embedded in token entries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+
+See [Structural checks with ctx.ast()](/guides/writing-rules/#structural-checks-with-ctxast) for a complete example rule per language.
 
 ---
 

@@ -69,6 +69,72 @@ declare interface PackageJson {
   [key: string]: unknown;
 }
 
+/** Languages supported by \`RuleContext.ast()\`. */
+declare type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
+
+/**
+ * A node in the ESTree tree returned for "typescript"/"javascript". \`type\`
+ * is the ESTree node discriminant (e.g. "ImportDeclaration",
+ * "CallExpression"). Only the fields common to every node are typed; the rest
+ * of each node's grammar is reachable through the index signature. Note: for
+ * "typescript", \`loc\` refers to the transpiled output (see \`ast()\`), not
+ * the original .ts source.
+ */
+declare interface EsTreeNode {
+  type: string;
+  loc?: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  } | null;
+  range?: [number, number];
+  [key: string]: unknown;
+}
+
+/** Root ESTree node returned for "typescript"/"javascript". */
+declare interface EsTreeProgram extends EsTreeNode {
+  type: "Program";
+  sourceType: "module" | "script";
+  body: EsTreeNode[];
+}
+
+/**
+ * A node in the Python \`ast\` tree returned for "python", serialized to JSON.
+ * \`_type\` is the node class name (e.g. "FunctionDef", "Call",
+ * "ExceptHandler"). Position attributes are present on most nodes. Field
+ * values are other \`PythonAstNode\`s, arrays, or primitives, reachable
+ * through the index signature — walk it against the standard \`ast\` grammar.
+ */
+declare interface PythonAstNode {
+  _type: string;
+  lineno?: number;
+  col_offset?: number;
+  end_lineno?: number;
+  end_col_offset?: number;
+  [key: string]: unknown;
+}
+
+/** Root Python node returned for "python" (\`_type: "Module"\`). */
+declare interface PythonAstModule extends PythonAstNode {
+  _type: "Module";
+  body: PythonAstNode[];
+}
+
+/**
+ * The Ruby AST returned for "ruby" — \`Ripper.sexp\` output as nested arrays.
+ * Each node is \`[nodeType, ...children]\` where \`nodeType\` is a string tag
+ * (e.g. "program", "command", "@ident") and children are further
+ * \`RubyAstNode\`s, \`[line, column]\` pairs, strings, or null. Ripper's shape
+ * is not normalized — walk it against Ripper's own grammar.
+ */
+declare type RubyAstNode = unknown[];
+
+/**
+ * Return type of the language-agnostic \`ast()\` overload (when \`language\`
+ * is a non-literal \`AstLanguage\`). Prefer calling \`ast()\` with a string
+ * literal so the per-language overload narrows this union for you.
+ */
+declare type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
+
 declare interface RuleContext {
   projectRoot: string;
   scopedFiles: string[];
@@ -79,6 +145,28 @@ declare interface RuleContext {
   readFile(path: string): Promise<string>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
+  /**
+   * Parse a source file into its language-native AST.
+   *
+   * The return type is selected by the \`language\` literal: an
+   * \`EsTreeProgram\` for "typescript"/"javascript", a \`PythonAstModule\` for
+   * "python", and a \`RubyAstNode\` for "ruby". The shapes are language-native
+   * and are NOT unified — walk each against its own grammar.
+   *
+   * TypeScript/JavaScript parse in-process. Python and Ruby require the
+   * corresponding interpreter (\`python3\`/\`python\`, \`ruby\`) on PATH
+   * wherever \`archgate check\` runs — locally and in CI.
+   *
+   * Throws (never returns null) when the file fails to parse or the required
+   * interpreter is missing; the error message distinguishes the two cases.
+   */
+  ast(
+    path: string,
+    language: "typescript" | "javascript"
+  ): Promise<EsTreeProgram>;
+  ast(path: string, language: "python"): Promise<PythonAstModule>;
+  ast(path: string, language: "ruby"): Promise<RubyAstNode>;
+  ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }
 

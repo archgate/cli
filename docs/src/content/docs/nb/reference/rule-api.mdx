@@ -65,6 +65,7 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   readJSON(path: string): Promise<unknown>;
+  ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }
 ```
@@ -167,6 +168,36 @@ const pkg = (await ctx.readJSON("package.json")) as {
 };
 ```
 
+#### ast
+
+```typescript
+ast(
+  path: string,
+  language: "typescript" | "javascript" | "python" | "ruby"
+): Promise<AstNode>;
+```
+
+Parse en kildefil til dens språknative AST. Stien er relativ til prosjektroten og går gjennom samme sandkasse som `readFile`. TypeScript og JavaScript parses i prosessen; Python og Ruby parses ved å starte systemtolkens egen AST-fasilitet fra standardbiblioteket som en underprosess. Formen på det returnerte treet varierer per språk -- se [AstNode](#astnode).
+
+```typescript
+const program = await ctx.ast("src/cli.ts", "typescript");
+for (const node of program.body) {
+  console.log(node.type);
+}
+```
+
+`ast()` **kaster** ved feil -- den returnerer aldri `null`:
+
+- **Parsefeil**: filen kan ikke parses som det forespurte språket. Feilmeldingen inkluderer parserens diagnostikk.
+- **Manglende tolk** (kun `python`/`ruby`): ingen egnet tolk ble funnet på `PATH`.
+- **Usannsynlig input**: filens filendelse samsvarer ikke med det forespurte språket (f.eks. kaster `ctx.ast("config.json", "python")` før noen tolk startes).
+
+En kastet feil er isolert til regelen som feiler: andre regler og ADR-er i samme sjekk-kjøring fortsetter som normalt, og feilen vises som en regelkjøringsfeil med avslutningskode 2 (til forskjell fra avslutningskode 1 for brudd). De to kastetilfellene kan skilles fra hverandre på meldingsteksten, slik at sjekkutdataene skiller "dette miljøet kan ikke kjøre denne regelen" fra "denne filen har en syntaksfeil".
+
+:::caution
+Python- og Ruby-regler krever at den tilhørende tolken (`python3`/`python`, `ruby`) finnes på `PATH` overalt der `archgate check` kjører -- på hver utviklermaskin **og** i CI. TypeScript- og JavaScript-parsing er innebygd i Archgate og trenger ingen tolk.
+:::
+
 ---
 
 ## RuleReport
@@ -252,6 +283,26 @@ interface GrepMatch {
 | `line`    | `number` | Linjenummer for treffet (1-basert)         |
 | `column`  | `number` | Kolonnenummer for treffet (1-basert)       |
 | `content` | `string` | Fullt innhold av den matchede linjen       |
+
+---
+
+## AstNode
+
+Returnert av `ctx.ast()`. Formen er språknativ og bevisst **ikke** enhetlig på tvers av språk -- hvert språk returnerer sitt eget standard AST-vokabular, så en regel som inspiserer Python-kode jobber mot en annen grammatikk enn en som inspiserer TypeScript.
+
+```typescript
+type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
+type AstNode = Record<string, unknown> | unknown[];
+```
+
+| Språk        | Underliggende parser                                                                                                     | Returnert form                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `typescript` | [meriyah](https://github.com/meriyah/meriyah), i prosessen, etter at TypeScript er transpilert bort med `Bun.Transpiler` | [ESTree](https://github.com/estree/estree) `Program` med `loc`-posisjonsinfo. Typenivå-syntaks (`interface`, typealiaser, `export type { ... } from`) fjernes før parsing -- en fil som bare inneholder setninger på typenivå parses til en tom `Program`-body. `loc`-posisjoner refererer til det **transpilerte resultatet**, ikke den opprinnelige `.ts`-filen -- fjernede typenivå-setninger, kommentarer og tomme linjer gjør at linjenumrene forskyves, så finn konstruksjonen på nytt i den opprinnelige kildekoden (f.eks. `ctx.readFile()` pluss `indexOf`) før du rapporterer en `line`, eller utelat `line` helt; `loc` er nøyaktig mot kildekoden bare for `javascript` |
+| `javascript` | [meriyah](https://github.com/meriyah/meriyah), i prosessen                                                               | [ESTree](https://github.com/estree/estree) `Program` med `loc`-posisjonsinfo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `python`     | Pythons [`ast`-modul](https://docs.python.org/3/library/ast.html) fra standardbiblioteket, via systemtolken              | JSON-serialiserte `ast`-noder: `{ "_type": "Module", "body": [...] }` -- hver node har `_type`, nodens egne felt og posisjonene `lineno` / `col_offset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ruby`       | Rubys [`Ripper`](https://docs.ruby-lang.org/en/master/Ripper.html) fra standardbiblioteket, via systemtolken             | Nestede `Ripper.sexp`-matriser: `["program", [["command", ...]]]` med `[line, column]`-posisjonspar innebygd i token-oppføringene                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+
+Se [Strukturelle sjekker med ctx.ast()](/guides/writing-rules/#strukturelle-sjekker-med-ctxast) for et komplett eksempel på en regel per språk.
 
 ---
 

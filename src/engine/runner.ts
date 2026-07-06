@@ -4,6 +4,9 @@ import { lstatSync } from "node:fs";
 import { relative, resolve, isAbsolute } from "node:path";
 
 import type {
+  AstLanguage,
+  AstNode,
+  EsTreeProgram,
   GrepMatch,
   RuleContext,
   RuleReport,
@@ -12,11 +15,23 @@ import type {
 import { logDebug } from "../helpers/log";
 import { UserError } from "../helpers/user-error";
 import {
+  AST_LANGUAGE_EXTENSIONS,
+  PYTHON_AST_PROGRAM,
+  RUBY_AST_PROGRAM,
+  RUBY_BASENAMES,
+  interpreterCandidates,
+  parseAstJson,
+  parseErrorMessage,
+  probeInterpreter,
+  runAstSubprocess,
+} from "./ast-support";
+import {
   resolveScopedFiles,
   getStagedFiles,
   getFilesChangedSinceRef,
   getGitTrackedFiles,
 } from "./git-files";
+import { parseJsModule } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
 
@@ -132,7 +147,8 @@ function createRuleContext(
   adrId: string,
   ruleId: string,
   violations: ViolationDetail[],
-  trackedFiles: Set<string> | null
+  trackedFiles: Set<string> | null,
+  interpreterCache: Map<string, Promise<string | null>>
 ): RuleContext {
   const report: RuleReport = {
     violation(detail) {
@@ -145,6 +161,93 @@ function createRuleContext(
       violations.push({ ...detail, ruleId, adrId, severity: "info" });
     },
   };
+
+  // ARCH-022: ctx.ast() implementation. Declared as a const cast to the
+  // overloaded RuleContext["ast"] type so this single implementation
+  // signature satisfies the language-narrowed public overloads (a single
+  // broad signature is not directly assignable to the narrow overloads).
+  // The four guardrails below MUST run in this order before any subprocess.
+  const astImpl = (async (
+    path: string,
+    language: AstLanguage
+  ): Promise<AstNode> => {
+    // Guardrail 1: path safety — same sandbox as readFile/glob.
+    const absPath = safePath(projectRoot, path);
+
+    // Guardrail 2: language plausibility — refuse to hand a file to an
+    // interpreter unless its name plausibly matches the requested language.
+    const lowerPath = path.toLowerCase();
+    const basename = lowerPath.split(/[/\\]/u).pop() ?? "";
+    const plausible =
+      AST_LANGUAGE_EXTENSIONS[language].some((ext) =>
+        lowerPath.endsWith(ext)
+      ) ||
+      (language === "ruby" && RUBY_BASENAMES.has(basename));
+    if (!plausible) {
+      throw new UserError(
+        `File "${path}" does not look like ${language} (expected ${AST_LANGUAGE_EXTENSIONS[
+          language
+        ].join(", ")}) — refusing to parse`
+      );
+    }
+
+    // In-process branch: TypeScript/JavaScript via the shared meriyah
+    // parser (js-parser.ts). No subprocess is spawned for these languages.
+    if (language === "typescript" || language === "javascript") {
+      const source = await Bun.file(absPath).text();
+      try {
+        if (language === "typescript") {
+          const loader = lowerPath.endsWith(".tsx") ? "tsx" : "ts";
+          const js = new Bun.Transpiler({ loader }).transformSync(source);
+          return parseJsModule(js) as unknown as EsTreeProgram;
+        }
+        // .cjs cannot legally contain import/export in Node — parse it as
+        // a sloppy-mode script so CommonJS-isms (top-level return, `with`)
+        // do not fail under module/strict grammar.
+        return parseJsModule(source, {
+          jsx: lowerPath.endsWith(".jsx"),
+          sourceType: lowerPath.endsWith(".cjs") ? "script" : "module",
+        }) as unknown as EsTreeProgram;
+      } catch (err) {
+        throw new Error(
+          `Failed to parse "${path}" as ${language}: ${parseErrorMessage(err)}`
+        );
+      }
+    }
+
+    // Guardrail 3: interpreter availability probe, cached per check run.
+    const candidates = interpreterCandidates(language);
+    let probe = interpreterCache.get(language);
+    if (!probe) {
+      probe = probeInterpreter(candidates);
+      interpreterCache.set(language, probe);
+    }
+    const interpreter = await probe;
+    if (!interpreter) {
+      throw new Error(
+        `${language === "python" ? "Python" : "Ruby"} interpreter not found on PATH (tried: ${candidates.join(
+          ", "
+        )}) — ctx.ast("${path}", "${language}") requires it wherever \`archgate check\` runs`
+      );
+    }
+
+    // Guardrail 4: guarded invocation — array args only, path via argv.
+    // Python runs in isolated mode (-I): without it, `python -c` puts the
+    // cwd (the target project root) on sys.path, so a hostile project
+    // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
+    // code when the serializer imports them. Ruby is safe as-is — its
+    // load path has not included the cwd since 1.9.2.
+    const cmd =
+      language === "python"
+        ? [interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]
+        : [interpreter, "-rripper", "-rjson", "-e", RUBY_AST_PROGRAM, absPath];
+    const { exitCode, stdout, stderr } = await runAstSubprocess(cmd);
+    if (exitCode !== 0) {
+      const detail = stderr.trim() || `exit code ${exitCode}`;
+      throw new Error(`Failed to parse "${path}" as ${language}: ${detail}`);
+    }
+    return parseAstJson(stdout, path, language) as unknown as AstNode;
+  }) as unknown as RuleContext["ast"];
 
   return {
     projectRoot,
@@ -267,6 +370,9 @@ function createRuleContext(
       const absPath = safePath(projectRoot, path);
       return Bun.file(absPath).json();
     },
+
+    // ARCH-022: the only sanctioned path from rule code to language tooling.
+    ast: astImpl,
   };
 }
 
@@ -316,6 +422,10 @@ export async function runChecks(
     allTrackedFilesPromise,
   ]);
 
+  // ARCH-022: the ctx.ast() interpreter probe is cached once per check
+  // invocation — shared across every ADR and rule in this run.
+  const interpreterCache = new Map<string, Promise<string | null>>();
+
   // Run ADRs in parallel
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
@@ -352,7 +462,8 @@ export async function runChecks(
           adr.frontmatter.id,
           ruleId,
           violations,
-          trackedFiles
+          trackedFiles,
+          interpreterCache
         );
 
         try {

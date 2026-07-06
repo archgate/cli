@@ -65,6 +65,7 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   readJSON(path: string): Promise<unknown>;
+  ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }
 ```
@@ -167,6 +168,36 @@ const pkg = (await ctx.readJSON("package.json")) as {
 };
 ```
 
+#### ast
+
+```typescript
+ast(
+  path: string,
+  language: "typescript" | "javascript" | "python" | "ruby"
+): Promise<AstNode>;
+```
+
+Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. O caminho é relativo à raiz do projeto e passa pelo mesmo sandbox de `readFile`. TypeScript e JavaScript são parseados in-process; Python e Ruby são parseados invocando como subprocesso o recurso de AST da biblioteca padrão do próprio interpretador do sistema. O formato da árvore retornada difere por linguagem -- veja [AstNode](#astnode).
+
+```typescript
+const program = await ctx.ast("src/cli.ts", "typescript");
+for (const node of program.body) {
+  console.log(node.type);
+}
+```
+
+`ast()` **lança uma exceção** em caso de falha -- nunca retorna `null`:
+
+- **Falha de parse**: o arquivo não parseia como a linguagem solicitada. A mensagem de erro inclui o diagnóstico do parser.
+- **Interpretador ausente** (apenas `python`/`ruby`): nenhum interpretador adequado foi encontrado no `PATH`.
+- **Entrada implausível**: a extensão do arquivo não corresponde à linguagem solicitada (ex.: `ctx.ast("config.json", "python")` lança a exceção antes de qualquer interpretador ser invocado).
+
+Um erro lançado é isolado à regra que falhou: as demais regras e ADRs da mesma execução de verificação continuam normalmente, e a falha aparece como um erro de execução de regra com código de saída 2 (distinto do código de saída 1 para violações). Os dois casos de exceção são distinguíveis pelo texto da mensagem, então a saída da verificação diferencia "este ambiente não consegue executar esta regra" de "este arquivo tem um erro de sintaxe".
+
+:::caution
+Regras de Python e Ruby exigem o interpretador correspondente (`python3`/`python`, `ruby`) no `PATH` onde quer que `archgate check` seja executado -- em cada máquina de desenvolvedor **e** no CI. O parsing de TypeScript e JavaScript é embutido no Archgate e não precisa de interpretador.
+:::
+
 ---
 
 ## RuleReport
@@ -252,6 +283,26 @@ interface GrepMatch {
 | `line`    | `number` | Número da linha da correspondência (base 1)           |
 | `column`  | `number` | Número da coluna da correspondência (base 1)          |
 | `content` | `string` | Conteúdo completo da linha correspondente             |
+
+---
+
+## AstNode
+
+Retornado por `ctx.ast()`. O formato é nativo da linguagem e deliberadamente **não** é unificado entre linguagens -- cada linguagem retorna seu próprio vocabulário padrão de AST, então uma regra que inspeciona código Python trabalha com uma gramática diferente de uma que inspeciona TypeScript.
+
+```typescript
+type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
+type AstNode = Record<string, unknown> | unknown[];
+```
+
+| Linguagem    | Parser utilizado                                                                                                           | Formato retornado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `typescript` | [meriyah](https://github.com/meriyah/meriyah), in-process, após remover o TypeScript por transpilação com `Bun.Transpiler` | `Program` [ESTree](https://github.com/estree/estree) com informações de posição em `loc`. Sintaxe exclusivamente de tipos (`interface`, type aliases, `export type { ... } from`) é apagada antes do parse -- um arquivo contendo apenas declarações de nível de tipo parseia para um `Program` com `body` vazio. As posições em `loc` referem-se à **saída transpilada**, não ao arquivo `.ts` original -- declarações exclusivamente de tipos removidas, comentários e linhas em branco fazem os números de linha divergirem, então relocalize a construção no código-fonte original (p. ex. `ctx.readFile()` mais `indexOf`) antes de reportar um `line`, ou omita `line` por completo; `loc` é fiel ao código-fonte apenas para `javascript` |
+| `javascript` | [meriyah](https://github.com/meriyah/meriyah), in-process                                                                  | `Program` [ESTree](https://github.com/estree/estree) com informações de posição em `loc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `python`     | O [módulo `ast`](https://docs.python.org/3/library/ast.html) da biblioteca padrão do Python, via interpretador do sistema  | Nós do `ast` serializados em JSON: `{ "_type": "Module", "body": [...] }` -- cada nó carrega `_type`, os campos do próprio nó e as posições `lineno` / `col_offset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `ruby`       | O [`Ripper`](https://docs.ruby-lang.org/en/master/Ripper.html) da biblioteca padrão do Ruby, via interpretador do sistema  | Arrays aninhados de `Ripper.sexp`: `["program", [["command", ...]]]` com pares de posição `[linha, coluna]` embutidos nas entradas de token                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+Veja [Verificações estruturais com ctx.ast()](/guides/writing-rules/#verificações-estruturais-com-ctxast) para um exemplo completo de regra por linguagem.
 
 ---
 
