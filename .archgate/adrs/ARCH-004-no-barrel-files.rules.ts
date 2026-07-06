@@ -31,6 +31,10 @@ function isReExportOnlyBody(body: EsTreeNode[]): boolean {
  * the source: strip comments and blank space, then require every remaining
  * statement to start with `import` or `export`. A comment-only/empty file
  * is not a barrel.
+ *
+ * Handles multi-line statements (e.g. `export type {\n  A,\n} from ...`)
+ * by tracking brace depth — continuation lines inside `{ }` are part of
+ * the enclosing import/export, not new statements.
  */
 function isTypeOnlyBarrel(source: string): boolean {
   const stripped = source
@@ -45,7 +49,20 @@ function isTypeOnlyBarrel(source: string): boolean {
     .map((l) => l.trim())
     .filter((l) => l !== "" && l !== ";");
 
-  return lines.every((l) => /^(?:import|export)\b/u.test(l));
+  if (lines.length === 0) return false;
+
+  let braceDepth = 0;
+  for (const line of lines) {
+    if (braceDepth === 0 && !/^(?:import|export)\b/u.test(line)) {
+      return false;
+    }
+    for (const ch of line) {
+      if (ch === "{") braceDepth++;
+      else if (ch === "}") braceDepth--;
+    }
+  }
+
+  return true;
 }
 
 export default {
