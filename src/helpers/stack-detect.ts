@@ -405,10 +405,21 @@ export async function detectStackUncached(
 // Python dependency helpers
 // ---------------------------------------------------------------------------
 
+/** Normalize a Python package name: lowercase, underscores → hyphens. */
+function normalizePyName(name: string): string {
+  return name.toLowerCase().replaceAll("_", "-");
+}
+
+/** Extract the bare package name before any version specifier or extras. */
+function extractPyPackageName(spec: string): string | null {
+  const match = /^([a-z0-9][a-z0-9._-]*)/iu.exec(spec.trim());
+  return match ? normalizePyName(match[1]) : null;
+}
+
 /**
  * Best-effort extraction of Python dependency names from pyproject.toml
- * and requirements.txt. Returns a Set of lowercase package names.
- * No toml parser needed — we just regex for common patterns.
+ * (via Bun's built-in TOML parser) and requirements.txt.
+ * Returns a Set of lowercase, hyphen-normalized package names.
  */
 async function readPythonDeps(projectRoot: string): Promise<Set<string>> {
   const deps = new Set<string>();
@@ -422,35 +433,33 @@ async function readPythonDeps(projectRoot: string): Promise<Set<string>> {
         const trimmed = line.trim();
         if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("-"))
           continue;
-        // Extract package name (before any version specifier, extras, etc.)
-        const match = /^([a-z0-9][a-z0-9._-]*)/iu.exec(trimmed);
-        if (match) deps.add(match[1].toLowerCase().replaceAll("_", "-"));
+        const name = extractPyPackageName(trimmed);
+        if (name) deps.add(name);
       }
     } catch {
       logDebug("Failed to read requirements.txt");
     }
   }
 
-  // pyproject.toml — look for dependencies = ["name", "name>=1.0"]
+  // pyproject.toml — use Bun's built-in TOML parser for reliable extraction
   const pyprojectPath = join(projectRoot, "pyproject.toml");
   if (existsSync(pyprojectPath)) {
     try {
-      const text = await Bun.file(pyprojectPath).text();
-      // Match dependency names in brackets lists after "dependencies"
-      const depMatches = text.matchAll(
-        /^\s*(?:dependencies|install_requires)\s*=\s*\[([^\]]*)\]/gmu
-      );
-      for (const m of depMatches) {
-        const block = m[1];
-        const nameMatches = block.matchAll(
-          /["']([a-z0-9][a-z0-9._-]*)[\s>=<!~['"]/giu
-        );
-        for (const nm of nameMatches) {
-          deps.add(nm[1].toLowerCase().replaceAll("_", "-"));
+      const toml = await Bun.file(pyprojectPath).text();
+      const parsed = Bun.TOML.parse(toml) as Record<string, unknown>;
+      // PEP 621: [project] dependencies = ["fastapi>=0.100", ...]
+      const project = parsed.project as Record<string, unknown> | undefined;
+      const depList = project?.dependencies;
+      if (Array.isArray(depList)) {
+        for (const spec of depList) {
+          if (typeof spec === "string") {
+            const name = extractPyPackageName(spec);
+            if (name) deps.add(name);
+          }
         }
       }
     } catch {
-      logDebug("Failed to read pyproject.toml");
+      logDebug("Failed to parse pyproject.toml");
     }
   }
 
