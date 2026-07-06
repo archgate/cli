@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+
+import { z } from "zod";
 
 import { logDebug } from "./log";
 import { internalPath } from "./paths";
@@ -12,6 +14,17 @@ export interface DetectedStack {
   runtimes: string[];
   frameworks: string[];
 }
+
+const DetectedStackSchema = z.object({
+  languages: z.array(z.string()),
+  runtimes: z.array(z.string()),
+  frameworks: z.array(z.string()),
+});
+
+const StackCacheSchema = z.object({
+  fingerprint: z.string(),
+  stack: DetectedStackSchema,
+});
 
 /** Config file extensions commonly used by JS/TS frameworks. */
 const JS_CONFIG_EXTENSIONS = ["js", "cjs", "mjs", "ts", "mts", "cts"];
@@ -54,11 +67,7 @@ const SENTINEL_FILES = [
   "deno.json",
 ];
 
-interface StackCache {
-  /** Fingerprint of sentinel file existence + mtimes */
-  fingerprint: string;
-  stack: DetectedStack;
-}
+type StackCache = z.infer<typeof StackCacheSchema>;
 
 /**
  * Build a fingerprint from sentinel file stats. Two projects with identical
@@ -90,12 +99,13 @@ function getCachePath(projectRoot: string): string {
   return internalPath("cache", `stack-${projectHash(projectRoot)}.json`);
 }
 
-function readCache(projectRoot: string): StackCache | null {
+async function readCache(projectRoot: string): Promise<StackCache | null> {
   const cachePath = getCachePath(projectRoot);
   if (!existsSync(cachePath)) return null;
   try {
-    const data = JSON.parse(readFileSync(cachePath, "utf-8")) as StackCache;
-    return data;
+    const raw = await Bun.file(cachePath).json();
+    const result = StackCacheSchema.safeParse(raw);
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
@@ -132,7 +142,7 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   const fingerprint = buildFingerprint(projectRoot);
 
   // Check disk cache
-  const cached = readCache(projectRoot);
+  const cached = await readCache(projectRoot);
   if (cached && cached.fingerprint === fingerprint) {
     logDebug("Stack cache hit for", projectRoot);
     return cached.stack;
