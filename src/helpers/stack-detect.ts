@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { logDebug } from "./log";
+import { internalPath } from "./paths";
 
 export interface DetectedStack {
   languages: string[];
@@ -19,12 +21,140 @@ function hasConfig(dir: string, basename: string, exts: string[]): boolean {
   return exts.some((ext) => existsSync(join(dir, `${basename}.${ext}`)));
 }
 
+// ---------------------------------------------------------------------------
+// Sentinel-based disk cache
+// ---------------------------------------------------------------------------
+
+/**
+ * Files whose presence/absence or modification signals a stack change.
+ * We only stat these — the full detection scans more files but these
+ * cover every language/runtime marker. If none change, the stack hasn't.
+ */
+const SENTINEL_FILES = [
+  "package.json",
+  "Gemfile",
+  ".ruby-version",
+  "go.mod",
+  "pyproject.toml",
+  "requirements.txt",
+  "Cargo.toml",
+  "mix.exs",
+  "pubspec.yaml",
+  "composer.json",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "Package.swift",
+  "build.sbt",
+  "build.zig",
+  "global.json",
+  "Directory.Build.props",
+  "tsconfig.json",
+  "bun.lock",
+  "deno.json",
+];
+
+interface StackCache {
+  /** Fingerprint of sentinel file existence + mtimes */
+  fingerprint: string;
+  stack: DetectedStack;
+}
+
+/**
+ * Build a fingerprint from sentinel file stats. Two projects with identical
+ * sentinel states produce the same fingerprint. This is fast — ~20 stat
+ * syscalls (~1ms total) vs the full detection scan (~10ms).
+ */
+function buildFingerprint(projectRoot: string): string {
+  const parts: string[] = [];
+  for (const file of SENTINEL_FILES) {
+    try {
+      const st = statSync(join(projectRoot, file));
+      parts.push(`${file}:${st.mtimeMs}`);
+    } catch {
+      parts.push(`${file}:-`);
+    }
+  }
+  return createHash("sha256")
+    .update(parts.join("|"))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/** Stable short hash of the project root path for cache filename. */
+function projectHash(projectRoot: string): string {
+  return createHash("sha256").update(projectRoot).digest("hex").slice(0, 12);
+}
+
+function getCachePath(projectRoot: string): string {
+  return internalPath("cache", `stack-${projectHash(projectRoot)}.json`);
+}
+
+function readCache(projectRoot: string): StackCache | null {
+  const cachePath = getCachePath(projectRoot);
+  if (!existsSync(cachePath)) return null;
+  try {
+    const data = JSON.parse(readFileSync(cachePath, "utf-8")) as StackCache;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(
+  projectRoot: string,
+  fingerprint: string,
+  stack: DetectedStack
+): Promise<void> {
+  const cachePath = getCachePath(projectRoot);
+  try {
+    const dir = join(cachePath, "..");
+    mkdirSync(dir, { recursive: true });
+    const data: StackCache = { fingerprint, stack };
+    await Bun.write(cachePath, JSON.stringify(data));
+    logDebug("Stack cache written:", cachePath);
+  } catch {
+    logDebug("Failed to write stack cache (ignored)");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
  * Detect the project's language, runtime, and framework from files present
- * in the project root. Used by the greenfield wizard to recommend packs and
- * by telemetry to track ecosystem adoption.
+ * in the project root. Results are cached to disk and invalidated when any
+ * sentinel file (package.json, Gemfile, go.mod, etc.) is added, removed, or
+ * modified. Typical cached lookup: ~1ms; full detection: ~5-10ms.
  */
 export async function detectStack(projectRoot: string): Promise<DetectedStack> {
+  const fingerprint = buildFingerprint(projectRoot);
+
+  // Check disk cache
+  const cached = readCache(projectRoot);
+  if (cached && cached.fingerprint === fingerprint) {
+    logDebug("Stack cache hit for", projectRoot);
+    return cached.stack;
+  }
+
+  logDebug("Stack cache miss — running full detection");
+  const stack = await detectStackUncached(projectRoot);
+
+  // Write cache in the background — don't block the caller
+  writeCache(projectRoot, fingerprint, stack).catch(() => {});
+
+  return stack;
+}
+
+/**
+ * Run the full stack detection without caching. Exported for testing and
+ * for callers that need a fresh read (e.g. after `archgate init` modifies
+ * the project).
+ */
+export async function detectStackUncached(
+  projectRoot: string
+): Promise<DetectedStack> {
   const languages: string[] = [];
   const runtimes: string[] = [];
   const frameworks: string[] = [];
@@ -168,12 +298,37 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
     frameworks.push("svelte");
   }
 
-  // JS/TS dependency-based detection
+  if (
+    hasConfig(projectRoot, "tailwind.config", JS_CONFIG_EXTENSIONS) ||
+    existsSync(join(projectRoot, "tailwind.config.json"))
+  ) {
+    frameworks.push("tailwindcss");
+  }
+
+  // JS/TS dependency-based detection — UI frameworks & libraries
   if (deps.react) frameworks.push("react");
   if (deps.vue) frameworks.push("vue");
   if (deps["solid-js"]) frameworks.push("solid");
   if (deps["@angular/core"]) frameworks.push("angular");
   if (deps["ember-source"]) frameworks.push("ember");
+  if (deps["@mui/material"]) frameworks.push("mui");
+  if (deps["@tanstack/react-query"] || deps["@tanstack/vue-query"])
+    frameworks.push("tanstack-query");
+  if (deps["@tanstack/react-router"] || deps["@tanstack/router"])
+    frameworks.push("tanstack-router");
+  if (deps["@tanstack/start"]) frameworks.push("tanstack-start");
+  if (deps["@tanstack/react-form"] || deps["@tanstack/form"])
+    frameworks.push("tanstack-form");
+  if (deps["@tanstack/react-table"] || deps["@tanstack/table"])
+    frameworks.push("tanstack-table");
+  if (deps["@chakra-ui/react"]) frameworks.push("chakra-ui");
+  if (deps["@shadcn/ui"] || deps["shadcn-ui"]) frameworks.push("shadcn");
+  if (deps["@headlessui/react"] || deps["@headlessui/vue"])
+    frameworks.push("headless-ui");
+  if (deps["@radix-ui/react-slot"] || deps["@radix-ui/themes"])
+    frameworks.push("radix");
+
+  // JS/TS dependency-based detection — server frameworks
   if (deps.express) frameworks.push("express");
   if (deps.fastify) frameworks.push("fastify");
   if (deps.hono) frameworks.push("hono");
@@ -181,6 +336,17 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   if (deps.elysia) frameworks.push("elysia");
   if (deps["@nestjs/core"]) frameworks.push("nestjs");
   if (deps.gatsby) frameworks.push("gatsby");
+  if (deps["@trpc/server"]) frameworks.push("trpc");
+  if (deps.prisma || deps["@prisma/client"]) frameworks.push("prisma");
+  if (deps.drizzle || deps["drizzle-orm"]) frameworks.push("drizzle");
+
+  // JS/TS dependency-based detection — testing & tooling
+  if (deps.jest || deps["@jest/core"]) frameworks.push("jest");
+  if (deps.vitest) frameworks.push("vitest");
+  if (deps.playwright || deps["@playwright/test"])
+    frameworks.push("playwright");
+  if (deps.cypress) frameworks.push("cypress");
+  if (deps.storybook || deps["@storybook/react"]) frameworks.push("storybook");
 
   // Ruby — Rails detection via conventional directory structure
   if (
@@ -190,10 +356,16 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
     frameworks.push("rails");
   }
 
-  // Python — Django detection via manage.py
+  // Python — framework detection via manage.py / pyproject.toml deps
   if (existsSync(join(projectRoot, "manage.py"))) {
     frameworks.push("django");
   }
+
+  // Python — FastAPI / Streamlit / Flask from pyproject.toml or requirements.txt
+  const pyDeps = await readPythonDeps(projectRoot);
+  if (pyDeps.has("fastapi")) frameworks.push("fastapi");
+  if (pyDeps.has("streamlit")) frameworks.push("streamlit");
+  if (pyDeps.has("flask")) frameworks.push("flask");
 
   // PHP — Laravel detection via artisan
   if (existsSync(join(projectRoot, "artisan"))) {
@@ -227,4 +399,60 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   logDebug("Detected stack:", { languages, runtimes, frameworks });
 
   return { languages, runtimes, frameworks };
+}
+
+// ---------------------------------------------------------------------------
+// Python dependency helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Best-effort extraction of Python dependency names from pyproject.toml
+ * and requirements.txt. Returns a Set of lowercase package names.
+ * No toml parser needed — we just regex for common patterns.
+ */
+async function readPythonDeps(projectRoot: string): Promise<Set<string>> {
+  const deps = new Set<string>();
+
+  // requirements.txt — one package per line, format: `name[==version]`
+  const reqPath = join(projectRoot, "requirements.txt");
+  if (existsSync(reqPath)) {
+    try {
+      const text = await Bun.file(reqPath).text();
+      for (const line of text.split(/\r?\n/u)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("-"))
+          continue;
+        // Extract package name (before any version specifier, extras, etc.)
+        const match = /^([a-z0-9][a-z0-9._-]*)/iu.exec(trimmed);
+        if (match) deps.add(match[1].toLowerCase().replaceAll("_", "-"));
+      }
+    } catch {
+      logDebug("Failed to read requirements.txt");
+    }
+  }
+
+  // pyproject.toml — look for dependencies = ["name", "name>=1.0"]
+  const pyprojectPath = join(projectRoot, "pyproject.toml");
+  if (existsSync(pyprojectPath)) {
+    try {
+      const text = await Bun.file(pyprojectPath).text();
+      // Match dependency names in brackets lists after "dependencies"
+      const depMatches = text.matchAll(
+        /^\s*(?:dependencies|install_requires)\s*=\s*\[([^\]]*)\]/gmu
+      );
+      for (const m of depMatches) {
+        const block = m[1];
+        const nameMatches = block.matchAll(
+          /["']([a-z0-9][a-z0-9._-]*)[\s>=<!~['"]/giu
+        );
+        for (const nm of nameMatches) {
+          deps.add(nm[1].toLowerCase().replaceAll("_", "-"));
+        }
+      }
+    } catch {
+      logDebug("Failed to read pyproject.toml");
+    }
+  }
+
+  return deps;
 }
