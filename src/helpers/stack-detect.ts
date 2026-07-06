@@ -11,9 +11,18 @@ export interface DetectedStack {
   frameworks: string[];
 }
 
+/** Config file extensions commonly used by JS/TS frameworks. */
+const JS_CONFIG_EXTENSIONS = ["js", "cjs", "mjs", "ts", "mts", "cts"];
+
+/** Check whether any of `<basename>.<ext>` exists in `dir`. */
+function hasConfig(dir: string, basename: string, exts: string[]): boolean {
+  return exts.some((ext) => existsSync(join(dir, `${basename}.${ext}`)));
+}
+
 /**
  * Detect the project's language, runtime, and framework from files present
- * in the project root. Used by the greenfield wizard to recommend packs.
+ * in the project root. Used by the greenfield wizard to recommend packs and
+ * by telemetry to track ecosystem adoption.
  */
 export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   const languages: string[] = [];
@@ -38,6 +47,8 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   };
 
   // --- Languages ---
+
+  // TypeScript / JavaScript (mutually exclusive — TS wins when both present)
   const hasTsConfig = existsSync(join(projectRoot, "tsconfig.json"));
   const hasTsDep = Boolean(deps.typescript);
   if (hasTsConfig || hasTsDep) {
@@ -62,7 +73,54 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
     languages.push("rust");
   }
 
+  if (
+    existsSync(join(projectRoot, "Gemfile")) ||
+    existsSync(join(projectRoot, ".ruby-version"))
+  ) {
+    languages.push("ruby");
+  }
+
+  if (
+    existsSync(join(projectRoot, "pom.xml")) ||
+    existsSync(join(projectRoot, "build.gradle")) ||
+    existsSync(join(projectRoot, "build.gradle.kts"))
+  ) {
+    languages.push("java");
+  }
+
+  if (existsSync(join(projectRoot, "composer.json"))) {
+    languages.push("php");
+  }
+
+  if (existsSync(join(projectRoot, "Package.swift"))) {
+    languages.push("swift");
+  }
+
+  if (existsSync(join(projectRoot, "mix.exs"))) {
+    languages.push("elixir");
+  }
+
+  if (existsSync(join(projectRoot, "pubspec.yaml"))) {
+    languages.push("dart");
+  }
+
+  if (
+    existsSync(join(projectRoot, "global.json")) ||
+    existsSync(join(projectRoot, "Directory.Build.props"))
+  ) {
+    languages.push("csharp");
+  }
+
+  if (existsSync(join(projectRoot, "build.sbt"))) {
+    languages.push("scala");
+  }
+
+  if (existsSync(join(projectRoot, "build.zig"))) {
+    languages.push("zig");
+  }
+
   // --- Runtimes ---
+
   if (hasPkgJson) {
     runtimes.push("node");
   }
@@ -82,43 +140,89 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   }
 
   // --- Frameworks ---
-  // Next.js: next.config.* (any extension)
-  const nextConfigExtensions = ["js", "cjs", "mjs", "ts", "mts", "cts", "json"];
+
+  // JS/TS config-file-based detection
   if (
-    nextConfigExtensions.some((ext) =>
-      existsSync(join(projectRoot, `next.config.${ext}`))
-    )
+    hasConfig(projectRoot, "next.config", [...JS_CONFIG_EXTENSIONS, "json"])
   ) {
     frameworks.push("nextjs");
   }
 
-  // Remix: remix.config.*
-  const remixConfigExtensions = ["js", "cjs", "mjs", "ts"];
-  if (
-    remixConfigExtensions.some((ext) =>
-      existsSync(join(projectRoot, `remix.config.${ext}`))
-    )
-  ) {
+  if (hasConfig(projectRoot, "remix.config", JS_CONFIG_EXTENSIONS)) {
     frameworks.push("remix");
   }
 
-  // Vite: vite.config.*
-  const viteConfigExtensions = ["js", "cjs", "mjs", "ts", "mts", "cts"];
-  if (
-    viteConfigExtensions.some((ext) =>
-      existsSync(join(projectRoot, `vite.config.${ext}`))
-    )
-  ) {
+  if (hasConfig(projectRoot, "vite.config", JS_CONFIG_EXTENSIONS)) {
     frameworks.push("vite");
   }
 
-  // Fastify, Express, Hono from package.json dependencies
-  if (deps.fastify) frameworks.push("fastify");
-  if (deps.express) frameworks.push("express");
-  if (deps.hono) frameworks.push("hono");
+  if (hasConfig(projectRoot, "nuxt.config", JS_CONFIG_EXTENSIONS)) {
+    frameworks.push("nuxt");
+  }
 
-  // React from package.json dependencies
+  if (hasConfig(projectRoot, "astro.config", JS_CONFIG_EXTENSIONS)) {
+    frameworks.push("astro");
+  }
+
+  if (hasConfig(projectRoot, "svelte.config", ["js", "cjs", "mjs"])) {
+    frameworks.push("svelte");
+  }
+
+  // JS/TS dependency-based detection
   if (deps.react) frameworks.push("react");
+  if (deps.vue) frameworks.push("vue");
+  if (deps["solid-js"]) frameworks.push("solid");
+  if (deps["@angular/core"]) frameworks.push("angular");
+  if (deps["ember-source"]) frameworks.push("ember");
+  if (deps.express) frameworks.push("express");
+  if (deps.fastify) frameworks.push("fastify");
+  if (deps.hono) frameworks.push("hono");
+  if (deps.koa) frameworks.push("koa");
+  if (deps.elysia) frameworks.push("elysia");
+  if (deps["@nestjs/core"]) frameworks.push("nestjs");
+  if (deps.gatsby) frameworks.push("gatsby");
+
+  // Ruby — Rails detection via conventional directory structure
+  if (
+    existsSync(join(projectRoot, "bin", "rails")) ||
+    existsSync(join(projectRoot, "config", "routes.rb"))
+  ) {
+    frameworks.push("rails");
+  }
+
+  // Python — Django detection via manage.py
+  if (existsSync(join(projectRoot, "manage.py"))) {
+    frameworks.push("django");
+  }
+
+  // PHP — Laravel detection via artisan
+  if (existsSync(join(projectRoot, "artisan"))) {
+    frameworks.push("laravel");
+  }
+
+  // Dart — Flutter detection via pubspec.yaml flutter dependency
+  if (existsSync(join(projectRoot, "pubspec.yaml"))) {
+    try {
+      const pubspec = await Bun.file(join(projectRoot, "pubspec.yaml")).text();
+      if (/^\s*flutter:/mu.test(pubspec)) {
+        frameworks.push("flutter");
+      }
+    } catch {
+      logDebug("Failed to read pubspec.yaml");
+    }
+  }
+
+  // Elixir — Phoenix detection via mix.exs phoenix dependency
+  if (existsSync(join(projectRoot, "mix.exs"))) {
+    try {
+      const mixContent = await Bun.file(join(projectRoot, "mix.exs")).text();
+      if (/:phoenix\b/u.test(mixContent)) {
+        frameworks.push("phoenix");
+      }
+    } catch {
+      logDebug("Failed to read mix.exs");
+    }
+  }
 
   logDebug("Detected stack:", { languages, runtimes, frameworks });
 
