@@ -26,6 +26,19 @@ const StackCacheSchema = z.object({
   stack: DetectedStackSchema,
 });
 
+/** Loose schema for the subset of package.json we inspect. */
+const PackageJsonSchema = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+});
+
+/** PEP 621 pyproject.toml — only the [project].dependencies list. */
+const PyprojectSchema = z.object({
+  project: z
+    .object({ dependencies: z.array(z.string()).optional() })
+    .optional(),
+});
+
 /** Config file extensions commonly used by JS/TS frameworks. */
 const JS_CONFIG_EXTENSIONS = ["js", "cjs", "mjs", "ts", "mts", "cts"];
 
@@ -171,19 +184,21 @@ export async function detectStackUncached(
 
   const pkgJsonPath = join(projectRoot, "package.json");
   const hasPkgJson = existsSync(pkgJsonPath);
-  let pkgJson: Record<string, unknown> | null = null;
+  let pkgJson: z.infer<typeof PackageJsonSchema> | null = null;
 
   if (hasPkgJson) {
     try {
-      pkgJson = (await Bun.file(pkgJsonPath).json()) as Record<string, unknown>;
+      const raw = await Bun.file(pkgJsonPath).json();
+      const result = PackageJsonSchema.safeParse(raw);
+      pkgJson = result.success ? result.data : null;
     } catch {
       logDebug("Failed to parse package.json");
     }
   }
 
-  const deps = {
-    ...(pkgJson?.dependencies as Record<string, string> | undefined),
-    ...(pkgJson?.devDependencies as Record<string, string> | undefined),
+  const deps: Record<string, string> = {
+    ...pkgJson?.dependencies,
+    ...pkgJson?.devDependencies,
   };
 
   // --- Languages ---
@@ -456,16 +471,11 @@ async function readPythonDeps(projectRoot: string): Promise<Set<string>> {
   if (existsSync(pyprojectPath)) {
     try {
       const toml = await Bun.file(pyprojectPath).text();
-      const parsed = Bun.TOML.parse(toml) as Record<string, unknown>;
-      // PEP 621: [project] dependencies = ["fastapi>=0.100", ...]
-      const project = parsed.project as Record<string, unknown> | undefined;
-      const depList = project?.dependencies;
-      if (Array.isArray(depList)) {
-        for (const spec of depList) {
-          if (typeof spec === "string") {
-            const name = extractPyPackageName(spec);
-            if (name) deps.add(name);
-          }
+      const result = PyprojectSchema.safeParse(Bun.TOML.parse(toml));
+      if (result.success) {
+        for (const spec of result.data.project?.dependencies ?? []) {
+          const name = extractPyPackageName(spec);
+          if (name) deps.add(name);
         }
       }
     } catch {
