@@ -1,3 +1,10 @@
+## [0.47.0](https://github.com/archgate/cli/compare/v0.46.1...v0.47.0) (2026-07-06)
+
+### Features
+
+* ast-aware rule context (ctx.ast) for TS/JS/Python/Ruby ([#452](https://github.com/archgate/cli/issues/452)) ([81f68c8](https://github.com/archgate/cli/commit/81f68c85a5cdc3890460ca6e3e82db05cf32a3d1))
+* **engine:** injectable AST timeout, BOM coverage, .cts support ([#457](https://github.com/archgate/cli/issues/457)) ([32ad715](https://github.com/archgate/cli/commit/32ad715e73536113c9187aa37e320e2d60c153c6)), closes [#453](https://github.com/archgate/cli/issues/453) [#454](https://github.com/archgate/cli/issues/454) [#455](https://github.com/archgate/cli/issues/455)
+
 ## [0.46.1](https://github.com/archgate/cli/compare/v0.46.0...v0.46.1) (2026-07-03)
 
 ### Bug Fixes
