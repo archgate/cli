@@ -199,7 +199,11 @@ function createRuleContext(
         if (language === "typescript") {
           const loader = lowerPath.endsWith(".tsx") ? "tsx" : "ts";
           const js = new Bun.Transpiler({ loader }).transformSync(source);
-          return parseJsModule(js) as unknown as EsTreeProgram;
+          // .cts is TypeScript CommonJS — parse the transpiled JS as a
+          // sloppy-mode script (mirroring the .cjs handling below).
+          return parseJsModule(js, {
+            sourceType: lowerPath.endsWith(".cts") ? "script" : "module",
+          }) as unknown as EsTreeProgram;
         }
         // .cjs cannot legally contain import/export in Node — parse it as
         // a sloppy-mode script so CommonJS-isms (top-level return, `with`)
