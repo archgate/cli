@@ -63,8 +63,11 @@ export function registerCheckCommand(program: Command) {
 
       // Run stack detection in parallel with rule loading — both are fast I/O
       // and independent. Stack info enriches the telemetry event at the end.
-      // Attach .catch() immediately so a failure never surfaces as unhandled.
-      const stackPromise = detectStack(projectRoot).catch(() => null);
+      // Bounded with a timeout so pathological projects can't stall the exit.
+      const stackPromise = Promise.race([
+        detectStack(projectRoot),
+        Bun.sleep(500).then(() => null),
+      ]).catch(() => null);
 
       let loadResults;
       const loadStart = performance.now();

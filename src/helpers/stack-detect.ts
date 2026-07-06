@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { z } from "zod";
@@ -53,31 +53,56 @@ function hasConfig(dir: string, basename: string, exts: string[]): boolean {
 
 /**
  * Files whose presence/absence or modification signals a stack change.
- * We only stat these — the full detection scans more files but these
- * cover every language/runtime marker. If none change, the stack hasn't.
+ * Covers every marker that detectStackUncached() inspects so cached
+ * results stay fresh. Adding a file here is cheap (~0.05ms per stat).
  */
 const SENTINEL_FILES = [
+  // Languages
   "package.json",
-  "Gemfile",
-  ".ruby-version",
-  "go.mod",
+  "tsconfig.json",
   "pyproject.toml",
   "requirements.txt",
+  "setup.py",
+  "go.mod",
   "Cargo.toml",
-  "mix.exs",
-  "pubspec.yaml",
-  "composer.json",
+  "Gemfile",
+  ".ruby-version",
   "pom.xml",
   "build.gradle",
   "build.gradle.kts",
+  "composer.json",
   "Package.swift",
-  "build.sbt",
-  "build.zig",
+  "mix.exs",
+  "pubspec.yaml",
   "global.json",
   "Directory.Build.props",
-  "tsconfig.json",
+  "build.sbt",
+  "build.zig",
+  // Runtimes
   "bun.lock",
+  "bunfig.toml",
   "deno.json",
+  "deno.jsonc",
+  // Frameworks — config files
+  "next.config.ts",
+  "next.config.js",
+  "next.config.mjs",
+  "remix.config.ts",
+  "remix.config.js",
+  "vite.config.ts",
+  "vite.config.js",
+  "nuxt.config.ts",
+  "nuxt.config.js",
+  "astro.config.mjs",
+  "astro.config.ts",
+  "svelte.config.js",
+  "tailwind.config.ts",
+  "tailwind.config.js",
+  // Frameworks — non-JS markers
+  "manage.py",
+  "artisan",
+  "bin/rails",
+  "config/routes.rb",
 ];
 
 type StackCache = z.infer<typeof StackCacheSchema>;
@@ -131,9 +156,8 @@ async function writeCache(
 ): Promise<void> {
   const cachePath = getCachePath(projectRoot);
   try {
-    const dir = join(cachePath, "..");
-    mkdirSync(dir, { recursive: true });
     const data: StackCache = { fingerprint, stack };
+    // Bun.write() auto-creates parent directories since Bun v1.0.16
     await Bun.write(cachePath, JSON.stringify(data));
     logDebug("Stack cache written:", cachePath);
   } catch {
