@@ -80,6 +80,15 @@ describe("runAstSubprocess", () => {
     expect(stderr).toContain("boom-stderr");
     expect(stdout).toBe("");
   });
+
+  test("throws after the injected timeout and kills the subprocess", async () => {
+    await expect(
+      runAstSubprocess(
+        [process.execPath, "-e", "setTimeout(() => {}, 30000)"],
+        50
+      )
+    ).rejects.toThrow(/timed out after 50ms/iu);
+  });
 });
 
 describe("parseAstJson", () => {
@@ -169,6 +178,26 @@ describe("PYTHON_AST_PROGRAM end-to-end", () => {
   );
 
   test.skipIf(!pythonInterpreter)(
+    "strips UTF-8 BOM and parses correctly",
+    async () => {
+      const interpreter = pythonInterpreter ?? "python";
+      const file = join(tempDir, "bom.py");
+      writeFileSync(file, "﻿x = 42\n");
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-c",
+        PYTHON_AST_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const tree = JSON.parse(stdout) as { _type: string };
+      expect(tree._type).toBe("Module");
+    }
+  );
+
+  test.skipIf(!pythonInterpreter)(
     "exits 1 with a syntax message for invalid source",
     async () => {
       const interpreter = pythonInterpreter ?? "python";
@@ -204,6 +233,29 @@ describe("RUBY_AST_PROGRAM end-to-end", () => {
       const interpreter = rubyInterpreter ?? "ruby";
       const file = join(tempDir, "valid.rb");
       writeFileSync(file, ["def hello", '  puts "hi"', "end", ""].join("\n"));
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const sexp = JSON.parse(stdout) as unknown[];
+      expect(Array.isArray(sexp)).toBe(true);
+      expect(sexp[0]).toBe("program");
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "strips UTF-8 BOM and parses correctly",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "bom.rb");
+      writeFileSync(file, '﻿puts "hello"\n');
 
       const { exitCode, stdout } = await runAstSubprocess([
         interpreter,

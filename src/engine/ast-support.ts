@@ -156,7 +156,8 @@ export async function probeInterpreter(
  * large AST output cannot deadlock the pipe buffer.
  */
 export async function runAstSubprocess(
-  cmd: string[]
+  cmd: string[],
+  timeoutMs: number = AST_SUBPROCESS_TIMEOUT_MS
 ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
   const proc = Bun.spawn(cmd, {
     stdin: "ignore",
@@ -168,7 +169,7 @@ export async function runAstSubprocess(
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), AST_SUBPROCESS_TIMEOUT_MS);
+    timer = setTimeout(() => resolve("timeout"), timeoutMs);
   });
   const result = await Promise.race([proc.exited, timeout]).finally(() => {
     if (timer) clearTimeout(timer);
@@ -176,9 +177,7 @@ export async function runAstSubprocess(
   if (result === "timeout") {
     proc.kill();
     await proc.exited;
-    throw new Error(
-      `AST parser subprocess timed out after ${AST_SUBPROCESS_TIMEOUT_MS}ms`
-    );
+    throw new Error(`AST parser subprocess timed out after ${timeoutMs}ms`);
   }
 
   const [stdout, stderr] = await Promise.all([stdoutPromise, stderrPromise]);

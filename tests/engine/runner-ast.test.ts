@@ -150,27 +150,6 @@ describe("runChecks ctx.ast()", () => {
     expect(bodyTypes).toEqual(["FunctionDeclaration", "ExpressionStatement"]);
   });
 
-  test("plausibility guardrail: wrong extension for the language is refused", async () => {
-    writeFileSync(join(tempDir, "data.json"), "{}");
-
-    const loaded = makeLoadedAdr(
-      {},
-      {
-        rules: {
-          "json-as-python": {
-            description: "Attempt to parse JSON as Python",
-            async check(ctx) {
-              await ctx.ast("data.json", "python");
-            },
-          },
-        },
-      }
-    );
-
-    const result = await runChecks(tempDir, [loaded]);
-    expect(result.results[0].error).toContain("does not look like python");
-  });
-
   test("sandbox guardrail: paths escaping the project root are refused", async () => {
     const loaded = makeLoadedAdr(
       {},
@@ -377,31 +356,44 @@ describe("runChecks ctx.ast()", () => {
     expect(programTypes).toEqual(["Program", "Program"]);
   });
 
-  test(".cjs parses in sloppy script mode while .mjs rejects top-level return", async () => {
-    // Node permits a top-level `return` in CommonJS files but never in ESM,
-    // so the same source must parse as .cjs and throw as .mjs — proving the
-    // .cjs sourceType special-case is real, not incidental.
-    const source =
+  test(".cjs/.cts parse as script sourceType; .mjs rejects top-level return", async () => {
+    // Top-level return is legal in CommonJS (.cjs) but illegal in ESM (.mjs).
+    const cjsSrc =
       "if (process.env.ARCHGATE_DISABLED) return;\nmodule.exports = { ok: true };\n";
-    writeFileSync(join(tempDir, "src", "legacy.cjs"), source);
-    writeFileSync(join(tempDir, "src", "modern.mjs"), source);
+    writeFileSync(join(tempDir, "src", "legacy.cjs"), cjsSrc);
+    writeFileSync(join(tempDir, "src", "modern.mjs"), cjsSrc);
+    // .cts is TypeScript CommonJS — mirroring the .cjs handling.
+    writeFileSync(join(tempDir, "src", "c.cts"), "const x: number = 42;\n");
+    writeFileSync(join(tempDir, "src", "m.mts"), "const x: number = 42;\n");
 
-    let cjsSourceType = "";
+    const sourceTypes: Record<string, string> = {};
     const loaded = makeLoadedAdr(
       {},
       {
         rules: {
-          "cjs-script-mode": {
-            description: "Top-level return is legal in .cjs",
+          "cjs-mode": {
+            description: ".cjs → script",
             async check(ctx) {
-              const program = await ctx.ast("src/legacy.cjs", "javascript");
-              cjsSourceType = program.sourceType;
+              sourceTypes.cjs = (
+                await ctx.ast("src/legacy.cjs", "javascript")
+              ).sourceType;
             },
           },
-          "mjs-module-mode": {
-            description: "Top-level return is illegal in .mjs",
+          "mjs-mode": {
+            description: ".mjs rejects top-level return",
             async check(ctx) {
               await ctx.ast("src/modern.mjs", "javascript");
+            },
+          },
+          "cts-mts": {
+            description: ".cts → script, .mts → module",
+            async check(ctx) {
+              sourceTypes.cts = (
+                await ctx.ast("src/c.cts", "typescript")
+              ).sourceType;
+              sourceTypes.mts = (
+                await ctx.ast("src/m.mts", "typescript")
+              ).sourceType;
             },
           },
         },
@@ -409,12 +401,19 @@ describe("runChecks ctx.ast()", () => {
     );
 
     const result = await runChecks(tempDir, [loaded]);
-    const cjs = result.results.find((r) => r.ruleId === "cjs-script-mode");
-    const mjs = result.results.find((r) => r.ruleId === "mjs-module-mode");
-    expect(cjs?.error).toBeUndefined();
-    expect(cjsSourceType).toBe("script");
+    const mjs = result.results.find((r) => r.ruleId === "mjs-mode");
+    expect(
+      result.results.find((r) => r.ruleId === "cjs-mode")?.error
+    ).toBeUndefined();
+    expect(
+      result.results.find((r) => r.ruleId === "cts-mts")?.error
+    ).toBeUndefined();
+    expect(sourceTypes).toEqual({
+      cjs: "script",
+      cts: "script",
+      mts: "module",
+    });
     expect(mjs?.error).toContain("Failed to parse");
-    expect(mjs?.error).toContain("src/modern.mjs");
   });
 
   test.skipIf(!pythonInterpreter)(
@@ -463,9 +462,9 @@ describe("runChecks ctx.ast()", () => {
     }
   );
 
-  test("plausibility guardrail applies per language, not only python", async () => {
+  test("plausibility guardrail: wrong extension is refused for every language", async () => {
     writeFileSync(join(tempDir, "data.json"), "{}");
-    const languages = ["ruby", "typescript", "javascript"] as const;
+    const languages = ["python", "ruby", "typescript", "javascript"] as const;
 
     const loaded = makeLoadedAdr(
       {},
