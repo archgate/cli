@@ -11,7 +11,7 @@ import {
   promptEditorSelection,
 } from "../../helpers/editor-detect";
 import { exitWith, handleCommandError } from "../../helpers/exit";
-import { EDITOR_LABELS } from "../../helpers/init-project";
+import { EDITOR_LABELS, EDITOR_TARGETS } from "../../helpers/init-project";
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
 import { findProjectRoot } from "../../helpers/paths";
@@ -32,7 +32,7 @@ import { configureVscodeSettings } from "../../helpers/vscode-settings";
 const editorOption = new Option(
   "--editor <editor>",
   "target editor (omit to auto-detect and select)"
-).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
+).choices(EDITOR_TARGETS);
 
 /**
  * Install the archgate plugin for a single editor.

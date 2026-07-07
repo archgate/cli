@@ -18,18 +18,38 @@ import { ensureBaseBranch } from "./project-config";
 import { writeRulesShim } from "./rules-shim";
 import { configureVscodeSettings } from "./vscode-settings";
 
-export type EditorTarget =
-  | "claude"
-  | "cursor"
-  | "vscode"
-  | "copilot"
-  | "opencode";
+export const EDITOR_TARGETS = [
+  "claude",
+  "cursor",
+  "vscode",
+  "copilot",
+  "opencode",
+] as const;
+
+export type EditorTarget = (typeof EDITOR_TARGETS)[number];
 
 export const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
   cursor: "Cursor",
   vscode: "VS Code",
   copilot: "Copilot CLI",
+  opencode: "opencode",
+};
+
+/** Values sent to the signup API — one per EditorTarget. */
+export type SignupEditor =
+  | "claude-code"
+  | "vscode"
+  | "copilot-cli"
+  | "cursor"
+  | "opencode";
+
+/** Map editor targets to signup API identifiers. */
+export const SIGNUP_EDITORS: Record<EditorTarget, SignupEditor> = {
+  claude: "claude-code",
+  cursor: "cursor",
+  vscode: "vscode",
+  copilot: "copilot-cli",
   opencode: "opencode",
 };
 

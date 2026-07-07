@@ -77,8 +77,8 @@ export async function resolveScopedFiles(
     fileWarnThreshold?: number;
   }
 ): Promise<string[]> {
-  const hasExplicitFiles = (adrFileGlobs?.length ?? 0) > 0;
-  const patterns = hasExplicitFiles ? adrFileGlobs! : ["**/*"];
+  const patterns = adrFileGlobs?.length ? adrFileGlobs : ["**/*"];
+  const hasExplicitFiles = Boolean(adrFileGlobs?.length);
   const respectGitignore = options?.respectGitignore !== false;
   const label = options?.adrId ? `ADR ${options.adrId}` : "resolveScopedFiles";
   const fileWarnThreshold =
