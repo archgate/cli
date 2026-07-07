@@ -119,7 +119,7 @@ export function registerCheckCommand(program: Command) {
             Bun.sleep(100).then(() => ""),
           ]);
           const piped = stdin.trim().split(/\r?\n/u).filter(Boolean);
-          filterFiles.push(...piped);
+          filterFiles = filterFiles.concat(piped);
         } catch {
           // stdin not readable — ignore
         }
