@@ -80,30 +80,39 @@ import { remapViolations, type RawViolation } from "./source-positions";
  *
  * Returns an empty array if the rule is clean; violations if blocked patterns are found.
  */
-export function scanRuleSource(source: string): ScanViolation[] {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
+/** Shared transpiler — stateless, safe to reuse across calls. */
+const tsTranspiler = new Bun.Transpiler({ loader: "ts" });
+
+export function scanRuleSource(
+  source: string,
+  preTranspiled?: string
+): ScanViolation[] {
   let js: string;
-  try {
-    js = transpiler.transformSync(source);
-  } catch (err) {
-    // Bun.Transpiler throws AggregateError for syntax errors in the source.
-    // Return a single violation pointing at line 1 so the caller can report
-    // the file as blocked rather than crashing.
-    const msg =
-      err instanceof AggregateError && err.errors.length > 0
-        ? String(err.errors[0])
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    return [
-      {
-        message: `Parse error: ${msg}`,
-        line: 1,
-        column: 0,
-        endLine: 1,
-        endColumn: 0,
-      },
-    ];
+  if (preTranspiled) {
+    js = preTranspiled;
+  } else {
+    try {
+      js = tsTranspiler.transformSync(source);
+    } catch (err) {
+      // Bun.Transpiler throws AggregateError for syntax errors in the source.
+      // Return a single violation pointing at line 1 so the caller can report
+      // the file as blocked rather than crashing.
+      const msg =
+        err instanceof AggregateError && err.errors.length > 0
+          ? String(err.errors[0])
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      return [
+        {
+          message: `Parse error: ${msg}`,
+          line: 1,
+          column: 0,
+          endLine: 1,
+          endColumn: 0,
+        },
+      ];
+    }
   }
 
   let ast: MeriyahProgram;
@@ -272,10 +281,9 @@ const IMPORTED_BLOCKED_GLOBALS = new Set(["require", "WebSocket"]);
  *   - `WebSocket` usage
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
-  const transpiler = new Bun.Transpiler({ loader: "ts" });
   let js: string;
   try {
-    js = transpiler.transformSync(source);
+    js = tsTranspiler.transformSync(source);
   } catch (err) {
     const msg =
       err instanceof AggregateError && err.errors.length > 0
@@ -384,8 +392,8 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
   const importedRoot = parseNode(ast);
   if (importedRoot) walkImported(importedRoot);
 
-  // Combine: standard scan + imported-only scan
-  const standardViolations = scanRuleSource(source);
+  // Combine: standard scan + imported-only scan (reuse transpiled JS)
+  const standardViolations = scanRuleSource(source, js);
   const importedViolations = remapViolations(source, rawViolations);
-  return [...standardViolations, ...importedViolations];
+  return standardViolations.concat(importedViolations);
 }

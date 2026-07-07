@@ -236,7 +236,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
 
     const vsHostMatch = lowerHost.match(/^([^.]+)\.visualstudio\.com$/u);
     if (vsHostMatch && !segments.some((s) => s === vsHostMatch[1])) {
-      segments = [vsHostMatch[1], ...segments];
+      segments.unshift(vsHostMatch[1]);
     }
   }
 

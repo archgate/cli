@@ -40,13 +40,11 @@ type OpencodeConfig = z.infer<typeof OpencodeConfigSchema>;
 export function mergeOpencodeSettings(
   existing: OpencodeConfig
 ): OpencodeConfig {
-  const merged: OpencodeConfig = { ...existing };
-
-  if (!("default_agent" in merged)) {
-    merged.default_agent = DEFAULT_AGENT;
+  if (!("default_agent" in existing)) {
+    existing.default_agent = DEFAULT_AGENT;
   }
 
-  return merged;
+  return existing;
 }
 
 /**

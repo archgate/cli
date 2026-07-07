@@ -40,17 +40,16 @@ import { applySuppressions, type SuppressionWarning } from "./suppressions";
  * Resolve a user-supplied path and ensure it stays within projectRoot.
  * Throws if the resolved path escapes the project boundary or is a symlink.
  */
-function safePath(projectRoot: string, userPath: string): string {
-  const root = resolve(projectRoot);
+function safePath(resolvedRoot: string, userPath: string): string {
   const absPath = isAbsolute(userPath)
     ? resolve(userPath)
-    : resolve(root, userPath);
+    : resolve(resolvedRoot, userPath);
   // On Windows, paths on different drives produce a full absolute relative()
   // result rather than a ".." prefix — use startsWith on the normalized paths.
   if (
-    !absPath.startsWith(root + "/") &&
-    !absPath.startsWith(root + "\\") &&
-    absPath !== root
+    !absPath.startsWith(resolvedRoot + "/") &&
+    !absPath.startsWith(resolvedRoot + "\\") &&
+    absPath !== resolvedRoot
   ) {
     throw new UserError(
       `Path "${userPath}" escapes project root — access denied`
@@ -151,6 +150,7 @@ function createRuleContext(
   trackedFiles: Set<string> | null,
   interpreterCache: Map<string, Promise<string | null>>
 ): RuleContext {
+  const resolvedRoot = resolve(projectRoot);
   const report: RuleReport = {
     violation(detail) {
       violations.push({ ...detail, ruleId, adrId, severity: "error" });
@@ -177,7 +177,7 @@ function createRuleContext(
   async function astImpl(path: string, language: "ruby"): Promise<RubyAstNode>;
   async function astImpl(path: string, language: AstLanguage) {
     // Guardrail 1: path safety — same sandbox as readFile/glob.
-    const absPath = safePath(projectRoot, path);
+    const absPath = safePath(resolvedRoot, path);
 
     // Guardrail 2: language plausibility — refuse to hand a file to an
     // interpreter unless its name plausibly matches the requested language.
@@ -287,7 +287,7 @@ function createRuleContext(
     },
 
     async grep(file: string, pattern: RegExp): Promise<GrepMatch[]> {
-      const absPath = safePath(projectRoot, file);
+      const absPath = safePath(resolvedRoot, file);
       const content = await Bun.file(absPath).text();
       const lines = content.split("\n");
       const matches: GrepMatch[] = [];
@@ -327,7 +327,7 @@ function createRuleContext(
           seen.add(normalized);
         }
       }
-      const files = [...seen];
+      const files = Array.from(seen);
 
       const BATCH_SIZE = 32;
       const allMatches: GrepMatch[] = [];
@@ -337,7 +337,7 @@ function createRuleContext(
         // oxlint-disable-next-line no-await-in-loop -- batched parallelism with sequential batch boundaries
         const batchResults = await Promise.all(
           batch.map(async (normalized) => {
-            const absPath = safePath(projectRoot, normalized);
+            const absPath = safePath(resolvedRoot, normalized);
             try {
               const content = await Bun.file(absPath).text();
               const lines = content.split("\n");
@@ -363,7 +363,7 @@ function createRuleContext(
           })
         );
         for (const matches of batchResults) {
-          allMatches.push(...matches);
+          for (const m of matches) allMatches.push(m);
         }
       }
 
@@ -371,12 +371,12 @@ function createRuleContext(
     },
 
     readFile(path: string): Promise<string> {
-      const absPath = safePath(projectRoot, path);
+      const absPath = safePath(resolvedRoot, path);
       return Bun.file(absPath).text();
     },
 
     readJSON(path: string): Promise<any> {
-      const absPath = safePath(projectRoot, path);
+      const absPath = safePath(resolvedRoot, path);
       return Bun.file(absPath).json();
     },
 
@@ -419,7 +419,7 @@ export async function runChecks(
   if (options.files && options.files.length > 0) {
     filterFiles = new Set(
       options.files.map((f) => {
-        const absPath = safePath(projectRoot, f);
+        const absPath = safePath(resolve(projectRoot), f);
         return relative(projectRoot, absPath).replaceAll("\\", "/");
       })
     );
@@ -527,7 +527,7 @@ export async function runChecks(
   // Collect results
   for (const result of adrResults) {
     if (result.status === "fulfilled") {
-      results.push(...result.value);
+      for (const r of result.value) results.push(r);
     }
   }
 

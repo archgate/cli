@@ -99,24 +99,23 @@ export async function resolveScopedFiles(
   const expanded = patterns.flatMap((p) => expandBracePattern(p));
 
   const scanStart = performance.now();
-  const results = await Promise.all(
+  const dedupSet = new Set<string>();
+  await Promise.all(
     expanded.map(async (pattern) => {
       const glob = new Bun.Glob(pattern);
-      const files: string[] = [];
       // dot: true so ADR `files:` globs can target dot-prefixed source dirs
       // like `.github/`, `.husky/`, `.vscode/`. The git-tracked-files filter
       // below already excludes ignored files. See archgate/cli#222.
       for await (const file of glob.scan({ cwd: projectRoot, dot: true })) {
         const normalized = file.replaceAll("\\", "/");
         if (trackedFiles && !trackedFiles.has(normalized)) continue;
-        files.push(normalized);
+        dedupSet.add(normalized);
       }
-      return files;
     })
   );
   const scanMs = performance.now() - scanStart;
 
-  const all = [...new Set(results.flat())].sort();
+  const all = Array.from(dedupSet).sort();
 
   if (all.length > fileWarnThreshold || scanMs > SCOPE_SCAN_WARN_MS) {
     logWarn(
@@ -169,12 +168,10 @@ export async function getChangedFiles(projectRoot: string): Promise<string[]> {
       runGit(["diff", "--cached", "--name-only"], projectRoot),
       runGit(["diff", "--name-only"], projectRoot),
     ]);
-    const all = new Set([
-      ...staged.trim().split("\n").filter(Boolean),
-      ...unstaged.trim().split("\n").filter(Boolean),
-    ]);
+    const all = new Set(staged.trim().split("\n").filter(Boolean));
+    for (const f of unstaged.trim().split("\n").filter(Boolean)) all.add(f);
     logDebug("Changed files (staged + unstaged):", all.size);
-    return [...all].sort();
+    return Array.from(all).sort();
   } catch {
     logDebug("Failed to get changed files (not a git repo?)");
     return [];
@@ -290,13 +287,10 @@ export async function getFilesChangedSinceRef(
       getChangedFiles(projectRoot),
       runGit(["ls-files", "--others", "--exclude-standard"], projectRoot),
     ]);
-    const files = [
-      ...new Set([
-        ...committed.trim().split("\n").filter(Boolean),
-        ...workingTree,
-        ...untracked.trim().split("\n").filter(Boolean),
-      ]),
-    ].sort();
+    const dedup = new Set(committed.trim().split("\n").filter(Boolean));
+    for (const f of workingTree) dedup.add(f);
+    for (const f of untracked.trim().split("\n").filter(Boolean)) dedup.add(f);
+    const files = Array.from(dedup).sort();
     logDebug(`Files changed since ${ref} (incl. working tree):`, files.length);
     return files;
   } catch {

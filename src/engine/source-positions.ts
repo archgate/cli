@@ -105,13 +105,33 @@ function isInNonCode(offset: number, ranges: Array<[number, number]>): boolean {
 }
 
 /**
+ * Binary-search a sorted newline-offset index to find the line and column
+ * for a given character offset. The index has a sentinel -1 at position 0
+ * representing the virtual newline before line 1.
+ */
+function offsetToPos(
+  offset: number,
+  newlineOffsets: number[]
+): { line: number; column: number } {
+  let lo = 0;
+  let hi = newlineOffsets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (newlineOffsets[mid] < offset) lo = mid;
+    else hi = mid - 1;
+  }
+  return { line: lo + 1, column: offset - newlineOffsets[lo] - 1 };
+}
+
+/**
  * Find all code-only occurrences of `needle` in `source`, skipping
  * matches inside comments and string literals.
  */
 function findCodeOccurrences(
   source: string,
   needle: string,
-  nonCodeRanges: Array<[number, number]>
+  nonCodeRanges: Array<[number, number]>,
+  newlineOffsets: number[]
 ): SourcePos[] {
   const results: SourcePos[] = [];
   let idx = 0;
@@ -124,27 +144,15 @@ function findCodeOccurrences(
       continue;
     }
 
-    let line = 1;
-    let lastNewline = -1;
-    for (let i = 0; i < found; i++) {
-      if (source[i] === "\n") {
-        line++;
-        lastNewline = i;
-      }
-    }
-    const column = found - lastNewline - 1;
+    const start = offsetToPos(found, newlineOffsets);
+    const end = offsetToPos(found + needle.length, newlineOffsets);
 
-    let endLine = line;
-    let endLastNewline = lastNewline;
-    for (let i = found; i < found + needle.length; i++) {
-      if (source[i] === "\n") {
-        endLine++;
-        endLastNewline = i;
-      }
-    }
-    const endColumn = found + needle.length - endLastNewline - 1;
-
-    results.push({ line, column, endLine, endColumn });
+    results.push({
+      line: start.line,
+      column: start.column,
+      endLine: end.line,
+      endColumn: end.column,
+    });
     idx = found + 1;
   }
   return results;
@@ -161,12 +169,23 @@ export function remapViolations(
   rawViolations: RawViolation[]
 ): Array<{ message: string } & SourcePos> {
   const nonCodeRanges = buildNonCodeRanges(original);
+  // Build newline offset index once per source — shared across all searchTexts.
+  // Sentinel -1 at index 0 represents the virtual newline before line 1.
+  const newlineOffsets = [-1];
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === "\n") newlineOffsets.push(i);
+  }
   const occurrenceCache = new Map<string, SourcePos[]>();
 
   return rawViolations.map((rv) => {
     let positions = occurrenceCache.get(rv.searchText);
     if (!positions) {
-      positions = findCodeOccurrences(original, rv.searchText, nonCodeRanges);
+      positions = findCodeOccurrences(
+        original,
+        rv.searchText,
+        nonCodeRanges,
+        newlineOffsets
+      );
       occurrenceCache.set(rv.searchText, positions);
     }
 

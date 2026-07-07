@@ -28,18 +28,14 @@ export function parseJsModule(
   source: string,
   options?: { jsx?: boolean; sourceType?: "module" | "script" }
 ): MeriyahProgram {
+  const jsx = options?.jsx === true;
   if (options?.sourceType === "script") {
     return parseScript(source, {
       next: true,
       loc: true,
       globalReturn: true,
-      ...(options?.jsx ? { jsx: true } : {}),
+      jsx,
     });
   }
-  return parseModule(source, {
-    next: true,
-    loc: true,
-    module: true,
-    ...(options?.jsx ? { jsx: true } : {}),
-  });
+  return parseModule(source, { next: true, loc: true, module: true, jsx });
 }

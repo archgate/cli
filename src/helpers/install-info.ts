@@ -115,7 +115,7 @@ export function getProjectContext(): ProjectContext {
       hasProject: true,
       adrCount: mdFiles.length,
       adrWithRulesCount: rulesFiles.length,
-      domains: [...domainSet].sort(),
+      domains: Array.from(domainSet).sort(),
     };
   } catch {
     return { hasProject: true, adrCount: 0, adrWithRulesCount: 0, domains: [] };

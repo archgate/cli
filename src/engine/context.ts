@@ -114,9 +114,16 @@ export function briefAdr(
   };
 }
 
+/** Cache compiled Bun.Glob instances — same patterns repeat across ADRs and files. */
+const globCache = new Map<string, Bun.Glob>();
+
 function fileMatchesGlobs(filePath: string, globs: string[]): boolean {
   for (const pattern of globs) {
-    const glob = new Bun.Glob(pattern);
+    let glob = globCache.get(pattern);
+    if (!glob) {
+      glob = new Bun.Glob(pattern);
+      globCache.set(pattern, glob);
+    }
     // oxlint-disable-next-line prefer-regexp-test -- Bun.Glob.match() returns boolean, not RegExp
     if (glob.match(filePath)) return true;
   }
@@ -150,7 +157,7 @@ export function matchFilesToAdrs(
         }
       }
     } else {
-      matchingFiles.push(...changedFiles);
+      for (const f of changedFiles) matchingFiles.push(f);
     }
 
     if (matchingFiles.length > 0) {

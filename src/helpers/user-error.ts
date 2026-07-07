@@ -32,7 +32,7 @@
  */
 export class UserError extends Error {
   constructor(message: string, ...rest: string[]) {
-    super(rest.length > 0 ? [message, ...rest].join(" ") : message);
+    super(rest.length > 0 ? `${message} ${rest.join(" ")}` : message);
     this.name = "UserError";
   }
 }
