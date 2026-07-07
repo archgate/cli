@@ -18,6 +18,7 @@ import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
+import { detectStack } from "../helpers/stack-detect";
 import { trackCheckResult } from "../helpers/telemetry";
 
 const maxWarningsOption = new Option(
@@ -59,6 +60,14 @@ export function registerCheckCommand(program: Command) {
         await exitWith(1);
         return;
       }
+
+      // Run stack detection in parallel with rule loading — both are fast I/O
+      // and independent. Stack info enriches the telemetry event at the end.
+      // Bounded with a timeout so pathological projects can't stall the exit.
+      const stackPromise = Promise.race([
+        detectStack(projectRoot),
+        Bun.sleep(500).then(() => null),
+      ]).catch(() => null);
 
       let loadResults;
       const loadStart = performance.now();
@@ -146,6 +155,9 @@ export function registerCheckCommand(program: Command) {
         reportConsole(result, opts.verbose ?? false, summary);
       }
 
+      // Await stack detection (started in parallel with rule loading above).
+      const stack = await stackPromise;
+
       // Track aggregate check results (no file paths or violation content)
       trackCheckResult({
         total_rules: summary.total,
@@ -164,6 +176,9 @@ export function registerCheckCommand(program: Command) {
         files_scanned: filterFiles.length,
         load_duration_ms: loadDurationMs,
         check_duration_ms: Math.round(result.totalDurationMs),
+        languages: stack?.languages,
+        runtimes: stack?.runtimes,
+        frameworks: stack?.frameworks,
       });
 
       const exitCode = getExitCode(result, summary);

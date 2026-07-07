@@ -334,6 +334,12 @@ export function trackCheckResult(properties: {
   files_scanned?: number;
   load_duration_ms?: number;
   check_duration_ms?: number;
+  /** Detected project languages (e.g. "typescript", "python", "go") */
+  languages?: string[];
+  /** Detected project runtimes (e.g. "node", "bun", "deno") */
+  runtimes?: string[];
+  /** Detected project frameworks (e.g. "nextjs", "react", "express") */
+  frameworks?: string[];
 }): void {
   trackEvent("check_completed", properties);
 }
