@@ -46,8 +46,7 @@ export function loadProjectConfig(projectRoot: string): ProjectConfig {
 
   try {
     const text = readFileSync(path, "utf-8");
-    const raw: unknown = JSON.parse(text);
-    const result = ProjectConfigSchema.safeParse(raw);
+    const result = ProjectConfigSchema.safeParse(JSON.parse(text));
     if (!result.success) {
       logDebug("Project config invalid, using empty:", result.error.message);
       return EMPTY_CONFIG;

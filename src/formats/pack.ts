@@ -31,8 +31,7 @@ export const PackMetadataSchema = z.object({
 export type PackMetadata = z.infer<typeof PackMetadataSchema>;
 
 export function parsePackMetadata(raw: string): PackMetadata {
-  const parsed: unknown = Bun.YAML.parse(raw);
-  return PackMetadataSchema.parse(parsed);
+  return PackMetadataSchema.parse(Bun.YAML.parse(raw));
 }
 
 // ---------- Community links (community/links.yaml) ----------

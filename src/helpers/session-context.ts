@@ -107,15 +107,19 @@ export function getContentPreview(entry: TranscriptEntry): string {
     const parts: string[] = [];
     for (const block of content) {
       if (typeof block !== "object" || block === null) continue;
-      const b: Record<string, unknown> = block;
-      if (b.type === "text" && typeof b.text === "string") {
-        const text: string = b.text;
+      if (!("type" in block)) continue;
+      if (
+        block.type === "text" &&
+        "text" in block &&
+        typeof block.text === "string"
+      ) {
+        const text = block.text;
         parts.push(text.length > 300 ? text.slice(0, 300) + "..." : text);
-      } else if (b.type === "tool_use") {
-        parts.push(`[tool_use: ${b.name}]`);
-      } else if (b.type === "tool_result") {
+      } else if (block.type === "tool_use" && "name" in block) {
+        parts.push(`[tool_use: ${block.name}]`);
+      } else if (block.type === "tool_result" && "tool_use_id" in block) {
         parts.push(
-          `[tool_result: ${String(b.tool_use_id ?? "").slice(0, 20)}]`
+          `[tool_result: ${String(block.tool_use_id ?? "").slice(0, 20)}]`
         );
       }
     }
