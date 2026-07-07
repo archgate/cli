@@ -16,10 +16,12 @@ import {
   getContentPreview,
 } from "./session-context";
 
-const WorkspaceMetaSchema = z.object({ cwd: z.string().optional() });
+const WorkspaceMetaSchema = z.object({
+  cwd: z.string().nullable().default(null),
+});
 
 const CopilotEventSchema = z.object({
-  type: z.string().optional(),
+  type: z.string().default(""),
   data: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -118,7 +120,7 @@ async function findMatchingCopilotSessions(
       const raw = await Bun.file(yamlPath).text();
       const metaResult = WorkspaceMetaSchema.safeParse(Bun.YAML.parse(raw));
       if (!metaResult.success) continue;
-      const cwd = metaResult.data.cwd ?? null;
+      const cwd = metaResult.data.cwd;
       if (cwd && normalizePath(cwd) === normalizedProjectRoot) {
         matching.push({ name: dir.name, mtime: dir.mtime });
       }
@@ -205,13 +207,17 @@ export async function readCopilotSession(
   // 5. Filter to user/assistant events and normalize to TranscriptEntry shape
   const relevant: CopilotSessionSummary["transcript"] = [];
   for (const event of rawEntries) {
-    const eventType = String(event.type ?? "");
+    const eventType = event.type;
     if (!COPILOT_RELEVANT_TYPES.has(eventType)) continue;
     const role = eventType === "user.message" ? "user" : "assistant";
     // Normalize to TranscriptEntry shape so getContentPreview works
     const contentResult = MessageContentSchema.safeParse(event.data?.content);
     const content = contentResult.success ? contentResult.data : undefined;
-    const normalized: TranscriptEntry = { message: { content } };
+    const normalized: TranscriptEntry = {
+      type: "",
+      role,
+      message: { content },
+    };
     relevant.push({ role, contentPreview: getContentPreview(normalized) });
   }
 

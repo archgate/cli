@@ -7,19 +7,20 @@ import { z } from "zod";
 
 const ClaudePermissionsSchema = z
   .object({
-    // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
-    allow: z.array(z.string()).optional().catch(undefined),
-    // oxlint-disable-next-line no-useless-undefined
-    deny: z.array(z.string()).optional().catch(undefined),
+    allow: z.array(z.string()).default([]).catch([]),
+    deny: z.array(z.string()).default([]).catch([]),
   })
   .passthrough();
 
-const ClaudeSettingsSchema = z
+/** @internal Exported for testing only. */
+export const ClaudeSettingsSchema = z
   .object({
-    // oxlint-disable-next-line no-useless-undefined
+    // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default for optional fields
     agent: z.string().optional().catch(undefined),
-    // oxlint-disable-next-line no-useless-undefined
-    permissions: ClaudePermissionsSchema.optional().catch(undefined),
+    permissions: ClaudePermissionsSchema.optional().catch({
+      allow: [],
+      deny: [],
+    }),
   })
   .passthrough();
 
@@ -66,12 +67,11 @@ export function mergeClaudeSettings(
   }
 
   // Nested permissions object: merge allow array with dedup, preserve deny
-  const existingPermissions = merged.permissions ?? {};
-  const existingAllow = existingPermissions.allow ?? [];
+  const existingPermissions = merged.permissions ?? { allow: [], deny: [] };
 
   merged.permissions = {
     ...existingPermissions,
-    allow: dedup([...existingAllow, ...archgate.permissions.allow]),
+    allow: dedup([...existingPermissions.allow, ...archgate.permissions.allow]),
   };
 
   return merged;

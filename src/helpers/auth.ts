@@ -53,7 +53,7 @@ const DeviceTokenResponseSchema = z.union([
 
 const GitHubUserSchema = z.object({
   login: z.string().optional(),
-  email: z.string().nullable().optional(),
+  email: z.string().nullable().default(null),
 });
 
 const TokenResponseSchema = z.object({ token: z.string().optional() });
@@ -185,7 +185,7 @@ export async function getGitHubUser(
     throw new Error("GitHub API did not return a username");
   }
   logDebug("GitHub user:", data.login);
-  return { login: data.login, email: data.email ?? null };
+  return { login: data.login, email: data.email };
 }
 
 // ---------------------------------------------------------------------------

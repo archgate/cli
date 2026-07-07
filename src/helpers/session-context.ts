@@ -64,8 +64,8 @@ export const MessageContentSchema = z.union([
 ]);
 
 export const TranscriptEntrySchema = z.object({
-  type: z.string().optional(),
-  role: z.string().optional(),
+  type: z.string().default(""),
+  role: z.string().default(""),
   message: z
     .object({
       role: z.string().optional(),
@@ -252,9 +252,9 @@ export async function readClaudeCodeSession(
 
   const relevant: ClaudeSessionSummary["transcript"] = [];
   for (const entry of entries) {
-    if (!RELEVANT_TYPES.has(entry.type ?? "")) continue;
+    if (!RELEVANT_TYPES.has(entry.type)) continue;
     relevant.push({
-      type: entry.type!,
+      type: entry.type,
       role: entry.message?.role,
       contentPreview: getContentPreview(entry),
     });
@@ -399,9 +399,9 @@ export async function readCursorSession(
 
   const relevant: CursorSessionSummary["transcript"] = [];
   for (const entry of entries) {
-    if (!RELEVANT_ROLES.has(entry.role ?? "")) continue;
+    if (!RELEVANT_ROLES.has(entry.role)) continue;
     relevant.push({
-      role: entry.role!,
+      role: entry.role,
       contentPreview: getContentPreview(entry),
     });
   }

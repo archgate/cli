@@ -13,13 +13,10 @@ import {
   isWindows,
 } from "./platform";
 
-const VscodeSettingsSchema = z
+/** @internal Exported for testing only. */
+export const VscodeSettingsSchema = z
   .object({
-    "chat.plugins.marketplaces": z
-      .array(z.string())
-      .optional()
-      // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
-      .catch(undefined),
+    "chat.plugins.marketplaces": z.array(z.string()).optional().catch([]),
   })
   .passthrough();
 
