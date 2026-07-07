@@ -67,12 +67,13 @@ describe("mergeMarketplaceUrl", () => {
     ]);
   });
 
-  test("handles non-array marketplaces gracefully", () => {
-    const result = mergeMarketplaceUrl(
-      { "chat.plugins.marketplaces": "not-an-array", "editor.fontSize": 14 },
-      URL
-    );
-    expect(result["chat.plugins.marketplaces"]).toEqual([URL]);
+  test("handles missing marketplaces gracefully", () => {
+    const result = mergeMarketplaceUrl({ "editor.fontSize": 14 }, URL);
+    expect(result["chat.plugins.marketplaces"]).toEqual([
+      "github/copilot-plugins",
+      "github/awesome-copilot",
+      URL,
+    ]);
     expect(result["editor.fontSize"]).toBe(14);
   });
 });

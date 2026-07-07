@@ -24,7 +24,7 @@ import {
   finalizeCommand,
 } from "./helpers/exit";
 import { installGit } from "./helpers/git";
-import { type LogLevel, logError, setLogLevel } from "./helpers/log";
+import { logError, setLogLevel } from "./helpers/log";
 import { createPathIfNotExists, paths } from "./helpers/paths";
 import { getPlatformInfo, isSupportedPlatform } from "./helpers/platform";
 import {
@@ -113,11 +113,11 @@ async function main() {
 
     // Apply log level from global option before any command runs
     const rootOpts = program.opts();
-    setLogLevel(rootOpts.logLevel as LogLevel);
+    setLogLevel(rootOpts.logLevel);
     const fullCommand = getFullCommandName(actionCommand);
     addBreadcrumb("command", `Running: ${fullCommand}`);
     // Collect which options were used (presence only, no values)
-    const opts = actionCommand.opts() as Record<string, unknown>;
+    const opts = actionCommand.opts();
     const optionFlags: Record<string, boolean> = {};
     const optionsUsed: string[] = [];
     for (const key of Object.keys(opts)) {
@@ -174,17 +174,20 @@ async function main() {
  * from the `preAction` / `postAction` hook callback, where Commander gives us
  * a `CommandUnknownOpts`, not the narrowly-typed `Command<[], {}, {}>`.
  */
-function getFullCommandName(
-  command: { name(): string; parent: unknown } | null
-): string {
+interface CommandLike {
+  name(): string;
+  parent: CommandLike | null;
+}
+
+function getFullCommandName(command: CommandLike | null): string {
   const parts: string[] = [];
-  let current = command;
+  let current: CommandLike | null = command;
   while (current) {
     const name = current.name();
     if (name && name !== "archgate") {
       parts.unshift(name);
     }
-    current = current.parent as typeof command;
+    current = current.parent;
   }
   return parts.join(" ") || "root";
 }

@@ -4,6 +4,8 @@ import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
+import { z } from "zod";
+
 import type { EditorTarget } from "./init-project";
 import { isWSL, toWindowsPath } from "./platform";
 
@@ -50,12 +52,15 @@ export async function encodeProjectPath(
 const RELEVANT_TYPES = new Set(["user", "assistant"]);
 export const RELEVANT_ROLES = new Set(["user", "assistant"]);
 
-export interface TranscriptEntry {
-  type?: string;
-  role?: string;
-  message?: { role?: string; content?: unknown };
-  [key: string]: unknown;
-}
+export const TranscriptEntrySchema = z.object({
+  type: z.string().optional(),
+  role: z.string().optional(),
+  message: z
+    .object({ role: z.string().optional(), content: z.unknown() })
+    .optional(),
+});
+
+export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
 
 interface ClaudeSessionSummary {
   sessionFile: string;
@@ -102,9 +107,9 @@ export function getContentPreview(entry: TranscriptEntry): string {
     const parts: string[] = [];
     for (const block of content) {
       if (typeof block !== "object" || block === null) continue;
-      const b = block as Record<string, unknown>;
+      const b: Record<string, unknown> = block;
       if (b.type === "text" && typeof b.text === "string") {
-        const text = b.text as string;
+        const text: string = b.text;
         parts.push(text.length > 300 ? text.slice(0, 300) + "..." : text);
       } else if (b.type === "tool_use") {
         parts.push(`[tool_use: ${b.name}]`);
@@ -221,7 +226,7 @@ export async function readClaudeCodeSession(
   let entries: TranscriptEntry[];
   try {
     const raw = await Bun.file(sessionFile).text();
-    entries = Bun.JSONL.parse(raw) as TranscriptEntry[];
+    entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
   } catch {
     return {
       ok: false,
@@ -368,7 +373,7 @@ export async function readCursorSession(
   let entries: TranscriptEntry[];
   try {
     const raw = await Bun.file(sessionFile).text();
-    entries = Bun.JSONL.parse(raw) as TranscriptEntry[];
+    entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
   } catch {
     return {
       ok: false,

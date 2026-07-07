@@ -14,6 +14,8 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { internalPath, createPathIfNotExists } from "./paths";
 
@@ -21,16 +23,14 @@ import { internalPath, createPathIfNotExists } from "./paths";
 // Types
 // ---------------------------------------------------------------------------
 
-export interface TelemetryConfig {
-  /** Whether telemetry is enabled (default: true). */
-  telemetry: boolean;
-  /** Random UUID generated on first use — not derived from any user data. */
-  installId: string;
-  /** ISO date of first telemetry config creation. */
-  createdAt: string;
-  /** Whether the first-run privacy notice has been shown. */
-  noticeShown?: boolean;
-}
+const TelemetryConfigSchema = z.object({
+  telemetry: z.boolean(),
+  installId: z.string(),
+  createdAt: z.string().optional(),
+  noticeShown: z.boolean().optional(),
+});
+
+export type TelemetryConfig = z.infer<typeof TelemetryConfigSchema>;
 
 // ---------------------------------------------------------------------------
 // Paths
@@ -88,13 +88,11 @@ export function loadTelemetryConfig(): TelemetryConfig {
     const path = configPath();
     if (existsSync(path)) {
       const text = readFileSync(path, "utf-8");
-      const parsed = JSON.parse(text) as Partial<TelemetryConfig>;
-      if (parsed.installId && typeof parsed.telemetry === "boolean") {
+      const result = TelemetryConfigSchema.safeParse(JSON.parse(text));
+      if (result.success) {
         cachedConfig = {
-          telemetry: parsed.telemetry,
-          installId: parsed.installId,
-          createdAt: parsed.createdAt ?? new Date().toISOString(),
-          noticeShown: parsed.noticeShown,
+          ...result.data,
+          createdAt: result.data.createdAt ?? new Date().toISOString(),
         };
         logDebug("Telemetry config loaded:", cachedConfig.installId);
         return cachedConfig;

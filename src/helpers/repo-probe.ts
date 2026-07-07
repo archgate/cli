@@ -16,10 +16,18 @@
  * identity shared.
  */
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 // `import type` is erased at compile time, so there's no runtime circularity
 // with `repo.ts` even though `repo.ts` imports the probe's runtime bindings.
-import type { RepoContext, RepoHost } from "./repo";
+import type { RepoContext } from "./repo";
+
+// Zod schemas for external API responses
+const GitHubRepoSchema = z.object({ private: z.boolean().optional() });
+const GitLabProjectSchema = z.object({ visibility: z.string().optional() });
+const BitbucketRepoSchema = z.object({ is_private: z.boolean().optional() });
+const AzureProjectSchema = z.object({ visibility: z.string().optional() });
 
 // ---------------------------------------------------------------------------
 // Cache
@@ -65,11 +73,7 @@ async function probePublic(
   repo: Pick<RepoContext, "host" | "owner" | "name">
 ): Promise<boolean | null> {
   if (!repo.host || !repo.owner || !repo.name) return null;
-  const { host, owner, name } = repo as {
-    host: RepoHost;
-    owner: string;
-    name: string;
-  };
+  const { host, owner, name } = repo;
   if (host === "other") return null;
 
   try {
@@ -122,7 +126,7 @@ async function probeGitHub(
   if (!res) return null;
   if (res.status === 200) {
     try {
-      const data = (await res.json()) as { private?: boolean };
+      const data = GitHubRepoSchema.parse(await res.json());
       return data.private === false;
     } catch {
       return null;
@@ -145,7 +149,7 @@ async function probeGitLab(
   if (!res) return null;
   if (res.status === 200) {
     try {
-      const data = (await res.json()) as { visibility?: string };
+      const data = GitLabProjectSchema.parse(await res.json());
       return data.visibility === "public";
     } catch {
       return null;
@@ -164,7 +168,7 @@ async function probeBitbucket(
   if (!res) return null;
   if (res.status === 200) {
     try {
-      const data = (await res.json()) as { is_private?: boolean };
+      const data = BitbucketRepoSchema.parse(await res.json());
       return data.is_private === false;
     } catch {
       return null;
@@ -196,7 +200,7 @@ async function probeAzureDevOps(
   if (!res) return null;
   if (res.status === 200) {
     try {
-      const data = (await res.json()) as { visibility?: string };
+      const data = AzureProjectSchema.parse(await res.json());
       return data.visibility === "public";
     } catch {
       return null;

@@ -70,16 +70,12 @@ describe("mergeClaudeSettings", () => {
     expect(result.anotherKey).toBe(42);
   });
 
-  test("handles non-object permissions gracefully", () => {
-    const result = mergeClaudeSettings(
-      { permissions: "invalid" },
-      ARCHGATE_CLAUDE_SETTINGS
-    );
+  test("handles missing permissions gracefully", () => {
+    const result = mergeClaudeSettings({}, ARCHGATE_CLAUDE_SETTINGS);
 
-    const permissions = result.permissions as Record<string, unknown>;
-    expect(permissions.allow).toEqual(
-      ARCHGATE_CLAUDE_SETTINGS.permissions.allow
-    );
+    expect(result.permissions?.allow).toEqual([
+      ...ARCHGATE_CLAUDE_SETTINGS.permissions.allow,
+    ]);
   });
 });
 

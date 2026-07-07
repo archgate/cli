@@ -176,7 +176,7 @@ export function reportConsole(
     // Print violations
     for (const v of r.violations) {
       const loc = v.file ? (v.line ? `${v.file}:${v.line}` : v.file) : "";
-      const sevColor =
+      const sevColor: "red" | "yellow" | "dim" =
         v.severity === "error"
           ? "red"
           : v.severity === "warning"
@@ -191,7 +191,7 @@ export function reportConsole(
             : "info";
 
       console.log(
-        `    ${styleText(sevColor as "red", `[${sevLabel}]`)} ${v.message}${loc ? ` ${styleText("dim", loc)}` : ""}`
+        `    ${styleText(sevColor, `[${sevLabel}]`)} ${v.message}${loc ? ` ${styleText("dim", loc)}` : ""}`
       );
 
       if (v.fix && verbose) {
@@ -315,7 +315,7 @@ export function reportCI(
 export function getExitCode(
   result: CheckResult,
   summary?: ReportSummary
-): number {
+): 0 | 1 | 2 {
   if (summary) {
     if (summary.ruleErrors > 0) return 2;
     if (summary.failed > 0) return 1;

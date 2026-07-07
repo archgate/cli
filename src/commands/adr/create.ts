@@ -85,7 +85,7 @@ export function registerAdrCreateCommand(adr: Command) {
             ])
           );
 
-          domain = answers.domain as AdrDomain;
+          domain = answers.domain;
           title = answers.title;
           files = answers.files
             ? answers.files

@@ -3,6 +3,8 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { copilotSessionStateDir } from "./paths";
 import { isWindows } from "./platform";
@@ -12,6 +14,15 @@ import {
   type TranscriptEntry,
   getContentPreview,
 } from "./session-context";
+
+const WorkspaceMetaSchema = z.object({ cwd: z.string().optional() });
+
+const CopilotEventSchema = z.object({
+  type: z.string().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+const CopilotEventsSchema = z.array(CopilotEventSchema);
 
 interface CopilotSessionSummary {
   sessionId: string;
@@ -104,8 +115,9 @@ async function findMatchingCopilotSessions(
     try {
       // oxlint-disable-next-line no-await-in-loop -- sequential read needed: each session's YAML determines project match
       const raw = await Bun.file(yamlPath).text();
-      const meta = Bun.YAML.parse(raw) as Record<string, unknown>;
-      const cwd = typeof meta.cwd === "string" ? meta.cwd : null;
+      const metaResult = WorkspaceMetaSchema.safeParse(Bun.YAML.parse(raw));
+      if (!metaResult.success) continue;
+      const cwd = metaResult.data.cwd ?? null;
       if (cwd && normalizePath(cwd) === normalizedProjectRoot) {
         matching.push({ name: dir.name, mtime: dir.mtime });
       }
@@ -177,10 +189,10 @@ export async function readCopilotSession(
 
   // 4. Read events.jsonl
   const eventsFile = join(stateDir, target.name, "events.jsonl");
-  let rawEntries: Array<Record<string, unknown>>;
+  let rawEntries: z.infer<typeof CopilotEventsSchema>;
   try {
     const raw = await Bun.file(eventsFile).text();
-    rawEntries = Bun.JSONL.parse(raw) as Array<Record<string, unknown>>;
+    rawEntries = CopilotEventsSchema.parse(Bun.JSONL.parse(raw));
   } catch {
     return {
       ok: false,
@@ -196,9 +208,8 @@ export async function readCopilotSession(
     if (!COPILOT_RELEVANT_TYPES.has(eventType)) continue;
     const role = eventType === "user.message" ? "user" : "assistant";
     // Normalize to TranscriptEntry shape so getContentPreview works
-    const normalized: TranscriptEntry = {
-      message: { content: (event.data as Record<string, unknown>)?.content },
-    };
+    const content = event.data?.content;
+    const normalized: TranscriptEntry = { message: { content } };
     relevant.push({ role, contentPreview: getContentPreview(normalized) });
   }
 

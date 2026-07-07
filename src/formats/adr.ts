@@ -57,7 +57,14 @@ export interface AdrDocument {
  * Parse YAML frontmatter from a raw string (the content between --- delimiters).
  */
 export function parseFrontmatter(raw: string): Record<string, unknown> {
-  return (Bun.YAML.parse(raw) as Record<string, unknown>) ?? {};
+  const parsed = Bun.YAML.parse(raw);
+  if (!isPlainObject(parsed)) return {};
+  return parsed;
+}
+
+/** Narrow `unknown` to a plain object (not array, not null). */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function formatZodErrors(error: z.ZodError): string[] {

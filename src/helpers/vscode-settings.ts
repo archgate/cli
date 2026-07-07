@@ -4,6 +4,8 @@ import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import {
   getWindowsHomeDirFromWSL,
   isMacOS,
@@ -11,7 +13,11 @@ import {
   isWindows,
 } from "./platform";
 
-type VscodeUserSettings = Record<string, unknown>;
+const VscodeSettingsSchema = z
+  .object({ "chat.plugins.marketplaces": z.array(z.string()).optional() })
+  .passthrough();
+
+type VscodeUserSettings = z.infer<typeof VscodeSettingsSchema>;
 
 /**
  * VS Code's built-in default marketplaces for `chat.plugins.marketplaces`.
@@ -46,11 +52,7 @@ export function mergeMarketplaceUrl(
   const merged: VscodeUserSettings = { ...existing };
 
   const hasExplicitMarketplaces = "chat.plugins.marketplaces" in existing;
-  const existingMarketplaces = Array.isArray(
-    merged["chat.plugins.marketplaces"]
-  )
-    ? (merged["chat.plugins.marketplaces"] as string[])
-    : [];
+  const existingMarketplaces = merged["chat.plugins.marketplaces"] ?? [];
 
   // When the key is absent, seed with VS Code's built-in defaults so we don't
   // silently override them by setting the key explicitly.
@@ -149,7 +151,8 @@ export async function addMarketplaceToUserSettings(
   let existing: VscodeUserSettings = {};
   if (existsSync(settingsPath)) {
     const content = await Bun.file(settingsPath).text();
-    existing = Bun.JSONC.parse(content) as VscodeUserSettings;
+    const result = VscodeSettingsSchema.safeParse(Bun.JSONC.parse(content));
+    if (result.success) existing = result.data;
   }
 
   const merged = mergeMarketplaceUrl(existing, marketplaceUrl);

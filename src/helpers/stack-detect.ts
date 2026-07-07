@@ -28,8 +28,16 @@ const StackCacheSchema = z.object({
 
 /** Loose schema for the subset of package.json we inspect. */
 const PackageJsonSchema = z.object({
-  dependencies: z.record(z.string(), z.string()).optional(),
-  devDependencies: z.record(z.string(), z.string()).optional(),
+  dependencies: z
+    .record(z.string(), z.string())
+    .optional()
+    // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
+    .catch(undefined),
+  devDependencies: z
+    .record(z.string(), z.string())
+    .optional()
+    // oxlint-disable-next-line no-useless-undefined
+    .catch(undefined),
 });
 
 /** PEP 621 pyproject.toml — only the [project].dependencies list. */
@@ -218,8 +226,9 @@ export async function detectStackUncached(
 
   if (hasPkgJson) {
     try {
-      const raw = await Bun.file(pkgJsonPath).json();
-      const result = PackageJsonSchema.safeParse(raw);
+      const result = PackageJsonSchema.safeParse(
+        await Bun.file(pkgJsonPath).json()
+      );
       pkgJson = result.success ? result.data : null;
     } catch {
       logDebug("Failed to parse package.json");

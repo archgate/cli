@@ -6,6 +6,8 @@ import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { internalPath } from "./paths";
 import { isWindows } from "./platform";
@@ -62,9 +64,7 @@ export function getArtifactInfo(): ArtifactInfo | null {
 // Version fetching
 // ---------------------------------------------------------------------------
 
-interface GitHubRelease {
-  tag_name?: string;
-}
+const GitHubReleaseSchema = z.object({ tag_name: z.string().optional() });
 
 const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
@@ -92,7 +92,7 @@ export async function fetchLatestGitHubVersion(
     return null;
   }
 
-  const data = (await response.json()) as GitHubRelease;
+  const data = GitHubReleaseSchema.parse(await response.json());
   logDebug("Latest release tag:", data.tag_name ?? "(none)");
   return data.tag_name ?? null;
 }
@@ -172,7 +172,10 @@ export async function downloadReleaseBinary(
       combined.set(chunk, offset);
       offset += chunk.byteLength;
     }
-    buffer = combined.buffer as ArrayBuffer;
+    buffer = combined.buffer.slice(
+      combined.byteOffset,
+      combined.byteOffset + combined.byteLength
+    );
   } else {
     buffer = await response.arrayBuffer();
   }

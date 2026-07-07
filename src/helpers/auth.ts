@@ -8,6 +8,8 @@
  * credential helpers (macOS Keychain, Windows Credential Manager, libsecret).
  */
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { SignupRequiredError, isSignupRequiredError } from "./signup";
 import { UserError } from "./user-error";
@@ -30,34 +32,32 @@ const GITHUB_CLIENT_ID = "Ov23liZUI9Aiv2ZrSAgn";
 // Types
 // ---------------------------------------------------------------------------
 
-interface DeviceCodeResponse {
-  device_code: string;
-  user_code: string;
-  verification_uri: string;
-  expires_in: number;
-  interval: number;
-}
+const DeviceCodeResponseSchema = z.object({
+  device_code: z.string(),
+  user_code: z.string(),
+  verification_uri: z.string(),
+  expires_in: z.number(),
+  interval: z.number(),
+});
 
-interface DeviceTokenSuccessResponse {
-  access_token: string;
-  token_type: string;
-  scope: string;
-}
+type DeviceCodeResponse = z.infer<typeof DeviceCodeResponseSchema>;
 
-interface DeviceTokenPendingResponse {
-  error: "authorization_pending" | "slow_down";
-  error_description?: string;
-}
+const DeviceTokenResponseSchema = z.union([
+  z.object({
+    access_token: z.string(),
+    token_type: z.string(),
+    scope: z.string(),
+  }),
+  z.object({ error: z.string(), error_description: z.string().optional() }),
+]);
 
-interface DeviceTokenErrorResponse {
-  error: "expired_token" | "access_denied" | string;
-  error_description?: string;
-}
+const GitHubUserSchema = z.object({
+  login: z.string().optional(),
+  email: z.string().nullable().optional(),
+});
 
-type DeviceTokenResponse =
-  | DeviceTokenSuccessResponse
-  | DeviceTokenPendingResponse
-  | DeviceTokenErrorResponse;
+const TokenResponseSchema = z.object({ token: z.string().optional() });
+const ErrorResponseSchema = z.object({ error: z.string().optional() });
 
 // ---------------------------------------------------------------------------
 // GitHub Device Flow
@@ -83,7 +83,7 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
     );
   }
 
-  const data = (await response.json()) as DeviceCodeResponse;
+  const data = DeviceCodeResponseSchema.parse(await response.json());
   logDebug("Device code received, expires in:", data.expires_in, "seconds");
   return data;
 }
@@ -126,7 +126,7 @@ export async function pollForAccessToken(
       throw new UserError(`GitHub token poll failed (HTTP ${response.status})`);
     }
 
-    const data = (await response.json()) as DeviceTokenResponse;
+    const data = DeviceTokenResponseSchema.parse(await response.json());
 
     if ("access_token" in data) {
       logDebug("Access token received");
@@ -180,10 +180,7 @@ export async function getGitHubUser(
     );
   }
 
-  const data = (await response.json()) as {
-    login?: string;
-    email?: string | null;
-  };
+  const data = GitHubUserSchema.parse(await response.json());
   if (!data.login) {
     throw new Error("GitHub API did not return a username");
   }
@@ -213,9 +210,9 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as {
-      error?: string;
-    };
+    const body = ErrorResponseSchema.parse(
+      await response.json().catch(() => ({}))
+    );
 
     if (isSignupRequiredError(body.error)) {
       throw new SignupRequiredError();
@@ -226,7 +223,7 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
     throw new UserError(message);
   }
 
-  const data = (await response.json()) as { token?: string };
+  const data = TokenResponseSchema.parse(await response.json());
   if (!data.token) {
     throw new Error("Plugins service did not return a token");
   }
