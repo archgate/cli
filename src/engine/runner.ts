@@ -5,9 +5,10 @@ import { relative, resolve, isAbsolute } from "node:path";
 
 import type {
   AstLanguage,
-  AstNode,
   EsTreeProgram,
   GrepMatch,
+  PythonAstModule,
+  RubyAstNode,
   RuleContext,
   RuleReport,
   ViolationDetail,
@@ -162,15 +163,19 @@ function createRuleContext(
     },
   };
 
-  // ARCH-022: ctx.ast() implementation. Declared as a const cast to the
-  // overloaded RuleContext["ast"] type so this single implementation
-  // signature satisfies the language-narrowed public overloads (a single
-  // broad signature is not directly assignable to the narrow overloads).
+  // ARCH-022: ctx.ast() implementation. Overload declarations match
+  // RuleContext["ast"] so each language narrows to the correct return type.
   // The four guardrails below MUST run in this order before any subprocess.
-  const astImpl = (async (
+  async function astImpl(
     path: string,
-    language: AstLanguage
-  ): Promise<AstNode> => {
+    language: "typescript" | "javascript"
+  ): Promise<EsTreeProgram>;
+  async function astImpl(
+    path: string,
+    language: "python"
+  ): Promise<PythonAstModule>;
+  async function astImpl(path: string, language: "ruby"): Promise<RubyAstNode>;
+  async function astImpl(path: string, language: AstLanguage) {
     // Guardrail 1: path safety — same sandbox as readFile/glob.
     const absPath = safePath(projectRoot, path);
 
@@ -203,7 +208,7 @@ function createRuleContext(
           // sloppy-mode script (mirroring the .cjs handling below).
           return parseJsModule(js, {
             sourceType: lowerPath.endsWith(".cts") ? "script" : "module",
-          }) as unknown as EsTreeProgram;
+          });
         }
         // .cjs cannot legally contain import/export in Node — parse it as
         // a sloppy-mode script so CommonJS-isms (top-level return, `with`)
@@ -211,7 +216,7 @@ function createRuleContext(
         return parseJsModule(source, {
           jsx: lowerPath.endsWith(".jsx"),
           sourceType: lowerPath.endsWith(".cjs") ? "script" : "module",
-        }) as unknown as EsTreeProgram;
+        });
       } catch (err) {
         throw new Error(
           `Failed to parse "${path}" as ${language}: ${parseErrorMessage(err)}`
@@ -250,8 +255,8 @@ function createRuleContext(
       const detail = stderr.trim() || `exit code ${exitCode}`;
       throw new Error(`Failed to parse "${path}" as ${language}: ${detail}`);
     }
-    return parseAstJson(stdout, path, language) as unknown as AstNode;
-  }) as unknown as RuleContext["ast"];
+    return parseAstJson(stdout, path, language);
+  }
 
   return {
     projectRoot,

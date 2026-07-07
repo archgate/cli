@@ -92,7 +92,8 @@ export async function createAdrFile(
   }
 ): Promise<CreateAdrResult> {
   const prefix =
-    opts.prefix ?? DOMAIN_PREFIXES[opts.domain as keyof typeof DOMAIN_PREFIXES];
+    opts.prefix ??
+    Object.entries(DOMAIN_PREFIXES).find(([d]) => d === opts.domain)?.[1];
   if (!prefix) {
     throw new UserError(
       `No prefix registered for domain '${opts.domain}'. Pass opts.prefix or register via \`archgate domain add\`.`

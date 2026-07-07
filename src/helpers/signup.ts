@@ -4,6 +4,8 @@
  * signup.ts — Archgate plugins platform signup for unregistered users.
  */
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 
 const PLUGINS_API = "https://plugins.archgate.dev";
@@ -65,7 +67,13 @@ export async function requestSignup(
     return { ok: false, token: null };
   }
 
-  const data = (await response.json().catch(() => ({}))) as { token?: string };
+  const SignupResponseSchema = z.object({
+    token: z.string().nullable().default(null),
+  });
+  const result = SignupResponseSchema.safeParse(
+    await response.json().catch(() => ({}))
+  );
+  const data = result.success ? result.data : { token: null };
   logDebug("Signup successful, token provided:", Boolean(data.token));
-  return { ok: true, token: data.token ?? null };
+  return { ok: true, token: data.token };
 }

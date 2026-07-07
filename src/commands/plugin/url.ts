@@ -8,7 +8,7 @@ import {
   promptSingleEditorSelection,
 } from "../../helpers/editor-detect";
 import { handleCommandError } from "../../helpers/exit";
-import type { EditorTarget } from "../../helpers/init-project";
+import { EDITOR_TARGETS, type EditorTarget } from "../../helpers/init-project";
 import {
   buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
@@ -18,7 +18,7 @@ import {
 const editorOption = new Option(
   "--editor <editor>",
   "target editor (omit to auto-detect and select)"
-).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
+).choices(EDITOR_TARGETS);
 
 export function registerPluginUrlCommand(plugin: Command) {
   plugin

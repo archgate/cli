@@ -195,7 +195,7 @@ export function parseAstJson(
   language: string
 ): Record<string, unknown> | unknown[] {
   try {
-    return JSON.parse(stdout) as Record<string, unknown> | unknown[];
+    return JSON.parse(stdout);
   } catch {
     throw new Error(
       `Failed to parse "${path}" as ${language}: interpreter produced invalid JSON output`

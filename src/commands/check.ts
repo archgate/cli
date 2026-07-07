@@ -183,6 +183,6 @@ export function registerCheckCommand(program: Command) {
 
       const exitCode = getExitCode(result, summary);
       // Only 0, 1, and 2 are emitted by getExitCode()
-      await exitWith(exitCode as 0 | 1 | 2);
+      await exitWith(exitCode);
     });
 }

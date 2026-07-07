@@ -4,6 +4,8 @@ import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
+import { z } from "zod";
+
 import type { EditorTarget } from "./init-project";
 import { isWSL, toWindowsPath } from "./platform";
 
@@ -50,12 +52,44 @@ export async function encodeProjectPath(
 const RELEVANT_TYPES = new Set(["user", "assistant"]);
 export const RELEVANT_ROLES = new Set(["user", "assistant"]);
 
-export interface TranscriptEntry {
-  type?: string;
-  role?: string;
-  message?: { role?: string; content?: unknown };
-  [key: string]: unknown;
-}
+const TextBlockSchema = z.object({ type: z.literal("text"), text: z.string() });
+const ToolUseBlockSchema = z.object({
+  type: z.literal("tool_use"),
+  name: z.string(),
+});
+const ToolResultBlockSchema = z.object({
+  type: z.literal("tool_result"),
+  tool_use_id: z.string(),
+});
+// Catch-all for block types we don't inspect (thinking, image, etc.)
+const UnknownBlockSchema = z.object({ type: z.string() }).passthrough();
+
+const ContentBlockSchema = z.union([
+  TextBlockSchema,
+  ToolUseBlockSchema,
+  ToolResultBlockSchema,
+  UnknownBlockSchema,
+]);
+
+type ContentBlock = z.infer<typeof ContentBlockSchema>;
+
+export const MessageContentSchema = z.union([
+  z.string(),
+  z.array(ContentBlockSchema),
+]);
+
+export const TranscriptEntrySchema = z.object({
+  type: z.string().default(""),
+  role: z.string().default(""),
+  message: z
+    .object({
+      role: z.string().optional(),
+      content: MessageContentSchema.optional(),
+    })
+    .optional(),
+});
+
+export type TranscriptEntry = z.infer<typeof TranscriptEntrySchema>;
 
 interface ClaudeSessionSummary {
   sessionFile: string;
@@ -92,6 +126,21 @@ type CursorSessionResult =
   | { ok: true; data: CursorSessionSummary }
   | { ok: false; error: string; path?: string; available?: string[] };
 
+/** Extract a preview string from a single content block, or null for unknown types. */
+function parseContentBlock(block: ContentBlock): string | null {
+  const text = TextBlockSchema.safeParse(block);
+  if (text.success) {
+    const t = text.data.text;
+    return t.length > 300 ? t.slice(0, 300) + "..." : t;
+  }
+  const toolUse = ToolUseBlockSchema.safeParse(block);
+  if (toolUse.success) return `[tool_use: ${toolUse.data.name}]`;
+  const toolResult = ToolResultBlockSchema.safeParse(block);
+  if (toolResult.success)
+    return `[tool_result: ${toolResult.data.tool_use_id.slice(0, 20)}]`;
+  return null;
+}
+
 /** Extract a concise content preview from a transcript entry. */
 export function getContentPreview(entry: TranscriptEntry): string {
   const content = entry.message?.content;
@@ -101,18 +150,8 @@ export function getContentPreview(entry: TranscriptEntry): string {
   if (Array.isArray(content)) {
     const parts: string[] = [];
     for (const block of content) {
-      if (typeof block !== "object" || block === null) continue;
-      const b = block as Record<string, unknown>;
-      if (b.type === "text" && typeof b.text === "string") {
-        const text = b.text as string;
-        parts.push(text.length > 300 ? text.slice(0, 300) + "..." : text);
-      } else if (b.type === "tool_use") {
-        parts.push(`[tool_use: ${b.name}]`);
-      } else if (b.type === "tool_result") {
-        parts.push(
-          `[tool_result: ${String(b.tool_use_id ?? "").slice(0, 20)}]`
-        );
-      }
+      const parsed = parseContentBlock(block);
+      if (parsed) parts.push(parsed);
     }
     return parts.join(" | ");
   }
@@ -221,7 +260,7 @@ export async function readClaudeCodeSession(
   let entries: TranscriptEntry[];
   try {
     const raw = await Bun.file(sessionFile).text();
-    entries = Bun.JSONL.parse(raw) as TranscriptEntry[];
+    entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
   } catch {
     return {
       ok: false,
@@ -232,9 +271,9 @@ export async function readClaudeCodeSession(
 
   const relevant: ClaudeSessionSummary["transcript"] = [];
   for (const entry of entries) {
-    if (!RELEVANT_TYPES.has(entry.type ?? "")) continue;
+    if (!RELEVANT_TYPES.has(entry.type)) continue;
     relevant.push({
-      type: entry.type!,
+      type: entry.type,
       role: entry.message?.role,
       contentPreview: getContentPreview(entry),
     });
@@ -368,7 +407,7 @@ export async function readCursorSession(
   let entries: TranscriptEntry[];
   try {
     const raw = await Bun.file(sessionFile).text();
-    entries = Bun.JSONL.parse(raw) as TranscriptEntry[];
+    entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
   } catch {
     return {
       ok: false,
@@ -379,9 +418,9 @@ export async function readCursorSession(
 
   const relevant: CursorSessionSummary["transcript"] = [];
   for (const entry of entries) {
-    if (!RELEVANT_ROLES.has(entry.role ?? "")) continue;
+    if (!RELEVANT_ROLES.has(entry.role)) continue;
     relevant.push({
-      role: entry.role!,
+      role: entry.role,
       contentPreview: getContentPreview(entry),
     });
   }

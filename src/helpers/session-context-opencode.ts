@@ -279,7 +279,11 @@ export function readOpencodeSession(
       const content = contentParts.join("\n");
       if (content.length === 0) continue;
 
-      const normalized: TranscriptEntry = { message: { content } };
+      const normalized: TranscriptEntry = {
+        type: "",
+        role: msg.role,
+        message: { content },
+      };
       relevant.push({
         role: msg.role,
         contentPreview: getContentPreview(normalized),

@@ -3,15 +3,29 @@
 import { readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { copilotSessionStateDir } from "./paths";
 import { isWindows } from "./platform";
 import {
+  MessageContentSchema,
   type ReadSessionOptions,
   type SessionListResult,
   type TranscriptEntry,
   getContentPreview,
 } from "./session-context";
+
+const WorkspaceMetaSchema = z.object({
+  cwd: z.string().nullable().default(null),
+});
+
+const CopilotEventSchema = z.object({
+  type: z.string().default(""),
+  data: z.record(z.string(), z.unknown()).optional(),
+});
+
+const CopilotEventsSchema = z.array(CopilotEventSchema);
 
 interface CopilotSessionSummary {
   sessionId: string;
@@ -104,8 +118,9 @@ async function findMatchingCopilotSessions(
     try {
       // oxlint-disable-next-line no-await-in-loop -- sequential read needed: each session's YAML determines project match
       const raw = await Bun.file(yamlPath).text();
-      const meta = Bun.YAML.parse(raw) as Record<string, unknown>;
-      const cwd = typeof meta.cwd === "string" ? meta.cwd : null;
+      const metaResult = WorkspaceMetaSchema.safeParse(Bun.YAML.parse(raw));
+      if (!metaResult.success) continue;
+      const cwd = metaResult.data.cwd;
       if (cwd && normalizePath(cwd) === normalizedProjectRoot) {
         matching.push({ name: dir.name, mtime: dir.mtime });
       }
@@ -177,10 +192,10 @@ export async function readCopilotSession(
 
   // 4. Read events.jsonl
   const eventsFile = join(stateDir, target.name, "events.jsonl");
-  let rawEntries: Array<Record<string, unknown>>;
+  let rawEntries: z.infer<typeof CopilotEventsSchema>;
   try {
     const raw = await Bun.file(eventsFile).text();
-    rawEntries = Bun.JSONL.parse(raw) as Array<Record<string, unknown>>;
+    rawEntries = CopilotEventsSchema.parse(Bun.JSONL.parse(raw));
   } catch {
     return {
       ok: false,
@@ -192,12 +207,16 @@ export async function readCopilotSession(
   // 5. Filter to user/assistant events and normalize to TranscriptEntry shape
   const relevant: CopilotSessionSummary["transcript"] = [];
   for (const event of rawEntries) {
-    const eventType = String(event.type ?? "");
+    const eventType = event.type;
     if (!COPILOT_RELEVANT_TYPES.has(eventType)) continue;
     const role = eventType === "user.message" ? "user" : "assistant";
     // Normalize to TranscriptEntry shape so getContentPreview works
+    const contentResult = MessageContentSchema.safeParse(event.data?.content);
+    const content = contentResult.success ? contentResult.data : undefined;
     const normalized: TranscriptEntry = {
-      message: { content: (event.data as Record<string, unknown>)?.content },
+      type: "",
+      role,
+      message: { content },
     };
     relevant.push({ role, contentPreview: getContentPreview(normalized) });
   }

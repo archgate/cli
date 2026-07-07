@@ -16,13 +16,20 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { opencodeConfigDir } from "./paths";
 
 /** The agent name used in opencode's `default_agent` config field. */
 const DEFAULT_AGENT = "archgate-developer";
 
-type OpencodeConfig = Record<string, unknown>;
+const OpencodeConfigSchema = z
+  // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
+  .object({ default_agent: z.string().optional().catch(undefined) })
+  .passthrough();
+
+type OpencodeConfig = z.infer<typeof OpencodeConfigSchema>;
 
 /**
  * Pure, additive merge of archgate settings into existing opencode config.
@@ -67,7 +74,10 @@ export async function configureOpencodeSettings(): Promise<string> {
   let existing: OpencodeConfig = {};
   if (existsSync(configPath)) {
     try {
-      existing = (await Bun.file(configPath).json()) as OpencodeConfig;
+      const result = OpencodeConfigSchema.safeParse(
+        await Bun.file(configPath).json()
+      );
+      if (result.success) existing = result.data;
     } catch {
       // Corrupted config file — start fresh
     }

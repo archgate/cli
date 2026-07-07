@@ -10,7 +10,12 @@ import { Option } from "@commander-js/extra-typings";
 import { loadCredentials } from "../helpers/credential-store";
 import { detectEditors, promptEditorSelection } from "../helpers/editor-detect";
 import { exitWith, handleCommandError } from "../helpers/exit";
-import { EDITOR_LABELS, initProject } from "../helpers/init-project";
+import {
+  EDITOR_LABELS,
+  EDITOR_TARGETS,
+  SIGNUP_EDITORS,
+  initProject,
+} from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
@@ -42,19 +47,10 @@ const EDITOR_DIRS: Record<EditorTarget, string> = {
   opencode: "(user-scope)",
 };
 
-/** Map init editor flags to signup editor identifiers. */
-const SIGNUP_EDITORS: Record<EditorTarget, string> = {
-  claude: "claude-code",
-  cursor: "cursor",
-  vscode: "vscode",
-  copilot: "copilot-cli",
-  opencode: "opencode",
-};
-
 const editorOption = new Option(
   "--editor <editor>",
   "editor integration (omit to auto-detect and select)"
-).choices(["claude", "cursor", "vscode", "copilot", "opencode"] as const);
+).choices(EDITOR_TARGETS);
 
 export function registerInitCommand(program: Command) {
   program

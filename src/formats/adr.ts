@@ -56,11 +56,15 @@ export interface AdrDocument {
 /**
  * Parse YAML frontmatter from a raw string (the content between --- delimiters).
  */
+const PlainObjectSchema = z.record(z.string(), z.unknown());
+
 export function parseFrontmatter(raw: string): Record<string, unknown> {
-  return (Bun.YAML.parse(raw) as Record<string, unknown>) ?? {};
+  const result = PlainObjectSchema.safeParse(Bun.YAML.parse(raw));
+  return result.success ? result.data : {};
 }
 
-function formatZodErrors(error: z.ZodError): string[] {
+/** Format Zod validation errors as `path: message` strings. */
+export function formatZodErrors(error: z.ZodError): string[] {
   return error.issues.map((issue) => {
     const path = issue.path.join(".");
     return path ? `${path}: ${issue.message}` : issue.message;

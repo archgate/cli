@@ -82,20 +82,18 @@ function ensureNewlinePatches(): void {
 
 function patchStreamWrite(stream: NodeJS.WriteStream): void {
   const original = stream.write;
-  stream.write = function patchedWrite(
-    this: NodeJS.WriteStream,
-    chunk: unknown,
-    ...rest: unknown[]
-  ): boolean {
-    if (typeof chunk === "string") {
-      chunk = toCrlf(chunk);
-    }
-    return original.apply(this, [chunk, ...rest] as unknown as [
-      string,
-      BufferEncoding?,
-      ((err?: Error | null) => void)?,
-    ]);
-  } as typeof stream.write;
+  stream.write = new Proxy(original, {
+    apply(target, thisArg, args: unknown[]) {
+      if (typeof args[0] === "string") {
+        args[0] = toCrlf(args[0]);
+      }
+      return Reflect.apply(target, thisArg, args);
+    },
+    get(target, prop, receiver) {
+      if (prop === "name") return "patchedWrite";
+      return Reflect.get(target, prop, receiver);
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -113,14 +111,16 @@ function patchStreamWrite(stream: NodeJS.WriteStream): void {
  */
 function patchConsoleMethods(): void {
   for (const method of ["log", "info"] as const) {
-    console[method] = ((...args: unknown[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console[method] = (...args: any[]) => {
       process.stdout.write(format(...args) + "\n");
-    }) as typeof console.log;
+    };
   }
   for (const method of ["error", "warn", "debug"] as const) {
-    console[method] = ((...args: unknown[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    console[method] = (...args: any[]) => {
       process.stderr.write(format(...args) + "\n");
-    }) as typeof console.error;
+    };
   }
 }
 

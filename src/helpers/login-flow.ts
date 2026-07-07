@@ -14,16 +14,24 @@ import {
   claimArchgateToken,
 } from "./auth";
 import { saveCredentials } from "./credential-store";
+import {
+  EDITOR_LABELS,
+  EDITOR_TARGETS,
+  SIGNUP_EDITORS,
+  type SignupEditor,
+} from "./init-project";
 import { logDebug, logError, logInfo } from "./log";
 import { withPromptFix } from "./prompt";
 import { SignupRequiredError, requestSignup } from "./signup";
+
+export type { SignupEditor } from "./init-project";
 
 export interface LoginFlowOptions {
   /**
    * Pre-selected editor for signup (skip the editor prompt).
    * When omitted, the user is prompted to choose.
    */
-  editor?: string;
+  editor?: SignupEditor;
 }
 
 export interface LoginFlowResult {
@@ -112,7 +120,7 @@ async function runSignupPrompt(
   githubUser: string,
   githubToken: string,
   githubEmail: string | null,
-  preselectedEditor?: string
+  preselectedEditor?: SignupEditor
 ): Promise<string | null> {
   // Lazy-load inquirer — it costs ~200ms to parse and is only needed for
   // interactive signup prompts, not on every CLI startup.
@@ -128,19 +136,20 @@ async function runSignupPrompt(
     })
   );
 
-  let editor = preselectedEditor;
-  if (!editor) {
+  let editor: SignupEditor = preselectedEditor ?? "claude-code";
+  if (!preselectedEditor) {
+    // Build choices from the canonical EDITOR_LABELS + SIGNUP_EDITORS maps
+    // so adding a new editor in init-project.ts propagates here automatically.
+    const choices = EDITOR_TARGETS.map((key) => ({
+      name: EDITOR_LABELS[key],
+      value: SIGNUP_EDITORS[key],
+    }));
     const ans = await withPromptFix(() =>
       inquirer.prompt({
         type: "select",
         name: "editor",
         message: "Which editor will you use with archgate?",
-        choices: [
-          { name: "Claude Code", value: "claude-code" },
-          { name: "VS Code", value: "vscode" },
-          { name: "Copilot CLI", value: "copilot-cli" },
-          { name: "Cursor", value: "cursor" },
-        ],
+        choices,
       })
     );
     editor = ans.editor;
@@ -172,7 +181,7 @@ async function runSignupPrompt(
   }
 
   logInfo("\nSubmitting signup request...");
-  const result = await requestSignup(githubUser, email, useCase, editor!);
+  const result = await requestSignup(githubUser, email, useCase, editor);
 
   if (!result.ok) {
     logError("Signup request failed. Please try again with `archgate login`.");

@@ -3,6 +3,29 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { z } from "zod";
+
+const ClaudePermissionsSchema = z
+  .object({
+    allow: z.array(z.string()).default([]).catch([]),
+    deny: z.array(z.string()).default([]).catch([]),
+  })
+  .passthrough();
+
+/** @internal Exported for testing only. */
+export const ClaudeSettingsSchema = z
+  .object({
+    // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default for optional fields
+    agent: z.string().optional().catch(undefined),
+    permissions: ClaudePermissionsSchema.optional().catch({
+      allow: [],
+      deny: [],
+    }),
+  })
+  .passthrough();
+
+type ClaudeSettings = z.infer<typeof ClaudeSettingsSchema>;
+
 /**
  * Settings that archgate injects into .claude/settings.local.json.
  * Scalar keys are set only if absent; array keys are appended with dedup.
@@ -17,8 +40,6 @@ export const ARCHGATE_CLAUDE_SETTINGS = {
     ],
   },
 } as const;
-
-type ClaudeSettings = Record<string, unknown>;
 
 /**
  * Deduplicate an array of strings while preserving order.
@@ -40,26 +61,17 @@ export function mergeClaudeSettings(
 ): ClaudeSettings {
   const merged: ClaudeSettings = { ...existing };
 
-  // Scalar: set only if absent
-  if (!("agent" in merged)) {
+  // Scalar: set only if absent or invalid (caught to undefined by schema)
+  if (!merged.agent) {
     merged.agent = archgate.agent;
   }
 
   // Nested permissions object: merge allow array with dedup, preserve deny
-  const existingPermissions =
-    typeof merged.permissions === "object" &&
-    merged.permissions !== null &&
-    !Array.isArray(merged.permissions)
-      ? (merged.permissions as Record<string, unknown>)
-      : {};
-
-  const existingAllow = Array.isArray(existingPermissions.allow)
-    ? (existingPermissions.allow as string[])
-    : [];
+  const existingPermissions = merged.permissions ?? { allow: [], deny: [] };
 
   merged.permissions = {
     ...existingPermissions,
-    allow: dedup([...existingAllow, ...archgate.permissions.allow]),
+    allow: dedup([...existingPermissions.allow, ...archgate.permissions.allow]),
   };
 
   return merged;
@@ -83,7 +95,10 @@ export async function configureClaudeSettings(
   let existing: ClaudeSettings = {};
   if (existsSync(settingsPath)) {
     try {
-      existing = (await Bun.file(settingsPath).json()) as ClaudeSettings;
+      const result = ClaudeSettingsSchema.safeParse(
+        await Bun.file(settingsPath).json()
+      );
+      if (result.success) existing = result.data;
     } catch {
       // Corrupted settings file — start fresh
     }

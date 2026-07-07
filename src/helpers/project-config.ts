@@ -14,7 +14,7 @@ import { join } from "node:path";
 
 import {
   DOMAIN_PREFIXES as DEFAULT_DOMAIN_PREFIXES,
-  ADR_DOMAINS as DEFAULT_DOMAINS,
+  ADR_DOMAINS,
 } from "../formats/adr";
 import {
   DomainNameSchema,
@@ -46,8 +46,7 @@ export function loadProjectConfig(projectRoot: string): ProjectConfig {
 
   try {
     const text = readFileSync(path, "utf-8");
-    const raw = JSON.parse(text) as unknown;
-    const result = ProjectConfigSchema.safeParse(raw);
+    const result = ProjectConfigSchema.safeParse(JSON.parse(text));
     if (!result.success) {
       logDebug("Project config invalid, using empty:", result.error.message);
       return EMPTY_CONFIG;
@@ -145,7 +144,7 @@ export async function ensureBaseBranch(
 }
 
 export function isDefaultDomain(domain: string): boolean {
-  return (DEFAULT_DOMAINS as readonly string[]).includes(domain);
+  return ADR_DOMAINS.some((d) => d === domain);
 }
 
 export interface DomainEntry {
@@ -157,10 +156,9 @@ export interface DomainEntry {
 export function listDomainEntries(projectRoot: string): DomainEntry[] {
   const config = loadProjectConfig(projectRoot);
   const custom = config.domains;
-  const defaults = DEFAULT_DOMAIN_PREFIXES as Record<string, string>;
   const merged: DomainEntry[] = [];
 
-  for (const [domain, prefix] of Object.entries(defaults)) {
+  for (const [domain, prefix] of Object.entries(DEFAULT_DOMAIN_PREFIXES)) {
     merged.push({ domain, prefix, source: "default" });
   }
   for (const [domain, prefix] of Object.entries(custom)) {
@@ -195,8 +193,7 @@ export async function addCustomDomain(
     );
   }
 
-  const defaults = DEFAULT_DOMAIN_PREFIXES as Record<string, string>;
-  const usedDefaultPrefix = Object.entries(defaults).find(
+  const usedDefaultPrefix = Object.entries(DEFAULT_DOMAIN_PREFIXES).find(
     ([, p]) => p === prefix
   );
   if (usedDefaultPrefix) {

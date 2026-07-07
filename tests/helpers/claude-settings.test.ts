@@ -7,27 +7,31 @@ import { join } from "node:path";
 
 import {
   ARCHGATE_CLAUDE_SETTINGS,
+  ClaudeSettingsSchema,
   mergeClaudeSettings,
   configureClaudeSettings,
 } from "../../src/helpers/claude-settings";
 
+/** Parse raw input through the schema, matching the real configureClaudeSettings flow. */
+function parse(raw: Record<string, unknown>) {
+  return ClaudeSettingsSchema.parse(raw);
+}
+
 describe("mergeClaudeSettings", () => {
   test("sets all archgate values when existing settings are empty", () => {
-    const result = mergeClaudeSettings({}, ARCHGATE_CLAUDE_SETTINGS);
+    const result = mergeClaudeSettings(parse({}), ARCHGATE_CLAUDE_SETTINGS);
 
     expect(result.agent).toBe("archgate:developer");
-    expect(result.permissions).toEqual({
-      allow: [
-        "Skill(archgate:architect)",
-        "Skill(archgate:quality-manager)",
-        "Skill(archgate:adr-author)",
-      ],
-    });
+    expect(result.permissions?.allow).toEqual([
+      "Skill(archgate:architect)",
+      "Skill(archgate:quality-manager)",
+      "Skill(archgate:adr-author)",
+    ]);
   });
 
   test("preserves existing agent (does not overwrite)", () => {
     const result = mergeClaudeSettings(
-      { agent: "custom-agent" },
+      parse({ agent: "custom-agent" }),
       ARCHGATE_CLAUDE_SETTINGS
     );
 
@@ -36,12 +40,13 @@ describe("mergeClaudeSettings", () => {
 
   test("appends permissions.allow with dedup", () => {
     const result = mergeClaudeSettings(
-      { permissions: { allow: ["Bash(git *)", "Skill(archgate:architect)"] } },
+      parse({
+        permissions: { allow: ["Bash(git *)", "Skill(archgate:architect)"] },
+      }),
       ARCHGATE_CLAUDE_SETTINGS
     );
 
-    const permissions = result.permissions as Record<string, unknown>;
-    expect(permissions.allow).toEqual([
+    expect(result.permissions?.allow).toEqual([
       "Bash(git *)",
       "Skill(archgate:architect)",
       "Skill(archgate:quality-manager)",
@@ -51,18 +56,17 @@ describe("mergeClaudeSettings", () => {
 
   test("preserves existing deny permissions", () => {
     const result = mergeClaudeSettings(
-      { permissions: { allow: ["Bash(ls)"], deny: ["Bash(rm -rf *)"] } },
+      parse({ permissions: { allow: ["Bash(ls)"], deny: ["Bash(rm -rf *)"] } }),
       ARCHGATE_CLAUDE_SETTINGS
     );
 
-    const permissions = result.permissions as Record<string, unknown>;
-    expect(permissions.deny).toEqual(["Bash(rm -rf *)"]);
-    expect(Array.isArray(permissions.allow)).toBe(true);
+    expect(result.permissions?.deny).toEqual(["Bash(rm -rf *)"]);
+    expect(Array.isArray(result.permissions?.allow)).toBe(true);
   });
 
   test("preserves unknown top-level keys", () => {
     const result = mergeClaudeSettings(
-      { customSetting: "value", anotherKey: 42 },
+      parse({ customSetting: "value", anotherKey: 42 }),
       ARCHGATE_CLAUDE_SETTINGS
     );
 
@@ -70,16 +74,23 @@ describe("mergeClaudeSettings", () => {
     expect(result.anotherKey).toBe(42);
   });
 
-  test("handles non-object permissions gracefully", () => {
+  test("handles missing permissions gracefully", () => {
+    const result = mergeClaudeSettings(parse({}), ARCHGATE_CLAUDE_SETTINGS);
+
+    expect(result.permissions?.allow).toEqual([
+      ...ARCHGATE_CLAUDE_SETTINGS.permissions.allow,
+    ]);
+  });
+
+  test("handles non-object permissions gracefully via schema catch", () => {
     const result = mergeClaudeSettings(
-      { permissions: "invalid" },
+      parse({ permissions: "invalid" }),
       ARCHGATE_CLAUDE_SETTINGS
     );
 
-    const permissions = result.permissions as Record<string, unknown>;
-    expect(permissions.allow).toEqual(
-      ARCHGATE_CLAUDE_SETTINGS.permissions.allow
-    );
+    expect(result.permissions?.allow).toEqual([
+      ...ARCHGATE_CLAUDE_SETTINGS.permissions.allow,
+    ]);
   });
 });
 
