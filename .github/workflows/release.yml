@@ -45,6 +45,7 @@ jobs:
           auto-install: true
           cache: true
           cache-base: main
+          cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -92,6 +93,7 @@ jobs:
           auto-install: true
           cache: true
           cache-base: main
+          cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -145,6 +147,7 @@ jobs:
           auto-install: true
           cache: true
           cache-base: main
+          cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
