@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { z } from "zod";
+
 import { parseJsModule, type MeriyahProgram } from "./js-parser";
 
 /**
@@ -22,41 +24,49 @@ export interface ScanViolation {
   endColumn: number;
 }
 
-interface AstLoc {
-  start: { line: number; column: number };
-  end: { line: number; column: number };
-}
+// ---------------------------------------------------------------------------
+// Zod schemas for ESTree AST nodes
+// ---------------------------------------------------------------------------
 
 interface AstNode {
   type: string;
-  loc?: AstLoc;
+  name?: string;
+  value?: string | number | boolean | null | AstNode;
+  computed?: boolean;
+  source?: AstNode;
+  object?: AstNode;
+  property?: AstNode;
+  callee?: AstNode;
+  left?: AstNode;
   [key: string]: unknown;
 }
 
-/** Runtime check: is `value` an AST node (has a `type` string property)? */
-function isAstNode(value: unknown): value is AstNode {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "type" in value &&
-    typeof value.type === "string"
-  );
-}
+const AstNodeSchema: z.ZodType<AstNode> = z
+  .object({
+    type: z.string(),
+    name: z.string().optional(),
+    value: z
+      .union([
+        z.string(),
+        z.number(),
+        z.boolean(),
+        z.null(),
+        z.lazy(() => AstNodeSchema),
+      ])
+      .optional(),
+    computed: z.boolean().optional(),
+    source: z.lazy(() => AstNodeSchema).optional(),
+    object: z.lazy(() => AstNodeSchema).optional(),
+    property: z.lazy(() => AstNodeSchema).optional(),
+    callee: z.lazy(() => AstNodeSchema).optional(),
+    left: z.lazy(() => AstNodeSchema).optional(),
+  })
+  .passthrough();
 
-/** Narrow an AST child property to an AstNode, or null. */
-function childNode(value: unknown): AstNode | null {
-  return isAstNode(value) ? value : null;
-}
-
-/** Read a string-valued property from an AST node, or undefined. */
-function strProp(node: AstNode, key: string): string | undefined {
-  const v = node[key];
-  return typeof v === "string" ? v : undefined;
-}
-
-/** Read a boolean-valued property from an AST node (defaults to false). */
-function boolProp(node: AstNode, key: string): boolean {
-  return node[key] === true;
+/** Parse an unknown value into an AstNode, or return null. */
+function parseNode(value: unknown): AstNode | null {
+  const result = AstNodeSchema.safeParse(value);
+  return result.success ? result.data : null;
 }
 
 import { remapViolations, type RawViolation } from "./source-positions";
@@ -126,8 +136,10 @@ export function scanRuleSource(source: string): ScanViolation[] {
 
     switch (node.type) {
       case "ImportDeclaration": {
-        const srcNode = childNode(node.source);
-        const src = srcNode ? strProp(srcNode, "value") : undefined;
+        const src =
+          typeof node.source?.value === "string"
+            ? node.source.value
+            : undefined;
         if (src && (BANNED_MODULES.test(src) || src === "bun")) {
           // Use `from "module"` as search anchor — `from` is in code context
           // (unlike the bare module string which buildNonCodeRanges marks as non-code).
@@ -139,37 +151,34 @@ export function scanRuleSource(source: string): ScanViolation[] {
         break;
       }
       case "MemberExpression": {
-        const obj = childNode(node.object);
-        const prop = childNode(node.property);
+        const obj = node.object;
+        const prop = node.property;
         if (!obj || !prop) break;
-        const computed = boolProp(node, "computed");
-        const objName = strProp(obj, "name");
-        const propName = strProp(prop, "name");
+        const computed = node.computed ?? false;
 
         // Block Bun.spawn, Bun.write, Bun.$, Bun.file, Bun.spawnSync
         if (
-          objName === "Bun" &&
+          obj.name === "Bun" &&
           !computed &&
-          BLOCKED_BUN_PROPS.has(propName ?? "")
+          BLOCKED_BUN_PROPS.has(prop.name ?? "")
         ) {
           pushViolation(
-            `Bun.${propName}() is blocked in rule files. Use the RuleContext API instead.`,
-            `Bun.${propName}`
+            `Bun.${prop.name}() is blocked in rule files. Use the RuleContext API instead.`,
+            `Bun.${prop.name}`
           );
         }
 
         // Block computed access: Bun[x], globalThis[x]
-        if (computed && (objName === "Bun" || objName === "globalThis")) {
+        if (computed && (obj.name === "Bun" || obj.name === "globalThis")) {
           pushViolation(
-            `Computed property access on ${objName} is blocked in rule files.`,
-            `${objName}[`
+            `Computed property access on ${obj.name} is blocked in rule files.`,
+            `${obj.name}[`
           );
         }
         break;
       }
       case "CallExpression": {
-        const callee = childNode(node.callee);
-        const name = callee ? strProp(callee, "name") : undefined;
+        const name = node.callee?.name;
         if (name === "eval") {
           pushViolation("eval() is blocked in rule files.", "eval(");
         }
@@ -188,9 +197,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
         break;
       }
       case "NewExpression": {
-        const callee = childNode(node.callee);
-        const name = callee ? strProp(callee, "name") : undefined;
-        if (name === "Function") {
+        if (node.callee?.name === "Function") {
           pushViolation(
             "new Function() is blocked in rule files.",
             "new Function("
@@ -199,8 +206,7 @@ export function scanRuleSource(source: string): ScanViolation[] {
         break;
       }
       case "ImportExpression": {
-        const src = childNode(node.source);
-        if (src && src.type !== "Literal") {
+        if (node.source && node.source.type !== "Literal") {
           pushViolation(
             "Dynamic import() with non-literal argument is blocked in rule files.",
             "import("
@@ -209,20 +215,19 @@ export function scanRuleSource(source: string): ScanViolation[] {
         break;
       }
       case "AssignmentExpression": {
-        const left = childNode(node.left);
+        const left = node.left;
         if (left && left.type === "MemberExpression") {
-          const leftObj = childNode(left.object);
-          const leftProp = childNode(left.property);
-          const leftObjName = leftObj ? strProp(leftObj, "name") : undefined;
-          const leftPropName = leftProp ? strProp(leftProp, "name") : undefined;
-          if (leftObjName === "globalThis") {
+          if (left.object?.name === "globalThis") {
             pushViolation(
               "Mutating globalThis is blocked in rule files.",
               "globalThis."
             );
           }
-          if (leftObjName === "process" && leftPropName === "env") {
-            const target = `${leftObjName}.${leftPropName}`;
+          if (
+            left.object?.name === "process" &&
+            left.property?.name === "env"
+          ) {
+            const target = `${left.object.name}.${left.property.name}`;
             pushViolation(
               `Mutating ${target} is blocked in rule files.`,
               target
@@ -237,17 +242,18 @@ export function scanRuleSource(source: string): ScanViolation[] {
     for (const value of Object.values(node)) {
       if (Array.isArray(value)) {
         for (const item of value) {
-          const child = childNode(item);
+          const child = parseNode(item);
           if (child) walk(child);
         }
       } else {
-        const child = childNode(value);
+        const child = parseNode(value);
         if (child) walk(child);
       }
     }
   }
 
-  if (isAstNode(ast)) walk(ast);
+  const root = parseNode(ast);
+  if (root) walk(root);
   return remapViolations(source, rawViolations);
 }
 
@@ -317,15 +323,13 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
 
     switch (node.type) {
       case "MemberExpression": {
-        const obj = childNode(node.object);
-        const prop = childNode(node.property);
+        const obj = node.object;
+        const prop = node.property;
         if (!obj || !prop) break;
-        const computed = boolProp(node, "computed");
-        const objName = strProp(obj, "name");
-        const propName = strProp(prop, "name");
+        const computed = node.computed ?? false;
 
         // Block Bun.env
-        if (objName === "Bun" && !computed && propName === "env") {
+        if (obj.name === "Bun" && !computed && prop.name === "env") {
           pushViolation(
             "Bun.env access is blocked in imported rule files.",
             "Bun.env"
@@ -333,8 +337,8 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
         }
 
         // Block process env reads
-        if (objName === "process" && !computed && propName === "env") {
-          const target = `${objName}.${propName}`;
+        if (obj.name === "process" && !computed && prop.name === "env") {
+          const target = `${obj.name}.${prop.name}`;
           pushViolation(
             `${target} access is blocked in imported rule files.`,
             target
@@ -343,8 +347,7 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
         break;
       }
       case "CallExpression": {
-        const callee = childNode(node.callee);
-        const name = callee ? strProp(callee, "name") : undefined;
+        const name = node.callee?.name;
         if (name && IMPORTED_BLOCKED_GLOBALS.has(name)) {
           pushViolation(
             `${name}() is blocked in imported rule files.`,
@@ -354,8 +357,7 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
         break;
       }
       case "NewExpression": {
-        const callee = childNode(node.callee);
-        const name = callee ? strProp(callee, "name") : undefined;
+        const name = node.callee?.name;
         if (name && IMPORTED_BLOCKED_GLOBALS.has(name)) {
           pushViolation(
             `new ${name}() is blocked in imported rule files.`,
@@ -369,17 +371,18 @@ export function scanImportedRuleSource(source: string): ScanViolation[] {
     for (const value of Object.values(node)) {
       if (Array.isArray(value)) {
         for (const item of value) {
-          const child = childNode(item);
+          const child = parseNode(item);
           if (child) walkImported(child);
         }
       } else {
-        const child = childNode(value);
+        const child = parseNode(value);
         if (child) walkImported(child);
       }
     }
   }
 
-  if (isAstNode(ast)) walkImported(ast);
+  const importedRoot = parseNode(ast);
+  if (importedRoot) walkImported(importedRoot);
 
   // Combine: standard scan + imported-only scan
   const standardViolations = scanRuleSource(source);
