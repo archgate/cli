@@ -52,11 +52,28 @@ function hasConfig(dir: string, basename: string, exts: string[]): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Files whose presence/absence or modification signals a stack change.
- * Covers every marker that detectStackUncached() inspects so cached
- * results stay fresh. Adding a file here is cheap (~0.05ms per stat).
+ * Framework config basenames, the extensions hasConfig() scans, and the
+ * framework name to push. Single source of truth for both detection and
+ * sentinel generation — adding a framework here covers both.
  */
-const SENTINEL_FILES = [
+const FRAMEWORK_CONFIGS: Array<
+  [name: string, basename: string, exts: string[]]
+> = [
+  ["nextjs", "next.config", [...JS_CONFIG_EXTENSIONS, "json"]],
+  ["remix", "remix.config", JS_CONFIG_EXTENSIONS],
+  ["vite", "vite.config", JS_CONFIG_EXTENSIONS],
+  ["nuxt", "nuxt.config", JS_CONFIG_EXTENSIONS],
+  ["astro", "astro.config", JS_CONFIG_EXTENSIONS],
+  ["svelte", "svelte.config", ["js", "cjs", "mjs"]],
+  ["tailwindcss", "tailwind.config", [...JS_CONFIG_EXTENSIONS, "json"]],
+];
+
+/**
+ * Files whose presence/absence or modification signals a stack change.
+ * Generated from the same constants that detectStackUncached() uses so
+ * sentinels and detection never drift apart.
+ */
+const SENTINEL_FILES: string[] = [
   // Languages
   "package.json",
   "tsconfig.json",
@@ -83,21 +100,10 @@ const SENTINEL_FILES = [
   "bunfig.toml",
   "deno.json",
   "deno.jsonc",
-  // Frameworks — config files
-  "next.config.ts",
-  "next.config.js",
-  "next.config.mjs",
-  "remix.config.ts",
-  "remix.config.js",
-  "vite.config.ts",
-  "vite.config.js",
-  "nuxt.config.ts",
-  "nuxt.config.js",
-  "astro.config.mjs",
-  "astro.config.ts",
-  "svelte.config.js",
-  "tailwind.config.ts",
-  "tailwind.config.js",
+  // Frameworks — config files (generated from FRAMEWORK_CONFIGS)
+  ...FRAMEWORK_CONFIGS.flatMap(([, base, exts]) =>
+    exts.map((ext) => `${base}.${ext}`)
+  ),
   // Frameworks — non-JS markers
   "manage.py",
   "artisan",
@@ -320,38 +326,11 @@ export async function detectStackUncached(
 
   // --- Frameworks ---
 
-  // JS/TS config-file-based detection
-  if (
-    hasConfig(projectRoot, "next.config", [...JS_CONFIG_EXTENSIONS, "json"])
-  ) {
-    frameworks.push("nextjs");
-  }
-
-  if (hasConfig(projectRoot, "remix.config", JS_CONFIG_EXTENSIONS)) {
-    frameworks.push("remix");
-  }
-
-  if (hasConfig(projectRoot, "vite.config", JS_CONFIG_EXTENSIONS)) {
-    frameworks.push("vite");
-  }
-
-  if (hasConfig(projectRoot, "nuxt.config", JS_CONFIG_EXTENSIONS)) {
-    frameworks.push("nuxt");
-  }
-
-  if (hasConfig(projectRoot, "astro.config", JS_CONFIG_EXTENSIONS)) {
-    frameworks.push("astro");
-  }
-
-  if (hasConfig(projectRoot, "svelte.config", ["js", "cjs", "mjs"])) {
-    frameworks.push("svelte");
-  }
-
-  if (
-    hasConfig(projectRoot, "tailwind.config", JS_CONFIG_EXTENSIONS) ||
-    existsSync(join(projectRoot, "tailwind.config.json"))
-  ) {
-    frameworks.push("tailwindcss");
+  // JS/TS config-file-based detection (driven by FRAMEWORK_CONFIGS)
+  for (const [name, basename, exts] of FRAMEWORK_CONFIGS) {
+    if (hasConfig(projectRoot, basename, exts)) {
+      frameworks.push(name);
+    }
   }
 
   // JS/TS dependency-based detection — UI frameworks & libraries
