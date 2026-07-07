@@ -210,9 +210,10 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
   });
 
   if (!response.ok) {
-    const body = ErrorResponseSchema.parse(
+    const errorResult = ErrorResponseSchema.safeParse(
       await response.json().catch(() => ({}))
     );
+    const body = errorResult.success ? errorResult.data : {};
 
     if (isSignupRequiredError(body.error)) {
       throw new SignupRequiredError();

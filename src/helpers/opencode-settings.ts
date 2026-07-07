@@ -25,7 +25,8 @@ import { opencodeConfigDir } from "./paths";
 const DEFAULT_AGENT = "archgate-developer";
 
 const OpencodeConfigSchema = z
-  .object({ default_agent: z.string().optional() })
+  // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
+  .object({ default_agent: z.string().optional().catch(undefined) })
   .passthrough();
 
 type OpencodeConfig = z.infer<typeof OpencodeConfigSchema>;

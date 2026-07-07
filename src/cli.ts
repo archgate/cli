@@ -176,7 +176,7 @@ async function main() {
  */
 function getFullCommandName(command: CommandUnknownOpts | null): string {
   const parts: string[] = [];
-  let current: CommandUnknownOpts | null = command;
+  let current = command;
   while (current) {
     const name = current.name();
     if (name && name !== "archgate") {

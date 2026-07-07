@@ -9,6 +9,7 @@ import { logDebug } from "./log";
 import { copilotSessionStateDir } from "./paths";
 import { isWindows } from "./platform";
 import {
+  MessageContentSchema,
   type ReadSessionOptions,
   type SessionListResult,
   type TranscriptEntry,
@@ -208,7 +209,8 @@ export async function readCopilotSession(
     if (!COPILOT_RELEVANT_TYPES.has(eventType)) continue;
     const role = eventType === "user.message" ? "user" : "assistant";
     // Normalize to TranscriptEntry shape so getContentPreview works
-    const content = event.data?.content;
+    const contentResult = MessageContentSchema.safeParse(event.data?.content);
+    const content = contentResult.success ? contentResult.data : undefined;
     const normalized: TranscriptEntry = { message: { content } };
     relevant.push({ role, contentPreview: getContentPreview(normalized) });
   }

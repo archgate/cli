@@ -229,7 +229,7 @@ export async function detectStackUncached(
       const result = PackageJsonSchema.safeParse(
         await Bun.file(pkgJsonPath).json()
       );
-      pkgJson = result.success ? result.data : null;
+      if (result.success) pkgJson = result.data;
     } catch {
       logDebug("Failed to parse package.json");
     }

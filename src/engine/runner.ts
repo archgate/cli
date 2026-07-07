@@ -5,7 +5,10 @@ import { relative, resolve, isAbsolute } from "node:path";
 
 import type {
   AstLanguage,
+  EsTreeProgram,
   GrepMatch,
+  PythonAstModule,
+  RubyAstNode,
   RuleContext,
   RuleReport,
   ViolationDetail,
@@ -160,15 +163,19 @@ function createRuleContext(
     },
   };
 
-  // ARCH-022: ctx.ast() implementation. The broad implementation signature
-  // returns `Promise<any>` so it satisfies the language-narrowed public
-  // overloads on RuleContext["ast"] without double-cast. The four guardrails
-  // below MUST run in this order before any subprocess.
-  const astImpl: RuleContext["ast"] = async (
+  // ARCH-022: ctx.ast() implementation. Overload declarations match
+  // RuleContext["ast"] so each language narrows to the correct return type.
+  // The four guardrails below MUST run in this order before any subprocess.
+  async function astImpl(
     path: string,
-    language: AstLanguage
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> => {
+    language: "typescript" | "javascript"
+  ): Promise<EsTreeProgram>;
+  async function astImpl(
+    path: string,
+    language: "python"
+  ): Promise<PythonAstModule>;
+  async function astImpl(path: string, language: "ruby"): Promise<RubyAstNode>;
+  async function astImpl(path: string, language: AstLanguage) {
     // Guardrail 1: path safety — same sandbox as readFile/glob.
     const absPath = safePath(projectRoot, path);
 
@@ -249,7 +256,7 @@ function createRuleContext(
       throw new Error(`Failed to parse "${path}" as ${language}: ${detail}`);
     }
     return parseAstJson(stdout, path, language);
-  };
+  }
 
   return {
     projectRoot,

@@ -7,15 +7,19 @@ import { z } from "zod";
 
 const ClaudePermissionsSchema = z
   .object({
-    allow: z.array(z.string()).optional(),
-    deny: z.array(z.string()).optional(),
+    // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
+    allow: z.array(z.string()).optional().catch(undefined),
+    // oxlint-disable-next-line no-useless-undefined
+    deny: z.array(z.string()).optional().catch(undefined),
   })
   .passthrough();
 
 const ClaudeSettingsSchema = z
   .object({
-    agent: z.string().optional(),
-    permissions: ClaudePermissionsSchema.optional(),
+    // oxlint-disable-next-line no-useless-undefined
+    agent: z.string().optional().catch(undefined),
+    // oxlint-disable-next-line no-useless-undefined
+    permissions: ClaudePermissionsSchema.optional().catch(undefined),
   })
   .passthrough();
 

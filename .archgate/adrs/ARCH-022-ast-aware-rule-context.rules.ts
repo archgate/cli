@@ -66,6 +66,14 @@ export default {
             }
             return;
           }
+          // Overloaded function declaration: `async function astImpl(…) {…}`
+          if (n.type === "FunctionDeclaration") {
+            const id = n.id as (EsTreeNode & { name?: string }) | undefined;
+            if (id?.name === "astImpl") {
+              astMethodBody = n.body;
+            }
+            return;
+          }
           // Fallback: inline `ast(path, language) { … }` object method, in
           // case the implementation is ever moved back onto the object.
           if (n.type === "Property") {

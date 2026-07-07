@@ -2,6 +2,8 @@
 // Copyright 2026 Archgate
 import { z } from "zod";
 
+import { UserError } from "../helpers/user-error";
+
 // ---------- Pack metadata (archgate-pack.yaml) ----------
 
 export const PackMetadataSchema = z.object({
@@ -31,7 +33,15 @@ export const PackMetadataSchema = z.object({
 export type PackMetadata = z.infer<typeof PackMetadataSchema>;
 
 export function parsePackMetadata(raw: string): PackMetadata {
-  return PackMetadataSchema.parse(Bun.YAML.parse(raw));
+  const result = PackMetadataSchema.safeParse(Bun.YAML.parse(raw));
+  if (!result.success) {
+    const errors = result.error.issues.map((i) => {
+      const path = i.path.join(".");
+      return path ? `${path}: ${i.message}` : i.message;
+    });
+    throw new UserError(`Invalid pack metadata:\n  - ${errors.join("\n  - ")}`);
+  }
+  return result.data;
 }
 
 // ---------- Community links (community/links.yaml) ----------

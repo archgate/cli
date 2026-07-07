@@ -52,11 +52,25 @@ export async function encodeProjectPath(
 const RELEVANT_TYPES = new Set(["user", "assistant"]);
 export const RELEVANT_ROLES = new Set(["user", "assistant"]);
 
+const ContentBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), text: z.string() }),
+  z.object({ type: z.literal("tool_use"), name: z.string() }),
+  z.object({ type: z.literal("tool_result"), tool_use_id: z.string() }),
+]);
+
+export const MessageContentSchema = z.union([
+  z.string(),
+  z.array(ContentBlockSchema),
+]);
+
 export const TranscriptEntrySchema = z.object({
   type: z.string().optional(),
   role: z.string().optional(),
   message: z
-    .object({ role: z.string().optional(), content: z.unknown() })
+    .object({
+      role: z.string().optional(),
+      content: MessageContentSchema.optional(),
+    })
     .optional(),
 });
 
@@ -106,21 +120,18 @@ export function getContentPreview(entry: TranscriptEntry): string {
   if (Array.isArray(content)) {
     const parts: string[] = [];
     for (const block of content) {
-      if (typeof block !== "object" || block === null) continue;
-      if (!("type" in block)) continue;
-      if (
-        block.type === "text" &&
-        "text" in block &&
-        typeof block.text === "string"
-      ) {
-        const text = block.text;
-        parts.push(text.length > 300 ? text.slice(0, 300) + "..." : text);
-      } else if (block.type === "tool_use" && "name" in block) {
-        parts.push(`[tool_use: ${block.name}]`);
-      } else if (block.type === "tool_result" && "tool_use_id" in block) {
-        parts.push(
-          `[tool_result: ${String(block.tool_use_id ?? "").slice(0, 20)}]`
-        );
+      switch (block.type) {
+        case "text": {
+          const text = block.text;
+          parts.push(text.length > 300 ? text.slice(0, 300) + "..." : text);
+          break;
+        }
+        case "tool_use":
+          parts.push(`[tool_use: ${block.name}]`);
+          break;
+        case "tool_result":
+          parts.push(`[tool_result: ${block.tool_use_id.slice(0, 20)}]`);
+          break;
       }
     }
     return parts.join(" | ");

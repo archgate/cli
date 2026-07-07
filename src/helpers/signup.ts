@@ -67,9 +67,11 @@ export async function requestSignup(
     return { ok: false, token: null };
   }
 
-  const data = z
-    .object({ token: z.string().optional() })
-    .parse(await response.json().catch(() => ({})));
+  const SignupResponseSchema = z.object({ token: z.string().optional() });
+  const result = SignupResponseSchema.safeParse(
+    await response.json().catch(() => ({}))
+  );
+  const data = result.success ? result.data : {};
   logDebug("Signup successful, token provided:", Boolean(data.token));
   return { ok: true, token: data.token ?? null };
 }

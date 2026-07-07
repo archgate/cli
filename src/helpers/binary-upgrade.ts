@@ -92,9 +92,13 @@ export async function fetchLatestGitHubVersion(
     return null;
   }
 
-  const data = GitHubReleaseSchema.parse(await response.json());
-  logDebug("Latest release tag:", data.tag_name ?? "(none)");
-  return data.tag_name ?? null;
+  const result = GitHubReleaseSchema.safeParse(await response.json());
+  if (!result.success) {
+    logDebug("Failed to parse GitHub release response");
+    return null;
+  }
+  logDebug("Latest release tag:", result.data.tag_name ?? "(none)");
+  return result.data.tag_name ?? null;
 }
 
 // ---------------------------------------------------------------------------

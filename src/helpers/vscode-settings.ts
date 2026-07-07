@@ -14,7 +14,13 @@ import {
 } from "./platform";
 
 const VscodeSettingsSchema = z
-  .object({ "chat.plugins.marketplaces": z.array(z.string()).optional() })
+  .object({
+    "chat.plugins.marketplaces": z
+      .array(z.string())
+      .optional()
+      // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
+      .catch(undefined),
+  })
   .passthrough();
 
 type VscodeUserSettings = z.infer<typeof VscodeSettingsSchema>;
@@ -150,9 +156,13 @@ export async function addMarketplaceToUserSettings(
 
   let existing: VscodeUserSettings = {};
   if (existsSync(settingsPath)) {
-    const content = await Bun.file(settingsPath).text();
-    const result = VscodeSettingsSchema.safeParse(Bun.JSONC.parse(content));
-    if (result.success) existing = result.data;
+    try {
+      const content = await Bun.file(settingsPath).text();
+      const result = VscodeSettingsSchema.safeParse(Bun.JSONC.parse(content));
+      if (result.success) existing = result.data;
+    } catch {
+      // Corrupted settings file — start fresh
+    }
   }
 
   const merged = mergeMarketplaceUrl(existing, marketplaceUrl);
