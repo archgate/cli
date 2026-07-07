@@ -1,7 +1,11 @@
 #!/usr/bin/env bun
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { Command, Option } from "@commander-js/extra-typings";
+import {
+  Command,
+  type CommandUnknownOpts,
+  Option,
+} from "@commander-js/extra-typings";
 import { semver } from "bun";
 
 import packageJson from "../package.json";
@@ -169,19 +173,10 @@ async function main() {
 /**
  * Reconstruct the full command name from Commander's command chain.
  * E.g., "adr create" from the "create" subcommand of "adr".
- *
- * Typed against the loose Commander "unknown opts" shape because it's called
- * from the `preAction` / `postAction` hook callback, where Commander gives us
- * a `CommandUnknownOpts`, not the narrowly-typed `Command<[], {}, {}>`.
  */
-interface CommandLike {
-  name(): string;
-  parent: CommandLike | null;
-}
-
-function getFullCommandName(command: CommandLike | null): string {
+function getFullCommandName(command: CommandUnknownOpts | null): string {
   const parts: string[] = [];
-  let current: CommandLike | null = command;
+  let current: CommandUnknownOpts | null = command;
   while (current) {
     const name = current.name();
     if (name && name !== "archgate") {

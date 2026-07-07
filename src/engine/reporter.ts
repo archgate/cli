@@ -176,12 +176,12 @@ export function reportConsole(
     // Print violations
     for (const v of r.violations) {
       const loc = v.file ? (v.line ? `${v.file}:${v.line}` : v.file) : "";
-      const sevColor: "red" | "yellow" | "dim" =
+      const sevColor =
         v.severity === "error"
-          ? "red"
+          ? ("red" as const)
           : v.severity === "warning"
-            ? "yellow"
-            : "dim";
+            ? ("yellow" as const)
+            : ("dim" as const);
 
       const sevLabel =
         v.severity === "error"
