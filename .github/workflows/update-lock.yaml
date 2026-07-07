@@ -38,6 +38,7 @@ jobs:
           auto-install: true
           cache: true
           cache-base: main
+          cache-version: ${{ env.ImageOS }}
       - name: Update locks
         run: bun install --lockfile-only
       - name: Commit changes
