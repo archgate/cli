@@ -61,8 +61,8 @@ export function mergeClaudeSettings(
 ): ClaudeSettings {
   const merged: ClaudeSettings = { ...existing };
 
-  // Scalar: set only if absent
-  if (!("agent" in merged)) {
+  // Scalar: set only if absent or invalid (caught to undefined by schema)
+  if (!merged.agent) {
     merged.agent = archgate.agent;
   }
 

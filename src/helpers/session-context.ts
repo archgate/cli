@@ -52,11 +52,26 @@ export async function encodeProjectPath(
 const RELEVANT_TYPES = new Set(["user", "assistant"]);
 export const RELEVANT_ROLES = new Set(["user", "assistant"]);
 
-const ContentBlockSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("text"), text: z.string() }),
-  z.object({ type: z.literal("tool_use"), name: z.string() }),
-  z.object({ type: z.literal("tool_result"), tool_use_id: z.string() }),
+const TextBlockSchema = z.object({ type: z.literal("text"), text: z.string() });
+const ToolUseBlockSchema = z.object({
+  type: z.literal("tool_use"),
+  name: z.string(),
+});
+const ToolResultBlockSchema = z.object({
+  type: z.literal("tool_result"),
+  tool_use_id: z.string(),
+});
+// Catch-all for block types we don't inspect (thinking, image, etc.)
+const UnknownBlockSchema = z.object({ type: z.string() }).passthrough();
+
+const ContentBlockSchema = z.union([
+  TextBlockSchema,
+  ToolUseBlockSchema,
+  ToolResultBlockSchema,
+  UnknownBlockSchema,
 ]);
+
+type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
 export const MessageContentSchema = z.union([
   z.string(),
@@ -111,6 +126,21 @@ type CursorSessionResult =
   | { ok: true; data: CursorSessionSummary }
   | { ok: false; error: string; path?: string; available?: string[] };
 
+/** Extract a preview string from a single content block, or null for unknown types. */
+function parseContentBlock(block: ContentBlock): string | null {
+  const text = TextBlockSchema.safeParse(block);
+  if (text.success) {
+    const t = text.data.text;
+    return t.length > 300 ? t.slice(0, 300) + "..." : t;
+  }
+  const toolUse = ToolUseBlockSchema.safeParse(block);
+  if (toolUse.success) return `[tool_use: ${toolUse.data.name}]`;
+  const toolResult = ToolResultBlockSchema.safeParse(block);
+  if (toolResult.success)
+    return `[tool_result: ${toolResult.data.tool_use_id.slice(0, 20)}]`;
+  return null;
+}
+
 /** Extract a concise content preview from a transcript entry. */
 export function getContentPreview(entry: TranscriptEntry): string {
   const content = entry.message?.content;
@@ -120,19 +150,8 @@ export function getContentPreview(entry: TranscriptEntry): string {
   if (Array.isArray(content)) {
     const parts: string[] = [];
     for (const block of content) {
-      switch (block.type) {
-        case "text": {
-          const text = block.text;
-          parts.push(text.length > 300 ? text.slice(0, 300) + "..." : text);
-          break;
-        }
-        case "tool_use":
-          parts.push(`[tool_use: ${block.name}]`);
-          break;
-        case "tool_result":
-          parts.push(`[tool_result: ${block.tool_use_id.slice(0, 20)}]`);
-          break;
-      }
+      const parsed = parseContentBlock(block);
+      if (parsed) parts.push(parsed);
     }
     return parts.join(" | ");
   }

@@ -63,7 +63,8 @@ export function parseFrontmatter(raw: string): Record<string, unknown> {
   return result.success ? result.data : {};
 }
 
-function formatZodErrors(error: z.ZodError): string[] {
+/** Format Zod validation errors as `path: message` strings. */
+export function formatZodErrors(error: z.ZodError): string[] {
   return error.issues.map((issue) => {
     const path = issue.path.join(".");
     return path ? `${path}: ${issue.message}` : issue.message;
