@@ -105,6 +105,25 @@ function isInNonCode(offset: number, ranges: Array<[number, number]>): boolean {
 }
 
 /**
+ * Binary-search a sorted newline-offset index to find the line and column
+ * for a given character offset. The index has a sentinel -1 at position 0
+ * representing the virtual newline before line 1.
+ */
+function offsetToPos(
+  offset: number,
+  newlineOffsets: number[]
+): { line: number; column: number } {
+  let lo = 0;
+  let hi = newlineOffsets.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (newlineOffsets[mid] < offset) lo = mid;
+    else hi = mid - 1;
+  }
+  return { line: lo + 1, column: offset - newlineOffsets[lo] - 1 };
+}
+
+/**
  * Find all code-only occurrences of `needle` in `source`, skipping
  * matches inside comments and string literals.
  */
@@ -113,6 +132,13 @@ function findCodeOccurrences(
   needle: string,
   nonCodeRanges: Array<[number, number]>
 ): SourcePos[] {
+  // Pre-build newline offset index for O(log N) line/column lookup.
+  // Sentinel -1 at index 0 represents the virtual newline before line 1.
+  const newlineOffsets = [-1];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] === "\n") newlineOffsets.push(i);
+  }
+
   const results: SourcePos[] = [];
   let idx = 0;
   while (true) {
@@ -124,27 +150,15 @@ function findCodeOccurrences(
       continue;
     }
 
-    let line = 1;
-    let lastNewline = -1;
-    for (let i = 0; i < found; i++) {
-      if (source[i] === "\n") {
-        line++;
-        lastNewline = i;
-      }
-    }
-    const column = found - lastNewline - 1;
+    const start = offsetToPos(found, newlineOffsets);
+    const end = offsetToPos(found + needle.length, newlineOffsets);
 
-    let endLine = line;
-    let endLastNewline = lastNewline;
-    for (let i = found; i < found + needle.length; i++) {
-      if (source[i] === "\n") {
-        endLine++;
-        endLastNewline = i;
-      }
-    }
-    const endColumn = found + needle.length - endLastNewline - 1;
-
-    results.push({ line, column, endLine, endColumn });
+    results.push({
+      line: start.line,
+      column: start.column,
+      endLine: end.line,
+      endColumn: end.column,
+    });
     idx = found + 1;
   }
   return results;

@@ -122,7 +122,7 @@ async function main() {
     addBreadcrumb("command", `Running: ${fullCommand}`);
     // Collect which options were used (presence only, no values)
     const opts = actionCommand.opts();
-    const optionFlags: Record<string, boolean> = {};
+    const optionFlags: Record<string, unknown> = {};
     const optionsUsed: string[] = [];
     for (const key of Object.keys(opts)) {
       const val = opts[key];
@@ -131,11 +131,9 @@ async function main() {
       if (used) optionsUsed.push(key);
     }
     const depth = fullCommand === "root" ? 0 : fullCommand.split(" ").length;
-    trackCommand(fullCommand, {
-      ...optionFlags,
-      command_depth: depth,
-      options_used: optionsUsed,
-    });
+    optionFlags.command_depth = depth;
+    optionFlags.options_used = optionsUsed;
+    trackCommand(fullCommand, optionFlags);
     beginCommand(fullCommand);
   });
 

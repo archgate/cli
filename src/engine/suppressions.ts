@@ -152,7 +152,7 @@ export async function applySuppressions(
 
   // Read files in parallel and parse suppressions
   const fileSuppressions = new Map<string, SuppressionComment[]>();
-  const readPromises = [...filePathsNeeded].map(async (relPath) => {
+  const readPromises = Array.from(filePathsNeeded, async (relPath) => {
     try {
       const absPath = resolve(projectRoot, relPath);
       const content = await Bun.file(absPath).text();

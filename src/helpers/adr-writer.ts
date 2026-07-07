@@ -26,8 +26,9 @@ export function getNextId(adrsDir: string, prefix: string): string {
   const files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
   let maxNum = 0;
 
+  const idPattern = new RegExp(`^${prefix}-(\\d+)`, "u");
   for (const file of files) {
-    const match = file.match(new RegExp(`^${prefix}-(\\d+)`, "u"));
+    const match = file.match(idPattern);
     if (match) {
       const num = Math.trunc(Number(match[1]));
       if (num > maxNum) maxNum = num;

@@ -184,8 +184,8 @@ async function mergeCursorHooks(cursorDir: string): Promise<void> {
       },
     ];
 
-    const merged = [...filtered, ...archgateHooks];
-    await Bun.write(hooksPath, JSON.stringify(merged, null, 2) + "\n");
+    for (const h of archgateHooks) filtered.push(h);
+    await Bun.write(hooksPath, JSON.stringify(filtered, null, 2) + "\n");
     logDebug("Merged archgate hooks into", hooksPath);
   } catch {
     // If existing hooks.json is malformed, leave it alone
@@ -266,9 +266,10 @@ async function installEditorPluginBundle(opts: {
 
   // Clean old archgate skill directories (archgate-*/SKILL.md)
   const staleSkillDirs = new Set(
-    [
-      ...new Bun.Glob("archgate-*/*").scanSync({ cwd: skillsDir, dot: true }),
-    ].map((f) => f.split(/[/\\]/u)[0])
+    Array.from(
+      new Bun.Glob("archgate-*/*").scanSync({ cwd: skillsDir, dot: true }),
+      (f) => f.split(/[/\\]/u)[0]
+    )
   );
   for (const dir of staleSkillDirs) {
     rmSync(join(skillsDir, dir), { recursive: true, force: true });

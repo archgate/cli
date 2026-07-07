@@ -38,7 +38,7 @@ const VSCODE_DEFAULT_MARKETPLACES = [
  * Deduplicate an array of strings while preserving order.
  */
 function dedup(arr: string[]): string[] {
-  return [...new Set(arr)];
+  return Array.from(new Set(arr));
 }
 
 /**
@@ -52,20 +52,18 @@ export function mergeMarketplaceUrl(
   existing: VscodeUserSettings,
   marketplaceUrl: string
 ): VscodeUserSettings {
-  const merged: VscodeUserSettings = { ...existing };
-
   const hasExplicitMarketplaces = "chat.plugins.marketplaces" in existing;
-  const existingMarketplaces = merged["chat.plugins.marketplaces"] ?? [];
+  const existingMarketplaces = existing["chat.plugins.marketplaces"] ?? [];
 
   // When the key is absent, seed with VS Code's built-in defaults so we don't
   // silently override them by setting the key explicitly.
   const base = hasExplicitMarketplaces
     ? existingMarketplaces
-    : [...VSCODE_DEFAULT_MARKETPLACES, ...existingMarketplaces];
+    : VSCODE_DEFAULT_MARKETPLACES.concat(existingMarketplaces);
 
-  merged["chat.plugins.marketplaces"] = dedup([...base, marketplaceUrl]);
+  existing["chat.plugins.marketplaces"] = dedup(base.concat(marketplaceUrl));
 
-  return merged;
+  return existing;
 }
 
 /**

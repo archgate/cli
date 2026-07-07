@@ -45,7 +45,7 @@ export const ARCHGATE_CLAUDE_SETTINGS = {
  * Deduplicate an array of strings while preserving order.
  */
 function dedup(arr: string[]): string[] {
-  return [...new Set(arr)];
+  return Array.from(new Set(arr));
 }
 
 /**
@@ -59,22 +59,19 @@ export function mergeClaudeSettings(
   existing: ClaudeSettings,
   archgate: typeof ARCHGATE_CLAUDE_SETTINGS
 ): ClaudeSettings {
-  const merged: ClaudeSettings = { ...existing };
-
   // Scalar: set only if absent or invalid (caught to undefined by schema)
-  if (!merged.agent) {
-    merged.agent = archgate.agent;
+  if (!existing.agent) {
+    existing.agent = archgate.agent;
   }
 
   // Nested permissions object: merge allow array with dedup, preserve deny
-  const existingPermissions = merged.permissions ?? { allow: [], deny: [] };
+  const existingPermissions = existing.permissions ?? { allow: [], deny: [] };
+  existingPermissions.allow = dedup(
+    existingPermissions.allow.concat(archgate.permissions.allow)
+  );
+  existing.permissions = existingPermissions;
 
-  merged.permissions = {
-    ...existingPermissions,
-    allow: dedup([...existingPermissions.allow, ...archgate.permissions.allow]),
-  };
-
-  return merged;
+  return existing;
 }
 
 /**

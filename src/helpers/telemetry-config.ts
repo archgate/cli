@@ -90,10 +90,8 @@ export function loadTelemetryConfig(): TelemetryConfig {
       const text = readFileSync(path, "utf-8");
       const result = TelemetryConfigSchema.safeParse(JSON.parse(text));
       if (result.success) {
-        cachedConfig = {
-          ...result.data,
-          createdAt: result.data.createdAt ?? new Date().toISOString(),
-        };
+        result.data.createdAt ??= new Date().toISOString();
+        cachedConfig = result.data;
         logDebug("Telemetry config loaded:", cachedConfig.installId);
         return cachedConfig;
       }
