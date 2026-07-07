@@ -272,7 +272,7 @@ export function trackEvent(
     client.capture({
       distinctId,
       event,
-      properties: Object.assign(getCommonProperties(), properties),
+      properties: Object.assign({}, getCommonProperties(), properties),
     });
     logDebug("Telemetry event captured:", event);
   } catch {

@@ -130,15 +130,9 @@ function offsetToPos(
 function findCodeOccurrences(
   source: string,
   needle: string,
-  nonCodeRanges: Array<[number, number]>
+  nonCodeRanges: Array<[number, number]>,
+  newlineOffsets: number[]
 ): SourcePos[] {
-  // Pre-build newline offset index for O(log N) line/column lookup.
-  // Sentinel -1 at index 0 represents the virtual newline before line 1.
-  const newlineOffsets = [-1];
-  for (let i = 0; i < source.length; i++) {
-    if (source[i] === "\n") newlineOffsets.push(i);
-  }
-
   const results: SourcePos[] = [];
   let idx = 0;
   while (true) {
@@ -175,12 +169,23 @@ export function remapViolations(
   rawViolations: RawViolation[]
 ): Array<{ message: string } & SourcePos> {
   const nonCodeRanges = buildNonCodeRanges(original);
+  // Build newline offset index once per source — shared across all searchTexts.
+  // Sentinel -1 at index 0 represents the virtual newline before line 1.
+  const newlineOffsets = [-1];
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === "\n") newlineOffsets.push(i);
+  }
   const occurrenceCache = new Map<string, SourcePos[]>();
 
   return rawViolations.map((rv) => {
     let positions = occurrenceCache.get(rv.searchText);
     if (!positions) {
-      positions = findCodeOccurrences(original, rv.searchText, nonCodeRanges);
+      positions = findCodeOccurrences(
+        original,
+        rv.searchText,
+        nonCodeRanges,
+        newlineOffsets
+      );
       occurrenceCache.set(rv.searchText, positions);
     }
 
