@@ -312,23 +312,20 @@ export function reportCI(
  * one for telemetry, and walking `result.results` a second time here is pure
  * duplication.
  */
-export function getExitCode(
-  result: CheckResult,
-  summary?: ReportSummary
-): 0 | 1 | 2 {
+export function getExitCode(result: CheckResult, summary?: ReportSummary) {
   if (summary) {
-    if (summary.ruleErrors > 0) return 2;
-    if (summary.failed > 0) return 1;
-    if (summary.warningsExceeded) return 1;
-    return 0;
+    if (summary.ruleErrors > 0) return 2 as const;
+    if (summary.failed > 0) return 1 as const;
+    if (summary.warningsExceeded) return 1 as const;
+    return 0 as const;
   }
   const hasErrors = result.results.some((r) => r.error);
-  if (hasErrors) return 2;
+  if (hasErrors) return 2 as const;
 
   const hasViolations = result.results.some((r) =>
     r.violations.some((v) => v.severity === "error")
   );
-  if (hasViolations) return 1;
+  if (hasViolations) return 1 as const;
 
-  return 0;
+  return 0 as const;
 }
