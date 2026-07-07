@@ -1,3 +1,13 @@
+## [0.48.0](https://github.com/archgate/cli/compare/v0.47.0...v0.48.0) (2026-07-07)
+
+### Features
+
+* **telemetry:** track project languages, runtimes, and frameworks on check ([#458](https://github.com/archgate/cli/issues/458)) ([2d1c065](https://github.com/archgate/cli/commit/2d1c065a2760f24af35b2d4257332c1a539b765b))
+
+### Performance Improvements
+
+* reduce unnecessary allocations across engine and helpers ([#461](https://github.com/archgate/cli/issues/461)) ([49983a6](https://github.com/archgate/cli/commit/49983a6c15d92221cede58b15498e60b8a9c575d))
+
 ## [0.47.0](https://github.com/archgate/cli/compare/v0.46.1...v0.47.0) (2026-07-06)
 
 ### Features
