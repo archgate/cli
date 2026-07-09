@@ -1,3 +1,10 @@
+## [0.48.1](https://github.com/archgate/cli/compare/v0.48.0...v0.48.1) (2026-07-09)
+
+### Bug Fixes
+
+* **ci:** disable toolchain cache in release-binaries ([#462](https://github.com/archgate/cli/issues/462)) ([a4b9829](https://github.com/archgate/cli/commit/a4b9829cdae6817557e14ce4ddb5f1122d03b0c6))
+* detect and error on duplicate ADR IDs across files ([#466](https://github.com/archgate/cli/issues/466)) ([991cc9e](https://github.com/archgate/cli/commit/991cc9e07032fd4aeee3cd52c3ca633a3ee071e6)), closes [#465](https://github.com/archgate/cli/issues/465)
+
 ## [0.48.0](https://github.com/archgate/cli/compare/v0.47.0...v0.48.0) (2026-07-07)
 
 ### Features
