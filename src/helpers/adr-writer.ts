@@ -140,7 +140,17 @@ export async function findAdrFileById(
     })
   );
 
-  return results.find((adr) => adr?.frontmatter.id === id) ?? null;
+  const matches = results.filter((adr) => adr?.frontmatter.id === id);
+  if (matches.length > 1) {
+    const collidingFiles = files.filter((_file, i) => {
+      const parsed = results[i];
+      return parsed?.frontmatter.id === id;
+    });
+    throw new UserError(
+      `Duplicate ADR ID: ${id}\n${collidingFiles.map((f) => `  - ${f}`).join("\n")}\n\nEach ADR must have a unique id in its YAML frontmatter.`
+    );
+  }
+  return matches[0] ?? null;
 }
 
 interface UpdateAdrResult {

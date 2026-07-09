@@ -202,6 +202,30 @@ describe("findAdrFileById", () => {
     expect(result!.body).toContain("Backend context.");
   });
 
+  test("throws on duplicate ADR IDs", async () => {
+    writeFileSync(
+      join(tempDir, "GEN-099-topic-a.md"),
+      `---\nid: GEN-099\ntitle: Topic A\ndomain: general\nrules: false\n---\n# Topic A\n`
+    );
+    writeFileSync(
+      join(tempDir, "GEN-099-topic-b.md"),
+      `---\nid: GEN-099\ntitle: Topic B\ndomain: general\nrules: false\n---\n# Topic B\n`
+    );
+
+    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+      "Duplicate ADR ID"
+    );
+    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+      "GEN-099"
+    );
+    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+      "GEN-099-topic-a.md"
+    );
+    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+      "GEN-099-topic-b.md"
+    );
+  });
+
   test("skips unparseable files gracefully", async () => {
     writeFileSync(join(tempDir, "BAD-001-broken.md"), "not valid frontmatter");
     await createAdrFile(tempDir, {

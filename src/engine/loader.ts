@@ -30,6 +30,7 @@ import type { ViolationDetail } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { resolvedProjectPaths } from "../helpers/project-config";
 import { ensureRulesShim } from "../helpers/rules-shim";
+import { UserError } from "../helpers/user-error";
 import { scanRuleSource } from "./rule-scanner";
 
 interface LoadedAdr {
@@ -188,7 +189,37 @@ export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
       })
     );
 
-    return parsed.filter((e): e is ParsedAdrEntry => e !== null);
+    const entries = parsed.filter((e): e is ParsedAdrEntry => e !== null);
+
+    // Detect duplicate ADR IDs — two files sharing the same frontmatter id
+    // is an authoring error that causes silent data loss downstream (Map.set
+    // overwrites, Array.find picks the first, etc.).
+    const idToFiles = new Map<string, string[]>();
+    for (const entry of entries) {
+      const id = entry.adr.frontmatter.id;
+      const existing = idToFiles.get(id);
+      if (existing) {
+        existing.push(entry.file);
+      } else {
+        idToFiles.set(id, [entry.file]);
+      }
+    }
+    const duplicates = [...idToFiles.entries()].filter(
+      ([, files]) => files.length > 1
+    );
+    if (duplicates.length > 0) {
+      const details = duplicates
+        .map(
+          ([id, files]) =>
+            `Duplicate ADR ID: ${id}\n${files.map((f) => `  - ${f}`).join("\n")}`
+        )
+        .join("\n\n");
+      throw new UserError(
+        `${details}\n\nEach ADR must have a unique id in its YAML frontmatter.`
+      );
+    }
+
+    return entries;
   })();
 
   parsedAdrsCache.set(projectRoot, promise);

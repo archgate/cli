@@ -256,6 +256,25 @@ export default { invalid syntax here !!! } satisfies RuleSet;
     expect(first.value.adr.frontmatter.id).toBe("TEST-001");
   });
 
+  test("parseAllAdrs throws on duplicate ADR IDs", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+
+    // Two files with different names but same frontmatter id
+    writeFileSync(
+      join(adrsDir, "GEN-099-topic-a.md"),
+      `---\nid: GEN-099\ntitle: Topic A\ndomain: general\nrules: false\n---\n# Topic A\n`
+    );
+    writeFileSync(
+      join(adrsDir, "GEN-099-topic-b.md"),
+      `---\nid: GEN-099\ntitle: Topic B\ndomain: general\nrules: false\n---\n# Topic B\n`
+    );
+
+    await expect(parseAllAdrs(tempDir)).rejects.toThrow("Duplicate ADR ID");
+    await expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099");
+    await expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099-topic-a.md");
+    await expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099-topic-b.md");
+  });
+
   test("parseAllAdrs reads from custom directory", async () => {
     // Configure custom path
     const customAdrsDir = join(tempDir, "governance");
