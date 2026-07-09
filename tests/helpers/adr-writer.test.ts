@@ -218,6 +218,12 @@ describe("findAdrFileById", () => {
     await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
       "GEN-099"
     );
+    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+      "GEN-099-topic-a.md"
+    );
+    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+      "GEN-099-topic-b.md"
+    );
   });
 
   test("skips unparseable files gracefully", async () => {
