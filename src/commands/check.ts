@@ -14,12 +14,12 @@ import {
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
 import { exitWith, handleCommandError } from "../helpers/exit";
-import { logError } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { findProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
 import { detectStack } from "../helpers/stack-detect";
 import { trackCheckResult } from "../helpers/telemetry";
+import { UserError } from "../helpers/user-error";
 
 const maxWarningsOption = new Option(
   "--max-warnings <n>",
@@ -48,11 +48,9 @@ export function registerCheckCommand(program: Command) {
       try {
         const projectRoot = findProjectRoot();
         if (!projectRoot) {
-          logError(
+          throw new UserError(
             "No archgate project found. Run 'archgate init' to create one."
           );
-          await exitWith(1);
-          return;
         }
 
         const maxWarnings = opts.maxWarnings;
@@ -60,9 +58,7 @@ export function registerCheckCommand(program: Command) {
           maxWarnings !== undefined &&
           (Number.isNaN(maxWarnings) || maxWarnings < 0)
         ) {
-          logError("--max-warnings must be a non-negative integer");
-          await exitWith(1);
-          return;
+          throw new UserError("--max-warnings must be a non-negative integer");
         }
 
         // Run stack detection in parallel with rule loading — both are fast I/O
