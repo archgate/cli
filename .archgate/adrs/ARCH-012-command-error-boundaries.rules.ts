@@ -89,7 +89,12 @@ function containsDirectAwait(node: unknown): boolean {
   return false;
 }
 
-/** Collect the async function bodies of every `<expr>.action(async ...)` call. */
+/**
+ * Collect the async function bodies of every `<expr>.action(async ...)` call.
+ * Non-block bodies (implicit-return arrows like `.action(async () => run())`)
+ * are included too: they structurally cannot contain a try-catch, so the
+ * caller must flag them as missing the boundary rather than skip them.
+ */
 function findAsyncActionBodies(tree: EsTreeProgram): EsTreeNode[] {
   const bodies: EsTreeNode[] = [];
   walk(tree, (n) => {
@@ -107,7 +112,7 @@ function findAsyncActionBodies(tree: EsTreeProgram): EsTreeNode[] {
       return;
     }
     const body = handler.body as EsTreeNode | undefined;
-    if (body?.type === "BlockStatement") bodies.push(body);
+    if (body) bodies.push(body);
   });
   return bodies;
 }
@@ -157,7 +162,17 @@ export default {
           let tree: EsTreeProgram;
           try {
             tree = await ctx.ast(file, "typescript");
-          } catch {
+          } catch (err) {
+            // Surface parse failures instead of silently treating the file
+            // as compliant — a transpiler edge case would otherwise mask
+            // coverage loss for this file.
+            ctx.report.warning({
+              message: `Could not parse file for boundary analysis: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+              file,
+              fix: "Fix the parse error (or report it if the file is valid TypeScript) so ARCH-012 coverage analysis can run",
+            });
             return;
           }
           // Read once per file, outside the bodies loop — used for line
@@ -165,6 +180,17 @@ export default {
           const source = await ctx.readFile(file);
 
           for (const body of findAsyncActionBodies(tree)) {
+            // Implicit-return arrow bodies (`async () => run()`) can never
+            // contain a try-catch — an unavoidable missing boundary.
+            if (body.type !== "BlockStatement") {
+              ctx.report.warning({
+                message:
+                  "Async command action uses an implicit-return arrow body, which cannot contain a try-catch error boundary",
+                file,
+                fix: "Convert to a block body: .action(async (...) => { try { ... } catch (err) { await handleCommandError(err); } })",
+              });
+              continue;
+            }
             const statements = (body.body as EsTreeNode[] | undefined) ?? [];
             const hasTopLevelTry = statements.some(
               (s) => s.type === "TryStatement"
