@@ -38,13 +38,15 @@ All commands that operate on `.archgate/` project resources MUST use `findProjec
 ### Do
 
 - Use `findProjectRoot()` from `src/helpers/paths.ts` in all commands that read from `.archgate/`
-- Check the return value for `null` and exit with a helpful error message
+- **Commands that REQUIRE a project MUST use `requireProjectRoot()`** from `src/helpers/paths.ts` — it throws a `UserError` with the message "No .archgate/ directory found. Run `archgate init` first.", which the command's ARCH-012 error boundary turns into exit 1 with no Sentry capture. Commands that can operate without a project (e.g. `session-context` with its cwd fallback) keep `findProjectRoot()` and handle `null` themselves
+- Check the return value for `null` and exit with a helpful error message (only when using `findProjectRoot()` directly)
 - Pass the resolved `projectRoot` to `projectPaths()` for derived paths
 
 ### Don't
 
 - Don't use `process.cwd()` to locate `.archgate/` in command files (except `init`)
 - Don't define local `findProjectRoot()` variants — use the shared implementation
+- Don't hand-roll the `if (!projectRoot) { logError(...); await exitWith(1); return; }` guard in commands that require a project — that block was copy-pasted across ~10 command files before `requireProjectRoot()` replaced it
 - Don't assume the user is running from the project root
 
 ## Consequences

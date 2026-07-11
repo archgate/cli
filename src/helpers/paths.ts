@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 
 import { logDebug } from "./log";
+import { UserError } from "./user-error";
 
 /**
  * Resolves the user home directory for ~/.archgate paths.
@@ -171,4 +172,23 @@ export function findProjectRoot(startDir?: string): string | null {
     }
     dir = parent;
   }
+}
+
+/**
+ * Like {@link findProjectRoot}, but throws a {@link UserError} when no
+ * project is found. For command actions whose body is wrapped in the
+ * ARCH-012 error boundary (handleCommandError): the boundary logs the
+ * message and exits 1 without Sentry. Commands that can operate without a
+ * project (e.g. `session-context` falling back to cwd) should keep using
+ * `findProjectRoot()` directly.
+ */
+export function requireProjectRoot(startDir?: string): string {
+  const projectRoot = findProjectRoot(startDir);
+  if (!projectRoot) {
+    throw new UserError(
+      "No .archgate/ directory found.",
+      "Run `archgate init` first."
+    );
+  }
+  return projectRoot;
 }

@@ -15,10 +15,9 @@ import {
   updateImportsManifest,
   writeImportedAdrs,
 } from "../../helpers/adr-import";
-import { exitWith, handleCommandError } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
+import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
+import { requireProjectRoot } from "../../helpers/paths";
 import {
   getMergedDomainPrefixes,
   resolvedProjectPaths,
@@ -40,13 +39,7 @@ export function registerAdrImportCommand(adr: Command) {
     .action(async (sources, opts) => {
       let tempDirs: string[] = [];
       try {
-        const projectRoot = findProjectRoot();
-        if (!projectRoot) {
-          logError("No .archgate/ directory found. Run `archgate init` first.");
-          await exitWith(1);
-          return;
-        }
-
+        const projectRoot = requireProjectRoot();
         const paths = resolvedProjectPaths(projectRoot);
         const useJson = opts.json || isAgentContext();
 

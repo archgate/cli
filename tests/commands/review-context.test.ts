@@ -99,7 +99,8 @@ describe("review-context action handler", () => {
     const errorOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.join(" "))
       .join(" ");
-    expect(errorOutput).toContain("No archgate project found");
+    // Standardized message from requireProjectRoot() (helpers/paths.ts)
+    expect(errorOutput).toContain("No .archgate/ directory found");
   });
 
   test("prints JSON on successful result", async () => {

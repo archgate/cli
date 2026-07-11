@@ -50,6 +50,7 @@ Use four exit codes with clear semantics:
 - Write errors to stderr (via `logError()`), not stdout
 - **Commands that don't require `.archgate/` SHOULD fall back to `process.cwd()`** when `findProjectRoot()` returns null — e.g., `session-context` reads from `~/.claude/projects/` and uses `process.cwd()` as its path key when no project is found
 - **Handle `ExitPromptError` from Inquirer as user cancellation** — catch it in the top-level error boundary and exit with code 130 (SIGINT convention) without logging an error or sending to Sentry
+- **Handle `UserError` in the top-level safety net** — `main().catch()` in `src/cli.ts` MUST check `err instanceof UserError` and treat it as an expected failure (`logError()` + exit 1, NO Sentry capture) before falling through to the exit-2 + `captureException()` path, mirroring `handleCommandError()`. Only non-`UserError` errors reaching `main().catch()` are internal errors for Sentry
 
 ### Don't
 
@@ -60,6 +61,7 @@ Use four exit codes with clear semantics:
 - Don't exit with code 0 when an operation fails
 - Don't use exit codes other than 0, 1, 2, or 130
 - Don't send user-cancellation errors (e.g., `ExitPromptError` from Inquirer) to Sentry — filter them in `beforeSend`
+- Don't send `UserError` to Sentry from any error handler — including the `main().catch()` safety net. `UserError` means the user (or their environment) needs to fix something; capturing it floods Sentry with non-bugs (incident CLI-5)
 
 ## Implementation Pattern
 

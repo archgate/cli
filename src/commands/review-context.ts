@@ -4,10 +4,9 @@ import type { Command } from "@commander-js/extra-typings";
 
 import { buildReviewContext } from "../engine/context";
 import { resolveBaseRef } from "../engine/git-files";
-import { exitWith, handleCommandError } from "../helpers/exit";
-import { logError } from "../helpers/log";
+import { handleCommandError } from "../helpers/exit";
 import { formatJSON } from "../helpers/output";
-import { findProjectRoot } from "../helpers/paths";
+import { requireProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
 
 export function registerReviewContextCommand(program: Command) {
@@ -24,23 +23,15 @@ export function registerReviewContextCommand(program: Command) {
     .option("--run-checks", "Include ADR compliance check results")
     .option("--domain <domain>", "Filter to a single domain")
     .action(async (opts) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError(
-          "No archgate project found. Run 'archgate init' to create one."
-        );
-        await exitWith(1);
-        return;
-      }
-
-      // Resolve base ref: --staged skips base detection
-      const resolvedBase = await resolveBaseRef(projectRoot, {
-        staged: opts.staged,
-        base: opts.base,
-        configBase: getConfiguredBaseBranch(projectRoot),
-      });
-
       try {
+        const projectRoot = requireProjectRoot();
+        // Resolve base ref: --staged skips base detection
+        const resolvedBase = await resolveBaseRef(projectRoot, {
+          staged: opts.staged,
+          base: opts.base,
+          configBase: getConfiguredBaseBranch(projectRoot),
+        });
+
         const context = await buildReviewContext(projectRoot, {
           staged: opts.staged,
           base: resolvedBase,

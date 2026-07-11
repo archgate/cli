@@ -4,10 +4,9 @@ import type { Command } from "@commander-js/extra-typings";
 
 import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
-import { exitWith, handleCommandError } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
+import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
+import { requireProjectRoot } from "../../helpers/paths";
 import {
   getAllDomainNames,
   resolveDomainPrefix,
@@ -29,14 +28,8 @@ export function registerAdrCreateCommand(adr: Command) {
     .option("--rules", "Set rules: true in frontmatter")
     .option("--json", "Output as JSON")
     .action(async (opts) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError("No .archgate/ directory found. Run `archgate init` first.");
-        await exitWith(1);
-        return;
-      }
-
       try {
+        const projectRoot = requireProjectRoot();
         const paths = resolvedProjectPaths(projectRoot);
 
         let domain: AdrDomain;

@@ -171,7 +171,8 @@ describe("check action handler", () => {
       makeProgram().parseAsync(["node", "test", "check"])
     ).rejects.toThrow("process.exit");
 
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    // Thrown as UserError → handleCommandError → exitWith(1, user kind)
+    expect(exitSpy).toHaveBeenCalledWith(1, { errorKind: "user" });
     const errOutput = errorSpy.mock.calls
       .map((c: unknown[]) => c.map(String).join(" "))
       .join("\n");
