@@ -20,7 +20,10 @@ export function registerAdrShowCommand(adr: Command) {
         const adr = await findAdrFileById(adrsDir, id);
 
         if (!adr) {
-          throw new UserError(`ADR with ID '${id}' not found.`);
+          throw new UserError(
+            `ADR with ID '${id}' not found.`,
+            "Run `archgate adr list` to see available ADRs."
+          );
         }
 
         const content = await Bun.file(adr.filePath).text();
