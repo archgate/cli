@@ -44,6 +44,7 @@ import {
 } from "./helpers/telemetry";
 import { showFirstRunNoticeIfNeeded } from "./helpers/telemetry-config";
 import { maybeCheckForUpdates } from "./helpers/update-check";
+import { UserError } from "./helpers/user-error";
 
 // Pre-main environment guards — these are user-facing errors (exit 1), not bugs.
 // The Bun check must throw (logError requires Bun APIs). The rest use logError
@@ -189,6 +190,16 @@ main().catch(async (err: unknown) => {
   // User pressed Ctrl+C during an Inquirer prompt — exit silently
   if (err instanceof Error && err.name === "ExitPromptError") {
     await exitWith(130, { outcome: "cancelled" });
+  }
+
+  // Expected user-facing error that escaped a command boundary — same
+  // policy as handleCommandError(): log it, exit 1, never send to Sentry.
+  if (err instanceof UserError) {
+    logError(err.message);
+    await exitWith(1, {
+      outcome: "user_error",
+      errorKind: classifyErrorKind(err),
+    });
   }
 
   captureException(err, { command: "main" });

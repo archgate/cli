@@ -33,14 +33,14 @@ export function registerReviewContextCommand(program: Command) {
         return;
       }
 
-      // Resolve base ref: --staged skips base detection
-      const resolvedBase = await resolveBaseRef(projectRoot, {
-        staged: opts.staged,
-        base: opts.base,
-        configBase: getConfiguredBaseBranch(projectRoot),
-      });
-
       try {
+        // Resolve base ref: --staged skips base detection
+        const resolvedBase = await resolveBaseRef(projectRoot, {
+          staged: opts.staged,
+          base: opts.base,
+          configBase: getConfiguredBaseBranch(projectRoot),
+        });
+
         const context = await buildReviewContext(projectRoot, {
           staged: opts.staged,
           base: resolvedBase,

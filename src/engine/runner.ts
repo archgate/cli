@@ -13,7 +13,7 @@ import type {
   RuleReport,
   ViolationDetail,
 } from "../formats/rules";
-import { logDebug } from "../helpers/log";
+import { logDebug, logWarn } from "../helpers/log";
 import { UserError } from "../helpers/user-error";
 import {
   AST_LANGUAGE_EXTENSIONS,
@@ -37,20 +37,34 @@ import { type LoadResult, blockedToRuleResult } from "./loader";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
 
 /**
+ * Resolve a user-supplied path against projectRoot without any boundary check.
+ */
+function resolveUserPath(resolvedRoot: string, userPath: string): string {
+  return isAbsolute(userPath)
+    ? resolve(userPath)
+    : resolve(resolvedRoot, userPath);
+}
+
+/**
+ * Check whether an already-resolved absolute path stays within projectRoot.
+ * On Windows, paths on different drives produce a full absolute relative()
+ * result rather than a ".." prefix — use startsWith on the normalized paths.
+ */
+function isWithinRoot(resolvedRoot: string, absPath: string): boolean {
+  return (
+    absPath.startsWith(resolvedRoot + "/") ||
+    absPath.startsWith(resolvedRoot + "\\") ||
+    absPath === resolvedRoot
+  );
+}
+
+/**
  * Resolve a user-supplied path and ensure it stays within projectRoot.
  * Throws if the resolved path escapes the project boundary or is a symlink.
  */
 function safePath(resolvedRoot: string, userPath: string): string {
-  const absPath = isAbsolute(userPath)
-    ? resolve(userPath)
-    : resolve(resolvedRoot, userPath);
-  // On Windows, paths on different drives produce a full absolute relative()
-  // result rather than a ".." prefix — use startsWith on the normalized paths.
-  if (
-    !absPath.startsWith(resolvedRoot + "/") &&
-    !absPath.startsWith(resolvedRoot + "\\") &&
-    absPath !== resolvedRoot
-  ) {
+  const absPath = resolveUserPath(resolvedRoot, userPath);
+  if (!isWithinRoot(resolvedRoot, absPath)) {
     throw new UserError(
       `Path "${userPath}" escapes project root — access denied`
     );
@@ -414,15 +428,23 @@ export async function runChecks(
     )
     .map((lr) => lr.value);
 
-  // Resolve user-specified files to relative paths for intersection
+  // Resolve user-specified files to relative paths for intersection.
+  // Files are a pure filter — they are intersected with ADR-scoped files and
+  // never read directly, so a path outside the project root can never match
+  // anything. Skip such paths with a warning instead of failing the whole
+  // run: agents and hooks routinely pipe in stray paths (e.g. temp files).
   let filterFiles: Set<string> | undefined;
   if (options.files && options.files.length > 0) {
-    filterFiles = new Set(
-      options.files.map((f) => {
-        const absPath = safePath(resolve(projectRoot), f);
-        return relative(projectRoot, absPath).replaceAll("\\", "/");
-      })
-    );
+    const resolvedRoot = resolve(projectRoot);
+    filterFiles = new Set();
+    for (const f of options.files) {
+      const absPath = resolveUserPath(resolvedRoot, f);
+      if (!isWithinRoot(resolvedRoot, absPath)) {
+        logWarn(`Skipping "${f}" — outside project root, not governed by ADRs`);
+        continue;
+      }
+      filterFiles.add(relative(projectRoot, absPath).replaceAll("\\", "/"));
+    }
   }
 
   // Await both git operations (started above, run concurrently)
