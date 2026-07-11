@@ -1,3 +1,9 @@
+## [0.48.2](https://github.com/archgate/cli/compare/v0.48.1...v0.48.2) (2026-07-11)
+
+### Bug Fixes
+
+* **check:** user-error handling overhaul — file filters, error boundaries, UserError guards ([#467](https://github.com/archgate/cli/issues/467)) ([7ae6440](https://github.com/archgate/cli/commit/7ae6440142b52efea0afcaa8ba7e935a6e3b6a2f))
+
 ## [0.48.1](https://github.com/archgate/cli/compare/v0.48.0...v0.48.1) (2026-07-09)
 
 ### Bug Fixes

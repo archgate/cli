@@ -183,7 +183,7 @@ export default defineConfig({
             applicationCategory: "DeveloperApplication",
             applicationSubCategory: "Code Linting",
             operatingSystem: "macOS, Linux, Windows",
-            softwareVersion: "0.48.1",
+            softwareVersion: "0.48.2",
             license: "https://github.com/archgate/cli/blob/main/LICENSE",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
             url: "https://cli.archgate.dev",
