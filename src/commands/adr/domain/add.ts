@@ -2,10 +2,9 @@
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith, handleCommandError } from "../../../helpers/exit";
-import { logError } from "../../../helpers/log";
+import { handleCommandError } from "../../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../../helpers/output";
-import { findProjectRoot } from "../../../helpers/paths";
+import { requireProjectRoot } from "../../../helpers/paths";
 import { addCustomDomain } from "../../../helpers/project-config";
 import { trackCustomDomainAdded } from "../../../helpers/telemetry";
 
@@ -17,14 +16,8 @@ export function registerDomainAddCommand(domain: Command) {
     .argument("<prefix>", "ID prefix (uppercase, e.g. 'SEC')")
     .option("--json", "Output as JSON")
     .action(async (name, prefix, options) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError("No .archgate/ directory found. Run `archgate init` first.");
-        await exitWith(1);
-        return;
-      }
-
       try {
+        const projectRoot = requireProjectRoot();
         const config = await addCustomDomain(projectRoot, name, prefix);
         const totalCustom = Object.keys(config.domains).length;
         trackCustomDomainAdded({

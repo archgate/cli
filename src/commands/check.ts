@@ -15,7 +15,7 @@ import {
 import { runChecks } from "../engine/runner";
 import { exitWith, handleCommandError } from "../helpers/exit";
 import { formatJSON, isAgentContext } from "../helpers/output";
-import { findProjectRoot } from "../helpers/paths";
+import { requireProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
 import { detectStack } from "../helpers/stack-detect";
 import { trackCheckResult } from "../helpers/telemetry";
@@ -46,12 +46,7 @@ export function registerCheckCommand(program: Command) {
       // otherwise land in main().catch() and be miscategorized as an
       // internal crash (exit 2 + Sentry) instead of a user error (exit 1).
       try {
-        const projectRoot = findProjectRoot();
-        if (!projectRoot) {
-          throw new UserError(
-            "No archgate project found. Run 'archgate init' to create one."
-          );
-        }
+        const projectRoot = requireProjectRoot();
 
         const maxWarnings = opts.maxWarnings;
         if (

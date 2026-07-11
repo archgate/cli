@@ -11,9 +11,9 @@ import {
   type ImportsManifest,
 } from "../../formats/pack";
 import { exitWith, handleCommandError } from "../../helpers/exit";
-import { logDebug, logError, logWarn } from "../../helpers/log";
+import { logDebug, logWarn } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
+import { requireProjectRoot } from "../../helpers/paths";
 import { resolvedProjectPaths } from "../../helpers/project-config";
 import { withPromptFix } from "../../helpers/prompt";
 import { resolveSource, shallowClone } from "../../helpers/registry";
@@ -142,14 +142,8 @@ export function registerAdrSyncCommand(adr: Command) {
     .option("--yes", "Skip confirmation prompts", false)
     .option("--json", "Output as JSON", false)
     .action(async (sources, opts) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError("No .archgate/ directory found. Run `archgate init` first.");
-        await exitWith(1);
-        return;
-      }
-
       try {
+        const projectRoot = requireProjectRoot();
         const paths = resolvedProjectPaths(projectRoot);
         const useJson = opts.json || isAgentContext();
         const manifest = loadImportsManifest(projectRoot);

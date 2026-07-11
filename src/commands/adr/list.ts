@@ -6,10 +6,9 @@ import { styleText } from "node:util";
 import type { Command } from "@commander-js/extra-typings";
 
 import { parseAllAdrs } from "../../engine/loader";
-import { exitWith, handleCommandError } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
+import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
+import { requireProjectRoot } from "../../helpers/paths";
 import { resolvedProjectPaths } from "../../helpers/project-config";
 
 export function registerAdrListCommand(adr: Command) {
@@ -19,14 +18,8 @@ export function registerAdrListCommand(adr: Command) {
     .option("--json", "Output as JSON")
     .option("--domain <domain>", "Filter by domain")
     .action(async (options) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError("No .archgate/ directory found. Run `archgate init` first.");
-        await exitWith(1);
-        return;
-      }
-
       try {
+        const projectRoot = requireProjectRoot();
         const paths = resolvedProjectPaths(projectRoot);
 
         if (!existsSync(paths.adrsDir)) {

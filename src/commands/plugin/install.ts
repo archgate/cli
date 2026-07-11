@@ -27,6 +27,7 @@ import {
   isOpencodeAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
+import { UserError } from "../../helpers/user-error";
 import { configureVscodeSettings } from "../../helpers/vscode-settings";
 
 const editorOption = new Option(
@@ -243,12 +244,10 @@ export function registerPluginInstallCommand(plugin: Command) {
       try {
         const credentials = await loadCredentials();
         if (!credentials) {
-          logError(
+          throw new UserError(
             "Not logged in.",
             "Run `archgate login` first to authenticate."
           );
-          await exitWith(1);
-          return;
         }
 
         // Resolve editors: explicit flag, interactive prompt, or default

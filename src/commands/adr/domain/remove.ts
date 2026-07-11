@@ -2,10 +2,9 @@
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
 
-import { exitWith, handleCommandError } from "../../../helpers/exit";
-import { logError } from "../../../helpers/log";
+import { handleCommandError } from "../../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../../helpers/output";
-import { findProjectRoot } from "../../../helpers/paths";
+import { requireProjectRoot } from "../../../helpers/paths";
 import {
   loadProjectConfig,
   removeCustomDomain,
@@ -19,14 +18,8 @@ export function registerDomainRemoveCommand(domain: Command) {
     .argument("<name>", "Domain name to remove")
     .option("--json", "Output as JSON")
     .action(async (name, options) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError("No .archgate/ directory found. Run `archgate init` first.");
-        await exitWith(1);
-        return;
-      }
-
       try {
+        const projectRoot = requireProjectRoot();
         const existingPrefix = loadProjectConfig(projectRoot).domains[name];
         const { config, removed } = await removeCustomDomain(projectRoot, name);
 

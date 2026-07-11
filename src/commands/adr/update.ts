@@ -3,10 +3,9 @@
 import type { Command } from "@commander-js/extra-typings";
 
 import { updateAdrFile } from "../../helpers/adr-writer";
-import { exitWith, handleCommandError } from "../../helpers/exit";
-import { logError } from "../../helpers/log";
+import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
-import { findProjectRoot } from "../../helpers/paths";
+import { requireProjectRoot } from "../../helpers/paths";
 import {
   resolveDomainPrefix,
   resolvedProjectPaths,
@@ -30,22 +29,17 @@ export function registerAdrUpdateCommand(adr: Command) {
     .option("--rules", "Set rules: true in frontmatter")
     .option("--json", "Output as JSON")
     .action(async (opts) => {
-      const projectRoot = findProjectRoot();
-      if (!projectRoot) {
-        logError("No .archgate/ directory found. Run `archgate init` first.");
-        await exitWith(1);
-        return;
-      }
-      const paths = resolvedProjectPaths(projectRoot);
-
-      const files = opts.files
-        ? opts.files
-            .split(",")
-            .map((f) => f.trim())
-            .filter(Boolean)
-        : undefined;
-
       try {
+        const projectRoot = requireProjectRoot();
+        const paths = resolvedProjectPaths(projectRoot);
+
+        const files = opts.files
+          ? opts.files
+              .split(",")
+              .map((f) => f.trim())
+              .filter(Boolean)
+          : undefined;
+
         if (opts.domain) {
           // Validate the domain against the merged config now so users get
           // a clear error instead of a stale prefix mismatch later.
