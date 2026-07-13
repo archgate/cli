@@ -109,5 +109,5 @@ describe("listMatchingFiles", () => {
     expect(tracked!.has("gone.ts")).toBe(false);
     const files = await listMatchingFiles(tempDir, "**/*.ts", tracked);
     expect(files).toEqual(["kept.ts"]);
-  }, 15_000);
+  });
 });
