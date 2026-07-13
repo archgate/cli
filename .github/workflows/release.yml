@@ -37,10 +37,11 @@ jobs:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           # Scope the app token — without these the token inherits every
-          # permission the app installation has (zizmor: github-app).
+          # permission the app installation has (zizmor: github-app). Requested
+          # scopes MUST be a subset of the installation's grants (archgatebot:
+          # contents + pull-requests only) or token creation fails with 422.
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -92,10 +93,11 @@ jobs:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           # Scope the app token — without these the token inherits every
-          # permission the app installation has (zizmor: github-app).
+          # permission the app installation has (zizmor: github-app). Requested
+          # scopes MUST be a subset of the installation's grants (archgatebot:
+          # contents + pull-requests only) or token creation fails with 422.
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
       - name: Checkout code
         # Credentials must persist: simple-release-action pushes the release
         # branch via git using the checkout-persisted app token.
@@ -153,10 +155,11 @@ jobs:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
           # Scope the app token — without these the token inherits every
-          # permission the app installation has (zizmor: github-app).
+          # permission the app installation has (zizmor: github-app). Requested
+          # scopes MUST be a subset of the installation's grants (archgatebot:
+          # contents + pull-requests only) or token creation fails with 422.
           permission-contents: write
           permission-pull-requests: write
-          permission-issues: write
       - name: Checkout code
         # Credentials must persist: simple-release-action pushes the release
         # tag via git using the checkout-persisted app token.
