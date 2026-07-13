@@ -64,7 +64,7 @@ uses: owner/action@<40-char-sha> # <version>
 
 - **`slsa-framework/slsa-github-generator/.github/workflows/*`** — The SLSA generator's bootstrap script (`generate-builder.sh`) extracts the version from the workflow ref to download the prebuilt builder binary from a GitHub release. It explicitly rejects non-tag refs with `Invalid ref: ... Expected ref of the form refs/tags/vX.Y.Z`. This is documented upstream as [slsa-framework/slsa-github-generator#150](https://github.com/slsa-framework/slsa-github-generator/issues/150). The reusable workflow MUST therefore be referenced by tag (e.g., `@v2.1.0`). Trust is anchored in the SLSA project's own signing/verification chain rather than in SHA pinning at the call site. Confirmed empirically: pinning by SHA broke the `v0.31.0` release pipeline (run [25107195589](https://github.com/archgate/cli/actions/runs/25107195589)).
 
-**Version comment format:** The comment after the SHA MUST contain the human-readable version that the SHA corresponds to (e.g., `# v6`, `# v2.4.3`, `# v2.1.0`). This enables:
+**Version comment format:** The comment after the SHA MUST contain the **exact tag** the SHA was resolved from (e.g., `# v2.4.3`, `# v5.5.0`). Floating major-version comments (`# v5`, `# v7`) are prohibited: major tags are re-pointed on every minor/patch release, so the comment silently stops matching the pinned SHA and zizmor flags it as a `ref-version-mismatch` finding (this produced 4 code-scanning alerts before being corrected). When resolving a floating tag (e.g., `v5`), look up which exact release tag points at the same commit and record that in the comment. The comment enables:
 
 - Renovate and Dependabot to detect available updates and propose SHA bump PRs
 - Human reviewers to quickly assess whether the action is current
@@ -77,7 +77,7 @@ uses: owner/action@<40-char-sha> # <version>
 ### Do
 
 - **DO** pin every third-party `uses:` reference by full 40-character commit SHA
-- **DO** include a `# <version>` comment after the SHA on the same line (e.g., `# v4`, `# v2.1.0`)
+- **DO** include a `# <version>` comment after the SHA on the same line, using the exact tag the SHA resolves to (e.g., `# v2.1.0`, `# v5.5.0`), never a floating major tag
 - **DO** use `gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq '.object.sha'` to resolve a tag to its commit SHA before adding a new action
 - **DO** verify the SHA matches the expected tag before committing — cross-reference with the action's releases page
 - **DO** enable Renovate or Dependabot for automated SHA update PRs — pinning without automated updates leads to stale dependencies
@@ -89,6 +89,7 @@ uses: owner/action@<40-char-sha> # <version>
 - **DON'T** reference third-party actions or reusable workflows by tag (e.g., `@v2`, `@v2.1.0`) — tags are mutable and can be silently changed
 - **DON'T** reference third-party actions by branch (e.g., `@main`, `@master`) — branches change on every push
 - **DON'T** omit the version comment after the SHA — without it, automated tools cannot propose version bump PRs and humans cannot assess currency
+- **DON'T** use a floating major-version comment (e.g., `# v5`) — the major tag moves with upstream releases, the comment goes stale against the pinned SHA, and zizmor reports `ref-version-mismatch`
 - **DON'T** use abbreviated SHAs (e.g., `@a2bbfa2`) — always use the full 40-character hash for unambiguous resolution
 - **DON'T** pin local workflow references (e.g., `uses: ./.github/workflows/smoke-test.yml`) — these are same-repository and do not need SHA pinning
 
