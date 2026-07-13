@@ -1,3 +1,9 @@
+## [0.48.4](https://github.com/archgate/cli/compare/v0.48.3...v0.48.4) (2026-07-13)
+
+### Performance Improvements
+
+* **engine:** match globs in memory against git-tracked files ([#474](https://github.com/archgate/cli/issues/474)) ([457b835](https://github.com/archgate/cli/commit/457b83584d78c3355f165aa80d89b026e246b8a2)), closes [oven-sh/bun#32596](https://github.com/oven-sh/bun/issues/32596)
+
 ## [0.48.3](https://github.com/archgate/cli/compare/v0.48.2...v0.48.3) (2026-07-13)
 
 ### Bug Fixes
