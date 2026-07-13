@@ -22,7 +22,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 
 - [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock in tests (e.g. spyOn), never alter prod semantics for test isolation
 - [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — static syntax → custom oxlint rule; executable behavior → tests; cross-file/governance → ADR `.rules.ts`
-- [This repo is PUBLIC — no private sibling-repo internals in memory/PRs](feedback_public_repo_privacy.md)
+- [This repo is PUBLIC — no private sibling-repo internals, no Claude session links in PRs/commits](feedback_public_repo_privacy.md)
 - [Keep code comments and memory entries concise](feedback_concise_comments.md) — one line + terse why, link out for detail
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not logError + exitWith(1); the action's handleCommandError boundary does that
 
@@ -42,7 +42,7 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 - [Test isolation gotchas](project_test_isolation_gotchas.md) — mock.module process-global leakage, Bun.env leaking across test files, Windows git-credential/GCM isolation, bun:sqlite EBUSY, macOS /var symlink, don't test PATH tools
 - [Windows subprocess/path gotchas](project_windows_subprocess_gotchas.md) — Git Bash /tmp invisible to native tools, YAML backslash escaping, binary-upgrade `.old` cleanup, module-level `Bun.env` spread capture
 - [CI workflow gotchas](project_ci_workflow_gotchas.md) — GITHUB_TOKEN pushes don't trigger workflows, secrets vs vars namespaces, jq CRLF on Windows Git Bash
-- [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob brace-pattern scan bug, commander option hoisting, cross-command I/O sharing pattern, verifying reviewer sub-agent ADR citations, dogfood+fire-test workflow for new .rules.ts
+- [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob scan-vs-match semantics + ARCH-023 in-memory matching, pending .rules.ts load-cache follow-up, commander option hoisting, cross-command I/O sharing, reviewer-citation verification, dogfood+fire-test workflow
 - [session-context --skip 1 inline-skill bug](project_session_context_skip_root_fix.md) — opencode fixed via top-level default + `--root`; other editors fixed with plain command; includes opencode.db inspection technique
 - [CLI-skill flag sequencing across releases](project_cli_skill_flag_sequencing.md) — ship CLI first for flag additions, ship plugin promptly after for removals; installed lessons-learned skill v0.13.1 confirmed still broken
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST API doesn't expose resolved state; use GraphQL `reviewThreads.isResolved` to find genuinely outstanding comments
