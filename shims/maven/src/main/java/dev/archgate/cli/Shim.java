@@ -30,7 +30,7 @@ import java.util.zip.ZipInputStream;
  */
 public final class Shim {
 
-    private static final String VERSION = "0.48.2";
+    private static final String VERSION = "0.48.3";
     private static final String BASE_URL = "https://github.com/archgate/cli/releases/download/v" + VERSION + "/";
 
     private Shim() {}

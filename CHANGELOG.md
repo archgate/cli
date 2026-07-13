@@ -1,3 +1,10 @@
+## [0.48.3](https://github.com/archgate/cli/compare/v0.48.2...v0.48.3) (2026-07-13)
+
+### Bug Fixes
+
+* **ci:** drop ungranted issues scope from release app tokens ([#472](https://github.com/archgate/cli/issues/472)) ([be559f1](https://github.com/archgate/cli/commit/be559f127e26c1a4762a75a63f59b8f1c21b66d9)), closes [#471](https://github.com/archgate/cli/issues/471)
+* **ci:** resolve all open code scanning advisories ([#471](https://github.com/archgate/cli/issues/471)) ([982d638](https://github.com/archgate/cli/commit/982d638e80bf6bcec929e44c2b127137a63d7d8e))
+
 ## [0.48.2](https://github.com/archgate/cli/compare/v0.48.1...v0.48.2) (2026-07-11)
 
 ### Bug Fixes
