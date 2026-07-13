@@ -32,15 +32,22 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Scope the app token — without these the token inherits every
+          # permission the app installation has (zizmor: github-app).
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           token: ${{ steps.generate_token.outputs.token }}
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
+          # The check workflow only reads context — no git push happens here.
+          persist-credentials: false
+      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
           cache: true
@@ -48,7 +55,7 @@ jobs:
           cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -80,15 +87,22 @@ jobs:
       # refs/pull/N/head, producing checks that branch protection accepts.
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Scope the app token — without these the token inherits every
+          # permission the app installation has (zizmor: github-app).
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        # Credentials must persist: simple-release-action pushes the release
+        # branch via git using the checkout-persisted app token.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 # zizmor: ignore[artipacked]
         with:
           token: ${{ steps.generate_token.outputs.token }}
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
+      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
           cache: true
@@ -96,7 +110,7 @@ jobs:
           cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -134,15 +148,22 @@ jobs:
     steps:
       - name: Generate token
         id: generate_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Scope the app token — without these the token inherits every
+          # permission the app installation has (zizmor: github-app).
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        # Credentials must persist: simple-release-action pushes the release
+        # tag via git using the checkout-persisted app token.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 # zizmor: ignore[artipacked]
         with:
           token: ${{ steps.generate_token.outputs.token }}
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
+      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
           cache: true
@@ -150,7 +171,7 @@ jobs:
           cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -196,7 +217,7 @@ jobs:
             }"
           echo "::notice::PostHog annotation created for v${version}"
       - name: Save Bun Cache
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
         with:
           path: /home/runner/.bun/install/cache

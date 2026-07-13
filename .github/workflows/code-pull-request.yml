@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -30,12 +29,13 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -60,13 +60,13 @@ jobs:
         run: bun run validate:coverage
       - name: Upload coverage
         if: always() && steps.validate.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-linux
           path: coverage/lcov.info
           retention-days: 1
       - name: Save Bun Cache
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
         with:
           path: /home/runner/.bun/install/cache
@@ -80,9 +80,10 @@ jobs:
       shims_changed: ${{ steps.changes.outputs.shims_changed }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Check for shim changes
         id: changes
         env:
@@ -118,7 +119,9 @@ jobs:
         shim: [npm, pypi, go, maven, nuget, rubygem]
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       # --- npm (Node.js pre-installed on ubuntu-latest) ---
       - name: Test npm shim
         if: matrix.shim == 'npm'
@@ -126,7 +129,7 @@ jobs:
       # --- PyPI ---
       - name: Setup Python
         if: matrix.shim == 'pypi'
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
       - name: Test PyPI shim
@@ -136,7 +139,7 @@ jobs:
       # --- Go ---
       - name: Setup Go
         if: matrix.shim == 'go'
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
         with:
           go-version: "1.21"
           cache-dependency-path: shims/go/go.sum
@@ -147,7 +150,7 @@ jobs:
       # --- Maven ---
       - name: Setup Java
         if: matrix.shim == 'maven'
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
         with:
           distribution: temurin
           java-version: "11"
@@ -158,7 +161,7 @@ jobs:
       # --- NuGet ---
       - name: Setup .NET
         if: matrix.shim == 'nuget'
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
         with:
           dotnet-version: "8.0.x"
       - name: Test NuGet shim
@@ -201,7 +204,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Run zizmor
@@ -225,13 +228,21 @@ jobs:
       contents: read # actions/checkout
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - name: Install actionlint
-        # Pinned script commit + pinned version, not `latest` — see CI-002.
+        # Direct binary download with SHA-256 verification, pinned version — see
+        # CI-002. No download-then-run script: release assets are mutable, so the
+        # checksum (from the release's checksums.txt) is what makes this
+        # reproducible (Scorecard Pinned-Dependencies).
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
-          bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7/scripts/download-actionlint.bash") 1.7.12
+          curl -fsSL -o actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
       - name: Run actionlint
         run: ./actionlint -color
 
@@ -240,16 +251,21 @@ jobs:
     runs-on: ubuntu-latest
     if: always() && needs.validate.result == 'success'
     needs: [validate, smoke-windows]
+    permissions:
+      contents: read
+      pull-requests: write # coverage-report posts the coverage comment on the PR
     steps:
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
       - name: Download Linux coverage
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: coverage-linux
           path: coverage-linux
       - name: Download Windows coverage
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: coverage-windows
           path: coverage-windows
@@ -266,17 +282,23 @@ jobs:
           run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       - name: Upload coverage report
         if: always() && steps.coverage-report.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
           path: ${{ steps.coverage-report.outputs.html-report-path }}
           retention-days: 30
       - name: Enforce coverage threshold
         if: always() && steps.coverage-report.outcome == 'success'
+        env:
+          # Passed via env, not inlined into the script, to avoid template-injection
+          # (zizmor: code injection via template expansion).
+          COVERAGE: ${{ steps.coverage-report.outputs.coverage }}
         run: |
-          COVERAGE="${{ steps.coverage-report.outputs.coverage }}"
           MIN_COVERAGE=90
-          BELOW=$(awk "BEGIN{print ($COVERAGE < $MIN_COVERAGE) ? 1 : 0}")
+          # Pass values as awk data (-v), never interpolated into the awk
+          # program source — a crafted step output could inject awk code.
+          BELOW=$(awk -v coverage="$COVERAGE" -v minimum="$MIN_COVERAGE" \
+            'BEGIN { print (coverage < minimum) ? 1 : 0 }')
           if [ "$BELOW" = "1" ]; then
             echo "::error::Code coverage is ${COVERAGE}%, which is below the minimum threshold of ${MIN_COVERAGE}%."
             exit 1

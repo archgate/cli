@@ -41,12 +41,12 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
           persist-credentials: false
 
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
+      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
         with:
           auto-install: true
           cache: false
@@ -85,14 +85,14 @@ jobs:
       - name: Attest build provenance (Unix)
         if: runner.os != 'Windows'
         id: attest-unix
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: ${{ matrix.artifact }}.tar.gz
 
       - name: Attest build provenance (Windows)
         if: runner.os == 'Windows'
         id: attest-win
-        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
         with:
           subject-path: ${{ matrix.artifact }}.zip
 
@@ -123,14 +123,14 @@ jobs:
 
       - name: Upload digest for SLSA provenance (Unix)
         if: runner.os != 'Windows'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: digest-${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Upload digest for SLSA provenance (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: digest-${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.zip.sha256
@@ -144,7 +144,7 @@ jobs:
       digests: ${{ steps.combine.outputs.digests }}
     steps:
       - name: Download all digest artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: digest-*
           merge-multiple: true
@@ -170,7 +170,7 @@ jobs:
     # generate-builder.sh extracts the version from the ref to download the builder
     # binary from a GitHub release and rejects non-tag refs. See CI-001 exception
     # and slsa-framework/slsa-github-generator#150.
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0 # zizmor: ignore[unpinned-uses]
     with:
       base64-subjects: "${{ needs.combine-hashes.outputs.digests }}"
       upload-assets: true
