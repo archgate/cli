@@ -36,10 +36,17 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Scope the app token — without these the token inherits every
+          # permission the app installation has (zizmor: github-app).
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           token: ${{ steps.generate_token.outputs.token }}
+          # The check workflow only reads context — no git push happens here.
+          persist-credentials: false
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
         with:
           auto-install: true
@@ -84,8 +91,15 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Scope the app token — without these the token inherits every
+          # permission the app installation has (zizmor: github-app).
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        # Credentials must persist: simple-release-action pushes the release
+        # branch via git using the checkout-persisted app token.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7 # zizmor: ignore[artipacked]
         with:
           token: ${{ steps.generate_token.outputs.token }}
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0
@@ -138,8 +152,15 @@ jobs:
         with:
           client-id: ${{ secrets.GH_APP_APP_ID }}
           private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          # Scope the app token — without these the token inherits every
+          # permission the app installation has (zizmor: github-app).
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        # Credentials must persist: simple-release-action pushes the release
+        # tag via git using the checkout-persisted app token.
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7 # zizmor: ignore[artipacked]
         with:
           token: ${{ steps.generate_token.outputs.token }}
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0

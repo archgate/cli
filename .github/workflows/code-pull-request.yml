@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -33,6 +32,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Restore Bun Package Cache
         id: restore-bun-cache
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -83,6 +83,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Check for shim changes
         id: changes
         env:
@@ -119,6 +120,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
       # --- npm (Node.js pre-installed on ubuntu-latest) ---
       - name: Test npm shim
         if: matrix.shim == 'npm'
@@ -147,7 +150,7 @@ jobs:
       # --- Maven ---
       - name: Setup Java
         if: matrix.shim == 'maven'
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
         with:
           distribution: temurin
           java-version: "11"
@@ -229,9 +232,17 @@ jobs:
         with:
           persist-credentials: false
       - name: Install actionlint
-        # Pinned script commit + pinned version, not `latest` — see CI-002.
+        # Direct binary download with SHA-256 verification, pinned version — see
+        # CI-002. No download-then-run script: release assets are mutable, so the
+        # checksum (from the release's checksums.txt) is what makes this
+        # reproducible (Scorecard Pinned-Dependencies).
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
         run: |
-          bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7/scripts/download-actionlint.bash") 1.7.12
+          curl -fsSL -o actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+          tar -xzf actionlint.tar.gz actionlint
       - name: Run actionlint
         run: ./actionlint -color
 
@@ -240,9 +251,14 @@ jobs:
     runs-on: ubuntu-latest
     if: always() && needs.validate.result == 'success'
     needs: [validate, smoke-windows]
+    permissions:
+      contents: read
+      pull-requests: write # coverage-report posts the coverage comment on the PR
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
       - name: Download Linux coverage
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -273,8 +289,11 @@ jobs:
           retention-days: 30
       - name: Enforce coverage threshold
         if: always() && steps.coverage-report.outcome == 'success'
+        env:
+          # Passed via env, not inlined into the script, to avoid template-injection
+          # (zizmor: code injection via template expansion).
+          COVERAGE: ${{ steps.coverage-report.outputs.coverage }}
         run: |
-          COVERAGE="${{ steps.coverage-report.outputs.coverage }}"
           MIN_COVERAGE=90
           BELOW=$(awk "BEGIN{print ($COVERAGE < $MIN_COVERAGE) ? 1 : 0}")
           if [ "$BELOW" = "1" ]; then

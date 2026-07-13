@@ -33,17 +33,24 @@ For the Archgate CLI, the release pipeline (`publish-shims.yml`, `release-binari
 
 `.github/workflows/code-pull-request.yml` MUST run `actionlint` as a dedicated `actionlint` job, included as a required dependency of the `status` gate job (the single required status check for branch protection) — a hard blocker, not an advisory-only check.
 
-**Installation**: `actionlint` MUST be installed by downloading the maintainer's prebuilt release binary via `rhysd/actionlint`'s own `scripts/download-actionlint.bash`, fetched from a specific 40-character commit SHA of that script (not a mutable branch reference), with an explicit pinned version argument (not `latest`):
+**Installation**: `actionlint` MUST be installed by downloading the maintainer's prebuilt release tarball directly from the `rhysd/actionlint` GitHub release for an explicit pinned version (not `latest`), verifying it against a pinned SHA-256 checksum taken from that release's `checksums.txt`, and only then extracting the binary:
 
 ```yaml
 - name: Install actionlint
+  env:
+    ACTIONLINT_VERSION: <version>
+    ACTIONLINT_SHA256: <sha256 of actionlint_<version>_linux_amd64.tar.gz>
   run: |
-    bash <(curl -fsSL "https://raw.githubusercontent.com/rhysd/actionlint/<40-char-sha>/scripts/download-actionlint.bash") <version>
+    curl -fsSL -o actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+    echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
+    tar -xzf actionlint.tar.gz actionlint
 - name: Run actionlint
   run: ./actionlint -color
 ```
 
-This is a raw script fetch, not a `uses:` action reference — [CI-001](./CI-001-pin-github-actions-by-hash.md)'s automated `no-unpinned-actions` rule does not scan it — but the same reproducibility principle applies voluntarily: both the download script's commit and the actionlint version are pinned, exactly as CI-001 requires for actual `uses:` references.
+This is a raw download, not a `uses:` action reference — [CI-001](./CI-001-pin-github-actions-by-hash.md)'s automated `no-unpinned-actions` rule does not scan it — but the same reproducibility principle applies voluntarily, with a stronger integrity guarantee than CI-001's SHA-pinned refs: GitHub release assets are **mutable** (a compromised maintainer account can re-upload a different binary under the same tag), so only the checksum verification makes the download reproducible.
+
+**Superseded mechanism**: This ADR originally mandated installation via `rhysd/actionlint`'s own `scripts/download-actionlint.bash`, fetched from a pinned 40-character commit SHA. That mechanism was replaced because (a) OSSF Scorecard's Pinned-Dependencies check flags any download-then-run pattern that lacks hash verification of the downloaded content, and (b) the script itself downloads the actionlint release binary **without** any checksum verification — so the pinned script commit gave reproducibility of the _downloader_, not of the _binary that actually runs_. The direct download with SHA-256 verification closes that gap.
 
 **Scope**: This ADR covers only the decision to run `actionlint` as a hard-blocking CI job and how it is installed. It does not cover `zizmor` (governed by its own inline comments in `code-pull-request.yml`, not a formal ADR) and does not revise CI-001's `uses:`-pinning requirements.
 
@@ -54,18 +61,19 @@ This is a raw script fetch, not a `uses:` action reference — [CI-001](./CI-001
 ### Do
 
 - **DO** run `actionlint` as its own job in `.github/workflows/code-pull-request.yml`, listed in the `status` gate job's `needs:` array and result check
-- **DO** pin the `download-actionlint.bash` fetch to a specific 40-character commit SHA in the raw.githubusercontent.com URL
 - **DO** pin the actionlint version explicitly (e.g. `1.7.12`) — never `latest`
+- **DO** pin the SHA-256 checksum of the release tarball, sourced from the `checksums.txt` asset of the same GitHub release, and verify it with `sha256sum -c` before extracting
 - **DO** set `persist-credentials: false` on the job's `actions/checkout` step, consistent with the `zizmor` job's pattern
 - **DO** treat `actionlint` findings as hard blockers — unlike `zizmor`'s advisory carve-outs for fork PRs and its pre-existing findings backlog, `actionlint` starts from a clean slate and should stay that way
-- **DO** re-resolve and update both the pinned script SHA and the actionlint version together when upgrading, the same way CI-001 requires for `uses:` references
+- **DO** re-resolve and update both the pinned version and the pinned SHA-256 checksum together when upgrading, the same way CI-001 requires for `uses:` references — fetch the new checksum from `https://github.com/rhysd/actionlint/releases/download/v<version>/actionlint_<version>_checksums.txt`
 
 ### Don't
 
 - **DON'T** add a `reviewdog/action-actionlint`-style wrapper Action — it adds Docker execution overhead and a new `uses:` trust surface for no capability this project needs beyond pass/fail
 - **DON'T** treat `actionlint` findings as advisory-only — this ADR exists specifically because an advisory-only signal (a third-party reviewer's internal tooling) was the only thing that caught the motivating incident, and that is not a dependable control
 - **DON'T** add a `package.json` script to wrap `actionlint` invocation under the belief that GEN-003 requires it — GEN-003 governs this project's own JS/TS toolchain, not external CI-only binaries
-- **DON'T** fetch the `download-actionlint.bash` script from a branch ref (`main`) or omit the version argument (defaulting to `latest`) — both reintroduce the same class of non-reproducibility CI-001 exists to prevent for `uses:` references
+- **DON'T** install via a download-then-run script (e.g. `bash <(curl ... download-actionlint.bash)`) — even when the script's commit is pinned, the script downloads the binary without checksum verification, and OSSF Scorecard's Pinned-Dependencies check flags the pattern
+- **DON'T** download the tarball without verifying its SHA-256 checksum, and never resolve the version to `latest` — GitHub release assets are mutable, so an unverified download reintroduces the same class of non-reproducibility CI-001 exists to prevent for `uses:` references
 
 ## Consequences
 
@@ -74,13 +82,14 @@ This is a raw script fetch, not a `uses:` action reference — [CI-001](./CI-001
 - **Catches the exact defect class that caused the motivating incident**: `actionlint` flags invalid `permissions:` scopes, malformed expressions, and shellcheck issues in `run:` blocks before merge, independent of whether a third-party review tool happens to run it
 - **Complements, not duplicates, zizmor**: zizmor's security-pattern scanning and actionlint's schema validation cover disjoint failure classes; running both closes a real gap rather than adding redundant signal
 - **No new third-party Action trust surface**: the direct-binary installation avoids adding a `uses:` reference, keeping CI-001's SHA-pinning surface unchanged
-- **Reproducible tooling**: pinned script commit + pinned actionlint version means the exact same binary runs on every CI invocation until deliberately upgraded
+- **Reproducible tooling**: pinned version + pinned SHA-256 checksum means the exact same binary runs on every CI invocation until deliberately upgraded — even a re-uploaded release asset cannot slip through, because the checksum comparison fails the job
 - **Catches defects in rarely-executed release-pipeline jobs before they ever run for real**, closing the specific gap that let the PR #451 defect merge undetected
 
 ### Negative
 
 - **Another CI job, another few seconds of pipeline time**: adds a small, fixed cost to every PR run (binary download + lint pass), though this is minor relative to the existing pipeline's total duration
-- **Manual version bumps**: unlike a `uses:`-pinned Action, Renovate/Dependabot do not automatically propose updates for a pinned raw-script-URL-plus-version-argument pattern; upgrading `actionlint` requires a manual PR
+- **Manual version bumps**: unlike a `uses:`-pinned Action, Renovate/Dependabot do not automatically propose updates for a pinned version-plus-checksum download pattern; upgrading `actionlint` requires a manual PR that updates both values together
+- **Linux-only checksum**: the pinned checksum covers the `linux_amd64` tarball only — if the job ever moves off `ubuntu-latest`, the download URL and checksum must both change
 
 ### Risks
 
@@ -99,8 +108,8 @@ This is a raw script fetch, not a `uses:` action reference — [CI-001](./CI-001
 
 Code reviewers MUST verify, for any change to the `actionlint` job:
 
-1. The `scripts/download-actionlint.bash` fetch remains pinned to a specific 40-character commit SHA, not a branch reference
-2. The actionlint version argument remains an explicit version, not `latest`
+1. The download remains pinned to an explicit actionlint version, not `latest`, and the SHA-256 checksum is verified with `sha256sum -c` before the binary is extracted
+2. On any version bump, the new checksum was sourced from the release's own `checksums.txt` asset — not computed from a locally downloaded file without cross-referencing
 3. `actionlint` remains listed in the `status` gate job's `needs:` array and result check — removing it silently downgrades this from a hard blocker to a no-op
 4. The job's invocation still scans the entire `.github/workflows/` directory, not a restricted subset
 

@@ -65,6 +65,9 @@ jobs:
       - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
           python-version: "3.12"
+          # No cache in a publish workflow — a poisoned cache entry could end up
+          # inside the published artifact (zizmor: cache-poisoning).
+          enable-cache: false
       - name: Build package
         working-directory: shims/pypi
         # `uv build` provisions an isolated, version-pinned build environment
@@ -113,7 +116,8 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      # Credentials must persist: the next step pushes the Go module tag via git.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7 # zizmor: ignore[artipacked]
         with:
           ref: ${{ inputs.tag }}
       - name: Create Go module tag
@@ -134,7 +138,7 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
-      - uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
         with:
           distribution: "temurin"
           java-version: "11"
@@ -167,8 +171,13 @@ jobs:
       - uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
         with:
           ruby-version: "4.0.5"
-          bundler-cache: true
+          # No bundler cache in a publish workflow — a poisoned cache entry could
+          # end up inside the published gem (zizmor: cache-poisoning).
+          bundler-cache: false
           working-directory: shims/rubygem
+      - name: Install dependencies
+        working-directory: shims/rubygem
+        run: bundle install --jobs 4
       - uses: rubygems/release-gem@052cc82692552de3ef2b81fd670e41d13cba8092 # v1.4.0
         with:
           working-directory: shims/rubygem
