@@ -295,7 +295,10 @@ jobs:
           COVERAGE: ${{ steps.coverage-report.outputs.coverage }}
         run: |
           MIN_COVERAGE=90
-          BELOW=$(awk "BEGIN{print ($COVERAGE < $MIN_COVERAGE) ? 1 : 0}")
+          # Pass values as awk data (-v), never interpolated into the awk
+          # program source — a crafted step output could inject awk code.
+          BELOW=$(awk -v coverage="$COVERAGE" -v minimum="$MIN_COVERAGE" \
+            'BEGIN { print (coverage < minimum) ? 1 : 0 }')
           if [ "$BELOW" = "1" ]; then
             echo "::error::Code coverage is ${COVERAGE}%, which is below the minimum threshold of ${MIN_COVERAGE}%."
             exit 1

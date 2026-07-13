@@ -33,7 +33,7 @@ Without SHA pinning:
 
 **Branch pinning (e.g., `@main`)**: Even less stable than tag pinning. The referenced code changes on every push to the branch. Useful only during development of a custom action, never for production workflows.
 
-**SHA pinning with version comment (e.g., `@a2bbfa2...  # v4`)**: Immutable — the referenced tree cannot change after the commit is created. The version comment preserves human readability for upgrade decisions. Renovate and Dependabot both understand this format and can propose automated SHA bump PRs when new versions are released. This is the approach recommended by the OSSF Scorecard project, GitHub's own security hardening guide, and StepSecurity.
+**SHA pinning with version comment (e.g., `@a2bbfa2...  # v4.2.1`)**: Immutable — the referenced tree cannot change after the commit is created. The version comment preserves human readability for upgrade decisions. Renovate and Dependabot both understand this format and can propose automated SHA bump PRs when new versions are released. This is the approach recommended by the OSSF Scorecard project, GitHub's own security hardening guide, and StepSecurity.
 
 **Vendoring actions into the repository**: Copying the action source code into `.github/actions/` eliminates the external dependency entirely. This provides maximum isolation but creates a significant maintenance burden — vendored code must be manually updated, and transitive action dependencies must also be vendored. This approach does not scale for the 10+ third-party actions this project uses.
 
