@@ -82,6 +82,42 @@ describe("runChecks", () => {
     expect(result.results[0].violations[0].file).toBe("src/bad.ts");
   });
 
+  // The per-run glob cache shares results across rules — a rule mutating
+  // the array it received must never corrupt what another rule sees.
+  test("ctx.glob results are isolated between rules despite caching", async () => {
+    writeFileSync(join(tempDir, "src", "a.ts"), "export const a = 1;\n");
+    writeFileSync(join(tempDir, "src", "b.ts"), "export const b = 1;\n");
+
+    let secondRuleFiles: string[] = [];
+
+    const loaded = makeLoadedAdr(
+      {},
+      {
+        rules: {
+          "mutating-rule": {
+            description: "Globs then mutates its result in place",
+            async check(ctx) {
+              const files = await ctx.glob("src/**/*.ts");
+              files.length = 0; // destructive mutation
+            },
+          },
+          "reading-rule": {
+            description: "Globs the same pattern afterwards",
+            async check(ctx) {
+              secondRuleFiles = await ctx.glob("src/**/*.ts");
+            },
+          },
+        },
+      }
+    );
+
+    const result = await runChecks(tempDir, [loaded]);
+    expect(result.results).toHaveLength(2);
+    expect(result.results[0].error).toBeUndefined();
+    expect(result.results[1].error).toBeUndefined();
+    expect(secondRuleFiles).toEqual(["src/a.ts", "src/b.ts"]);
+  });
+
   test("passes when no violations", async () => {
     writeFileSync(join(tempDir, "src", "good.ts"), "export const x = 1;\n");
 
