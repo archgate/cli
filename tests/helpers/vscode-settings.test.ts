@@ -18,19 +18,19 @@ import {
   addMarketplaceToUserSettings,
   getVscodeUserSettingsPath,
 } from "../../src/helpers/vscode-settings";
+import { restoreEnv } from "../test-utils";
 
 /**
- * Restore saved env vars, deleting keys that were originally unset.
- * `Object.assign(process.env, saved)` would stringify `undefined` into the
- * literal "undefined", corrupting the env for subsequent test files.
+ * Bulk form of `restoreEnv` for the snapshot-many-vars pattern used below:
+ * restores saved env vars, deleting keys that were originally unset.
+ *
+ * Neither `Object.assign(process.env, saved)` nor a plain `env[k] = v` loop
+ * works — both stringify `undefined` into the literal "undefined", corrupting
+ * the env for subsequent test files (ARCH-005).
  */
-function restoreEnv(saved: Record<string, string | undefined>): void {
+function restoreEnvAll(saved: Record<string, string | undefined>): void {
   for (const [key, value] of Object.entries(saved)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
+    restoreEnv(key, value);
   }
 }
 
@@ -109,7 +109,7 @@ describe("configureVscodeSettings", () => {
 
   afterEach(() => {
     homedirSpy.mockRestore();
-    restoreEnv(savedEnv);
+    restoreEnvAll(savedEnv);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -171,7 +171,7 @@ describe("addMarketplaceToUserSettings", () => {
 
   afterEach(() => {
     homedirSpy.mockRestore();
-    restoreEnv(savedEnv);
+    restoreEnvAll(savedEnv);
     rmSync(tempDir, { recursive: true, force: true });
   });
 
@@ -323,8 +323,7 @@ describe("getVscodeUserSettingsPath", () => {
         const normalized = path.replaceAll("\\", "/");
         expect(normalized).toContain(".config/Code/User/settings.json");
       } finally {
-        if (savedDistro === undefined) delete process.env.WSL_DISTRO_NAME;
-        else process.env.WSL_DISTRO_NAME = savedDistro;
+        restoreEnv("WSL_DISTRO_NAME", savedDistro);
         _resetAllCaches();
       }
     }
@@ -341,9 +340,7 @@ describe("getVscodeUserSettingsPath", () => {
       // Should fall back to homedir()/AppData/Roaming
       expect(normalized).toContain("AppData/Roaming/Code/User/settings.json");
     } finally {
-      if (savedAppData !== undefined) {
-        process.env.APPDATA = savedAppData;
-      }
+      restoreEnv("APPDATA", savedAppData);
     }
   });
 });

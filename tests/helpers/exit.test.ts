@@ -10,6 +10,7 @@ import {
   _resetExitState,
 } from "../../src/helpers/exit";
 import { UserError } from "../../src/helpers/user-error";
+import { restoreEnv } from "../test-utils";
 
 describe("exit helper", () => {
   let originalNodeEnv: string | undefined;
@@ -21,11 +22,7 @@ describe("exit helper", () => {
   });
 
   afterEach(() => {
-    if (originalNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = originalNodeEnv;
-    }
+    restoreEnv("NODE_ENV", originalNodeEnv);
     _resetExitState();
   });
 

@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { Command } from "@commander-js/extra-typings";
 
 import { registerCleanCommand } from "../../src/commands/clean";
+import { restoreEnv } from "../test-utils";
 
 describe("registerCleanCommand", () => {
   test("registers 'clean' as a subcommand", () => {
@@ -57,16 +58,8 @@ describe("clean action handler", () => {
   });
 
   afterEach(() => {
-    if (originalHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = originalHome;
-    }
-    if (originalUserProfile === undefined) {
-      delete process.env.USERPROFILE;
-    } else {
-      process.env.USERPROFILE = originalUserProfile;
-    }
+    restoreEnv("HOME", originalHome);
+    restoreEnv("USERPROFILE", originalUserProfile);
 
     rmSync(tempDir, { recursive: true, force: true });
     rmSync(fakeHome, { recursive: true, force: true });

@@ -16,6 +16,7 @@ import {
   _formatBytes,
   _createDownloadProgress,
 } from "../../src/commands/upgrade";
+import { restoreEnv } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,12 +68,9 @@ describe("install method detection", () => {
 
   afterEach(() => {
     setExecPath(originalExecPath);
-    if (originalHome === undefined) delete process.env.HOME;
-    else process.env.HOME = originalHome;
-    if (originalUserProfile === undefined) delete process.env.USERPROFILE;
-    else process.env.USERPROFILE = originalUserProfile;
-    if (originalProtoHome === undefined) delete process.env.PROTO_HOME;
-    else process.env.PROTO_HOME = originalProtoHome;
+    restoreEnv("HOME", originalHome);
+    restoreEnv("USERPROFILE", originalUserProfile);
+    restoreEnv("PROTO_HOME", originalProtoHome);
     rmSync(tempDir, { recursive: true, force: true });
   });
 

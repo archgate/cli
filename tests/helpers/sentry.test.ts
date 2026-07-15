@@ -5,6 +5,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { restoreEnv } from "../test-utils";
+
 describe("sentry", () => {
   let tempDir: string;
   let originalHome: string | undefined;
@@ -22,17 +24,12 @@ describe("sentry", () => {
   });
 
   afterEach(async () => {
-    Bun.env.HOME = originalHome;
-    if (originalTelemetryEnv === undefined) {
-      delete Bun.env.ARCHGATE_TELEMETRY;
-    } else {
-      Bun.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
-    }
-    if (originalNodeEnv === undefined) {
-      delete Bun.env.NODE_ENV;
-    } else {
-      Bun.env.NODE_ENV = originalNodeEnv;
-    }
+    // restoreEnv deletes when the original was unset — a bare
+    // `Bun.env.HOME = originalHome` assigns the string "undefined" and leaks it
+    // into every later test file (Bun.env is process-global).
+    restoreEnv("HOME", originalHome);
+    restoreEnv("ARCHGATE_TELEMETRY", originalTelemetryEnv);
+    restoreEnv("NODE_ENV", originalNodeEnv);
     rmSync(tempDir, { recursive: true, force: true });
 
     const { _resetSentry } = await import("../../src/helpers/sentry");

@@ -28,6 +28,23 @@ export async function git(args: string[], cwd: string): Promise<string> {
 }
 
 /**
+ * Restore an environment variable to a previously captured value, deleting it
+ * when that value was `undefined`.
+ *
+ * `Bun.env.X = undefined` assigns the literal string `"undefined"` rather than
+ * unsetting the key, so the common
+ * `const orig = Bun.env.X; ... Bun.env.X = orig` idiom silently leaks
+ * `X="undefined"` whenever the variable was unset to begin with — which is the
+ * normal case on Windows for HOME and GIT_CONFIG_GLOBAL. `Bun.env` is
+ * process-global and Bun shares one process across test files, so such a leak
+ * escapes into every later test, including subprocesses that inherit the env.
+ */
+export function restoreEnv(key: string, original: string | undefined): void {
+  if (original === undefined) delete Bun.env[key];
+  else Bun.env[key] = original;
+}
+
+/**
  * Remove a temp directory with retries to handle Windows EBUSY errors
  * caused by git processes that haven't fully released file locks yet.
  */

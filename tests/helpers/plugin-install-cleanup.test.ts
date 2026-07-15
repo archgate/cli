@@ -28,6 +28,7 @@ import {
   installCursorPlugin,
   installOpencodePlugin,
 } from "../../src/helpers/plugin-install";
+import { restoreEnv } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -106,10 +107,8 @@ afterEach(() => {
   spawnSpy.mockRestore();
   mockResolveCommand.mockRestore();
   mock.restore();
-  if (savedHome === undefined) delete Bun.env.HOME;
-  else Bun.env.HOME = savedHome;
-  if (savedXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
-  else Bun.env.XDG_CONFIG_HOME = savedXdg;
+  restoreEnv("HOME", savedHome);
+  restoreEnv("XDG_CONFIG_HOME", savedXdg);
   try {
     rmSync(tempDir, { recursive: true, force: true });
   } catch {
