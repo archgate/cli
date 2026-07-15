@@ -184,7 +184,7 @@ describe("review-context integration", () => {
     expect(ctx.checkSummary.total).toBe(1);
     expect(ctx.checkSummary.passed).toBe(1);
     expect(ctx.checkSummary.results).toEqual([]);
-  }, 60000);
+  });
 
   test("omits ADR prose by default and includes it with --verbose", async () => {
     scaffoldProject(dir);
@@ -217,7 +217,7 @@ describe("review-context integration", () => {
       (await runCli(["review-context", "--verbose"], dir)).stdout
     ) as Ctx;
     expect(full.domains[0].adrs[0].decision).toContain("sentinel pattern");
-  }, 60000);
+  });
 
   test("exits non-zero when no .archgate project found", async () => {
     const { exitCode, stderr } = await runCli(["review-context"], dir);

@@ -225,6 +225,36 @@ describe("check integration", () => {
     expect(adrIds).not.toContain("ADR-B");
   });
 
+  // ARCH-003 §7 end-to-end. reporter.test.ts covers reportJSON directly, but
+  // only this would catch check.ts passing the wrong verbose value through.
+  test("--json omits cleanly-passing rules by default; --verbose restores them", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ADR-A.md",
+      makeAdr({ id: "ADR-A", title: "ADR A", rules: true })
+    );
+    writeRules(
+      dir,
+      "ADR-A.rules.ts",
+      `export default { rules: { "rule-a": { description: "Rule A", async check() {} } } };`
+    );
+
+    const lean = JSON.parse((await runCli(["check", "--json"], dir)).stdout);
+    // The rule ran and passed — the counts say so, but it has nothing to
+    // report, so it must not occupy an entry in results.
+    expect(lean.total).toBe(1);
+    expect(lean.passed).toBe(1);
+    expect(lean.results).toEqual([]);
+
+    const full = JSON.parse(
+      (await runCli(["check", "--json", "--verbose"], dir)).stdout
+    );
+    expect(full.results).toHaveLength(1);
+    expect(full.results[0].status).toBe("pass");
+    expect(full.results[0].ruleId).toBe("rule-a");
+  });
+
   test("--verbose flag → output includes timing info", async () => {
     scaffoldProject(dir);
     writeAdr(
