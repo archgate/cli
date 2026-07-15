@@ -134,15 +134,13 @@ describe("scanRuleSource", () => {
       expect(violations[0].message).toContain("Dynamic import()");
     });
 
-    test("allows import with literal string", () => {
+    test("allows import() of an allowlisted module", () => {
       const violations = scanRuleSource(`import("node:path");`);
-      // Static import expression with literal — allowed by dynamic import check.
-      // But node:path is safe so no import declaration violation either.
-      const dynamicViolations = violations.filter((v) =>
-        v.message.includes("Dynamic import()")
-      );
-      expect(dynamicViolations).toHaveLength(0);
+      expect(violations).toHaveLength(0);
     });
+
+    // Blocked dynamic imports of non-allowlisted modules are covered in
+    // rule-scanner-escapes.test.ts alongside the other sandbox escapes.
   });
 
   describe("global mutation", () => {
@@ -312,8 +310,11 @@ describe("scanImportedRuleSource", () => {
     });
   });
 
-  describe("imported-only: require() call", () => {
-    test("blocks require() call", () => {
+  // require() is blocked for every rule file by scanRuleSource, not just
+  // imported ones, so it is reported once with the base message rather than
+  // twice with two.
+  describe("require() call", () => {
+    test("blocks require() call exactly once", () => {
       const source = `const mod = require("some-module");`;
       const violations = scanImportedRuleSource(source);
       const requireViolations = violations.filter((v) =>
@@ -321,7 +322,7 @@ describe("scanImportedRuleSource", () => {
       );
       expect(requireViolations).toHaveLength(1);
       expect(requireViolations[0].message).toContain(
-        "require() is blocked in imported rule files"
+        "require() is blocked in rule files"
       );
     });
   });
