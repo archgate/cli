@@ -4078,7 +4078,9 @@ By default, warnings (both diagnostics and rule-reported `"severity": "warning"`
 
 ## JSON output format
 
-When `--json` is used, the output is a single JSON object:
+When `--json` is used, the output is a single JSON object.
+
+`results` contains only rules that have something to report: failures, rule errors, and any rule with violations (including warning- and info-only rules). Rules that pass cleanly are omitted — their entry would only restate static ADR text, and on a large project those entries dominate the payload. The `total` and `passed` counts still report exactly how many rules ran and passed. Pass `--verbose` to include every rule in `results`.
 
 ```json
 {
@@ -4550,12 +4552,21 @@ archgate review-context [options]
 | `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted) |
 | `--run-checks`      | Include ADR compliance check results                                 |
 | `--domain <domain>` | Filter to a single domain                                            |
+| `--verbose`         | Include each ADR's Decision and Do's/Don'ts prose                    |
 
 ## Example
 
 ```bash
 archgate review-context --staged
 ```
+
+## Output size
+
+By default each ADR is identified by `id`, `title`, `domain`, `files`, and `rules` only — enough to know which ADRs apply to the changed files. Read the ones you need with `archgate adr show <id>`.
+
+Pass `--verbose` to embed every applicable ADR's Decision and Do's/Don'ts prose in the response instead. That prose grows with the number of matched ADRs and dominates the payload — on this repository it is ~78% of the output (roughly 70KB versus 6KB without it), which is large enough that agent harnesses stop displaying the result inline. Prefer the default and drill down; reach for `--verbose` only when a single self-contained payload is genuinely required.
+
+When `--run-checks` is passed, `checkSummary` follows the same rule as [`archgate check --json`](/reference/cli/check/): its `results` array carries only rules with something to report, while the counts beside it still cover every rule that ran.
 
 ---
 
