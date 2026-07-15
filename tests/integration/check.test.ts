@@ -210,8 +210,10 @@ describe("check integration", () => {
       "ADR-B.rules.ts",
       `export default { rules: { "rule-b": { description: "Rule B", async check() {} } } };`
     );
+    // --verbose is required to inspect per-rule entries: both rules here are
+    // no-ops, so both pass, and JSON output omits cleanly-passing rules by default.
     const { exitCode, stdout } = await runCli(
-      ["check", "--adr", "ADR-A", "--json"],
+      ["check", "--adr", "ADR-A", "--json", "--verbose"],
       dir
     );
     expect(exitCode).toBe(0);

@@ -81,7 +81,7 @@ describe("briefAdr", () => {
       { id: "ARCH-001", title: "Test", domain: "architecture", rules: true },
       body
     );
-    const briefing = briefAdr(adr);
+    const briefing = briefAdr(adr, { briefings: true });
     expect(briefing.id).toBe("ARCH-001");
     expect(briefing.domain).toBe("architecture");
     expect(briefing.rules).toBe(true);
@@ -90,8 +90,20 @@ describe("briefAdr", () => {
     expect(briefing.dosAndDonts).toContain("Not Y");
   });
 
+  // ARCH-003 §7: prose is opt-in, so the default identifies the ADR only.
+  test("omits Decision and Do's/Don'ts prose unless briefings requested", () => {
+    const body =
+      "## Decision\nUse pattern X.\n\n## Do's and Don'ts\n\n### Do\n- Follow X";
+    const briefing = briefAdr(makeAdr({ id: "ARCH-001" }, body));
+    expect(briefing.id).toBe("ARCH-001");
+    expect(briefing.decision).toBeUndefined();
+    expect(briefing.dosAndDonts).toBeUndefined();
+  });
+
   test("handles ADR with no matching sections", () => {
-    const briefing = briefAdr(makeAdr({}, "## Context\nJust context.\n"));
+    const briefing = briefAdr(makeAdr({}, "## Context\nJust context.\n"), {
+      briefings: true,
+    });
     expect(briefing.decision).toBe("");
     expect(briefing.dosAndDonts).toBe("");
   });
@@ -108,8 +120,8 @@ describe("briefAdr", () => {
     const longDecision = "A".repeat(3000);
     const body = `## Decision\n${longDecision}\n\n## Do's and Don'ts\nShort.`;
     const adr = makeAdr({ id: "ARCH-010" }, body);
-    const briefing = briefAdr(adr, { maxSectionChars: 100 });
-    expect(briefing.decision.length).toBeLessThan(3000);
+    const briefing = briefAdr(adr, { maxSectionChars: 100, briefings: true });
+    expect(briefing.decision!.length).toBeLessThan(3000);
     expect(briefing.decision).toContain("[... truncated");
     expect(briefing.decision).toContain("adr://ARCH-010");
     // Do's and Don'ts is short, should not be truncated
@@ -120,7 +132,7 @@ describe("briefAdr", () => {
     const longDos = "B".repeat(5000);
     const body = `## Decision\nShort.\n\n## Do's and Don'ts\n${longDos}`;
     const adr = makeAdr({ id: "ARCH-020" }, body);
-    const briefing = briefAdr(adr, { maxSectionChars: 200 });
+    const briefing = briefAdr(adr, { maxSectionChars: 200, briefings: true });
     expect(briefing.decision).toBe("Short.");
     expect(briefing.dosAndDonts).toContain("[... truncated");
     expect(briefing.dosAndDonts).toContain("adr://ARCH-020");
@@ -130,7 +142,7 @@ describe("briefAdr", () => {
     const exactContent = "C".repeat(100);
     const body = `## Decision\n${exactContent}`;
     const adr = makeAdr({ id: "ARCH-030" }, body);
-    const briefing = briefAdr(adr, { maxSectionChars: 100 });
+    const briefing = briefAdr(adr, { maxSectionChars: 100, briefings: true });
     expect(briefing.decision).toBe(exactContent);
     expect(briefing.decision).not.toContain("truncated");
   });
@@ -139,13 +151,13 @@ describe("briefAdr", () => {
     const longContent = "D".repeat(10000);
     const body = `## Decision\n${longContent}`;
     const adr = makeAdr({ id: "ARCH-040" }, body);
-    const briefing = briefAdr(adr, { maxSectionChars: 0 });
+    const briefing = briefAdr(adr, { maxSectionChars: 0, briefings: true });
     expect(briefing.decision).toBe(longContent);
   });
 
   test("does not truncate empty sections", () => {
     const adr = makeAdr({ id: "ARCH-050" }, "## Context\nNothing.");
-    const briefing = briefAdr(adr, { maxSectionChars: 10 });
+    const briefing = briefAdr(adr, { maxSectionChars: 10, briefings: true });
     expect(briefing.decision).toBe("");
     expect(briefing.dosAndDonts).toBe("");
   });
@@ -233,10 +245,24 @@ describe("matchFilesToAdrs", () => {
     );
     const result = matchFilesToAdrs(["src/a.ts"], [adr], {
       maxSectionChars: 50,
+      briefings: true,
     });
     expect(result).toHaveLength(1);
     expect(result[0].adrs[0].decision).toContain("[... truncated");
-    expect(result[0].adrs[0].decision.length).toBeLessThan(5000);
+    expect(result[0].adrs[0].decision!.length).toBeLessThan(5000);
+  });
+
+  // The default path the review-context command takes: identify which ADRs
+  // apply, without carrying their prose (ARCH-003 §7).
+  test("omits prose by default while still identifying matched ADRs", () => {
+    const adr = makeAdr(
+      { id: "ARCH-001", domain: "architecture", files: ["src/**/*.ts"] },
+      `## Decision\n${"X".repeat(5000)}`
+    );
+    const result = matchFilesToAdrs(["src/a.ts"], [adr]);
+    expect(result[0].adrs[0].id).toBe("ARCH-001");
+    expect(result[0].adrs[0].decision).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("XXXX");
   });
 });
 

@@ -52,6 +52,14 @@ describe("registerReviewContextCommand", () => {
     const opts = sub.options.map((o) => o.long);
     expect(opts).toContain("--domain");
   });
+
+  test("has --verbose option", () => {
+    const program = new Command();
+    registerReviewContextCommand(program);
+    const sub = program.commands.find((c) => c.name() === "review-context")!;
+    const opts = sub.options.map((o) => o.long);
+    expect(opts).toContain("--verbose");
+  });
 });
 
 describe("review-context action handler", () => {

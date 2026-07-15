@@ -22,6 +22,10 @@ export function registerReviewContextCommand(program: Command) {
     )
     .option("--run-checks", "Include ADR compliance check results")
     .option("--domain <domain>", "Filter to a single domain")
+    .option(
+      "--verbose",
+      "Include each ADR's Decision and Do's/Don'ts prose (large; omitted by default — use `archgate adr show <id>` to drill down)"
+    )
     .action(async (opts) => {
       try {
         const projectRoot = requireProjectRoot();
@@ -37,6 +41,10 @@ export function registerReviewContextCommand(program: Command) {
           base: resolvedBase,
           runChecks: opts.runChecks,
           domain: opts.domain,
+          // `--verbose` matches `check --verbose` ("give me the full detail")
+          // as the user-facing name; the engine option stays `briefings`
+          // because that names what is actually included.
+          briefings: opts.verbose,
         });
 
         console.log(formatJSON(context));

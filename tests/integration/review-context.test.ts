@@ -106,6 +106,9 @@ describe("review-context integration", () => {
 
     const ctx = JSON.parse(stdout) as { domains: Array<{ domain: string }> };
     const domainNames = ctx.domains.map((d) => d.domain);
+    // Assert non-empty first: `.every()` is vacuously true on an empty array, so
+    // without this the test passes even when no domains are returned at all.
+    expect(domainNames.length).toBeGreaterThan(0);
     expect(domainNames.every((d) => d === "architecture")).toBe(true);
     expect(domainNames).not.toContain("backend");
   });
@@ -141,6 +144,79 @@ describe("review-context integration", () => {
     const ctx = JSON.parse(stdout) as Record<string, unknown>;
     expect(ctx.checkSummary).not.toBeNull();
     expect(typeof ctx.checkSummary).toBe("object");
+  }, 60000);
+
+  // ARCH-003 §7 end-to-end: these exercise the option plumbing through the real
+  // CLI. The briefAdr/matchFilesToAdrs unit tests cover the leaf behavior, but
+  // only these would catch buildReviewContext dropping the option on the floor.
+  test("--run-checks omits cleanly-passing rules from checkSummary.results", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "GEN-001.md",
+      makeAdr({
+        id: "GEN-001",
+        title: "General Rule",
+        domain: "general",
+        rules: true,
+      })
+    );
+    writeRules(
+      dir,
+      "GEN-001.rules.ts",
+      `export default { rules: { "always-pass": { description: "Always passes", async check() {} } } };`
+    );
+    await initGitRepo(dir);
+    await commitAll(dir, "initial commit");
+    writeFileSync(join(dir, "modified.ts"), "export const y = 2;\n");
+
+    const { exitCode, stdout } = await runCli(
+      ["review-context", "--run-checks"],
+      dir
+    );
+    expect(exitCode).toBe(0);
+
+    const ctx = JSON.parse(stdout) as {
+      checkSummary: { total: number; passed: number; results: unknown[] };
+    };
+    // The rule ran and passed — the counts say so, but it carries no findings,
+    // so it must not occupy an entry in results.
+    expect(ctx.checkSummary.total).toBe(1);
+    expect(ctx.checkSummary.passed).toBe(1);
+    expect(ctx.checkSummary.results).toEqual([]);
+  }, 60000);
+
+  test("omits ADR prose by default and includes it with --verbose", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ARCH-010.md",
+      makeAdr({
+        id: "ARCH-010",
+        title: "Arch ADR",
+        domain: "architecture",
+        rules: false,
+        body: "## Decision\nUse the sentinel pattern.\n\n## Do's and Don'ts\n\n### Do\n- Follow it",
+      })
+    );
+    await initGitRepo(dir);
+    await commitAll(dir, "initial commit");
+    writeFileSync(join(dir, "changed.ts"), "export {};\n");
+
+    type Ctx = {
+      domains: Array<{ adrs: Array<{ id: string; decision?: string }> }>;
+    };
+
+    const lean = JSON.parse(
+      (await runCli(["review-context"], dir)).stdout
+    ) as Ctx;
+    expect(lean.domains[0].adrs[0].id).toBe("ARCH-010");
+    expect(lean.domains[0].adrs[0].decision).toBeUndefined();
+
+    const full = JSON.parse(
+      (await runCli(["review-context", "--verbose"], dir)).stdout
+    ) as Ctx;
+    expect(full.domains[0].adrs[0].decision).toContain("sentinel pattern");
   }, 60000);
 
   test("exits non-zero when no .archgate project found", async () => {
