@@ -8,6 +8,7 @@ import { join } from "node:path";
 import {
   PYTHON_AST_PROGRAM,
   RUBY_AST_PROGRAM,
+  RUBY_AST_WITH_COMMENTS_PROGRAM,
   interpreterCandidates,
   parseAstJson,
   parseErrorMessage,
@@ -286,6 +287,121 @@ describe("RUBY_AST_PROGRAM end-to-end", () => {
         "-rjson",
         "-e",
         RUBY_AST_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Ruby syntax error");
+    }
+  );
+});
+
+describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
+  let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-ast-rb-cmt-"));
+  });
+
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  interface Envelope {
+    _tree: unknown[];
+    comments: Array<{
+      type: string;
+      value: string;
+      loc: {
+        start: { line: number; column: number };
+        end: { line: number; column: number };
+      };
+    }>;
+  }
+
+  test.skipIf(!rubyInterpreter)(
+    "emits the {_tree, comments} envelope with line and block tokens",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "commented.rb");
+      writeFileSync(
+        file,
+        [
+          "# header",
+          "x = 1 # trailing",
+          "=begin",
+          "block line one",
+          "block line two",
+          "=end",
+          'y = "# not a comment"',
+          "",
+        ].join("\n")
+      );
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope._tree[0]).toBe("program");
+      expect(envelope.comments.map((c) => `${c.type}:${c.value}`)).toEqual([
+        "line: header",
+        "line: trailing",
+        "block:block line one\nblock line two",
+      ]);
+      // Line comments: loc from the (line, col) lex tuple, end at token end.
+      expect(envelope.comments[0].loc).toEqual({
+        start: { line: 1, column: 0 },
+        end: { line: 1, column: 8 },
+      });
+      expect(envelope.comments[1].loc.start).toEqual({ line: 2, column: 6 });
+      // Block token: ONE token spanning the =begin line through the =end line.
+      expect(envelope.comments[2].loc.start).toEqual({ line: 3, column: 0 });
+      expect(envelope.comments[2].loc.end).toEqual({ line: 6, column: 4 });
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "comment-free source yields an empty comments list",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "plain.rb");
+      writeFileSync(file, "x = 1\n");
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope._tree[0]).toBe("program");
+      expect(envelope.comments).toEqual([]);
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "exits 1 with 'Ruby syntax error' for invalid source",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "invalid.rb");
+      writeFileSync(file, "def broken(\n");
+
+      const { exitCode, stderr } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
         file,
       ]);
       expect(exitCode).toBe(1);

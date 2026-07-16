@@ -241,7 +241,7 @@ Recorra a `fileAtBase()` primeiro quando você precisar detectar os casos de sem
 
 ##### Coletando comentários (`{ comments: true }`)
 
-Com `{ comments: true }`, a árvore retornada carrega um array `comments` -- dados estruturados de comentário para regras de governança de comentários, no lugar de regex linha a linha. Suportado para `typescript`, `javascript` e `python`; solicitar isso para `ruby` lança uma exceção.
+Com `{ comments: true }`, a árvore retornada carrega um array `comments` -- dados estruturados de comentário para regras de governança de comentários, no lugar de regex linha a linha. Suportado para as quatro linguagens. Para `ruby`, a árvore retornada é um array (saída de `Ripper.sexp`), então o array `comments` fica anexado a ela como uma propriedade não indexada.
 
 ```typescript
 interface CommentToken {
@@ -268,7 +268,7 @@ for (const comment of tree.comments ?? []) {
 }
 ```
 
-As posições dos comentários são precisas em relação ao **código-fonte original**, mesmo para TypeScript. Essa é uma vantagem deliberada em relação ao `loc` da própria árvore, que é relativo ao transpilado para TypeScript (veja [AstNode](#astnode)): os comentários são varridos a partir do código-fonte antes da transpilação, então seu `loc` nunca diverge. Comentários em Python são sempre `type: "line"` (`#`) -- Python não tem comentários de bloco, e docstrings `"""` são expressões de string na árvore, não comentários. O scanner de TypeScript/JavaScript reconhece literais de string e de template, mas não rastreia literais de expressão regular, então um delimitador de comentário dentro de um literal regex é um ponto cego conhecido.
+As posições dos comentários são precisas em relação ao **código-fonte original**, mesmo para TypeScript. Essa é uma vantagem deliberada em relação ao `loc` da própria árvore, que é relativo ao transpilado para TypeScript (veja [AstNode](#astnode)): os comentários são varridos a partir do código-fonte antes da transpilação, então seu `loc` nunca diverge. Comentários em Python são sempre `type: "line"` (`#`) -- Python não tem comentários de bloco, e docstrings `"""` são expressões de string na árvore, não comentários. Comentários `#` em Ruby são `type: "line"`; cada bloco de documentação `=begin`/`=end` é um único token `type: "block"` cujo `value` é o conteúdo interno (as linhas marcadoras `=begin`/`=end` são removidas, de forma análoga à remoção dos delimitadores `/* */`) e cujo `loc` vai da linha do `=begin` até a linha do `=end`. Para Python e Ruby, a extração de comentários é uma segunda passada sobre o mesmo código-fonte (`tokenize` / `Ripper.lex`); uma falha do tokenizador em código que parseia normalmente degrada para uma lista de comentários vazia em vez de falhar o parse. O scanner de TypeScript/JavaScript reconhece literais de string e de template, mas não rastreia literais de expressão regular, então um delimitador de comentário dentro de um literal regex é um ponto cego conhecido.
 
 ##### Comportamento de falha
 
@@ -383,7 +383,7 @@ type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 type AstNode = Record<string, unknown> | unknown[];
 ```
 
-Quando parseado com [`{ comments: true }`](#ast), o nó raiz também carrega um array `comments: CommentToken[]` (apenas `typescript`, `javascript` e `python`). Ausente nos demais casos.
+Quando parseado com [`{ comments: true }`](#ast), o nó raiz também carrega um array `comments: CommentToken[]` (as quatro linguagens; para `ruby` ele é uma propriedade não indexada no array sexp raiz). Ausente nos demais casos.
 
 | Linguagem    | Parser utilizado                                                                                                           | Formato retornado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
