@@ -94,11 +94,11 @@ describe("scanRuleSource adversarial position mapping", () => {
     const violations = scanRuleSource(source);
     expect(violations).toHaveLength(3);
     expect(violations[0].line).toBe(5);
-    expect(violations[0].message).toContain("Bun.spawn()");
+    expect(violations[0].message).toContain(`"Bun" global`);
     expect(violations[1].line).toBe(6);
-    expect(violations[1].message).toContain("Bun.file()");
+    expect(violations[1].message).toContain(`"Bun" global`);
     expect(violations[2].line).toBe(7);
-    expect(violations[2].message).toContain("fetch()");
+    expect(violations[2].message).toContain(`"fetch" global`);
   });
 
   test("eval in comment then eval in code", () => {
