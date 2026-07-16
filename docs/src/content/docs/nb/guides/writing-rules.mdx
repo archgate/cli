@@ -449,7 +449,7 @@ Ripper bruker en annen nodeform for varianten med parenteser -- `puts("hello")` 
 
 ### Sammenligne mot basisrevisjonen
 
-Noen regler bryr seg ikke om en fils nåværende tilstand, men om **hva som har endret seg**. Et vanlig tilfelle: frafalle et krav (en versjonsheving, en endringsloggoppføring) når en endring bare gjelder dokumentasjon -- den kjørbare strukturen er urørt, og bare kommentarer eller dokstrenger har flyttet seg. `ctx.ast(path, language, { rev: "base" })` parser filen ved den grunnleggende git-revisjonen, slik at du kan sammenligne den mot parsingen av arbeidstreet. Kommentarer og formatering er fraværende fra både ESTree- og Python-`ast`-formene, så en ren kommentarendring gir identiske trær.
+Noen regler bryr seg ikke om en fils nåværende tilstand, men om **hva som har endret seg**. Et vanlig tilfelle: frafalle et krav (en versjonsheving, en endringsloggoppføring) når en endring bare gjelder dokumentasjon -- den kjørbare strukturen er urørt, og bare kommentarer eller formatering har flyttet seg. `ctx.ast(path, language, { rev: "base" })` parser filen ved den grunnleggende git-revisjonen, slik at du kan sammenligne den mot parsingen av arbeidstreet. Kommentarer er fraværende fra ESTree- og Python-`ast`-formene -- men det er ikke node**posisjonene**: `loc`- / `lineno`-feltene forskyves når en kommentar eller tom linje flytter linjene under seg, så en rå serialisering skiller seg selv for en ren dokumentasjonsendring. Sammenlign en **posisjonsfri projeksjon** av de to trærne i stedet. (Python-dokstrenger er vanlige strengnoder i `ast`-treet, så en endret dokstreng er en reell treendring -- fjern dem også hvis regelen din skal behandle dokumentasjonsendringer som nøytrale.)
 
 ```typescript
 export default {
@@ -457,14 +457,33 @@ export default {
     "bump-required-on-behavior-change": {
       description: "A .py change that alters behavior must bump the version",
       async check(ctx) {
+        // Fjern posisjonsmetadata slik at bare kjørbar struktur sammenlignes: en
+        // kommentar eller tom linje forskyver lineno/col_offset uten å endre
+        // atferd. (Fjern dokstrenger her også hvis dokendringer skal være nøytrale.)
+        const POS = ["lineno", "col_offset", "end_lineno", "end_col_offset"];
+        const structure = (node: unknown): unknown => {
+          if (Array.isArray(node)) return node.map(structure);
+          if (node && typeof node === "object") {
+            return Object.fromEntries(
+              Object.entries(node)
+                .filter(([k]) => !POS.includes(k))
+                .map(([k, v]) => [k, structure(v)])
+            );
+          }
+          return node;
+        };
+
         const changed = ctx.changedFiles.filter((f) => f.endsWith(".py"));
         for (const file of changed) {
-          // Ingen basis å sammenligne mot (f.eks. en lagt-til fil) -- hopp over.
+          // Ingen basismotpart (f.eks. en lagt-til fil) -- hopp over.
           if ((await ctx.fileAtBase(file)) === null) continue;
 
           const before = await ctx.ast(file, "python", { rev: "base" });
           const after = await ctx.ast(file, "python");
-          if (JSON.stringify(before) !== JSON.stringify(after)) {
+          if (
+            JSON.stringify(structure(before)) !==
+            JSON.stringify(structure(after))
+          ) {
             ctx.report.violation({
               message: `${file} changed behavior -- bump the version`,
               file,
@@ -477,7 +496,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-Dette kjøres med `archgate check --base <ref>`; uten en basis er `ctx.changedFiles` tom, og regelen blir en no-op. Fordi basisparsing går gjennom `ctx.ast()` og dens git-tilgang er innebygd i Archgate, kjører regelen aldri `git` eller en tolk selv -- noe [regelsandkassen](/guides/security/) uansett ville blokkert.
+`archgate check` finner en basis automatisk (eller tar en eksplisitt `--base <ref>`), og `ctx.changedFiles` fylles fra den -- inkludert ikke-committet arbeid. Per-fil-vakten er det som gjør regelen trygg: når ingen basis er løst, eller for en fil som ikke fantes ved basisen, returnerer `ctx.fileAtBase()` `null`, og løkken hopper over den filen. Fordi basisparsing går gjennom `ctx.ast()` og dens git-tilgang er innebygd i Archgate, kjører regelen aldri `git` eller en tolk selv -- noe [regelsandkassen](/guides/security/) uansett ville blokkert.
 
 ### Styre kommentarer
 

@@ -2081,7 +2081,7 @@ This means:
 
 Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../`, absolute paths, and symbolic links are blocked and throw an error.
 
-In addition to the runtime sandbox, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. Because a rule file runs in-process with the full privileges of whoever runs `archgate check`, any module it can reach is arbitrary code -- so the scanner uses an **allowlist, not a denylist**: a rule may import only a small set of safe modules, and everything else is rejected.
+In addition to the `RuleContext` path restrictions above, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. Neither is a runtime sandbox -- a rule still executes in-process with your privileges; the scanner is a static gate, and the restrictions apply only to the `RuleContext` API a well-behaved rule uses. Because a rule file runs in-process with the full privileges of whoever runs `archgate check`, any module it can reach is arbitrary code -- so the scanner uses an **allowlist, not a denylist**: a rule may import only a small set of safe modules, and everything else is rejected.
 
 **The only modules a rule file may import** are `node:path`, `node:url`, `node:util`, and `node:crypto` -- utility modules with no filesystem, network, or process capabilities. They must use the `node:` prefix; the bare forms (`path`) can be shadowed by a package in the target project and are blocked. Every other import is rejected, in any form -- static (`import ... from`), dynamic (`await import(...)`, whether the specifier is a literal or a variable), re-exported (`export ... from`), or reached through `require()` / `import.meta.require()`.
 
@@ -2112,7 +2112,7 @@ Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep
 - **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
 - **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
 - **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
-- **Reach outside the allowlist** -- a rule may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Imports of any other module, Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), subprocess or native-code access (`require`, `process.binding`), and code generation (`eval`, `new Function`) are rejected before execution.
+- **Reach outside the allowlist through a recognized path** -- a rule may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Imports of any other module, Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), subprocess or native-code access (`require`, `process.binding`), and code generation (`eval`, `new Function`) are rejected before execution in their direct, recognized forms. This is a static scan, not a jail: a capability assembled at runtime is a residual it cannot catch, which is why untrusted rule files still warrant review (see below).
 
 ## CI/CD best practices
 
@@ -3152,7 +3152,7 @@ Ripper uses a different node shape for the parenthesized form -- `puts("hello")`
 
 ### Comparing against the base revision
 
-Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or docstrings moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments and formatting are absent from both the ESTree and Python `ast` shapes, so a comment-only edit produces identical trees.
+Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
 
 ```typescript
 export default {
@@ -3160,14 +3160,33 @@ export default {
     "bump-required-on-behavior-change": {
       description: "A .py change that alters behavior must bump the version",
       async check(ctx) {
+        // Drop position metadata so only executable structure is compared: a
+        // comment or blank line shifts lineno/col_offset without changing
+        // behavior. (Strip docstrings here too if doc edits should be neutral.)
+        const POS = ["lineno", "col_offset", "end_lineno", "end_col_offset"];
+        const structure = (node: unknown): unknown => {
+          if (Array.isArray(node)) return node.map(structure);
+          if (node && typeof node === "object") {
+            return Object.fromEntries(
+              Object.entries(node)
+                .filter(([k]) => !POS.includes(k))
+                .map(([k, v]) => [k, structure(v)])
+            );
+          }
+          return node;
+        };
+
         const changed = ctx.changedFiles.filter((f) => f.endsWith(".py"));
         for (const file of changed) {
-          // No base to compare against (e.g. an added file) -- skip.
+          // No base counterpart (e.g. an added file) -- skip.
           if ((await ctx.fileAtBase(file)) === null) continue;
 
           const before = await ctx.ast(file, "python", { rev: "base" });
           const after = await ctx.ast(file, "python");
-          if (JSON.stringify(before) !== JSON.stringify(after)) {
+          if (
+            JSON.stringify(structure(before)) !==
+            JSON.stringify(structure(after))
+          ) {
             ctx.report.violation({
               message: `${file} changed behavior -- bump the version`,
               file,
@@ -3180,7 +3199,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-This runs with `archgate check --base <ref>`; without a base, `ctx.changedFiles` is empty and the rule is a no-op. Because base parsing goes through `ctx.ast()` and its git access is built into Archgate, the rule never runs `git` or an interpreter itself -- which the [rule sandbox](/guides/security/) would block anyway.
+`archgate check` resolves a base automatically (or takes an explicit `--base <ref>`), and `ctx.changedFiles` is populated from it -- including uncommitted work. The per-file guard is what makes the rule safe: when no base is resolved, or for a file absent at the base, `ctx.fileAtBase()` returns `null` and the loop skips that file. Because base parsing goes through `ctx.ast()` and its git access is built into Archgate, the rule never runs `git` or an interpreter itself -- which the [rule sandbox](/guides/security/) would block anyway.
 
 ### Governing comments
 
@@ -5354,12 +5373,16 @@ for (const node of program.body) {
 
 ##### Parsing the base revision (`{ rev: "base" }`)
 
-With `{ rev: "base" }`, `ast()` parses the file at the [comparison base revision](#fileatbase) instead of the working tree -- everything else (return shape, throw contract) is identical. Parse both revisions to ask "did the executable structure change?": comments and formatting are absent from both the ESTree and the Python `ast` shapes, so a comment-only edit yields structurally identical trees.
+With `{ rev: "base" }`, `ast()` parses the file at the [comparison base revision](#fileatbase) instead of the working tree -- everything else (return shape, throw contract) is identical. Parse both revisions to ask "did the executable structure change?" Comments are absent from the ESTree and Python `ast` shapes, but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it. Compare a **location-free projection** -- strip `loc` / `range` (ESTree) and `lineno` / `col_offset` (Python) before comparing -- so a comment-only edit reads as unchanged. (Python docstrings are string nodes in the tree, so an edited docstring is a real change; strip those too if doc edits should be neutral.)
 
 ```typescript
-// Flag a change only when the executable structure actually changed,
-// ignoring comment-only edits.
+// Flag a change only when the executable structure actually changed.
+// `structurallyEqual` compares the trees with position metadata (loc/range,
+// lineno/col_offset) stripped -- see the writing-rules guide for a concrete
+// implementation.
 for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Skip files with no base counterpart -- ast({ rev: "base" }) would throw.
+  if ((await ctx.fileAtBase(file)) === null) continue;
   const before = await ctx.ast(file, "python", { rev: "base" });
   const after = await ctx.ast(file, "python");
   if (!structurallyEqual(before, after)) {

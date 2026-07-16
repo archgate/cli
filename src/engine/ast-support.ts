@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -300,9 +300,6 @@ export async function readBaseSourceOrThrow(
   return source;
 }
 
-/** Monotonic suffix so concurrent temp files within one run never collide. */
-let tempSourceCounter = 0;
-
 /**
  * Write source to a throwaway temp file and return its path plus a cleanup
  * thunk. Used only for `ctx.ast(path, lang, { rev: "base" })` on Python/Ruby:
@@ -311,30 +308,39 @@ let tempSourceCounter = 0;
  * unchanged `PYTHON_AST_PROGRAM`/`RUBY_AST_PROGRAM` (and the mandatory `-I`
  * isolation) parse it without a second code path.
  *
- * The file lives in the OS temp dir, never the project tree, so it is outside
- * any interpreter's cwd-derived load path even before `-I` is considered.
- * `cleanup()` is best-effort and never throws.
+ * Security: the file goes in a per-call private directory created with
+ * `mkdtempSync` (0700, owner-only, unpredictable name), and is created
+ * exclusively (`wx`) with mode `0600`. This closes the shared-`tmpdir` attacks
+ * a predictable name would expose on a multi-user host: a pre-planted symlink
+ * at the path can no longer redirect the write (exclusive create fails on an
+ * existing entry, and the private parent is not writable by others), and the
+ * base source — which may be sensitive — is never world-readable or left where
+ * another user could read it. It also lives outside any interpreter's
+ * cwd-derived load path even before `-I` is considered. `cleanup()` removes the
+ * whole private directory, is best-effort, and never throws.
  */
 export function writeTempSourceFile(
   content: string,
   ext: string
 ): { path: string; cleanup: () => void } {
-  tempSourceCounter += 1;
-  const path = join(
-    tmpdir(),
-    `archgate-ast-${process.pid}-${tempSourceCounter}${ext}`
-  );
-  writeFileSync(path, content, "utf8");
-  return {
-    path,
-    cleanup: () => {
-      try {
-        rmSync(path, { force: true });
-      } catch {
-        // Best effort — a leftover temp file is harmless.
-      }
-    },
+  const dir = mkdtempSync(join(tmpdir(), "archgate-ast-"));
+  const cleanup = () => {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Best effort — a leftover temp dir is harmless.
+    }
   };
+  try {
+    const path = join(dir, `source${ext}`);
+    writeFileSync(path, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return { path, cleanup };
+  } catch (err) {
+    // File creation failed after the dir was made — remove it before rethrowing
+    // so a failed base parse never leaks the private directory.
+    cleanup();
+    throw err;
+  }
 }
 
 /**

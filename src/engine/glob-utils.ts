@@ -18,14 +18,21 @@ export function matchLines(
   file: string
 ): GrepMatch[] {
   const lines = content.split("\n");
+  // Clone the pattern and drive it with `exec()`, resetting `lastIndex` per
+  // line. `String.prototype.match` with a global (`/g`) pattern returns every
+  // match but strips the `index`, which collapsed the reported column to 1;
+  // `exec()` always carries `index`. Cloning also keeps a caller's stateful
+  // `/g` regex from leaking `lastIndex` across our per-line scan.
+  const linePattern = new RegExp(pattern.source, pattern.flags);
   const matches: GrepMatch[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(pattern);
+    linePattern.lastIndex = 0;
+    const match = linePattern.exec(lines[i]);
     if (match) {
       matches.push({
         file,
         line: i + 1,
-        column: (match.index ?? 0) + 1,
+        column: match.index + 1,
         content: lines[i],
       });
     }

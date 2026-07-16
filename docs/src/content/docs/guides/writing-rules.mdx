@@ -449,7 +449,7 @@ Ripper uses a different node shape for the parenthesized form -- `puts("hello")`
 
 ### Comparing against the base revision
 
-Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or docstrings moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments and formatting are absent from both the ESTree and Python `ast` shapes, so a comment-only edit produces identical trees.
+Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
 
 ```typescript
 export default {
@@ -457,14 +457,33 @@ export default {
     "bump-required-on-behavior-change": {
       description: "A .py change that alters behavior must bump the version",
       async check(ctx) {
+        // Drop position metadata so only executable structure is compared: a
+        // comment or blank line shifts lineno/col_offset without changing
+        // behavior. (Strip docstrings here too if doc edits should be neutral.)
+        const POS = ["lineno", "col_offset", "end_lineno", "end_col_offset"];
+        const structure = (node: unknown): unknown => {
+          if (Array.isArray(node)) return node.map(structure);
+          if (node && typeof node === "object") {
+            return Object.fromEntries(
+              Object.entries(node)
+                .filter(([k]) => !POS.includes(k))
+                .map(([k, v]) => [k, structure(v)])
+            );
+          }
+          return node;
+        };
+
         const changed = ctx.changedFiles.filter((f) => f.endsWith(".py"));
         for (const file of changed) {
-          // No base to compare against (e.g. an added file) -- skip.
+          // No base counterpart (e.g. an added file) -- skip.
           if ((await ctx.fileAtBase(file)) === null) continue;
 
           const before = await ctx.ast(file, "python", { rev: "base" });
           const after = await ctx.ast(file, "python");
-          if (JSON.stringify(before) !== JSON.stringify(after)) {
+          if (
+            JSON.stringify(structure(before)) !==
+            JSON.stringify(structure(after))
+          ) {
             ctx.report.violation({
               message: `${file} changed behavior -- bump the version`,
               file,
@@ -477,7 +496,7 @@ export default {
 } satisfies RuleSet;
 ```
 
-This runs with `archgate check --base <ref>`; without a base, `ctx.changedFiles` is empty and the rule is a no-op. Because base parsing goes through `ctx.ast()` and its git access is built into Archgate, the rule never runs `git` or an interpreter itself -- which the [rule sandbox](/guides/security/) would block anyway.
+`archgate check` resolves a base automatically (or takes an explicit `--base <ref>`), and `ctx.changedFiles` is populated from it -- including uncommitted work. The per-file guard is what makes the rule safe: when no base is resolved, or for a file absent at the base, `ctx.fileAtBase()` returns `null` and the loop skips that file. Because base parsing goes through `ctx.ast()` and its git access is built into Archgate, the rule never runs `git` or an interpreter itself -- which the [rule sandbox](/guides/security/) would block anyway.
 
 ### Governing comments
 

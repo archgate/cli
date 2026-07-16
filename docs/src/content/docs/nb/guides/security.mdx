@@ -19,7 +19,7 @@ Dette betyr:
 
 Regler mottar et `RuleContext`-objekt med sandkassede filoperasjoner. Alle `RuleContext`-metoder (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) er begrenset til prosjektets rotkatalog -- stitraversering via `../`, absolutte stier og symbolske lenker er blokkert og kaster en feil.
 
-I tillegg til kjøringsmiljøets sandkasse kjører Archgate en **statisk analysesikkerhetsskanner** på hver `.rules.ts`-fil før den kjøres. Fordi en regelfil kjører i samme prosess med fulle rettigheter til den som kjører `archgate check`, er enhver modul den kan nå vilkårlig kode -- derfor bruker skanneren en **tillatelsesliste, ikke en forbudsliste**: en regel kan bare importere et lite sett med trygge moduler, og alt annet avvises.
+I tillegg til `RuleContext`-begrensningene på filstier over kjører Archgate en **statisk analysesikkerhetsskanner** på hver `.rules.ts`-fil før den kjøres. Ingen av dem er en kjøretidssandkasse -- en regel kjører fortsatt i samme prosess med dine rettigheter; skanneren er en statisk port, og begrensningene gjelder bare `RuleContext`-API-et som en veloppført regel bruker. Fordi en regelfil kjører i samme prosess med fulle rettigheter til den som kjører `archgate check`, er enhver modul den kan nå vilkårlig kode -- derfor bruker skanneren en **tillatelsesliste, ikke en forbudsliste**: en regel kan bare importere et lite sett med trygge moduler, og alt annet avvises.
 
 **De eneste modulene en regelfil kan importere** er `node:path`, `node:url`, `node:util` og `node:crypto` -- verktøymoduler uten filsystem-, nettverks- eller prosessfunksjonalitet. De må bruke `node:`-prefikset; de nakne formene (`path`) kan overskygges av en pakke i målprosjektet og er blokkert. Enhver annen import avvises, uansett form -- statisk (`import ... from`), dynamisk (`await import(...)`, enten spesifikatoren er en literal eller en variabel), re-eksportert (`export ... from`), eller nådd gjennom `require()` / `import.meta.require()`.
 
@@ -50,7 +50,7 @@ Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.gre
 - **Skrive filer** -- `RuleContext`-API-et er skrivebeskyttet. Regler rapporterer brudd, men kan ikke endre kodebasen.
 - **Unnslippe 30-sekunders tidsgrensen** -- hver regel termineres etter 30 sekunder veggtid.
 - **Påvirke andre regler** -- regler fra forskjellige ADR-er kjører parallelt, men deler ingen mutbar tilstand gjennom kontekst-API-et.
-- **Nå utenfor tillatelseslisten** -- en regel kan bare importere `node:path`, `node:url`, `node:util` og `node:crypto`. Import av enhver annen modul, Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`), underprosess- eller nativ kodetilgang (`require`, `process.binding`) og kodegenerering (`eval`, `new Function`) avvises før kjøring.
+- **Nå utenfor tillatelseslisten via en gjenkjent rute** -- en regel kan bare importere `node:path`, `node:url`, `node:util` og `node:crypto`. Import av enhver annen modul, Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`), underprosess- eller nativ kodetilgang (`require`, `process.binding`) og kodegenerering (`eval`, `new Function`) avvises før kjøring i sine direkte, gjenkjente former. Dette er en statisk skanning, ikke et fengsel: en evne som settes sammen ved kjøretid er en gjenværende risiko den ikke kan fange, og derfor bør regelfiler du ikke stoler på fortsatt gjennomgås (se nedenfor).
 
 ## Beste praksis for CI/CD
 

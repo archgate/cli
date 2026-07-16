@@ -219,12 +219,16 @@ for (const node of program.body) {
 
 ##### Parsing av grunnrevisjonen (`{ rev: "base" }`)
 
-Med `{ rev: "base" }` parser `ast()` filen ved den [sammenligningsgrunnlagsrevisjonen](#fileatbase) i stedet for arbeidstreet -- alt annet (returform, kastekontrakt) er identisk. Parse begge revisjonene for å spørre "endret den kjørbare strukturen seg?": kommentarer og formatering er fraværende fra både ESTree- og Python-`ast`-formene, så en ren kommentarendring gir strukturelt identiske trær.
+Med `{ rev: "base" }` parser `ast()` filen ved den [sammenligningsgrunnlagsrevisjonen](#fileatbase) i stedet for arbeidstreet -- alt annet (returform, kastekontrakt) er identisk. Parse begge revisjonene for å spørre "endret den kjørbare strukturen seg?" Kommentarer er fraværende fra ESTree- og Python-`ast`-formene, men det er ikke node**posisjonene**: `loc`- / `lineno`-feltene forskyves når en kommentar eller tom linje flytter linjene under seg. Sammenlign en **posisjonsfri projeksjon** -- fjern `loc` / `range` (ESTree) og `lineno` / `col_offset` (Python) før sammenligning -- slik at en ren kommentarendring leses som uendret. (Python-dokstrenger er strengnoder i treet, så en endret dokstreng er en reell endring; fjern dem også hvis dokumentasjonsendringer skal være nøytrale.)
 
 ```typescript
-// Merk en endring bare når den kjørbare strukturen faktisk endret seg,
-// ignorer rene kommentarendringer.
+// Merk en endring bare når den kjørbare strukturen faktisk endret seg.
+// `structurallyEqual` sammenligner trærne med posisjonsmetadata (loc/range,
+// lineno/col_offset) fjernet -- se writing-rules-guiden for en konkret
+// implementasjon.
 for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Hopp over filer uten basismotpart -- ast({ rev: "base" }) ville kastet.
+  if ((await ctx.fileAtBase(file)) === null) continue;
   const before = await ctx.ast(file, "python", { rev: "base" });
   const after = await ctx.ast(file, "python");
   if (!structurallyEqual(before, after)) {

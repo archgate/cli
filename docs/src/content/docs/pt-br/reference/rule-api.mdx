@@ -219,12 +219,16 @@ for (const node of program.body) {
 
 ##### Parseando a revisão base (`{ rev: "base" }`)
 
-Com `{ rev: "base" }`, `ast()` faz o parse do arquivo na [revisão base de comparação](#fileatbase) em vez da árvore de trabalho -- tudo o mais (formato de retorno, contrato de exceção) é idêntico. Faça o parse das duas revisões para perguntar "a estrutura executável mudou?": comentários e formatação estão ausentes tanto do formato ESTree quanto do formato `ast` do Python, então uma edição apenas de comentários produz árvores estruturalmente idênticas.
+Com `{ rev: "base" }`, `ast()` faz o parse do arquivo na [revisão base de comparação](#fileatbase) em vez da árvore de trabalho -- tudo o mais (formato de retorno, contrato de exceção) é idêntico. Faça o parse das duas revisões para perguntar "a estrutura executável mudou?" Comentários estão ausentes dos formatos ESTree e `ast` do Python, mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele. Compare uma **projeção sem posições** -- remova `loc` / `range` (ESTree) e `lineno` / `col_offset` (Python) antes de comparar -- para que uma edição apenas de comentários seja lida como inalterada. (Docstrings do Python são nós de string na árvore, então uma docstring editada é uma mudança real; remova-as também se edições de documentação forem neutras.)
 
 ```typescript
-// Sinaliza uma mudança apenas quando a estrutura executável de fato mudou,
-// ignorando edições que só alteram comentários.
+// Sinaliza uma mudança apenas quando a estrutura executável de fato mudou.
+// `structurallyEqual` compara as árvores com os metadados de posição (loc/range,
+// lineno/col_offset) removidos -- veja o guia writing-rules para uma
+// implementação concreta.
 for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Pula arquivos sem contraparte na base -- ast({ rev: "base" }) lançaria.
+  if ((await ctx.fileAtBase(file)) === null) continue;
   const before = await ctx.ast(file, "python", { rev: "base" });
   const after = await ctx.ast(file, "python");
   if (!structurallyEqual(before, after)) {

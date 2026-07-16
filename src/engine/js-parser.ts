@@ -87,7 +87,12 @@ export function extractJsComments(source: string): CommentToken[] {
     if (ch === "/" && next === "/") {
       const start = { line, column: col };
       const from = i + 2;
-      while (i < source.length && source[i] !== "\n") advance(1);
+      // Stop on CR as well as LF so a Windows `\r\n` line ending does not leave
+      // a trailing `\r` in the comment value — ESTree/acorn exclude all line
+      // terminators from the value. The `\r` is consumed by the outer loop.
+      while (i < source.length && source[i] !== "\n" && source[i] !== "\r") {
+        advance(1);
+      }
       comments.push({
         type: "line",
         value: source.slice(from, i),

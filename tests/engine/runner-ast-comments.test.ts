@@ -122,6 +122,36 @@ describe("ctx.ast({ comments: true })", () => {
     expect(comments[0].value).toBe(" real");
   });
 
+  test("typescript: comment markers inside a template literal are not comments", async () => {
+    // The template's text parts contain both `//` and `/* … */`; only the
+    // standalone line comment below is a real comment. The original-source
+    // scanner must skip markers inside the template wholesale (ARCH-022).
+    await Bun.write(
+      join(dir, "src/tpl.ts"),
+      "const t = `x // not a comment /* nor this */ y`;\n// the only real comment\nexport const z = t;\n"
+    );
+
+    const captured: { comments?: CommentToken[] } = {};
+    const loaded = makeLoadedAdr({
+      rules: {
+        r: {
+          description: "template-aware",
+          async check(ctx) {
+            const tree = await ctx.ast("src/tpl.ts", "typescript", {
+              comments: true,
+            });
+            captured.comments = tree.comments;
+          },
+        },
+      },
+    });
+
+    await runChecks(dir, [loaded]);
+    const comments = captured.comments ?? [];
+    expect(comments).toHaveLength(1);
+    expect(comments[0].value).toBe(" the only real comment");
+  });
+
   test("javascript: comments collected from original source", async () => {
     writeFileSync(join(dir, "src/c.js"), "// c comment\nmodule.exports = 1;\n");
 

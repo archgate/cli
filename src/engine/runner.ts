@@ -220,9 +220,6 @@ function createRuleContext(
     const relPath = relative(resolvedRoot, absPath).replaceAll("\\", "/");
     const useBase = opts?.rev === "base";
     const wantComments = opts?.comments === true;
-    if (wantComments && language === "ruby") {
-      throw commentsUnsupportedError(language, path);
-    }
 
     // Guardrail 2: language plausibility — refuse to hand a file to an
     // interpreter unless its name plausibly matches the requested language.
@@ -235,6 +232,14 @@ function createRuleContext(
       (language === "ruby" && RUBY_BASENAMES.has(basename));
     if (!plausible) {
       throw implausibleLanguageError(language, path);
+    }
+
+    // Feature guard (after the language guardrails, before any interpreter
+    // work): comments are opt-in and Ruby's serializer does not carry them yet.
+    // Ordered here so an implausible language/file combination fails on the
+    // plausibility guardrail first, per ARCH-022's guardrail ordering.
+    if (wantComments && language === "ruby") {
+      throw commentsUnsupportedError(language, path);
     }
 
     // In-process branch: TypeScript/JavaScript via the shared meriyah
@@ -403,22 +408,30 @@ export async function runChecks(
 ): Promise<CheckResult> {
   const startTime = performance.now();
 
-  // Start git I/O concurrently — changedFiles and trackedFiles are independent
-  const changedFilesPromise = options.staged
-    ? getStagedFiles(projectRoot)
-    : options.base
-      ? getFilesChangedSinceRef(projectRoot, options.base)
-      : Promise.resolve([]);
+  // Tracked-file listing is independent of the base — start it first so it runs
+  // concurrently with the merge-base resolution below.
   const allTrackedFilesPromise = getGitTrackedFiles(projectRoot);
 
-  // Resolve the base commit for `ctx.fileAtBase()` / `ctx.ast({ rev: "base" })`
-  // once per run. It is the merge base of `--base` and HEAD — the same commit
-  // `changedFiles` diffs against (three-dot). Null when no `--base` is given
-  // (staged or default runs), so base-revision access reports "no base".
-  const baseRevPromise: Promise<string | null> =
+  // Resolve the base commit ONCE per run — the merge base of `--base` and HEAD —
+  // and reuse that single SHA for BOTH `changedFiles` and base-revision reads
+  // (`ctx.fileAtBase()` / `ctx.ast({ rev: "base" })`). Resolving it separately
+  // for each (as `getFilesChangedSinceRef(options.base)` + `getMergeBase`) would
+  // let a branch that moves between the two git calls hand a rule a change set
+  // and a base AST computed against different commits (ARCH-022). Null for
+  // staged/default runs, so base-revision access reports "no base". Awaited here
+  // (concurrent with the tracked-file listing) so `changedFiles` can diff the
+  // resolved SHA: diffing the merge-base SHA three-dot against HEAD is identical
+  // to `options.base...HEAD`, since the merge base is an ancestor of HEAD.
+  const baseRev: string | null =
     !options.staged && options.base
-      ? getMergeBase(projectRoot, options.base)
-      : Promise.resolve(null);
+      ? await getMergeBase(projectRoot, options.base)
+      : null;
+
+  const changedFilesPromise = options.staged
+    ? getStagedFiles(projectRoot)
+    : baseRev
+      ? getFilesChangedSinceRef(projectRoot, baseRev)
+      : Promise.resolve([]);
 
   // Do synchronous work while git subprocesses run
   const results: RuleResult[] = loadResults
@@ -450,11 +463,11 @@ export async function runChecks(
     }
   }
 
-  // Await the git operations (started above, run concurrently)
-  const [changedFiles, allTrackedFiles, baseRev] = await Promise.all([
+  // Await the git operations (started above, run concurrently). `baseRev` is
+  // already resolved and reused by `changedFilesPromise`.
+  const [changedFiles, allTrackedFiles] = await Promise.all([
     changedFilesPromise,
     allTrackedFilesPromise,
-    baseRevPromise,
   ]);
 
   // ARCH-022: the ctx.ast() interpreter probe is cached once per check

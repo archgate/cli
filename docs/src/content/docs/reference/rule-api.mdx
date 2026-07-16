@@ -219,12 +219,16 @@ for (const node of program.body) {
 
 ##### Parsing the base revision (`{ rev: "base" }`)
 
-With `{ rev: "base" }`, `ast()` parses the file at the [comparison base revision](#fileatbase) instead of the working tree -- everything else (return shape, throw contract) is identical. Parse both revisions to ask "did the executable structure change?": comments and formatting are absent from both the ESTree and the Python `ast` shapes, so a comment-only edit yields structurally identical trees.
+With `{ rev: "base" }`, `ast()` parses the file at the [comparison base revision](#fileatbase) instead of the working tree -- everything else (return shape, throw contract) is identical. Parse both revisions to ask "did the executable structure change?" Comments are absent from the ESTree and Python `ast` shapes, but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it. Compare a **location-free projection** -- strip `loc` / `range` (ESTree) and `lineno` / `col_offset` (Python) before comparing -- so a comment-only edit reads as unchanged. (Python docstrings are string nodes in the tree, so an edited docstring is a real change; strip those too if doc edits should be neutral.)
 
 ```typescript
-// Flag a change only when the executable structure actually changed,
-// ignoring comment-only edits.
+// Flag a change only when the executable structure actually changed.
+// `structurallyEqual` compares the trees with position metadata (loc/range,
+// lineno/col_offset) stripped -- see the writing-rules guide for a concrete
+// implementation.
 for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Skip files with no base counterpart -- ast({ rev: "base" }) would throw.
+  if ((await ctx.fileAtBase(file)) === null) continue;
   const before = await ctx.ast(file, "python", { rev: "base" });
   const after = await ctx.ast(file, "python");
   if (!structurallyEqual(before, after)) {
