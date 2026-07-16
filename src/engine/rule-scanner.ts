@@ -31,17 +31,43 @@ const ALLOWED_MODULES = new Set([
   "node:crypto",
 ]);
 
-/** Bun API properties that bypass the RuleContext sandbox. */
-const BLOCKED_BUN_PROPS = new Set(["spawn", "spawnSync", "write", "$", "file"]);
-
 /**
- * Property names that reach process internals or native code from any object
- * reference. Matched on the property name alone, regardless of what it is
- * accessed on: `process.binding(...)` and `globalThis.process.binding(...)`
- * are the same capability, and pinning the check to an object named `process`
- * only catches the first spelling.
+ * Live globals in the rule runtime whose mere *naming* is blocked — in any
+ * position, code only (a same-named property key or string is fine).
+ *
+ * This is the module allowlist's logic (above) applied to globals. A rule file
+ * runs in-process, so `Bun`, `process`, and the global object are live and
+ * expose subprocess/filesystem/network/native capabilities directly — no import
+ * needed. Blocking specific *shapes* of reaching them (`Bun.spawn`, `Bun[x]`)
+ * is the same losing game as a module denylist: `const B = Bun; B.spawn(...)`,
+ * `const { spawn } = Bun`, `Reflect.get(Bun, "spawn")`, and `global.Bun.spawn`
+ * all reach the identical capability without matching any of those shapes.
+ * Enumerating the evasions is unwinnable; refusing to let rule code *name* the
+ * capability source is not. Rules touch the project only through `ctx`.
+ *
+ * Grouped by what each reaches:
+ * - the global object and its aliases, and reflection over it;
+ * - dynamic code execution (`eval`, and `Function` — the `Function` constructor
+ *   is `eval`), which also subsumes the `.constructor` chain blocked below;
+ * - network;
+ * - module loading (`require`; `import.meta.require` is handled separately as it
+ *   is a MetaProperty member, not a bare identifier).
  */
-const BLOCKED_INTERNAL_PROPS = new Set(["binding", "_linkedBinding", "dlopen"]);
+const BANNED_GLOBALS = new Set([
+  "globalThis",
+  "global",
+  "self",
+  "Bun",
+  "process",
+  "Reflect",
+  "eval",
+  "Function",
+  "fetch",
+  "WebSocket",
+  "XMLHttpRequest",
+  "EventSource",
+  "require",
+]);
 
 /**
  * Characters that let source render differently from how it parses.
@@ -280,13 +306,10 @@ export function scanRuleSource(
   }
 
   /**
-   * The property name a member expression reads, when it is knowable
-   * statically — from `o.name` and from `o["name"]` alike.
-   *
-   * Both spellings are the same capability, so a check that only reads
-   * `prop.name` sees the first and misses the second. `o[k]` with a computed
-   * key returns undefined: unknowable here, and out of reach of a scanner that
-   * does not track values (see ARCH-024 on the limits of the static boundary).
+   * The statically-knowable property name of a member expression — from
+   * `o.name` and from `o["name"]` alike. `o[k]` with a computed, non-literal
+   * key returns undefined (unknowable to a scanner that does not track values;
+   * see ARCH-024 on the limits of the static boundary).
    */
   function staticPropName(
     prop: AstNode,
@@ -294,6 +317,37 @@ export function scanRuleSource(
   ): string | undefined {
     if (!computed) return prop.name;
     return typeof prop.value === "string" ? prop.value : undefined;
+  }
+
+  /**
+   * Flag a code reference to a banned global (`checkBannedIdentifier`), skipping
+   * property-key positions — `foo.process` and `{ process: 1 }` name a property,
+   * not the global. Called from the recursion, which knows the parent context.
+   */
+  function checkBannedIdentifier(node: AstNode, isPropertyKey: boolean): void {
+    if (
+      node.type !== "Identifier" ||
+      typeof node.name !== "string" ||
+      !BANNED_GLOBALS.has(node.name)
+    ) {
+      return;
+    }
+    // Advance the occurrence counter for EVERY code-position occurrence of the
+    // name — property-key slots included — so it stays aligned with the position
+    // remapper, which counts all code occurrences (it skips only strings and
+    // comments, not property keys). A property key (`{ Bun: 1 }`, `foo.Bun`)
+    // names a property, not the global, so it is counted but never emitted;
+    // skipping the count here would make a later *real* reference remap onto the
+    // earlier key. Bypasses `pushViolation` because it must count-without-emit.
+    const count = seenCounts.get(node.name) ?? 0;
+    seenCounts.set(node.name, count + 1);
+    if (!isPropertyKey) {
+      rawViolations.push({
+        message: `Reference to the "${node.name}" global is blocked in rule files. Rules reach the project only through the RuleContext API (ctx); naming a runtime global — even to alias, destructure, or reflect over it — is not permitted.`,
+        searchText: node.name,
+        occurrence: count,
+      });
+    }
   }
 
   /**
@@ -327,91 +381,68 @@ export function scanRuleSource(
         checkModuleSpecifier(node);
         break;
       }
+      case "ObjectPattern": {
+        // Destructuring `const { constructor: F } = obj` READS `obj.constructor`
+        // — the Function constructor (= eval), the same reach as `.constructor`
+        // member access, but through a binding pattern the MemberExpression case
+        // never sees. An object *literal* `{ constructor: 1 }` (ObjectExpression)
+        // only names a property and is fine; only the pattern form performs the
+        // read. `staticPropName` covers `{ constructor: F }`, `{ ["constructor"]:
+        // F }`, and the shorthand `{ constructor }`. A runtime-computed key
+        // (`{ [c]: F }`) is the same documented static-analysis residual as the
+        // computed-variable member case (see ARCH-024).
+        const props = Array.isArray(node.properties) ? node.properties : [];
+        for (const raw of props) {
+          const p = parseNode(raw);
+          if (!p || p.type !== "Property") continue;
+          const key = parseNode(p.key);
+          if (
+            key &&
+            staticPropName(key, p.computed ?? false) === "constructor"
+          ) {
+            pushViolation(
+              "Destructuring `.constructor` is blocked in rule files — it reaches the Function constructor, which is equivalent to eval.",
+              "constructor"
+            );
+          }
+        }
+        break;
+      }
       case "MemberExpression": {
         const obj = node.object;
         const prop = node.property;
         if (!obj || !prop) break;
         const computed = node.computed ?? false;
 
-        // Block Bun.spawn, Bun.write, Bun.$, Bun.file, Bun.spawnSync.
-        // Only the dotted spelling needs naming here: `Bun["spawn"]` is caught
-        // by the blanket computed-access rule below, which is stricter.
-        if (
-          obj.name === "Bun" &&
-          !computed &&
-          BLOCKED_BUN_PROPS.has(prop.name ?? "")
-        ) {
+        // Block `.constructor` (dotted or computed-literal), on ANY receiver.
+        // `(() => {}).constructor` is the `Function` constructor — i.e. eval —
+        // so `f = (() => {}).constructor; f("return import('node:fs')")()`
+        // would run arbitrary, unscanned code, bypassing every other check
+        // including the module allowlist. Naming `Function`/`eval` directly is
+        // already blocked as a global; this closes the property-chain route.
+        if (staticPropName(prop, computed) === "constructor") {
           pushViolation(
-            `Bun.${prop.name}() is blocked in rule files. Use the RuleContext API instead.`,
-            `Bun.${prop.name}`
-          );
-        }
-
-        // Block computed access: Bun[x], globalThis[x]
-        if (computed && (obj.name === "Bun" || obj.name === "globalThis")) {
-          pushViolation(
-            `Computed property access on ${obj.name} is blocked in rule files.`,
-            `${obj.name}[`
-          );
-        }
-
-        // Block process.binding / process.dlopen and friends, on any receiver
-        // and in either spelling. Matching the property name rather than an
-        // object named `process` is what catches an aliased receiver
-        // (`const p = process; p.binding(...)`), and reading the key from a
-        // computed literal is what catches `process["binding"](...)`.
-        const propName = staticPropName(prop, computed);
-        if (propName !== undefined && BLOCKED_INTERNAL_PROPS.has(propName)) {
-          pushViolation(
-            `.${propName}() is blocked in rule files — it reaches process internals and native code. Use the RuleContext API instead.`,
-            computed ? `["${propName}"]` : `.${propName}`
+            "Access to `.constructor` is blocked in rule files — it reaches the Function constructor, which is equivalent to eval.",
+            computed ? `["constructor"]` : ".constructor"
           );
         }
 
         // Block `import.meta.require(...)` — a require() escape that names no
-        // banned module and is not an ImportExpression.
+        // banned module and is a MetaProperty member, not a bare identifier
+        // (so the banned-globals check does not see it). `staticPropName` covers
+        // both `.require` and `["require"]`; the latter also reaches here via
+        // the transpiler, which rewrites the bracket form to dotted.
         if (
-          !computed &&
           obj.type === "MetaProperty" &&
-          prop.name === "require"
+          staticPropName(prop, computed) === "require"
         ) {
+          // Anchor on `import.meta` — common to `.require` and `["require"]`.
+          // Anchoring on the dotted spelling would miss (remap to line 0) when
+          // the original source used brackets, since the remapper searches the
+          // untransformed source, not the normalised AST.
           pushViolation(
             "import.meta.require() is blocked in rule files. Use the RuleContext API instead.",
-            "import.meta.require"
-          );
-        }
-        break;
-      }
-      case "CallExpression": {
-        const name = node.callee?.name;
-        if (name === "eval") {
-          pushViolation("eval() is blocked in rule files.", "eval(");
-        }
-        if (name === "Function") {
-          pushViolation(
-            "Function() constructor is blocked in rule files.",
-            "Function("
-          );
-        }
-        if (name === "fetch") {
-          pushViolation(
-            "fetch() is blocked in rule files. Rules should not make network requests.",
-            "fetch("
-          );
-        }
-        if (name === "require") {
-          pushViolation(
-            "require() is blocked in rule files. Use the RuleContext API instead.",
-            "require("
-          );
-        }
-        break;
-      }
-      case "NewExpression": {
-        if (node.callee?.name === "Function") {
-          pushViolation(
-            "new Function() is blocked in rule files.",
-            "new Function("
+            "import.meta"
           );
         }
         break;
@@ -444,40 +475,35 @@ export function scanRuleSource(
         }
         break;
       }
-      case "AssignmentExpression": {
-        const left = node.left;
-        if (left && left.type === "MemberExpression") {
-          if (left.object?.name === "globalThis") {
-            pushViolation(
-              "Mutating globalThis is blocked in rule files.",
-              "globalThis."
-            );
-          }
-          if (
-            left.object?.name === "process" &&
-            left.property?.name === "env"
-          ) {
-            const target = `${left.object.name}.${left.property.name}`;
-            pushViolation(
-              `Mutating ${target} is blocked in rule files.`,
-              target
-            );
-          }
-        }
-        break;
-      }
     }
 
-    // Recurse into child nodes
-    for (const value of Object.values(node)) {
+    // Recurse into child nodes, checking each for a banned-global reference as
+    // we descend. The parent knows whether a child sits in a property-key slot
+    // (`foo.process`, `{ process: 1 }`) — a name there, not the global — so the
+    // check is done here rather than in a per-node case. Assignments that mutate
+    // a global (e.g. its `env`) are caught by this same reference check.
+    for (const [key, value] of Object.entries(node)) {
+      const isPropertyKey =
+        (node.type === "MemberExpression" &&
+          key === "property" &&
+          !(node.computed ?? false)) ||
+        (node.type === "Property" &&
+          key === "key" &&
+          !(node.computed ?? false));
       if (Array.isArray(value)) {
         for (const item of value) {
           const child = parseNode(item);
-          if (child) walk(child);
+          if (child) {
+            checkBannedIdentifier(child, false);
+            walk(child);
+          }
         }
       } else {
         const child = parseNode(value);
-        if (child) walk(child);
+        if (child) {
+          checkBannedIdentifier(child, isPropertyKey);
+          walk(child);
+        }
       }
     }
   }
@@ -490,139 +516,19 @@ export function scanRuleSource(
 }
 
 /**
- * Extra patterns blocked for imported (untrusted) rule files.
+ * Scan an imported (untrusted) `.rules.ts` source.
  *
- * `require` is deliberately absent: `scanRuleSource()` now blocks it for every
- * rule file, first-party or not, and listing it here too would report the same
- * call twice.
- */
-const IMPORTED_BLOCKED_GLOBALS = new Set(["WebSocket"]);
-
-/**
- * Scan an imported (untrusted) `.rules.ts` source with stricter checks.
- *
- * Runs the standard `scanRuleSource()` first, then adds extra checks for
- * patterns that are acceptable in first-party rules but dangerous in
- * imported rules:
- *   - `Bun.env` access
- *   - environment variable reads via process
- *   - `require()` calls
- *   - `WebSocket` usage
+ * Historically this added stricter checks than `scanRuleSource()` — imported
+ * rules were forbidden the environment reads (via `Bun` and `process`),
+ * `require()`, and `WebSocket` that first-party rules were allowed. Those are
+ * all now blocked for *every* rule file: naming `Bun`, `process`, `require`, or
+ * `WebSocket`
+ * (or any other runtime global) is refused by the banned-globals check in
+ * `scanRuleSource()`. First-party and imported scans have therefore converged,
+ * and this delegates. It remains a distinct export so the `adr import` call
+ * site reads intentionally, and so the two can diverge again if a future
+ * imported-only restriction is ever needed.
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
-  let js: string;
-  try {
-    js = tsTranspiler.transformSync(source);
-  } catch (err) {
-    const msg =
-      err instanceof AggregateError && err.errors.length > 0
-        ? String(err.errors[0])
-        : err instanceof Error
-          ? err.message
-          : String(err);
-    return [
-      {
-        message: `Parse error: ${msg}`,
-        line: 1,
-        column: 0,
-        endLine: 1,
-        endColumn: 0,
-      },
-    ];
-  }
-
-  let ast: MeriyahProgram;
-  try {
-    ast = parseJsModule(js);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return [
-      {
-        message: `Parse error: ${msg}`,
-        line: 1,
-        column: 0,
-        endLine: 1,
-        endColumn: 0,
-      },
-    ];
-  }
-  const rawViolations: RawViolation[] = [];
-
-  const seenCounts = new Map<string, number>();
-  function pushViolation(message: string, searchText: string) {
-    const count = seenCounts.get(searchText) ?? 0;
-    seenCounts.set(searchText, count + 1);
-    rawViolations.push({ message, searchText, occurrence: count });
-  }
-
-  function walkImported(node: AstNode): void {
-    if (!node || typeof node !== "object") return;
-
-    switch (node.type) {
-      case "MemberExpression": {
-        const obj = node.object;
-        const prop = node.property;
-        if (!obj || !prop) break;
-        const computed = node.computed ?? false;
-
-        // Block Bun.env
-        if (obj.name === "Bun" && !computed && prop.name === "env") {
-          pushViolation(
-            "Bun.env access is blocked in imported rule files.",
-            "Bun.env"
-          );
-        }
-
-        // Block process env reads
-        if (obj.name === "process" && !computed && prop.name === "env") {
-          const target = `${obj.name}.${prop.name}`;
-          pushViolation(
-            `${target} access is blocked in imported rule files.`,
-            target
-          );
-        }
-        break;
-      }
-      case "CallExpression": {
-        const name = node.callee?.name;
-        if (name && IMPORTED_BLOCKED_GLOBALS.has(name)) {
-          pushViolation(
-            `${name}() is blocked in imported rule files.`,
-            `${name}(`
-          );
-        }
-        break;
-      }
-      case "NewExpression": {
-        const name = node.callee?.name;
-        if (name && IMPORTED_BLOCKED_GLOBALS.has(name)) {
-          pushViolation(
-            `new ${name}() is blocked in imported rule files.`,
-            `new ${name}(`
-          );
-        }
-        break;
-      }
-    }
-
-    for (const value of Object.values(node)) {
-      if (Array.isArray(value)) {
-        for (const item of value) {
-          const child = parseNode(item);
-          if (child) walkImported(child);
-        }
-      } else {
-        const child = parseNode(value);
-        if (child) walkImported(child);
-      }
-    }
-  }
-
-  const importedRoot = parseNode(ast);
-  if (importedRoot) walkImported(importedRoot);
-
-  // Combine: standard scan + imported-only scan (reuse transpiled JS)
-  const standardViolations = scanRuleSource(source, js);
-  const importedViolations = remapViolations(source, rawViolations);
-  return standardViolations.concat(importedViolations);
+  return scanRuleSource(source);
 }

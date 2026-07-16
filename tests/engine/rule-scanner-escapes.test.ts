@@ -15,7 +15,10 @@
  */
 import { describe, expect, test } from "bun:test";
 
-import { scanRuleSource } from "../../src/engine/rule-scanner";
+import {
+  scanImportedRuleSource,
+  scanRuleSource,
+} from "../../src/engine/rule-scanner";
 
 describe("rule sandbox escapes", () => {
   // Regression: the ImportExpression case rejected only *non-literal*
@@ -87,13 +90,14 @@ describe("rule sandbox escapes", () => {
   });
 
   describe("require and process internals", () => {
+    // `require` is a banned global identifier, so naming it in any position
+    // (call, alias, argument) is refused.
     test("blocks require()", () => {
       const violations = scanRuleSource(
         `const cp = require("node:child_process");`
       );
-      expect(
-        violations.filter((v) => v.message.includes("require()"))
-      ).toHaveLength(1);
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain('"require" global');
     });
 
     test("blocks import.meta.require()", () => {
@@ -104,15 +108,28 @@ describe("rule sandbox escapes", () => {
       expect(violations[0].message).toContain("import.meta.require()");
     });
 
-    // process.binding / dlopen reach spawn and native code without importing
-    // anything. Matched on the property name, so an aliased receiver such as
-    // `globalThis.process` cannot spell around the check.
+    // The computed spelling `import.meta["require"]` reaches the same require()
+    // escape. It must be blocked AND report a real position — the anchor is
+    // `import.meta` (common to both spellings) so the violation does not remap
+    // to line 0 when the original source used brackets.
+    test("blocks computed import.meta['require']() with a real position", () => {
+      const violations = scanRuleSource(
+        `const cp = import.meta["require"]("node:child_process");`
+      );
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain("import.meta.require()");
+      expect(violations[0].line).toBe(1);
+    });
+
+    // process internals (`binding`, `dlopen`) reach spawn and native code, but
+    // they are reached *through* the `process` global — which is itself banned,
+    // so naming `process` in any spelling is what the scanner refuses.
     test("blocks process.binding()", () => {
       const violations = scanRuleSource(
         `const cp = process.binding("spawn_sync");`
       );
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain(".binding()");
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain('"process" global');
     });
 
     test("blocks globalThis.process.binding()", () => {
@@ -152,9 +169,9 @@ describe("rule sandbox escapes", () => {
       expect(scanRuleSource(source)).toHaveLength(0);
     });
   });
-  // Property access has two spellings, and a receiver can be aliased. Matching
-  // `prop.name` on an object named `process` sees only `process.binding(...)`;
-  // these are the same capability wearing different clothes.
+  // A capability reached through a banned global is refused wherever the global
+  // is named — dotted, computed, aliased, or chained — because the block is on
+  // naming `process`/`globalThis`, not on the property spelling.
   describe("computed access and aliased receivers", () => {
     const spellings: Array<[string, string]> = [
       ["computed literal key", `const cp = process["binding"]("spawn_sync");`],
@@ -281,6 +298,157 @@ const b = 2${RLO};`);
 
     test("escaped identifiers resolve too", () => {
       expect(scanRuleSource(IDENT).length).toBeGreaterThan(0);
+    });
+  });
+
+  // `Bun`, `process`, and the global object are LIVE globals in the rule
+  // runtime — reachable with no import at all. Blocking the syntactic shapes
+  // (`Bun.spawn`, `Bun[x]`) is the same losing game the module denylist was:
+  // aliasing, destructuring, reflection, and global-object aliases all reach
+  // the identical capability. The scanner instead blocks *naming* the global.
+  describe("reflective and aliased access to runtime globals", () => {
+    const reachSpawn: Array<[string, string]> = [
+      ["direct Bun.spawn", `Bun.spawn(["ls"]);`],
+      ["Reflect.get(Bun, ...)", `Reflect.get(Bun, "spawn")(["ls"]);`],
+      ["destructuring Bun", `const { spawn } = Bun;\nspawn(["ls"]);`],
+      ["aliasing Bun", `const B = Bun;\nB.spawn(["ls"]);`],
+      ["globalThis.Bun.spawn", `globalThis.Bun.spawn(["ls"]);`],
+      ["global.Bun.spawn (Node alias)", `global.Bun.spawn(["ls"]);`],
+      ["self.Bun.spawn (Web alias)", `self.Bun.spawn(["ls"]);`],
+      [
+        "Object.getOwnPropertyDescriptor(Bun, ...)",
+        `Object.getOwnPropertyDescriptor(Bun, "spawn").value(["ls"]);`,
+      ],
+      ["Reflect.get(process, ...)", `Reflect.get(process, "binding")("x");`],
+    ];
+
+    for (const [label, source] of reachSpawn) {
+      test(`blocks ${label}`, () => {
+        const violations = scanRuleSource(source);
+        expect(violations.length).toBeGreaterThan(0);
+      });
+    }
+
+    // Every eval-equivalent identifier is banned, and — crucially — so is
+    // aliasing it, which the old callee-name checks missed.
+    const codegen: Array<[string, string]> = [
+      ["eval()", `eval("x");`],
+      ["aliased eval", `const e = eval;\ne("x");`],
+      ["Function()", `Function("return 1")();`],
+      ["new Function()", `new Function("return 1");`],
+      ["aliased fetch", `const f = fetch;\nf("http://x");`],
+      ["aliased require", `const r = require;\nr("fs");`],
+      ["WebSocket", `new WebSocket("ws://x");`],
+      ["XMLHttpRequest", `new XMLHttpRequest();`],
+      ["EventSource", `new EventSource("http://x");`],
+    ];
+
+    for (const [label, source] of codegen) {
+      test(`blocks ${label}`, () => {
+        expect(scanRuleSource(source).length).toBeGreaterThan(0);
+      });
+    }
+
+    // `.constructor` reaches the Function constructor (= eval) from any object,
+    // which would otherwise bypass every check including the module allowlist.
+    test("blocks the Function-constructor chain (dotted)", () => {
+      const violations = scanRuleSource(
+        `(() => {}).constructor("return 1")();`
+      );
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain(".constructor");
+    });
+
+    test("blocks .constructor via a computed string literal", () => {
+      expect(
+        scanRuleSource(`(() => {})["constructor"]("return 1")();`).length
+      ).toBeGreaterThan(0);
+    });
+
+    // Destructuring reaches `.constructor` through a binding pattern the
+    // MemberExpression case never sees: `const { constructor: F } = x` READS
+    // `x.constructor`. Same eval reach, so the same block must apply.
+    const destructured: Array<[string, string]> = [
+      [
+        "renamed key",
+        `const { constructor: F } = (() => {});\nF("return 1")();`,
+      ],
+      ["computed string key", `const { ["constructor"]: F } = (() => {});`],
+      ["shorthand key", `const { constructor } = (() => {});`],
+    ];
+
+    for (const [label, source] of destructured) {
+      test(`blocks .constructor destructured via ${label}`, () => {
+        const violations = scanRuleSource(source);
+        expect(violations.length).toBeGreaterThan(0);
+        expect(violations[0].message).toContain("constructor");
+      });
+    }
+
+    // The computed-*variable* key is the same static-analysis residual as the
+    // member form above: `{ [c]: F }` with `c` bound at runtime is unknowable
+    // without value tracking, so it is left to execution-time isolation rather
+    // than chased (blocking all computed destructuring would reject ordinary
+    // `const { [k]: v } = obj`). Asserted so the limit stays explicit.
+    test("does NOT catch .constructor destructured via a runtime-computed key (known limit)", () => {
+      expect(
+        scanRuleSource(
+          `const c = "constructor";\nconst { [c]: F } = (() => {});`
+        )
+      ).toHaveLength(0);
+    });
+
+    // A property name built at runtime (`obj[variable]`) is unknowable to a
+    // scanner that does not track values — the documented static-analysis limit
+    // (see ARCH-024). Blocking all computed access would reject ordinary
+    // `arr[i]`/`obj[key]`, so this residual is left to execution-time
+    // isolation, not chased with more pattern-matching. Asserted so the limit
+    // is explicit rather than an accidental gap.
+    test("does NOT catch .constructor via a runtime-computed key (known limit)", () => {
+      expect(
+        scanRuleSource(`const c = "constructor";\nconst F = (() => {})[c];`)
+      ).toHaveLength(0);
+    });
+
+    test("imported-rule scan applies the same block", () => {
+      expect(
+        scanImportedRuleSource(`const { spawn } = Bun;`).length
+      ).toBeGreaterThan(0);
+    });
+  });
+
+  // Blocking the globals must not swallow the ordinary shapes rules use.
+  describe("legitimate global-adjacent code still passes", () => {
+    test("allows Object.keys / values / entries", () => {
+      expect(
+        scanRuleSource(
+          `const a = Object.keys({});\nconst b = Object.values({});\nconst c = Object.entries({});`
+        )
+      ).toHaveLength(0);
+    });
+
+    test("allows a property or key that merely shares a global's name", () => {
+      expect(
+        scanRuleSource(`const cfg = { process: true };\nconst x = cfg.process;`)
+      ).toHaveLength(0);
+    });
+
+    // A same-named property key BEFORE a real reference must not steal the
+    // reported position: the key `Bun` in `{ Bun: true }` is a code occurrence
+    // the remapper counts, so the counter has to advance past it for the true
+    // `Bun.spawn` reference on line 2 to remap correctly (not onto line 1).
+    test("reports the real reference, not an earlier same-named key", () => {
+      const violations = scanRuleSource(
+        `const cfg = { Bun: true };\nBun.spawn([]);`
+      );
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain('"Bun" global');
+      expect(violations[0].line).toBe(2);
+    });
+
+    test("allows a normal RuleContext-only rule", () => {
+      const source = `export default { rules: { r: { description: "d", async check(ctx) { const files = await ctx.glob("**/*.ts"); const text = await ctx.readFile(files[0]); if (text.includes("TODO")) ctx.report.warning({ message: "m", file: files[0] }); } } } };`;
+      expect(scanRuleSource(source)).toHaveLength(0);
     });
   });
 });
