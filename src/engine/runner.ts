@@ -5,6 +5,7 @@ import { relative, resolve, isAbsolute } from "node:path";
 
 import type {
   AstLanguage,
+  AstOptions,
   EsTreeProgram,
   GrepMatch,
   PythonAstModule,
@@ -21,9 +22,11 @@ import {
   RUBY_AST_PROGRAM,
   RUBY_BASENAMES,
   interpreterCandidates,
+  materializeAstInput,
   parseAstJson,
   parseErrorMessage,
   probeInterpreter,
+  readBaseSourceOrThrow,
   runAstSubprocess,
 } from "./ast-support";
 import {
@@ -31,9 +34,11 @@ import {
   getStagedFiles,
   getFilesChangedSinceRef,
   getGitTrackedFiles,
+  getMergeBase,
+  getFileAtRev,
 } from "./git-files";
 import { listMatchingFiles } from "./glob-utils";
-import { parseJsModule } from "./js-parser";
+import { parseTsOrJsSource } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
 
@@ -134,7 +139,8 @@ function createRuleContext(
   violations: ViolationDetail[],
   trackedFiles: Set<string> | null,
   interpreterCache: Map<string, Promise<string | null>>,
-  caches: RunCaches
+  caches: RunCaches,
+  baseRev: string | null
 ): RuleContext {
   const resolvedRoot = resolve(projectRoot);
 
@@ -178,18 +184,36 @@ function createRuleContext(
   // ARCH-022: ctx.ast() implementation. Overload declarations match
   // RuleContext["ast"] so each language narrows to the correct return type.
   // The four guardrails below MUST run in this order before any subprocess.
+  // `{ rev: "base" }` parses the file's content at the comparison base commit
+  // instead of the working tree; the guardrails are identical, only the source
+  // acquisition differs.
   async function astImpl(
     path: string,
-    language: "typescript" | "javascript"
+    language: "typescript" | "javascript",
+    opts?: AstOptions
   ): Promise<EsTreeProgram>;
   async function astImpl(
     path: string,
-    language: "python"
+    language: "python",
+    opts?: AstOptions
   ): Promise<PythonAstModule>;
-  async function astImpl(path: string, language: "ruby"): Promise<RubyAstNode>;
-  async function astImpl(path: string, language: AstLanguage) {
-    // Guardrail 1: path safety — same sandbox as readFile/glob.
+  async function astImpl(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstNode>;
+  async function astImpl(
+    path: string,
+    language: AstLanguage,
+    opts?: AstOptions
+  ) {
+    // Guardrail 1: path safety — same sandbox as readFile/glob. Applied even
+    // for { rev: "base" }, where the bytes come from git rather than disk: the
+    // path still must be a sane in-project path, and this yields the
+    // repo-relative form `git show` needs.
     const absPath = safePath(resolvedRoot, path);
+    const relPath = relative(resolvedRoot, absPath).replaceAll("\\", "/");
+    const useBase = opts?.rev === "base";
 
     // Guardrail 2: language plausibility — refuse to hand a file to an
     // interpreter unless its name plausibly matches the requested language.
@@ -211,24 +235,11 @@ function createRuleContext(
     // In-process branch: TypeScript/JavaScript via the shared meriyah
     // parser (js-parser.ts). No subprocess is spawned for these languages.
     if (language === "typescript" || language === "javascript") {
-      const source = await cachedFileText(absPath);
+      const source = useBase
+        ? await readBaseSourceOrThrow(projectRoot, baseRev, relPath, path)
+        : await cachedFileText(absPath);
       try {
-        if (language === "typescript") {
-          const loader = lowerPath.endsWith(".tsx") ? "tsx" : "ts";
-          const js = new Bun.Transpiler({ loader }).transformSync(source);
-          // .cts is TypeScript CommonJS — parse the transpiled JS as a
-          // sloppy-mode script (mirroring the .cjs handling below).
-          return parseJsModule(js, {
-            sourceType: lowerPath.endsWith(".cts") ? "script" : "module",
-          });
-        }
-        // .cjs cannot legally contain import/export in Node — parse it as
-        // a sloppy-mode script so CommonJS-isms (top-level return, `with`)
-        // do not fail under module/strict grammar.
-        return parseJsModule(source, {
-          jsx: lowerPath.endsWith(".jsx"),
-          sourceType: lowerPath.endsWith(".cjs") ? "script" : "module",
-        });
+        return parseTsOrJsSource(language, path, source);
       } catch (err) {
         throw new Error(
           `Failed to parse "${path}" as ${language}: ${parseErrorMessage(err)}`
@@ -252,22 +263,47 @@ function createRuleContext(
       );
     }
 
-    // Guardrail 4: guarded invocation — array args only, path via argv.
-    // Python runs in isolated mode (-I): without it, `python -c` puts the
-    // cwd (the target project root) on sys.path, so a hostile project
-    // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
-    // code when the serializer imports them. Ruby is safe as-is — its
-    // load path has not included the cwd since 1.9.2.
-    const cmd =
-      language === "python"
-        ? [interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]
-        : [interpreter, "-rripper", "-rjson", "-e", RUBY_AST_PROGRAM, absPath];
-    const { exitCode, stdout, stderr } = await runAstSubprocess(cmd);
-    if (exitCode !== 0) {
-      const detail = stderr.trim() || `exit code ${exitCode}`;
-      throw new Error(`Failed to parse "${path}" as ${language}: ${detail}`);
+    // For { rev: "base" }, the interpreter serializers read a file path from
+    // argv, but the base content is not on disk — materialize it to a throwaway
+    // temp file and hand that path to the same, unchanged program (and the same
+    // `-I` isolation). Cleaned up in `finally` regardless of outcome.
+    const { sourcePath, cleanup } = await materializeAstInput({
+      useBase,
+      absPath,
+      ext: language === "python" ? ".py" : ".rb",
+      projectRoot,
+      baseRev,
+      relPath,
+      displayPath: path,
+    });
+
+    try {
+      // Guardrail 4: guarded invocation — array args only, path via argv.
+      // Python runs in isolated mode (-I): without it, `python -c` puts the
+      // cwd (the target project root) on sys.path, so a hostile project
+      // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
+      // code when the serializer imports them. Ruby is safe as-is — its
+      // load path has not included the cwd since 1.9.2.
+      const cmd =
+        language === "python"
+          ? [interpreter, "-I", "-c", PYTHON_AST_PROGRAM, sourcePath]
+          : [
+              interpreter,
+              "-rripper",
+              "-rjson",
+              "-e",
+              RUBY_AST_PROGRAM,
+              sourcePath,
+            ];
+      const { exitCode, stdout, stderr } = await runAstSubprocess(cmd);
+      if (exitCode !== 0) {
+        const detail = stderr.trim() || `exit code ${exitCode}`;
+        throw new Error(`Failed to parse "${path}" as ${language}: ${detail}`);
+      }
+      return parseAstJson(stdout, path, language);
+    } finally {
+      cleanup?.();
     }
-    return parseAstJson(stdout, path, language);
   }
 
   return {
@@ -353,6 +389,21 @@ function createRuleContext(
       return cachedFileText(absPath);
     },
 
+    /**
+     * Read a file's source at the comparison base revision. Returns null when
+     * no base is resolved (no `--base`, or unrelated histories) or the path did
+     * not exist at the base (an added file) — the two "nothing to compare
+     * against" cases a caller checks with a single null test. Unlike
+     * `ctx.ast({ rev: "base" })`, this primitive reports absence as null rather
+     * than throwing.
+     */
+    fileAtBase(path: string): Promise<string | null> {
+      const absPath = safePath(resolvedRoot, path);
+      if (!baseRev) return Promise.resolve(null);
+      const relPath = relative(resolvedRoot, absPath).replaceAll("\\", "/");
+      return getFileAtRev(projectRoot, baseRev, relPath);
+    },
+
     readJSON(path: string): Promise<any> {
       const absPath = safePath(resolvedRoot, path);
       return Bun.file(absPath).json();
@@ -380,6 +431,15 @@ export async function runChecks(
       ? getFilesChangedSinceRef(projectRoot, options.base)
       : Promise.resolve([]);
   const allTrackedFilesPromise = getGitTrackedFiles(projectRoot);
+
+  // Resolve the base commit for `ctx.fileAtBase()` / `ctx.ast({ rev: "base" })`
+  // once per run. It is the merge base of `--base` and HEAD — the same commit
+  // `changedFiles` diffs against (three-dot). Null when no `--base` is given
+  // (staged or default runs), so base-revision access reports "no base".
+  const baseRevPromise: Promise<string | null> =
+    !options.staged && options.base
+      ? getMergeBase(projectRoot, options.base)
+      : Promise.resolve(null);
 
   // Do synchronous work while git subprocesses run
   const results: RuleResult[] = loadResults
@@ -411,10 +471,11 @@ export async function runChecks(
     }
   }
 
-  // Await both git operations (started above, run concurrently)
-  const [changedFiles, allTrackedFiles] = await Promise.all([
+  // Await the git operations (started above, run concurrently)
+  const [changedFiles, allTrackedFiles, baseRev] = await Promise.all([
     changedFilesPromise,
     allTrackedFilesPromise,
+    baseRevPromise,
   ]);
 
   // ARCH-022: the ctx.ast() interpreter probe is cached once per check
@@ -463,7 +524,8 @@ export async function runChecks(
           violations,
           trackedFiles,
           interpreterCache,
-          caches
+          caches,
+          baseRev
         );
 
         try {

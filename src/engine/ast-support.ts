@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { AstLanguage } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
+import { getFileAtRev } from "./git-files";
 
 /**
  * Support code for `ctx.ast()` (ARCH-022). Definitions live here to keep
@@ -201,6 +206,99 @@ export function parseAstJson(
       `Failed to parse "${path}" as ${language}: interpreter produced invalid JSON output`
     );
   }
+}
+
+/**
+ * Read a file's source at the comparison base revision for
+ * `ctx.ast(path, lang, { rev: "base" })`, throwing on the two cases the AST
+ * contract must never paper over: no base is resolvable, or the path did not
+ * exist at the base. Both throw rather than returning null — a silent miss
+ * would let a rule report a false "no change." `displayPath` is the
+ * caller-facing path used in error messages.
+ */
+export async function readBaseSourceOrThrow(
+  projectRoot: string,
+  baseRev: string | null,
+  relPath: string,
+  displayPath: string
+): Promise<string> {
+  if (!baseRev) {
+    throw new Error(
+      `ctx.ast("${displayPath}", …, { rev: "base" }) needs a base revision, but none is resolved — run \`archgate check --base <ref>\``
+    );
+  }
+  const source = await getFileAtRev(projectRoot, baseRev, relPath);
+  if (source === null) {
+    throw new Error(
+      `"${displayPath}" did not exist at the base revision (${baseRev.slice(0, 9)}) — nothing to parse at { rev: "base" }`
+    );
+  }
+  return source;
+}
+
+/** Monotonic suffix so concurrent temp files within one run never collide. */
+let tempSourceCounter = 0;
+
+/**
+ * Write source to a throwaway temp file and return its path plus a cleanup
+ * thunk. Used only for `ctx.ast(path, lang, { rev: "base" })` on Python/Ruby:
+ * the base revision's content is not on disk, but the interpreter serializers
+ * read a file path from argv. Writing it to a temp file lets the existing,
+ * unchanged `PYTHON_AST_PROGRAM`/`RUBY_AST_PROGRAM` (and the mandatory `-I`
+ * isolation) parse it without a second code path.
+ *
+ * The file lives in the OS temp dir, never the project tree, so it is outside
+ * any interpreter's cwd-derived load path even before `-I` is considered.
+ * `cleanup()` is best-effort and never throws.
+ */
+export function writeTempSourceFile(
+  content: string,
+  ext: string
+): { path: string; cleanup: () => void } {
+  tempSourceCounter += 1;
+  const path = join(
+    tmpdir(),
+    `archgate-ast-${process.pid}-${tempSourceCounter}${ext}`
+  );
+  writeFileSync(path, content, "utf8");
+  return {
+    path,
+    cleanup: () => {
+      try {
+        rmSync(path, { force: true });
+      } catch {
+        // Best effort — a leftover temp file is harmless.
+      }
+    },
+  };
+}
+
+/**
+ * Resolve the file path the Python/Ruby serializer subprocess should read.
+ *
+ * For a working-tree parse this is just the on-disk file. For `{ rev: "base" }`
+ * the base content is not on disk, so it is fetched from git and written to a
+ * throwaway temp file, whose path is returned alongside a `cleanup` thunk the
+ * caller MUST invoke in a `finally`.
+ */
+export async function materializeAstInput(args: {
+  useBase: boolean;
+  absPath: string;
+  ext: string;
+  projectRoot: string;
+  baseRev: string | null;
+  relPath: string;
+  displayPath: string;
+}): Promise<{ sourcePath: string; cleanup?: () => void }> {
+  if (!args.useBase) return { sourcePath: args.absPath };
+  const source = await readBaseSourceOrThrow(
+    args.projectRoot,
+    args.baseRev,
+    args.relPath,
+    args.displayPath
+  );
+  const tmp = writeTempSourceFile(source, args.ext);
+  return { sourcePath: tmp.path, cleanup: tmp.cleanup };
 }
 
 /** Extract a readable message from Bun.Transpiler/meriyah parse errors. */

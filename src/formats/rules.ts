@@ -68,6 +68,20 @@ export interface PackageJson {
 export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
+ * Options for `RuleContext.ast()`.
+ *
+ * - `rev: "base"` parses the file's content at the comparison base commit (the
+ *   merge base of `--base` and HEAD) instead of the working tree. Use it to ask
+ *   "did the executable structure change?" — comments and formatting drop out
+ *   of both the ESTree and Python `ast` shapes, so a comment-only edit yields
+ *   an identical tree. Throws if no base is resolved or the file did not exist
+ *   at the base; pair with `fileAtBase()` when you need to detect that first.
+ */
+export interface AstOptions {
+  rev?: "base";
+}
+
+/**
  * A node in the ESTree tree returned for `"typescript"`/`"javascript"`.
  * `type` is the ESTree node discriminant (e.g. `"ImportDeclaration"`,
  * `"CallExpression"`). Only the fields common to every node are typed; the
@@ -141,6 +155,14 @@ export interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  /**
+   * Read a file's source at the comparison base revision (the merge base of
+   * `--base` and HEAD). Returns null when no base is resolved (no `--base`, or
+   * unrelated histories) or the path did not exist at the base — the two
+   * "nothing to compare against" cases, checkable with one null test. For a
+   * structural comparison prefer `ast(path, language, { rev: "base" })`.
+   */
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
@@ -156,15 +178,23 @@ export interface RuleContext {
    * corresponding interpreter (`python3`/`python`, `ruby`) on PATH wherever
    * `archgate check` runs — locally and in CI.
    *
+   * Pass `{ rev: "base" }` (see {@link AstOptions}) to parse the file at the
+   * comparison base commit instead of the working tree.
+   *
    * Throws (never returns null) when the file fails to parse or the required
    * interpreter is missing; the error message distinguishes the two cases.
    */
   ast(
     path: string,
-    language: "typescript" | "javascript"
+    language: "typescript" | "javascript",
+    opts?: AstOptions
   ): Promise<EsTreeProgram>;
-  ast(path: string, language: "python"): Promise<PythonAstModule>;
-  ast(path: string, language: "ruby"): Promise<RubyAstNode>;
+  ast(
+    path: string,
+    language: "python",
+    opts?: AstOptions
+  ): Promise<PythonAstModule>;
+  ast(path: string, language: "ruby", opts?: AstOptions): Promise<RubyAstNode>;
   ast(path: string, language: AstLanguage): Promise<AstNode>;
   report: RuleReport;
 }

@@ -39,3 +39,31 @@ export function parseJsModule(
   }
   return parseModule(source, { next: true, loc: true, module: true, jsx });
 }
+
+/**
+ * Parse TypeScript/JavaScript *source* into an ESTree AST, selecting the right
+ * transpile/parse mode from the file extension. Shared by `ctx.ast()`'s TS/JS
+ * branch for both working-tree and base-revision (`{ rev: "base" }`) source.
+ *
+ * TypeScript is transpiled by `Bun.Transpiler` first (which strips types and
+ * comments — see ARCH-022 on why `loc` is transpiled-relative for TS). `.cts`
+ * and `.cjs` are CommonJS and parse as sloppy-mode scripts; `.jsx` enables JSX.
+ */
+export function parseTsOrJsSource(
+  language: "typescript" | "javascript",
+  path: string,
+  source: string
+): MeriyahProgram {
+  const lower = path.toLowerCase();
+  if (language === "typescript") {
+    const loader = lower.endsWith(".tsx") ? "tsx" : "ts";
+    const js = new Bun.Transpiler({ loader }).transformSync(source);
+    return parseJsModule(js, {
+      sourceType: lower.endsWith(".cts") ? "script" : "module",
+    });
+  }
+  return parseJsModule(source, {
+    jsx: lower.endsWith(".jsx"),
+    sourceType: lower.endsWith(".cjs") ? "script" : "module",
+  });
+}
