@@ -108,6 +108,19 @@ describe("rule sandbox escapes", () => {
       expect(violations[0].message).toContain("import.meta.require()");
     });
 
+    // The computed spelling `import.meta["require"]` reaches the same require()
+    // escape. It must be blocked AND report a real position — the anchor is
+    // `import.meta` (common to both spellings) so the violation does not remap
+    // to line 0 when the original source used brackets.
+    test("blocks computed import.meta['require']() with a real position", () => {
+      const violations = scanRuleSource(
+        `const cp = import.meta["require"]("node:child_process");`
+      );
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain("import.meta.require()");
+      expect(violations[0].line).toBe(1);
+    });
+
     // process internals (`binding`, `dlopen`) reach spawn and native code, but
     // they are reached *through* the `process` global — which is itself banned,
     // so naming `process` in any spelling is what the scanner refuses.
@@ -326,6 +339,8 @@ const b = 2${RLO};`);
       ["aliased fetch", `const f = fetch;\nf("http://x");`],
       ["aliased require", `const r = require;\nr("fs");`],
       ["WebSocket", `new WebSocket("ws://x");`],
+      ["XMLHttpRequest", `new XMLHttpRequest();`],
+      ["EventSource", `new EventSource("http://x");`],
     ];
 
     for (const [label, source] of codegen) {
@@ -348,6 +363,39 @@ const b = 2${RLO};`);
       expect(
         scanRuleSource(`(() => {})["constructor"]("return 1")();`).length
       ).toBeGreaterThan(0);
+    });
+
+    // Destructuring reaches `.constructor` through a binding pattern the
+    // MemberExpression case never sees: `const { constructor: F } = x` READS
+    // `x.constructor`. Same eval reach, so the same block must apply.
+    const destructured: Array<[string, string]> = [
+      [
+        "renamed key",
+        `const { constructor: F } = (() => {});\nF("return 1")();`,
+      ],
+      ["computed string key", `const { ["constructor"]: F } = (() => {});`],
+      ["shorthand key", `const { constructor } = (() => {});`],
+    ];
+
+    for (const [label, source] of destructured) {
+      test(`blocks .constructor destructured via ${label}`, () => {
+        const violations = scanRuleSource(source);
+        expect(violations.length).toBeGreaterThan(0);
+        expect(violations[0].message).toContain("constructor");
+      });
+    }
+
+    // The computed-*variable* key is the same static-analysis residual as the
+    // member form above: `{ [c]: F }` with `c` bound at runtime is unknowable
+    // without value tracking, so it is left to execution-time isolation rather
+    // than chased (blocking all computed destructuring would reject ordinary
+    // `const { [k]: v } = obj`). Asserted so the limit stays explicit.
+    test("does NOT catch .constructor destructured via a runtime-computed key (known limit)", () => {
+      expect(
+        scanRuleSource(
+          `const c = "constructor";\nconst { [c]: F } = (() => {});`
+        )
+      ).toHaveLength(0);
     });
 
     // A property name built at runtime (`obj[variable]`) is unknowable to a
@@ -383,6 +431,19 @@ const b = 2${RLO};`);
       expect(
         scanRuleSource(`const cfg = { process: true };\nconst x = cfg.process;`)
       ).toHaveLength(0);
+    });
+
+    // A same-named property key BEFORE a real reference must not steal the
+    // reported position: the key `Bun` in `{ Bun: true }` is a code occurrence
+    // the remapper counts, so the counter has to advance past it for the true
+    // `Bun.spawn` reference on line 2 to remap correctly (not onto line 1).
+    test("reports the real reference, not an earlier same-named key", () => {
+      const violations = scanRuleSource(
+        `const cfg = { Bun: true };\nBun.spawn([]);`
+      );
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations[0].message).toContain('"Bun" global');
+      expect(violations[0].line).toBe(2);
     });
 
     test("allows a normal RuleContext-only rule", () => {

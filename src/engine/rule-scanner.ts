@@ -326,15 +326,27 @@ export function scanRuleSource(
    */
   function checkBannedIdentifier(node: AstNode, isPropertyKey: boolean): void {
     if (
-      !isPropertyKey &&
-      node.type === "Identifier" &&
-      typeof node.name === "string" &&
-      BANNED_GLOBALS.has(node.name)
+      node.type !== "Identifier" ||
+      typeof node.name !== "string" ||
+      !BANNED_GLOBALS.has(node.name)
     ) {
-      pushViolation(
-        `Reference to the "${node.name}" global is blocked in rule files. Rules reach the project only through the RuleContext API (ctx); naming a runtime global — even to alias, destructure, or reflect over it — is not permitted.`,
-        node.name
-      );
+      return;
+    }
+    // Advance the occurrence counter for EVERY code-position occurrence of the
+    // name — property-key slots included — so it stays aligned with the position
+    // remapper, which counts all code occurrences (it skips only strings and
+    // comments, not property keys). A property key (`{ Bun: 1 }`, `foo.Bun`)
+    // names a property, not the global, so it is counted but never emitted;
+    // skipping the count here would make a later *real* reference remap onto the
+    // earlier key. Bypasses `pushViolation` because it must count-without-emit.
+    const count = seenCounts.get(node.name) ?? 0;
+    seenCounts.set(node.name, count + 1);
+    if (!isPropertyKey) {
+      rawViolations.push({
+        message: `Reference to the "${node.name}" global is blocked in rule files. Rules reach the project only through the RuleContext API (ctx); naming a runtime global — even to alias, destructure, or reflect over it — is not permitted.`,
+        searchText: node.name,
+        occurrence: count,
+      });
     }
   }
 
@@ -369,6 +381,33 @@ export function scanRuleSource(
         checkModuleSpecifier(node);
         break;
       }
+      case "ObjectPattern": {
+        // Destructuring `const { constructor: F } = obj` READS `obj.constructor`
+        // — the Function constructor (= eval), the same reach as `.constructor`
+        // member access, but through a binding pattern the MemberExpression case
+        // never sees. An object *literal* `{ constructor: 1 }` (ObjectExpression)
+        // only names a property and is fine; only the pattern form performs the
+        // read. `staticPropName` covers `{ constructor: F }`, `{ ["constructor"]:
+        // F }`, and the shorthand `{ constructor }`. A runtime-computed key
+        // (`{ [c]: F }`) is the same documented static-analysis residual as the
+        // computed-variable member case (see ARCH-024).
+        const props = Array.isArray(node.properties) ? node.properties : [];
+        for (const raw of props) {
+          const p = parseNode(raw);
+          if (!p || p.type !== "Property") continue;
+          const key = parseNode(p.key);
+          if (
+            key &&
+            staticPropName(key, p.computed ?? false) === "constructor"
+          ) {
+            pushViolation(
+              "Destructuring `.constructor` is blocked in rule files — it reaches the Function constructor, which is equivalent to eval.",
+              "constructor"
+            );
+          }
+        }
+        break;
+      }
       case "MemberExpression": {
         const obj = node.object;
         const prop = node.property;
@@ -390,15 +429,20 @@ export function scanRuleSource(
 
         // Block `import.meta.require(...)` — a require() escape that names no
         // banned module and is a MetaProperty member, not a bare identifier
-        // (so the banned-globals check does not see it).
+        // (so the banned-globals check does not see it). `staticPropName` covers
+        // both `.require` and `["require"]`; the latter also reaches here via
+        // the transpiler, which rewrites the bracket form to dotted.
         if (
-          !computed &&
           obj.type === "MetaProperty" &&
-          prop.name === "require"
+          staticPropName(prop, computed) === "require"
         ) {
+          // Anchor on `import.meta` — common to `.require` and `["require"]`.
+          // Anchoring on the dotted spelling would miss (remap to line 0) when
+          // the original source used brackets, since the remapper searches the
+          // untransformed source, not the normalised AST.
           pushViolation(
             "import.meta.require() is blocked in rule files. Use the RuleContext API instead.",
-            "import.meta.require"
+            "import.meta"
           );
         }
         break;
