@@ -19,30 +19,38 @@ Dette betyr:
 
 Regler mottar et `RuleContext`-objekt med sandkassede filoperasjoner. Alle `RuleContext`-metoder (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) er begrenset til prosjektets rotkatalog -- stitraversering via `../`, absolutte stier og symbolske lenker er blokkert og kaster en feil.
 
-I tillegg til kjøringsmiljøets sandkasse kjører Archgate en **statisk analysesikkerhetsskanner** på hver `.rules.ts`-fil før den kjøres. Skanneren parser regelens AST og blokkerer filer som inneholder farlige mønstre:
+I tillegg til kjøringsmiljøets sandkasse kjører Archgate en **statisk analysesikkerhetsskanner** på hver `.rules.ts`-fil før den kjøres. Fordi en regelfil kjører i samme prosess med fulle rettigheter til den som kjører `archgate check`, er enhver modul den kan nå vilkårlig kode -- derfor bruker skanneren en **tillatelsesliste, ikke en forbudsliste**: en regel kan bare importere et lite sett med trygge moduler, og alt annet avvises.
 
-| Mønster                                                             | Blokkert |
-| ------------------------------------------------------------------- | -------- |
-| Import av `node:fs`, `child_process`, `net`, `http`, `vm`, osv.     | Ja       |
-| `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                 | Ja       |
-| `fetch()`                                                           | Ja       |
-| `eval()`, `new Function()`                                          | Ja       |
-| Beregnet egenskapstilgang (`Bun[variable]`, `globalThis[variable]`) | Ja       |
-| Dynamisk `import()` med ikke-literal argument                       | Ja       |
-| Tilordning til `globalThis` eller `process.env`                     | Ja       |
+**De eneste modulene en regelfil kan importere** er `node:path`, `node:url`, `node:util` og `node:crypto` -- verktøymoduler uten filsystem-, nettverks- eller prosessfunksjonalitet. De må bruke `node:`-prefikset; de nakne formene (`path`) kan overskygges av en pakke i målprosjektet og er blokkert. Enhver annen import avvises, uansett form -- statisk (`import ... from`), dynamisk (`await import(...)`, enten spesifikatoren er en literal eller en variabel), re-eksportert (`export ... from`), eller nådd gjennom `require()` / `import.meta.require()`.
 
-Hvis et forbudt mønster finnes, blir regelfilen **ikke importert eller kjørt**, og `archgate check` avslutter med en feil.
+Skanneren blokkerer også de andre måtene å nå kode eller funksjonalitet utenfor dette settet:
 
-**Trygge moduler som er tillatt:** `node:path`, `node:url`, `node:util`, `node:crypto` -- dette er verktøymoduler uten filsystem-, nettverks- eller prosess-I/O-funksjonalitet.
+| Mønster                                                                 | Blokkert |
+| ----------------------------------------------------------------------- | -------- |
+| Import av enhver annen modul enn de fire tillatte ovenfor               | Ja       |
+| `require()`, `import.meta.require()`                                    | Ja       |
+| `Bun.spawn()`, `Bun.spawnSync()`, `Bun.write()`, `Bun.file()`, `Bun.$`  | Ja       |
+| `fetch()`                                                               | Ja       |
+| `eval()`, `new Function()`                                              | Ja       |
+| `process.binding()`, `process.dlopen()` (på ethvert alias av `process`) | Ja       |
+| Beregnet egenskapstilgang (`Bun[variable]`, `globalThis[variable]`)     | Ja       |
+| Tilordning til `globalThis` eller `process.env`                         | Ja       |
+| Bidireksjonale eller usynlige Unicode-tegn ("Trojan Source")            | Ja       |
 
-Skanneren hever terskelen fra "trivielt å utnytte" til "krever bevisst obfuskering som ser mistenkelig ut i kodegjennomgang." Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, osv.) og `ctx.report` for utskrift.
+Hvis noe av dette finnes, blir regelfilen **ikke importert eller kjørt**, og `archgate check` avslutter med en feil.
+
+Fordi skanneren jobber ut fra det parsede syntakstreet, ser den gjennom escape-sekvenser: `await import("\x6e...")` løses til det samme modulnavnet som tillatelseslisten sjekker, så strengtriks slipper ikke forbi. Det ene en syntakstre ikke kan se, er et tegn som gjør at den viste kildekoden avviker fra koden som faktisk kjøres -- derfor avviser skanneren også bidireksjonale og usynlige Unicode-tegn direkte.
+
+**Importerte regler skannes også.** Når du henter inn tredjeparts regler med `archgate adr import`, skannes hver `.rules.ts` -- med en strengere sjekk enn førsteparts regler -- **før den skrives til disk**, slik at en importert pakke ikke kan smugle inn kode som din neste `archgate check` ville kjørt.
+
+Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, osv.) og `ctx.report` for utskrift. Når en regel trenger språkverktøy -- parsing av Python, eller sammenligning av en fil mot dens grunnleggende git-revisjon -- er `ctx.ast()` den godkjente døren; en regel trenger aldri, og kan ikke åpne, en egen underprosess.
 
 ### Hva regler ikke kan gjøre
 
 - **Skrive filer** -- `RuleContext`-API-et er skrivebeskyttet. Regler rapporterer brudd, men kan ikke endre kodebasen.
 - **Unnslippe 30-sekunders tidsgrensen** -- hver regel termineres etter 30 sekunder veggtid.
 - **Påvirke andre regler** -- regler fra forskjellige ADR-er kjører parallelt, men deler ingen mutbar tilstand gjennom kontekst-API-et.
-- **Bruke farlige API-er** -- sikkerhetsskanneren blokkerer import av systemmoduler (`fs`, `child_process`, `net`, osv.), Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`) og kodegenerering (`eval`, `new Function`). Regelfiler som inneholder disse mønstrene avvises før kjøring.
+- **Nå utenfor tillatelseslisten** -- en regel kan bare importere `node:path`, `node:url`, `node:util` og `node:crypto`. Import av enhver annen modul, Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`), underprosess- eller nativ kodetilgang (`require`, `process.binding`) og kodegenerering (`eval`, `new Function`) avvises før kjøring.
 
 ## Beste praksis for CI/CD
 
@@ -122,11 +130,11 @@ jobs:
 
 ### Gjennomgå regler i nye repositorier
 
-Når du kloner eller forker et repositorium som bruker Archgate, blokkerer sikkerhetsskanneren automatisk farlige mønstre i `.rules.ts`-filer. Du bør likevel gjennomgå regelfiler før du kjører `archgate check` for første gang:
+Når du kloner eller forker et repositorium som bruker Archgate, håndhever sikkerhetsskanneren automatisk importens tillatelsesliste i `.rules.ts`-filer. Det er en sterk første forsvarslinje -- ikke en fullstendig sandkasse -- så du bør likevel gjennomgå regelfiler før du kjører `archgate check` for første gang:
 
-- Skanneren fanger eksplisitt bruk av forbudte API-er, men sofistikert obfuskering (f.eks. `Reflect.get(Bun, "spawn")`) kan omgå den
+- Skanneren blokkerer de direkte rutene til farlige funksjoner, men den er statisk analyse, ikke et fengsel: indirekte tilgang gjennom et globalt objekt (f.eks. `Reflect.get(Bun, "spawn")`) kan fortsatt nå en API-funksjon tillatelseslisten ikke fjerner
 - Toppnivå-kode som kjører ved import (før `check`-funksjonen kalles) kjøres fortsatt hvis den består skanneren
-- Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, osv.) og `ctx.report` for utskrift
+- Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, osv.) og `ctx.report` for utskrift
 
 ### Legitimasjon
 

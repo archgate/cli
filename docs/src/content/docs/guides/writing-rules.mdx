@@ -174,7 +174,7 @@ Find files by glob pattern. Returns an array of file paths relative to the proje
 const testFiles = await ctx.glob("tests/**/*.test.ts");
 ```
 
-### ctx.ast(path, language)
+### ctx.ast(path, language, opts?)
 
 Parse a source file into its language-native AST. Supported languages: `"typescript"`, `"javascript"`, `"python"`, and `"ruby"`. TypeScript and JavaScript parse in-process into an ESTree `Program`; Python and Ruby shell out to the system interpreter's standard-library parser. Throws on parse failure or missing interpreter -- it never returns `null`.
 
@@ -182,7 +182,23 @@ Parse a source file into its language-native AST. Supported languages: `"typescr
 const program = await ctx.ast("src/cli.ts", "typescript");
 ```
 
-See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language.
+An optional third argument covers two more needs:
+
+- `{ rev: "base" }` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
+- `{ comments: true }` attaches a structured `comments` array to the tree (`typescript`/`javascript`/`python`), so comment-governance rules can work against comment tokens instead of regex.
+
+See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language and the full options.
+
+### ctx.fileAtBase(path)
+
+Read a file's source at the **base git revision** -- the merge base of the `--base` ref and `HEAD`. Returns `null` when no base is resolved (no `--base`) or the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
+
+```typescript
+const before = await ctx.fileAtBase("src/config.ts");
+if (before !== null && before !== (await ctx.readFile("src/config.ts"))) {
+  // the file changed since the base
+}
+```
 
 ### ctx.report
 
@@ -430,6 +446,59 @@ export default {
 ```
 
 Ripper uses a different node shape for the parenthesized form -- `puts("hello")` appears under a `method_add_arg` / `fcall` pair rather than `command` -- so a production rule would match the `fcall` token the same way.
+
+### Comparing against the base revision
+
+Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or docstrings moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments and formatting are absent from both the ESTree and Python `ast` shapes, so a comment-only edit produces identical trees.
+
+```typescript
+export default {
+  rules: {
+    "bump-required-on-behavior-change": {
+      description: "A .py change that alters behavior must bump the version",
+      async check(ctx) {
+        const changed = ctx.changedFiles.filter((f) => f.endsWith(".py"));
+        for (const file of changed) {
+          // No base to compare against (e.g. an added file) -- skip.
+          if ((await ctx.fileAtBase(file)) === null) continue;
+
+          const before = await ctx.ast(file, "python", { rev: "base" });
+          const after = await ctx.ast(file, "python");
+          if (JSON.stringify(before) !== JSON.stringify(after)) {
+            ctx.report.violation({
+              message: `${file} changed behavior -- bump the version`,
+              file,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+This runs with `archgate check --base <ref>`; without a base, `ctx.changedFiles` is empty and the rule is a no-op. Because base parsing goes through `ctx.ast()` and its git access is built into Archgate, the rule never runs `git` or an interpreter itself -- which the [rule sandbox](/guides/security/) would block anyway.
+
+### Governing comments
+
+`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for `typescript`, `javascript`, and `python`.
+
+```typescript
+const tree = await ctx.ast(file, "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  if (comment.value.split("\n").length > 10) {
+    ctx.report.warning({
+      message: "Comment block too long -- move rationale to an ADR",
+      file,
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+:::note
+Rule files may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Anything a rule needs beyond that -- parsing a language, reading a base revision -- comes through the `RuleContext` API. See [Rule execution security](/guides/security/) for why.
+:::
 
 ## Severity levels
 

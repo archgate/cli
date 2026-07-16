@@ -64,8 +64,9 @@ interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
-  ast(path: string, language: AstLanguage): Promise<AstNode>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   report: RuleReport;
 }
 ```
@@ -154,6 +155,30 @@ Read the contents of a file as a string. The path is relative to the project roo
 const content = await ctx.readFile("src/config.ts");
 ```
 
+#### fileAtBase
+
+```typescript
+fileAtBase(path: string): Promise<string | null>;
+```
+
+Read a file's source at the **comparison base revision** -- the merge base of the `--base` ref and `HEAD`, the same commit `changedFiles` is computed against. Use it to compare the working tree against the point the change set diverged from.
+
+Returns `null` in the two "nothing to compare against" cases, so a single null check covers both:
+
+- **No base is resolved** -- the check ran without `--base` (or the histories are unrelated).
+- **The file did not exist at the base** -- an added file.
+
+```typescript
+const before = await ctx.fileAtBase("data/schema.py");
+if (before === null) {
+  // No base version to compare against -- skip.
+  return;
+}
+const after = await ctx.readFile("data/schema.py");
+```
+
+For a **structural** comparison (ignoring comments and formatting) prefer `ast(path, language, { rev: "base" })` below.
+
 #### readJSON
 
 ```typescript
@@ -173,8 +198,14 @@ const pkg = (await ctx.readJSON("package.json")) as {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby"
+  language: "typescript" | "javascript" | "python" | "ruby",
+  opts?: AstOptions
 ): Promise<AstNode>;
+
+interface AstOptions {
+  rev?: "base";
+  comments?: boolean;
+}
 ```
 
 Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
@@ -186,13 +217,66 @@ for (const node of program.body) {
 }
 ```
 
+##### Parsing the base revision (`{ rev: "base" }`)
+
+With `{ rev: "base" }`, `ast()` parses the file at the [comparison base revision](#fileatbase) instead of the working tree -- everything else (return shape, throw contract) is identical. Parse both revisions to ask "did the executable structure change?": comments and formatting are absent from both the ESTree and the Python `ast` shapes, so a comment-only edit yields structurally identical trees.
+
+```typescript
+// Flag a change only when the executable structure actually changed,
+// ignoring comment-only edits.
+for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  const before = await ctx.ast(file, "python", { rev: "base" });
+  const after = await ctx.ast(file, "python");
+  if (!structurallyEqual(before, after)) {
+    ctx.report.violation({ message: `${file} changed behavior`, file });
+  }
+}
+```
+
+Reach for `fileAtBase()` first when you need to detect the no-base or added-file cases as ordinary control flow -- `ast({ rev: "base" })` **throws** for them (see below).
+
+##### Collecting comments (`{ comments: true }`)
+
+With `{ comments: true }`, the returned tree carries a `comments` array -- structured comment data for comment-governance rules, in place of line-by-line regex. Supported for `typescript`, `javascript`, and `python`; requesting it for `ruby` throws.
+
+```typescript
+interface CommentToken {
+  type: "line" | "block";
+  value: string; // delimiters (`//`, `/* */`, `#`) removed
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+```
+
+```typescript
+const tree = await ctx.ast("src/api.ts", "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  const lines = comment.value.split("\n").length;
+  if (lines > 10) {
+    ctx.report.warning({
+      message: "Comment block is too long -- link to an ADR instead",
+      file: "src/api.ts",
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+Comment positions are accurate against the **original source**, even for TypeScript. This is a deliberate advantage over the tree's own `loc`, which is transpiled-relative for TypeScript (see [AstNode](#astnode)): comments are scanned from the pre-transpile source, so their `loc` never drifts. Python comments are always `type: "line"` (`#`) -- Python has no block comments, and `"""` docstrings are string expressions in the tree, not comments. The TypeScript/JavaScript scanner is string- and template-literal-aware, but does not track regular-expression literals, so a comment delimiter inside a regex literal is a known blind spot.
+
+##### Failure behavior
+
 `ast()` **throws** on failure -- it never returns `null`:
 
 - **Parse failure**: the file does not parse as the requested language. The error message includes the parser's diagnostic.
 - **Missing interpreter** (`python`/`ruby` only): no suitable interpreter was found on `PATH`.
 - **Implausible input**: the file's extension does not match the requested language (e.g. `ctx.ast("config.json", "python")` throws before any interpreter is invoked).
+- **No base revision** (`{ rev: "base" }` only): the check ran without `--base`, so there is no base to parse. Use `fileAtBase()` to detect this as `null` instead.
+- **File absent at base** (`{ rev: "base" }` only): the path was added since the base and did not exist there.
 
-A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The two throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error".
+A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error" or "there is no base revision".
 
 :::caution
 Python and Ruby rules require the corresponding interpreter (`python3`/`python`, `ruby`) on `PATH` wherever `archgate check` runs -- on every developer machine **and** in CI. TypeScript and JavaScript parsing is built into Archgate and needs no interpreter.
@@ -294,6 +378,8 @@ Returned by `ctx.ast()`. The shape is language-native and deliberately **not** u
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 type AstNode = Record<string, unknown> | unknown[];
 ```
+
+When parsed with [`{ comments: true }`](#ast), the root node also carries a `comments: CommentToken[]` array (`typescript`, `javascript`, and `python` only). It is absent otherwise.
 
 | Language     | Backing parser                                                                                                     | Returned shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
