@@ -19,9 +19,14 @@ import { UserError } from "../helpers/user-error";
 import {
   AST_LANGUAGE_EXTENSIONS,
   PYTHON_AST_PROGRAM,
+  PYTHON_AST_WITH_COMMENTS_PROGRAM,
   RUBY_AST_PROGRAM,
   RUBY_BASENAMES,
+  commentsUnsupportedError,
+  finalizeAstResult,
+  implausibleLanguageError,
   interpreterCandidates,
+  interpreterNotFoundError,
   materializeAstInput,
   parseAstJson,
   parseErrorMessage,
@@ -37,7 +42,7 @@ import {
   getMergeBase,
   getFileAtRev,
 } from "./git-files";
-import { listMatchingFiles } from "./glob-utils";
+import { listMatchingFiles, matchLines } from "./glob-utils";
 import { parseTsOrJsSource } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
@@ -214,6 +219,10 @@ function createRuleContext(
     const absPath = safePath(resolvedRoot, path);
     const relPath = relative(resolvedRoot, absPath).replaceAll("\\", "/");
     const useBase = opts?.rev === "base";
+    const wantComments = opts?.comments === true;
+    if (wantComments && language === "ruby") {
+      throw commentsUnsupportedError(language, path);
+    }
 
     // Guardrail 2: language plausibility — refuse to hand a file to an
     // interpreter unless its name plausibly matches the requested language.
@@ -225,11 +234,7 @@ function createRuleContext(
       ) ||
       (language === "ruby" && RUBY_BASENAMES.has(basename));
     if (!plausible) {
-      throw new UserError(
-        `File "${path}" does not look like ${language} (expected ${AST_LANGUAGE_EXTENSIONS[
-          language
-        ].join(", ")}) — refusing to parse`
-      );
+      throw implausibleLanguageError(language, path);
     }
 
     // In-process branch: TypeScript/JavaScript via the shared meriyah
@@ -239,7 +244,7 @@ function createRuleContext(
         ? await readBaseSourceOrThrow(projectRoot, baseRev, relPath, path)
         : await cachedFileText(absPath);
       try {
-        return parseTsOrJsSource(language, path, source);
+        return parseTsOrJsSource(language, path, source, wantComments);
       } catch (err) {
         throw new Error(
           `Failed to parse "${path}" as ${language}: ${parseErrorMessage(err)}`
@@ -256,11 +261,7 @@ function createRuleContext(
     }
     const interpreter = await probe;
     if (!interpreter) {
-      throw new Error(
-        `${language === "python" ? "Python" : "Ruby"} interpreter not found on PATH (tried: ${candidates.join(
-          ", "
-        )}) — ctx.ast("${path}", "${language}") requires it wherever \`archgate check\` runs`
-      );
+      throw interpreterNotFoundError(language, candidates, path);
     }
 
     // For { rev: "base" }, the interpreter serializers read a file path from
@@ -284,9 +285,12 @@ function createRuleContext(
       // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
       // code when the serializer imports them. Ruby is safe as-is — its
       // load path has not included the cwd since 1.9.2.
+      const pyProgram = wantComments
+        ? PYTHON_AST_WITH_COMMENTS_PROGRAM
+        : PYTHON_AST_PROGRAM;
       const cmd =
         language === "python"
-          ? [interpreter, "-I", "-c", PYTHON_AST_PROGRAM, sourcePath]
+          ? [interpreter, "-I", "-c", pyProgram, sourcePath]
           : [
               interpreter,
               "-rripper",
@@ -300,7 +304,11 @@ function createRuleContext(
         const detail = stderr.trim() || `exit code ${exitCode}`;
         throw new Error(`Failed to parse "${path}" as ${language}: ${detail}`);
       }
-      return parseAstJson(stdout, path, language);
+      return finalizeAstResult(
+        parseAstJson(stdout, path, language),
+        language,
+        wantComments
+      );
     } finally {
       cleanup?.();
     }
@@ -321,22 +329,8 @@ function createRuleContext(
     async grep(file: string, pattern: RegExp): Promise<GrepMatch[]> {
       const absPath = safePath(resolvedRoot, file);
       const content = await cachedFileText(absPath);
-      const lines = content.split("\n");
-      const matches: GrepMatch[] = [];
-
-      for (let i = 0; i < lines.length; i++) {
-        const match = lines[i].match(pattern);
-        if (match) {
-          matches.push({
-            file: relative(projectRoot, absPath).replaceAll("\\", "/"),
-            line: i + 1,
-            column: (match.index ?? 0) + 1,
-            content: lines[i],
-          });
-        }
-      }
-
-      return matches;
+      const relPath = relative(projectRoot, absPath).replaceAll("\\", "/");
+      return matchLines(content, pattern, relPath);
     },
 
     async grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]> {
@@ -354,22 +348,7 @@ function createRuleContext(
             const absPath = safePath(resolvedRoot, normalized);
             try {
               const content = await cachedFileText(absPath);
-              const lines = content.split("\n");
-              const matches: GrepMatch[] = [];
-
-              for (let j = 0; j < lines.length; j++) {
-                const match = lines[j].match(pattern);
-                if (match) {
-                  matches.push({
-                    file: normalized,
-                    line: j + 1,
-                    column: (match.index ?? 0) + 1,
-                    content: lines[j],
-                  });
-                }
-              }
-
-              return matches;
+              return matchLines(content, pattern, normalized);
             } catch {
               // Skip unreadable files
               return [];

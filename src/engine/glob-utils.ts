@@ -4,7 +4,34 @@
 
 import { isAbsolute } from "node:path";
 
+import type { GrepMatch } from "../formats/rules";
 import { UserError } from "../helpers/user-error";
+
+/**
+ * Find every line of `content` matching `pattern`, as 1-based line/column
+ * `GrepMatch`es labelled with `file`. Shared by `ctx.grep` (one file) and
+ * `ctx.grepFiles` (many), which otherwise duplicated this scan.
+ */
+export function matchLines(
+  content: string,
+  pattern: RegExp,
+  file: string
+): GrepMatch[] {
+  const lines = content.split("\n");
+  const matches: GrepMatch[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].match(pattern);
+    if (match) {
+      matches.push({
+        file,
+        line: i + 1,
+        column: (match.index ?? 0) + 1,
+        content: lines[i],
+      });
+    }
+  }
+  return matches;
+}
 
 /**
  * Validate that a glob pattern cannot escape projectRoot via `..` segments.

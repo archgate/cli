@@ -68,6 +68,23 @@ export interface PackageJson {
 export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
+ * A source comment, attached to the parsed tree's `comments` array when
+ * `ast()` is called with `{ comments: true }`. `value` is the comment text
+ * with its delimiters removed (`//`, `/* … *​/`, `#`). `loc` is a position in
+ * the ORIGINAL source — accurate even for `"typescript"`, where the tree's own
+ * `loc` is transpiled-relative (comments are extracted from the pre-transpile
+ * source). Python comments are always `"line"` (`#`); it has no block comments.
+ */
+export interface CommentToken {
+  type: "line" | "block";
+  value: string;
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+
+/**
  * Options for `RuleContext.ast()`.
  *
  * - `rev: "base"` parses the file's content at the comparison base commit (the
@@ -76,9 +93,14 @@ export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
  *   of both the ESTree and Python `ast` shapes, so a comment-only edit yields
  *   an identical tree. Throws if no base is resolved or the file did not exist
  *   at the base; pair with `fileAtBase()` when you need to detect that first.
+ * - `comments: true` attaches a `comments` array of {@link CommentToken}s to
+ *   the returned tree — the structured basis for comment-governance rules, in
+ *   place of line-by-line regex. Supported for `"typescript"`/`"javascript"`
+ *   and `"python"`; requesting it for `"ruby"` throws.
  */
 export interface AstOptions {
   rev?: "base";
+  comments?: boolean;
 }
 
 /**
@@ -104,6 +126,8 @@ export interface EsTreeProgram extends EsTreeNode {
   type: "Program";
   sourceType: "module" | "script";
   body: EsTreeNode[];
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
 }
 
 /**
@@ -126,6 +150,8 @@ export interface PythonAstNode {
 export interface PythonAstModule extends PythonAstNode {
   _type: "Module";
   body: PythonAstNode[];
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
 }
 
 /**

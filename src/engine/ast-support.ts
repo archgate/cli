@@ -7,7 +7,39 @@ import { join } from "node:path";
 import type { AstLanguage } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
+import { UserError } from "../helpers/user-error";
 import { getFileAtRev } from "./git-files";
+
+/** Guardrail-2 failure: the file's name does not match the requested language. */
+export function implausibleLanguageError(
+  language: AstLanguage,
+  path: string
+): UserError {
+  return new UserError(
+    `File "${path}" does not look like ${language} (expected ${AST_LANGUAGE_EXTENSIONS[language].join(", ")}) — refusing to parse`
+  );
+}
+
+/** Guardrail-3 failure: no interpreter for the language on PATH. */
+export function interpreterNotFoundError(
+  language: "python" | "ruby",
+  candidates: string[],
+  path: string
+): Error {
+  return new Error(
+    `${language === "python" ? "Python" : "Ruby"} interpreter not found on PATH (tried: ${candidates.join(", ")}) — ctx.ast("${path}", "${language}") requires it wherever \`archgate check\` runs`
+  );
+}
+
+/** `{ comments: true }` requested for a language that does not support it yet. */
+export function commentsUnsupportedError(
+  language: AstLanguage,
+  path: string
+): UserError {
+  return new UserError(
+    `ctx.ast("${path}", "${language}", { comments: true }) is not supported yet — comments are available for typescript, javascript, and python`
+  );
+}
 
 /**
  * Support code for `ctx.ast()` (ARCH-022). Definitions live here to keep
@@ -38,16 +70,12 @@ export const AST_LANGUAGE_EXTENSIONS: Record<AstLanguage, readonly string[]> = {
 export const RUBY_BASENAMES = new Set(["rakefile", "gemfile"]);
 
 /**
- * Serializer passed to `<python> -c`. Reads the target file from argv (never
- * interpolated into the program), parses it with the standard `ast` module,
- * and prints the tree as JSON. Non-finite floats, bytes, and complex numbers
- * fall back to `repr()` so the output is always strict JSON.
+ * Shared Python preamble: the `ast`-node → JSON `convert()` used by both
+ * serializers below, plus reading the target file from argv (never
+ * interpolated into the program) into `source`/`tree`. Non-finite floats,
+ * bytes, and complex numbers fall back to `repr()` so output is strict JSON.
  */
-export const PYTHON_AST_PROGRAM = `
-import ast, json, sys
-
-sys.setrecursionlimit(10000)
-
+const PY_PREAMBLE = `
 def convert(node):
     if isinstance(node, ast.AST):
         out = {"_type": type(node).__name__}
@@ -72,7 +100,43 @@ try:
 except SyntaxError as exc:
     print(f"{exc.msg} (line {exc.lineno}, column {exc.offset})", file=sys.stderr)
     sys.exit(1)
+`;
+
+/** Serializer passed to `<python> -c`: prints the parsed tree as JSON. */
+export const PYTHON_AST_PROGRAM = `
+import ast, json, sys
+sys.setrecursionlimit(10000)
+${PY_PREAMBLE}
 print(json.dumps(convert(tree)))
+`;
+
+/**
+ * Serializer used for `{ comments: true }`: prints `{"_tree", "comments"}`,
+ * where comments come from the `tokenize` module (the `ast` tree has none).
+ * `value` strips the leading `#`; Python has only line comments. Tokenizer
+ * errors on otherwise-parseable source degrade to an empty comment list rather
+ * than failing the parse.
+ */
+export const PYTHON_AST_WITH_COMMENTS_PROGRAM = `
+import ast, io, json, sys, tokenize
+sys.setrecursionlimit(10000)
+${PY_PREAMBLE}
+comments = []
+try:
+    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+        if tok.type == tokenize.COMMENT:
+            s = tok.string
+            comments.append({
+                "type": "line",
+                "value": s[1:] if s.startswith("#") else s,
+                "loc": {
+                    "start": {"line": tok.start[0], "column": tok.start[1]},
+                    "end": {"line": tok.end[0], "column": tok.end[1]},
+                },
+            })
+except (tokenize.TokenError, IndentationError):
+    pass
+print(json.dumps({"_tree": convert(tree), "comments": comments}))
 `;
 
 /**
@@ -299,6 +363,27 @@ export async function materializeAstInput(args: {
   );
   const tmp = writeTempSourceFile(source, args.ext);
   return { sourcePath: tmp.path, cleanup: tmp.cleanup };
+}
+
+/**
+ * Fold the `{ comments: true }` Python subprocess output back into the shape
+ * `ctx.ast()` promises. That serializer prints `{ _tree, comments }`; unwrap it
+ * to the module tree with `comments` attached, so the Python return shape
+ * matches the ESTree one (a tree carrying a `comments` array). For every other
+ * case the subprocess output is already the tree — pass it through untouched.
+ */
+export function finalizeAstResult(
+  parsed: Record<string, unknown> | unknown[],
+  language: string,
+  wantComments: boolean
+): Record<string, unknown> | unknown[] {
+  if (language !== "python" || !wantComments || Array.isArray(parsed)) {
+    return parsed;
+  }
+  const tree = parsed._tree as Record<string, unknown> | undefined;
+  if (!tree) return parsed;
+  tree.comments = parsed.comments;
+  return tree;
 }
 
 /** Extract a readable message from Bun.Transpiler/meriyah parse errors. */
