@@ -1,5 +1,5 @@
 ---
-id: ARCH-023
+id: ARCH-024
 title: Rule File Sandbox Boundary
 domain: architecture
 rules: false

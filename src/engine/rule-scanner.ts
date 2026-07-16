@@ -286,7 +286,7 @@ export function scanRuleSource(
    * Both spellings are the same capability, so a check that only reads
    * `prop.name` sees the first and misses the second. `o[k]` with a computed
    * key returns undefined: unknowable here, and out of reach of a scanner that
-   * does not track values (see ARCH-023 on the limits of the static boundary).
+   * does not track values (see ARCH-024 on the limits of the static boundary).
    */
   function staticPropName(
     prop: AstNode,
