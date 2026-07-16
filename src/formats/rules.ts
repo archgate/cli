@@ -75,8 +75,10 @@ export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
  * `loc` is transpiled-relative (comments are extracted from the pre-transpile
  * source). Python comments are always `"line"` (`#`); it has no block
  * comments. Ruby `#` comments are `"line"`; each `=begin`/`=end` region is ONE
- * `"block"` token whose `value` is the inner content (marker lines stripped)
- * and whose `loc` spans the `=begin` line through the `=end` line.
+ * `"block"` token whose `value` is the inner content (marker lines stripped,
+ * line endings normalized to LF) and whose `loc` spans the `=begin` line
+ * through the `=end` line. Ruby comment columns are character offsets like the
+ * other languages — the sexp tree's own node positions are byte offsets.
  */
 export interface CommentToken {
   type: "line" | "block";

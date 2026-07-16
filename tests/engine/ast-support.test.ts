@@ -390,6 +390,65 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
   );
 
   test.skipIf(!rubyInterpreter)(
+    "reports character columns, not Ripper's byte offsets, on non-ASCII lines",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "nonascii.rb");
+      // Multi-byte é before and inside the comment: byte and char cols diverge.
+      writeFileSync(file, "é = 1 # café\n");
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope.comments).toHaveLength(1);
+      expect(envelope.comments[0].value).toBe(" café");
+      // Char cols 6..12, matching Python tokenize on the same layout (bytes: 7..14).
+      expect(envelope.comments[0].loc).toEqual({
+        start: { line: 1, column: 6 },
+        end: { line: 1, column: 12 },
+      });
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "normalizes CRLF in block values so content is OS-independent",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "crlf.rb");
+      writeFileSync(
+        file,
+        "x = 1\r\n=begin\r\nblock one\r\nblock two\r\n=end\r\n"
+      );
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      // LF-joined on every OS — POSIX reads keep the \r bytes, Windows strips them.
+      expect(envelope.comments.map((c) => `${c.type}:${c.value}`)).toEqual([
+        "block:block one\nblock two",
+      ]);
+      expect(envelope.comments[0].loc.start).toEqual({ line: 2, column: 0 });
+      expect(envelope.comments[0].loc.end).toEqual({ line: 5, column: 4 });
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
     "exits 1 with 'Ruby syntax error' for invalid source",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";

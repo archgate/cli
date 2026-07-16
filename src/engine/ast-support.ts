@@ -152,8 +152,14 @@ puts JSON.generate(sexp, max_nesting: false)
  * each `=begin`/`=end` region becomes ONE `type: "block"` token whose value is
  * the inner content (marker lines stripped, like TS/JS stripping the
  * delimiters) and whose loc spans the `=begin` line through the `=end` line.
- * Lex errors on otherwise-parseable source degrade to an empty comment list
- * rather than failing the parse, matching Python's tokenizer-error fallback.
+ * Ripper reports columns as BYTE offsets; they are converted to CHARACTER
+ * columns (via a byteslice of the source line) so comment locs share the
+ * Python/TS unit — the sexp tree's own node positions stay byte-based, as
+ * Ripper emits them. Block values normalize CRLF to LF: Windows text-mode
+ * reads already strip the CR, so normalizing keeps the value identical
+ * across OSes. Lex errors on otherwise-parseable source degrade to an empty
+ * comment list rather than failing the parse, matching Python's
+ * tokenizer-error fallback.
  */
 export const RUBY_AST_WITH_COMMENTS_PROGRAM = `
 source = File.read(ARGV[0], mode: "r:bom|utf-8")
@@ -164,30 +170,33 @@ if sexp.nil?
 end
 comments = []
 begin
+  lines = source.lines
+  char_col = ->(line, byte_col) { (lines[line - 1] || "").byteslice(0, byte_col).to_s.length }
   embdoc = nil
   Ripper.lex(source).each do |(line, col), event, tok, _state|
     case event
     when :on_comment
+      start_col = char_col.call(line, col)
       comments << {
         type: "line",
         value: tok.sub(/\\A#/, "").chomp,
         loc: {
-          start: { line: line, column: col },
-          end: { line: line, column: col + tok.chomp.length },
+          start: { line: line, column: start_col },
+          end: { line: line, column: start_col + tok.chomp.length },
         },
       }
     when :on_embdoc_beg
-      embdoc = { line: line, col: col, value: +"" }
+      embdoc = { line: line, col: char_col.call(line, col), value: +"" }
     when :on_embdoc
       embdoc[:value] << tok unless embdoc.nil?
     when :on_embdoc_end
       unless embdoc.nil?
         comments << {
           type: "block",
-          value: embdoc[:value].chomp,
+          value: embdoc[:value].gsub(/\\r\\n/, "\\n").chomp,
           loc: {
             start: { line: embdoc[:line], column: embdoc[:col] },
-            end: { line: line, column: col + tok.chomp.length },
+            end: { line: line, column: char_col.call(line, col) + tok.chomp.length },
           },
         }
         embdoc = nil

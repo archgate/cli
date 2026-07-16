@@ -78,7 +78,9 @@ declare type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
  * removed; \`loc\` is a position in the ORIGINAL source (accurate even for
  * "typescript"). Python comments are always "line". Ruby \`#\` comments are
  * "line"; each \`=begin\`/\`=end\` region is ONE "block" token (marker lines
- * stripped, loc spanning \`=begin\` through \`=end\`).
+ * stripped, line endings normalized to LF, loc spanning \`=begin\` through
+ * \`=end\`). Ruby comment columns are character offsets — the sexp tree's own
+ * node positions are byte offsets.
  */
 declare interface CommentToken {
   type: "line" | "block";
