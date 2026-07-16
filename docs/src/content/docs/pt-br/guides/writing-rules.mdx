@@ -174,7 +174,7 @@ Encontra arquivos por padrão glob. Retorna um array de caminhos de arquivo rela
 const testFiles = await ctx.glob("tests/**/*.test.ts");
 ```
 
-### ctx.ast(path, language)
+### ctx.ast(path, language, opts?)
 
 Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. Linguagens suportadas: `"typescript"`, `"javascript"`, `"python"` e `"ruby"`. TypeScript e JavaScript são parseados in-process para um `Program` ESTree; Python e Ruby invocam como subprocesso o parser da biblioteca padrão do interpretador do sistema. Lança uma exceção em caso de falha de parse ou interpretador ausente -- nunca retorna `null`.
 
@@ -182,7 +182,23 @@ Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. Linguagens sup
 const program = await ctx.ast("src/cli.ts", "typescript");
 ```
 
-Veja [Verificações estruturais com ctx.ast()](#verificações-estruturais-com-ctxast) abaixo para exemplos completos, e a [Referência da API de Regras](/reference/rule-api/#ast) para o formato retornado por linguagem.
+Um terceiro argumento opcional cobre mais duas necessidades:
+
+- `{ rev: "base" }` faz o parse do arquivo na **revisão base do git** em vez da árvore de trabalho -- combine com um parse da árvore de trabalho para detectar se a estrutura executável mudou (veja abaixo).
+- `{ comments: true }` anexa um array `comments` estruturado à árvore (`typescript`/`javascript`/`python`), para que regras de governança de comentários trabalhem com tokens de comentário estruturados em vez de regex.
+
+Veja [Verificações estruturais com ctx.ast()](#verificações-estruturais-com-ctxast) abaixo para exemplos completos, e a [Referência da API de Regras](/reference/rule-api/#ast) para o formato retornado por linguagem e as opções completas.
+
+### ctx.fileAtBase(path)
+
+Lê o código-fonte de um arquivo na **revisão base do git** -- a base de merge entre a ref `--base` e `HEAD`. Retorna `null` quando nenhuma base é resolvida (sem `--base`) ou o arquivo não existia na base (um arquivo adicionado), então uma única verificação de null cobre ambos os casos. Para uma comparação estrutural, prefira `ctx.ast(path, language, { rev: "base" })`.
+
+```typescript
+const before = await ctx.fileAtBase("src/config.ts");
+if (before !== null && before !== (await ctx.readFile("src/config.ts"))) {
+  // o arquivo mudou desde a base
+}
+```
 
 ### ctx.report
 
@@ -430,6 +446,78 @@ export default {
 ```
 
 O Ripper usa um formato de nó diferente para a forma com parênteses -- `puts("hello")` aparece sob um par `method_add_arg` / `fcall`, em vez de `command` -- então uma regra de produção casaria o token `fcall` da mesma maneira.
+
+### Comparando com a revisão base
+
+Algumas regras não se importam com o estado atual de um arquivo, mas com **o que mudou**. Um caso comum: dispensar uma exigência (um bump de versão, uma entrada no changelog) quando uma alteração é apenas de documentação -- a estrutura executável permanece intocada e só comentários ou formatação se moveram. `ctx.ast(path, language, { rev: "base" })` faz o parse do arquivo na revisão base do git, para que você possa compará-lo com o parse da árvore de trabalho. Comentários estão ausentes dos formatos ESTree e `ast` do Python -- mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele, então uma serialização crua difere mesmo em uma edição apenas de documentação. Compare uma **projeção sem posições** das duas árvores. (Docstrings do Python são nós de string comuns na árvore `ast`, então uma docstring editada é uma mudança real da árvore -- remova-as também se sua regra deve tratar edições de documentação como neutras.)
+
+```typescript
+export default {
+  rules: {
+    "bump-required-on-behavior-change": {
+      description: "A .py change that alters behavior must bump the version",
+      async check(ctx) {
+        // Remove metadados de posição para comparar só a estrutura executável:
+        // um comentário ou linha em branco desloca lineno/col_offset sem mudar o
+        // comportamento. (Remova docstrings aqui também se edições de doc forem neutras.)
+        const POS = ["lineno", "col_offset", "end_lineno", "end_col_offset"];
+        const structure = (node: unknown): unknown => {
+          if (Array.isArray(node)) return node.map(structure);
+          if (node && typeof node === "object") {
+            return Object.fromEntries(
+              Object.entries(node)
+                .filter(([k]) => !POS.includes(k))
+                .map(([k, v]) => [k, structure(v)])
+            );
+          }
+          return node;
+        };
+
+        const changed = ctx.changedFiles.filter((f) => f.endsWith(".py"));
+        for (const file of changed) {
+          // Sem contraparte na base (ex.: um arquivo adicionado) -- pular.
+          if ((await ctx.fileAtBase(file)) === null) continue;
+
+          const before = await ctx.ast(file, "python", { rev: "base" });
+          const after = await ctx.ast(file, "python");
+          if (
+            JSON.stringify(structure(before)) !==
+            JSON.stringify(structure(after))
+          ) {
+            ctx.report.violation({
+              message: `${file} changed behavior -- bump the version`,
+              file,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+O `archgate check` resolve uma base automaticamente (ou aceita um `--base <ref>` explícito), e `ctx.changedFiles` é preenchido a partir dela -- incluindo trabalho não committado. A guarda por arquivo é o que torna a regra segura: quando nenhuma base é resolvida, ou para um arquivo ausente na base, `ctx.fileAtBase()` retorna `null` e o laço pula esse arquivo. Como o parse da base passa por `ctx.ast()` e seu acesso ao git é embutido no Archgate, a regra nunca executa `git` ou um interpretador por conta própria -- o que o [sandbox de regras](/guides/security/) bloquearia de qualquer forma.
+
+### Governando comentários
+
+`ctx.ast(path, language, { comments: true })` anexa um array `comments` à árvore, para que regras de política de comentários trabalhem com tokens estruturados (`type`, `value`, `loc`) em vez de regex linha a linha. As posições dos comentários são precisas em relação ao código-fonte original mesmo para TypeScript. Suportado para `typescript`, `javascript` e `python`.
+
+```typescript
+const tree = await ctx.ast(file, "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  if (comment.value.split("\n").length > 10) {
+    ctx.report.warning({
+      message: "Comment block too long -- move rationale to an ADR",
+      file,
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+:::note
+Arquivos de regra podem importar apenas `node:path`, `node:url`, `node:util` e `node:crypto`. Qualquer coisa que uma regra precise além disso -- parsear uma linguagem, ler uma revisão base -- passa pela API do `RuleContext`. Veja [Segurança na execução de regras](/guides/security/) para entender o porquê.
+:::
 
 ## Níveis de severidade
 

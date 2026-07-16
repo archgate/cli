@@ -1,8 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import type { AstLanguage } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
+import { UserError } from "../helpers/user-error";
+import { getFileAtRev } from "./git-files";
+
+/** Guardrail-2 failure: the file's name does not match the requested language. */
+export function implausibleLanguageError(
+  language: AstLanguage,
+  path: string
+): UserError {
+  return new UserError(
+    `File "${path}" does not look like ${language} (expected ${AST_LANGUAGE_EXTENSIONS[language].join(", ")}) — refusing to parse`
+  );
+}
+
+/** Guardrail-3 failure: no interpreter for the language on PATH. */
+export function interpreterNotFoundError(
+  language: "python" | "ruby",
+  candidates: string[],
+  path: string
+): Error {
+  return new Error(
+    `${language === "python" ? "Python" : "Ruby"} interpreter not found on PATH (tried: ${candidates.join(", ")}) — ctx.ast("${path}", "${language}") requires it wherever \`archgate check\` runs`
+  );
+}
+
+/** `{ comments: true }` requested for a language that does not support it yet. */
+export function commentsUnsupportedError(
+  language: AstLanguage,
+  path: string
+): UserError {
+  return new UserError(
+    `ctx.ast("${path}", "${language}", { comments: true }) is not supported yet — comments are available for typescript, javascript, and python`
+  );
+}
 
 /**
  * Support code for `ctx.ast()` (ARCH-022). Definitions live here to keep
@@ -33,16 +70,12 @@ export const AST_LANGUAGE_EXTENSIONS: Record<AstLanguage, readonly string[]> = {
 export const RUBY_BASENAMES = new Set(["rakefile", "gemfile"]);
 
 /**
- * Serializer passed to `<python> -c`. Reads the target file from argv (never
- * interpolated into the program), parses it with the standard `ast` module,
- * and prints the tree as JSON. Non-finite floats, bytes, and complex numbers
- * fall back to `repr()` so the output is always strict JSON.
+ * Shared Python preamble: the `ast`-node → JSON `convert()` used by both
+ * serializers below, plus reading the target file from argv (never
+ * interpolated into the program) into `source`/`tree`. Non-finite floats,
+ * bytes, and complex numbers fall back to `repr()` so output is strict JSON.
  */
-export const PYTHON_AST_PROGRAM = `
-import ast, json, sys
-
-sys.setrecursionlimit(10000)
-
+const PY_PREAMBLE = `
 def convert(node):
     if isinstance(node, ast.AST):
         out = {"_type": type(node).__name__}
@@ -67,7 +100,43 @@ try:
 except SyntaxError as exc:
     print(f"{exc.msg} (line {exc.lineno}, column {exc.offset})", file=sys.stderr)
     sys.exit(1)
+`;
+
+/** Serializer passed to `<python> -c`: prints the parsed tree as JSON. */
+export const PYTHON_AST_PROGRAM = `
+import ast, json, sys
+sys.setrecursionlimit(10000)
+${PY_PREAMBLE}
 print(json.dumps(convert(tree)))
+`;
+
+/**
+ * Serializer used for `{ comments: true }`: prints `{"_tree", "comments"}`,
+ * where comments come from the `tokenize` module (the `ast` tree has none).
+ * `value` strips the leading `#`; Python has only line comments. Tokenizer
+ * errors on otherwise-parseable source degrade to an empty comment list rather
+ * than failing the parse.
+ */
+export const PYTHON_AST_WITH_COMMENTS_PROGRAM = `
+import ast, io, json, sys, tokenize
+sys.setrecursionlimit(10000)
+${PY_PREAMBLE}
+comments = []
+try:
+    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+        if tok.type == tokenize.COMMENT:
+            s = tok.string
+            comments.append({
+                "type": "line",
+                "value": s[1:] if s.startswith("#") else s,
+                "loc": {
+                    "start": {"line": tok.start[0], "column": tok.start[1]},
+                    "end": {"line": tok.end[0], "column": tok.end[1]},
+                },
+            })
+except (tokenize.TokenError, IndentationError):
+    pass
+print(json.dumps({"_tree": convert(tree), "comments": comments}))
 `;
 
 /**
@@ -201,6 +270,126 @@ export function parseAstJson(
       `Failed to parse "${path}" as ${language}: interpreter produced invalid JSON output`
     );
   }
+}
+
+/**
+ * Read a file's source at the comparison base revision for
+ * `ctx.ast(path, lang, { rev: "base" })`, throwing on the two cases the AST
+ * contract must never paper over: no base is resolvable, or the path did not
+ * exist at the base. Both throw rather than returning null — a silent miss
+ * would let a rule report a false "no change." `displayPath` is the
+ * caller-facing path used in error messages.
+ */
+export async function readBaseSourceOrThrow(
+  projectRoot: string,
+  baseRev: string | null,
+  relPath: string,
+  displayPath: string
+): Promise<string> {
+  if (!baseRev) {
+    throw new Error(
+      `ctx.ast("${displayPath}", …, { rev: "base" }) needs a base revision, but none is resolved — run \`archgate check --base <ref>\``
+    );
+  }
+  const source = await getFileAtRev(projectRoot, baseRev, relPath);
+  if (source === null) {
+    throw new Error(
+      `"${displayPath}" did not exist at the base revision (${baseRev.slice(0, 9)}) — nothing to parse at { rev: "base" }`
+    );
+  }
+  return source;
+}
+
+/**
+ * Write source to a throwaway temp file and return its path plus a cleanup
+ * thunk. Used only for `ctx.ast(path, lang, { rev: "base" })` on Python/Ruby:
+ * the base revision's content is not on disk, but the interpreter serializers
+ * read a file path from argv. Writing it to a temp file lets the existing,
+ * unchanged `PYTHON_AST_PROGRAM`/`RUBY_AST_PROGRAM` (and the mandatory `-I`
+ * isolation) parse it without a second code path.
+ *
+ * Security: the file goes in a per-call private directory created with
+ * `mkdtempSync` (0700, owner-only, unpredictable name), and is created
+ * exclusively (`wx`) with mode `0600`. This closes the shared-`tmpdir` attacks
+ * a predictable name would expose on a multi-user host: a pre-planted symlink
+ * at the path can no longer redirect the write (exclusive create fails on an
+ * existing entry, and the private parent is not writable by others), and the
+ * base source — which may be sensitive — is never world-readable or left where
+ * another user could read it. It also lives outside any interpreter's
+ * cwd-derived load path even before `-I` is considered. `cleanup()` removes the
+ * whole private directory, is best-effort, and never throws.
+ */
+export function writeTempSourceFile(
+  content: string,
+  ext: string
+): { path: string; cleanup: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), "archgate-ast-"));
+  const cleanup = () => {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Best effort — a leftover temp dir is harmless.
+    }
+  };
+  try {
+    const path = join(dir, `source${ext}`);
+    writeFileSync(path, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return { path, cleanup };
+  } catch (err) {
+    // File creation failed after the dir was made — remove it before rethrowing
+    // so a failed base parse never leaks the private directory.
+    cleanup();
+    throw err;
+  }
+}
+
+/**
+ * Resolve the file path the Python/Ruby serializer subprocess should read.
+ *
+ * For a working-tree parse this is just the on-disk file. For `{ rev: "base" }`
+ * the base content is not on disk, so it is fetched from git and written to a
+ * throwaway temp file, whose path is returned alongside a `cleanup` thunk the
+ * caller MUST invoke in a `finally`.
+ */
+export async function materializeAstInput(args: {
+  useBase: boolean;
+  absPath: string;
+  ext: string;
+  projectRoot: string;
+  baseRev: string | null;
+  relPath: string;
+  displayPath: string;
+}): Promise<{ sourcePath: string; cleanup?: () => void }> {
+  if (!args.useBase) return { sourcePath: args.absPath };
+  const source = await readBaseSourceOrThrow(
+    args.projectRoot,
+    args.baseRev,
+    args.relPath,
+    args.displayPath
+  );
+  const tmp = writeTempSourceFile(source, args.ext);
+  return { sourcePath: tmp.path, cleanup: tmp.cleanup };
+}
+
+/**
+ * Fold the `{ comments: true }` Python subprocess output back into the shape
+ * `ctx.ast()` promises. That serializer prints `{ _tree, comments }`; unwrap it
+ * to the module tree with `comments` attached, so the Python return shape
+ * matches the ESTree one (a tree carrying a `comments` array). For every other
+ * case the subprocess output is already the tree — pass it through untouched.
+ */
+export function finalizeAstResult(
+  parsed: Record<string, unknown> | unknown[],
+  language: string,
+  wantComments: boolean
+): Record<string, unknown> | unknown[] {
+  if (language !== "python" || !wantComments || Array.isArray(parsed)) {
+    return parsed;
+  }
+  const tree = parsed._tree as Record<string, unknown> | undefined;
+  if (!tree) return parsed;
+  tree.comments = parsed.comments;
+  return tree;
 }
 
 /** Extract a readable message from Bun.Transpiler/meriyah parse errors. */

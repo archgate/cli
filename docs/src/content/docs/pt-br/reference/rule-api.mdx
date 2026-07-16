@@ -64,8 +64,9 @@ interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
-  ast(path: string, language: AstLanguage): Promise<AstNode>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   report: RuleReport;
 }
 ```
@@ -154,6 +155,30 @@ Lê o conteúdo de um arquivo como string. O caminho é relativo à raiz do proj
 const content = await ctx.readFile("src/config.ts");
 ```
 
+#### fileAtBase
+
+```typescript
+fileAtBase(path: string): Promise<string | null>;
+```
+
+Lê o código-fonte de um arquivo na **revisão base de comparação** -- a base de merge entre a ref `--base` e `HEAD`, o mesmo commit contra o qual `changedFiles` é calculado. Use para comparar a árvore de trabalho com o ponto em que o conjunto de alterações divergiu da base.
+
+Retorna `null` nos dois casos de "nada para comparar", então uma única verificação de null cobre ambos:
+
+- **Nenhuma base é resolvida** -- a verificação rodou sem `--base` (ou os históricos não têm relação).
+- **O arquivo não existia na base** -- um arquivo adicionado.
+
+```typescript
+const before = await ctx.fileAtBase("data/schema.py");
+if (before === null) {
+  // Nenhuma versão base para comparar -- pular.
+  return;
+}
+const after = await ctx.readFile("data/schema.py");
+```
+
+Para uma comparação **estrutural** (ignorando comentários e formatação) prefira `ast(path, language, { rev: "base" })` abaixo.
+
 #### readJSON
 
 ```typescript
@@ -173,8 +198,14 @@ const pkg = (await ctx.readJSON("package.json")) as {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby"
+  language: "typescript" | "javascript" | "python" | "ruby",
+  opts?: AstOptions
 ): Promise<AstNode>;
+
+interface AstOptions {
+  rev?: "base";
+  comments?: boolean;
+}
 ```
 
 Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. O caminho é relativo à raiz do projeto e passa pelo mesmo sandbox de `readFile`. TypeScript e JavaScript são parseados in-process; Python e Ruby são parseados invocando como subprocesso o recurso de AST da biblioteca padrão do próprio interpretador do sistema. O formato da árvore retornada difere por linguagem -- veja [AstNode](#astnode).
@@ -186,13 +217,70 @@ for (const node of program.body) {
 }
 ```
 
+##### Parseando a revisão base (`{ rev: "base" }`)
+
+Com `{ rev: "base" }`, `ast()` faz o parse do arquivo na [revisão base de comparação](#fileatbase) em vez da árvore de trabalho -- tudo o mais (formato de retorno, contrato de exceção) é idêntico. Faça o parse das duas revisões para perguntar "a estrutura executável mudou?" Comentários estão ausentes dos formatos ESTree e `ast` do Python, mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele. Compare uma **projeção sem posições** -- remova `loc` / `range` (ESTree) e `lineno` / `col_offset` (Python) antes de comparar -- para que uma edição apenas de comentários seja lida como inalterada. (Docstrings do Python são nós de string na árvore, então uma docstring editada é uma mudança real; remova-as também se edições de documentação forem neutras.)
+
+```typescript
+// Sinaliza uma mudança apenas quando a estrutura executável de fato mudou.
+// `structurallyEqual` compara as árvores com os metadados de posição (loc/range,
+// lineno/col_offset) removidos -- veja o guia writing-rules para uma
+// implementação concreta.
+for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Pula arquivos sem contraparte na base -- ast({ rev: "base" }) lançaria.
+  if ((await ctx.fileAtBase(file)) === null) continue;
+  const before = await ctx.ast(file, "python", { rev: "base" });
+  const after = await ctx.ast(file, "python");
+  if (!structurallyEqual(before, after)) {
+    ctx.report.violation({ message: `${file} changed behavior`, file });
+  }
+}
+```
+
+Recorra a `fileAtBase()` primeiro quando você precisar detectar os casos de sem-base ou arquivo-adicionado como fluxo de controle comum -- `ast({ rev: "base" })` **lança uma exceção** para eles (veja abaixo).
+
+##### Coletando comentários (`{ comments: true }`)
+
+Com `{ comments: true }`, a árvore retornada carrega um array `comments` -- dados estruturados de comentário para regras de governança de comentários, no lugar de regex linha a linha. Suportado para `typescript`, `javascript` e `python`; solicitar isso para `ruby` lança uma exceção.
+
+```typescript
+interface CommentToken {
+  type: "line" | "block";
+  value: string; // delimitadores (`//`, `/* */`, `#`) removidos
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+```
+
+```typescript
+const tree = await ctx.ast("src/api.ts", "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  const lines = comment.value.split("\n").length;
+  if (lines > 10) {
+    ctx.report.warning({
+      message: "Comment block is too long -- link to an ADR instead",
+      file: "src/api.ts",
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+As posições dos comentários são precisas em relação ao **código-fonte original**, mesmo para TypeScript. Essa é uma vantagem deliberada em relação ao `loc` da própria árvore, que é relativo ao transpilado para TypeScript (veja [AstNode](#astnode)): os comentários são varridos a partir do código-fonte antes da transpilação, então seu `loc` nunca diverge. Comentários em Python são sempre `type: "line"` (`#`) -- Python não tem comentários de bloco, e docstrings `"""` são expressões de string na árvore, não comentários. O scanner de TypeScript/JavaScript reconhece literais de string e de template, mas não rastreia literais de expressão regular, então um delimitador de comentário dentro de um literal regex é um ponto cego conhecido.
+
+##### Comportamento de falha
+
 `ast()` **lança uma exceção** em caso de falha -- nunca retorna `null`:
 
 - **Falha de parse**: o arquivo não parseia como a linguagem solicitada. A mensagem de erro inclui o diagnóstico do parser.
 - **Interpretador ausente** (apenas `python`/`ruby`): nenhum interpretador adequado foi encontrado no `PATH`.
 - **Entrada implausível**: a extensão do arquivo não corresponde à linguagem solicitada (ex.: `ctx.ast("config.json", "python")` lança a exceção antes de qualquer interpretador ser invocado).
+- **Sem revisão base** (apenas `{ rev: "base" }`): a verificação rodou sem `--base`, então não há base para parsear. Use `fileAtBase()` para detectar isso como `null` em vez disso.
+- **Arquivo ausente na base** (apenas `{ rev: "base" }`): o caminho foi adicionado desde a base e não existia ali.
 
-Um erro lançado é isolado à regra que falhou: as demais regras e ADRs da mesma execução de verificação continuam normalmente, e a falha aparece como um erro de execução de regra com código de saída 2 (distinto do código de saída 1 para violações). Os dois casos de exceção são distinguíveis pelo texto da mensagem, então a saída da verificação diferencia "este ambiente não consegue executar esta regra" de "este arquivo tem um erro de sintaxe".
+Um erro lançado é isolado à regra que falhou: as demais regras e ADRs da mesma execução de verificação continuam normalmente, e a falha aparece como um erro de execução de regra com código de saída 2 (distinto do código de saída 1 para violações). Os casos de exceção são distinguíveis pelo texto da mensagem, então a saída da verificação diferencia "este ambiente não consegue executar esta regra" de "este arquivo tem um erro de sintaxe" ou "não há revisão base".
 
 :::caution
 Regras de Python e Ruby exigem o interpretador correspondente (`python3`/`python`, `ruby`) no `PATH` onde quer que `archgate check` seja executado -- em cada máquina de desenvolvedor **e** no CI. O parsing de TypeScript e JavaScript é embutido no Archgate e não precisa de interpretador.
@@ -294,6 +382,8 @@ Retornado por `ctx.ast()`. O formato é nativo da linguagem e deliberadamente **
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 type AstNode = Record<string, unknown> | unknown[];
 ```
+
+Quando parseado com [`{ comments: true }`](#ast), o nó raiz também carrega um array `comments: CommentToken[]` (apenas `typescript`, `javascript` e `python`). Ausente nos demais casos.
 
 | Linguagem    | Parser utilizado                                                                                                           | Formato retornado                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

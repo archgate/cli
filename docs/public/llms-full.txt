@@ -2081,30 +2081,38 @@ This means:
 
 Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../`, absolute paths, and symbolic links are blocked and throw an error.
 
-In addition to the runtime sandbox, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. The scanner parses the rule's AST and blocks files that contain dangerous patterns:
+In addition to the `RuleContext` path restrictions above, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. Neither is a runtime sandbox -- a rule still executes in-process with your privileges; the scanner is a static gate, and the restrictions apply only to the `RuleContext` API a well-behaved rule uses. Because a rule file runs in-process with the full privileges of whoever runs `archgate check`, any module it can reach is arbitrary code -- so the scanner uses an **allowlist, not a denylist**: a rule may import only a small set of safe modules, and everything else is rejected.
 
-| Pattern                                                            | Blocked |
-| ------------------------------------------------------------------ | ------- |
-| Imports of `node:fs`, `child_process`, `net`, `http`, `vm`, etc.   | Yes     |
-| `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                | Yes     |
-| `fetch()`                                                          | Yes     |
-| `eval()`, `new Function()`                                         | Yes     |
-| Computed property access (`Bun[variable]`, `globalThis[variable]`) | Yes     |
-| Dynamic `import()` with non-literal argument                       | Yes     |
-| Assignment to `globalThis` or `process.env`                        | Yes     |
+**The only modules a rule file may import** are `node:path`, `node:url`, `node:util`, and `node:crypto` -- utility modules with no filesystem, network, or process capabilities. They must use the `node:` prefix; the bare forms (`path`) can be shadowed by a package in the target project and are blocked. Every other import is rejected, in any form -- static (`import ... from`), dynamic (`await import(...)`, whether the specifier is a literal or a variable), re-exported (`export ... from`), or reached through `require()` / `import.meta.require()`.
 
-If any banned pattern is found, the rule file is **not imported or executed** and `archgate check` exits with an error.
+The scanner also blocks the other ways to reach code or capabilities outside that set:
 
-**Safe modules that are allowed:** `node:path`, `node:url`, `node:util`, `node:crypto` -- these are utility modules with no filesystem, network, or process I/O capabilities.
+| Pattern                                                                | Blocked |
+| ---------------------------------------------------------------------- | ------- |
+| Importing any module other than the four allowed above                 | Yes     |
+| `require()`, `import.meta.require()`                                   | Yes     |
+| `Bun.spawn()`, `Bun.spawnSync()`, `Bun.write()`, `Bun.file()`, `Bun.$` | Yes     |
+| `fetch()`                                                              | Yes     |
+| `eval()`, `new Function()`                                             | Yes     |
+| `process.binding()`, `process.dlopen()` (on any alias of `process`)    | Yes     |
+| Computed property access (`Bun[variable]`, `globalThis[variable]`)     | Yes     |
+| Assignment to `globalThis` or `process.env`                            | Yes     |
+| Bidirectional or invisible Unicode characters ("Trojan Source")        | Yes     |
 
-The scanner raises the bar from "trivial to exploit" to "requires deliberate obfuscation that looks suspicious in code review." Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output.
+If any of these is found, the rule file is **not imported or executed** and `archgate check` exits with an error.
+
+Because the scanner works from the parsed syntax tree, it sees through escapes: `await import("\x6e...")` resolves to the same module name the allowlist checks, so string tricks do not slip past it. The one thing a syntax tree cannot see is a character that makes the rendered source differ from the code that runs -- which is why the scanner also rejects bidirectional and invisible Unicode characters outright.
+
+**Imported rules are scanned too.** When you bring in third-party rules with `archgate adr import`, each `.rules.ts` is scanned -- with a stricter check than first-party rules -- **before it is written to disk**, so an imported pack cannot smuggle in code that your next `archgate check` would execute.
+
+Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output. When a rule needs language tooling -- parsing Python, or comparing a file against its base git revision -- `ctx.ast()` is the sanctioned door; a rule never needs, and cannot open, a subprocess of its own.
 
 ### What rules cannot do
 
 - **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
 - **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
 - **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
-- **Use dangerous APIs** -- the security scanner blocks imports of system modules (`fs`, `child_process`, `net`, etc.), Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), and code generation (`eval`, `new Function`). Rule files that contain these patterns are rejected before execution.
+- **Reach outside the allowlist through a recognized path** -- a rule may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Imports of any other module, Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), subprocess or native-code access (`require`, `process.binding`), and code generation (`eval`, `new Function`) are rejected before execution in their direct, recognized forms. This is a static scan, not a jail: a capability assembled at runtime is a residual it cannot catch, which is why untrusted rule files still warrant review (see below).
 
 ## CI/CD best practices
 
@@ -2184,11 +2192,11 @@ jobs:
 
 ### Reviewing rules in new repositories
 
-When cloning or forking a repository that uses Archgate, the security scanner automatically blocks dangerous patterns in `.rules.ts` files. However, you should still review rule files before running `archgate check` for the first time:
+When cloning or forking a repository that uses Archgate, the security scanner automatically enforces the import allowlist in `.rules.ts` files. It is a strong first line of defense -- not a complete sandbox -- so you should still review rule files before running `archgate check` for the first time:
 
-- The scanner catches explicit use of banned APIs, but sophisticated obfuscation (e.g., `Reflect.get(Bun, "spawn")`) may bypass it
+- The scanner blocks the direct routes to dangerous capabilities, but it is static analysis, not a jail: anything built at runtime — a property name (`obj[name]` with a computed `name`) or a code string — is opaque to a source scan, so review rule files you do not trust before running them
 - Top-level code that runs on import (before the `check` function is called) is still executed if it passes the scanner
-- Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output
+- Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output
 
 ### Credentials
 
@@ -2870,7 +2878,7 @@ Find files by glob pattern. Returns an array of file paths relative to the proje
 const testFiles = await ctx.glob("tests/**/*.test.ts");
 ```
 
-### ctx.ast(path, language)
+### ctx.ast(path, language, opts?)
 
 Parse a source file into its language-native AST. Supported languages: `"typescript"`, `"javascript"`, `"python"`, and `"ruby"`. TypeScript and JavaScript parse in-process into an ESTree `Program`; Python and Ruby shell out to the system interpreter's standard-library parser. Throws on parse failure or missing interpreter -- it never returns `null`.
 
@@ -2878,7 +2886,23 @@ Parse a source file into its language-native AST. Supported languages: `"typescr
 const program = await ctx.ast("src/cli.ts", "typescript");
 ```
 
-See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language.
+An optional third argument covers two more needs:
+
+- `{ rev: "base" }` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
+- `{ comments: true }` attaches a structured `comments` array to the tree (`typescript`/`javascript`/`python`), so comment-governance rules can work against comment tokens instead of regex.
+
+See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language and the full options.
+
+### ctx.fileAtBase(path)
+
+Read a file's source at the **base git revision** -- the merge base of the `--base` ref and `HEAD`. Returns `null` when no base is resolved (no `--base`) or the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
+
+```typescript
+const before = await ctx.fileAtBase("src/config.ts");
+if (before !== null && before !== (await ctx.readFile("src/config.ts"))) {
+  // the file changed since the base
+}
+```
 
 ### ctx.report
 
@@ -3125,6 +3149,77 @@ export default {
 ```
 
 Ripper uses a different node shape for the parenthesized form -- `puts("hello")` appears under a `method_add_arg` / `fcall` pair rather than `command` -- so a production rule would match the `fcall` token the same way.
+
+### Comparing against the base revision
+
+Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
+
+```typescript
+export default {
+  rules: {
+    "bump-required-on-behavior-change": {
+      description: "A .py change that alters behavior must bump the version",
+      async check(ctx) {
+        // Drop position metadata so only executable structure is compared: a
+        // comment or blank line shifts lineno/col_offset without changing
+        // behavior. (Strip docstrings here too if doc edits should be neutral.)
+        const POS = ["lineno", "col_offset", "end_lineno", "end_col_offset"];
+        const structure = (node: unknown): unknown => {
+          if (Array.isArray(node)) return node.map(structure);
+          if (node && typeof node === "object") {
+            return Object.fromEntries(
+              Object.entries(node)
+                .filter(([k]) => !POS.includes(k))
+                .map(([k, v]) => [k, structure(v)])
+            );
+          }
+          return node;
+        };
+
+        const changed = ctx.changedFiles.filter((f) => f.endsWith(".py"));
+        for (const file of changed) {
+          // No base counterpart (e.g. an added file) -- skip.
+          if ((await ctx.fileAtBase(file)) === null) continue;
+
+          const before = await ctx.ast(file, "python", { rev: "base" });
+          const after = await ctx.ast(file, "python");
+          if (
+            JSON.stringify(structure(before)) !==
+            JSON.stringify(structure(after))
+          ) {
+            ctx.report.violation({
+              message: `${file} changed behavior -- bump the version`,
+              file,
+            });
+          }
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
+```
+
+`archgate check` resolves a base automatically (or takes an explicit `--base <ref>`), and `ctx.changedFiles` is populated from it -- including uncommitted work. The per-file guard is what makes the rule safe: when no base is resolved, or for a file absent at the base, `ctx.fileAtBase()` returns `null` and the loop skips that file. Because base parsing goes through `ctx.ast()` and its git access is built into Archgate, the rule never runs `git` or an interpreter itself -- which the [rule sandbox](/guides/security/) would block anyway.
+
+### Governing comments
+
+`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for `typescript`, `javascript`, and `python`.
+
+```typescript
+const tree = await ctx.ast(file, "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  if (comment.value.split("\n").length > 10) {
+    ctx.report.warning({
+      message: "Comment block too long -- move rationale to an ADR",
+      file,
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+:::note
+Rule files may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Anything a rule needs beyond that -- parsing a language, reading a base revision -- comes through the `RuleContext` API. See [Rule execution security](/guides/security/) for why.
 
 ## Severity levels
 
@@ -5123,8 +5218,9 @@ interface RuleContext {
   grep(file: string, pattern: RegExp): Promise;
   grepFiles(pattern: RegExp, fileGlob: string): Promise;
   readFile(path: string): Promise<string>;
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
-  ast(path: string, language: AstLanguage): Promise;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise;
   report: RuleReport;
 }
 ```
@@ -5213,6 +5309,30 @@ Read the contents of a file as a string. The path is relative to the project roo
 const content = await ctx.readFile("src/config.ts");
 ```
 
+#### fileAtBase
+
+```typescript
+fileAtBase(path: string): Promise<string | null>;
+```
+
+Read a file's source at the **comparison base revision** -- the merge base of the `--base` ref and `HEAD`, the same commit `changedFiles` is computed against. Use it to compare the working tree against the point the change set diverged from.
+
+Returns `null` in the two "nothing to compare against" cases, so a single null check covers both:
+
+- **No base is resolved** -- the check ran without `--base` (or the histories are unrelated).
+- **The file did not exist at the base** -- an added file.
+
+```typescript
+const before = await ctx.fileAtBase("data/schema.py");
+if (before === null) {
+  // No base version to compare against -- skip.
+  return;
+}
+const after = await ctx.readFile("data/schema.py");
+```
+
+For a **structural** comparison (ignoring comments and formatting) prefer `ast(path, language, { rev: "base" })` below.
+
 #### readJSON
 
 ```typescript
@@ -5232,8 +5352,14 @@ const pkg = (await ctx.readJSON("package.json")) as {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby"
+  language: "typescript" | "javascript" | "python" | "ruby",
+  opts?: AstOptions
 ): Promise;
+
+interface AstOptions {
+  rev?: "base";
+  comments?: boolean;
+}
 ```
 
 Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
@@ -5245,13 +5371,70 @@ for (const node of program.body) {
 }
 ```
 
+##### Parsing the base revision (`{ rev: "base" }`)
+
+With `{ rev: "base" }`, `ast()` parses the file at the [comparison base revision](#fileatbase) instead of the working tree -- everything else (return shape, throw contract) is identical. Parse both revisions to ask "did the executable structure change?" Comments are absent from the ESTree and Python `ast` shapes, but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it. Compare a **location-free projection** -- strip `loc` / `range` (ESTree) and `lineno` / `col_offset` (Python) before comparing -- so a comment-only edit reads as unchanged. (Python docstrings are string nodes in the tree, so an edited docstring is a real change; strip those too if doc edits should be neutral.)
+
+```typescript
+// Flag a change only when the executable structure actually changed.
+// `structurallyEqual` compares the trees with position metadata (loc/range,
+// lineno/col_offset) stripped -- see the writing-rules guide for a concrete
+// implementation.
+for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Skip files with no base counterpart -- ast({ rev: "base" }) would throw.
+  if ((await ctx.fileAtBase(file)) === null) continue;
+  const before = await ctx.ast(file, "python", { rev: "base" });
+  const after = await ctx.ast(file, "python");
+  if (!structurallyEqual(before, after)) {
+    ctx.report.violation({ message: `${file} changed behavior`, file });
+  }
+}
+```
+
+Reach for `fileAtBase()` first when you need to detect the no-base or added-file cases as ordinary control flow -- `ast({ rev: "base" })` **throws** for them (see below).
+
+##### Collecting comments (`{ comments: true }`)
+
+With `{ comments: true }`, the returned tree carries a `comments` array -- structured comment data for comment-governance rules, in place of line-by-line regex. Supported for `typescript`, `javascript`, and `python`; requesting it for `ruby` throws.
+
+```typescript
+interface CommentToken {
+  type: "line" | "block";
+  value: string; // delimiters (`//`, `/* */`, `#`) removed
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+```
+
+```typescript
+const tree = await ctx.ast("src/api.ts", "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  const lines = comment.value.split("\n").length;
+  if (lines > 10) {
+    ctx.report.warning({
+      message: "Comment block is too long -- link to an ADR instead",
+      file: "src/api.ts",
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+Comment positions are accurate against the **original source**, even for TypeScript. This is a deliberate advantage over the tree's own `loc`, which is transpiled-relative for TypeScript (see [AstNode](#astnode)): comments are scanned from the pre-transpile source, so their `loc` never drifts. Python comments are always `type: "line"` (`#`) -- Python has no block comments, and `"""` docstrings are string expressions in the tree, not comments. The TypeScript/JavaScript scanner is string- and template-literal-aware, but does not track regular-expression literals, so a comment delimiter inside a regex literal is a known blind spot.
+
+##### Failure behavior
+
 `ast()` **throws** on failure -- it never returns `null`:
 
 - **Parse failure**: the file does not parse as the requested language. The error message includes the parser's diagnostic.
 - **Missing interpreter** (`python`/`ruby` only): no suitable interpreter was found on `PATH`.
 - **Implausible input**: the file's extension does not match the requested language (e.g. `ctx.ast("config.json", "python")` throws before any interpreter is invoked).
+- **No base revision** (`{ rev: "base" }` only): the check ran without `--base`, so there is no base to parse. Use `fileAtBase()` to detect this as `null` instead.
+- **File absent at base** (`{ rev: "base" }` only): the path was added since the base and did not exist there.
 
-A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The two throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error".
+A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error" or "there is no base revision".
 
 :::caution
 Python and Ruby rules require the corresponding interpreter (`python3`/`python`, `ruby`) on `PATH` wherever `archgate check` runs -- on every developer machine **and** in CI. TypeScript and JavaScript parsing is built into Archgate and needs no interpreter.
@@ -5352,6 +5535,8 @@ Returned by `ctx.ast()`. The shape is language-native and deliberately **not** u
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 type AstNode = Record<string, unknown> | unknown[];
 ```
+
+When parsed with [`{ comments: true }`](#ast), the root node also carries a `comments: CommentToken[]` array (`typescript`, `javascript`, and `python` only). It is absent otherwise.
 
 | Language     | Backing parser                                                                                                     | Returned shape                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

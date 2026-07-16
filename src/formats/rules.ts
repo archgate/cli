@@ -68,6 +68,44 @@ export interface PackageJson {
 export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
+ * A source comment, attached to the parsed tree's `comments` array when
+ * `ast()` is called with `{ comments: true }`. `value` is the comment text
+ * with its delimiters removed (`//`, `/* … *​/`, `#`). `loc` is a position in
+ * the ORIGINAL source — accurate even for `"typescript"`, where the tree's own
+ * `loc` is transpiled-relative (comments are extracted from the pre-transpile
+ * source). Python comments are always `"line"` (`#`); it has no block comments.
+ */
+export interface CommentToken {
+  type: "line" | "block";
+  value: string;
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+
+/**
+ * Options for `RuleContext.ast()`.
+ *
+ * - `rev: "base"` parses the file's content at the comparison base commit (the
+ *   merge base of `--base` and HEAD) instead of the working tree. Use it to ask
+ *   "did the executable structure change?" — comments drop out of both the
+ *   ESTree and Python `ast` shapes, but node positions do not, so compare a
+ *   location-free projection (strip `loc`/`range`, `lineno`/`col_offset`): a
+ *   comment-only edit is then equal, while a value change is not. Throws if no
+ *   base is resolved or the file did not exist at the base; pair with
+ *   `fileAtBase()` when you need to detect that first.
+ * - `comments: true` attaches a `comments` array of {@link CommentToken}s to
+ *   the returned tree — the structured basis for comment-governance rules, in
+ *   place of line-by-line regex. Supported for `"typescript"`/`"javascript"`
+ *   and `"python"`; requesting it for `"ruby"` throws.
+ */
+export interface AstOptions {
+  rev?: "base";
+  comments?: boolean;
+}
+
+/**
  * A node in the ESTree tree returned for `"typescript"`/`"javascript"`.
  * `type` is the ESTree node discriminant (e.g. `"ImportDeclaration"`,
  * `"CallExpression"`). Only the fields common to every node are typed; the
@@ -90,6 +128,8 @@ export interface EsTreeProgram extends EsTreeNode {
   type: "Program";
   sourceType: "module" | "script";
   body: EsTreeNode[];
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
 }
 
 /**
@@ -112,6 +152,8 @@ export interface PythonAstNode {
 export interface PythonAstModule extends PythonAstNode {
   _type: "Module";
   body: PythonAstNode[];
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
 }
 
 /**
@@ -141,6 +183,14 @@ export interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  /**
+   * Read a file's source at the comparison base revision (the merge base of
+   * `--base` and HEAD). Returns null when no base is resolved (no `--base`, or
+   * unrelated histories) or the path did not exist at the base — the two
+   * "nothing to compare against" cases, checkable with one null test. For a
+   * structural comparison prefer `ast(path, language, { rev: "base" })`.
+   */
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
@@ -156,16 +206,24 @@ export interface RuleContext {
    * corresponding interpreter (`python3`/`python`, `ruby`) on PATH wherever
    * `archgate check` runs — locally and in CI.
    *
+   * Pass `{ rev: "base" }` (see {@link AstOptions}) to parse the file at the
+   * comparison base commit instead of the working tree.
+   *
    * Throws (never returns null) when the file fails to parse or the required
    * interpreter is missing; the error message distinguishes the two cases.
    */
   ast(
     path: string,
-    language: "typescript" | "javascript"
+    language: "typescript" | "javascript",
+    opts?: AstOptions
   ): Promise<EsTreeProgram>;
-  ast(path: string, language: "python"): Promise<PythonAstModule>;
-  ast(path: string, language: "ruby"): Promise<RubyAstNode>;
-  ast(path: string, language: AstLanguage): Promise<AstNode>;
+  ast(
+    path: string,
+    language: "python",
+    opts?: AstOptions
+  ): Promise<PythonAstModule>;
+  ast(path: string, language: "ruby", opts?: AstOptions): Promise<RubyAstNode>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   report: RuleReport;
 }
 

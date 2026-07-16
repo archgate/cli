@@ -64,8 +64,9 @@ interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
-  ast(path: string, language: AstLanguage): Promise<AstNode>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   report: RuleReport;
 }
 ```
@@ -154,6 +155,30 @@ Les innholdet i en fil som en streng. Stien er relativ til prosjektroten.
 const content = await ctx.readFile("src/config.ts");
 ```
 
+#### fileAtBase
+
+```typescript
+fileAtBase(path: string): Promise<string | null>;
+```
+
+Les en fils kildekode ved den **sammenligningsgrunnlagsrevisjonen** -- fellespunktet (merge base) mellom `--base`-referansen og `HEAD`, den samme commiten `changedFiles` beregnes mot. Bruk den til å sammenligne arbeidstreet mot punktet der endringssettet delte seg fra basisen.
+
+Returnerer `null` i de to "ingenting å sammenligne mot"-tilfellene, slik at en enkelt null-sjekk dekker begge:
+
+- **Ingen basis er løst** -- sjekken kjørte uten `--base` (eller historikkene er urelaterte).
+- **Filen fantes ikke ved basisen** -- en lagt-til fil.
+
+```typescript
+const before = await ctx.fileAtBase("data/schema.py");
+if (before === null) {
+  // Ingen basisversjon å sammenligne mot -- hopp over.
+  return;
+}
+const after = await ctx.readFile("data/schema.py");
+```
+
+For en **strukturell** sammenligning (som ignorerer kommentarer og formatering), foretrekk `ast(path, language, { rev: "base" })` nedenfor.
+
 #### readJSON
 
 ```typescript
@@ -173,8 +198,14 @@ const pkg = (await ctx.readJSON("package.json")) as {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby"
+  language: "typescript" | "javascript" | "python" | "ruby",
+  opts?: AstOptions
 ): Promise<AstNode>;
+
+interface AstOptions {
+  rev?: "base";
+  comments?: boolean;
+}
 ```
 
 Parse en kildefil til dens språknative AST. Stien er relativ til prosjektroten og går gjennom samme sandkasse som `readFile`. TypeScript og JavaScript parses i prosessen; Python og Ruby parses ved å starte systemtolkens egen AST-fasilitet fra standardbiblioteket som en underprosess. Formen på det returnerte treet varierer per språk -- se [AstNode](#astnode).
@@ -186,13 +217,70 @@ for (const node of program.body) {
 }
 ```
 
+##### Parsing av grunnrevisjonen (`{ rev: "base" }`)
+
+Med `{ rev: "base" }` parser `ast()` filen ved den [sammenligningsgrunnlagsrevisjonen](#fileatbase) i stedet for arbeidstreet -- alt annet (returform, kastekontrakt) er identisk. Parse begge revisjonene for å spørre "endret den kjørbare strukturen seg?" Kommentarer er fraværende fra ESTree- og Python-`ast`-formene, men det er ikke node**posisjonene**: `loc`- / `lineno`-feltene forskyves når en kommentar eller tom linje flytter linjene under seg. Sammenlign en **posisjonsfri projeksjon** -- fjern `loc` / `range` (ESTree) og `lineno` / `col_offset` (Python) før sammenligning -- slik at en ren kommentarendring leses som uendret. (Python-dokstrenger er strengnoder i treet, så en endret dokstreng er en reell endring; fjern dem også hvis dokumentasjonsendringer skal være nøytrale.)
+
+```typescript
+// Merk en endring bare når den kjørbare strukturen faktisk endret seg.
+// `structurallyEqual` sammenligner trærne med posisjonsmetadata (loc/range,
+// lineno/col_offset) fjernet -- se writing-rules-guiden for en konkret
+// implementasjon.
+for (const file of ctx.changedFiles.filter((f) => f.endsWith(".py"))) {
+  // Hopp over filer uten basismotpart -- ast({ rev: "base" }) ville kastet.
+  if ((await ctx.fileAtBase(file)) === null) continue;
+  const before = await ctx.ast(file, "python", { rev: "base" });
+  const after = await ctx.ast(file, "python");
+  if (!structurallyEqual(before, after)) {
+    ctx.report.violation({ message: `${file} changed behavior`, file });
+  }
+}
+```
+
+Bruk `fileAtBase()` først når du trenger å oppdage tilfellene uten basis eller med lagt-til fil som ordinær kontrollflyt -- `ast({ rev: "base" })` **kaster** for disse (se nedenfor).
+
+##### Samle inn kommentarer (`{ comments: true }`)
+
+Med `{ comments: true }` bærer det returnerte treet en `comments`-matrise -- strukturert kommentardata for kommentarstyringsregler, i stedet for linje-for-linje regulære uttrykk. Støttet for `typescript`, `javascript` og `python`; å be om det for `ruby` kaster.
+
+```typescript
+interface CommentToken {
+  type: "line" | "block";
+  value: string; // skilletegn (`//`, `/* */`, `#`) fjernet
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+```
+
+```typescript
+const tree = await ctx.ast("src/api.ts", "typescript", { comments: true });
+for (const comment of tree.comments ?? []) {
+  const lines = comment.value.split("\n").length;
+  if (lines > 10) {
+    ctx.report.warning({
+      message: "Comment block is too long -- link to an ADR instead",
+      file: "src/api.ts",
+      line: comment.loc.start.line,
+    });
+  }
+}
+```
+
+Kommentarposisjoner er nøyaktige mot **originalkilden**, selv for TypeScript. Dette er en bevisst fordel fremfor treets egen `loc`, som er transpilert-relativ for TypeScript (se [AstNode](#astnode)): kommentarer skannes fra kildekoden før transpilering, så deres `loc` driver aldri. Python-kommentarer er alltid `type: "line"` (`#`) -- Python har ingen blokkommentarer, og `"""`-dokstrenger er strengeuttrykk i treet, ikke kommentarer. TypeScript/JavaScript-skanneren er streng- og malstreng-bevisst, men sporer ikke regulært-uttrykk-literaler, så et kommentarskilletegn inne i en regex-literal er et kjent blindpunkt.
+
+##### Feiloppførsel
+
 `ast()` **kaster** ved feil -- den returnerer aldri `null`:
 
 - **Parsefeil**: filen kan ikke parses som det forespurte språket. Feilmeldingen inkluderer parserens diagnostikk.
 - **Manglende tolk** (kun `python`/`ruby`): ingen egnet tolk ble funnet på `PATH`.
 - **Usannsynlig input**: filens filendelse samsvarer ikke med det forespurte språket (f.eks. kaster `ctx.ast("config.json", "python")` før noen tolk startes).
+- **Ingen grunnrevisjon** (kun `{ rev: "base" }`): sjekken kjørte uten `--base`, så det finnes ingen basis å parse. Bruk `fileAtBase()` for å oppdage dette som `null` i stedet.
+- **Fil ikke til stede ved basisen** (kun `{ rev: "base" }`): stien ble lagt til etter basisen og fantes ikke der.
 
-En kastet feil er isolert til regelen som feiler: andre regler og ADR-er i samme sjekk-kjøring fortsetter som normalt, og feilen vises som en regelkjøringsfeil med avslutningskode 2 (til forskjell fra avslutningskode 1 for brudd). De to kastetilfellene kan skilles fra hverandre på meldingsteksten, slik at sjekkutdataene skiller "dette miljøet kan ikke kjøre denne regelen" fra "denne filen har en syntaksfeil".
+En kastet feil er isolert til regelen som feiler: andre regler og ADR-er i samme sjekk-kjøring fortsetter som normalt, og feilen vises som en regelkjøringsfeil med avslutningskode 2 (til forskjell fra avslutningskode 1 for brudd). Kastetilfellene kan skilles fra hverandre på meldingsteksten, slik at sjekkutdataene skiller "dette miljøet kan ikke kjøre denne regelen" fra "denne filen har en syntaksfeil" eller "det finnes ingen grunnrevisjon".
 
 :::caution
 Python- og Ruby-regler krever at den tilhørende tolken (`python3`/`python`, `ruby`) finnes på `PATH` overalt der `archgate check` kjører -- på hver utviklermaskin **og** i CI. TypeScript- og JavaScript-parsing er innebygd i Archgate og trenger ingen tolk.
@@ -294,6 +382,8 @@ Returnert av `ctx.ast()`. Formen er språknativ og bevisst **ikke** enhetlig på
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 type AstNode = Record<string, unknown> | unknown[];
 ```
+
+Når parset med [`{ comments: true }`](#ast), bærer rotnoden også en `comments: CommentToken[]`-matrise (kun `typescript`, `javascript` og `python`). Den er fraværende ellers.
 
 | Språk        | Underliggende parser                                                                                                     | Returnert form                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
