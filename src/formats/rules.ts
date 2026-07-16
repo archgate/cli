@@ -223,7 +223,7 @@ export interface RuleContext {
     opts?: AstOptions
   ): Promise<PythonAstModule>;
   ast(path: string, language: "ruby", opts?: AstOptions): Promise<RubyAstNode>;
-  ast(path: string, language: AstLanguage): Promise<AstNode>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   report: RuleReport;
 }
 

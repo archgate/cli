@@ -79,6 +79,7 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 ### Do
 
 - **DO** implement `ast(path, language)` as a single method on `RuleContext` with dispatch entirely internal to `createRuleContext()` in `src/engine/runner.ts`
+- **DO** give the language-agnostic catch-all overload (`ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>`) the same `opts?: AstOptions` parameter as the three literal-language overloads. A caller holding a dynamically-typed `AstLanguage` (not a string literal) resolves to the catch-all; omitting `opts` there silently denied that caller `{ rev: "base" }` and `{ comments: true }` entirely, with no editor signal — the `single-ast-method` rule now enforces this exact three-parameter signature
 - **DO** reuse the existing `meriyah`-based parser for `"typescript"`/`"javascript"`, factoring the duplicated `parseModule()` call in `rule-scanner.ts` into one shared helper used by both the scanner and `ctx.ast()`
 - **DO** run the path-safety, language-plausibility, interpreter-availability, and guarded-invocation checks in exactly that order, before any subprocess is spawned, for the `"python"`/`"ruby"` branches
 - **DO** use `Bun.spawn` with array-based arguments for the Python/Ruby subprocess invocations, per [ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)

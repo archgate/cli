@@ -220,13 +220,13 @@ export default {
             });
           }
           const astSignatures = content.match(
-            /^\s*ast\(path: string, language: AstLanguage\): Promise<AstNode>;/gmu
+            /^\s*ast\(path: string, language: AstLanguage, opts\?: AstOptions\): Promise<AstNode>;/gmu
           );
           if (!astSignatures || astSignatures.length !== 1) {
             ctx.report.violation({
-              message: `${file} must declare exactly one \`ast(path: string, language: AstLanguage): Promise<AstNode>\` signature on RuleContext (found ${astSignatures?.length ?? 0})`,
+              message: `${file} must declare exactly one \`ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>\` signature on RuleContext (found ${astSignatures?.length ?? 0})`,
               file,
-              fix: "Declare the single ast() signature on RuleContext",
+              fix: "Declare the single ast() catch-all signature — including opts?: AstOptions — on RuleContext",
             });
           }
         });
