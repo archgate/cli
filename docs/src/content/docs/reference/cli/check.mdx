@@ -129,7 +129,9 @@ By default, warnings (both diagnostics and rule-reported `"severity": "warning"`
 
 ## JSON output format
 
-When `--json` is used, the output is a single JSON object:
+When `--json` is used, the output is a single JSON object.
+
+`results` contains only rules that have something to report: failures, rule errors, and any rule with violations (including warning- and info-only rules). Rules that pass cleanly are omitted — their entry would only restate static ADR text, and on a large project those entries dominate the payload. The `total` and `passed` counts still report exactly how many rules ran and passed. Pass `--verbose` to include every rule in `results`.
 
 ```json
 {

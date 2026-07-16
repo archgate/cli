@@ -3,6 +3,7 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 
 import { isAgentContext, formatJSON } from "../../src/helpers/output";
+import { restoreEnv } from "../test-utils";
 
 describe("output helpers", () => {
   let originalCI: string | undefined;
@@ -12,11 +13,7 @@ describe("output helpers", () => {
   });
 
   afterEach(() => {
-    if (originalCI === undefined) {
-      delete process.env.CI;
-    } else {
-      process.env.CI = originalCI;
-    }
+    restoreEnv("CI", originalCI);
   });
 
   describe("isAgentContext", () => {

@@ -129,7 +129,9 @@ Som standard endrer advarsler (både diagnostikk og regelrapporterte brudd med `
 
 ## JSON-utdataformat
 
-Når `--json` brukes, er utdataene et enkelt JSON-objekt:
+Når `--json` brukes, er utdataene et enkelt JSON-objekt.
+
+`results` inneholder bare regler som har noe å rapportere: feil, regelfeil og alle regler med brudd (inkludert regler som bare gir advarsler eller informasjon). Regler som består uten brudd, utelates — oppføringen deres ville bare gjenta statisk ADR-tekst, og i store prosjekter dominerer disse oppføringene utdataene. Tellerne `total` og `passed` rapporterer fortsatt nøyaktig hvor mange regler som ble kjørt og bestått. Bruk `--verbose` for å inkludere alle regler i `results`.
 
 ```json
 {

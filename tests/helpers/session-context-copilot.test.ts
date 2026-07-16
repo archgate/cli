@@ -9,6 +9,7 @@ import {
   listCopilotSessions,
   readCopilotSession,
 } from "../../src/helpers/session-context-copilot";
+import { restoreEnv } from "../test-utils";
 
 // This file covers readCopilotSession happy-path and error-case tests.
 
@@ -33,8 +34,7 @@ describe("readCopilotSession", () => {
   });
 
   afterEach(() => {
-    if (savedHome === undefined) delete Bun.env.HOME;
-    else Bun.env.HOME = savedHome;
+    restoreEnv("HOME", savedHome);
     rmSync(tempHome, { recursive: true, force: true });
   });
 

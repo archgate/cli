@@ -31,6 +31,19 @@ rules: true
 We need consistent commit messages.
 `;
 
+const ADR_CONTENT_WITH_FILES = `---
+id: BE-001
+title: API Response Envelope
+domain: backend
+rules: true
+files: ["src/api/**", "src/routes/**"]
+respectGitignore: true
+---
+
+## Context
+We need consistent API responses.
+`;
+
 describe("registerAdrListCommand", () => {
   test("registers 'list' as a subcommand", () => {
     const parent = new Command("adr");
@@ -132,6 +145,34 @@ describe("adr list action handler", () => {
     expect(parsed[0].domain).toBe("architecture");
   });
 
+  test("JSON output carries identity fields only, omitting files globs", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+    writeFileSync(
+      join(adrsDir, "BE-001-api-response-envelope.md"),
+      ADR_CONTENT_WITH_FILES
+    );
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync(["node", "adr", "list", "--json"]);
+
+    const allOutput = logSpy.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .join("\n");
+    const parsed = JSON.parse(allOutput);
+
+    // `files`/`respectGitignore` stay out of the listing so large ADR sets
+    // remain small enough for agents to read inline — `adr show` has the rest.
+    expect(Object.keys(parsed[0]).toSorted()).toEqual([
+      "domain",
+      "id",
+      "rules",
+      "title",
+    ]);
+    expect(allOutput).not.toContain("src/api/**");
+  });
+
   test("filters by domain with --domain flag", async () => {
     const adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });
@@ -184,20 +225,6 @@ describe("adr list action handler", () => {
     const parsed = JSON.parse(allOutput);
     expect(parsed).toHaveLength(1);
     expect(parsed[0].id).toBe("GEN-001");
-  });
-
-  test("prints 'No ADRs found.' when adrs directory is empty", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync(["node", "adr", "list"]);
-
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    expect(allOutput).toContain("No ADRs found.");
   });
 
   test("prints 'No ADRs found.' when adrs directory is empty", async () => {

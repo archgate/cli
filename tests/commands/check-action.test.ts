@@ -21,6 +21,7 @@ import * as exitModule from "../../src/helpers/exit";
 import * as pathsModule from "../../src/helpers/paths";
 import * as stackDetectModule from "../../src/helpers/stack-detect";
 import * as telemetryModule from "../../src/helpers/telemetry";
+import { restoreEnv } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Shared mock data
@@ -299,7 +300,7 @@ describe("check action handler", () => {
       expect(reportJSONSpy).toHaveBeenCalledTimes(1);
       expect(reportConsoleSpy).not.toHaveBeenCalled();
     } finally {
-      Bun.env.CI = origCI;
+      restoreEnv("CI", origCI);
     }
   });
 

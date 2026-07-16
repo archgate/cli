@@ -129,7 +129,9 @@ Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"sever
 
 ## Formato da saída JSON
 
-Quando `--json` é usado, a saída é um único objeto JSON:
+Quando `--json` é usado, a saída é um único objeto JSON.
+
+`results` contém apenas as regras que têm algo a relatar: falhas, erros de regra e qualquer regra com violações (incluindo regras que geram apenas avisos ou informações). Regras aprovadas sem violações são omitidas — sua entrada apenas repetiria o texto estático do ADR e, em projetos grandes, essas entradas dominam o payload. Os contadores `total` e `passed` continuam informando exatamente quantas regras foram executadas e quantas foram aprovadas. Use `--verbose` para incluir todas as regras em `results`.
 
 ```json
 {

@@ -10,6 +10,7 @@ import {
   mergeOpencodeSettings,
   opencodeConfigPath,
 } from "../../src/helpers/opencode-settings";
+import { restoreEnv } from "../test-utils";
 
 describe("mergeOpencodeSettings", () => {
   test("sets default_agent when existing config is empty", () => {
@@ -57,10 +58,8 @@ describe("opencodeConfigPath", () => {
   });
 
   afterEach(() => {
-    if (originalXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
-    else Bun.env.XDG_CONFIG_HOME = originalXdg;
-    if (originalHome === undefined) delete Bun.env.HOME;
-    else Bun.env.HOME = originalHome;
+    restoreEnv("XDG_CONFIG_HOME", originalXdg);
+    restoreEnv("HOME", originalHome);
   });
 
   test("resolves to XDG_CONFIG_HOME when set", () => {
@@ -83,8 +82,7 @@ describe("configureOpencodeSettings", () => {
   });
 
   afterEach(() => {
-    if (originalXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
-    else Bun.env.XDG_CONFIG_HOME = originalXdg;
+    restoreEnv("XDG_CONFIG_HOME", originalXdg);
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {

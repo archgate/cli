@@ -17,9 +17,18 @@ archgate review-context [options]
 | `--base [ref]`      | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt) |
 | `--run-checks`      | Inkluder resultater fra ADR-samsvarskontroller                               |
 | `--domain <domain>` | Filtrer til et enkelt domene                                                 |
+| `--verbose`         | Inkluder teksten for Decision og Do's/Don'ts fra hver ADR                    |
 
 ## Eksempel
 
 ```bash
 archgate review-context --staged
 ```
+
+## Størrelse på utdata
+
+Som standard identifiseres hver ADR bare med `id`, `title`, `domain`, `files` og `rules` — nok til å vite hvilke ADR-er som gjelder for de endrede filene. Les dem du trenger med `archgate adr show <id>`.
+
+Bruk `--verbose` for å inkludere teksten for Decision og Do's/Don'ts fra hver aktuelle ADR i svaret. Denne teksten vokser med antallet ADR-er som treffer, og dominerer utdataene — i dette repositoriet utgjør den omtrent 78 % av utdataene (rundt 70KB mot 6KB uten), noe som er stort nok til at AI-agenter slutter å vise resultatet inline. Foretrekk standarden og hent detaljene ved behov; bruk `--verbose` bare når ett selvstendig svar er strengt nødvendig.
+
+Når `--run-checks` brukes, følger `checkSummary` samme regel som [`archgate check --json`](/reference/cli/check/): `results`-listen inneholder bare regler som har noe å rapportere, mens tellerne ved siden av fortsatt dekker alle reglene som ble kjørt.

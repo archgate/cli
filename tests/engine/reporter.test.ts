@@ -135,6 +135,49 @@ describe("reporter", () => {
       expect(parsed.pass).toBe(false);
       expect(parsed.results[0].violations[0].message).toBe("problem");
     });
+
+    // ARCH-003 §7: a passing rule's entry restates static ADR text and is ~99%
+    // of the payload on a large project — enough to push the output past the
+    // threshold where agent harnesses spill it to a file. The summary counts
+    // still report how many passed, so nothing is lost.
+    test("omits passing rules from results by default, keeping counts exact", () => {
+      reportJSON(makeResult());
+      const parsed = JSON.parse(logs.join("\n"));
+      expect(parsed.results).toEqual([]);
+      expect(parsed.total).toBe(1);
+      expect(parsed.passed).toBe(1);
+    });
+
+    test("--verbose restores passing rules in results", () => {
+      reportJSON(makeResult(), undefined, undefined, true);
+      const parsed = JSON.parse(logs.join("\n"));
+      expect(parsed.results).toHaveLength(1);
+      expect(parsed.results[0].status).toBe("pass");
+      expect(parsed.results[0].ruleId).toBe("test-rule");
+    });
+
+    test("retains errored rules in results by default", () => {
+      reportJSON(makeResult({ error: "kaboom" }));
+      const parsed = JSON.parse(logs.join("\n"));
+      expect(parsed.results).toHaveLength(1);
+      expect(parsed.results[0].status).toBe("error");
+      expect(parsed.results[0].error).toBe("kaboom");
+    });
+
+    test("retains warning-only rules, which are otherwise status pass", () => {
+      // A warning does not flip status to "fail", so a naive `status !== "pass"`
+      // filter would drop it. Warnings must reach the consumer.
+      reportJSON(
+        makeResult({
+          violations: [
+            { ruleId: "r", adrId: "a", message: "meh", severity: "warning" },
+          ],
+        })
+      );
+      const parsed = JSON.parse(logs.join("\n"));
+      expect(parsed.warnings).toBe(1);
+      expect(parsed.results[0]?.violations[0].message).toBe("meh");
+    });
   });
 
   describe("reportCI", () => {
