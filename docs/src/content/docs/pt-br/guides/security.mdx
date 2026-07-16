@@ -132,7 +132,7 @@ jobs:
 
 Ao clonar ou fazer fork de um repositório que usa Archgate, o scanner de segurança aplica automaticamente a allowlist de imports em arquivos `.rules.ts`. É uma forte primeira linha de defesa -- não um sandbox completo -- então você ainda deve revisar os arquivos de regras antes de rodar `archgate check` pela primeira vez:
 
-- O scanner bloqueia as rotas diretas para capacidades perigosas, mas é análise estática, não uma jaula: indireção através de um objeto global (ex.: `Reflect.get(Bun, "spawn")`) ainda pode alcançar uma API que a allowlist não remove
+- O scanner bloqueia as rotas diretas para capacidades perigosas, mas é análise estática, não uma jaula: qualquer coisa construída em tempo de execução — um nome de propriedade (`obj[name]` com um `name` computado) ou uma string de código — é opaca para uma varredura de código-fonte, então revise arquivos de regra em que você não confia antes de executá-los
 - Código de nível superior que executa no import (antes da função `check` ser chamada) ainda é executado se passar pelo scanner
 - Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) e `ctx.report` para saída
 

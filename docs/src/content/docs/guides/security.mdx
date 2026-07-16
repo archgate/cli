@@ -132,7 +132,7 @@ jobs:
 
 When cloning or forking a repository that uses Archgate, the security scanner automatically enforces the import allowlist in `.rules.ts` files. It is a strong first line of defense -- not a complete sandbox -- so you should still review rule files before running `archgate check` for the first time:
 
-- The scanner blocks the direct routes to dangerous capabilities, but it is static analysis, not a jail: indirection through a global object (e.g. `Reflect.get(Bun, "spawn")`) can still reach an API the allowlist does not remove
+- The scanner blocks the direct routes to dangerous capabilities, but it is static analysis, not a jail: anything built at runtime — a property name (`obj[name]` with a computed `name`) or a code string — is opaque to a source scan, so review rule files you do not trust before running them
 - Top-level code that runs on import (before the `check` function is called) is still executed if it passes the scanner
 - Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output
 

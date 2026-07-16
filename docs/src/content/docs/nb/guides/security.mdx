@@ -132,7 +132,7 @@ jobs:
 
 Når du kloner eller forker et repositorium som bruker Archgate, håndhever sikkerhetsskanneren automatisk importens tillatelsesliste i `.rules.ts`-filer. Det er en sterk første forsvarslinje -- ikke en fullstendig sandkasse -- så du bør likevel gjennomgå regelfiler før du kjører `archgate check` for første gang:
 
-- Skanneren blokkerer de direkte rutene til farlige funksjoner, men den er statisk analyse, ikke et fengsel: indirekte tilgang gjennom et globalt objekt (f.eks. `Reflect.get(Bun, "spawn")`) kan fortsatt nå en API-funksjon tillatelseslisten ikke fjerner
+- Skanneren blokkerer de direkte rutene til farlige funksjoner, men den er statisk analyse, ikke et fengsel: alt som bygges ved kjøretid — et egenskapsnavn (`obj[name]` med et beregnet `name`) eller en kodestreng — er ugjennomsiktig for en kildeskanning, så gjennomgå regelfiler du ikke stoler på før du kjører dem
 - Toppnivå-kode som kjører ved import (før `check`-funksjonen kalles) kjøres fortsatt hvis den består skanneren
 - Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, osv.) og `ctx.report` for utskrift
 
