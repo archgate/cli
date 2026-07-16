@@ -9,7 +9,7 @@ import * as credentialStore from "../../src/helpers/credential-store";
 import { initProject } from "../../src/helpers/init-project";
 import * as pluginInstall from "../../src/helpers/plugin-install";
 import * as vscodeSettings from "../../src/helpers/vscode-settings";
-import { safeRmSync } from "../test-utils";
+import { restoreEnv, safeRmSync } from "../test-utils";
 
 describe("initProject", () => {
   let tempDir: string;
@@ -213,10 +213,8 @@ describe("initProject", () => {
         false
       );
     } finally {
-      Bun.env.HOME = savedHome;
-      if (savedXdg !== undefined) {
-        Bun.env.XDG_CONFIG_HOME = savedXdg;
-      }
+      restoreEnv("HOME", savedHome);
+      restoreEnv("XDG_CONFIG_HOME", savedXdg);
     }
   });
 

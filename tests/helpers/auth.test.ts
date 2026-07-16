@@ -5,6 +5,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { restoreEnv } from "../test-utils";
+
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
@@ -33,10 +35,16 @@ describe("auth", () => {
   });
 
   afterEach(() => {
-    Bun.env.HOME = originalHome;
-    Bun.env.USERPROFILE = originalUserProfile;
-    Bun.env.GIT_CONFIG_NOSYSTEM = originalGitConfigNoSystem;
-    Bun.env.GIT_CONFIG_GLOBAL = originalGitConfigGlobal;
+    // `Bun.env.X = undefined` assigns the STRING "undefined" and leaves the key
+    // present — it does not unset. Since HOME and GIT_CONFIG_GLOBAL are normally
+    // unset on Windows, a plain restore leaked HOME="undefined" into the shared
+    // process env, and every later test that spawned a subprocess inherited it.
+    // Bun.env is process-global and test files share one process, so this must
+    // delete when the original was absent.
+    restoreEnv("HOME", originalHome);
+    restoreEnv("USERPROFILE", originalUserProfile);
+    restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
+    restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
     rmSync(tempDir, { recursive: true, force: true });
   });
 

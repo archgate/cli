@@ -1,5 +1,9 @@
 {
-  "jsPlugins": ["./lint/expect-expect.ts", "./.archgate/lint/oxlint.ts"],
+  "jsPlugins": [
+    "./lint/expect-expect.ts",
+    "./lint/no-bare-env-restore.ts",
+    "./.archgate/lint/oxlint.ts"
+  ],
   "categories": {
     "correctness": "error",
     "pedantic": "error",
@@ -19,7 +23,10 @@
   "overrides": [
     {
       "files": ["tests/**/*.test.ts"],
-      "rules": { "bun-test/expect-expect": "error" }
+      "rules": {
+        "bun-test/expect-expect": "error",
+        "test-isolation/no-bare-env-restore": "error"
+      }
     },
     {
       "files": [".archgate/adrs/*.rules.ts"],

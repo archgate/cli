@@ -9,6 +9,7 @@ import {
   maybeCheckForUpdates,
   shouldPerformUpdateCheck,
 } from "../../src/helpers/update-check";
+import { restoreEnv } from "../test-utils";
 
 describe("shouldPerformUpdateCheck", () => {
   test("true in a genuine interactive terminal", () => {
@@ -69,11 +70,7 @@ describe("checkForUpdatesIfNeeded", () => {
     } catch {
       /* temp dir may already be removed */
     }
-    if (originalHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = originalHome;
-    }
+    restoreEnv("HOME", originalHome);
     Bun.write = originalBunWrite;
     mock.restore();
   });
@@ -297,21 +294,13 @@ describe("maybeCheckForUpdates", () => {
     } catch {
       /* temp dir may already be removed */
     }
-    if (originalHome === undefined) {
-      delete process.env.HOME;
-    } else {
-      process.env.HOME = originalHome;
-    }
+    restoreEnv("HOME", originalHome);
     Object.defineProperty(process.stdout, "isTTY", {
       value: originalIsTTY,
       writable: true,
       configurable: true,
     });
-    if (originalCI === undefined) {
-      delete Bun.env.CI;
-    } else {
-      Bun.env.CI = originalCI;
-    }
+    restoreEnv("CI", originalCI);
     process.argv = originalArgv;
     mock.restore();
   });

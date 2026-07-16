@@ -5,6 +5,8 @@ import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { restoreEnv } from "../test-utils";
+
 describe("telemetry-config", () => {
   let tempDir: string;
   let originalHome: string | undefined;
@@ -19,12 +21,11 @@ describe("telemetry-config", () => {
   });
 
   afterEach(async () => {
-    process.env.HOME = originalHome;
-    if (originalTelemetryEnv === undefined) {
-      delete process.env.ARCHGATE_TELEMETRY;
-    } else {
-      process.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
-    }
+    // `env.X = undefined` assigns the string "undefined" rather than unsetting,
+    // so HOME (normally unset on Windows) leaked into every later test file.
+    // Bun.env and process.env are the same store, so restoreEnv covers both.
+    restoreEnv("HOME", originalHome);
+    restoreEnv("ARCHGATE_TELEMETRY", originalTelemetryEnv);
     rmSync(tempDir, { recursive: true, force: true });
 
     // Reset cached config between tests
@@ -233,11 +234,7 @@ describe("telemetry-config", () => {
         writable: true,
         configurable: true,
       });
-      if (originalCI === undefined) {
-        delete Bun.env.CI;
-      } else {
-        Bun.env.CI = originalCI;
-      }
+      restoreEnv("CI", originalCI);
     });
 
     test("prints notice when TTY + enabled + not yet shown", async () => {

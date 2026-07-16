@@ -34,6 +34,7 @@ import {
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../src/helpers/plugin-install";
+import { restoreEnv } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -122,10 +123,8 @@ afterEach(() => {
   mockResolveCommand.mockRestore();
   mock.restore();
 
-  if (savedHome === undefined) delete Bun.env.HOME;
-  else Bun.env.HOME = savedHome;
-  if (savedXdg === undefined) delete Bun.env.XDG_CONFIG_HOME;
-  else Bun.env.XDG_CONFIG_HOME = savedXdg;
+  restoreEnv("HOME", savedHome);
+  restoreEnv("XDG_CONFIG_HOME", savedXdg);
   rmSync(tempHome, { recursive: true, force: true });
 });
 

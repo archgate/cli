@@ -1,5 +1,5 @@
 {
-  "attribution": { "commit": "", "pr": "" },
+  "attribution": { "commit": "", "pr": "", "sessionUrl": false },
   "permissions": {
     "allow": [
       "Bash(oxfmt *)",

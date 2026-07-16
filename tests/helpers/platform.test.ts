@@ -11,6 +11,7 @@ import {
   getWindowsHomeDirFromWSL,
   _resetAllCaches,
 } from "../../src/helpers/platform";
+import { restoreEnv } from "../test-utils";
 
 describe("getPlatformInfo", () => {
   let savedEnv: Record<string, string | undefined>;
@@ -179,10 +180,8 @@ describe("WSL detection via env vars (Linux only)", () => {
   });
 
   afterEach(() => {
-    if (savedDistro === undefined) delete process.env.WSL_DISTRO_NAME;
-    else process.env.WSL_DISTRO_NAME = savedDistro;
-    if (savedInterop === undefined) delete process.env.WSL_INTEROP;
-    else process.env.WSL_INTEROP = savedInterop;
+    restoreEnv("WSL_DISTRO_NAME", savedDistro);
+    restoreEnv("WSL_INTEROP", savedInterop);
     _resetAllCaches();
   });
 

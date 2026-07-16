@@ -58,6 +58,7 @@ This decision does NOT cover:
 - **DO** wrap CLI availability checks in `try/catch` returning a boolean — the command may not exist on the system
 - **DO** pass `cwd` via the options object when the command must run in a specific directory
 - **DO** extract a helper function (e.g., `run(cmd, opts)` or `runGit(args, cwd)`) when multiple subprocess calls share the same pattern within a module
+- **DO** use `Promise.allSettled` when running multiple spawned processes concurrently and any of them can reject — inspect statuses only after all have settled, so every process has fully exited before the caller proceeds (see `getGitTrackedFiles` in `src/engine/git-files.ts` for the reference implementation)
 
 ### Don't
 
@@ -66,6 +67,7 @@ This decision does NOT cover:
 - **DON'T** use shell features (pipes `|`, redirects `>`, globbing `*`) in subprocess arguments — `Bun.spawn` executes commands directly without a shell
 - **DON'T** forget to `await proc.exited` — reading stdout alone does not guarantee the process has terminated
 - **DON'T** use `node:child_process` when `Bun.spawn` provides the same capability — prefer Bun built-ins per [ARCH-006](./ARCH-006-dependency-policy.md)
+- **DON'T** race multiple spawned processes with `Promise.all` when one rejection can abandon a still-running sibling — the abandoned process keeps its `cwd` handle open, which on Windows locks that directory (`EBUSY` on removal; observed when `getGitTrackedFiles` ran two `git ls-files` variants against a non-git directory)
 
 ## Implementation Pattern
 

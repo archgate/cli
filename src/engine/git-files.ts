@@ -5,7 +5,7 @@
 import { logDebug, logWarn } from "../helpers/log";
 import { ensureBaseBranch } from "../helpers/project-config";
 import { UserError } from "../helpers/user-error";
-import { expandBracePattern } from "./runner";
+import { expandBracePattern, matchTrackedFiles } from "./glob-utils";
 
 /** Warn when an ADR's resolved file scope exceeds this many files. */
 export const SCOPE_FILE_WARN_THRESHOLD = 1000;
@@ -48,18 +48,32 @@ export function getGitTrackedFiles(
   if (cached) return cached;
 
   const promise = (async () => {
-    try {
-      const result = await runGit(
+    // `--cached` lists files deleted from the worktree but not yet staged;
+    // a filesystem walk would never return those. Subtract `--deleted` so
+    // in-memory pattern matching (matchTrackedFiles) sees exactly the
+    // files that exist on disk. `--others` entries exist by definition.
+    //
+    // allSettled, not all: in a non-git directory the first spawn rejects,
+    // and Promise.all would return while the sibling git process is still
+    // running with projectRoot as its cwd — on Windows that live cwd handle
+    // locks the directory (EBUSY on removal). Both must fully exit first.
+    const [listed, deleted] = await Promise.allSettled([
+      runGit(
         ["ls-files", "--cached", "--others", "--exclude-standard"],
         projectRoot
-      );
-      const files = new Set(result.trim().split("\n").filter(Boolean));
-      logDebug("Git tracked files:", files.size);
-      return files;
-    } catch {
+      ),
+      runGit(["ls-files", "--deleted"], projectRoot),
+    ]);
+    if (listed.status === "rejected" || deleted.status === "rejected") {
       logDebug("Git tracked files lookup failed (not a git repo?)");
       return null;
     }
+    const files = new Set(listed.value.trim().split("\n").filter(Boolean));
+    for (const f of deleted.value.trim().split("\n").filter(Boolean)) {
+      files.delete(f);
+    }
+    logDebug("Git tracked files:", files.size);
+    return files;
   })();
 
   trackedFilesCache.set(projectRoot, promise);
@@ -94,25 +108,31 @@ export async function resolveScopedFiles(
     ? await getGitTrackedFiles(projectRoot)
     : null;
 
-  // Expand brace patterns with path separators that Bun.Glob scanning drops.
-  // See https://github.com/oven-sh/bun/issues/32596.
-  const expanded = patterns.flatMap((p) => expandBracePattern(p));
-
   const scanStart = performance.now();
-  const dedupSet = new Set<string>();
-  await Promise.all(
-    expanded.map(async (pattern) => {
-      const glob = new Bun.Glob(pattern);
-      // dot: true so ADR `files:` globs can target dot-prefixed source dirs
-      // like `.github/`, `.husky/`, `.vscode/`. The git-tracked-files filter
-      // below already excludes ignored files. See archgate/cli#222.
-      for await (const file of glob.scan({ cwd: projectRoot, dot: true })) {
-        const normalized = file.replaceAll("\\", "/");
-        if (trackedFiles && !trackedFiles.has(normalized)) continue;
-        dedupSet.add(normalized);
-      }
-    })
-  );
+  let dedupSet: Set<string>;
+  if (trackedFiles) {
+    // Fast path: match patterns against the tracked-file list in memory —
+    // no filesystem traversal at all. match() handles brace groups with
+    // path separators natively, so no expansion is needed here.
+    dedupSet = matchTrackedFiles(patterns, trackedFiles);
+  } else {
+    // Fallback (not a git repo, or respectGitignore: false): walk the
+    // filesystem. Expand brace patterns with path separators that Bun.Glob
+    // scanning drops — see https://github.com/oven-sh/bun/issues/32596.
+    const expanded = patterns.flatMap((p) => expandBracePattern(p));
+    const scanSet = new Set<string>();
+    await Promise.all(
+      expanded.map(async (pattern) => {
+        const glob = new Bun.Glob(pattern);
+        // dot: true so ADR `files:` globs can target dot-prefixed source dirs
+        // like `.github/`, `.husky/`, `.vscode/`. See archgate/cli#222.
+        for await (const file of glob.scan({ cwd: projectRoot, dot: true })) {
+          scanSet.add(file.replaceAll("\\", "/"));
+        }
+      })
+    );
+    dedupSet = scanSet;
+  }
   const scanMs = performance.now() - scanStart;
 
   const all = Array.from(dedupSet).sort();

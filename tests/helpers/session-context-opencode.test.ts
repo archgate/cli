@@ -10,6 +10,7 @@ import {
   listOpencodeSessions,
   readOpencodeSession,
 } from "../../src/helpers/session-context-opencode";
+import { restoreEnv } from "../test-utils";
 
 /**
  * Tests for readOpencodeSession — reads session data from
@@ -36,11 +37,7 @@ describe("readOpencodeSession", () => {
   });
 
   afterEach(() => {
-    if (originalXdg === undefined) {
-      delete Bun.env.XDG_DATA_HOME;
-    } else {
-      Bun.env.XDG_DATA_HOME = originalXdg;
-    }
+    restoreEnv("XDG_DATA_HOME", originalXdg);
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {

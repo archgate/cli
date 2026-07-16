@@ -5,6 +5,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { restoreEnv } from "../test-utils";
+
 describe("telemetry", () => {
   let tempDir: string;
   let originalHome: string | undefined;
@@ -24,17 +26,12 @@ describe("telemetry", () => {
   });
 
   afterEach(async () => {
-    process.env.HOME = originalHome;
-    if (originalTelemetryEnv === undefined) {
-      delete process.env.ARCHGATE_TELEMETRY;
-    } else {
-      process.env.ARCHGATE_TELEMETRY = originalTelemetryEnv;
-    }
-    if (originalNodeEnv === undefined) {
-      delete process.env.NODE_ENV;
-    } else {
-      process.env.NODE_ENV = originalNodeEnv;
-    }
+    // `env.X = undefined` assigns the string "undefined" rather than unsetting,
+    // so HOME (normally unset on Windows) leaked into every later test file.
+    // Bun.env and process.env are the same store, so restoreEnv covers both.
+    restoreEnv("HOME", originalHome);
+    restoreEnv("ARCHGATE_TELEMETRY", originalTelemetryEnv);
+    restoreEnv("NODE_ENV", originalNodeEnv);
     rmSync(tempDir, { recursive: true, force: true });
 
     const { _resetTelemetry } = await import("../../src/helpers/telemetry");

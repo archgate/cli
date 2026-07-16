@@ -33,6 +33,7 @@ Use `styleText` from `node:util` for all terminal colors and formatting. Support
 4. **No emoji** — CLI output uses text symbols and colors for visual distinction. Emoji rendering is inconsistent across terminals, fonts, and CI log viewers.
 5. **stdout for results, stderr for diagnostics** — Normal command output goes to stdout. Errors, warnings, and debug messages go to stderr (via `logError()`, `logWarn()`, `logDebug()`).
 6. **Concise and scannable** — Output should be scannable at a glance. Use whitespace and alignment, not walls of text.
+7. **Progressive disclosure for agent payloads** — Commands that enumerate records (`adr list`) MUST emit identity fields only: the minimum needed to identify a record and decide whether to fetch it. Commands that render a single record (`adr show`) emit it in full. Agents drill down; they do not receive everything up front. Compaction (convention 3) and field selection are different levers: compaction scales a payload by a constant factor, while field selection is what keeps output inline-readable as the record count grows. This matters because agent harnesses spill oversized tool results to a file — past that threshold the payload stops being readable inline at all, which defeats the purpose of emitting JSON for an agent. A reliable default: the fields the human table already renders are the right JSON field set, since the table and the listing answer the same question — "which of these do I want?" Omission MUST be driven by having nothing to report, never by a pass/fail status: a record that reads as passing can still carry warnings the consumer needs.
 
 ## Do's and Don'ts
 
@@ -44,6 +45,7 @@ Use `styleText` from `node:util` for all terminal colors and formatting. Support
 - Pass `forcePretty: true` to `formatJSON()` when the user explicitly passes `--json` (they expect pretty-printed output)
 - Use `isAgentContext()` from `src/helpers/output.ts` to determine if auto-JSON should be enabled for commands that have both human-readable and JSON output modes
 - Use `console.log()` for normal output to stdout, `logError()` for errors to stderr
+- Project records down to identity fields in enumeration commands — pair a lean `list` with a full-detail `show` so agents can drill down
 - Keep output concise and scannable
 - Respect `NO_COLOR` environment variable (handled automatically by `styleText`)
 
@@ -55,6 +57,8 @@ Use `styleText` from `node:util` for all terminal colors and formatting. Support
 - Don't output progress spinners without a TTY check
 - Don't use third-party color libraries (chalk, kleur, picocolors)
 - Don't use `JSON.stringify()` directly in command files — use `formatJSON()` so agent-context detection is consistent across all commands
+- Don't serialize a parsed record verbatim just because it's already in hand (`.map((a) => a.frontmatter)`) — project it to the fields the command's consumer actually needs
+- Don't decide what to omit from a projected payload from a status or summary field alone — severity and status are separate axes, so a record can read as passing while still carrying warnings or info the consumer MUST see. Filter on "has nothing to report" (`status !== "pass" || violations.length > 0`), never on `status !== "pass"`
 - Don't assume piped output means agent context when `CI` env is set — CI runners have piped stdout but should get human-readable output
 
 ## Implementation Pattern
@@ -148,6 +152,7 @@ console.log(formatJSON(results));
 
 - **`styleText` API is less ergonomic than chalk** — Chalk's fluent API (`chalk.bold.red("text")`) reads more naturally than `styleText("red", text)`. The trade-off is acceptable given the dependency savings.
 - **Limited to `styleText` capabilities** — Complex formatting (nested styles, template literals with mixed styles) requires multiple `styleText` calls. This is adequate for CLI output but less convenient than chalk for complex layouts.
+- **Projections must be maintained alongside the schema** — Emitting identity fields rather than the parsed record means a genuinely useful new field does not reach `--json` consumers until the projection is updated too. This is the intended trade-off: field growth becomes a deliberate choice instead of an automatic payload increase, and the omitted data stays one `show` away.
 
 ### Risks
 
@@ -170,6 +175,7 @@ Code reviewers MUST verify:
 1. New commands support `--json` when they output structured data
 2. No third-party color libraries are imported
 3. Error messages go to stderr (via `logError()`), results go to stdout
+4. Enumeration commands emit identity fields only, and every field they do emit earns its place. Payload size is not statically checkable, so reviewers MUST sanity-check `--json` output against a realistic record count (dozens, not the two-ADR fixture) rather than trusting a small test project
 
 ## References
 

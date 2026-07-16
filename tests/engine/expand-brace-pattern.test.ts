@@ -5,8 +5,9 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { expandBracePattern } from "../../src/engine/glob-utils";
 import type { LoadResult } from "../../src/engine/loader";
-import { expandBracePattern, runChecks } from "../../src/engine/runner";
+import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
 import type { RuleSet } from "../../src/formats/rules";
 import { safeRmSync } from "../test-utils";

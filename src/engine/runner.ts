@@ -32,6 +32,7 @@ import {
   getFilesChangedSinceRef,
   getGitTrackedFiles,
 } from "./git-files";
+import { listMatchingFiles } from "./glob-utils";
 import { parseJsModule } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
@@ -85,55 +86,25 @@ function safePath(resolvedRoot: string, userPath: string): string {
   return absPath;
 }
 
-/**
- * Validate that a glob pattern cannot escape projectRoot via `..` segments.
- */
-function safeGlob(pattern: string): void {
-  if (pattern.includes("..")) {
-    throw new UserError(
-      `Glob pattern "${pattern}" contains ".." — access denied`
-    );
-  }
-  if (isAbsolute(pattern)) {
-    throw new UserError(
-      `Glob pattern "${pattern}" is absolute — access denied`
-    );
-  }
-}
-/**
- * Expand brace patterns that contain path separators into separate patterns.
- *
- * Bun.Glob scanning silently returns empty results for brace groups whose
- * alternatives contain `/` (e.g. `svc/{src/env.ts,env.ts}`).  match() handles
- * them correctly — only the scanner is broken.  Filed upstream as
- * https://github.com/oven-sh/bun/issues/32596.
- *
- * This function detects `{alt1,alt2,...}` groups where at least one alternative
- * contains `/` and expands them into separate patterns so each one can be
- * scanned individually.  Braces whose alternatives are all simple names (no `/`)
- * are left for Bun.Glob to handle natively.
- */
-export function expandBracePattern(pattern: string): string[] {
-  const match = pattern.match(/^(.*?)\{([^{}]+)\}(.*)$/u);
-  if (!match) return [pattern];
-
-  const [, prefix, alternatives, suffix] = match;
-  if (!alternatives.includes("/")) {
-    // This brace group is safe for Bun.Glob, but check the suffix for others.
-    const expandedSuffixes = expandBracePattern(suffix);
-    if (expandedSuffixes.length === 1 && expandedSuffixes[0] === suffix) {
-      return [pattern];
-    }
-    return expandedSuffixes.map((s) => `${prefix}{${alternatives}}${s}`);
-  }
-
-  const parts = alternatives.split(",");
-  return parts.flatMap((part) =>
-    expandBracePattern(`${prefix}${part}${suffix}`)
-  );
-}
-
 const RULE_TIMEOUT_MS = 30_000;
+
+/**
+ * Per-invocation caches shared across every rule context in a check run.
+ * Rules overwhelmingly glob the same patterns and read the same files —
+ * without these caches, 40+ rules each repeat identical filesystem work.
+ *
+ * Values are promises so concurrent rules share in-flight work instead of
+ * racing to duplicate it. Only immutable results are cached: glob results
+ * are copied on return, file contents are strings. `readJSON` is deliberately
+ * NOT cached — rules receive a mutable object, and sharing one instance
+ * would leak mutations between rules.
+ */
+interface RunCaches {
+  /** Glob results keyed by `tracked:`/`all:` + pattern. */
+  globResults: Map<string, Promise<string[]>>;
+  /** File contents keyed by absolute path. */
+  fileText: Map<string, Promise<string>>;
+}
 
 export interface RuleResult {
   ruleId: string;
@@ -162,9 +133,36 @@ function createRuleContext(
   ruleId: string,
   violations: ViolationDetail[],
   trackedFiles: Set<string> | null,
-  interpreterCache: Map<string, Promise<string | null>>
+  interpreterCache: Map<string, Promise<string | null>>,
+  caches: RunCaches
 ): RuleContext {
   const resolvedRoot = resolve(projectRoot);
+
+  /**
+   * Glob with per-run memoization. Callers must copy the resolved array.
+   * Pattern sandboxing (no `..`, no absolute paths — including inside brace
+   * alternatives) happens inside listMatchingFiles, on both of its paths.
+   */
+  function cachedGlob(pattern: string): Promise<string[]> {
+    const key = (trackedFiles ? "tracked:" : "all:") + pattern;
+    let hit = caches.globResults.get(key);
+    if (!hit) {
+      hit = listMatchingFiles(projectRoot, pattern, trackedFiles);
+      caches.globResults.set(key, hit);
+    }
+    return hit;
+  }
+
+  /** Read file text with per-run memoization (strings are immutable). */
+  function cachedFileText(absPath: string): Promise<string> {
+    let hit = caches.fileText.get(absPath);
+    if (!hit) {
+      hit = Bun.file(absPath).text();
+      caches.fileText.set(absPath, hit);
+    }
+    return hit;
+  }
+
   const report: RuleReport = {
     violation(detail) {
       violations.push({ ...detail, ruleId, adrId, severity: "error" });
@@ -213,7 +211,7 @@ function createRuleContext(
     // In-process branch: TypeScript/JavaScript via the shared meriyah
     // parser (js-parser.ts). No subprocess is spawned for these languages.
     if (language === "typescript" || language === "javascript") {
-      const source = await Bun.file(absPath).text();
+      const source = await cachedFileText(absPath);
       try {
         if (language === "typescript") {
           const loader = lowerPath.endsWith(".tsx") ? "tsx" : "ts";
@@ -279,30 +277,14 @@ function createRuleContext(
     report,
 
     async glob(pattern: string): Promise<string[]> {
-      safeGlob(pattern);
-      // Expand brace patterns with path separators that Bun.Glob scanning drops.
-      // See https://github.com/oven-sh/bun/issues/32596.
-      const patterns = expandBracePattern(pattern);
-      const seen = new Set<string>();
-      for (const p of patterns) {
-        safeGlob(p);
-        const g = new Bun.Glob(p);
-        // dot: true so rules can target dot-prefixed paths like `.github/`,
-        // `.husky/`, `.vscode/` — first-class source dirs in code repos.
-        // See https://github.com/archgate/cli/issues/222.
-        // oxlint-disable-next-line no-await-in-loop -- sequential scan per expanded brace alternative
-        for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
-          const normalized = file.replaceAll("\\", "/");
-          if (trackedFiles && !trackedFiles.has(normalized)) continue;
-          seen.add(normalized);
-        }
-      }
-      return [...seen].sort();
+      // Copy the cached array — rules may mutate their result (sort,
+      // splice, ...) and must not corrupt what other rules receive.
+      return [...(await cachedGlob(pattern))];
     },
 
     async grep(file: string, pattern: RegExp): Promise<GrepMatch[]> {
       const absPath = safePath(resolvedRoot, file);
-      const content = await Bun.file(absPath).text();
+      const content = await cachedFileText(absPath);
       const lines = content.split("\n");
       const matches: GrepMatch[] = [];
 
@@ -322,26 +304,8 @@ function createRuleContext(
     },
 
     async grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]> {
-      safeGlob(fileGlob);
-      // Expand brace patterns with path separators that Bun.Glob scanning drops.
-      // See https://github.com/oven-sh/bun/issues/32596.
-      const globs = expandBracePattern(fileGlob);
-
       // Collect paths first, then read in parallel batches for I/O throughput.
-      // dot: true to match dot-prefixed source dirs (`.github/`, etc.).
-      // See https://github.com/archgate/cli/issues/222.
-      const seen = new Set<string>();
-      for (const p of globs) {
-        safeGlob(p);
-        const g = new Bun.Glob(p);
-        // oxlint-disable-next-line no-await-in-loop -- sequential scan per expanded brace alternative
-        for await (const file of g.scan({ cwd: projectRoot, dot: true })) {
-          const normalized = file.replaceAll("\\", "/");
-          if (trackedFiles && !trackedFiles.has(normalized)) continue;
-          seen.add(normalized);
-        }
-      }
-      const files = Array.from(seen);
+      const files = await cachedGlob(fileGlob);
 
       const BATCH_SIZE = 32;
       const allMatches: GrepMatch[] = [];
@@ -353,7 +317,7 @@ function createRuleContext(
           batch.map(async (normalized) => {
             const absPath = safePath(resolvedRoot, normalized);
             try {
-              const content = await Bun.file(absPath).text();
+              const content = await cachedFileText(absPath);
               const lines = content.split("\n");
               const matches: GrepMatch[] = [];
 
@@ -386,7 +350,7 @@ function createRuleContext(
 
     readFile(path: string): Promise<string> {
       const absPath = safePath(resolvedRoot, path);
-      return Bun.file(absPath).text();
+      return cachedFileText(absPath);
     },
 
     readJSON(path: string): Promise<any> {
@@ -457,6 +421,10 @@ export async function runChecks(
   // invocation — shared across every ADR and rule in this run.
   const interpreterCache = new Map<string, Promise<string | null>>();
 
+  // Per-run glob/file-text caches shared across all rule contexts — rules
+  // overwhelmingly repeat the same globs and reads (see RunCaches).
+  const caches: RunCaches = { globResults: new Map(), fileText: new Map() };
+
   // Run ADRs in parallel
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
@@ -494,7 +462,8 @@ export async function runChecks(
           ruleId,
           violations,
           trackedFiles,
-          interpreterCache
+          interpreterCache,
+          caches
         );
 
         try {

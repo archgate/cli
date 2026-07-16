@@ -6,10 +6,22 @@ import { styleText } from "node:util";
 import type { Command } from "@commander-js/extra-typings";
 
 import { parseAllAdrs } from "../../engine/loader";
+import type { AdrFrontmatter } from "../../formats/adr";
 import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
 import { resolvedProjectPaths } from "../../helpers/project-config";
+
+/**
+ * An `adr list` entry carries identity metadata only — the same four fields the
+ * table renders. `files` globs and `respectGitignore` are deliberately omitted:
+ * they dominate the payload on large ADR sets (~40% of it here) without helping
+ * an agent decide what to read next. Agents run `archgate adr show <id>` to get
+ * the full frontmatter and body for the ADRs they actually care about.
+ */
+function toListEntry(fm: AdrFrontmatter) {
+  return { id: fm.id, title: fm.title, domain: fm.domain, rules: fm.rules };
+}
 
 export function registerAdrListCommand(adr: Command) {
   adr
@@ -46,7 +58,7 @@ export function registerAdrListCommand(adr: Command) {
         if (useJson) {
           console.log(
             formatJSON(
-              filtered.map((a) => a.frontmatter),
+              filtered.map((a) => toListEntry(a.frontmatter)),
               options.json ? true : undefined
             )
           );

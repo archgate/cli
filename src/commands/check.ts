@@ -139,7 +139,12 @@ export function registerCheckCommand(program: Command) {
         if (opts.ci) {
           reportCI(result, summary);
         } else if (useJson) {
-          reportJSON(result, opts.json ? true : undefined, summary);
+          reportJSON(
+            result,
+            opts.json ? true : undefined,
+            summary,
+            opts.verbose ?? false
+          );
         } else {
           reportConsole(result, opts.verbose ?? false, summary);
         }

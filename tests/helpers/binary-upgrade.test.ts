@@ -23,6 +23,7 @@ import {
   downloadReleaseBinary,
   replaceBinary,
 } from "../../src/helpers/binary-upgrade";
+import { restoreEnv } from "../test-utils";
 
 function mockFetch(handler: () => Promise<Response>) {
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
@@ -464,7 +465,7 @@ describe("cleanupStaleBinary", () => {
   });
 
   afterEach(() => {
-    Bun.env.HOME = savedHome;
+    restoreEnv("HOME", savedHome);
   });
 
   test("deletes the .old binary when present", async () => {

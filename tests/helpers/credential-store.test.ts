@@ -10,6 +10,7 @@ import {
   loadCredentials,
   clearCredentials,
 } from "../../src/helpers/credential-store";
+import { restoreEnv } from "../test-utils";
 
 describe("credential-store", () => {
   let tempDir: string;
@@ -31,9 +32,13 @@ describe("credential-store", () => {
   });
 
   afterEach(() => {
-    Bun.env.HOME = originalHome;
-    Bun.env.GIT_CONFIG_NOSYSTEM = originalGitConfigNoSystem;
-    Bun.env.GIT_CONFIG_GLOBAL = originalGitConfigGlobal;
+    // restoreEnv deletes when the original was unset. HOME and
+    // GIT_CONFIG_GLOBAL are normally unset on Windows, so a bare restore leaked
+    // them as the string "undefined" into every later test file and any
+    // subprocess those tests spawned (Bun.env is process-global).
+    restoreEnv("HOME", originalHome);
+    restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
+    restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {
