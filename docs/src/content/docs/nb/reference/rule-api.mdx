@@ -67,6 +67,7 @@ interface RuleContext {
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
+  findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
   report: RuleReport;
 }
 ```
@@ -285,6 +286,50 @@ En kastet feil er isolert til regelen som feiler: andre regler og ADR-er i samme
 :::caution
 Python- og Ruby-regler krever at den tilhørende tolken (`python3`/`python`, `ruby`) finnes på `PATH` overalt der `archgate check` kjører -- på hver utviklermaskin **og** i CI. TypeScript- og JavaScript-parsing er innebygd i Archgate og trenger ingen tolk.
 :::
+
+#### findAstNodes
+
+```typescript
+findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+```
+
+Samler rekursivt inn hver node i en parset AST der typediskriminantfeltet matcher en av `types`. Dette er den innebygde erstatningen for den rekursive vandreren AST-regler tidligere måtte håndrulle: `ctx.ast()` returnerer bevisst språknative former, men å finne noder etter typenavn avhenger bare av diskriminantfeltet, så én hjelpemetode dekker alle språk. Synkron -- ingen `await` nødvendig.
+
+- **Språkagnostisk**: hver objektnode sjekkes mot det diskriminantfeltet den faktisk bærer -- `_type` (Python) eller `type` (ESTree TypeScript/JavaScript).
+- **Full traversering**: egne enumererbare objektverdier og arrayer traverseres rekursivt, og selve `tree`-argumentet er en matchkandidat.
+- **Matching av flere typer**: send inn flere navn når én konstruksjon spenner over flere nodetyper -- det vanlige tilfellet (`"FunctionDef"`/`"AsyncFunctionDef"`, synkrone/asynkrone varianter).
+- **Ruby**: `Ripper.sexp`-noder er rene arrayer uten objektdiskriminantfelt, så et Ruby-tre traverseres, men de array-formede nodene matcher aldri -- gå gjennom Ripper-utdata mot dens egen grammatikk i stedet.
+
+Før -- innsamleren hver regelfil måtte gjenta (regelfiler kan ikke importere delte hjelpemoduler):
+
+```typescript
+function collectFunctionDefs(
+  node: unknown,
+  out: PythonAstNode[] = []
+): PythonAstNode[] {
+  if (Array.isArray(node)) {
+    for (const item of node) collectFunctionDefs(item, out);
+    return out;
+  }
+  if (!node || typeof node !== "object") return out;
+  const n = node as PythonAstNode;
+  if (n._type === "FunctionDef" || n._type === "AsyncFunctionDef") out.push(n);
+  for (const value of Object.values(n)) {
+    if (value && typeof value === "object") collectFunctionDefs(value, out);
+  }
+  return out;
+}
+
+const tree = await ctx.ast("app/models.py", "python");
+const funcDefs = collectFunctionDefs(tree);
+```
+
+Etter:
+
+```typescript
+const tree = await ctx.ast("app/models.py", "python");
+const funcDefs = ctx.findAstNodes(tree, "FunctionDef", "AsyncFunctionDef");
+```
 
 ---
 

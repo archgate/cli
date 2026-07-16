@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { AstLanguage } from "../formats/rules";
+import type { AstLanguage, EsTreeNode, PythonAstNode } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
 import { UserError } from "../helpers/user-error";
@@ -390,6 +390,63 @@ export function finalizeAstResult(
   if (!tree) return parsed;
   tree.comments = parsed.comments;
   return tree;
+}
+
+/**
+ * `ctx.findAstNodes()`: recursively collect every node in a parsed AST whose
+ * type-discriminant field matches one of `types`. Language-agnostic — each
+ * object node is checked against whichever discriminant field it carries:
+ * `_type` (Python) or `type` (ESTree TypeScript/JavaScript). Own-enumerable
+ * object values and arrays are recursed, and `tree` itself is a match
+ * candidate. Ruby's `Ripper.sexp` nodes are plain arrays with no object
+ * discriminant field, so a Ruby tree is recursed but its array-shaped nodes
+ * never match. A visited set guards against cycles — cheap insurance, real
+ * ASTs are acyclic.
+ */
+export function findAstNodes(
+  tree: EsTreeNode,
+  ...types: string[]
+): EsTreeNode[];
+export function findAstNodes(
+  tree: PythonAstNode,
+  ...types: string[]
+): PythonAstNode[];
+export function findAstNodes(
+  tree: unknown,
+  ...types: string[]
+): (EsTreeNode | PythonAstNode)[];
+export function findAstNodes(
+  tree: unknown,
+  ...types: string[]
+): (EsTreeNode | PythonAstNode)[] {
+  const wanted = new Set(types);
+  const matches: (EsTreeNode | PythonAstNode)[] = [];
+  const visited = new WeakSet<object>();
+
+  function visit(node: unknown): void {
+    if (!node || typeof node !== "object" || visited.has(node)) return;
+    visited.add(node);
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+    const record = node as Record<string, unknown>;
+    // Prefer `_type` (Python) — a Python node may also carry an unrelated
+    // `type` FIELD (e.g. ExceptHandler's exception type), never vice versa.
+    const discriminant =
+      typeof record._type === "string"
+        ? record._type
+        : typeof record.type === "string"
+          ? record.type
+          : undefined;
+    if (discriminant !== undefined && wanted.has(discriminant)) {
+      matches.push(record as EsTreeNode | PythonAstNode);
+    }
+    for (const value of Object.values(record)) visit(value);
+  }
+
+  visit(tree);
+  return matches;
 }
 
 /** Extract a readable message from Bun.Transpiler/meriyah parse errors. */

@@ -24,6 +24,7 @@ import {
   RUBY_BASENAMES,
   commentsUnsupportedError,
   finalizeAstResult,
+  findAstNodes,
   implausibleLanguageError,
   interpreterCandidates,
   interpreterNotFoundError,
@@ -395,6 +396,10 @@ function createRuleContext(
 
     // ARCH-022: the only sanctioned path from rule code to language tooling.
     ast: astImpl,
+
+    // Generic by-type-name AST node collector — a pure, synchronous
+    // traversal built in like glob/grep so rule files need not hand-roll it.
+    findAstNodes,
   };
 }
 

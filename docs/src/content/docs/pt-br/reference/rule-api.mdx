@@ -67,6 +67,7 @@ interface RuleContext {
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
+  findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
   report: RuleReport;
 }
 ```
@@ -285,6 +286,50 @@ Um erro lançado é isolado à regra que falhou: as demais regras e ADRs da mesm
 :::caution
 Regras de Python e Ruby exigem o interpretador correspondente (`python3`/`python`, `ruby`) no `PATH` onde quer que `archgate check` seja executado -- em cada máquina de desenvolvedor **e** no CI. O parsing de TypeScript e JavaScript é embutido no Archgate e não precisa de interpretador.
 :::
+
+#### findAstNodes
+
+```typescript
+findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+```
+
+Coleta recursivamente cada nó de uma AST parseada cujo campo discriminante de tipo corresponde a um dos `types`. É a substituição embutida para o caminhador recursivo que as regras de AST precisavam escrever à mão: `ctx.ast()` retorna deliberadamente formatos nativos da linguagem, mas encontrar nós por nome de tipo depende apenas do campo discriminante, então um único helper cobre todas as linguagens. Síncrono -- não precisa de `await`.
+
+- **Agnóstico de linguagem**: cada nó-objeto é verificado contra o campo discriminante que ele carrega -- `_type` (Python) ou `type` (ESTree TypeScript/JavaScript).
+- **Travessia completa**: valores de objeto enumeráveis próprios e arrays são percorridos recursivamente, e o próprio argumento `tree` é um candidato a correspondência.
+- **Correspondência de múltiplos tipos**: passe vários nomes quando uma construção abrange múltiplos tipos de nó -- o caso comum (`"FunctionDef"`/`"AsyncFunctionDef"`, variantes síncrona/assíncrona).
+- **Ruby**: nós de `Ripper.sexp` são arrays puros sem campo discriminante de objeto, então uma árvore Ruby é percorrida, mas seus nós em formato de array nunca correspondem -- percorra a saída do Ripper contra a gramática dele.
+
+Antes -- o coletor que cada arquivo de regras precisava repetir (arquivos de regras não podem importar módulos helper compartilhados):
+
+```typescript
+function collectFunctionDefs(
+  node: unknown,
+  out: PythonAstNode[] = []
+): PythonAstNode[] {
+  if (Array.isArray(node)) {
+    for (const item of node) collectFunctionDefs(item, out);
+    return out;
+  }
+  if (!node || typeof node !== "object") return out;
+  const n = node as PythonAstNode;
+  if (n._type === "FunctionDef" || n._type === "AsyncFunctionDef") out.push(n);
+  for (const value of Object.values(n)) {
+    if (value && typeof value === "object") collectFunctionDefs(value, out);
+  }
+  return out;
+}
+
+const tree = await ctx.ast("app/models.py", "python");
+const funcDefs = collectFunctionDefs(tree);
+```
+
+Depois:
+
+```typescript
+const tree = await ctx.ast("app/models.py", "python");
+const funcDefs = ctx.findAstNodes(tree, "FunctionDef", "AsyncFunctionDef");
+```
 
 ---
 

@@ -224,6 +224,26 @@ export interface RuleContext {
   ): Promise<PythonAstModule>;
   ast(path: string, language: "ruby", opts?: AstOptions): Promise<RubyAstNode>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
+  /**
+   * Recursively collect every node in a parsed AST whose type-discriminant
+   * field matches one of `types`. Language-agnostic: each object node is
+   * checked against whichever discriminant field it carries — `_type`
+   * (Python) or `type` (ESTree TypeScript/JavaScript). Own-enumerable object
+   * values and arrays are recursed, and `tree` itself is a match candidate.
+   *
+   * Ruby: `Ripper.sexp` nodes are plain arrays with no object discriminant
+   * field, so a Ruby tree is recursed but its array-shaped nodes never
+   * match — only object nodes carrying a matching `_type`/`type` are
+   * collected.
+   *
+   * Pure tree traversal — synchronous, no I/O.
+   */
+  findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+  findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+  findAstNodes(
+    tree: unknown,
+    ...types: string[]
+  ): (EsTreeNode | PythonAstNode)[];
   report: RuleReport;
 }
 
