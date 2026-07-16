@@ -89,10 +89,12 @@ export interface CommentToken {
  *
  * - `rev: "base"` parses the file's content at the comparison base commit (the
  *   merge base of `--base` and HEAD) instead of the working tree. Use it to ask
- *   "did the executable structure change?" — comments and formatting drop out
- *   of both the ESTree and Python `ast` shapes, so a comment-only edit yields
- *   an identical tree. Throws if no base is resolved or the file did not exist
- *   at the base; pair with `fileAtBase()` when you need to detect that first.
+ *   "did the executable structure change?" — comments drop out of both the
+ *   ESTree and Python `ast` shapes, but node positions do not, so compare a
+ *   location-free projection (strip `loc`/`range`, `lineno`/`col_offset`): a
+ *   comment-only edit is then equal, while a value change is not. Throws if no
+ *   base is resolved or the file did not exist at the base; pair with
+ *   `fileAtBase()` when you need to detect that first.
  * - `comments: true` attaches a `comments` array of {@link CommentToken}s to
  *   the returned tree — the structured basis for comment-governance rules, in
  *   place of line-by-line regex. Supported for `"typescript"`/`"javascript"`
