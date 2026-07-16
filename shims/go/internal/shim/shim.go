@@ -16,7 +16,7 @@ import (
 )
 
 // Version is the archgate CLI version this shim downloads.
-const Version = "0.48.4"
+const Version = "0.49.0"
 
 const (
 	releaseBaseURL = "https://github.com/archgate/cli/releases/download"

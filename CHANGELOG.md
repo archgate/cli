@@ -1,3 +1,21 @@
+## [0.49.0](https://github.com/archgate/cli/compare/v0.48.4...v0.49.0) (2026-07-16)
+
+### ⚠ BREAKING CHANGES
+
+* **engine:** block naming runtime globals to close reflective sandbox escapes (#481)
+* **engine:** close rule-file sandbox escapes via module allowlist (#477)
+* **cli:** emit lean agent-facing JSON payloads by default (#476)
+
+### Features
+
+* **cli:** emit lean agent-facing JSON payloads by default ([#476](https://github.com/archgate/cli/issues/476)) ([04affa3](https://github.com/archgate/cli/commit/04affa3ab0659081c0fa3b0e33d1e0b1886fbc96))
+* **engine:** base-revision + comment access for ctx.ast() (closes [#479](https://github.com/archgate/cli/issues/479)) ([#480](https://github.com/archgate/cli/issues/480)) ([49feb1f](https://github.com/archgate/cli/commit/49feb1f7f3895fb98a001892f5917ad384bc25ad)), closes [#477](https://github.com/archgate/cli/issues/477)
+
+### Bug Fixes
+
+* **engine:** block naming runtime globals to close reflective sandbox escapes ([#481](https://github.com/archgate/cli/issues/481)) ([6666df2](https://github.com/archgate/cli/commit/6666df2c61098f354d70ed00da6274a15f454bc1)), closes [#477](https://github.com/archgate/cli/issues/477) [#480](https://github.com/archgate/cli/issues/480)
+* **engine:** close rule-file sandbox escapes via module allowlist ([#477](https://github.com/archgate/cli/issues/477)) ([18db14d](https://github.com/archgate/cli/commit/18db14d45b1d50b632d9f9ce98b93d66cf43d1ae))
+
 ## [0.48.4](https://github.com/archgate/cli/compare/v0.48.3...v0.48.4) (2026-07-13)
 
 ### Performance Improvements

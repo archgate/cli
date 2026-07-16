@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module Archgate
-  VERSION = "0.48.4"
+  VERSION = "0.49.0"
 end
