@@ -3,6 +3,7 @@
 import { existsSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
+import { scanImportedRuleSource } from "../engine/rule-scanner";
 import { parseAdr } from "../formats/adr";
 import { ImportsManifestSchema, type ImportsManifest } from "../formats/pack";
 import { getNextId, slugify } from "./adr-writer";
@@ -225,6 +226,37 @@ export async function writeImportedAdrs(
     Promise.all(readTasks),
     Promise.all(ruleTasks),
   ]);
+
+  // Security gate for third-party rule code. An imported `.rules.ts` is
+  // arbitrary code that `archgate check` will later import and execute
+  // in-process, so it is scanned with the stricter imported-rule ruleset
+  // before it is allowed onto disk.
+  //
+  // This has to happen here, at import time, rather than in the engine:
+  // once the file lands in `.archgate/adrs/` it is indistinguishable from a
+  // rule the project wrote itself, and the engine has no provenance to key
+  // the stricter checks off. Scanning before the first write also means a
+  // rejected pack needs no rollback — nothing has been written yet.
+  const scanFailures = adrsToImport.flatMap((adr, i) => {
+    const ruleSource = rulesContents[i];
+    if (ruleSource === null) return [];
+    const violations = scanImportedRuleSource(ruleSource);
+    if (violations.length === 0) return [];
+    const details = violations
+      .map((v) => `    ${v.line}:${v.column}  ${v.message}`)
+      .join("\n");
+    return [
+      `  ${adr.originalId} (${basename(adr.rulesPath ?? "")}):\n${details}`,
+    ];
+  });
+
+  if (scanFailures.length > 0) {
+    throw new UserError(
+      `Imported rule file(s) blocked by the security scanner:\n\n${scanFailures.join("\n\n")}\n\n` +
+        "Imported rules run in-process during `archgate check`. Nothing was written. " +
+        "Review the source, and import only rules you trust."
+    );
+  }
 
   try {
     for (let i = 0; i < adrsToImport.length; i++) {
