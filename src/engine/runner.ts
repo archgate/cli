@@ -26,6 +26,7 @@ import {
   RUBY_BASENAMES,
   astCacheKey,
   finalizeAstResult,
+  findAstNodes,
   implausibleLanguageError,
   interpreterCandidates,
   interpreterNotFoundError,
@@ -423,12 +424,14 @@ function createRuleContext(
     },
 
     readJSON(path: string): Promise<any> {
-      const absPath = safePath(resolvedRoot, path);
-      return Bun.file(absPath).json();
+      return Bun.file(safePath(resolvedRoot, path)).json();
     },
 
     // ARCH-022: the only sanctioned path from rule code to language tooling.
     ast: astImpl,
+    // Generic by-type-name AST node collector — a pure, synchronous
+    // traversal built in like glob/grep so rule files need not hand-roll it.
+    findAstNodes,
   };
 }
 
