@@ -1,3 +1,15 @@
+## [0.50.0](https://github.com/archgate/cli/compare/v0.49.0...v0.50.0) (2026-07-17)
+
+### Features
+
+* **engine:** cache ctx.ast() parse results within a single check run ([#487](https://github.com/archgate/cli/issues/487)) ([40b39d3](https://github.com/archgate/cli/commit/40b39d3eca1fee8ec4e6a24ef8a8323f92bcb6af)), closes [#482](https://github.com/archgate/cli/issues/482)
+* **engine:** ctx.findAstNodes() generic AST node collector ([#486](https://github.com/archgate/cli/issues/486)) ([f14b73b](https://github.com/archgate/cli/commit/f14b73b9372ae13f3f20143e2170741eaa8db1a6)), closes [#483](https://github.com/archgate/cli/issues/483)
+* **engine:** support { comments: true } for ctx.ast() Ruby ([#485](https://github.com/archgate/cli/issues/485)) ([36b891f](https://github.com/archgate/cli/commit/36b891f41525442b575698f140a355b776ab4688)), closes [#484](https://github.com/archgate/cli/issues/484)
+
+### Bug Fixes
+
+* **ci:** run PR workflows when a draft is marked ready for review ([#488](https://github.com/archgate/cli/issues/488)) ([ab1fc96](https://github.com/archgate/cli/commit/ab1fc96fd7fd2d11dfbbbfa0d46102a8d23f5290)), closes [#485](https://github.com/archgate/cli/issues/485) [#486](https://github.com/archgate/cli/issues/486)
+
 ## [0.49.0](https://github.com/archgate/cli/compare/v0.48.4...v0.49.0) (2026-07-16)
 
 ### ⚠ BREAKING CHANGES
