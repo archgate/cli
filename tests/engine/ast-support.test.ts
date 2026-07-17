@@ -390,6 +390,19 @@ describe("findAstNodes", () => {
     expect(findAstNodes(tree, "Name")).toEqual([shared]);
   });
 
+  test("a deeply nested tree does not overflow the call stack", () => {
+    // ~100k levels deep — far beyond the JS call-stack limit a recursive
+    // walker would hit. Built leaf-up so the leaf sits at maximum depth.
+    let node: PythonAstNode = { _type: "Leaf", value: "bottom" };
+    for (let i = 0; i < 100_000; i++) {
+      node = { _type: "Wrapper", body: [node] };
+    }
+
+    const hits = findAstNodes(node, "Leaf");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].value).toBe("bottom");
+  });
+
   test("returns empty for primitive and null roots", () => {
     expect(findAstNodes(null, "Module")).toEqual([]);
     expect(findAstNodes("Module", "Module")).toEqual([]);

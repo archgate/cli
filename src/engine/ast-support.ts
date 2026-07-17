@@ -393,15 +393,16 @@ export function finalizeAstResult(
 }
 
 /**
- * `ctx.findAstNodes()`: recursively collect every node in a parsed AST whose
+ * `ctx.findAstNodes()`: collect every node in a parsed AST whose
  * type-discriminant field matches one of `types`. Language-agnostic — each
  * object node is checked against whichever discriminant field it carries:
  * `_type` (Python) or `type` (ESTree TypeScript/JavaScript). Own-enumerable
- * object values and arrays are recursed, and `tree` itself is a match
+ * object values and arrays are traversed, and `tree` itself is a match
  * candidate. Ruby's `Ripper.sexp` nodes are plain arrays with no object
- * discriminant field, so a Ruby tree is recursed but its array-shaped nodes
- * never match. A visited set guards against cycles — cheap insurance, real
- * ASTs are acyclic.
+ * discriminant field, so a Ruby tree is traversed but its array-shaped nodes
+ * never match. The traversal is iterative (explicit stack, preorder) so a
+ * deeply nested tree cannot overflow the call stack, and a visited set
+ * guards against cycles — cheap insurance, real ASTs are acyclic.
  */
 export function findAstNodes(
   tree: EsTreeNode,
@@ -423,12 +424,17 @@ export function findAstNodes(
   const matches: (EsTreeNode | PythonAstNode)[] = [];
   const visited = new WeakSet<object>();
 
-  function visit(node: unknown): void {
-    if (!node || typeof node !== "object" || visited.has(node)) return;
+  // Explicit stack (LIFO) instead of recursion so deeply nested trees can't
+  // overflow the call stack. Children are pushed in reverse so they pop in
+  // original order, preserving preorder match ordering.
+  const pending: unknown[] = [tree];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!node || typeof node !== "object" || visited.has(node)) continue;
     visited.add(node);
     if (Array.isArray(node)) {
-      for (const item of node) visit(item);
-      return;
+      for (let i = node.length - 1; i >= 0; i--) pending.push(node[i]);
+      continue;
     }
     const record = node as Record<string, unknown>;
     // Prefer `_type` (Python) — a Python node may also carry an unrelated
@@ -442,10 +448,9 @@ export function findAstNodes(
     if (discriminant !== undefined && wanted.has(discriminant)) {
       matches.push(record as EsTreeNode | PythonAstNode);
     }
-    for (const value of Object.values(record)) visit(value);
+    const values = Object.values(record);
+    for (let i = values.length - 1; i >= 0; i--) pending.push(values[i]);
   }
-
-  visit(tree);
   return matches;
 }
 
