@@ -243,7 +243,7 @@ Bruk `fileAtBase()` først når du trenger å oppdage tilfellene uten basis elle
 
 ##### Samle inn kommentarer (`{ comments: true }`)
 
-Med `{ comments: true }` bærer det returnerte treet en `comments`-matrise -- strukturert kommentardata for kommentarstyringsregler, i stedet for linje-for-linje regulære uttrykk. Støttet for `typescript`, `javascript` og `python`; å be om det for `ruby` kaster.
+Med `{ comments: true }` bærer det returnerte treet en `comments`-matrise -- strukturert kommentardata for kommentarstyringsregler, i stedet for linje-for-linje regulære uttrykk. Støttet for alle fire språk. For `ruby` er det returnerte treet en matrise (`Ripper.sexp`-utdata), så `comments`-matrisen ligger på den som en ikke-indeksert egenskap.
 
 ```typescript
 interface CommentToken {
@@ -270,7 +270,7 @@ for (const comment of tree.comments ?? []) {
 }
 ```
 
-Kommentarposisjoner er nøyaktige mot **originalkilden**, selv for TypeScript. Dette er en bevisst fordel fremfor treets egen `loc`, som er transpilert-relativ for TypeScript (se [AstNode](#astnode)): kommentarer skannes fra kildekoden før transpilering, så deres `loc` driver aldri. Python-kommentarer er alltid `type: "line"` (`#`) -- Python har ingen blokkommentarer, og `"""`-dokstrenger er strengeuttrykk i treet, ikke kommentarer. TypeScript/JavaScript-skanneren er streng- og malstreng-bevisst, men sporer ikke regulært-uttrykk-literaler, så et kommentarskilletegn inne i en regex-literal er et kjent blindpunkt.
+Kommentarposisjoner er nøyaktige mot **originalkilden**, selv for TypeScript. Dette er en bevisst fordel fremfor treets egen `loc`, som er transpilert-relativ for TypeScript (se [AstNode](#astnode)): kommentarer skannes fra kildekoden før transpilering, så deres `loc` driver aldri. Python-kommentarer er alltid `type: "line"` (`#`) -- Python har ingen blokkommentarer, og `"""`-dokstrenger er strengeuttrykk i treet, ikke kommentarer. Ruby `#`-kommentarer er `type: "line"`; hver `=begin`/`=end`-dokumentasjonsblokk er ett enkelt `type: "block"`-token der `value` er det indre innholdet (markørlinjene `=begin`/`=end` er fjernet, tilsvarende fjerningen av `/* */`-skilletegn) og der `loc` spenner fra `=begin`-linjen til og med `=end`-linjen. Kolonnene i `loc` for Ruby-kommentarer er tegnposisjoner, i samsvar med de andre språkene (Rippers egne sexp-nodeposisjoner er byteposisjoner), og linjeskift i `value` for blokker normaliseres til LF uavhengig av kildefilens linjeskift. For Python og Ruby er kommentaruthentingen et eget pass over samme kilde (`tokenize` / `Ripper.lex`); en tokeniseringsfeil på ellers parsbar kode degraderer til en tom kommentarliste i stedet for å feile hele parsingen. TypeScript/JavaScript-skanneren er streng- og malstreng-bevisst, men sporer ikke regulært-uttrykk-literaler, så et kommentarskilletegn inne i en regex-literal er et kjent blindpunkt.
 
 ##### Feiloppførsel
 
@@ -385,7 +385,7 @@ type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 type AstNode = Record<string, unknown> | unknown[];
 ```
 
-Når parset med [`{ comments: true }`](#ast), bærer rotnoden også en `comments: CommentToken[]`-matrise (kun `typescript`, `javascript` og `python`). Den er fraværende ellers.
+Når parset med [`{ comments: true }`](#ast), bærer rotnoden også en `comments: CommentToken[]`-matrise (alle fire språk; for `ruby` er den en ikke-indeksert egenskap på rot-sexp-matrisen). Den er fraværende ellers.
 
 | Språk        | Underliggende parser                                                                                                     | Returnert form                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

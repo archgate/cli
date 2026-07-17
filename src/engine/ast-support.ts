@@ -31,16 +31,6 @@ export function interpreterNotFoundError(
   );
 }
 
-/** `{ comments: true }` requested for a language that does not support it yet. */
-export function commentsUnsupportedError(
-  language: AstLanguage,
-  path: string
-): UserError {
-  return new UserError(
-    `ctx.ast("${path}", "${language}", { comments: true }) is not supported yet — comments are available for typescript, javascript, and python`
-  );
-}
-
 /**
  * Support code for `ctx.ast()` (ARCH-022). Definitions live here to keep
  * `runner.ts` focused; the mandated four-step guardrail ordering (path
@@ -152,6 +142,71 @@ if sexp.nil?
   exit 1
 end
 puts JSON.generate(sexp, max_nesting: false)
+`;
+
+/**
+ * Serializer used for Ruby `{ comments: true }`: prints the same
+ * `{"_tree", "comments"}` envelope as the Python with-comments program, with
+ * comments from a second `Ripper.lex` pass (`Ripper.sexp` carries none).
+ * `#` comments become `type: "line"` tokens (`#` stripped, newline chomped);
+ * each `=begin`/`=end` region becomes ONE `type: "block"` token whose value is
+ * the inner content (marker lines stripped, like TS/JS stripping the
+ * delimiters) and whose loc spans the `=begin` line through the `=end` line.
+ * Ripper reports columns as BYTE offsets; they are converted to CHARACTER
+ * columns (via a byteslice of the source line) so comment locs share the
+ * Python/TS unit — the sexp tree's own node positions stay byte-based, as
+ * Ripper emits them. Block values normalize CRLF to LF: Windows text-mode
+ * reads already strip the CR, so normalizing keeps the value identical
+ * across OSes. Lex errors on otherwise-parseable source degrade to an empty
+ * comment list rather than failing the parse, matching Python's
+ * tokenizer-error fallback.
+ */
+export const RUBY_AST_WITH_COMMENTS_PROGRAM = `
+source = File.read(ARGV[0], mode: "r:bom|utf-8")
+sexp = Ripper.sexp(source)
+if sexp.nil?
+  warn "Ruby syntax error"
+  exit 1
+end
+comments = []
+begin
+  lines = source.lines
+  char_col = ->(line, byte_col) { (lines[line - 1] || "").byteslice(0, byte_col).to_s.length }
+  embdoc = nil
+  Ripper.lex(source).each do |(line, col), event, tok, _state|
+    case event
+    when :on_comment
+      start_col = char_col.call(line, col)
+      comments << {
+        type: "line",
+        value: tok.sub(/\\A#/, "").chomp,
+        loc: {
+          start: { line: line, column: start_col },
+          end: { line: line, column: start_col + tok.chomp.length },
+        },
+      }
+    when :on_embdoc_beg
+      embdoc = { line: line, col: char_col.call(line, col), value: +"" }
+    when :on_embdoc
+      embdoc[:value] << tok unless embdoc.nil?
+    when :on_embdoc_end
+      unless embdoc.nil?
+        comments << {
+          type: "block",
+          value: embdoc[:value].gsub(/\\r\\n/, "\\n").chomp,
+          loc: {
+            start: { line: embdoc[:line], column: embdoc[:col] },
+            end: { line: line, column: char_col.call(line, col) + tok.chomp.length },
+          },
+        }
+        embdoc = nil
+      end
+    end
+  end
+rescue StandardError
+  comments = []
+end
+puts JSON.generate({ _tree: sexp, comments: comments }, max_nesting: false)
 `;
 
 /**
@@ -372,10 +427,11 @@ export async function materializeAstInput(args: {
 }
 
 /**
- * Fold the `{ comments: true }` Python subprocess output back into the shape
- * `ctx.ast()` promises. That serializer prints `{ _tree, comments }`; unwrap it
- * to the module tree with `comments` attached, so the Python return shape
- * matches the ESTree one (a tree carrying a `comments` array). For every other
+ * Fold the `{ comments: true }` Python/Ruby subprocess output back into the
+ * shape `ctx.ast()` promises. Those serializers print `{ _tree, comments }`;
+ * unwrap it to the tree with `comments` attached, so the return shape matches
+ * the ESTree one (a tree carrying a `comments` array). Ruby's tree is an
+ * array, so `comments` rides on it as a non-index property. For every other
  * case the subprocess output is already the tree — pass it through untouched.
  */
 export function finalizeAstResult(
@@ -383,12 +439,13 @@ export function finalizeAstResult(
   language: string,
   wantComments: boolean
 ): Record<string, unknown> | unknown[] {
-  if (language !== "python" || !wantComments || Array.isArray(parsed)) {
+  const hasEnvelope = language === "python" || language === "ruby";
+  if (!hasEnvelope || !wantComments || Array.isArray(parsed)) {
     return parsed;
   }
-  const tree = parsed._tree as Record<string, unknown> | undefined;
+  const tree = parsed._tree as Record<string, unknown> | unknown[] | undefined;
   if (!tree) return parsed;
-  tree.comments = parsed.comments;
+  (tree as { comments?: unknown }).comments = parsed.comments;
   return tree;
 }
 

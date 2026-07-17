@@ -16,6 +16,7 @@ import type {
   CommentToken,
   EsTreeProgram,
   PythonAstModule,
+  RubyAstProgram,
   RuleSet,
 } from "../../src/formats/rules";
 import { git, safeRmSync } from "../test-utils";
@@ -23,6 +24,7 @@ import { git, safeRmSync } from "../test-utils";
 const pythonInterpreter = await probeInterpreter(
   interpreterCandidates("python")
 );
+const rubyInterpreter = await probeInterpreter(interpreterCandidates("ruby"));
 
 function makeLoadedAdr(ruleSet: RuleSet): LoadResult {
   return {
@@ -193,23 +195,78 @@ describe("ctx.ast({ comments: true })", () => {
     expect(captured.hasComments).toBe(false);
   });
 
-  test("ruby with { comments: true } throws a clear unsupported error", async () => {
-    writeFileSync(join(dir, "src/e.rb"), "# ruby comment\nx = 1\n");
+  test.skipIf(!rubyInterpreter)(
+    "ruby: collects # line comments and =begin/=end block comments with value and loc",
+    async () => {
+      await Bun.write(
+        join(dir, "src/e.rb"),
+        [
+          "# header",
+          "x = 1 # trailing",
+          "=begin",
+          "block line one",
+          "block line two",
+          "=end",
+          'y = "# not a comment"',
+          "",
+        ].join("\n")
+      );
 
-    const loaded = makeLoadedAdr({
-      rules: {
-        r: {
-          description: "ruby unsupported",
-          async check(ctx) {
-            await ctx.ast("src/e.rb", "ruby", { comments: true });
+      const captured: { tree?: RubyAstProgram } = {};
+      const loaded = makeLoadedAdr({
+        rules: {
+          r: {
+            description: "ruby comments",
+            async check(ctx) {
+              captured.tree = await ctx.ast("src/e.rb", "ruby", {
+                comments: true,
+              });
+            },
           },
         },
-      },
-    });
+      });
 
-    const result = await runChecks(dir, [loaded]);
-    expect(result.results[0].error).toContain("not supported yet");
-  });
+      await runChecks(dir, [loaded]);
+      const comments = captured.tree?.comments ?? [];
+      expect(comments.map((c) => `${c.type}:${c.value}`)).toEqual([
+        "line: header",
+        "line: trailing",
+        "block:block line one\nblock line two",
+      ]);
+      // Line comments: leading # stripped, newline chomped, loc at the token.
+      expect(comments[0].loc.start).toEqual({ line: 1, column: 0 });
+      expect(comments[0].loc.end).toEqual({ line: 1, column: 8 });
+      expect(comments[1].loc.start).toEqual({ line: 2, column: 6 });
+      // Block: ONE token, marker lines stripped, spanning =begin through =end.
+      expect(comments[2].loc.start).toEqual({ line: 3, column: 0 });
+      expect(comments[2].loc.end).toEqual({ line: 6, column: 4 });
+      // The tree is still the real Ripper sexp (comments ride alongside it).
+      expect(captured.tree?.[0]).toBe("program");
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "ruby: no comments property is attached without the flag",
+    async () => {
+      await Bun.write(join(dir, "src/f.rb"), "# a comment\nx = 1\n");
+
+      const captured: { hasComments?: boolean } = {};
+      const loaded = makeLoadedAdr({
+        rules: {
+          r: {
+            description: "ruby opt-in only",
+            async check(ctx) {
+              const tree = await ctx.ast("src/f.rb", "ruby");
+              captured.hasComments = "comments" in tree;
+            },
+          },
+        },
+      });
+
+      await runChecks(dir, [loaded]);
+      expect(captured.hasComments).toBe(false);
+    }
+  );
 
   test.skipIf(!pythonInterpreter)(
     "python: collects # comments via tokenize with stripped value and position",
