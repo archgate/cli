@@ -248,21 +248,29 @@ function createRuleContext(
       throw commentsUnsupportedError(language, path);
     }
 
-    /** The uncached parse: TS/JS in-process, Python/Ruby via guardrails 3–4. */
+    /**
+     * The uncached parse: TS/JS in-process, Python/Ruby via guardrails 3–4.
+     * Errors below are CACHED (see the astResults lookup), so they
+     * interpolate the normalized `relPath` — never the raw `path` —
+     * otherwise a cached rejection would carry the first caller's path
+     * spelling (e.g. "src/./a.py") into every later caller's error, since
+     * aliased spellings resolve to the same cache entry.
+     */
     async function parseUncached(): Promise<AstNode> {
       // In-process branch: TypeScript/JavaScript via the shared meriyah
       // parser (js-parser.ts). No subprocess is spawned for these languages.
       if (language === "typescript" || language === "javascript") {
         const source = useBase
-          ? await readBaseSourceOrThrow(projectRoot, baseRev, relPath, path)
+          ? await readBaseSourceOrThrow(projectRoot, baseRev, relPath, relPath)
           : await cachedFileText(absPath);
         try {
           // Meriyah's Program is ESTree-shaped but lacks the index signature.
+          // `path` is safe here: it only picks the parse mode by extension.
           const tree = parseTsOrJsSource(language, path, source, wantComments);
           return tree as unknown as EsTreeProgram;
         } catch (err) {
           throw new Error(
-            `Failed to parse "${path}" as ${language}: ${parseErrorMessage(err)}`
+            `Failed to parse "${relPath}" as ${language}: ${parseErrorMessage(err)}`
           );
         }
       }
@@ -276,7 +284,7 @@ function createRuleContext(
       }
       const interpreter = await probe;
       if (!interpreter) {
-        throw interpreterNotFoundError(language, candidates, path);
+        throw interpreterNotFoundError(language, candidates, relPath);
       }
 
       // For { rev: "base" }, the interpreter serializers read a file path from
@@ -290,7 +298,7 @@ function createRuleContext(
         projectRoot,
         baseRev,
         relPath,
-        displayPath: path,
+        displayPath: relPath,
       });
 
       try {
@@ -318,11 +326,11 @@ function createRuleContext(
         if (exitCode !== 0) {
           const detail = stderr.trim() || `exit code ${exitCode}`;
           throw new Error(
-            `Failed to parse "${path}" as ${language}: ${detail}`
+            `Failed to parse "${relPath}" as ${language}: ${detail}`
           );
         }
         return finalizeAstResult(
-          parseAstJson(stdout, path, language),
+          parseAstJson(stdout, relPath, language),
           language,
           wantComments
         ) as AstNode;

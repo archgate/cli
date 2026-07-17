@@ -248,6 +248,41 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
     expect((errors[0] as Error).message).toContain("Failed to parse");
   });
 
+  test("aliased path spellings share one cache entry and a normalized error message", async () => {
+    writeFileSync(join(tempDir, "src", "broken2.ts"), "const = {\n");
+
+    // "src/./broken2.ts" and "src/broken2.ts" resolve to the same absPath,
+    // so both spellings hit one cache entry. The cached rejection must not
+    // leak the first caller's raw spelling: the message always carries the
+    // normalized repo-relative path.
+    const errors: unknown[] = [];
+    const rule = (spelling: string) => ({
+      description: `parse via spelling ${spelling}`,
+      async check(ctx: Parameters<RuleSet["rules"][string]["check"]>[0]) {
+        try {
+          await ctx.ast(spelling, "typescript");
+        } catch (err) {
+          errors.push(err);
+        }
+      },
+    });
+
+    const loaded = makeLoadedAdr({
+      rules: {
+        aliased: rule("src/./broken2.ts"),
+        canonical: rule("src/broken2.ts"),
+      },
+    });
+    await runChecks(tempDir, [loaded]);
+
+    expect(errors).toHaveLength(2);
+    // One cache entry for both spellings: the very same error instance.
+    expect(errors[1]).toBe(errors[0]);
+    const message = (errors[0] as Error).message;
+    expect(message).toContain('"src/broken2.ts"');
+    expect(message).not.toContain("src/./broken2.ts");
+  });
+
   test.skipIf(!pythonInterpreter)(
     "python: a rejected parse does not spawn a second interpreter",
     async () => {
