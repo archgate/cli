@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -50,7 +50,7 @@ describe("runChecks ctx.findAstNodes()", () => {
   }
 
   test("typescript: replaces a hand-rolled walker with a one-liner", async () => {
-    writeFileSync(
+    await Bun.write(
       join(tempDir, "src", "calls.ts"),
       [
         "export function outer(): void {",
@@ -92,7 +92,7 @@ describe("runChecks ctx.findAstNodes()", () => {
   test.skipIf(!pythonInterpreter)(
     "python: multi-type match over real ast output",
     async () => {
-      writeFileSync(
+      await Bun.write(
         join(tempDir, "src", "svc.py"),
         [
           "def sync_fn():",
