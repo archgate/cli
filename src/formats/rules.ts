@@ -188,7 +188,7 @@ export interface RubyAstProgram extends Array<unknown> {
  * NOT unified across languages (see ARCH-022); prefer calling `ast()` with a
  * string literal so the per-language overload narrows this union for you.
  */
-export type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
+export type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 
 // --- Rule Context ---
 

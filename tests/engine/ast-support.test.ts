@@ -323,7 +323,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
       const file = join(tempDir, "commented.rb");
-      writeFileSync(
+      await Bun.write(
         file,
         [
           "# header",
@@ -371,7 +371,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
       const file = join(tempDir, "plain.rb");
-      writeFileSync(file, "x = 1\n");
+      await Bun.write(file, "x = 1\n");
 
       const { exitCode, stdout } = await runAstSubprocess([
         interpreter,
@@ -390,12 +390,43 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
   );
 
   test.skipIf(!rubyInterpreter)(
+    "degrades to an empty comments list when Ripper.lex raises",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "lexfail.rb");
+      await Bun.write(file, "x = 1 # comment\n");
+
+      // Monkey-patch prelude: Ripper.sexp still succeeds while Ripper.lex
+      // raises, exercising the rescue-StandardError degrade path without
+      // modifying the shipped program.
+      const lexFailingProgram = [
+        'Ripper.singleton_class.prepend(Module.new { def lex(*) raise "boom" end })',
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+      ].join("\n");
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        lexFailingProgram,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope._tree[0]).toBe("program");
+      expect(envelope.comments).toEqual([]);
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
     "reports character columns, not Ripper's byte offsets, on non-ASCII lines",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
       const file = join(tempDir, "nonascii.rb");
       // Multi-byte é before and inside the comment: byte and char cols diverge.
-      writeFileSync(file, "é = 1 # café\n");
+      await Bun.write(file, "é = 1 # café\n");
 
       const { exitCode, stdout } = await runAstSubprocess([
         interpreter,
@@ -423,7 +454,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
       const file = join(tempDir, "crlf.rb");
-      writeFileSync(
+      await Bun.write(
         file,
         "x = 1\r\n=begin\r\nblock one\r\nblock two\r\n=end\r\n"
       );
@@ -453,7 +484,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
       const file = join(tempDir, "invalid.rb");
-      writeFileSync(file, "def broken(\n");
+      await Bun.write(file, "def broken(\n");
 
       const { exitCode, stderr } = await runAstSubprocess([
         interpreter,

@@ -180,7 +180,7 @@ declare interface RubyAstProgram extends Array<unknown> {
  * is a non-literal \`AstLanguage\`). Prefer calling \`ast()\` with a string
  * literal so the per-language overload narrows this union for you.
  */
-declare type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
+declare type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 
 declare interface RuleContext {
   projectRoot: string;

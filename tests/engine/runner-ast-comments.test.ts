@@ -198,7 +198,7 @@ describe("ctx.ast({ comments: true })", () => {
   test.skipIf(!rubyInterpreter)(
     "ruby: collects # line comments and =begin/=end block comments with value and loc",
     async () => {
-      writeFileSync(
+      await Bun.write(
         join(dir, "src/e.rb"),
         [
           "# header",
@@ -248,7 +248,7 @@ describe("ctx.ast({ comments: true })", () => {
   test.skipIf(!rubyInterpreter)(
     "ruby: no comments property is attached without the flag",
     async () => {
-      writeFileSync(join(dir, "src/f.rb"), "# a comment\nx = 1\n");
+      await Bun.write(join(dir, "src/f.rb"), "# a comment\nx = 1\n");
 
       const captured: { hasComments?: boolean } = {};
       const loaded = makeLoadedAdr({
