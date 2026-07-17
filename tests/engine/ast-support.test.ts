@@ -8,14 +8,13 @@ import { join } from "node:path";
 import {
   PYTHON_AST_PROGRAM,
   RUBY_AST_PROGRAM,
-  findAstNodes,
+  RUBY_AST_WITH_COMMENTS_PROGRAM,
   interpreterCandidates,
   parseAstJson,
   parseErrorMessage,
   probeInterpreter,
   runAstSubprocess,
 } from "../../src/engine/ast-support";
-import type { PythonAstNode } from "../../src/formats/rules";
 import { isWindows } from "../../src/helpers/platform";
 
 // Probe once at load time so interpreter-dependent tests can skipIf cleanly.
@@ -296,116 +295,207 @@ describe("RUBY_AST_PROGRAM end-to-end", () => {
   );
 });
 
-describe("findAstNodes", () => {
-  test("rewrites the hand-rolled collectFunctionDefs walker to a one-liner", () => {
-    // Python-shaped (_type discriminant) tree, as ctx.ast(path, "python")
-    // returns it.
-    const tree = {
-      _type: "Module",
-      body: [
-        { _type: "FunctionDef", name: "top_level", body: [] },
-        {
-          _type: "ClassDef",
-          name: "Service",
-          body: [
-            { _type: "AsyncFunctionDef", name: "fetch", body: [] },
-            { _type: "FunctionDef", name: "close", body: [] },
-          ],
-        },
-      ],
-    };
+describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
+  let tempDir: string;
 
-    const hits = findAstNodes(tree, "FunctionDef", "AsyncFunctionDef");
-    expect(hits.map((n) => n.name)).toEqual(["top_level", "fetch", "close"]);
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-ast-rb-cmt-"));
   });
 
-  test("matches ESTree-shaped nodes via their type discriminant", () => {
-    const program = {
-      type: "Program",
-      body: [
-        {
-          type: "FunctionDeclaration",
-          id: { type: "Identifier", name: "hello" },
-          params: [],
-        },
-        {
-          type: "ExpressionStatement",
-          expression: {
-            type: "CallExpression",
-            callee: { type: "Identifier", name: "hello" },
-            arguments: [],
-          },
-        },
-      ],
-    };
-
-    const identifiers = findAstNodes(program, "Identifier");
-    expect(identifiers.map((n) => n.name)).toEqual(["hello", "hello"]);
-    expect(findAstNodes(program, "CallExpression")).toHaveLength(1);
+  afterEach(() => {
+    rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("the root node itself is a match candidate", () => {
-    const tree = { _type: "Module", body: [] };
-    const hits = findAstNodes(tree, "Module");
-    expect(hits).toHaveLength(1);
-    expect(hits[0]).toBe(tree);
-  });
+  interface Envelope {
+    _tree: unknown[];
+    comments: Array<{
+      type: string;
+      value: string;
+      loc: {
+        start: { line: number; column: number };
+        end: { line: number; column: number };
+      };
+    }>;
+  }
 
-  test("recurses through nested arrays", () => {
-    const tree = {
-      _type: "Matrix",
-      rows: [
-        [{ _type: "Cell", value: 1 }],
-        [[{ _type: "Cell", value: 2 }], { _type: "Cell", value: 3 }],
-      ],
-    };
-    expect(findAstNodes(tree, "Cell").map((n) => n.value)).toEqual([1, 2, 3]);
-  });
+  test.skipIf(!rubyInterpreter)(
+    "emits the {_tree, comments} envelope with line and block tokens",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "commented.rb");
+      await Bun.write(
+        file,
+        [
+          "# header",
+          "x = 1 # trailing",
+          "=begin",
+          "block line one",
+          "block line two",
+          "=end",
+          'y = "# not a comment"',
+          "",
+        ].join("\n")
+      );
 
-  test("ruby sexp arrays are recursed but array-shaped nodes never match", () => {
-    // Ripper.sexp carries its tag as element 0, not as an object field.
-    const sexp = ["program", [["command", [["@ident", "puts", [1, 0]]]]]];
-    expect(findAstNodes(sexp, "program", "command", "@ident")).toEqual([]);
-  });
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
 
-  test("prefers _type over an unrelated string field named type", () => {
-    const handler = { _type: "ExceptHandler", type: "Name" };
-    expect(findAstNodes(handler, "Name")).toEqual([]);
-    expect(findAstNodes(handler, "ExceptHandler")).toEqual([handler]);
-  });
-
-  test("cycle guard terminates on self-referential objects and arrays", () => {
-    const node: PythonAstNode = { _type: "Loop" };
-    node.self = node;
-    const ring: unknown[] = [node];
-    ring.push(ring);
-    node.items = ring;
-
-    expect(findAstNodes(node, "Loop")).toEqual([node]);
-  });
-
-  test("a node reachable through two parents is collected once", () => {
-    const shared = { _type: "Name", id: "x" };
-    const tree = { _type: "Module", left: shared, right: shared };
-    expect(findAstNodes(tree, "Name")).toEqual([shared]);
-  });
-
-  test("a deeply nested tree does not overflow the call stack", () => {
-    // ~100k levels deep — far beyond the JS call-stack limit a recursive
-    // walker would hit. Built leaf-up so the leaf sits at maximum depth.
-    let node: PythonAstNode = { _type: "Leaf", value: "bottom" };
-    for (let i = 0; i < 100_000; i++) {
-      node = { _type: "Wrapper", body: [node] };
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope._tree[0]).toBe("program");
+      expect(envelope.comments.map((c) => `${c.type}:${c.value}`)).toEqual([
+        "line: header",
+        "line: trailing",
+        "block:block line one\nblock line two",
+      ]);
+      // Line comments: loc from the (line, col) lex tuple, end at token end.
+      expect(envelope.comments[0].loc).toEqual({
+        start: { line: 1, column: 0 },
+        end: { line: 1, column: 8 },
+      });
+      expect(envelope.comments[1].loc.start).toEqual({ line: 2, column: 6 });
+      // Block token: ONE token spanning the =begin line through the =end line.
+      expect(envelope.comments[2].loc.start).toEqual({ line: 3, column: 0 });
+      expect(envelope.comments[2].loc.end).toEqual({ line: 6, column: 4 });
     }
+  );
 
-    const hits = findAstNodes(node, "Leaf");
-    expect(hits).toHaveLength(1);
-    expect(hits[0].value).toBe("bottom");
-  });
+  test.skipIf(!rubyInterpreter)(
+    "comment-free source yields an empty comments list",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "plain.rb");
+      await Bun.write(file, "x = 1\n");
 
-  test("returns empty for primitive and null roots", () => {
-    expect(findAstNodes(null, "Module")).toEqual([]);
-    expect(findAstNodes("Module", "Module")).toEqual([]);
-    expect(findAstNodes(42, "Module")).toEqual([]);
-  });
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope._tree[0]).toBe("program");
+      expect(envelope.comments).toEqual([]);
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "degrades to an empty comments list when Ripper.lex raises",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "lexfail.rb");
+      await Bun.write(file, "x = 1 # comment\n");
+
+      // Monkey-patch prelude: Ripper.sexp still succeeds while Ripper.lex
+      // raises, exercising the rescue-StandardError degrade path without
+      // modifying the shipped program.
+      const lexFailingProgram = [
+        'Ripper.singleton_class.prepend(Module.new { def lex(*) raise "boom" end })',
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+      ].join("\n");
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        lexFailingProgram,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope._tree[0]).toBe("program");
+      expect(envelope.comments).toEqual([]);
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "reports character columns, not Ripper's byte offsets, on non-ASCII lines",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "nonascii.rb");
+      // Multi-byte é before and inside the comment: byte and char cols diverge.
+      await Bun.write(file, "é = 1 # café\n");
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      expect(envelope.comments).toHaveLength(1);
+      expect(envelope.comments[0].value).toBe(" café");
+      // Char cols 6..12, matching Python tokenize on the same layout (bytes: 7..14).
+      expect(envelope.comments[0].loc).toEqual({
+        start: { line: 1, column: 6 },
+        end: { line: 1, column: 12 },
+      });
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "normalizes CRLF in block values so content is OS-independent",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "crlf.rb");
+      await Bun.write(
+        file,
+        "x = 1\r\n=begin\r\nblock one\r\nblock two\r\n=end\r\n"
+      );
+
+      const { exitCode, stdout } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(0);
+
+      const envelope = JSON.parse(stdout) as Envelope;
+      // LF-joined on every OS — POSIX reads keep the \r bytes, Windows strips them.
+      expect(envelope.comments.map((c) => `${c.type}:${c.value}`)).toEqual([
+        "block:block one\nblock two",
+      ]);
+      expect(envelope.comments[0].loc.start).toEqual({ line: 2, column: 0 });
+      expect(envelope.comments[0].loc.end).toEqual({ line: 5, column: 4 });
+    }
+  );
+
+  test.skipIf(!rubyInterpreter)(
+    "exits 1 with 'Ruby syntax error' for invalid source",
+    async () => {
+      const interpreter = rubyInterpreter ?? "ruby";
+      const file = join(tempDir, "invalid.rb");
+      await Bun.write(file, "def broken(\n");
+
+      const { exitCode, stderr } = await runAstSubprocess([
+        interpreter,
+        "-rripper",
+        "-rjson",
+        "-e",
+        RUBY_AST_WITH_COMMENTS_PROGRAM,
+        file,
+      ]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Ruby syntax error");
+    }
+  );
 });

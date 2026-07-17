@@ -73,7 +73,12 @@ export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
  * with its delimiters removed (`//`, `/* … *​/`, `#`). `loc` is a position in
  * the ORIGINAL source — accurate even for `"typescript"`, where the tree's own
  * `loc` is transpiled-relative (comments are extracted from the pre-transpile
- * source). Python comments are always `"line"` (`#`); it has no block comments.
+ * source). Python comments are always `"line"` (`#`); it has no block
+ * comments. Ruby `#` comments are `"line"`; each `=begin`/`=end` region is ONE
+ * `"block"` token whose `value` is the inner content (marker lines stripped,
+ * line endings normalized to LF) and whose `loc` spans the `=begin` line
+ * through the `=end` line. Ruby comment columns are character offsets like the
+ * other languages — the sexp tree's own node positions are byte offsets.
  */
 export interface CommentToken {
   type: "line" | "block";
@@ -97,8 +102,9 @@ export interface CommentToken {
  *   `fileAtBase()` when you need to detect that first.
  * - `comments: true` attaches a `comments` array of {@link CommentToken}s to
  *   the returned tree — the structured basis for comment-governance rules, in
- *   place of line-by-line regex. Supported for `"typescript"`/`"javascript"`
- *   and `"python"`; requesting it for `"ruby"` throws.
+ *   place of line-by-line regex. Supported for every {@link AstLanguage}; for
+ *   `"ruby"` the array rides on the returned sexp array as a non-index
+ *   property (see {@link RubyAstProgram}).
  */
 export interface AstOptions {
   rev?: "base";
@@ -166,12 +172,23 @@ export interface PythonAstModule extends PythonAstNode {
 export type RubyAstNode = unknown[];
 
 /**
+ * Root Ruby value returned for `"ruby"` — the full `Ripper.sexp` output array
+ * (`["program", …]`). When parsed with `{ comments: true }`, a `comments`
+ * array of {@link CommentToken}s rides on the array as a non-index property;
+ * it is absent otherwise.
+ */
+export interface RubyAstProgram extends Array<unknown> {
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
+}
+
+/**
  * Return type of the language-agnostic `ast()` overload (when `language` is a
  * non-literal `AstLanguage`). The shape is language-native and deliberately
  * NOT unified across languages (see ARCH-022); prefer calling `ast()` with a
  * string literal so the per-language overload narrows this union for you.
  */
-export type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
+export type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 
 // --- Rule Context ---
 
@@ -198,7 +215,7 @@ export interface RuleContext {
    *
    * The return type is selected by the `language` literal: an
    * {@link EsTreeProgram} for `"typescript"`/`"javascript"`, a
-   * {@link PythonAstModule} for `"python"`, and a {@link RubyAstNode} for
+   * {@link PythonAstModule} for `"python"`, and a {@link RubyAstProgram} for
    * `"ruby"`. The shapes are language-native and are NOT unified (see
    * ARCH-022) — walk each against its own grammar.
    *
@@ -222,7 +239,11 @@ export interface RuleContext {
     language: "python",
     opts?: AstOptions
   ): Promise<PythonAstModule>;
-  ast(path: string, language: "ruby", opts?: AstOptions): Promise<RubyAstNode>;
+  ast(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   /**
    * Recursively collect every node in a parsed AST whose type-discriminant

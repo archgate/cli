@@ -76,7 +76,11 @@ declare type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
  * A source comment, attached to the parsed tree's \`comments\` array when
  * \`ast()\` is called with \`{ comments: true }\`. \`value\` has delimiters
  * removed; \`loc\` is a position in the ORIGINAL source (accurate even for
- * "typescript"). Python comments are always "line".
+ * "typescript"). Python comments are always "line". Ruby \`#\` comments are
+ * "line"; each \`=begin\`/\`=end\` region is ONE "block" token (marker lines
+ * stripped, line endings normalized to LF, loc spanning \`=begin\` through
+ * \`=end\`). Ruby comment columns are character offsets — the sexp tree's own
+ * node positions are byte offsets.
  */
 declare interface CommentToken {
   type: "line" | "block";
@@ -93,7 +97,8 @@ declare interface CommentToken {
  * working tree — use it to detect whether the executable structure changed.
  * Throws if no base is resolved or the file did not exist at the base.
  * \`comments: true\` attaches a \`comments\` array of \`CommentToken\`s to the
- * returned tree (typescript/javascript/python; ruby throws).
+ * returned tree (all languages; for ruby it rides on the sexp array as a
+ * non-index property).
  */
 declare interface AstOptions {
   rev?: "base";
@@ -161,11 +166,21 @@ declare interface PythonAstModule extends PythonAstNode {
 declare type RubyAstNode = unknown[];
 
 /**
+ * Root Ruby value returned for "ruby" — the full \`Ripper.sexp\` output array
+ * (\`["program", ...]\`). When parsed with \`{ comments: true }\`, a
+ * \`comments\` array rides on the array as a non-index property.
+ */
+declare interface RubyAstProgram extends Array<unknown> {
+  /** Present only when parsed with \`{ comments: true }\`. */
+  comments?: CommentToken[];
+}
+
+/**
  * Return type of the language-agnostic \`ast()\` overload (when \`language\`
  * is a non-literal \`AstLanguage\`). Prefer calling \`ast()\` with a string
  * literal so the per-language overload narrows this union for you.
  */
-declare type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
+declare type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 
 declare interface RuleContext {
   projectRoot: string;
@@ -189,7 +204,7 @@ declare interface RuleContext {
    *
    * The return type is selected by the \`language\` literal: an
    * \`EsTreeProgram\` for "typescript"/"javascript", a \`PythonAstModule\` for
-   * "python", and a \`RubyAstNode\` for "ruby". The shapes are language-native
+   * "python", and a \`RubyAstProgram\` for "ruby". The shapes are language-native
    * and are NOT unified — walk each against its own grammar.
    *
    * TypeScript/JavaScript parse in-process. Python and Ruby require the
@@ -212,7 +227,11 @@ declare interface RuleContext {
     language: "python",
     opts?: AstOptions
   ): Promise<PythonAstModule>;
-  ast(path: string, language: "ruby", opts?: AstOptions): Promise<RubyAstNode>;
+  ast(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   /**
    * Recursively collect every node in a parsed AST whose type-discriminant

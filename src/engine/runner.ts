@@ -10,7 +10,7 @@ import type {
   EsTreeProgram,
   GrepMatch,
   PythonAstModule,
-  RubyAstNode,
+  RubyAstProgram,
   RuleContext,
   RuleReport,
   ViolationDetail,
@@ -22,9 +22,9 @@ import {
   PYTHON_AST_PROGRAM,
   PYTHON_AST_WITH_COMMENTS_PROGRAM,
   RUBY_AST_PROGRAM,
+  RUBY_AST_WITH_COMMENTS_PROGRAM,
   RUBY_BASENAMES,
   astCacheKey,
-  commentsUnsupportedError,
   finalizeAstResult,
   findAstNodes,
   implausibleLanguageError,
@@ -212,7 +212,7 @@ function createRuleContext(
     path: string,
     language: "ruby",
     opts?: AstOptions
-  ): Promise<RubyAstNode>;
+  ): Promise<RubyAstProgram>;
   // oxlint-disable-next-line require-await -- async keeps guardrail failures as rejections, never sync throws
   async function astImpl(
     path: string,
@@ -239,14 +239,6 @@ function createRuleContext(
       (language === "ruby" && RUBY_BASENAMES.has(basename));
     if (!plausible) {
       throw implausibleLanguageError(language, path);
-    }
-
-    // Feature guard (after the language guardrails, before any interpreter
-    // work): comments are opt-in and Ruby's serializer does not carry them yet.
-    // Ordered here so an implausible language/file combination fails on the
-    // plausibility guardrail first, per ARCH-022's guardrail ordering.
-    if (wantComments && language === "ruby") {
-      throw commentsUnsupportedError(language, path);
     }
 
     /**
@@ -312,6 +304,9 @@ function createRuleContext(
         const pyProgram = wantComments
           ? PYTHON_AST_WITH_COMMENTS_PROGRAM
           : PYTHON_AST_PROGRAM;
+        const rubyProgram = wantComments
+          ? RUBY_AST_WITH_COMMENTS_PROGRAM
+          : RUBY_AST_PROGRAM;
         const cmd =
           language === "python"
             ? [interpreter, "-I", "-c", pyProgram, sourcePath]
@@ -320,7 +315,7 @@ function createRuleContext(
                 "-rripper",
                 "-rjson",
                 "-e",
-                RUBY_AST_PROGRAM,
+                rubyProgram,
                 sourcePath,
               ];
         const { exitCode, stdout, stderr } = await runAstSubprocess(cmd);
@@ -348,8 +343,8 @@ function createRuleContext(
     // fail-closed (ARCH-022), so every rule touching the same input fails
     // fast with the identical error instead of re-paying the spawn. The
     // cheap argument-validation guardrails above (path safety, language
-    // plausibility, feature guard) still run per call, before this lookup,
-    // preserving ARCH-022's guardrail ordering on cache hits too.
+    // plausibility) still run per call, before this lookup, preserving
+    // ARCH-022's guardrail ordering on cache hits too.
     const cacheKey = astCacheKey(absPath, language, useBase, wantComments);
     let hit = caches.astResults.get(cacheKey);
     if (!hit) {
