@@ -454,6 +454,25 @@ export function findAstNodes(
   return matches;
 }
 
+/**
+ * Cache key for a per-run `ctx.ast()` parse (see `RunCaches.astResults` in
+ * runner.ts): the full tuple that determines the parse output, NUL-joined —
+ * NUL cannot appear in a path, so distinct tuples can never collide.
+ */
+export function astCacheKey(
+  absPath: string,
+  language: AstLanguage,
+  useBase: boolean,
+  wantComments: boolean
+): string {
+  return [
+    absPath,
+    language,
+    useBase ? "base" : "working-tree",
+    wantComments ? "comments" : "no-comments",
+  ].join("\u0000");
+}
+
 /** Extract a readable message from Bun.Transpiler/meriyah parse errors. */
 export function parseErrorMessage(err: unknown): string {
   if (err instanceof AggregateError && err.errors.length > 0) {

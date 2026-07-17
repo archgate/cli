@@ -406,37 +406,37 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
       // away in the outer scope (TS treats a nested-closure write to a plain
       // `let` as never happening).
       const seen: { doc?: boolean; real?: boolean } = {};
-      const loaded = makeLoadedAdr({
-        rules: {
-          r: {
-            description: "python doc-only",
-            async check(ctx) {
-              const baseTree = await ctx.ast("src/calc.py", "python", {
-                rev: "base",
-              });
-              const headTree = await ctx.ast("src/calc.py", "python");
-              // A doc-only rule strips docstrings (their value legitimately
-              // changed) and compares the rest, position-insensitively.
-              seen.doc =
-                JSON.stringify(pyStructure(stripDocstrings(baseTree))) ===
-                JSON.stringify(pyStructure(stripDocstrings(headTree)));
-
-              // A real change to the working tree body.
-              await Bun.write(
-                join(dir, "src/calc.py"),
-                "def add(a, b):\n    return a - b\n"
-              );
-              const realTree = await ctx.ast("src/calc.py", "python");
-              seen.real =
-                JSON.stringify(pyStructure(stripDocstrings(baseTree))) ===
-                JSON.stringify(pyStructure(stripDocstrings(realTree)));
+      const compareRule = (key: "doc" | "real") =>
+        makeLoadedAdr({
+          rules: {
+            r: {
+              description: `python ${key} comparison`,
+              async check(ctx) {
+                const baseTree = await ctx.ast("src/calc.py", "python", {
+                  rev: "base",
+                });
+                const headTree = await ctx.ast("src/calc.py", "python");
+                // A doc-only rule strips docstrings (their value legitimately
+                // changed) and compares the rest, position-insensitively.
+                seen[key] =
+                  JSON.stringify(pyStructure(stripDocstrings(baseTree))) ===
+                  JSON.stringify(pyStructure(stripDocstrings(headTree)));
+              },
             },
           },
-        },
-      });
+        });
 
-      await runChecks(dir, [loaded], { base: "HEAD" });
+      await runChecks(dir, [compareRule("doc")], { base: "HEAD" });
       expect(seen.doc).toBe(true);
+
+      // A real change to the working tree body. Parsed in a SEPARATE run:
+      // AST parses are cached per check invocation, so a mid-run edit is
+      // deliberately not observable within the same runChecks call.
+      await Bun.write(
+        join(dir, "src/calc.py"),
+        "def add(a, b):\n    return a - b\n"
+      );
+      await runChecks(dir, [compareRule("real")], { base: "HEAD" });
       expect(seen.real).toBe(false);
     }
   );

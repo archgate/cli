@@ -211,6 +211,8 @@ interface AstOptions {
 
 Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
 
+Parse results are cached for the lifetime of a single `archgate check` run, keyed on `(path, language, rev, comments)`: repeated -- even concurrent -- identical calls across rules cost one parse (one interpreter spawn for Python/Ruby), and a failed parse rethrows the same error to every caller. Treat the returned tree as read-only -- it may be shared with other rules.
+
 ```typescript
 const program = await ctx.ast("src/cli.ts", "typescript");
 for (const node of program.body) {
