@@ -76,4 +76,33 @@ describe("resolveRuleImportDirs (rule-import containment)", () => {
     writeConfig({ ruleImports: { allowedDirs: [".archgate/nope"] } });
     expect(() => resolveRuleImportDirs(root)).toThrow(/does not exist/u);
   });
+
+  test("(g) rejects an allowedDirs entry that is a file, not a directory", () => {
+    writeFileSync(join(archgate, "lib.ts"), "export const x = 1;\n");
+    writeConfig({ ruleImports: { allowedDirs: [".archgate/lib.ts"] } });
+    expect(() => resolveRuleImportDirs(root)).toThrow(/not a directory/u);
+  });
+
+  test("(g) rejects when .archgate/ itself is a symlink escaping the project", () => {
+    // Build a sibling project whose `.archgate` is a symlink to a dir outside
+    // the project tree, containing an otherwise-valid `lib/` dir. Without the
+    // project-root anchor, the containment check would pass against the escaped
+    // realpath and authorize imports outside the repo.
+    const project = join(root, "project");
+    mkdirSync(project, { recursive: true });
+    const external = join(root, "external-archgate");
+    mkdirSync(join(external, "lib"), { recursive: true });
+    symlinkSync(external, join(project, ".archgate"));
+    writeFileSync(
+      join(project, ".archgate", "config.json"),
+      JSON.stringify(
+        { ruleImports: { allowedDirs: [".archgate/lib"] } },
+        null,
+        2
+      )
+    );
+    expect(() => resolveRuleImportDirs(project)).toThrow(
+      /outside the project root/u
+    );
+  });
 });

@@ -9,7 +9,7 @@
  * overwritten or removed via the config.
  */
 
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import {
@@ -260,11 +260,14 @@ export async function removeCustomDomain(
  * from via relative paths.
  *
  * HARD CONTAINMENT BOUNDARY: every configured entry is resolved against the
- * project root, realpath-canonicalized, and MUST land inside
- * `<projectRoot>/.archgate/`. Any entry that escapes — via `..`, an absolute
- * path, or a symlink whose target is outside the tree — is rejected with a
- * {@link UserError} naming it. This holds regardless of the configured value:
- * the config can never authorize a path outside `.archgate/`.
+ * project root, realpath-canonicalized, and MUST be an existing directory that
+ * lands inside `<projectRoot>/.archgate/`. Any entry that escapes — via `..`, an
+ * absolute path, or a symlink whose target is outside the tree — is rejected
+ * with a {@link UserError} naming it, as is a path that resolves to a file
+ * rather than a directory. The `.archgate/` tree itself is also anchored to the
+ * real project root, so a symlinked `.archgate/` pointing outside the repo
+ * cannot smuggle the boundary elsewhere. This holds regardless of the
+ * configured value: the config can never authorize a path outside `.archgate/`.
  *
  * Returns `[]` when the field is absent or empty, which preserves the default
  * behavior of blocking every relative import in rule files.
@@ -273,13 +276,27 @@ export function resolveRuleImportDirs(projectRoot: string): string[] {
   const dirs = loadProjectConfig(projectRoot).ruleImports?.allowedDirs ?? [];
   if (dirs.length === 0) return [];
 
+  let realProjectRoot: string;
   let archgateRoot: string;
   try {
+    realProjectRoot = realpathSync(projectRoot);
     archgateRoot = realpathSync(projectPaths(projectRoot).root);
   } catch {
     // No `.archgate/` on disk — nothing can be imported; treat as unconfigured
     // rather than erroring, so the default (block everything) applies.
     return [];
+  }
+
+  // The `.archgate/` tree itself MUST live inside the (realpath'd) project root.
+  // If `.archgate` is a symlink pointing outside the repo, canonicalizing the
+  // configured dirs against it would authorize imports outside the project —
+  // defeating the containment boundary. Anchor to the real project root so the
+  // guarantee holds regardless of what `.archgate` points at.
+  if (!isPathInside(archgateRoot, join(realProjectRoot, ".archgate"))) {
+    throw new UserError(
+      `The .archgate/ directory resolves outside the project root (${archgateRoot}).`,
+      "Rule-file imports are confined to the .archgate/ governance tree; a symlinked .archgate/ pointing elsewhere is not allowed."
+    );
   }
 
   return dirs.map((dir) => {
@@ -297,6 +314,12 @@ export function resolveRuleImportDirs(projectRoot: string): string[] {
       throw new UserError(
         `Invalid ruleImports.allowedDirs entry "${dir}": resolves outside .archgate/ (${real}).`,
         "Rule-file imports are confined to the .archgate/ governance tree."
+      );
+    }
+    if (!statSync(real).isDirectory()) {
+      throw new UserError(
+        `Invalid ruleImports.allowedDirs entry "${dir}": not a directory (${real}).`,
+        "Each ruleImports.allowedDirs entry must be a directory inside .archgate/."
       );
     }
     return real;
