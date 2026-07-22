@@ -246,15 +246,6 @@ export async function removeCustomDomain(
 }
 
 /**
- * Resolve project paths with config-aware overrides.
- *
- * Reads `.archgate/config.json` and applies any custom `paths.adrs` or
- * `paths.rules` overrides. When `paths.rules` is not set, rules are
- * loaded from the same directory as ADRs (co-location convention).
- * Falls back to the standard `.archgate/adrs/` and `.archgate/lint/`
- * defaults when no `paths` config is present.
- */
-/**
  * Resolve the opt-in `ruleImports.allowedDirs` config into absolute, canonical
  * (realpath'd) directories that `.rules.ts` files may import shared helpers
  * from via relative paths.
@@ -281,10 +272,17 @@ export function resolveRuleImportDirs(projectRoot: string): string[] {
   try {
     realProjectRoot = realpathSync(projectRoot);
     archgateRoot = realpathSync(projectPaths(projectRoot).root);
-  } catch {
-    // No `.archgate/` on disk — nothing can be imported; treat as unconfigured
-    // rather than erroring, so the default (block everything) applies.
-    return [];
+  } catch (err) {
+    // A missing `.archgate/` (or project root) means nothing can be imported —
+    // treat as unconfigured so the default (block everything) applies.
+    if ((err as { code?: string }).code === "ENOENT") return [];
+    // Any other fault (EACCES, ELOOP, …) on an otherwise-configured project is a
+    // real problem worth surfacing, not a silent feature-disable — `dirs` is
+    // non-empty here, so `.archgate/config.json` already parsed successfully.
+    throw new UserError(
+      `Could not resolve the .archgate/ directory for rule imports: ${String(err)}`,
+      "Check filesystem permissions and that .archgate/ is not a broken or looping symlink."
+    );
   }
 
   // The `.archgate/` tree itself MUST live inside the (realpath'd) project root.
@@ -326,6 +324,15 @@ export function resolveRuleImportDirs(projectRoot: string): string[] {
   });
 }
 
+/**
+ * Resolve project paths with config-aware overrides.
+ *
+ * Reads `.archgate/config.json` and applies any custom `paths.adrs` or
+ * `paths.rules` overrides. When `paths.rules` is not set, rules are
+ * loaded from the same directory as ADRs (co-location convention).
+ * Falls back to the standard `.archgate/adrs/` and `.archgate/lint/`
+ * defaults when no `paths` config is present.
+ */
 export function resolvedProjectPaths(projectRoot: string): {
   root: string;
   adrsDir: string;

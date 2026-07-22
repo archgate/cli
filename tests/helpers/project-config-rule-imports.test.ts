@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import * as fs from "node:fs";
 import {
   mkdtempSync,
   mkdirSync,
@@ -52,7 +53,7 @@ describe("resolveRuleImportDirs (rule-import containment)", () => {
     expect(dirs).toEqual([realpathSync(join(archgate, "lib"))]);
   });
 
-  test("(g) rejects an allowedDirs entry that escapes via ..", () => {
+  test("(g) rejects a relative allowedDirs entry that resolves outside .archgate/", () => {
     // A dir that exists but is outside .archgate/.
     mkdirSync(join(root, "outside"), { recursive: true });
     writeConfig({ ruleImports: { allowedDirs: ["outside"] } });
@@ -77,13 +78,13 @@ describe("resolveRuleImportDirs (rule-import containment)", () => {
     expect(() => resolveRuleImportDirs(root)).toThrow(/does not exist/u);
   });
 
-  test("(g) rejects an allowedDirs entry that is a file, not a directory", () => {
+  test("(i) rejects an allowedDirs entry that is a file, not a directory", () => {
     writeFileSync(join(archgate, "lib.ts"), "export const x = 1;\n");
     writeConfig({ ruleImports: { allowedDirs: [".archgate/lib.ts"] } });
     expect(() => resolveRuleImportDirs(root)).toThrow(/not a directory/u);
   });
 
-  test("(g) rejects when .archgate/ itself is a symlink escaping the project", () => {
+  test("(j) rejects when .archgate/ itself is a symlink escaping the project", () => {
     // Build a sibling project whose `.archgate` is a symlink to a dir outside
     // the project tree, containing an otherwise-valid `lib/` dir. Without the
     // project-root anchor, the containment check would pass against the escaped
@@ -104,5 +105,29 @@ describe("resolveRuleImportDirs (rule-import containment)", () => {
     expect(() => resolveRuleImportDirs(project)).toThrow(
       /outside the project root/u
     );
+  });
+
+  test("(k) surfaces a non-ENOENT realpath fault instead of silently disabling", () => {
+    mkdirSync(join(archgate, "lib"), { recursive: true });
+    writeConfig({ ruleImports: { allowedDirs: [".archgate/lib"] } });
+    // A real filesystem fault (e.g. EACCES) on an otherwise-valid, configured
+    // project must surface, not fall back to [] like the missing-.archgate case.
+    const throwEacces = (): never => {
+      const err = new Error("EACCES: permission denied") as Error & {
+        code: string;
+      };
+      err.code = "EACCES";
+      throw err;
+    };
+    const spy = spyOn(fs, "realpathSync").mockImplementation(
+      throwEacces as unknown as typeof fs.realpathSync
+    );
+    try {
+      expect(() => resolveRuleImportDirs(root)).toThrow(
+        /Could not resolve the \.archgate\/ directory/u
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
