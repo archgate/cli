@@ -70,6 +70,6 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 
 ## Distribution / Packaging
 
-- **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`.
-- **`.cjs` extension is mandatory** for any root-level Node.js CJS wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
+- **npm shim + GitHub Releases** — The npm package is a thin shim (`shims/npm/archgate.cjs`, wired via package.json `bin`/`files`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`. (Path is `shims/npm/`, NOT root `bin/` — corrected 2026-07; verify against package.json `bin` before quoting.)
+- **`.cjs` extension is mandatory** for the Node.js CJS shim wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
 - [Shim publishing pipeline gotchas](project_shim_publishing.md) — PyPI README, RubyGem Rakefile/working-dir, Maven waitUntil, advertised-vs-installable version lag, Go module registration on pkg.go.dev
