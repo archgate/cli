@@ -43,11 +43,27 @@ export const PathsConfigSchema = z.object({
   rules: RelativePathSchema.optional(),
 });
 
+/**
+ * Opt-in allow-list of directories that `.rules.ts` files may import shared
+ * helpers from via relative paths. Entries are project-root-relative strings.
+ *
+ * The schema deliberately does NOT try to prove containment here: a path that
+ * merely reads as safe can still escape `.archgate/` via a symlink, so the
+ * authoritative HARD boundary (resolve → realpath → must be inside
+ * `.archgate/`) is enforced against the filesystem in `resolveRuleImportDirs`.
+ * Keeping the schema permissive lets that resolver surface a clear,
+ * per-entry error rather than silently dropping the whole config.
+ */
+const RuleImportsConfigSchema = z.object({
+  allowedDirs: z.array(z.string().min(1, "path must not be empty")).default([]),
+});
+
 export const ProjectConfigSchema = z
   .object({
     domains: z.record(DomainNameSchema, DomainPrefixSchema).default({}),
     paths: PathsConfigSchema.optional(),
     baseBranch: z.string().min(1).optional(),
+    ruleImports: RuleImportsConfigSchema.optional(),
   })
   .default({ domains: {} });
 

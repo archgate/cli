@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname, resolve, sep } from "node:path";
 
 import { logDebug } from "./log";
 import { UserError } from "./user-error";
@@ -109,6 +109,18 @@ export function cursorUserDir(): string {
 }
 
 export const paths = { cacheFolder: internalPath("cache") } as const;
+
+/**
+ * True when `child` is `parent` itself or a path nested inside it. Both must be
+ * absolute and normalized (e.g. the output of `realpathSync`/`resolve`), so
+ * that a prefix comparison is sound. Used to enforce the `.archgate/`
+ * containment boundary on opt-in rule-file imports.
+ */
+export function isPathInside(child: string, parent: string): boolean {
+  if (child === parent) return true;
+  const base = parent.endsWith(sep) ? parent : parent + sep;
+  return child.startsWith(base);
+}
 
 export function projectPath(projectRoot: string, ...path: string[]) {
   return join(projectRoot, ".archgate", ...path);

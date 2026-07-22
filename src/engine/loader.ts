@@ -28,7 +28,10 @@ import { relative } from "node:path";
 
 import type { ViolationDetail } from "../formats/rules";
 import { logDebug } from "../helpers/log";
-import { resolvedProjectPaths } from "../helpers/project-config";
+import {
+  resolvedProjectPaths,
+  resolveRuleImportDirs,
+} from "../helpers/project-config";
 import { ensureRulesShim } from "../helpers/rules-shim";
 import { UserError } from "../helpers/user-error";
 import { scanRuleSource } from "./rule-scanner";
@@ -235,6 +238,12 @@ export async function loadRuleAdrs(
 ): Promise<LoadResult[]> {
   const pp = resolvedProjectPaths(projectRoot);
 
+  // Opt-in directories (inside `.archgate/`) that rule files may import shared
+  // helpers from. Empty unless the project configured `ruleImports.allowedDirs`.
+  // Throws a UserError if a configured dir escapes `.archgate/` — a hard,
+  // fail-closed boundary enforced before any rule source is scanned.
+  const allowedImportDirs = resolveRuleImportDirs(projectRoot);
+
   // Ensure rules.d.ts exists so .rules.ts files get type checking
   // without requiring node_modules (supports non-JS projects).
   // When ADRs live in a custom directory, also write the shim there.
@@ -320,7 +329,10 @@ export async function loadRuleAdrs(
       // This blocks dangerous imports (node:fs, child_process), Bun APIs
       // (Bun.spawn, Bun.file), network access (fetch), eval, and obfuscation
       // patterns (computed property access, dynamic imports).
-      const scanViolations = scanRuleSource(ruleSource);
+      const scanViolations = scanRuleSource(ruleSource, {
+        filePath: rulesFile,
+        allowedImportDirs,
+      });
       if (scanViolations.length > 0) {
         return {
           type: "blocked",

@@ -9,8 +9,8 @@
  * overwritten or removed via the config.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 import {
   DOMAIN_PREFIXES as DEFAULT_DOMAIN_PREFIXES,
@@ -23,7 +23,12 @@ import {
   type ProjectConfig,
 } from "../formats/project-config";
 import { logDebug } from "./log";
-import { createPathIfNotExists, projectPath, projectPaths } from "./paths";
+import {
+  createPathIfNotExists,
+  isPathInside,
+  projectPath,
+  projectPaths,
+} from "./paths";
 import { UserError } from "./user-error";
 
 const CONFIG_FILE = "config.json";
@@ -249,6 +254,55 @@ export async function removeCustomDomain(
  * Falls back to the standard `.archgate/adrs/` and `.archgate/lint/`
  * defaults when no `paths` config is present.
  */
+/**
+ * Resolve the opt-in `ruleImports.allowedDirs` config into absolute, canonical
+ * (realpath'd) directories that `.rules.ts` files may import shared helpers
+ * from via relative paths.
+ *
+ * HARD CONTAINMENT BOUNDARY: every configured entry is resolved against the
+ * project root, realpath-canonicalized, and MUST land inside
+ * `<projectRoot>/.archgate/`. Any entry that escapes — via `..`, an absolute
+ * path, or a symlink whose target is outside the tree — is rejected with a
+ * {@link UserError} naming it. This holds regardless of the configured value:
+ * the config can never authorize a path outside `.archgate/`.
+ *
+ * Returns `[]` when the field is absent or empty, which preserves the default
+ * behavior of blocking every relative import in rule files.
+ */
+export function resolveRuleImportDirs(projectRoot: string): string[] {
+  const dirs = loadProjectConfig(projectRoot).ruleImports?.allowedDirs ?? [];
+  if (dirs.length === 0) return [];
+
+  let archgateRoot: string;
+  try {
+    archgateRoot = realpathSync(projectPaths(projectRoot).root);
+  } catch {
+    // No `.archgate/` on disk — nothing can be imported; treat as unconfigured
+    // rather than erroring, so the default (block everything) applies.
+    return [];
+  }
+
+  return dirs.map((dir) => {
+    const abs = resolve(projectRoot, dir);
+    let real: string;
+    try {
+      real = realpathSync(abs);
+    } catch {
+      throw new UserError(
+        `Invalid ruleImports.allowedDirs entry "${dir}": directory does not exist.`,
+        "It must be an existing directory inside .archgate/."
+      );
+    }
+    if (!isPathInside(real, archgateRoot)) {
+      throw new UserError(
+        `Invalid ruleImports.allowedDirs entry "${dir}": resolves outside .archgate/ (${real}).`,
+        "Rule-file imports are confined to the .archgate/ governance tree."
+      );
+    }
+    return real;
+  });
+}
+
 export function resolvedProjectPaths(projectRoot: string): {
   root: string;
   adrsDir: string;

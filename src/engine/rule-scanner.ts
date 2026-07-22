@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { readFileSync, realpathSync } from "node:fs";
+import { dirname, relative } from "node:path";
+
 import { z } from "zod";
 
 import { parseJsModule, type MeriyahProgram } from "./js-parser";
+import {
+  isRelativeSpecifier,
+  resolveContainedImport,
+} from "./rule-import-resolver";
 
 /**
  * Module specifiers a rule file is permitted to import.
@@ -185,7 +192,7 @@ interface AstNode {
   name?: string;
   value?: string | number | boolean | null | AstNode;
   computed?: boolean;
-  source?: AstNode;
+  source?: AstNode | null;
   object?: AstNode;
   property?: AstNode;
   callee?: AstNode;
@@ -207,7 +214,16 @@ const AstNodeSchema: z.ZodType<AstNode> = z
       ])
       .optional(),
     computed: z.boolean().optional(),
-    source: z.lazy(() => AstNodeSchema).optional(),
+    // ESTree sets `source: null` on an `export` declaration that has no `from`
+    // clause (`export function`, `export const`, `export { local }`). Without
+    // `.nullable()` the whole node fails validation and `parseNode` drops it —
+    // silently skipping every child, so anything dangerous inside a top-level
+    // `export`-declaration would go unscanned. Tolerating null keeps the node
+    // in the walk; `checkModuleSpecifier` still correctly no-ops on a null src.
+    source: z
+      .lazy(() => AstNodeSchema)
+      .nullable()
+      .optional(),
     object: z.lazy(() => AstNodeSchema).optional(),
     property: z.lazy(() => AstNodeSchema).optional(),
     callee: z.lazy(() => AstNodeSchema).optional(),
@@ -247,10 +263,38 @@ import { remapViolations, type RawViolation } from "./source-positions";
 /** Shared transpiler — stateless, safe to reuse across calls. */
 const tsTranspiler = new Bun.Transpiler({ loader: "ts" });
 
+/**
+ * Options for {@link scanRuleSource}. Every field is optional and absent ⇒
+ * the historical behavior (all relative imports blocked, no pre-transpile).
+ */
+export interface ScanRuleOptions {
+  /** Pre-transpiled JS, to skip the internal TypeScript transpile step. */
+  preTranspiled?: string;
+  /**
+   * Absolute path of the file being scanned. Required to resolve relative
+   * imports; without it every relative import is blocked.
+   */
+  filePath?: string;
+  /**
+   * Absolute, realpath'd directories — guaranteed by the caller to live inside
+   * `.archgate/` (see `resolveRuleImportDirs`) — that a relative import may
+   * resolve into. Empty (the default) blocks every relative import.
+   */
+  allowedImportDirs?: string[];
+}
+
 export function scanRuleSource(
   source: string,
-  preTranspiled?: string
+  opts: ScanRuleOptions = {},
+  // Internal: canonical paths already scanned on this transitive walk, so an
+  // import cycle terminates. Not part of the public contract.
+  visited: Set<string> = new Set()
 ): ScanViolation[] {
+  const { preTranspiled, filePath, allowedImportDirs = [] } = opts;
+  // Relative imports found to be allowed (resolved, contained real paths).
+  // Scanned transitively after the walk with the SAME options.
+  const resolvedImports = new Set<string>();
+
   // Runs first, on the untransformed source, and is carried through the parse
   // failure paths below: a file that does not parse is exactly where a hidden
   // character is most worth reporting.
@@ -351,6 +395,25 @@ export function scanRuleSource(
   }
 
   /**
+   * Opt-in escape valve for the module allowlist: a RELATIVE specifier is
+   * accepted only when the project configured `ruleImports.allowedDirs` and the
+   * specifier resolves (after realpath) to a file inside one of those dirs —
+   * which are themselves proven to be inside `.archgate/`. The resolved path is
+   * recorded for the transitive scan. Returns false (⇒ caller emits the normal
+   * violation) when the feature is off, the specifier is not relative, or the
+   * target is missing / escapes containment. Absent `filePath` or empty
+   * `allowedImportDirs` ⇒ always false, i.e. the historical behavior.
+   */
+  function tryAllowRelativeImport(spec: string): boolean {
+    if (filePath === undefined || allowedImportDirs.length === 0) return false;
+    if (!isRelativeSpecifier(spec)) return false;
+    const real = resolveContainedImport(spec, filePath, allowedImportDirs);
+    if (real === null) return false;
+    resolvedImports.add(real);
+    return true;
+  }
+
+  /**
    * Enforce the module allowlist for any construct that names a module and
    * causes it to be evaluated. `import`, `export ... from`, and `export * from`
    * are all the same capability — a re-export executes the target module
@@ -360,6 +423,7 @@ export function scanRuleSource(
     const src =
       typeof node.source?.value === "string" ? node.source.value : undefined;
     if (src === undefined || ALLOWED_MODULES.has(src)) return;
+    if (tryAllowRelativeImport(src)) return;
     // Anchor on `from "module"` — `from` is in code context, whereas the bare
     // module string is inside a literal, which buildNonCodeRanges skips.
     pushViolation(
@@ -466,6 +530,7 @@ export function scanRuleSource(
             ? node.source.value
             : undefined;
         if (src !== undefined && !ALLOWED_MODULES.has(src)) {
+          if (tryAllowRelativeImport(src)) break;
           // Anchor on `import(`, not the specifier: the literal is non-code to
           // the remapper, and `import(` survives arbitrary argument formatting.
           pushViolation(
@@ -512,7 +577,58 @@ export function scanRuleSource(
   if (root) walk(root);
   // Text-pass violations already carry true positions — they are found in the
   // original source, so they need no remapping back through the transpiler.
-  return textViolations.concat(remapViolations(source, rawViolations));
+  const violations = textViolations.concat(
+    remapViolations(source, rawViolations)
+  );
+
+  // Transitive scan: recurse into every allowed relative import with the SAME
+  // options, so a contained helper cannot become an escape hatch (importing
+  // `node:child_process`, calling `fetch`/`eval`, hiding an invisible char,
+  // etc.). Cycles terminate via the shared `visited` set. This runs only when
+  // the feature resolved at least one import; the default path is untouched.
+  if (filePath !== undefined && resolvedImports.size > 0) {
+    let selfReal = filePath;
+    try {
+      selfReal = realpathSync(filePath);
+    } catch {
+      // Non-canonicalizable self path — fall back to the given path; the
+      // per-target `visited` guard below still bounds the recursion.
+    }
+    visited.add(selfReal);
+    const fromDir = dirname(selfReal);
+    for (const childPath of resolvedImports) {
+      if (visited.has(childPath)) continue;
+      visited.add(childPath);
+      const rel = relative(fromDir, childPath);
+      let childSource: string;
+      try {
+        childSource = readFileSync(childPath, "utf8");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        violations.push({
+          message: `Imported file "${rel}" could not be read: ${msg}`,
+          line: 1,
+          column: 0,
+          endLine: 1,
+          endColumn: 0,
+        });
+        continue;
+      }
+      const childViolations = scanRuleSource(
+        childSource,
+        { filePath: childPath, allowedImportDirs },
+        visited
+      );
+      for (const v of childViolations) {
+        violations.push({
+          ...v,
+          message: `Imported file "${rel}": ${v.message}`,
+        });
+      }
+    }
+  }
+
+  return violations;
 }
 
 /**
@@ -528,6 +644,11 @@ export function scanRuleSource(
  * and this delegates. It remains a distinct export so the `adr import` call
  * site reads intentionally, and so the two can diverge again if a future
  * imported-only restriction is ever needed.
+ *
+ * Note: no `ScanRuleOptions` are forwarded, so the opt-in contained-relative-
+ * import feature never applies to imported packs — they must stay
+ * self-contained. Relative imports would in any case be meaningless for a pack
+ * scanned before it is placed into a project's `.archgate/` tree.
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
   return scanRuleSource(source);
