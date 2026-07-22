@@ -16,7 +16,7 @@ Archgate dogfoods itself. The CLI is governed by its own ADRs in `.archgate/adrs
 | [ARCH-002](/.archgate/adrs/ARCH-002-error-handling.md)    | Errors   | Exit codes (0/1/2), `logError()` for stderr                          |
 | [ARCH-003](/.archgate/adrs/ARCH-003-output-formatting.md) | Output   | `styleText` from `node:util`, `--json` flag, no emoji                |
 | [ARCH-004](/.archgate/adrs/ARCH-004-no-barrel-files.md)   | Imports  | Direct imports only, no `index.ts` barrel re-exports                 |
-| [ARCH-005](/.archgate/adrs/ARCH-005-testing-standards.md) | Tests    | Bun test runner, fixtures in `tests/fixtures/`, 80 % coverage target |
+| [ARCH-005](/.archgate/adrs/ARCH-005-testing-standards.md) | Tests    | Bun test runner, fixtures in `tests/fixtures/`, 90 % coverage target |
 | [ARCH-006](/.archgate/adrs/ARCH-006-dependency-policy.md) | Deps     | Minimal dependencies, prefer Bun built-ins                           |
 
 To browse ADRs locally after cloning:
@@ -77,14 +77,14 @@ bun run cli
 bun run src/cli.ts <command>
 
 # Full repo validation (MANDATORY before submitting PRs)
-bun run validate        # lint + typecheck + format:check + test + ADR check
+bun run validate        # lint + typecheck + format:check + test + ADR check + knip + build check
 
 # Individual steps
 bun run lint            # oxlint
 bun run typecheck       # tsc --build
-bun run format:check    # prettier --check
-bun run format          # prettier --write (fix)
-bun test                # all tests
+bun run format:check    # oxfmt --check
+bun run format          # oxfmt --write (fix)
+bun run test            # all tests
 ```
 
 ### Project Structure
@@ -118,8 +118,7 @@ src/
 │   ├── adr-writer.ts       # ADR file write/update
 │   ├── init-project.ts     # Project initialization logic
 │   ├── claude-settings.ts  # Claude plugin settings
-│   ├── git.ts              # Git availability checks
-│   └── getParentFolderName.ts  # Project name extraction
+│   └── git.ts              # Git availability checks
 tests/                      # Mirrors src/ structure
 .archgate/adrs/             # Self-governance ADRs
 ```
