@@ -14,7 +14,7 @@ These phases are complete and stable:
 
 - **ADR format & lifecycle**: create, list, show, update ADRs with YAML frontmatter and companion `.rules.ts` files
 - **Check engine**: fast, deterministic ADR compliance validation (`archgate check`) with CI annotations, `--staged` support, and JSON output
-- **AI integration**: `session-context` and `review-context` commands that feed ADR context to AI agents (delivered via editor plugins, not a standalone MCP server)
+- **AI integration**: `session-context` and `review-context` commands that feed ADR context to AI agents via editor plugins
 - **Editor plugins**: Claude Code, VS Code, Cursor, Copilot CLI, and opencode integrations
 - **Documentation site**: [cli.archgate.dev](https://cli.archgate.dev) with i18n (English + Brazilian Portuguese)
 - **Binary distribution**: macOS ARM, Linux x64, Windows x64 via GitHub Releases with npm thin shim, install script, and proto plugin
@@ -28,7 +28,7 @@ These phases are complete and stable:
 ### ADR Marketplace
 
 - Community-contributed ADR repository at [`archgate/awesome-adrs`](https://github.com/archgate/awesome-adrs)
-- `archgate adr import <source>` command to import ADRs from the registry or any git URL — **shipped**
+- `archgate adr import <source>` command to import ADRs from the registry or any git URL
 - Curated ADR sets: TypeScript, Testing, API Design (with companion `.rules.ts` files)
 - Contribution guidelines and review process for community ADRs
 

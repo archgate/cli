@@ -93,7 +93,7 @@ Archgate does **not**:
 
 ### 3.1 Least Privilege
 
-- **Rule sandbox is read-only.** The `RuleContext` API exposes read-only file and AST operations (`readFile`, `fileAtBase`, `readJSON`, `grep`, `grepFiles`, `glob`, `ast`, `findAstNodes`) and read-only context data (`projectRoot`, `scopedFiles`, `changedFiles`). A rule's only output is `report`, which accumulates violations in memory. Rules cannot write files, spawn processes, or access the network.
+- **Rule sandbox is read-only.** The `RuleContext` API surface is entirely read-only: file and AST reads (`readFile`, `fileAtBase`, `readJSON`, `grep`, `grepFiles`, `glob`, and `ast`/`findAstNodes`, whose full parsing contract is defined in [ARCH-022](/.archgate/adrs/ARCH-022-ast-aware-rule-context.md)) plus read-only context data (`projectRoot`, `scopedFiles`, `changedFiles`). A rule's only output is `report`. Rules cannot write files, spawn processes, or access the network.
 - **CI jobs use minimal permissions.** The documented CI configuration requests only `contents: read`, with no secrets, deployment keys, or write permissions ([Security guide](https://cli.archgate.dev/guides/security/)).
 - **Credentials are delegated to the OS.** Authentication tokens are stored in the operating system's credential manager (macOS Keychain, Windows Credential Manager, Linux secret service). They are never written to disk as plain-text files.
 
@@ -101,7 +101,7 @@ Archgate does **not**:
 
 Two independent layers protect against malicious rules:
 
-1. **Static analysis security scanner.** Before any `.rules.ts` file is executed, the CLI transpiles it, parses its AST, and enforces an _allowlist_ rather than a denylist (see [ARCH-024](/.archgate/adrs/ARCH-024-rule-file-sandbox-boundary.md)) — because these files run in-process, reaching _any_ module or global outside a safe set is arbitrary code execution, and the ways to name one are effectively unbounded. It rejects:
+1. **Static analysis security scanner.** Before any `.rules.ts` file is executed, the CLI transpiles it, parses its AST, and enforces an _allowlist_ (see [ARCH-024](/.archgate/adrs/ARCH-024-rule-file-sandbox-boundary.md)). Because these files run in-process, reaching _any_ module or global outside the permitted set is arbitrary code execution, and the ways to name one are effectively unbounded — so only a small fixed set is allowed. It rejects:
    - Imports of any module outside a fixed allowlist. Only `node:path`, `node:url`, `node:util`, and `node:crypto` may be imported; everything else — bare packages, relative paths, `data:` URLs, and every other `node:` builtin — is blocked in `import`, `export … from`, and dynamic `import()` forms alike
    - Any code reference that _names_ a runtime global: `Bun`, `process`, `globalThis`, `global`, `self`, `Reflect`, `eval`, `Function`, `fetch`, `WebSocket`, `XMLHttpRequest`, `EventSource`, or `require`. Aliasing, destructuring, or reflecting over them (`const B = Bun`, `Reflect.get(Bun, "spawn")`) is refused too, since it is naming the capability source — not a specific call shape — that is blocked
    - `.constructor` access (dotted or destructured), which reaches the `Function` constructor and is therefore equivalent to `eval`
