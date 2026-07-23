@@ -2,7 +2,7 @@
 
 This document provides an assurance case for the Archgate CLI, justifying why the project's security requirements are met. It covers the threat model, trust boundaries, application of secure design principles, and countermeasures against common implementation weaknesses.
 
-> **Scope:** This assurance case covers the Archgate CLI (`archgate` npm package and standalone binary) as of v0.50.x. The plugin distribution service and marketing website are out of scope.
+> **Scope:** This assurance case covers the Archgate CLI (`archgate` npm package and standalone binary). The plugin distribution service and marketing website are out of scope.
 
 ## 1. Threat Model
 

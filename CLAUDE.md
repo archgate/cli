@@ -4,7 +4,7 @@ Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs
 
 ## Technology Stack
 
-- **Runtime:** Bun (>=1.2.21) — not Node.js compatible
+- **Runtime:** Bun — not Node.js compatible (minimum version enforced in `src/cli.ts`)
 - **Language:** TypeScript (strict mode, ESNext, ES modules)
 - **CLI framework:** Commander.js (`@commander-js/extra-typings`)
 - **Linter:** Oxlint | **Formatter:** Oxfmt | **Dead exports:** Knip | **Commits:** Conventional Commits

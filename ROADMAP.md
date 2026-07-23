@@ -1,6 +1,6 @@
 # Archgate CLI Roadmap
 
-> **Last updated:** July 2026 | **Current version:** v0.50.0
+> **Last updated:** July 2026
 
 This document describes what Archgate intends to build, improve, and explicitly _not_ pursue over the next 12 months. It is reviewed quarterly.
 
@@ -19,7 +19,7 @@ These phases are complete and stable:
 - **Documentation site**: [cli.archgate.dev](https://cli.archgate.dev) with i18n (English + Brazilian Portuguese)
 - **Binary distribution**: macOS ARM, Linux x64, Windows x64 via GitHub Releases with npm thin shim, install script, and proto plugin
 - **GitHub Actions**: `archgate/check-action@v1` and `archgate/setup-action@v1` published
-- **Self-governance**: the CLI dogfoods 31 ADRs with executable rules
+- **Self-governance**: the CLI dogfoods its own ADRs with executable rules
 
 ## In Progress: Ecosystem Growth (Phase 3)
 
