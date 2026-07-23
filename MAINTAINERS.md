@@ -40,7 +40,7 @@ The project maintains the following access continuity measures to ensure it can 
 
 2. **npm Access:** The `archgate` npm package is published under an npm organization, enabling additional maintainers to be granted publish access without sharing individual credentials.
 
-3. **Release Process:** The release workflow (`.github/workflows/release.yml` and `.github/workflows/release-binaries.yml`) is fully automated via GitHub Actions. Any maintainer with write access can trigger a release by pushing a version tag.
+3. **Release Process:** The release workflow (`.github/workflows/release.yml` and `.github/workflows/release-binaries.yml`) is fully automated via GitHub Actions. Releases are cut by merging the automated release pull request into `main`; the workflow then tags the version, publishes the GitHub release, and builds the platform binaries.
 
 4. **Documentation:** The documentation site builds and deploys automatically from the `main` branch. No manual intervention is required for docs updates.
 

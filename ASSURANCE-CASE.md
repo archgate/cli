@@ -2,7 +2,7 @@
 
 This document provides an assurance case for the Archgate CLI, justifying why the project's security requirements are met. It covers the threat model, trust boundaries, application of secure design principles, and countermeasures against common implementation weaknesses.
 
-> **Scope:** This assurance case covers the Archgate CLI (`archgate` npm package and standalone binary) as of v0.30.x. The plugin distribution service and marketing website are out of scope.
+> **Scope:** This assurance case covers the Archgate CLI. The plugin distribution service and marketing website are out of scope.
 
 ## 1. Threat Model
 
@@ -93,7 +93,7 @@ Archgate does **not**:
 
 ### 3.1 Least Privilege
 
-- **Rule sandbox is read-only.** The `RuleContext` API exposes `readFile`, `readJSON`, `grep`, `grepFiles`, and `glob`, all read-only operations. Rules cannot write files, spawn processes, or access the network.
+- **Rule sandbox is read-only.** The `RuleContext` API surface is entirely read-only: file and AST reads (`readFile`, `fileAtBase`, `readJSON`, `grep`, `grepFiles`, `glob`, and `ast`/`findAstNodes`, whose full parsing contract is defined in [ARCH-022](/.archgate/adrs/ARCH-022-ast-aware-rule-context.md)) plus read-only context data (`projectRoot`, `scopedFiles`, `changedFiles`). A rule's only output is `report`. Rules cannot write files, spawn processes, or access the network.
 - **CI jobs use minimal permissions.** The documented CI configuration requests only `contents: read`, with no secrets, deployment keys, or write permissions ([Security guide](https://cli.archgate.dev/guides/security/)).
 - **Credentials are delegated to the OS.** Authentication tokens are stored in the operating system's credential manager (macOS Keychain, Windows Credential Manager, Linux secret service). They are never written to disk as plain-text files.
 
@@ -101,12 +101,11 @@ Archgate does **not**:
 
 Two independent layers protect against malicious rules:
 
-1. **Static analysis security scanner.** Before any `.rules.ts` file is executed, the CLI parses its AST and rejects files containing dangerous patterns:
-   - Imports of `node:fs`, `child_process`, `net`, `http`, `vm`, and other system modules
-   - Bun-specific APIs: `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`
-   - Network access: `fetch()`
-   - Code generation: `eval()`, `new Function()`
-   - Obfuscation patterns: computed property access (`Bun[variable]`), `globalThis` assignment, dynamic `import()`
+1. **Static analysis security scanner.** Before any `.rules.ts` file is executed, the CLI transpiles it, parses its AST, and enforces an _allowlist_ (see [ARCH-024](/.archgate/adrs/ARCH-024-rule-file-sandbox-boundary.md)). Because these files run in-process, reaching _any_ module or global outside the permitted set is arbitrary code execution, and the ways to name one are effectively unbounded — so only a small fixed set is allowed. It rejects:
+   - Imports of any module outside a fixed allowlist. Only `node:path`, `node:url`, `node:util`, and `node:crypto` may be imported; everything else — bare packages, relative paths, `data:` URLs, and every other `node:` builtin — is blocked in `import`, `export … from`, and dynamic `import()` forms alike
+   - Any code reference that _names_ a runtime global: `Bun`, `process`, `globalThis`, `global`, `self`, `Reflect`, `eval`, `Function`, `fetch`, `WebSocket`, `XMLHttpRequest`, `EventSource`, or `require`. Aliasing, destructuring, or reflecting over them (`const B = Bun`, `Reflect.get(Bun, "spawn")`) is refused too, since it is naming the capability source — not a specific call shape — that is blocked
+   - `.constructor` access (dotted or destructured), which reaches the `Function` constructor and is therefore equivalent to `eval`
+   - Invisible and bidirectional Unicode characters, via a raw-text pass, guarding against Trojan Source attacks (CVE-2021-42574) on human reviewers of imported rule packs
 
 2. **Runtime sandbox.** Even if a pattern bypasses the static scanner, the `RuleContext` API enforces path scoping (blocks `../`, absolute paths, and symlinks) and a 30-second timeout per rule.
 
@@ -125,7 +124,7 @@ Two independent layers protect against malicious rules:
 ### 3.5 Minimal Attack Surface
 
 - **Minimal dependencies.** The project follows [ARCH-006 (Dependency Policy)](/.archgate/adrs/ARCH-006-dependency-policy.md): prefer Bun built-ins over third-party packages. All runtime dependencies are bundled into the compiled binary. The npm package has zero runtime `dependencies`.
-- **No daemon or server mode.** The CLI runs as a short-lived process. The MCP server uses stdio transport (no network listener).
+- **No daemon or server mode.** The CLI runs as a short-lived process with no network listener. AI agents consume ADR context through the `session-context` and `review-context` commands (delivered via editor plugins), not a long-lived server.
 - **No shell execution.** The CLI never spawns shell commands. Git operations use `git ls-files` via Bun's process API with explicit arguments (no shell interpolation).
 
 ## 4. Common Implementation Weaknesses Countered

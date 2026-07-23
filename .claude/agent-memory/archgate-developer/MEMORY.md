@@ -25,6 +25,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - [This repo is PUBLIC — no private sibling-repo internals, no Claude session links in PRs/commits](feedback_public_repo_privacy.md)
 - [Keep code comments and memory entries concise](feedback_concise_comments.md) — one line + terse why, link out for detail
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not logError + exitWith(1); the action's handleCommandError boundary does that
+- [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — describe current state; no "previously"/"rather than"/"shipped" framing, no pinned release version or drift-prone counts; git & package.json are the source of truth
 
 ## Known Bugs
 
@@ -70,6 +71,6 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 
 ## Distribution / Packaging
 
-- **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`.
-- **`.cjs` extension is mandatory** for any root-level Node.js CJS wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
+- **npm shim + GitHub Releases** — The npm package is a thin shim (`shims/npm/archgate.cjs`, wired via package.json `bin`/`files`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`. Verify the path against package.json `bin` before quoting.
+- **`.cjs` extension is mandatory** for the Node.js CJS shim wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
 - [Shim publishing pipeline gotchas](project_shim_publishing.md) — PyPI README, RubyGem Rakefile/working-dir, Maven waitUntil, advertised-vs-installable version lag, Go module registration on pkg.go.dev
