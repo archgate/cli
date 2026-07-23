@@ -8,18 +8,7 @@ Thank you for your interest in contributing to Archgate CLI! We welcome all kind
 
 Archgate dogfoods itself. The CLI is governed by its own ADRs in `.archgate/adrs/`. **Before writing any code, read the ADRs that apply to the area you're changing.**
 
-### Quick reference
-
-| ADR                                                       | Scope    | Summary                                                              |
-| --------------------------------------------------------- | -------- | -------------------------------------------------------------------- |
-| [ARCH-001](/.archgate/adrs/ARCH-001-command-structure.md) | Commands | `register*Command(program)` pattern, no business logic in commands   |
-| [ARCH-002](/.archgate/adrs/ARCH-002-error-handling.md)    | Errors   | Exit codes (0/1/2), `logError()` for stderr                          |
-| [ARCH-003](/.archgate/adrs/ARCH-003-output-formatting.md) | Output   | `styleText` from `node:util`, `--json` flag, no emoji                |
-| [ARCH-004](/.archgate/adrs/ARCH-004-no-barrel-files.md)   | Imports  | Direct imports only, no `index.ts` barrel re-exports                 |
-| [ARCH-005](/.archgate/adrs/ARCH-005-testing-standards.md) | Tests    | Bun test runner, fixtures in `tests/fixtures/`, 90 % coverage target |
-| [ARCH-006](/.archgate/adrs/ARCH-006-dependency-policy.md) | Deps     | Minimal dependencies, prefer Bun built-ins                           |
-
-To browse ADRs locally after cloning:
+To browse the ADRs locally after cloning:
 
 ```bash
 # List all ADRs
