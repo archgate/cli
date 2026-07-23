@@ -1,7 +1,5 @@
 # Archgate CLI Roadmap
 
-> **Last updated:** July 2026
-
 This document describes what Archgate intends to build, improve, and explicitly _not_ pursue over the next 12 months. It is reviewed quarterly.
 
 ## Vision
