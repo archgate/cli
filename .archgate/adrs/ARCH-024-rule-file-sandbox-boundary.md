@@ -103,6 +103,17 @@ This pass exists for one reason: it catches the only class of problem the AST **
 
 A denylist is legitimate _here_ and nowhere else in this ADR. Clause 1 rejects a denylist of modules because the unsafe set is bounded only by imagination; the bidi and invisible code points are enumerated by the Unicode specification, so the set is closed by someone other than us. That distinction — not convenience — is what makes the two clauses consistent.
 
+**7. The walk MUST visit every node of the parsed tree, and the AST-node schema MUST NOT reject a node over a field the scanner does not read.**
+
+Clauses 1–6 describe _what_ the scanner blocks; they all assume the walk reaches the node in question. Delivering them depends on a premise those clauses never state: the walk visits the whole tree. It does not do so unconditionally. `scanRuleSource()` validates each node through a Zod schema (`AstNodeSchema` in `src/engine/rule-scanner.ts`); `parseNode()` runs `safeParse()` and returns `null` on failure, and the walk descends only into nodes that parse (`if (child) walk(child)`). **A node the schema rejects is therefore dropped together with its entire subtree** — a banned global, `eval`, or dynamic `import()` nested inside it is never visited, and every correct rule in clauses 1–6 runs on a tree the payload is no longer in. `archgate check` reports a pass. An over-strict schema is not a validation nicety here; it is a silent scan gap that converts a parse-shape the authors did not anticipate into an unscanned payload.
+
+The schema MUST therefore be permissive by construction: it MUST tolerate unknown and extra fields (`.passthrough()`), and it MUST constrain only the fields the walk actually reads (`type`, `name`, `computed`, `source`, `object`, `property`, `callee`, `left`). `type` is always present on a valid ESTree node, and every typed child field recurses back into the schema, so the only leaf that can independently fail validation is a `Literal`'s `value`. That field is read _only_ through `typeof … === "string"` guards (`staticPropName()`, `checkModuleSpecifier()`), so the scanner never consumes its shape and it MUST tolerate any value (`z.unknown().optional()`) rather than enumerate a union that a future literal kind can fall outside of. Two escapes were this exact class, dropping a live subtree from the walk:
+
+- **A null `source`.** ESTree sets `source: null` on an `export` declaration with no `from` clause (`export function`, `export const`). The schema typed `source` as optional-but-not-nullable, so the whole export node failed to parse and its body — any banned construct inside a top-level export — went unscanned.
+- **An exotic `value`.** Meriyah emits `value: {}` (a plain object) for a `RegExpLiteral` and a `bigint` for `123n`, neither admitted by a narrow `value` union. So `/x/.constructor.constructor` — the `Function` constructor reached off a RegExp receiver, the precise `.constructor` route clause 4 blocks — and a banned call sitting beside such a literal (`/x/ + fetch(...)`, `[/x/, import("node:child_process")]`) were dropped before the clause-4 and clause-4-adjacent checks ever saw them.
+
+Both were fixed by _widening_ the schema so the node stays in the walk, never by adding a new block — because the block already existed and was simply never reached. Any narrowing of `AstNodeSchema` is a security-relevant change for this reason, and is called out as such under Manual Enforcement.
+
 **Scope.** This ADR governs the static scan that gates `.rules.ts` execution, and where that gate is applied. It does not cover the `RuleContext` API surface itself (see [ARCH-022](./ARCH-022-ast-aware-rule-context.md)), the sandboxing of `ctx.readFile`/`ctx.glob` paths, or any future move to execution-time isolation, which would require its own ADR.
 
 ## Do's and Don'ts
@@ -115,6 +126,7 @@ A denylist is legitimate _here_ and nowhere else in this ADR. Clause 1 rejects a
 - **DO** match process-internal property names (`binding`, `dlopen`, `_linkedBinding`) on the property alone, so an aliased receiver cannot spell around the check
 - **DO** scan imported rule files in `writeImportedAdrs()` before any file is written to disk
 - **DO** add a failing regression case to `tests/engine/rule-scanner-escapes.test.ts` **before** fixing any newly discovered escape, so the test demonstrably catches it
+- **DO** model `AstNodeSchema` so no valid ESTree node can fail validation — keep `.passthrough()`, constrain only the fields the walk reads, and leave a `Literal`'s `value` as `z.unknown().optional()`; a rejected node is dropped with its whole subtree, so schema strictness over an unread field is a silent scan gap, not a safety measure
 - **DO** verify a scanner change against a real payload, not only unit assertions — an escape is only closed when a `.rules.ts` that actually attempts it is refused by `archgate check`
 - **DO** direct rule authors who need language tooling to `ctx.ast()` per [ARCH-022](./ARCH-022-ast-aware-rule-context.md), which is the sanctioned door to a subprocess
 - **DO** block _naming_ a dangerous runtime global (`Bun`, `process`, `globalThis`/`global`/`self`, `Reflect`, `eval`, `Function`, `fetch`, `WebSocket`, `require`, …) rather than the shapes of using it — aliasing, destructuring, and reflection all reach the same capability, so the identifier is the only durable anchor
@@ -137,6 +149,7 @@ A denylist is legitimate _here_ and nowhere else in this ADR. Clause 1 rejects a
 - **DON'T** write an obfuscation test fixture as inline escape text without a guard asserting it is still obfuscated — a normalised escape turns the test into a no-op that passes for the wrong reason
 - **DON'T** reintroduce a per-shape denylist of `Bun`/`process` members (`Bun.spawn`, `process.binding`) — an alias, destructure, or reflection walks straight around it, exactly as the module denylist was walked around; block the identifier instead
 - **DON'T** try to close the computed-variable-key route to `.constructor` by blocking all computed member access — it would reject ordinary `obj[key]`; that residual belongs to execution-time isolation, not to more pattern-matching
+- **DON'T** tighten `AstNodeSchema` to a narrower union or a required/non-nullable field for a value the walk never reads (a `Literal`'s `value`, a declaration's `source`) — it fails _closed_ for validation but _open_ for security, silently dropping the node's subtree from the scan. The null-`source` and RegExp/bigint-`value` escapes were both exactly this mistake
 
 ## Consequences
 
@@ -171,6 +184,8 @@ A denylist is legitimate _here_ and nowhere else in this ADR. Clause 1 rejects a
   - **Mitigation:** escape regression tests are consolidated in `tests/engine/rule-scanner-escapes.test.ts`, where each case is framed as an attack that must be blocked rather than a behaviour that is permitted. Reviewers are directed to read a permissive assertion in that file as a claim requiring justification.
 - **A future Bun/Node release exposes the global object or a capability under a new alias, or a new `eval` path appears**, reopening the reflective/global class.
   - **Mitigation:** the block is on the identifier set, so a new alias is a one-line addition — with a matching case in the "reflective and aliased access to runtime globals" block of `tests/engine/rule-scanner-escapes.test.ts`, which encodes every known route (aliasing, destructuring, reflection, the three global-object aliases, and the `Function`-constructor chain reached by both member access and destructuring) plus the documented computed-variable residual. The first-party/imported convergence keeps that coverage identical for both entry points, so a new alias cannot be closed for one and left open for the other.
+- **A schema tightening, or a new meriyah/ESTree node shape, makes a valid node fail `safeParse`**, silently dropping it and its subtree from the walk (clause 7). Every block in clauses 1–6 stays correct and simply never runs on the payload, and `archgate check` reports a pass — the null-`source` and exotic-`value` escapes were both this, discovered by probing rather than by any failing check.
+  - **Mitigation:** clause 7 requires `AstNodeSchema` to reject nothing a valid node can contain — `.passthrough()` for unknown fields, and `z.unknown().optional()` for the one leaf (`value`) the walk never reads. `tests/engine/rule-scanner-escapes.test.ts` carries a "payloads behind exotic-literal receivers stay in the walk" block (RegExp and bigint receivers, banned globals/imports beside such literals, and positive controls that clean literals still pass), and the `source: null` regression cases live in `tests/engine/rule-scanner.test.ts`. Manual Enforcement below directs reviewers to treat any narrowing of `AstNodeSchema` as security-relevant.
 
 ## Compliance and Enforcement
 
@@ -199,6 +214,7 @@ Code reviewers MUST verify, for any PR touching `src/engine/rule-scanner.ts`, `s
 7. The raw-text pass has not grown a search for dangerous names, and blocked code points are still spelled numerically rather than as literals or escapes.
 8. Dangerous globals are blocked by **naming** (the banned-identifier set), not by per-shape member/call checks. A newly added blocked global or `.constructor`-style property check arrives with a matching case in the reflective-globals block of the escape suite, and covers the `o.name`/`o["name"]` member spellings and the `{ name: v }` destructuring spelling via `staticPropName()`.
 9. The first-party and imported scans are still converged (`scanImportedRuleSource()` delegates), so a new global block cannot be closed for one entry point and left open for the other.
+10. Any narrowing of `AstNodeSchema` — a tighter union, a newly required or non-nullable field — is treated as security-relevant per clause 7: a node that fails `safeParse` is dropped with its subtree, so the change is justified against whether any valid ESTree node can now fail validation, and arrives with a coverage case in the escape suite.
 
 ### Exceptions
 
