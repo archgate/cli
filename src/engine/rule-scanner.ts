@@ -185,7 +185,7 @@ interface AstNode {
   name?: string;
   value?: string | number | boolean | null | AstNode;
   computed?: boolean;
-  source?: AstNode;
+  source?: AstNode | null;
   object?: AstNode;
   property?: AstNode;
   callee?: AstNode;
@@ -207,7 +207,16 @@ const AstNodeSchema: z.ZodType<AstNode> = z
       ])
       .optional(),
     computed: z.boolean().optional(),
-    source: z.lazy(() => AstNodeSchema).optional(),
+    // ESTree sets `source: null` on an `export` declaration that has no `from`
+    // clause (`export function`, `export const`, `export { local }`). Without
+    // `.nullable()` the whole node fails validation and `parseNode` drops it —
+    // silently skipping every child, so anything dangerous inside a top-level
+    // `export`-declaration would go unscanned. Tolerating null keeps the node
+    // in the walk; `checkModuleSpecifier` still correctly no-ops on a null src.
+    source: z
+      .lazy(() => AstNodeSchema)
+      .nullable()
+      .optional(),
     object: z.lazy(() => AstNodeSchema).optional(),
     property: z.lazy(() => AstNodeSchema).optional(),
     callee: z.lazy(() => AstNodeSchema).optional(),
