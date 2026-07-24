@@ -183,7 +183,13 @@ function scanSourceText(source: string): ScanViolation[] {
 interface AstNode {
   type: string;
   name?: string;
-  value?: string | number | boolean | null | AstNode;
+  // A literal's `value` can be a string, number, boolean, null, or — for exotic
+  // literals — a `bigint` (`123n`) or a plain object (a `RegExpLiteral` carries
+  // `value: {}`). It is only ever *read* through `typeof … === "string"` guards
+  // (`staticPropName`, `checkModuleSpecifier`), so its type is intentionally
+  // wide: the schema must never reject a node over a value shape it does not
+  // consume. See the schema note below on why a rejected node is a security bug.
+  value?: unknown;
   computed?: boolean;
   source?: AstNode;
   object?: AstNode;
@@ -197,15 +203,17 @@ const AstNodeSchema: z.ZodType<AstNode> = z
   .object({
     type: z.string(),
     name: z.string().optional(),
-    value: z
-      .union([
-        z.string(),
-        z.number(),
-        z.boolean(),
-        z.null(),
-        z.lazy(() => AstNodeSchema),
-      ])
-      .optional(),
+    // A node dropped by `safeParse` is dropped *with its entire subtree* from
+    // the walk — a silent false-negative, exactly the failure mode the null
+    // `source` fix (below) addresses. `type` is always present on an ESTree
+    // node and every typed child field recurses back into this schema, so a
+    // literal's `value` is the only leaf that can make a node fail to parse.
+    // Meriyah emits a `bigint` for `123n` and an object for a `RegExpLiteral`
+    // (`/x/.constructor.constructor` reaches the Function constructor = eval),
+    // neither of which a narrow union admits. `value` is read only through
+    // `typeof`-guarded string checks, so accept anything and never reject a
+    // node — and thus never skip scanning its children — over its value shape.
+    value: z.unknown().optional(),
     computed: z.boolean().optional(),
     source: z.lazy(() => AstNodeSchema).optional(),
     object: z.lazy(() => AstNodeSchema).optional(),

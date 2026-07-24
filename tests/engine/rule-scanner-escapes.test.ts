@@ -417,6 +417,69 @@ const b = 2${RLO};`);
     });
   });
 
+  // Regression: a node the AST-node schema fails to validate is dropped by
+  // `parseNode` *with its entire subtree*, so anything dangerous underneath it
+  // goes unscanned — a silent false-negative `check` reports as a pass. The
+  // schema's only leaf that can fail is a Literal's `value`: `type` is always
+  // present and every other typed field recurses back into the schema. Meriyah
+  // emits shapes a narrow `value` union rejects — an object for a RegExp
+  // literal, a `bigint` for `123n` — so a payload hidden behind such a literal
+  // (`/x/.constructor.constructor`, a banned call to the right of `/re/ + …`)
+  // escaped the walk entirely. `value` is now tolerant of any shape.
+  describe("payloads behind exotic-literal receivers stay in the walk", () => {
+    const escapes: Array<[string, string]> = [
+      [
+        "Function-constructor chain off a RegExp literal",
+        `const F = /x/.constructor.constructor;\nF("return 1")();`,
+      ],
+      [
+        "Function-constructor chain off a bigint literal",
+        `const F = (123n).constructor.constructor;`,
+      ],
+      [
+        "banned global to the right of a RegExp literal",
+        `const y = /x/ + fetch("http://evil");`,
+      ],
+      [
+        "banned global after a bigint literal statement",
+        `const n = 5n;\neval("stealSecrets()");`,
+      ],
+      [
+        "dynamic import alongside a RegExp literal",
+        // A reachable position — not `/x/ || import(…)`, which the transpiler
+        // strips as dead code (a RegExp literal is always truthy), so the import
+        // genuinely never runs and correctly is not scanned.
+        `const y = [/x/, import("node:child_process")];`,
+      ],
+      [
+        "import.meta.require after a bigint literal",
+        `const n = 5n;\nimport.meta.require("node:fs");`,
+      ],
+    ];
+
+    for (const [label, source] of escapes) {
+      test(`scans a ${label}`, () => {
+        expect(scanRuleSource(source).length).toBeGreaterThan(0);
+      });
+    }
+
+    // Positive controls: the literals themselves are perfectly legal in a rule
+    // file — the fix must keep the node in the walk, not start flagging it.
+    test("a clean RegExp literal still passes", () => {
+      expect(
+        scanRuleSource(
+          `export default { rules: { r: { check: () => [/ok/] } } };`
+        )
+      ).toHaveLength(0);
+    });
+
+    test("a clean bigint literal still passes", () => {
+      expect(
+        scanRuleSource(`const size = 10n;\nexport default { rules: {} };`)
+      ).toHaveLength(0);
+    });
+  });
+
   // Blocking the globals must not swallow the ordinary shapes rules use.
   describe("legitimate global-adjacent code still passes", () => {
     test("allows Object.keys / values / entries", () => {
