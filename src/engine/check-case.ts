@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+import type { CaseScheme } from "../formats/rules";
+
+/**
+ * Anchored ASCII pattern per supported casing scheme. Each pattern matches the
+ * ENTIRE string — no partial credit — and the vocabulary is ASCII letters and
+ * digits only:
+ *
+ * - `kebab-case` / `snake_case`: lowercase alphanumeric segments joined by a
+ *   single `-` / `_`; segments may start with a digit (`2fa-setup`).
+ * - `SCREAMING_SNAKE_CASE`: the uppercase counterpart of `snake_case`.
+ * - `camelCase` / `PascalCase`: a leading lowercase/uppercase letter followed
+ *   by any ASCII alphanumerics — the same definition typescript-eslint's
+ *   `naming-convention` uses, so acronym runs match (`parseURL`,
+ *   `HTTPServer`). No separators allowed.
+ */
+const CASE_PATTERNS: Record<CaseScheme, RegExp> = {
+  "kebab-case": /^[a-z0-9]+(?:-[a-z0-9]+)*$/u,
+  camelCase: /^[a-z][a-zA-Z0-9]*$/u,
+  PascalCase: /^[A-Z][a-zA-Z0-9]*$/u,
+  snake_case: /^[a-z0-9]+(?:_[a-z0-9]+)*$/u,
+  SCREAMING_SNAKE_CASE: /^[A-Z0-9]+(?:_[A-Z0-9]+)*$/u,
+};
+
+/**
+ * Check whether `value` conforms to a casing scheme. Pure and synchronous —
+ * no I/O. The empty string matches no scheme. Throws on an unrecognized
+ * scheme (rule files may pass a dynamically-built string that defeats the
+ * `CaseScheme` type) rather than silently returning false, so a typo in a
+ * scheme name surfaces as a rule error instead of a false pass/fail.
+ */
+export function checkCase(value: string, scheme: CaseScheme): boolean {
+  const pattern = CASE_PATTERNS[scheme];
+  if (!pattern) {
+    throw new Error(
+      `Unknown case scheme "${scheme}" — supported schemes: ${Object.keys(CASE_PATTERNS).join(", ")}`
+    );
+  }
+  return pattern.test(value);
+}

@@ -66,8 +66,10 @@ interface RuleContext {
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
+  readYAML(path: string): Promise<ReadYamlResult>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+  checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
 ```
@@ -192,6 +194,59 @@ Lê e faz o parse de um arquivo JSON. O caminho é relativo à raiz do projeto. 
 const pkg = (await ctx.readJSON("package.json")) as {
   dependencies?: Record<string, string>;
 };
+```
+
+#### readYAML
+
+```typescript
+readYAML(path: string): Promise<ReadYamlResult>;
+
+interface ReadYamlResult {
+  frontmatter: Record<string, YamlValue> | null;
+  content: YamlValue;
+}
+
+type YamlValue =
+  | string
+  | number
+  | boolean
+  | null
+  | YamlValue[]
+  | { [key: string]: YamlValue };
+```
+
+Lê um arquivo YAML ou um arquivo Markdown com frontmatter YAML. O caminho é relativo à raiz do projeto e passa pelo mesmo sandbox de `readFile`. Um único objeto de resultado cobre as duas formas -- um mapeamento `frontmatter` anulável e um `content` do tipo `YamlValue`, os dados JSON-like que o esquema central do YAML produz (após uma verificação de `typeof` você pode indexar mapeamentos e sequências sem cast) -- e a escolha é **baseada na extensão do arquivo**:
+
+- **Arquivos `.yml` / `.yaml`**: o documento inteiro é parseado como YAML. `frontmatter` é sempre `null`; `content` é o valor parseado -- faça o cast para o tipo esperado na sua regra, como com `readJSON`. Como a escolha é por extensão, os separadores `---` de um stream multi-documento (manifestos Kubernetes, configurações de CI) nunca são interpretados erroneamente como frontmatter.
+- **Qualquer outro arquivo** (tipicamente Markdown): o bloco inicial delimitado por `---` é parseado como `frontmatter` -- `null` quando ausente ("este arquivo tem frontmatter?" é um único teste de null, espelhando `fileAtBase`), `{}` quando existe mas está vazio. `content` é o restante do corpo do texto, sem espaços nas extremidades -- ele **não** é parseado como YAML.
+
+`readYAML()` **lança uma exceção** (fail-closed, como `ast()`) quando um arquivo `.yml`/`.yaml` é YAML inválido, ou quando um bloco de frontmatter é YAML inválido ou o parse resulta em algo diferente de um mapeamento (um escalar ou uma sequência) -- aparecendo como um erro de execução de regra com código de saída 2 em vez de uma aprovação falsa.
+
+```typescript
+const { content } = await ctx.readYAML(".github/workflows/ci.yml");
+if (
+  typeof content === "object" &&
+  content !== null &&
+  !Array.isArray(content)
+) {
+  const jobs = content.jobs; // YamlValue -- no cast needed
+}
+```
+
+```typescript
+for (const file of await ctx.glob("docs/**/*.md")) {
+  const { frontmatter } = await ctx.readYAML(file);
+  if (frontmatter === null) {
+    ctx.report.violation({ message: `${file} is missing frontmatter`, file });
+    continue;
+  }
+  if (typeof frontmatter.title !== "string") {
+    ctx.report.violation({
+      message: `${file} frontmatter must declare a title`,
+      file,
+    });
+  }
+}
 ```
 
 #### ast
@@ -331,6 +386,43 @@ Depois:
 ```typescript
 const tree = await ctx.ast("app/models.py", "python");
 const funcDefs = ctx.findAstNodes(tree, "FunctionDef", "AsyncFunctionDef");
+```
+
+#### checkCase
+
+```typescript
+checkCase(value: string, scheme: CaseScheme): boolean;
+
+type CaseScheme =
+  | "kebab-case"
+  | "camelCase"
+  | "PascalCase"
+  | "snake_case"
+  | "SCREAMING_SNAKE_CASE";
+```
+
+Verifica se uma string segue um esquema de capitalização -- a substituição integrada para os regexes por esquema que regras de nomenclatura precisavam escrever à mão. Síncrono e puro -- não precisa de `await`. A correspondência é tudo-ou-nada (a string inteira deve estar em conformidade; a string vazia não corresponde a nenhum esquema) e o vocabulário é apenas letras e dígitos ASCII.
+
+| Esquema                | Aceita                       | Rejeita                                            |
+| ---------------------- | ---------------------------- | -------------------------------------------------- |
+| `kebab-case`           | `writing-rules`, `2fa-setup` | `Writing-Rules`, `writing_rules`, `writing--rules` |
+| `camelCase`            | `checkCase`, `parseURL`      | `CheckCase`, `check_case`, `2fast`                 |
+| `PascalCase`           | `CheckCase`, `HTTPServer`    | `checkCase`, `Check_Case`, `1Value`                |
+| `snake_case`           | `check_case`, `2fa_setup`    | `Check_Case`, `check-case`, `check__case`          |
+| `SCREAMING_SNAKE_CASE` | `CHECK_CASE`, `V2`           | `check_case`, `CHECK-CASE`, `CHECK__CASE`          |
+
+`camelCase` e `PascalCase` seguem a convenção do ecossistema (a `naming-convention` do typescript-eslint): uma letra inicial minúscula/maiúscula seguida de quaisquer caracteres alfanuméricos ASCII, então sequências de acrônimos (`parseURL`, `HTTPServer`) correspondem. Valores degenerados podem satisfazer vários esquemas ao mesmo tempo (`value` é kebab-case, snake_case e camelCase válidos). Passar um nome de esquema não reconhecido **lança uma exceção** em vez de retornar `false` silenciosamente, para que um erro de digitação apareça como um erro de regra em vez de um resultado falso.
+
+```typescript
+for (const file of await ctx.glob("docs/**/*.md")) {
+  const stem = file.split("/").pop()?.replace(/\.md$/, "") ?? "";
+  if (!ctx.checkCase(stem, "kebab-case")) {
+    ctx.report.violation({
+      message: `${file} must have a kebab-case filename`,
+      file,
+    });
+  }
+}
 ```
 
 ---

@@ -9,6 +9,7 @@ import type {
   EsTreeProgram,
   GrepMatch,
   PythonAstModule,
+  ReadYamlResult,
   RubyAstProgram,
   RuleContext,
   RuleReport,
@@ -35,6 +36,7 @@ import {
   readBaseSourceOrThrow,
   runAstSubprocess,
 } from "./ast-support";
+import { checkCase } from "./check-case";
 import {
   resolveScopedFiles,
   getStagedFiles,
@@ -48,6 +50,7 @@ import { parseTsOrJsSource } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { isWithinRoot, resolveUserPath, safePath } from "./safe-path";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
+import { parseYamlDocument } from "./yaml-utils";
 
 const RULE_TIMEOUT_MS = 30_000;
 
@@ -360,11 +363,24 @@ function createRuleContext(
       return Bun.file(safePath(resolvedRoot, path)).json();
     },
 
+    // YAML counterpart of readJSON: nullable `frontmatter` plus `content`
+    // in one object (see parseYamlDocument). The text read shares the
+    // per-run file cache (strings are immutable); the PARSED value is
+    // deliberately not cached, matching readJSON — rules receive a mutable
+    // object, and sharing one instance would leak mutations between rules.
+    async readYAML(path: string): Promise<ReadYamlResult> {
+      const absPath = safePath(resolvedRoot, path);
+      const relPath = relative(resolvedRoot, absPath).replaceAll("\\", "/");
+      return parseYamlDocument(await cachedFileText(absPath), relPath);
+    },
+
     // ARCH-022: the only sanctioned path from rule code to language tooling.
     ast: astImpl,
     // Generic by-type-name AST node collector — a pure, synchronous
     // traversal built in like glob/grep so rule files need not hand-roll it.
     findAstNodes,
+    // Pure, synchronous casing-scheme check (kebab-case, camelCase, ...).
+    checkCase,
   };
 }
 
