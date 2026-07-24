@@ -1,3 +1,10 @@
+## [0.50.1](https://github.com/archgate/cli/compare/v0.50.0...v0.50.1) (2026-07-24)
+
+### Bug Fixes
+
+* **engine:** scan top-level export declarations with a null source ([#493](https://github.com/archgate/cli/issues/493)) ([d07db03](https://github.com/archgate/cli/commit/d07db03985174c15b8f5480ad805d52a6c1e289b)), closes [#491](https://github.com/archgate/cli/issues/491)
+* **engine:** stop dropping AST nodes with exotic literal values ([#494](https://github.com/archgate/cli/issues/494)) ([0015542](https://github.com/archgate/cli/commit/001554264af011d713dd1f4eeba66e4b0bdd2a0c)), closes [#493](https://github.com/archgate/cli/issues/493) [#493](https://github.com/archgate/cli/issues/493)
+
 ## [0.50.0](https://github.com/archgate/cli/compare/v0.49.0...v0.50.0) (2026-07-17)
 
 ### Features
