@@ -19,6 +19,7 @@ import {
   rewriteAdrId,
   saveImportsManifest,
   updateImportsManifest,
+  writeImportedAdrs,
   type AdrToImport,
   type IdMapping,
 } from "../../src/helpers/adr-import";
@@ -291,5 +292,97 @@ describe("cleanupTempDirs", () => {
     expect(() =>
       cleanupTempDirs(["/tmp/nonexistent-archgate-dir"])
     ).not.toThrow();
+  });
+});
+
+describe("writeImportedAdrs security gate", () => {
+  const tempDirs: string[] = [];
+
+  function makeSource(ruleSource: string | null): {
+    adr: AdrToImport;
+    idMap: IdMapping[];
+    adrsDir: string;
+  } {
+    const src = mkdtempSync(join(tmpdir(), "archgate-import-src-"));
+    const adrsDir = mkdtempSync(join(tmpdir(), "archgate-import-dest-"));
+    tempDirs.push(src, adrsDir);
+
+    const sourcePath = join(src, "PACK-001-thing.md");
+    writeFileSync(
+      sourcePath,
+      "---\nid: PACK-001\ntitle: Thing\ndomain: general\nrules: true\n---\n\n## Context\n"
+    );
+
+    let rulesPath: string | null = null;
+    if (ruleSource !== null) {
+      rulesPath = join(src, "PACK-001-thing.rules.ts");
+      writeFileSync(rulesPath, ruleSource);
+    }
+
+    return {
+      adr: {
+        sourcePath,
+        rulesPath,
+        originalId: "PACK-001",
+        title: "Thing",
+        source: "github:example/pack",
+      },
+      idMap: [{ original: "PACK-001", newId: "GEN-001", title: "Thing" }],
+      adrsDir,
+    };
+  }
+
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // An imported .rules.ts is third-party code that `archgate check` later
+  // imports and executes in-process, so it must never reach disk unscanned.
+  test("refuses a rule file that reaches child_process, writing nothing", async () => {
+    const { adr, idMap, adrsDir } = makeSource(
+      `const cp = await import("node:child_process");\ncp.execSync("id");\nexport default { rules: {} };`
+    );
+
+    await expect(writeImportedAdrs([adr], idMap, adrsDir)).rejects.toThrow(
+      /blocked by the security scanner/u
+    );
+
+    // Nothing written — not even the ADR markdown that precedes the rule file.
+    expect(existsSync(join(adrsDir, "GEN-001-thing.md"))).toBe(false);
+    expect(existsSync(join(adrsDir, "GEN-001-thing.rules.ts"))).toBe(false);
+  });
+
+  test("refuses a rule file using imported-only blocked patterns", async () => {
+    const { adr, idMap, adrsDir } = makeSource(
+      `const token = Bun.env.NPM_TOKEN;\nexport default { rules: {} };`
+    );
+
+    await expect(writeImportedAdrs([adr], idMap, adrsDir)).rejects.toThrow(
+      /blocked by the security scanner/u
+    );
+    expect(existsSync(join(adrsDir, "GEN-001-thing.md"))).toBe(false);
+  });
+
+  test("writes a clean rule file", async () => {
+    const { adr, idMap, adrsDir } = makeSource(
+      `import { basename } from "node:path";\nexport default { rules: {} };`
+    );
+
+    const written = await writeImportedAdrs([adr], idMap, adrsDir);
+
+    expect(written).toHaveLength(2);
+    expect(existsSync(join(adrsDir, "GEN-001-thing.md"))).toBe(true);
+    expect(existsSync(join(adrsDir, "GEN-001-thing.rules.ts"))).toBe(true);
+  });
+
+  test("writes an ADR that carries no rule file", async () => {
+    const { adr, idMap, adrsDir } = makeSource(null);
+
+    const written = await writeImportedAdrs([adr], idMap, adrsDir);
+
+    expect(written).toHaveLength(1);
+    expect(existsSync(join(adrsDir, "GEN-001-thing.md"))).toBe(true);
   });
 });

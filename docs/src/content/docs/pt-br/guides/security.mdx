@@ -19,30 +19,38 @@ Isso significa:
 
 As regras recebem um objeto `RuleContext` com operações de arquivo isoladas. Todos os métodos do `RuleContext` (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) são restritos ao diretório raiz do projeto -- travessia de caminho via `../`, caminhos absolutos e links simbólicos são bloqueados e lançam um erro.
 
-Além do sandbox de runtime, o Archgate executa um **scanner de segurança por análise estática** em cada arquivo `.rules.ts` antes de executá-lo. O scanner analisa a AST da regra e bloqueia arquivos que contenham padrões perigosos:
+Além das restrições de caminho do `RuleContext` acima, o Archgate executa um **scanner de segurança por análise estática** em cada arquivo `.rules.ts` antes de executá-lo. Nenhum dos dois é um sandbox de runtime -- uma regra ainda roda in-process com seus privilégios; o scanner é um portão estático, e as restrições se aplicam apenas à API `RuleContext` que uma regra bem-comportada usa. Como um arquivo de regra roda in-process com os mesmos privilégios de quem executa `archgate check`, qualquer módulo que ele consiga alcançar é código arbitrário -- por isso o scanner usa uma **allowlist, não uma denylist**: uma regra só pode importar um pequeno conjunto de módulos seguros, e tudo o mais é rejeitado.
+
+**Os únicos módulos que um arquivo de regra pode importar** são `node:path`, `node:url`, `node:util` e `node:crypto` -- módulos utilitários sem capacidades de sistema de arquivos, rede ou processos. Eles devem usar o prefixo `node:`; as formas sem prefixo (`path`) podem ser sombreadas por um pacote no projeto alvo e são bloqueadas. Todo outro import é rejeitado, em qualquer forma -- estático (`import ... from`), dinâmico (`await import(...)`, seja o especificador um literal ou uma variável), reexportado (`export ... from`), ou alcançado via `require()` / `import.meta.require()`.
+
+O scanner também bloqueia as outras formas de alcançar código ou capacidades fora desse conjunto:
 
 | Padrão                                                                    | Bloqueado |
 | ------------------------------------------------------------------------- | --------- |
-| Imports de `node:fs`, `child_process`, `net`, `http`, `vm`, etc.          | Sim       |
-| `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                       | Sim       |
+| Importar qualquer módulo além dos quatro permitidos acima                 | Sim       |
+| `require()`, `import.meta.require()`                                      | Sim       |
+| `Bun.spawn()`, `Bun.spawnSync()`, `Bun.write()`, `Bun.file()`, `Bun.$`    | Sim       |
 | `fetch()`                                                                 | Sim       |
 | `eval()`, `new Function()`                                                | Sim       |
+| `process.binding()`, `process.dlopen()` (em qualquer alias de `process`)  | Sim       |
 | Acesso computado a propriedades (`Bun[variável]`, `globalThis[variável]`) | Sim       |
-| `import()` dinâmico com argumento não-literal                             | Sim       |
 | Atribuição a `globalThis` ou `process.env`                                | Sim       |
+| Caracteres Unicode bidirecionais ou invisíveis ("Trojan Source")          | Sim       |
 
-Se qualquer padrão proibido for encontrado, o arquivo de regra **não é importado nem executado** e `archgate check` termina com erro.
+Se qualquer um desses padrões for encontrado, o arquivo de regra **não é importado nem executado** e `archgate check` termina com erro.
 
-**Módulos seguros permitidos:** `node:path`, `node:url`, `node:util`, `node:crypto` -- são módulos utilitários sem capacidades de sistema de arquivos, rede ou processos.
+Como o scanner trabalha a partir da árvore de sintaxe já parseada, ele enxerga através de escapes: `await import("\x6e...")` resolve para o mesmo nome de módulo que a allowlist verifica, então truques com strings não escapam por ele. A única coisa que uma árvore de sintaxe não consegue enxergar é um caractere que faz o código-fonte renderizado diferir do código que efetivamente executa -- por isso o scanner também rejeita caracteres Unicode bidirecionais e invisíveis de imediato.
 
-O scanner eleva a barreira de "trivial de explorar" para "requer ofuscação deliberada que parece suspeita em code review." Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saída.
+**Regras importadas também são escaneadas.** Quando você importa regras de terceiros com `archgate adr import`, cada `.rules.ts` é escaneado -- com uma verificação mais rígida do que para regras próprias -- **antes de ser gravado em disco**, de modo que um pacote importado não consiga contrabandear código que seu próximo `archgate check` executaria.
+
+Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) e `ctx.report` para saída. Quando uma regra precisa de ferramental de linguagem -- parsear Python, ou comparar um arquivo com sua revisão base no git -- `ctx.ast()` é a porta sancionada; uma regra nunca precisa, e não consegue, abrir um subprocesso próprio.
 
 ### O que as regras não podem fazer
 
 - **Escrever arquivos** -- a API do `RuleContext` é somente leitura. Regras reportam violações mas não podem modificar o codebase.
 - **Escapar do timeout de 30 segundos** -- cada regra é encerrada após 30 segundos de tempo de execução.
 - **Afetar outras regras** -- regras de ADRs diferentes rodam em paralelo mas não compartilham estado mutável através da API de contexto.
-- **Usar APIs perigosas** -- o scanner de segurança bloqueia imports de módulos do sistema (`fs`, `child_process`, `net`, etc.), APIs do Bun (`Bun.spawn`, `Bun.file`), acesso à rede (`fetch`) e geração de código (`eval`, `new Function`). Arquivos de regra que contenham esses padrões são rejeitados antes da execução.
+- **Alcançar algo fora da allowlist por uma rota reconhecida** -- uma regra só pode importar `node:path`, `node:url`, `node:util` e `node:crypto`. Imports de qualquer outro módulo, APIs do Bun (`Bun.spawn`, `Bun.file`), acesso à rede (`fetch`), acesso a subprocessos ou código nativo (`require`, `process.binding`) e geração de código (`eval`, `new Function`) são rejeitados antes da execução em suas formas diretas e reconhecidas. Isto é uma varredura estática, não uma prisão: uma capacidade montada em tempo de execução é um resíduo que ela não consegue capturar, e por isso arquivos de regra não confiáveis ainda merecem revisão (veja abaixo).
 
 ## Boas práticas para CI/CD
 
@@ -122,11 +130,11 @@ jobs:
 
 ### Revisando regras em novos repositórios
 
-Ao clonar ou fazer fork de um repositório que usa Archgate, o scanner de segurança bloqueia automaticamente padrões perigosos em arquivos `.rules.ts`. Porém, você ainda deve revisar os arquivos de regras antes de rodar `archgate check` pela primeira vez:
+Ao clonar ou fazer fork de um repositório que usa Archgate, o scanner de segurança aplica automaticamente a allowlist de imports em arquivos `.rules.ts`. É uma forte primeira linha de defesa -- não um sandbox completo -- então você ainda deve revisar os arquivos de regras antes de rodar `archgate check` pela primeira vez:
 
-- O scanner detecta uso explícito de APIs proibidas, mas ofuscação sofisticada (ex: `Reflect.get(Bun, "spawn")`) pode contorná-lo
+- O scanner bloqueia as rotas diretas para capacidades perigosas, mas é análise estática, não uma jaula: qualquer coisa construída em tempo de execução — um nome de propriedade (`obj[name]` com um `name` computado) ou uma string de código — é opaca para uma varredura de código-fonte, então revise arquivos de regra em que você não confia antes de executá-los
 - Código de nível superior que executa no import (antes da função `check` ser chamada) ainda é executado se passar pelo scanner
-- Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) e `ctx.report` para saída
+- Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) e `ctx.report` para saída
 
 ### Credenciais
 

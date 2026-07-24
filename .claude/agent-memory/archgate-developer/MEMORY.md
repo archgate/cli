@@ -25,6 +25,7 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - [This repo is PUBLIC — no private sibling-repo internals, no Claude session links in PRs/commits](feedback_public_repo_privacy.md)
 - [Keep code comments and memory entries concise](feedback_concise_comments.md) — code side now machine-enforced by GEN-004 (oxlint `archgate/*` + `archgate check`); memory-entry conciseness still manual
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not logError + exitWith(1); the action's handleCommandError boundary does that
+- [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — describe current state; no "previously"/"rather than"/"shipped" framing, no pinned release version or drift-prone counts; git & package.json are the source of truth
 
 ## Known Bugs
 
@@ -42,7 +43,7 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 - [Test isolation gotchas](project_test_isolation_gotchas.md) — mock.module process-global leakage, Bun.env leaking across test files, Windows git-credential/GCM isolation, bun:sqlite EBUSY, macOS /var symlink, don't test PATH tools
 - [Windows subprocess/path gotchas](project_windows_subprocess_gotchas.md) — Git Bash /tmp invisible to native tools, YAML backslash escaping, binary-upgrade `.old` cleanup, module-level `Bun.env` spread capture
 - [CI workflow gotchas](project_ci_workflow_gotchas.md) — GITHUB_TOKEN pushes don't trigger workflows, secrets vs vars namespaces, jq CRLF on Windows Git Bash
-- [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob scan-vs-match semantics + ARCH-023 in-memory matching, pending .rules.ts load-cache follow-up, commander option hoisting, cross-command I/O sharing, reviewer-finding verification (hallucinated ADR citations AND misquoted file text), dogfood+fire-test workflow
+- [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob scan-vs-match semantics + ARCH-023 in-memory matching, pending .rules.ts load-cache follow-up, commander option hoisting, cross-command I/O sharing, reviewer-finding verification (hallucinated ADR citations AND misquoted file text), dogfood+fire-test workflow, scanner node-drop = silent scan gap (ARCH-024 cl.7) + z.unknown() non-optional + transpiler dead-code stripping
 - [session-context --skip 1 inline-skill bug](project_session_context_skip_root_fix.md) — opencode fixed via top-level default + `--root`; other editors fixed with plain command; includes opencode.db inspection technique
 - [CLI-skill flag sequencing across releases](project_cli_skill_flag_sequencing.md) — ship CLI first for flag additions, ship plugin promptly after for removals; installed lessons-learned skill v0.13.1 confirmed still broken
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST API doesn't expose resolved state; use GraphQL `reviewThreads.isResolved` to find genuinely outstanding comments
@@ -70,6 +71,6 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 
 ## Distribution / Packaging
 
-- **npm shim + GitHub Releases** — The npm package is a thin shim (`bin/archgate.cjs`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`.
-- **`.cjs` extension is mandatory** for any root-level Node.js CJS wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
+- **npm shim + GitHub Releases** — The npm package is a thin shim (`shims/npm/archgate.cjs`, wired via package.json `bin`/`files`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`. Verify the path against package.json `bin` before quoting.
+- **`.cjs` extension is mandatory** for the Node.js CJS shim wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
 - [Shim publishing pipeline gotchas](project_shim_publishing.md) — PyPI README, RubyGem Rakefile/working-dir, Maven waitUntil, advertised-vs-installable version lag, Go module registration on pkg.go.dev

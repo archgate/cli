@@ -66,7 +66,7 @@ Each ADR can have a companion `.rules.ts` file that exports automated checks. Se
 
 > **Make your AI agent architecture-aware.** With the optional editor plugins, your AI coding agent reads ADRs before writing code, validates changes against your rules, and captures new architectural patterns back into ADRs, automatically.
 >
-> Plugins are available for [**Claude Code**](https://cli.archgate.dev/guides/claude-code-plugin/) and [**Cursor**](https://cli.archgate.dev/guides/cursor-integration/).
+> Plugins are available for [**Claude Code**](https://cli.archgate.dev/guides/claude-code-plugin/), [**Cursor**](https://cli.archgate.dev/guides/cursor-integration/), [**VS Code**](https://cli.archgate.dev/guides/vscode-plugin/), [**Copilot CLI**](https://cli.archgate.dev/guides/copilot-cli-plugin/), and [**opencode**](https://cli.archgate.dev/guides/opencode-integration/).
 >
 > ```bash
 > archgate login             # one-time GitHub auth

@@ -68,6 +68,34 @@ export interface PackageJson {
 export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
+ * A source comment, present on the tree's `comments` array when `ast()` is
+ * called with `{ comments: true }`. `value` is the text without delimiters;
+ * `loc` is a position in the ORIGINAL source, even for `"typescript"` whose
+ * tree `loc` is transpiled-relative. Python has `"line"` comments only; a
+ * Ruby `=begin`/`=end` region is one `"block"` token (character columns).
+ */
+export interface CommentToken {
+  type: "line" | "block";
+  value: string;
+  loc: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  };
+}
+
+/**
+ * Options for `RuleContext.ast()`. `rev: "base"` parses the file as of the
+ * comparison base commit rather than the working tree, throwing when no
+ * base resolves or the file is absent there (pair with `fileAtBase()`).
+ * `comments: true` attaches a `comments` array of {@link CommentToken}s;
+ * for `"ruby"` it rides on the sexp array as a non-index property.
+ */
+export interface AstOptions {
+  rev?: "base";
+  comments?: boolean;
+}
+
+/**
  * A node in the ESTree tree returned for `"typescript"`/`"javascript"`.
  * Only the fields common to every node are typed; the rest of each node's
  * grammar is reachable through the index signature — walk it against the
@@ -89,6 +117,8 @@ export interface EsTreeProgram extends EsTreeNode {
   type: "Program";
   sourceType: "module" | "script";
   body: EsTreeNode[];
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
 }
 
 /**
@@ -111,6 +141,8 @@ export interface PythonAstNode {
 export interface PythonAstModule extends PythonAstNode {
   _type: "Module";
   body: PythonAstNode[];
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
 }
 
 /**
@@ -123,12 +155,23 @@ export interface PythonAstModule extends PythonAstNode {
 export type RubyAstNode = unknown[];
 
 /**
+ * Root Ruby value returned for `"ruby"` — the full `Ripper.sexp` output array
+ * (`["program", …]`). When parsed with `{ comments: true }`, a `comments`
+ * array of {@link CommentToken}s rides on the array as a non-index property;
+ * it is absent otherwise.
+ */
+export interface RubyAstProgram extends Array<unknown> {
+  /** Present only when parsed with `{ comments: true }`. */
+  comments?: CommentToken[];
+}
+
+/**
  * Return type of the language-agnostic `ast()` overload (when `language` is a
  * non-literal `AstLanguage`). The shape is language-native and deliberately
  * NOT unified across languages (see ARCH-022); prefer calling `ast()` with a
  * string literal so the per-language overload narrows this union for you.
  */
-export type AstNode = EsTreeProgram | PythonAstModule | RubyAstNode;
+export type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 
 // --- Rule Context ---
 
@@ -140,22 +183,52 @@ export interface RuleContext {
   grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
+  /**
+   * Read a file's source at the comparison base revision (the merge base of
+   * `--base` and HEAD). Returns null when no base is resolved (no `--base`, or
+   * unrelated histories) or the path did not exist at the base — the two
+   * "nothing to compare against" cases, checkable with one null test. For a
+   * structural comparison prefer `ast(path, language, { rev: "base" })`.
+   */
+  fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
    * Parse a source file into its language-native AST. The return type follows
    * the `language` literal; shapes are language-native, NOT unified (ARCH-022)
    * — walk each against its own grammar. TS/JS parse in-process; Python/Ruby
-   * need their interpreter on PATH wherever `archgate check` runs. Throws
-   * (never null) on parse failure or missing interpreter.
+   * need their interpreter on PATH ({@link AstOptions} covers `rev` and
+   * `comments`). Throws (never null) on parse failure or missing interpreter.
    */
   ast(
     path: string,
-    language: "typescript" | "javascript"
+    language: "typescript" | "javascript",
+    opts?: AstOptions
   ): Promise<EsTreeProgram>;
-  ast(path: string, language: "python"): Promise<PythonAstModule>;
-  ast(path: string, language: "ruby"): Promise<RubyAstNode>;
-  ast(path: string, language: AstLanguage): Promise<AstNode>;
+  ast(
+    path: string,
+    language: "python",
+    opts?: AstOptions
+  ): Promise<PythonAstModule>;
+  ast(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstProgram>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
+  /**
+   * Recursively collect every node in a parsed AST whose type-discriminant
+   * field (`_type` for Python, `type` for ESTree TS/JS) matches one of `types`.
+   * Own-enumerable object values and arrays are recursed; `tree` itself is a
+   * candidate. Ruby sexp nodes are plain arrays with no discriminant, so only
+   * embedded object nodes can match. Pure synchronous traversal — no I/O.
+   */
+  findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+  findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+  findAstNodes(
+    tree: unknown,
+    ...types: string[]
+  ): (EsTreeNode | PythonAstNode)[];
   report: RuleReport;
 }
 

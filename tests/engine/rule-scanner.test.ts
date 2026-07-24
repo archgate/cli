@@ -45,86 +45,37 @@ describe("scanRuleSource", () => {
     }
   });
 
-  describe("dangerous Bun APIs", () => {
-    test("blocks Bun.spawn", () => {
-      const violations = scanRuleSource(`Bun.spawn(["ls"]);`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Bun.spawn()");
-    });
+  // Bun/process/globalThis and the eval-equivalents are blocked by naming the
+  // global, not by matching a call shape (see rule-scanner-escapes.test.ts for
+  // the aliasing/reflection cases). Each names exactly one banned global here.
+  describe("banned runtime globals", () => {
+    const cases: Array<[string, string, string]> = [
+      ["Bun.spawn", `Bun.spawn(["ls"]);`, "Bun"],
+      ["Bun.spawnSync", `Bun.spawnSync(["ls"]);`, "Bun"],
+      ["Bun.write", `Bun.write("output.txt", "data");`, "Bun"],
+      ["Bun.$", `Bun.$;`, "Bun"],
+      ["Bun.file", `Bun.file("/etc/passwd");`, "Bun"],
+      ["Bun[variable]", `const method = "spawn"; Bun[method]();`, "Bun"],
+      [
+        "globalThis[variable]",
+        `const key = "fetch"; globalThis[key]();`,
+        "globalThis",
+      ],
+      ["eval()", `eval("console.log(1)");`, "eval"],
+      ["new Function()", `new Function("return 1")();`, "Function"],
+      ["Function() without new", `Function("return 1")();`, "Function"],
+      ["fetch()", `fetch("https://example.com");`, "fetch"],
+      ["globalThis assignment", `globalThis.myGlobal = "value";`, "globalThis"],
+      ["process.env assignment", `process.env = {};`, "process"],
+    ];
 
-    test("blocks Bun.spawnSync", () => {
-      const violations = scanRuleSource(`Bun.spawnSync(["ls"]);`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Bun.spawnSync()");
-    });
-
-    test("blocks Bun.write", () => {
-      const violations = scanRuleSource(`Bun.write("output.txt", "data");`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Bun.write()");
-    });
-
-    test("blocks Bun.$", () => {
-      const violations = scanRuleSource(`Bun.$;`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Bun.$()");
-    });
-
-    test("blocks Bun.file", () => {
-      const violations = scanRuleSource(`Bun.file("/etc/passwd");`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Bun.file()");
-    });
-  });
-
-  describe("computed property access", () => {
-    test("blocks Bun[variable]", () => {
-      const violations = scanRuleSource(
-        `const method = "spawn"; Bun[method]();`
-      );
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain(
-        "Computed property access on Bun"
-      );
-    });
-
-    test("blocks globalThis[variable]", () => {
-      const violations = scanRuleSource(
-        `const key = "fetch"; globalThis[key]();`
-      );
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain(
-        "Computed property access on globalThis"
-      );
-    });
-  });
-
-  describe("eval and Function constructor", () => {
-    test("blocks eval()", () => {
-      const violations = scanRuleSource(`eval("console.log(1)");`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("eval()");
-    });
-
-    test("blocks new Function()", () => {
-      const violations = scanRuleSource(`new Function("return 1")();`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("new Function()");
-    });
-
-    test("blocks Function() without new", () => {
-      const violations = scanRuleSource(`Function("return 1")();`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Function() constructor");
-    });
-  });
-
-  describe("fetch", () => {
-    test("blocks fetch()", () => {
-      const violations = scanRuleSource(`fetch("https://example.com");`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("fetch()");
-    });
+    for (const [label, source, global] of cases) {
+      test(`blocks ${label}`, () => {
+        const violations = scanRuleSource(source);
+        expect(violations).toHaveLength(1);
+        expect(violations[0].message).toContain(`"${global}" global`);
+      });
+    }
   });
 
   describe("dynamic imports", () => {
@@ -134,28 +85,50 @@ describe("scanRuleSource", () => {
       expect(violations[0].message).toContain("Dynamic import()");
     });
 
-    test("allows import with literal string", () => {
+    test("allows import() of an allowlisted module", () => {
       const violations = scanRuleSource(`import("node:path");`);
-      // Static import expression with literal — allowed by dynamic import check.
-      // But node:path is safe so no import declaration violation either.
-      const dynamicViolations = violations.filter((v) =>
-        v.message.includes("Dynamic import()")
-      );
-      expect(dynamicViolations).toHaveLength(0);
+      expect(violations).toHaveLength(0);
     });
+
+    // Blocked dynamic imports of non-allowlisted modules are covered in
+    // rule-scanner-escapes.test.ts alongside the other sandbox escapes.
   });
 
-  describe("global mutation", () => {
-    test("blocks globalThis assignment", () => {
-      const violations = scanRuleSource(`globalThis.myGlobal = "value";`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Mutating globalThis");
+  // Regression: an `export` declaration with no `from` clause carries
+  // `source: null` in ESTree. The AST node schema must tolerate that null, or
+  // the whole node (and its subtree) is dropped and anything dangerous inside a
+  // top-level `export function` / `export const` goes unscanned.
+  describe("top-level export declarations are scanned", () => {
+    test("blocks a banned global inside `export function`", () => {
+      const violations = scanRuleSource(`export function h() { fetch("x"); }`);
+      expect(violations.some((v) => v.message.includes(`"fetch" global`))).toBe(
+        true
+      );
     });
 
-    test("blocks process.env assignment", () => {
-      const violations = scanRuleSource(`process.env = {};`);
-      expect(violations).toHaveLength(1);
-      expect(violations[0].message).toContain("Mutating process.env");
+    test("blocks a banned global inside `export const`", () => {
+      const violations = scanRuleSource(`export const x = fetch("evil");`);
+      expect(violations.some((v) => v.message.includes(`"fetch" global`))).toBe(
+        true
+      );
+    });
+
+    // A specifier-only local export (`export { x }`, no `from`) also carries
+    // `source: null`, but it holds no scannable subtree: an export specifier
+    // must name a module-local binding, so `export { fetch as local }` naming
+    // the global is not valid ESM, and `Bun.Transpiler` erases the undeclared
+    // specifier down to `export {}` before the walk ever sees it. There is thus
+    // no reference to flag — the declaration-form cases above are what actually
+    // guard the `source: null` subtree against a schema regression.
+    test("a local export without a `from` clause has nothing to scan", () => {
+      expect(scanRuleSource(`export { fetch as local };`)).toHaveLength(0);
+    });
+
+    test("blocks a banned import inside `export ... from`", () => {
+      const violations = scanRuleSource(`export { x } from "node:fs";`);
+      expect(violations.some((v) => v.message.includes('"node:fs"'))).toBe(
+        true
+      );
     });
   });
 
@@ -249,8 +222,8 @@ describe("scanRuleSource", () => {
       expect(violations[0].line).toBe(2);
       expect(violations[0].column).toBe(0);
       expect(violations[0].endLine).toBe(2);
-      // endColumn covers the search text "eval(" = 5 chars
-      expect(violations[0].endColumn).toBe(5);
+      // endColumn covers the banned-global identifier "eval" = 4 chars
+      expect(violations[0].endColumn).toBe(4);
     });
   });
 
@@ -275,120 +248,44 @@ describe("scanRuleSource", () => {
 });
 
 describe("scanImportedRuleSource", () => {
-  describe("imported-only: Bun.env access", () => {
-    test("blocks Bun.env.FOO read", () => {
-      const source = `const token = Bun.env.FOO;`;
-      const violations = scanImportedRuleSource(source);
-      const envViolations = violations.filter((v) =>
-        v.message.includes("Bun.env")
-      );
-      expect(envViolations).toHaveLength(1);
-      expect(envViolations[0].message).toContain(
-        "Bun.env access is blocked in imported rule files"
-      );
+  // scanImportedRuleSource now delegates to scanRuleSource: the patterns that
+  // were once imported-only (Bun.env, process.env, require, WebSocket) are
+  // blocked for every rule file by the banned-globals check, because each names
+  // a banned global. These confirm the block reaches through the imported
+  // entry point.
+  describe("previously imported-only patterns are now always blocked", () => {
+    const cases: Array<[string, string, string]> = [
+      ["Bun.env read", `const token = Bun.env.FOO;`, "Bun"],
+      ["process.env read", `const val = process.env.SECRET;`, "process"],
+      ["require()", `const mod = require("some-module");`, "require"],
+      [
+        "new WebSocket()",
+        `const ws = new WebSocket("ws://localhost");`,
+        "WebSocket",
+      ],
+    ];
+    for (const [label, source, global] of cases) {
+      test(`blocks ${label}`, () => {
+        const violations = scanImportedRuleSource(source);
+        expect(
+          violations.some((v) => v.message.includes(`"${global}" global`))
+        ).toBe(true);
+      });
+    }
+
+    test("reports a banned global once, not twice", () => {
+      const violations = scanImportedRuleSource(`const mod = require("x");`);
+      expect(
+        violations.filter((v) => v.message.includes(`"require" global`))
+      ).toHaveLength(1);
     });
 
-    test("blocks bare Bun.env access", () => {
-      const source = `const env = Bun.env;`;
-      const violations = scanImportedRuleSource(source);
-      const envViolations = violations.filter((v) =>
-        v.message.includes("Bun.env")
-      );
-      expect(envViolations).toHaveLength(1);
-    });
-  });
-
-  describe("imported-only: process.env access", () => {
-    test("blocks process.env read", () => {
-      const source = `const val = process.env.SECRET;`;
-      const violations = scanImportedRuleSource(source);
-      const envViolations = violations.filter((v) =>
-        v.message.includes("process.env")
-      );
-      expect(envViolations).toHaveLength(1);
-      expect(envViolations[0].message).toContain(
-        "process.env access is blocked in imported rule files"
-      );
-    });
-  });
-
-  describe("imported-only: require() call", () => {
-    test("blocks require() call", () => {
-      const source = `const mod = require("some-module");`;
-      const violations = scanImportedRuleSource(source);
-      const requireViolations = violations.filter((v) =>
-        v.message.includes("require()")
-      );
-      expect(requireViolations).toHaveLength(1);
-      expect(requireViolations[0].message).toContain(
-        "require() is blocked in imported rule files"
-      );
-    });
-  });
-
-  describe("imported-only: WebSocket usage", () => {
-    test("blocks new WebSocket()", () => {
-      const source = `const ws = new WebSocket("ws://localhost");`;
-      const violations = scanImportedRuleSource(source);
-      const wsViolations = violations.filter((v) =>
-        v.message.includes("WebSocket")
-      );
-      expect(wsViolations).toHaveLength(1);
-      expect(wsViolations[0].message).toContain(
-        "new WebSocket() is blocked in imported rule files"
-      );
-    });
-
-    test("blocks WebSocket() without new", () => {
-      const source = `const ws = WebSocket("ws://localhost");`;
-      const violations = scanImportedRuleSource(source);
-      const wsViolations = violations.filter((v) =>
-        v.message.includes("WebSocket")
-      );
-      expect(wsViolations).toHaveLength(1);
-      expect(wsViolations[0].message).toContain(
-        "WebSocket() is blocked in imported rule files"
-      );
-    });
-  });
-
-  describe("multiple imported-only violations", () => {
-    test("reports all imported-only violations together", () => {
-      const source = `
-const token = Bun.env.TOKEN;
-const secret = process.env.SECRET;
-const mod = require("dangerous");
-const ws = new WebSocket("ws://localhost");
-`;
-      const violations = scanImportedRuleSource(source);
-      const importedMessages = violations.map((v) => v.message);
-
-      expect(importedMessages.some((m) => m.includes("Bun.env"))).toBe(true);
-      expect(importedMessages.some((m) => m.includes("process.env"))).toBe(
-        true
-      );
-      expect(importedMessages.some((m) => m.includes("require()"))).toBe(true);
-      expect(importedMessages.some((m) => m.includes("new WebSocket()"))).toBe(
-        true
-      );
-    });
-  });
-
-  describe("standard violations are included", () => {
-    test("includes standard scanRuleSource violations alongside imported-only ones", () => {
-      const source = `
-import { readFileSync } from "node:fs";
-const token = Bun.env.TOKEN;
-eval("code");
-`;
-      const violations = scanImportedRuleSource(source);
-      const messages = violations.map((v) => v.message);
-
-      // Standard violations (from scanRuleSource)
+    test("still includes standard scanRuleSource violations", () => {
+      const messages = scanImportedRuleSource(
+        `import { readFileSync } from "node:fs";\nconst token = Bun.env.TOKEN;`
+      ).map((v) => v.message);
       expect(messages.some((m) => m.includes('"node:fs"'))).toBe(true);
-      expect(messages.some((m) => m.includes("eval()"))).toBe(true);
-      // Imported-only violation
-      expect(messages.some((m) => m.includes("Bun.env"))).toBe(true);
+      expect(messages.some((m) => m.includes(`"Bun" global`))).toBe(true);
     });
   });
 
@@ -441,40 +338,37 @@ export default {
   });
 
   describe("violation location for imported checks", () => {
-    test("reports correct line and column for Bun.env", () => {
+    test("reports the location of the banned Bun global", () => {
       const source = `const x = 1;\nconst t = Bun.env.TOKEN;`;
-      const violations = scanImportedRuleSource(source);
-      const envViolation = violations.find((v) =>
-        v.message.includes("Bun.env")
+      const violation = scanImportedRuleSource(source).find((v) =>
+        v.message.includes(`"Bun" global`)
       );
-      expect(envViolation).toBeDefined();
-      expect(envViolation!.line).toBe(2);
-      expect(envViolation!.column).toBe(10);
-      // "Bun.env" is 7 chars, so endColumn = 10 + 7 = 17
-      expect(envViolation!.endColumn).toBe(17);
+      expect(violation).toBeDefined();
+      expect(violation!.line).toBe(2);
+      expect(violation!.column).toBe(10);
+      // The identifier "Bun" is 3 chars, so endColumn = 10 + 3 = 13.
+      expect(violation!.endColumn).toBe(13);
     });
 
-    test("reports correct line and column for require()", () => {
+    test("reports the location of the banned require global", () => {
       const source = `const a = 1;\nconst b = 2;\nconst m = require("foo");`;
-      const violations = scanImportedRuleSource(source);
-      const reqViolation = violations.find((v) =>
-        v.message.includes("require()")
+      const violation = scanImportedRuleSource(source).find((v) =>
+        v.message.includes(`"require" global`)
       );
-      expect(reqViolation).toBeDefined();
-      expect(reqViolation!.line).toBe(3);
-      expect(reqViolation!.column).toBe(10);
-      // "require(" is 8 chars, so endColumn = 10 + 8 = 18
-      expect(reqViolation!.endColumn).toBe(18);
+      expect(violation).toBeDefined();
+      expect(violation!.line).toBe(3);
+      expect(violation!.column).toBe(10);
+      // "require" is 7 chars, so endColumn = 10 + 7 = 17.
+      expect(violation!.endColumn).toBe(17);
     });
 
-    test("reports correct line for new WebSocket()", () => {
+    test("reports the line of the banned WebSocket global", () => {
       const source = `const x = 1;\nconst ws = new WebSocket("ws://localhost");`;
-      const violations = scanImportedRuleSource(source);
-      const wsViolation = violations.find((v) =>
-        v.message.includes("WebSocket")
+      const violation = scanImportedRuleSource(source).find((v) =>
+        v.message.includes(`"WebSocket" global`)
       );
-      expect(wsViolation).toBeDefined();
-      expect(wsViolation!.line).toBe(2);
+      expect(violation).toBeDefined();
+      expect(violation!.line).toBe(2);
     });
   });
 });

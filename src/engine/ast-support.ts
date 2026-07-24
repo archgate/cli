@@ -1,8 +1,35 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import type { AstLanguage } from "../formats/rules";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import type { AstLanguage, EsTreeNode, PythonAstNode } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
+import { UserError } from "../helpers/user-error";
+import { getFileAtRev } from "./git-files";
+
+/** Guardrail-2 failure: the file's name does not match the requested language. */
+export function implausibleLanguageError(
+  language: AstLanguage,
+  path: string
+): UserError {
+  return new UserError(
+    `File "${path}" does not look like ${language} (expected ${AST_LANGUAGE_EXTENSIONS[language].join(", ")}) — refusing to parse`
+  );
+}
+
+/** Guardrail-3 failure: no interpreter for the language on PATH. */
+export function interpreterNotFoundError(
+  language: "python" | "ruby",
+  candidates: string[],
+  path: string
+): Error {
+  return new Error(
+    `${language === "python" ? "Python" : "Ruby"} interpreter not found on PATH (tried: ${candidates.join(", ")}) — ctx.ast("${path}", "${language}") requires it wherever \`archgate check\` runs`
+  );
+}
 
 /**
  * Support code for `ctx.ast()` (ARCH-022). Definitions live here to keep
@@ -33,16 +60,12 @@ export const AST_LANGUAGE_EXTENSIONS: Record<AstLanguage, readonly string[]> = {
 export const RUBY_BASENAMES = new Set(["rakefile", "gemfile"]);
 
 /**
- * Serializer passed to `<python> -c`. Reads the target file from argv (never
- * interpolated into the program), parses it with the standard `ast` module,
- * and prints the tree as JSON. Non-finite floats, bytes, and complex numbers
- * fall back to `repr()` so the output is always strict JSON.
+ * Shared Python preamble: the `ast`-node → JSON `convert()` used by both
+ * serializers below, plus reading the target file from argv (never
+ * interpolated into the program) into `source`/`tree`. Non-finite floats,
+ * bytes, and complex numbers fall back to `repr()` so output is strict JSON.
  */
-export const PYTHON_AST_PROGRAM = `
-import ast, json, sys
-
-sys.setrecursionlimit(10000)
-
+const PY_PREAMBLE = `
 def convert(node):
     if isinstance(node, ast.AST):
         out = {"_type": type(node).__name__}
@@ -67,7 +90,43 @@ try:
 except SyntaxError as exc:
     print(f"{exc.msg} (line {exc.lineno}, column {exc.offset})", file=sys.stderr)
     sys.exit(1)
+`;
+
+/** Serializer passed to `<python> -c`: prints the parsed tree as JSON. */
+export const PYTHON_AST_PROGRAM = `
+import ast, json, sys
+sys.setrecursionlimit(10000)
+${PY_PREAMBLE}
 print(json.dumps(convert(tree)))
+`;
+
+/**
+ * Serializer used for `{ comments: true }`: prints `{"_tree", "comments"}`,
+ * where comments come from the `tokenize` module (the `ast` tree has none).
+ * `value` strips the leading `#`; Python has only line comments. Tokenizer
+ * errors on otherwise-parseable source degrade to an empty comment list rather
+ * than failing the parse.
+ */
+export const PYTHON_AST_WITH_COMMENTS_PROGRAM = `
+import ast, io, json, sys, tokenize
+sys.setrecursionlimit(10000)
+${PY_PREAMBLE}
+comments = []
+try:
+    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
+        if tok.type == tokenize.COMMENT:
+            s = tok.string
+            comments.append({
+                "type": "line",
+                "value": s[1:] if s.startswith("#") else s,
+                "loc": {
+                    "start": {"line": tok.start[0], "column": tok.start[1]},
+                    "end": {"line": tok.end[0], "column": tok.end[1]},
+                },
+            })
+except (tokenize.TokenError, IndentationError):
+    pass
+print(json.dumps({"_tree": convert(tree), "comments": comments}))
 `;
 
 /**
@@ -86,10 +145,66 @@ puts JSON.generate(sexp, max_nesting: false)
 `;
 
 /**
- * Candidate executable names per language, in probe order. The order flips
- * per platform (ARCH-009's isWindows()): Windows commonly exposes `python`
- * and the `py` launcher rather than `python3` — see ARCH-022 for the
- * interpreter-probe rationale.
+ * Serializer for Ruby `{ comments: true }`: the same `{"_tree", "comments"}`
+ * envelope as the Python program, with comments from a second `Ripper.lex`
+ * pass (`Ripper.sexp` carries none). Byte columns convert to character
+ * columns and block values normalize CRLF so comment locs match Python/TS;
+ * lex errors degrade to an empty comment list (ARCH-022 has the details).
+ */
+export const RUBY_AST_WITH_COMMENTS_PROGRAM = `
+source = File.read(ARGV[0], mode: "r:bom|utf-8")
+sexp = Ripper.sexp(source)
+if sexp.nil?
+  warn "Ruby syntax error"
+  exit 1
+end
+comments = []
+begin
+  lines = source.lines
+  char_col = ->(line, byte_col) { (lines[line - 1] || "").byteslice(0, byte_col).to_s.length }
+  embdoc = nil
+  Ripper.lex(source).each do |(line, col), event, tok, _state|
+    case event
+    when :on_comment
+      start_col = char_col.call(line, col)
+      comments << {
+        type: "line",
+        value: tok.sub(/\\A#/, "").chomp,
+        loc: {
+          start: { line: line, column: start_col },
+          end: { line: line, column: start_col + tok.chomp.length },
+        },
+      }
+    when :on_embdoc_beg
+      embdoc = { line: line, col: char_col.call(line, col), value: +"" }
+    when :on_embdoc
+      embdoc[:value] << tok unless embdoc.nil?
+    when :on_embdoc_end
+      unless embdoc.nil?
+        comments << {
+          type: "block",
+          value: embdoc[:value].gsub(/\\r\\n/, "\\n").chomp,
+          loc: {
+            start: { line: embdoc[:line], column: embdoc[:col] },
+            end: { line: line, column: char_col.call(line, col) + tok.chomp.length },
+          },
+        }
+        embdoc = nil
+      end
+    end
+  end
+rescue StandardError
+  comments = []
+end
+puts JSON.generate({ _tree: sexp, comments: comments }, max_nesting: false)
+`;
+
+/**
+ * Candidate executable names per language, in probe order. `python3` is not
+ * a universal PATH alias on Windows (installers expose `python`), so the
+ * order flips per platform (ARCH-009). Windows probes the `py` launcher
+ * last — python.org registers it even when PATH integration is unchecked,
+ * and the probe rejects a launcher with no registered CPython.
  */
 export function interpreterCandidates(language: "python" | "ruby"): string[] {
   if (language === "ruby") return ["ruby"];
@@ -198,6 +313,190 @@ export function parseAstJson(
       `Failed to parse "${path}" as ${language}: interpreter produced invalid JSON output`
     );
   }
+}
+
+/**
+ * Read a file's source at the comparison base revision for
+ * `ctx.ast(path, lang, { rev: "base" })`. Throws — never returns null — when
+ * no base is resolvable or the path is absent at the base, because a silent
+ * miss would let a rule report a false "no change". `displayPath` is the
+ * caller-facing path used in error messages.
+ */
+export async function readBaseSourceOrThrow(
+  projectRoot: string,
+  baseRev: string | null,
+  relPath: string,
+  displayPath: string
+): Promise<string> {
+  if (!baseRev) {
+    throw new Error(
+      `ctx.ast("${displayPath}", …, { rev: "base" }) needs a base revision, but none is resolved — run \`archgate check --base <ref>\``
+    );
+  }
+  const source = await getFileAtRev(projectRoot, baseRev, relPath);
+  if (source === null) {
+    throw new Error(
+      `"${displayPath}" did not exist at the base revision (${baseRev.slice(0, 9)}) — nothing to parse at { rev: "base" }`
+    );
+  }
+  return source;
+}
+
+/**
+ * Write source to a throwaway temp file for `{ rev: "base" }` Python/Ruby
+ * parses — the interpreter serializers read a file path from argv. A private
+ * `mkdtempSync` dir (0700) plus exclusive create (`wx`, 0600) defeats
+ * shared-tmpdir symlink attacks and keeps base source owner-only (ARCH-022).
+ * `cleanup()` removes the whole dir, is best-effort, and never throws.
+ */
+export function writeTempSourceFile(
+  content: string,
+  ext: string
+): { path: string; cleanup: () => void } {
+  const dir = mkdtempSync(join(tmpdir(), "archgate-ast-"));
+  const cleanup = () => {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // Best effort — a leftover temp dir is harmless.
+    }
+  };
+  try {
+    const path = join(dir, `source${ext}`);
+    writeFileSync(path, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return { path, cleanup };
+  } catch (err) {
+    // File creation failed after the dir was made — remove it before rethrowing
+    // so a failed base parse never leaks the private directory.
+    cleanup();
+    throw err;
+  }
+}
+
+/**
+ * Resolve the file path the Python/Ruby serializer subprocess should read.
+ *
+ * For a working-tree parse this is just the on-disk file. For `{ rev: "base" }`
+ * the base content is not on disk, so it is fetched from git and written to a
+ * throwaway temp file, whose path is returned alongside a `cleanup` thunk the
+ * caller MUST invoke in a `finally`.
+ */
+export async function materializeAstInput(args: {
+  useBase: boolean;
+  absPath: string;
+  ext: string;
+  projectRoot: string;
+  baseRev: string | null;
+  relPath: string;
+  displayPath: string;
+}): Promise<{ sourcePath: string; cleanup?: () => void }> {
+  if (!args.useBase) return { sourcePath: args.absPath };
+  const source = await readBaseSourceOrThrow(
+    args.projectRoot,
+    args.baseRev,
+    args.relPath,
+    args.displayPath
+  );
+  const tmp = writeTempSourceFile(source, args.ext);
+  return { sourcePath: tmp.path, cleanup: tmp.cleanup };
+}
+
+/**
+ * Fold the `{ comments: true }` Python/Ruby subprocess envelope
+ * (`{ _tree, comments }`) back into the shape `ctx.ast()` promises: the tree
+ * with `comments` attached, matching ESTree. Ruby's array tree carries
+ * `comments` as a non-index property; every other output is already the
+ * tree and passes through untouched.
+ */
+export function finalizeAstResult(
+  parsed: Record<string, unknown> | unknown[],
+  language: string,
+  wantComments: boolean
+): Record<string, unknown> | unknown[] {
+  const hasEnvelope = language === "python" || language === "ruby";
+  if (!hasEnvelope || !wantComments || Array.isArray(parsed)) {
+    return parsed;
+  }
+  const tree = parsed._tree as Record<string, unknown> | unknown[] | undefined;
+  if (!tree) return parsed;
+  (tree as { comments?: unknown }).comments = parsed.comments;
+  return tree;
+}
+
+/**
+ * `ctx.findAstNodes()`: collect every node whose type-discriminant field
+ * (`_type` Python, `type` ESTree TS/JS) matches one of `types`; `tree`
+ * itself is a candidate. Ruby's array-shaped sexp nodes carry no
+ * discriminant, so a Ruby tree traverses but never matches. Iterative
+ * preorder with a visited set — deep trees cannot overflow the call stack.
+ */
+export function findAstNodes(
+  tree: EsTreeNode,
+  ...types: string[]
+): EsTreeNode[];
+export function findAstNodes(
+  tree: PythonAstNode,
+  ...types: string[]
+): PythonAstNode[];
+export function findAstNodes(
+  tree: unknown,
+  ...types: string[]
+): (EsTreeNode | PythonAstNode)[];
+export function findAstNodes(
+  tree: unknown,
+  ...types: string[]
+): (EsTreeNode | PythonAstNode)[] {
+  const wanted = new Set(types);
+  const matches: (EsTreeNode | PythonAstNode)[] = [];
+  const visited = new WeakSet<object>();
+
+  // Explicit stack (LIFO) instead of recursion so deeply nested trees can't
+  // overflow the call stack. Children are pushed in reverse so they pop in
+  // original order, preserving preorder match ordering.
+  const pending: unknown[] = [tree];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (!node || typeof node !== "object" || visited.has(node)) continue;
+    visited.add(node);
+    if (Array.isArray(node)) {
+      for (let i = node.length - 1; i >= 0; i--) pending.push(node[i]);
+      continue;
+    }
+    const record = node as Record<string, unknown>;
+    // Prefer `_type` (Python) — a Python node may also carry an unrelated
+    // `type` FIELD (e.g. ExceptHandler's exception type), never vice versa.
+    const discriminant =
+      typeof record._type === "string"
+        ? record._type
+        : typeof record.type === "string"
+          ? record.type
+          : undefined;
+    if (discriminant !== undefined && wanted.has(discriminant)) {
+      matches.push(record as EsTreeNode | PythonAstNode);
+    }
+    const values = Object.values(record);
+    for (let i = values.length - 1; i >= 0; i--) pending.push(values[i]);
+  }
+  return matches;
+}
+
+/**
+ * Cache key for a per-run `ctx.ast()` parse (see `RunCaches.astResults` in
+ * runner.ts): the full tuple that determines the parse output, NUL-joined —
+ * NUL cannot appear in a path, so distinct tuples can never collide.
+ */
+export function astCacheKey(
+  absPath: string,
+  language: AstLanguage,
+  useBase: boolean,
+  wantComments: boolean
+): string {
+  return [
+    absPath,
+    language,
+    useBase ? "base" : "working-tree",
+    wantComments ? "comments" : "no-comments",
+  ].join("\u0000");
 }
 
 /** Extract a readable message from Bun.Transpiler/meriyah parse errors. */

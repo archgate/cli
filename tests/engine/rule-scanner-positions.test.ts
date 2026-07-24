@@ -33,9 +33,9 @@ describe("scanRuleSource position remapping", () => {
     expect(violations).toHaveLength(1);
     expect(violations[0].line).toBe(9);
     expect(violations[0].column).toBe(8);
-    // "Bun.spawn" is 9 chars
+    // The banned `Bun` identifier is 3 chars: endColumn = 8 + 3 = 11.
     expect(violations[0].endLine).toBe(9);
-    expect(violations[0].endColumn).toBe(17);
+    expect(violations[0].endColumn).toBe(11);
   });
 
   test("TypeScript type annotations stripped don't shift lines", () => {
@@ -135,11 +135,11 @@ describe("scanRuleSource position remapping", () => {
     expect(importV).toBeDefined();
     expect(importV!.line).toBe(2);
 
-    const spawnV = violations.find((v) => v.message.includes("Bun.spawn"));
+    const spawnV = violations.find((v) => v.message.includes(`"Bun" global`));
     expect(spawnV).toBeDefined();
     expect(spawnV!.line).toBe(8);
 
-    const fetchV = violations.find((v) => v.message.includes("fetch()"));
+    const fetchV = violations.find((v) => v.message.includes(`"fetch" global`));
     expect(fetchV).toBeDefined();
     expect(fetchV!.line).toBe(11);
   });
@@ -172,10 +172,11 @@ describe("scanRuleSource position remapping", () => {
     ];
     const violations = scanRuleSource(lines.join("\n"));
     expect(violations).toHaveLength(1);
-    expect(violations[0].message).toContain("Bun.spawn()");
+    expect(violations[0].message).toContain(`"Bun" global`);
     expect(violations[0].line).toBe(13);
+    // The banned `Bun` identifier begins at column 23; it is 3 chars.
     expect(violations[0].column).toBe(23);
-    expect(violations[0].endColumn).toBe(32);
+    expect(violations[0].endColumn).toBe(26);
   });
 
   test("inline comments between violations", () => {
@@ -186,11 +187,12 @@ describe("scanRuleSource position remapping", () => {
       "Bun.file('/etc/passwd'); // read a file",
     ].join("\n");
     const violations = scanRuleSource(source);
+    // Both name the `Bun` global; the point is that each maps to its own line.
     expect(violations).toHaveLength(2);
     expect(violations[0].line).toBe(1);
-    expect(violations[0].message).toContain("Bun.spawn()");
+    expect(violations[0].message).toContain(`"Bun" global`);
     expect(violations[1].line).toBe(4);
-    expect(violations[1].message).toContain("Bun.file()");
+    expect(violations[1].message).toContain(`"Bun" global`);
   });
 
   test("violation on first line has correct position", () => {
@@ -200,7 +202,8 @@ describe("scanRuleSource position remapping", () => {
     expect(violations[0].line).toBe(1);
     expect(violations[0].column).toBe(0);
     expect(violations[0].endLine).toBe(1);
-    expect(violations[0].endColumn).toBe(9);
+    // "Bun" is 3 chars.
+    expect(violations[0].endColumn).toBe(3);
   });
 
   test("violation deeply indented has correct column", () => {
@@ -280,7 +283,7 @@ describe("scanRuleSource position remapping", () => {
     expect(violations[0].line).toBe(6);
   });
 
-  test("different Bun APIs on consecutive lines", () => {
+  test("repeated Bun references on consecutive lines each map by occurrence", () => {
     const source = [
       "Bun.spawn([]);",
       "Bun.write('/tmp/x', 'y');",
@@ -288,11 +291,10 @@ describe("scanRuleSource position remapping", () => {
     ].join("\n");
     const violations = scanRuleSource(source);
     expect(violations).toHaveLength(3);
-    expect(violations[0].line).toBe(1);
-    expect(violations[0].message).toContain("Bun.spawn()");
-    expect(violations[1].line).toBe(2);
-    expect(violations[1].message).toContain("Bun.write()");
-    expect(violations[2].line).toBe(3);
-    expect(violations[2].message).toContain("Bun.file()");
+    // Each names the `Bun` global; the Nth code occurrence maps to the Nth line.
+    expect(violations.map((v) => v.line)).toEqual([1, 2, 3]);
+    expect(violations.every((v) => v.message.includes(`"Bun" global`))).toBe(
+      true
+    );
   });
 });

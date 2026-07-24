@@ -1,3 +1,33 @@
+## [0.50.0](https://github.com/archgate/cli/compare/v0.49.0...v0.50.0) (2026-07-17)
+
+### Features
+
+* **engine:** cache ctx.ast() parse results within a single check run ([#487](https://github.com/archgate/cli/issues/487)) ([40b39d3](https://github.com/archgate/cli/commit/40b39d3eca1fee8ec4e6a24ef8a8323f92bcb6af)), closes [#482](https://github.com/archgate/cli/issues/482)
+* **engine:** ctx.findAstNodes() generic AST node collector ([#486](https://github.com/archgate/cli/issues/486)) ([f14b73b](https://github.com/archgate/cli/commit/f14b73b9372ae13f3f20143e2170741eaa8db1a6)), closes [#483](https://github.com/archgate/cli/issues/483)
+* **engine:** support { comments: true } for ctx.ast() Ruby ([#485](https://github.com/archgate/cli/issues/485)) ([36b891f](https://github.com/archgate/cli/commit/36b891f41525442b575698f140a355b776ab4688)), closes [#484](https://github.com/archgate/cli/issues/484)
+
+### Bug Fixes
+
+* **ci:** run PR workflows when a draft is marked ready for review ([#488](https://github.com/archgate/cli/issues/488)) ([ab1fc96](https://github.com/archgate/cli/commit/ab1fc96fd7fd2d11dfbbbfa0d46102a8d23f5290)), closes [#485](https://github.com/archgate/cli/issues/485) [#486](https://github.com/archgate/cli/issues/486)
+
+## [0.49.0](https://github.com/archgate/cli/compare/v0.48.4...v0.49.0) (2026-07-16)
+
+### ⚠ BREAKING CHANGES
+
+* **engine:** block naming runtime globals to close reflective sandbox escapes (#481)
+* **engine:** close rule-file sandbox escapes via module allowlist (#477)
+* **cli:** emit lean agent-facing JSON payloads by default (#476)
+
+### Features
+
+* **cli:** emit lean agent-facing JSON payloads by default ([#476](https://github.com/archgate/cli/issues/476)) ([04affa3](https://github.com/archgate/cli/commit/04affa3ab0659081c0fa3b0e33d1e0b1886fbc96))
+* **engine:** base-revision + comment access for ctx.ast() (closes [#479](https://github.com/archgate/cli/issues/479)) ([#480](https://github.com/archgate/cli/issues/480)) ([49feb1f](https://github.com/archgate/cli/commit/49feb1f7f3895fb98a001892f5917ad384bc25ad)), closes [#477](https://github.com/archgate/cli/issues/477)
+
+### Bug Fixes
+
+* **engine:** block naming runtime globals to close reflective sandbox escapes ([#481](https://github.com/archgate/cli/issues/481)) ([6666df2](https://github.com/archgate/cli/commit/6666df2c61098f354d70ed00da6274a15f454bc1)), closes [#477](https://github.com/archgate/cli/issues/477) [#480](https://github.com/archgate/cli/issues/480)
+* **engine:** close rule-file sandbox escapes via module allowlist ([#477](https://github.com/archgate/cli/issues/477)) ([18db14d](https://github.com/archgate/cli/commit/18db14d45b1d50b632d9f9ce98b93d66cf43d1ae))
+
 ## [0.48.4](https://github.com/archgate/cli/compare/v0.48.3...v0.48.4) (2026-07-13)
 
 ### Performance Improvements

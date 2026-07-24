@@ -4,7 +4,7 @@ Archgate is a CLI tool for AI governance via Architecture Decision Records (ADRs
 
 ## Technology Stack
 
-- **Runtime:** Bun (>=1.2.21) — not Node.js compatible
+- **Runtime:** Bun — not Node.js compatible (minimum version enforced in `src/cli.ts`)
 - **Language:** TypeScript (strict mode, ESNext, ES modules)
 - **CLI framework:** Commander.js (`@commander-js/extra-typings`)
 - **Linter:** Oxlint | **Formatter:** Oxfmt | **Dead exports:** Knip | **Commits:** Conventional Commits
@@ -71,9 +71,9 @@ Entry point: `src/cli.ts` (shebang `#!/usr/bin/env bun`). Commands registered vi
 
 Zod schemas are the single source of truth. Types derived via `z.infer<>` — never define separate interfaces. Use `safeParse()`. Reuse `AdrFrontmatterSchema.shape.*` to avoid duplicating enums.
 
-## npm Distribution
+## Distribution
 
-The npm package is a **thin shim** — it contains only `bin/archgate.cjs`. The shim downloads the platform binary from GitHub Releases on first run and caches it to `~/.archgate/bin/`. All runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary via `bun build --compile`, so they belong in `devDependencies`, not `dependencies`.
+Archgate ships as a compiled binary (`bun build --compile`) published to GitHub Releases, plus **thin shim** packages for each supported ecosystem — npm (`shims/npm/archgate.cjs`), PyPI, RubyGems, Maven, NuGet, and Go (all under `shims/`). A shim bundles no binary: on first run it detects the platform, downloads the matching binary from GitHub Releases, verifies its SHA256 checksum, caches it to `~/.archgate/bin/`, and forwards to it (see ARCH-017). Runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary, so they belong in `devDependencies`, not `dependencies`.
 
 ## Conventions
 

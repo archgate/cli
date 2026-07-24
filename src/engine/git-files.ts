@@ -305,3 +305,59 @@ export async function getFilesChangedSinceRef(
     return [];
   }
 }
+
+/**
+ * Run git and return its stdout, or null when it exits non-zero — instead of
+ * throwing like `runGit`. For the base-revision reads below, a non-zero exit
+ * is an expected, meaningful signal (unknown ref, or a path that did not exist
+ * at that revision), not an error to propagate.
+ */
+async function runGitOrNull(
+  args: string[],
+  cwd: string
+): Promise<string | null> {
+  logDebug("Running (nullable): git", args.join(" "));
+  const proc = Bun.spawn(["git", ...args], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  // Drain both pipes concurrently with the exit wait so a large blob cannot
+  // deadlock the stdout buffer (mirrors runAstSubprocess).
+  const stdoutPromise = new Response(proc.stdout).text();
+  const stderrPromise = new Response(proc.stderr).text();
+  const [exitCode] = await Promise.all([proc.exited, stderrPromise]);
+  const stdout = await stdoutPromise;
+  return exitCode === 0 ? stdout : null;
+}
+
+/**
+ * Resolve the merge base of `ref` and HEAD — the same commit the three-dot
+ * `ref...HEAD` diff in `getFilesChangedSinceRef` resolves against, so
+ * base-revision reads compare against the exact base of the change set.
+ * Returns null when no merge base exists (unrelated histories) or `ref` is
+ * unknown.
+ */
+export async function getMergeBase(
+  projectRoot: string,
+  ref: string
+): Promise<string | null> {
+  const out = await runGitOrNull(["merge-base", ref, "HEAD"], projectRoot);
+  const sha = out?.trim();
+  return sha ? sha : null;
+}
+
+/**
+ * Read a file's contents at a specific revision via `git show <rev>:<path>`.
+ * Returns null when the path is absent at that revision (an added file) or
+ * the revision is unresolvable; a present-but-empty file returns "". `path`
+ * MUST be repo-relative with forward slashes, exactly as it appears in
+ * `changedFiles`/`scopedFiles`; it is passed as an array argument (no shell).
+ */
+export function getFileAtRev(
+  projectRoot: string,
+  rev: string,
+  path: string
+): Promise<string | null> {
+  return runGitOrNull(["show", `${rev}:${path}`], projectRoot);
+}

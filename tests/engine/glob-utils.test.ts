@@ -8,9 +8,36 @@ import { join } from "node:path";
 import { getGitTrackedFiles } from "../../src/engine/git-files";
 import {
   listMatchingFiles,
+  matchLines,
   matchTrackedFiles,
 } from "../../src/engine/glob-utils";
 import { git, safeRmSync } from "../test-utils";
+
+describe("matchLines", () => {
+  test("reports the true 1-based column with a global regex", () => {
+    // Regression: `String.match` with a `/g` pattern strips `.index`, which
+    // collapsed the column to 1. `matchLines` now uses `exec()` so the column
+    // reflects the real match offset.
+    const matches = matchLines("const x = TODO;\n", /TODO/gu, "a.ts");
+    expect(matches).toHaveLength(1);
+    expect(matches[0].line).toBe(1);
+    expect(matches[0].column).toBe(11);
+  });
+
+  test("non-global regex still reports the true column", () => {
+    const matches = matchLines("  needle here\n", /needle/u, "a.ts");
+    expect(matches).toHaveLength(1);
+    expect(matches[0].column).toBe(3);
+  });
+
+  test("does not mutate a caller's stateful global regex", () => {
+    const pattern = /x/gu;
+    matchLines("x\nx\nx\n", pattern, "a.ts");
+    // A leaked lastIndex would make a subsequent test() miss from offset 0.
+    expect(pattern.lastIndex).toBe(0);
+    expect(pattern.test("x")).toBe(true);
+  });
+});
 
 describe("matchTrackedFiles", () => {
   test("matches patterns against the tracked set without touching the filesystem", () => {

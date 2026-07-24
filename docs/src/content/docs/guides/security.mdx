@@ -19,30 +19,38 @@ This means:
 
 Rules receive a `RuleContext` object with sandboxed file operations. All `RuleContext` methods (`readFile`, `readJSON`, `grep`, `grepFiles`, `glob`) are restricted to the project root directory -- path traversal via `../`, absolute paths, and symbolic links are blocked and throw an error.
 
-In addition to the runtime sandbox, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. The scanner parses the rule's AST and blocks files that contain dangerous patterns:
+In addition to the `RuleContext` path restrictions above, Archgate runs a **static analysis security scanner** on every `.rules.ts` file before executing it. Neither is a runtime sandbox -- a rule still executes in-process with your privileges; the scanner is a static gate, and the restrictions apply only to the `RuleContext` API a well-behaved rule uses. Because a rule file runs in-process with the full privileges of whoever runs `archgate check`, any module it can reach is arbitrary code -- so the scanner uses an **allowlist, not a denylist**: a rule may import only a small set of safe modules, and everything else is rejected.
 
-| Pattern                                                            | Blocked |
-| ------------------------------------------------------------------ | ------- |
-| Imports of `node:fs`, `child_process`, `net`, `http`, `vm`, etc.   | Yes     |
-| `Bun.spawn()`, `Bun.write()`, `Bun.file()`, `Bun.$`                | Yes     |
-| `fetch()`                                                          | Yes     |
-| `eval()`, `new Function()`                                         | Yes     |
-| Computed property access (`Bun[variable]`, `globalThis[variable]`) | Yes     |
-| Dynamic `import()` with non-literal argument                       | Yes     |
-| Assignment to `globalThis` or `process.env`                        | Yes     |
+**The only modules a rule file may import** are `node:path`, `node:url`, `node:util`, and `node:crypto` -- utility modules with no filesystem, network, or process capabilities. They must use the `node:` prefix; the bare forms (`path`) can be shadowed by a package in the target project and are blocked. Every other import is rejected, in any form -- static (`import ... from`), dynamic (`await import(...)`, whether the specifier is a literal or a variable), re-exported (`export ... from`), or reached through `require()` / `import.meta.require()`.
 
-If any banned pattern is found, the rule file is **not imported or executed** and `archgate check` exits with an error.
+The scanner also blocks the other ways to reach code or capabilities outside that set:
 
-**Safe modules that are allowed:** `node:path`, `node:url`, `node:util`, `node:crypto` -- these are utility modules with no filesystem, network, or process I/O capabilities.
+| Pattern                                                                | Blocked |
+| ---------------------------------------------------------------------- | ------- |
+| Importing any module other than the four allowed above                 | Yes     |
+| `require()`, `import.meta.require()`                                   | Yes     |
+| `Bun.spawn()`, `Bun.spawnSync()`, `Bun.write()`, `Bun.file()`, `Bun.$` | Yes     |
+| `fetch()`                                                              | Yes     |
+| `eval()`, `new Function()`                                             | Yes     |
+| `process.binding()`, `process.dlopen()` (on any alias of `process`)    | Yes     |
+| Computed property access (`Bun[variable]`, `globalThis[variable]`)     | Yes     |
+| Assignment to `globalThis` or `process.env`                            | Yes     |
+| Bidirectional or invisible Unicode characters ("Trojan Source")        | Yes     |
 
-The scanner raises the bar from "trivial to exploit" to "requires deliberate obfuscation that looks suspicious in code review." Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output.
+If any of these is found, the rule file is **not imported or executed** and `archgate check` exits with an error.
+
+Because the scanner works from the parsed syntax tree, it sees through escapes: `await import("\x6e...")` resolves to the same module name the allowlist checks, so string tricks do not slip past it. The one thing a syntax tree cannot see is a character that makes the rendered source differ from the code that runs -- which is why the scanner also rejects bidirectional and invisible Unicode characters outright.
+
+**Imported rules are scanned too.** When you bring in third-party rules with `archgate adr import`, each `.rules.ts` is scanned -- with a stricter check than first-party rules -- **before it is written to disk**, so an imported pack cannot smuggle in code that your next `archgate check` would execute.
+
+Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output. When a rule needs language tooling -- parsing Python, or comparing a file against its base git revision -- `ctx.ast()` is the sanctioned door; a rule never needs, and cannot open, a subprocess of its own.
 
 ### What rules cannot do
 
 - **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
 - **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
 - **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
-- **Use dangerous APIs** -- the security scanner blocks imports of system modules (`fs`, `child_process`, `net`, etc.), Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), and code generation (`eval`, `new Function`). Rule files that contain these patterns are rejected before execution.
+- **Reach outside the allowlist through a recognized path** -- a rule may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Imports of any other module, Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), subprocess or native-code access (`require`, `process.binding`), and code generation (`eval`, `new Function`) are rejected before execution in their direct, recognized forms. This is a static scan, not a jail: a capability assembled at runtime is a residual it cannot catch, which is why untrusted rule files still warrant review (see below).
 
 ## CI/CD best practices
 
@@ -122,11 +130,11 @@ jobs:
 
 ### Reviewing rules in new repositories
 
-When cloning or forking a repository that uses Archgate, the security scanner automatically blocks dangerous patterns in `.rules.ts` files. However, you should still review rule files before running `archgate check` for the first time:
+When cloning or forking a repository that uses Archgate, the security scanner automatically enforces the import allowlist in `.rules.ts` files. It is a strong first line of defense -- not a complete sandbox -- so you should still review rule files before running `archgate check` for the first time:
 
-- The scanner catches explicit use of banned APIs, but sophisticated obfuscation (e.g., `Reflect.get(Bun, "spawn")`) may bypass it
+- The scanner blocks the direct routes to dangerous capabilities, but it is static analysis, not a jail: anything built at runtime — a property name (`obj[name]` with a computed `name`) or a code string — is opaque to a source scan, so review rule files you do not trust before running them
 - Top-level code that runs on import (before the `check` function is called) is still executed if it passes the scanner
-- Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, etc.) and `ctx.report` for output
+- Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output
 
 ### Credentials
 
