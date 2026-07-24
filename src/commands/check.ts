@@ -132,8 +132,8 @@ export function registerCheckCommand(program: Command) {
         const outputFormat = opts.ci ? "ci" : useJson ? "json" : "console";
 
         // Build the summary once and share it with the reporters, telemetry,
-        // and exit-code resolver. Previously each of those built its own
-        // summary — 3 walks over the same result set.
+        // and exit-code resolver — one walk over the result set instead of
+        // one per consumer.
         const summary = buildSummary(result, { maxWarnings });
 
         if (opts.ci) {

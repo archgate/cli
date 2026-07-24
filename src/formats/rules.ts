@@ -69,11 +69,10 @@ export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
  * A node in the ESTree tree returned for `"typescript"`/`"javascript"`.
- * `type` is the ESTree node discriminant (e.g. `"ImportDeclaration"`,
- * `"CallExpression"`). Only the fields common to every node are typed; the
- * rest of each node's grammar is reachable through the index signature — walk
- * it against the ESTree spec. Note: for `"typescript"`, `loc` refers to the
- * transpiled output (see `ast()`), not the original `.ts` source.
+ * Only the fields common to every node are typed; the rest of each node's
+ * grammar is reachable through the index signature — walk it against the
+ * ESTree spec. For `"typescript"`, `loc` refers to the transpiled output
+ * (see `ast()`), not the original `.ts` source.
  */
 export interface EsTreeNode {
   type: string;
@@ -144,20 +143,11 @@ export interface RuleContext {
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
-   * Parse a source file into its language-native AST.
-   *
-   * The return type is selected by the `language` literal: an
-   * {@link EsTreeProgram} for `"typescript"`/`"javascript"`, a
-   * {@link PythonAstModule} for `"python"`, and a {@link RubyAstNode} for
-   * `"ruby"`. The shapes are language-native and are NOT unified (see
-   * ARCH-022) — walk each against its own grammar.
-   *
-   * TypeScript/JavaScript parse in-process. Python and Ruby require the
-   * corresponding interpreter (`python3`/`python`, `ruby`) on PATH wherever
-   * `archgate check` runs — locally and in CI.
-   *
-   * Throws (never returns null) when the file fails to parse or the required
-   * interpreter is missing; the error message distinguishes the two cases.
+   * Parse a source file into its language-native AST. The return type follows
+   * the `language` literal; shapes are language-native, NOT unified (ARCH-022)
+   * — walk each against its own grammar. TS/JS parse in-process; Python/Ruby
+   * need their interpreter on PATH wherever `archgate check` runs. Throws
+   * (never null) on parse failure or missing interpreter.
    */
   ast(
     path: string,

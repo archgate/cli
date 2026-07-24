@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * Cursor editor integration.
- *
- * Cursor has evolved from an IDE to an agent platform — users primarily
- * use `cursor agent` (CLI) and cloud agents. Archgate components (skills,
- * agents, hooks) are installed directly into Cursor's discovery
- * directories (`~/.cursor/{skills,agents}/`) via an authenticated
- * tarball download, bypassing Cursor's plugin subsystem which is
- * unreliable in CLI mode and absent in cloud environments.
- *
- * `configureCursorSettings` writes a project-level hooks file
- * (`.cursor/hooks.json`) for cloud agent compatibility — cloud VMs
- * have no `~/.cursor/` user config.
+ * Cursor editor integration. Archgate components install directly into
+ * Cursor's discovery directories (`~/.cursor/{skills,agents}/`) via an
+ * authenticated tarball, bypassing the plugin subsystem (unreliable in CLI
+ * mode, absent in cloud environments). `configureCursorSettings` writes a
+ * project-level `.cursor/hooks.json` because cloud VMs have no `~/.cursor/`.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";

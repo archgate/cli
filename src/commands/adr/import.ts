@@ -43,7 +43,7 @@ export function registerAdrImportCommand(adr: Command) {
         const paths = resolvedProjectPaths(projectRoot);
         const useJson = opts.json || isAgentContext();
 
-        // --list: show previously imported ADRs
+        // --list: show ADRs already imported
         if (opts.list) {
           const manifest = await loadImportsManifest(projectRoot);
           if (useJson) {

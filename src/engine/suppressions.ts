@@ -43,16 +43,10 @@ export interface SuppressionResult {
 // --- Parsing ---
 
 /**
- * Matches both `//` and `#` style comments:
- *   // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
- *   // archgate-ignore-file ARCH-005/test-mirrors-src generated file
- *   # archgate-ignore GEN-003/scripts-only Makefile target
- *
- * Capture groups:
- *   1: "-file" or undefined (scope)
- *   2: ADR ID (e.g. "ARCH-006")
- *   3: rule ID (e.g. "no-unapproved-deps")
- *   4: reason text or undefined
+ * Matches `//` and `#` style suppression comments, e.g.
+ * `# archgate-ignore ARCH-006/no-unapproved-deps legacy dep` or the
+ * `archgate-ignore-file` variant. Capture groups: 1 = "-file" scope or
+ * undefined, 2 = ADR ID, 3 = rule ID, 4 = reason text or undefined.
  */
 const SUPPRESSION_RE =
   /^[ \t]*(?:\/\/|#)\s*archgate-ignore(-file)?\s+([\w-]+)\/([\w-]+)(?:\s+(.+))?$/u;
@@ -117,14 +111,10 @@ export function parseSuppressions(
 // --- Filtering ---
 
 /**
- * Apply inline suppressions to rule results.
- *
- * For each violation with a `file` and `line`, checks whether the source file
- * contains an `archgate-ignore` comment on the preceding line (next-line scope)
- * or an `archgate-ignore-file` comment anywhere in the file (file scope).
- *
- * Suppressions without a reason are ignored — a warning is emitted instead.
- * Unused suppressions also produce warnings.
+ * Apply inline suppressions to rule results: a violation with `file`/`line`
+ * is dropped when an `archgate-ignore` comment precedes that line or an
+ * `archgate-ignore-file` comment appears anywhere in the file. Suppressions
+ * without a reason are ignored with a warning; unused ones also warn.
  */
 export async function applySuppressions(
   projectRoot: string,

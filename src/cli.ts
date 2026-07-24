@@ -80,15 +80,10 @@ cleanupStaleBinary();
 async function main() {
   await installGit();
 
-  // Start error tracking and telemetry initialization concurrently but do NOT
-  // await them here. Both SDKs are lazy-loaded via dynamic `import()` inside
-  // these functions, so the `ARCHGATE_TELEMETRY=0` path is a cheap no-op.
-  //
-  // The promise is awaited in the preAction hook — right before the first
-  // telemetry event fires — so `repo_id` is always present on `command_executed`
-  // events (see PR #211). This defers ~150ms of SDK parse + git subprocess cost
-  // off the critical path for --help, --version, and fast-exit commands that
-  // never trigger preAction.
+  // Start error tracking and telemetry initialization concurrently without
+  // awaiting: the preAction hook awaits this promise right before the first
+  // telemetry event fires, so `repo_id` is always present on `command_executed`
+  // events while --help/--version skip the ~150ms SDK + git cost (PR #211).
   const telemetryReady = Promise.all([initSentry(), initTelemetry()]);
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")

@@ -48,15 +48,11 @@ export function getGitTrackedFiles(
   if (cached) return cached;
 
   const promise = (async () => {
-    // `--cached` lists files deleted from the worktree but not yet staged;
-    // a filesystem walk would never return those. Subtract `--deleted` so
-    // in-memory pattern matching (matchTrackedFiles) sees exactly the
-    // files that exist on disk. `--others` entries exist by definition.
-    //
-    // allSettled, not all: in a non-git directory the first spawn rejects,
-    // and Promise.all would return while the sibling git process is still
-    // running with projectRoot as its cwd — on Windows that live cwd handle
-    // locks the directory (EBUSY on removal). Both must fully exit first.
+    // Subtract `--deleted` from `--cached` so in-memory pattern matching
+    // (matchTrackedFiles) sees exactly the files on disk (ARCH-023).
+    // allSettled, not all: both git processes must fully exit before this
+    // returns — a still-running child's cwd handle locks the directory on
+    // Windows (EBUSY on removal).
     const [listed, deleted] = await Promise.allSettled([
       runGit(
         ["ls-files", "--cached", "--others", "--exclude-standard"],
@@ -199,13 +195,10 @@ export async function getChangedFiles(projectRoot: string): Promise<string[]> {
 }
 
 /**
- * Detect the base ref to compare against for branch-level change detection.
- *
- * Resolution order:
- * 1. Remote HEAD symref (e.g. `origin/main`) — fast, local, no network
- * 2. `origin/main` or `origin/master` tracking refs
- * 3. Local `main` or `master` branches (repos without remotes)
- * 4. `null` — detection failed, caller falls back to empty changedFiles
+ * Detect the base ref for branch-level change detection. Resolution order:
+ * remote HEAD symref (e.g. `origin/main`), then `origin/main`/`origin/master`
+ * tracking refs, then local `main`/`master`, then `null` (caller falls back
+ * to empty changedFiles).
  */
 export async function detectBaseRef(
   projectRoot: string
@@ -285,17 +278,11 @@ export async function resolveBaseRef(
 }
 
 /**
- * Get files changed between a base ref and the working tree.
- *
- * Unions three sources so uncommitted work is never silently omitted
- * (see archgate/cli#403):
- * 1. `git diff base...HEAD` — committed branch changes (three-dot diff
- *    finds the merge-base automatically)
- * 2. staged + unstaged edits to tracked files
- * 3. untracked (non-gitignored) files
- *
- * Returns an empty array when the ref cannot be diffed (bad ref or not
- * a git repo), matching the previous behavior.
+ * Get files changed between a base ref and the working tree. Unions committed
+ * branch changes (`git diff base...HEAD`), staged + unstaged edits, and
+ * untracked files so uncommitted work is never silently omitted
+ * (archgate/cli#403). Returns an empty array when the ref cannot be diffed
+ * (bad ref or not a git repo).
  */
 export async function getFilesChangedSinceRef(
   projectRoot: string,

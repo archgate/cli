@@ -292,9 +292,8 @@ describe("tryInstallPlugin via initProject", () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
     // With credentials present, configureEditorSettings (vscode branch) writes
     // the REAL user-level VS Code settings.json — spy it out so the test never
-    // touches user state. (This previously polluted ~/.config/Code/User/
-    // settings.json on CI runners and dev machines, causing order-dependent
-    // failures in vscode-settings.test.ts.)
+    // touches user state; an unspied write pollutes ~/.config/Code/User/ and
+    // causes order-dependent failures in vscode-settings.test.ts.
     const settingsSpy = spyOn(
       vscodeSettings,
       "configureVscodeSettings"

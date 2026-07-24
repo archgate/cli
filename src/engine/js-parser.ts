@@ -11,17 +11,10 @@ import { parseModule, parseScript } from "meriyah";
 export type MeriyahProgram = ReturnType<typeof parseModule>;
 
 /**
- * Parse JavaScript source into an ESTree AST via meriyah.
- *
- * This is the single sanctioned meriyah call site, shared by the rule-file
- * sandbox scanner (`rule-scanner.ts`) and the `ctx.ast()`
- * TypeScript/JavaScript branch in `runner.ts` — per ARCH-022, the parse
- * call must not be duplicated inline at each consumer.
- *
- * `sourceType: "script"` parses sloppy-mode CommonJS (used for `.cjs`
- * files, which cannot legally contain import/export in Node). It enables
- * `globalReturn` because Node allows top-level `return` in CJS modules.
- *
+ * Parse JavaScript source into an ESTree AST via meriyah. The single
+ * sanctioned meriyah call site per ARCH-022, shared by `rule-scanner.ts` and
+ * `ctx.ast()` in `runner.ts`. `sourceType: "script"` parses sloppy-mode
+ * CommonJS with `globalReturn` (Node allows top-level `return` in CJS).
  * Throws on syntax errors; callers decide how to surface them.
  */
 export function parseJsModule(

@@ -274,7 +274,7 @@ describe("_resetAllCaches", () => {
     // Call once to populate the cache.
     const before = await getWindowsHomeDirFromWSL();
     // Reset and re-detect — the platform hasn't changed, so the freshly
-    // detected value must match the previously cached one.
+    // detected value must match the cached one from the first call.
     _resetAllCaches();
     const after = await getWindowsHomeDirFromWSL();
     expect(after).toBe(before);

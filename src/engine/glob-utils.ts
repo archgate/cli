@@ -23,17 +23,10 @@ function safeGlob(pattern: string): void {
 }
 
 /**
- * Expand brace patterns that contain path separators into separate patterns.
- *
- * Bun.Glob scanning silently returns empty results for brace groups whose
- * alternatives contain `/` (e.g. `svc/{src/env.ts,env.ts}`).  match() handles
- * them correctly — only the scanner is broken.  Filed upstream as
- * https://github.com/oven-sh/bun/issues/32596.
- *
- * This function detects `{alt1,alt2,...}` groups where at least one alternative
- * contains `/` and expands them into separate patterns so each one can be
- * scanned individually.  Braces whose alternatives are all simple names (no `/`)
- * are left for Bun.Glob to handle natively.
+ * Expand brace groups whose alternatives contain `/` into separate patterns,
+ * since Bun.Glob scanning silently returns empty results for those
+ * (oven-sh/bun#32596 — match() is unaffected). Braces with only simple
+ * alternatives are left for Bun.Glob to handle natively.
  */
 export function expandBracePattern(pattern: string): string[] {
   const match = pattern.match(/^(.*?)\{([^{}]+)\}(.*)$/u);
@@ -57,15 +50,10 @@ export function expandBracePattern(pattern: string): string[] {
 
 /**
  * Match glob patterns against the git-tracked file list in memory instead of
- * walking the filesystem. On large projects a directory walk visits every
- * entry under node_modules/, .venv/, data/, etc. only to discard them against
- * `trackedFiles` afterwards — per pattern, per rule. Matching the (much
- * smaller) tracked list directly eliminates that traversal entirely.
- *
- * `Bun.Glob#match()` matches dot-prefixed path segments without any option
- * (unlike directory scanning, see ARCH-020) and handles brace groups with
- * path separators correctly (oven-sh/bun#32596 only affects scanning), so
- * callers may pass patterns unexpanded.
+ * walking the filesystem — ARCH-023 explains why this is both faster and
+ * simpler. `Bun.Glob#match()` matches dot-prefixed segments without options
+ * (unlike scanning, see ARCH-020) and handles `/`-containing brace groups
+ * (oven-sh/bun#32596 only affects scanning), so patterns come in unexpanded.
  */
 export function matchTrackedFiles(
   patterns: string[],
@@ -81,16 +69,10 @@ export function matchTrackedFiles(
 
 /**
  * List project files matching a rule-supplied glob pattern, sorted and
- * `/`-normalized.
- *
- * The pattern and every brace-expanded alternative are validated first —
+ * `/`-normalized. Every brace-expanded alternative is validated first —
  * expansion can surface absolute or `..` alternatives hidden inside a brace
- * group (e.g. `{/etc/passwd,src/a.ts}`), and the sandbox contract must hold
- * on both paths below.
- *
- * Fast path: match against the git-tracked file list in memory — avoids
- * walking ignored trees (node_modules/, .venv/, ...) only to discard them
- * afterwards. Fallback (no git repo): walk the filesystem.
+ * group, and the sandbox contract must hold on both paths below. Fast path:
+ * in-memory match against git-tracked files (ARCH-023); fallback: walk.
  */
 export async function listMatchingFiles(
   projectRoot: string,

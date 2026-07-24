@@ -15,6 +15,8 @@
     "max-nested-callbacks": "off",
     "max-depth": "off",
     "archgate/valid-inquirer-prompt-type": "error",
+    "archgate/no-narration-in-comments": "error",
+    "archgate/oversized-comment-blocks": "error",
     "no-await-in-loop": "warn",
     "no-inline-comments": "off",
     "prefer-top-level-await": "off",
@@ -26,6 +28,17 @@
       "rules": {
         "bun-test/expect-expect": "error",
         "test-isolation/no-bare-env-restore": "error"
+      }
+    },
+    {
+      "files": ["tests/**"],
+      "rules": { "archgate/oversized-comment-blocks": "off" }
+    },
+    {
+      "files": ["tests/fixtures/**"],
+      "rules": {
+        "archgate/no-narration-in-comments": "off",
+        "archgate/oversized-comment-blocks": "off"
       }
     },
     {

@@ -11,7 +11,7 @@ Code comments and memory entries must be concise. Do not write multi-paragraph e
 
 **How to apply:**
 
-- Code/workflow comments: one line stating _what_ and, if truly non-obvious, a terse _why_ — not a paragraph with timelines or backstory. Link to a PR/issue/commit for detail instead of inlining it.
+- Code/workflow comments: one line stating _what_ and, if truly non-obvious, a terse _why_ — not a paragraph with timelines or backstory. Link to a PR/issue/commit for detail instead of inlining it. Since 2026-07-24 this is machine-enforced by GEN-004 (max 5 prose lines per run, no history/relocation narration) via both `bun run lint` and `archgate check`.
 - Memory entries (`MEMORY.md` bullets and topic files): lead with the rule in one line; keep **Why:**/**How to apply:** to single short sentences, not multi-clause narratives with timestamps and evidence trails.
 - If tempted to write a long comment or memory entry to "preserve context," prefer a short pointer (file/PR reference) over inlining the full story.
 - Applies to all future sessions in this repo — re-check comment/memory length before writing.

@@ -74,11 +74,10 @@ declare type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
  * A node in the ESTree tree returned for "typescript"/"javascript". \`type\`
- * is the ESTree node discriminant (e.g. "ImportDeclaration",
- * "CallExpression"). Only the fields common to every node are typed; the rest
- * of each node's grammar is reachable through the index signature. Note: for
- * "typescript", \`loc\` refers to the transpiled output (see \`ast()\`), not
- * the original .ts source.
+ * is the ESTree node discriminant (e.g. "CallExpression"); only fields common
+ * to every node are typed, the rest is reachable through the index signature.
+ * For "typescript", \`loc\` refers to the transpiled output (see \`ast()\`),
+ * not the original .ts source.
  */
 declare interface EsTreeNode {
   type: string;
@@ -146,19 +145,11 @@ declare interface RuleContext {
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
-   * Parse a source file into its language-native AST.
-   *
-   * The return type is selected by the \`language\` literal: an
-   * \`EsTreeProgram\` for "typescript"/"javascript", a \`PythonAstModule\` for
-   * "python", and a \`RubyAstNode\` for "ruby". The shapes are language-native
-   * and are NOT unified — walk each against its own grammar.
-   *
-   * TypeScript/JavaScript parse in-process. Python and Ruby require the
-   * corresponding interpreter (\`python3\`/\`python\`, \`ruby\`) on PATH
-   * wherever \`archgate check\` runs — locally and in CI.
-   *
-   * Throws (never returns null) when the file fails to parse or the required
-   * interpreter is missing; the error message distinguishes the two cases.
+   * Parse a source file into its language-native AST. The return shape
+   * follows the \`language\` literal and is NOT unified across languages —
+   * walk each against its own grammar. TS/JS parse in-process; "python" and
+   * "ruby" need their interpreter on PATH wherever \`archgate check\` runs.
+   * Throws when the file fails to parse or the interpreter is missing.
    */
   ast(
     path: string,
@@ -190,10 +181,7 @@ export default {
   rules: {
     // "rule-name": {
     //   description: "What this rule checks",
-    //   async check(ctx) {
-    //     // Use ctx.scopedFiles, ctx.readFile(), ctx.grep(), etc.
-    //     // ctx.report.violation({ message: "..." });
-    //   },
+    //   async check(ctx) { ctx.report.violation({ message: "..." }); },
     // },
   },
 } satisfies RuleSet;
@@ -230,14 +218,10 @@ async function ensureShimAt(dtsPath: string, expected: string): Promise<void> {
 }
 
 /**
- * Ensure rules.d.ts exists and is up-to-date. Skips the disk write when the
- * on-disk content already matches — `archgate check` calls this every run,
- * and the content only changes when the CLI version changes.
- *
- * When `customAdrsDir` is provided and differs from the default
- * `.archgate/adrs/`, a copy of `rules.d.ts` is also written to the parent
- * of that directory so that companion `.rules.ts` files' triple-slash
- * `/// <reference path="../rules.d.ts" />` resolves correctly.
+ * Ensure rules.d.ts exists and is up-to-date, skipping the disk write when
+ * the on-disk content already matches. When `customAdrsDir` differs from the
+ * default `.archgate/adrs/`, a copy also lands next to that directory so the
+ * companion files' triple-slash reference resolves.
  */
 export async function ensureRulesShim(
   projectRoot: string,

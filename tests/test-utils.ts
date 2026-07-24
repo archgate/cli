@@ -28,8 +28,8 @@ export async function git(args: string[], cwd: string): Promise<string> {
 }
 
 /**
- * Restore an environment variable to a previously captured value, deleting it
- * when that value was `undefined`.
+ * Restore an environment variable to a captured value, deleting it when that
+ * value was `undefined`.
  *
  * `Bun.env.X = undefined` assigns the literal string `"undefined"` rather than
  * unsetting the key, so the common

@@ -22,7 +22,7 @@ import { restoreEnv } from "../test-utils";
 
 /**
  * Bulk form of `restoreEnv` for the snapshot-many-vars pattern used below:
- * restores saved env vars, deleting keys that were originally unset.
+ * restores saved env vars, deleting keys that were unset at capture time.
  *
  * Neither `Object.assign(process.env, saved)` nor a plain `env[k] = v` loop
  * works — both stringify `undefined` into the literal "undefined", corrupting

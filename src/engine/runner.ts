@@ -89,15 +89,11 @@ function safePath(resolvedRoot: string, userPath: string): string {
 const RULE_TIMEOUT_MS = 30_000;
 
 /**
- * Per-invocation caches shared across every rule context in a check run.
- * Rules overwhelmingly glob the same patterns and read the same files —
- * without these caches, 40+ rules each repeat identical filesystem work.
- *
- * Values are promises so concurrent rules share in-flight work instead of
- * racing to duplicate it. Only immutable results are cached: glob results
- * are copied on return, file contents are strings. `readJSON` is deliberately
- * NOT cached — rules receive a mutable object, and sharing one instance
- * would leak mutations between rules.
+ * Per-invocation caches shared across every rule context in a check run, so
+ * rules globbing the same patterns and reading the same files share the work.
+ * Values are promises so concurrent rules share in-flight work; only
+ * immutable results are cached — `readJSON` deliberately is not, since a
+ * shared mutable object would leak mutations between rules.
  */
 interface RunCaches {
   /** Glob results keyed by `tracked:`/`all:` + pattern. */
@@ -253,11 +249,9 @@ function createRuleContext(
     }
 
     // Guardrail 4: guarded invocation — array args only, path via argv.
-    // Python runs in isolated mode (-I): without it, `python -c` puts the
-    // cwd (the target project root) on sys.path, so a hostile project
-    // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
-    // code when the serializer imports them. Ruby is safe as-is — its
-    // load path has not included the cwd since 1.9.2.
+    // Python runs in isolated mode (-I) so a hostile project cannot shadow
+    // stdlib modules via sys.path; Ruby's load path excludes the cwd.
+    // Full RCE-surface rationale lives in ARCH-022.
     const cmd =
       language === "python"
         ? [interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]

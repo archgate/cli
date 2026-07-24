@@ -11,16 +11,10 @@ export default {
       severity: "error",
       async check(ctx) {
         // ── 1. Discover subcommand names from src/commands/ ──────────────
-        //
-        // Top-level command groups live at src/commands/<parent>/index.ts.
-        // Direct subcommands are either:
-        //   src/commands/<parent>/<sub>.ts          (single-file subcommand)
-        //   src/commands/<parent>/<sub>/index.ts    (nested command group)
-        //
-        // We only look one level deep: <parent>/<sub>. Files like
-        // src/commands/adr/domain/add.ts are sub-subcommands of "adr domain"
-        // and are NOT checked by this rule (they are documented in the
-        // "adr domain" section as a table, not as separate headings).
+        // Direct subcommands of a group (src/commands/<parent>/index.ts) are
+        // <parent>/<sub>.ts or <parent>/<sub>/index.ts. Only one level deep
+        // is checked: deeper files like adr/domain/add.ts are sub-subcommands
+        // documented as a table in the parent's section, not as headings.
 
         // Find all parent command groups (dirs with an index.ts).
         const groupIndexFiles = await ctx.glob(`${COMMANDS_DIR}/*/index.ts`);

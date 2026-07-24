@@ -1,35 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * prompt.ts — Windows terminal fix for inquirer prompts.
- *
- * When inquirer creates a readline interface on Windows, the runtime enables
- * Virtual Terminal Processing (VTP) on the console output handle. VTP mode
- * sets the `DISABLE_NEWLINE_AUTO_RETURN` flag, which causes bare `\n` (LF)
- * to move the cursor down WITHOUT returning to column 0. The runtime never
- * restores the original console mode when the readline closes — so ALL
- * subsequent output is affected, not just the prompt itself.
- *
- * This is a runtime bug (Node.js/Bun should restore the console mode in
- * rl.close()), tracked upstream at:
- *   https://github.com/SBoudrias/Inquirer.js/issues/2123
- *
- * Until the runtime fixes this, we work around it by:
- *
- * 1. Patching `process.stdout.write` / `process.stderr.write` to translate
- *    bare `\n` → `\r\n`. This fixes inquirer's own rendering (which writes
- *    through the JS stream API) and any code that uses the stream API.
- *
- * 2. Redirecting `console.log`, `.error`, `.warn`, `.info`, `.debug` through
- *    the patched stream writes. Bun's native console methods write directly
- *    to the file descriptor for performance, bypassing the JS stream API —
- *    so the stream-level patch alone cannot fix them.
- *
- * Both patches are applied once (idempotent) and persist for the lifetime
- * of the process.
- *
- * `withPromptFix()` ensures the patches are active before running a prompt
- * and resets the cursor to column 0 afterward.
+ * Windows terminal fix for inquirer prompts: patches stream writes (LF → CRLF)
+ * and redirects console methods through them, because a prompt permanently
+ * leaves the console in a mode where bare LF does not return the cursor to
+ * column 0. Full background and the wrapper contract live in ARCH-019
+ * (.archgate/adrs/ARCH-019-inquirer-prompt-fix.md).
  */
 
 import { cursorTo } from "node:readline";
@@ -57,15 +33,10 @@ function toCrlf(text: string): string {
 let patched = false;
 
 /**
- * On Windows, apply a permanent, idempotent patch so that ALL console output
- * uses `\r\n` instead of bare `\n`. Covers:
- *
- * - `process.stdout.write` / `process.stderr.write` (stream-level — used by
- *   inquirer's readline pipeline)
- * - `console.log` / `.info` / `.error` / `.warn` / `.debug` (console-level —
- *   Bun writes these directly to the fd, bypassing the JS stream API)
- *
- * On non-Windows platforms this is a no-op. Calling it multiple times is safe.
+ * Apply a permanent, idempotent patch so ALL console output uses `\r\n`:
+ * stream-level (`process.stdout.write` / `process.stderr.write`) plus
+ * console-level (`console.log` etc., which Bun writes straight to the fd,
+ * bypassing the JS stream API). Safe to call multiple times.
  */
 function ensureNewlinePatches(): void {
   if (patched) return;
@@ -102,12 +73,8 @@ function patchStreamWrite(stream: NodeJS.WriteStream): void {
 
 /**
  * Redirect `console.log`, `.info`, `.error`, `.warn`, and `.debug` through
- * `process.stdout.write` / `process.stderr.write` so the stream-level
- * `\n` → `\r\n` translation applies to them as well.
- *
- * Bun's native console methods write directly to the file descriptor for
- * performance, bypassing the JavaScript stream API entirely. Without this
- * redirect, patching `process.stdout.write` has no effect on `console.log`.
+ * the patched stream writes. Bun's native console methods write directly to
+ * the file descriptor, so the stream-level patch alone cannot reach them.
  */
 function patchConsoleMethods(): void {
   for (const method of ["log", "info"] as const) {
@@ -130,13 +97,9 @@ function patchConsoleMethods(): void {
 
 /**
  * Execute an async function (typically an `inquirer.prompt()` call) with the
- * Windows newline fix active. The patches are applied once and persist — they
- * are NOT removed after the prompt because the runtime permanently changes
- * the console mode. After the function resolves, the cursor is reset to
- * column 0 (another quirk where the cursor is left at a non-zero column
- * after a prompt answer is rendered).
- *
- * On non-Windows platforms only the cursor reset is applied.
+ * Windows newline fix active, then reset the cursor to column 0. The patches
+ * persist for the process lifetime because the console-mode change they
+ * compensate for is itself permanent (ARCH-019). No-op on non-Windows.
  */
 export async function withPromptFix<T>(fn: () => Promise<T>): Promise<T> {
   if (!isWindows()) return fn();

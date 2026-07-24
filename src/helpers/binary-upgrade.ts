@@ -69,14 +69,12 @@ const GitHubReleaseSchema = z.object({ tag_name: z.string().optional() });
 const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
 /**
- * Fetch the latest version tag from GitHub Releases.
- * Returns the tag (e.g. "v0.13.1") or null on failure.
+ * Fetch the latest version tag from GitHub Releases — returns the tag
+ * (e.g. "v0.13.1") or null on failure.
  *
- * @param timeoutMs Request timeout. Use a short value (e.g. 5s) for the
- *                  opportunistic background update check at CLI startup so
- *                  a slow network never delays the user's command. The
- *                  longer default (15s) is reserved for the explicit
- *                  `archgate upgrade` path where the user is waiting for it.
+ * @param timeoutMs Short (e.g. 5s) for the background update check at CLI
+ *                  startup so a slow network never delays the user's
+ *                  command; the 15s default is for `archgate upgrade`.
  */
 export async function fetchLatestGitHubVersion(
   timeoutMs = 15_000
@@ -316,21 +314,11 @@ export function replaceBinary(
 // ---------------------------------------------------------------------------
 
 /**
- * Attempt to delete the leftover `.old` binary from a previous upgrade.
- *
- * On Windows, `replaceBinary()` renames the running exe to `.old` because the
- * OS file-locks the running binary.  The `.old` file cannot be deleted during
- * that same process — but it is guaranteed to be unlocked by the time the
- * *next* CLI invocation starts.
- *
- * The cleanup is platform-agnostic: it resolves the correct binary name for
- * the current platform and attempts to remove `<binary>.old` from the install
- * directory.  On Unix the `.old` file is unlikely to exist (rename is atomic),
- * but running the check everywhere keeps the logic unified.
- *
- * Call this once at CLI startup (fire-and-forget, no `await`).  Errors are
- * silently swallowed — cleanup is best-effort and must never affect the
- * user's command.
+ * Attempt to delete the leftover `.old` binary from a prior upgrade. On
+ * Windows the running exe is file-locked, so `replaceBinary()` renames it to
+ * `.old`; it is unlocked by the next CLI invocation, which is when this
+ * runs. Call once at CLI startup, fire-and-forget — errors are swallowed
+ * because cleanup is best-effort and must never affect the user's command.
  */
 export function cleanupStaleBinary(): Promise<void> {
   const artifact = getArtifactInfo();

@@ -1,16 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * opencode-settings.ts — Configure opencode user-scope settings.
- *
- * Writes `opencode.json` to the XDG config directory
- * (`~/.config/opencode/opencode.json`) with `default_agent` set to
- * `archgate-developer`. Merges additively — existing user settings
- * are preserved.
- *
- * opencode resolves its config via `xdg-basedir`, which falls back to
- * `~/.config` on all platforms (including Windows). The path resolution
- * uses `opencodeConfigDir()` from `paths.ts`.
+ * Configure opencode user-scope settings: writes `opencode.json` in the XDG
+ * config directory (resolved by `opencodeConfigDir()` in `paths.ts`) with
+ * `default_agent: archgate-developer`, merging additively so existing user
+ * settings are preserved.
  */
 
 import { existsSync, mkdirSync } from "node:fs";

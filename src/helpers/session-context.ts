@@ -10,25 +10,11 @@ import type { EditorTarget } from "./init-project";
 import { isWSL, toWindowsPath } from "./platform";
 
 /**
- * Encode a project root path into the directory name used by Claude/Cursor
- * for storing session files under `~/.claude/projects/` or `~/.cursor/projects/`.
- *
- * Replaces path separators (`\`, `/`) and dots (`.`) with dashes (`-`).
- * Drive-letter colons (`:`) are handled per-tool: Claude Code replaces them
- * with dashes while Cursor strips them entirely.
- *
- * Examples (target = "claude", the default):
- * - `/home/user/project`          → `-home-user-project`
- * - `C:\Users\user\project`       → `C--Users-user-project`
- * - `E:\foo\.claude\worktrees\x`  → `E--foo--claude-worktrees-x`
- *
- * Examples (target = "cursor"):
- * - `/home/user/project`          → `-home-user-project`
- * - `C:\Users\user\project`       → `C-Users-user-project`
- * - `E:\foo\.claude\worktrees\x`  → `E-foo--claude-worktrees-x`
- *
- * In WSL, converts to the Windows path first so the encoded name matches
- * what the Windows-side editor uses.
+ * Encode a project root into the session-directory name under
+ * `~/.claude/projects/` or `~/.cursor/projects/`: separators (`\`, `/`) and
+ * dots become dashes; drive-letter colons become dashes for Claude Code
+ * (`C:\Users\x` → `C--Users-x`) but are stripped by Cursor (`C-Users-x`).
+ * In WSL, converts to the Windows path first to match the Windows-side editor.
  */
 export async function encodeProjectPath(
   projectRoot: string,

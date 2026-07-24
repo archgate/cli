@@ -16,13 +16,10 @@ export default {
         "Every top-level CLI command (src/commands/<name>.ts or src/commands/<name>/index.ts) must have a corresponding reference page at docs/src/content/docs/reference/cli/<name>.mdx, and vice versa",
       severity: "error",
       async check(ctx) {
-        // Discover top-level command names from src/commands/.
-        // Per ARCH-001, top-level commands live at either
-        //   src/commands/<name>.ts           — single-file command
-        //   src/commands/<name>/index.ts     — command group
-        // Nested files like src/commands/<name>/create.ts or
-        // src/commands/<name>/<sub>/index.ts are subcommands and NOT
-        // independent top-level commands.
+        // Discover top-level command names from src/commands/. Per ARCH-001
+        // they live at src/commands/<name>.ts (single-file) or
+        // src/commands/<name>/index.ts (command group); nested files are
+        // subcommands, not independent top-level commands.
         const commandNames = new Set<string>();
 
         const topLevelFiles = await ctx.glob(`${COMMANDS_DIR}/*.ts`);

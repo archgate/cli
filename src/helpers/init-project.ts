@@ -313,12 +313,10 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
     const { isOpencodeAvailable, installOpencodePlugin } =
       await import("./plugin-install");
 
-    // Writing agent markdown to `~/.config/opencode/agents/` is only useful
-    // if opencode is actually installed — otherwise we leave stale files in
-    // a directory nothing reads. `isOpencodeAvailable()` recognizes both the
-    // CLI (on PATH) and the Desktop app (no CLI, but shares the same
-    // user-scope config directory), mirroring the detect-before-install
-    // guard that every other editor's install path already uses.
+    // Install only when opencode exists — otherwise the agent markdown lands
+    // in a directory nothing reads. `isOpencodeAvailable()` recognizes both
+    // the CLI (on PATH) and the Desktop app (no CLI, same user-scope config
+    // dir), mirroring every other editor's detect-before-install guard.
     if (!(await isOpencodeAvailable())) {
       return {
         installed: true,

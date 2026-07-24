@@ -86,13 +86,10 @@ puts JSON.generate(sexp, max_nesting: false)
 `;
 
 /**
- * Candidate executable names per language, in probe order. `python3` is not
- * a universal PATH alias on Windows (the common installer exposes `python`),
- * so the order flips per platform (ARCH-009's isWindows()). Windows also
- * probes the `py` launcher last — the python.org installer registers it
- * unconditionally even when "Add python.exe to PATH" is left unchecked, and
- * the probe already rejects a stale launcher with no registered CPython
- * (`py --version` exits non-zero).
+ * Candidate executable names per language, in probe order. The order flips
+ * per platform (ARCH-009's isWindows()): Windows commonly exposes `python`
+ * and the `py` launcher rather than `python3` — see ARCH-022 for the
+ * interpreter-probe rationale.
  */
 export function interpreterCandidates(language: "python" | "ruby"): string[] {
   if (language === "ruby") return ["ruby"];

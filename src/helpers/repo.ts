@@ -1,23 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * repo.ts — Detect the git repository context for telemetry enrichment.
- *
- * Every event carries:
- *   - `repo_host`: "github" | "gitlab" | "bitbucket" | "azure-devops" | "other" | null
- *   - `repo_id`: sha256 hash of the normalized remote URL, truncated to 16
- *     hex chars. Stable per repo, but non-reversible — you can count distinct
- *     repos using the CLI without learning any identity.
- *   - `repo_is_git`: whether the CWD is a git working tree at all
- *   - `git_default_branch`: best-effort "main" / "master" / etc.
- *
- * The raw remote URL and parsed owner/name are *only* sent on the one-time
- * `project_initialized` event, and *only* when the repository is confirmed
- * public via the host's unauthenticated API. See `repo-probe.ts` for that
- * logic; this module stays local-only (git + URL parsing).
- *
- * Cached per-process because the git remote and default branch are effectively
- * immutable over the lifetime of a single CLI invocation.
+ * repo.ts — Local-only (git + URL parsing) repository context for telemetry:
+ * `repo_host`, `repo_id` (truncated sha256 of the normalized remote URL —
+ * non-reversible), `repo_is_git`, and `git_default_branch`, cached
+ * per-process. Raw URL/owner/name ship only on `project_initialized` for
+ * confirmed-public repos — that probe lives in `repo-probe.ts`.
  */
 
 import { createHash } from "node:crypto";
@@ -160,17 +148,10 @@ function pickDefaultBranch(
 }
 
 /**
- * Should the CLI include owner / name / full remote URL in the
- * `project_initialized` event?
- *
- * Rule: share iff the repository is confirmed public on a recognised host.
- * Private, unknown, and self-hosted repos always return false.
- *
- * There's no identity-specific opt-out knob — if a user doesn't want *any*
- * telemetry, including the identity event, they disable telemetry itself
- * (`ARCHGATE_TELEMETRY=0` or `archgate telemetry disable`). The whole event
- * is then suppressed upstream. Adding a separate identity opt-out would be
- * redundant and asymmetric with how every other field is gated.
+ * Share owner/name/remote URL in `project_initialized` iff the repository is
+ * confirmed public on a recognised host; private, unknown, and self-hosted
+ * repos return false. There is deliberately no identity-specific opt-out
+ * knob — disabling telemetry itself suppresses the whole event upstream.
  */
 export function shouldShareRepoIdentity(repoPublic: boolean | null): boolean {
   return repoPublic === true;
@@ -181,15 +162,10 @@ export function shouldShareRepoIdentity(repoPublic: boolean | null): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Parse a git remote URL into host + owner + name.
- *
- * Handles:
- *   - GitHub / GitLab / Bitbucket HTTPS and SCP-style SSH URLs
- *   - GitLab subgroups (`gitlab.com/foo/sub/bar` → owner=`foo/sub`, name=`bar`)
- *   - Azure DevOps (`dev.azure.com`) HTTPS and SSH URLs, including the
- *     `_git` path infix and the `v3` SSH prefix
- *   - Legacy Azure DevOps `{org}.visualstudio.com` URLs where the org is
- *     encoded in the subdomain rather than the path
+ * Parse a git remote URL into host + owner + name. Handles GitHub / GitLab /
+ * Bitbucket HTTPS and SCP-style SSH URLs, GitLab subgroups, Azure DevOps
+ * HTTPS/SSH (including the `_git` infix and `v3` SSH prefix), and legacy
+ * `{org}.visualstudio.com` URLs with the org encoded in the subdomain.
  */
 export function parseRemoteUrl(raw: string): ParsedRemote {
   const trimmed = raw.trim();
@@ -225,12 +201,10 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
   path = path.replace(/\.git\/?$/u, "").replace(/\/$/u, "");
   let segments = path.split("/").filter(Boolean);
 
-  // Azure DevOps URL quirks:
-  //   - HTTPS  (modern):  /{org}/{project}/_git/{repo}
-  //   - HTTPS  (legacy):  /{project}/_git/{repo} on {org}.visualstudio.com
-  //   - SSH    (v3 path): v3/{org}/{project}/{repo}
-  // Strip the structural markers (`_git`, `v3`) and, for legacy URLs, pull
-  // the org out of the subdomain.
+  // Azure DevOps quirks: /{org}/{project}/_git/{repo} (HTTPS),
+  // /{project}/_git/{repo} on {org}.visualstudio.com (legacy), and
+  // v3/{org}/{project}/{repo} (SSH). Strip the structural markers (`_git`,
+  // `v3`) and, for legacy URLs, pull the org out of the subdomain.
   if (classified === "azure-devops") {
     segments = segments.filter((s) => s !== "_git" && s !== "v3");
 

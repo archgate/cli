@@ -2,12 +2,10 @@
 
 /**
  * Identifiers that must appear, in this order, inside the `ast()` method of
- * `createRuleContext()` (src/engine/runner.ts). Each anchors one of the four
- * mandated guardrails:
- *   1. safePath                — path sandbox (same as readFile/glob)
- *   2. AST_LANGUAGE_EXTENSIONS — language plausibility check
- *   3. probeInterpreter        — interpreter availability probe
- *   4. runAstSubprocess        — guarded array-args invocation
+ * `createRuleContext()` (src/engine/runner.ts). Each anchors one mandated
+ * guardrail: safePath (path sandbox), AST_LANGUAGE_EXTENSIONS (language
+ * plausibility), probeInterpreter (interpreter probe), runAstSubprocess
+ * (guarded array-args invocation).
  */
 const GUARDRAIL_SEQUENCE = [
   "safePath",

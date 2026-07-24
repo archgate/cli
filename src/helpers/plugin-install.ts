@@ -127,19 +127,11 @@ export async function installClaudePlugin(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Install the archgate Cursor components into user-scope discovery dirs.
- *
- * Cursor discovers skills and agents from `~/.cursor/{skills,agents}/`.
- * The tarball from /api/cursor contains these at its root:
- *   - skills/archgate-{name}/SKILL.md — skill definitions
- *   - agents/archgate-{name}.md — agent definitions
- *   - hooks.json — afterFileEdit hook for archgate check
- *
- * After extraction, `hooks.json` is merged into `~/.cursor/hooks.json`
- * (rather than extracted as-is) to avoid overwriting existing user hooks.
- *
- * Throws on download or extraction failure so callers can surface a manual
- * retry hint.
+ * Install the archgate Cursor components into user-scope discovery dirs
+ * (`~/.cursor/{skills,agents}/`). The /api/cursor tarball root holds
+ * per-skill SKILL.md directories, agent markdown files, and a `hooks.json`
+ * that is merged into `~/.cursor/hooks.json` to preserve existing user hooks.
+ * Throws on download or extraction failure so callers can surface a retry hint.
  */
 export async function installCursorPlugin(token: string): Promise<void> {
   const cursorDir = cursorUserDir();
@@ -227,22 +219,11 @@ async function downloadPluginAsset(
 // ---------------------------------------------------------------------------
 
 /**
- * Install an archgate editor plugin bundle (agents + skills).
- *
- * Shared by Cursor and opencode — both follow the same pattern:
- *   1. Ensure `agents/` and `skills/` subdirectories exist
- *   2. Clean previous archgate files (avoids dangling/renamed artifacts)
- *   3. Download and extract the authenticated tarball
- *
- * Old archgate files are removed via `Bun.Glob` before extraction so
- * renamed or removed components don't linger. Only `archgate-*` entries
- * are touched — other editors'/users' files are left untouched.
- *
- * Uses `tar` via `Bun.spawn` (ARCH-007) — `tar` is available on macOS,
- * Linux, and modern Windows (bsdtar ships with Windows 10+).
- *
- * Editor-specific post-install steps (hooks merging, settings config) are
- * handled by each editor's install function after this returns.
+ * Install an archgate editor plugin bundle (agents + skills), shared by
+ * Cursor and opencode: ensure `agents/`/`skills/` exist, delete stale
+ * `archgate-*` entries (only those — other files stay untouched), then
+ * download and extract the authenticated tarball with `tar` via ARCH-007's
+ * `run()`. Editor-specific post-install steps happen in each caller.
  */
 async function installEditorPluginBundle(opts: {
   baseDir: string;
@@ -315,15 +296,10 @@ export async function isOpencodeCliAvailable(): Promise<boolean> {
 
 /**
  * Check whether opencode is installed in any form — the CLI on PATH, or the
- * opencode Desktop app (Electron-based GUI, ships no CLI binary at all).
- *
- * Both distributions read agents/skills from the same user-scope config
- * directory (`opencodeConfigDir()` — see its doc comment for the exact
- * resolution rules), so a directory that already exists there is reliable
- * evidence opencode has been run and initialized on this machine, even when
- * `isOpencodeCliAvailable()` finds nothing. This is what call sites should
- * use to decide whether to attempt the plugin install, which itself never
- * shells out to a CLI — it only writes files into that shared directory.
+ * Desktop app (Electron GUI, no CLI binary). Both distributions share
+ * `opencodeConfigDir()`, so that directory existing is reliable evidence of
+ * an opencode install even when the CLI probe finds nothing. Call sites use
+ * this to gate the plugin install, which only writes files into that dir.
  */
 export async function isOpencodeAvailable(): Promise<boolean> {
   if (await isOpencodeCliAvailable()) return true;
@@ -332,14 +308,10 @@ export async function isOpencodeAvailable(): Promise<boolean> {
 
 /**
  * Install archgate agents and skills into opencode's user-scope directories.
- *
- * Opencode has no plugin marketplace — agents and skills are plain markdown
- * files. Archgate ships them as an authenticated tarball at `/api/opencode`.
- * The tarball contains `agents/` and `skills/` directories which extract
- * into the resolved `opencodeConfigDir()`.
- *
- * Throws on download or extraction failure so callers can surface a manual
- * retry hint.
+ * Opencode has no plugin marketplace — the `/api/opencode` tarball ships
+ * plain-markdown `agents/` and `skills/` directories that extract into
+ * `opencodeConfigDir()`. Throws on download or extraction failure so
+ * callers can surface a manual retry hint.
  */
 export async function installOpencodePlugin(token: string): Promise<void> {
   const baseDir = opencodeConfigDir();

@@ -241,13 +241,10 @@ export async function removeCustomDomain(
 }
 
 /**
- * Resolve project paths with config-aware overrides.
- *
- * Reads `.archgate/config.json` and applies any custom `paths.adrs` or
- * `paths.rules` overrides. When `paths.rules` is not set, rules are
- * loaded from the same directory as ADRs (co-location convention).
- * Falls back to the standard `.archgate/adrs/` and `.archgate/lint/`
- * defaults when no `paths` config is present.
+ * Resolve project paths with config-aware overrides: reads
+ * `.archgate/config.json` and applies custom `paths.adrs` / `paths.rules`.
+ * Unset `paths.rules` means rules co-locate with ADRs; no `paths` config at
+ * all means the standard `.archgate/adrs/` and `.archgate/lint/` defaults.
  */
 export function resolvedProjectPaths(projectRoot: string): {
   root: string;

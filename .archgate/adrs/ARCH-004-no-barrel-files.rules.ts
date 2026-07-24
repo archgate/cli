@@ -1,16 +1,11 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * A Program body is barrel-shaped when every top-level statement is purely
- * import/re-export plumbing:
- * - ImportDeclaration            — `import { x } from "./y"` / `import "./y"`
- * - ExportAllDeclaration         — `export * from "./y"`
- * - ExportNamedDeclaration with  — `export { x } from "./y"` / `export { x }`
- *   declaration === null
- *
- * Anything else — `export const x = ...`, `export default ...`, function or
- * class declarations, expression statements — is executable logic, so the
- * file is not a barrel.
+ * A Program body is barrel-shaped when every top-level statement is pure
+ * import/re-export plumbing: ImportDeclaration, ExportAllDeclaration, or
+ * ExportNamedDeclaration with a null declaration. Anything else (`export
+ * const`, `export default`, function/class declarations, expression
+ * statements) is executable logic, so the file is not a barrel.
  */
 function isReExportOnlyBody(body: EsTreeNode[]): boolean {
   return body.every((node) => {
@@ -25,16 +20,10 @@ function isReExportOnlyBody(body: EsTreeNode[]): boolean {
 
 /**
  * Fallback for files whose transpiled Program body is EMPTY: ctx.ast()
- * transpiles TypeScript before parsing, which erases type-only syntax
- * (`export type { X } from "./y"`, `import type ...`), so a pure
- * type-re-export barrel parses to an empty Program. Conservatively inspect
- * the source: strip comments and blank space, then require every remaining
- * statement to start with `import` or `export`. A comment-only/empty file
- * is not a barrel.
- *
- * Handles multi-line statements (e.g. `export type {\n  A,\n} from ...`)
- * by tracking brace depth — continuation lines inside `{ }` are part of
- * the enclosing import/export, not new statements.
+ * transpiles first, erasing type-only syntax, so a pure type-re-export
+ * barrel parses to an empty Program. Conservatively require every source
+ * statement (comments stripped, brace depth tracked across multi-line
+ * statements) to start with `import` or `export`; empty files are not barrels.
  */
 function isTypeOnlyBarrel(source: string): boolean {
   const stripped = source

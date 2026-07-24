@@ -98,14 +98,9 @@ function truncateSection(
 
 /**
  * Identify an ADR, and — when `briefings` is set — include its Decision and
- * Do's/Don'ts prose.
- *
- * That prose is ~78% of a review context on a repo of any size (62KB of 80KB
- * here) and grows with the number of matched ADRs, which pushes the payload past
- * the point where agent harnesses spill it to a file (ARCH-003 §7). It is
- * therefore opt-in: the default identifies which ADRs apply, and the consumer
- * drills into the ones it needs with `archgate adr show <id>`. Skipping the
- * prose also skips `extractAdrSections` entirely, so the lean path is cheaper.
+ * Do's/Don'ts prose. The prose dominates review-context payload size, so it
+ * is opt-in (ARCH-003 §7): the default identifies applicable ADRs and the
+ * consumer drills in via `archgate adr show <id>`.
  */
 export function briefAdr(
   adr: AdrDocument,

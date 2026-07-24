@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * credential-store.ts — Secure credential storage using git's native credential helpers.
- *
- * Tokens are stored exclusively in the OS credential manager (macOS Keychain,
- * Windows Credential Manager, libsecret) via `git credential approve/fill/reject`.
- * Nothing is written to disk — no metadata files, no plaintext tokens.
- *
- * The `username` field in the git credential protocol carries the GitHub username,
- * and the `password` field carries the archgate plugin token.
+ * Secure credential storage in the OS credential manager (macOS Keychain,
+ * Windows Credential Manager, libsecret) via `git credential
+ * approve/fill/reject` — nothing is written to disk. In the protocol,
+ * `username` carries the GitHub username and `password` the plugin token.
  *
  * @see https://git-scm.com/docs/git-credential
  */
@@ -22,16 +18,10 @@ const CREDENTIAL_HOST = "plugins.archgate.dev";
 const CREDENTIAL_TIMEOUT_MS = 3_000;
 
 /**
- * Build env for git credential commands at call time (not import time).
- *
- * Suppresses ALL interactive prompts — terminal, GUI, and askpass — across
- * platforms and Git Credential Manager (GCM) versions:
- *
- * - GIT_TERMINAL_PROMPT=0  — git's own terminal prompt
- * - GCM_INTERACTIVE=never  — GCM interactive mode (terminal + GUI)
- * - GCM_GUI_PROMPT=false   — GCM GUI-only prompt (Windows toast/dialog)
- * - GIT_ASKPASS=""          — external askpass program
- * - SSH_ASKPASS=""          — SSH askpass fallback (some helpers reuse it)
+ * Build env for git credential commands at call time (not import time),
+ * suppressing every interactive prompt across platforms and Git Credential
+ * Manager versions: git's terminal prompt, GCM terminal/GUI modes, and the
+ * external/SSH askpass programs.
  */
 function gitCredentialEnv(): Record<string, string | undefined> {
   return {
@@ -87,9 +77,9 @@ async function gitCredentialFill(): Promise<{
     });
 
     // The timeout MUST be cancelled when the spawn wins the race —
-    // `Bun.sleep` / `setTimeout` both keep the event loop alive for
-    // their full duration, which used to add 3s of latency to
-    // commands that call `loadCredentials()` (e.g. `archgate doctor`).
+    // `Bun.sleep` / `setTimeout` both keep the event loop alive for their
+    // full duration, adding 3s of latency to every `loadCredentials()`
+    // caller (e.g. `archgate doctor`) if left running.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race([
       (async () => {

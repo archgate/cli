@@ -72,13 +72,10 @@ function parseNode(value: unknown): AstNode | null {
 import { remapViolations, type RawViolation } from "./source-positions";
 
 /**
- * Scan a `.rules.ts` source string for banned patterns.
- *
- * The scanner transpiles TypeScript to JavaScript (via Bun.Transpiler),
- * parses the result into an ESTree AST (via meriyah), and walks every
- * node looking for dangerous imports, globals, and obfuscation patterns.
- *
- * Returns an empty array if the rule is clean; violations if blocked patterns are found.
+ * Scan a `.rules.ts` source string for banned patterns: transpile TS to JS
+ * (Bun.Transpiler), parse to an ESTree AST (meriyah, via ARCH-022's single
+ * call site), and walk every node for dangerous imports, globals, and
+ * obfuscation. Returns an empty array when the rule is clean.
  */
 /** Shared transpiler — stateless, safe to reuse across calls. */
 const tsTranspiler = new Bun.Transpiler({ loader: "ts" });
@@ -270,15 +267,10 @@ export function scanRuleSource(
 const IMPORTED_BLOCKED_GLOBALS = new Set(["require", "WebSocket"]);
 
 /**
- * Scan an imported (untrusted) `.rules.ts` source with stricter checks.
- *
- * Runs the standard `scanRuleSource()` first, then adds extra checks for
- * patterns that are acceptable in first-party rules but dangerous in
- * imported rules:
- *   - `Bun.env` access
- *   - environment variable reads via process
- *   - `require()` calls
- *   - `WebSocket` usage
+ * Scan an imported (untrusted) `.rules.ts` source with stricter checks: the
+ * standard `scanRuleSource()` pass plus patterns acceptable in first-party
+ * rules but dangerous in imported ones — `Bun.env` access, env reads via
+ * process, `require()` calls, and `WebSocket` usage.
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
   let js: string;

@@ -51,13 +51,10 @@ function stripRef(input: string): { base: string; ref?: string } {
 const OFFICIAL_REGISTRY_URL = "https://github.com/archgate/awesome-adrs.git";
 
 /**
- * Resolve a source string into a repo URL, optional ref, and subpath.
- *
- * Resolution rules (first match wins):
- * 1. Starts with "packs/" — official registry
- * 2. Is a URL (https://, http://, git@) — parse GitHub /tree/<ref>/<path>, else pass-through
- * 3. Has 3+ slash-separated segments — GitHub org/repo/path
- * 4. None of the above — error
+ * Resolve a source string into a repo URL, optional ref, and subpath. First
+ * match wins: "packs/" prefix — official registry; a URL (https://, http://,
+ * git@) — parse GitHub /tree/<ref>/<path>, else pass-through; 3+
+ * slash-separated segments — GitHub org/repo/path; otherwise error.
  */
 export function resolveSource(input: string): ResolvedSource {
   const { base, ref } = stripRef(input);
@@ -207,8 +204,8 @@ function listAvailablePacks(cloneDir: string): string[] {
  * Detect whether the subpath within a cloned repo points to a full pack
  * (has archgate-pack.yaml) or a single ADR file (.md).
  *
- * @param sourceKind - The kind of source (official, github-repo, git-url)
- *   used to tailor error messages. When "official", the error lists available
+ * @param sourceKind - The kind of source (official, github-repo, git-url);
+ *   tailors error messages. When "official", the error lists available
  *   packs from the registry.
  */
 export async function detectTarget(

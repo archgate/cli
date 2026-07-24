@@ -23,7 +23,7 @@ export interface RawViolation {
 
 /**
  * Build a set of character ranges that are inside comments or string literals.
- * Used to filter out false matches when remapping violation positions.
+ * Filters out false matches when remapping violation positions.
  */
 function buildNonCodeRanges(source: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];

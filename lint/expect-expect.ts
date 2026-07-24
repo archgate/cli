@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 
-// Custom oxlint JS plugin: enforce that every runnable bun:test test/it call
-// contains at least one `expect()` assertion.
-//
-// Why this exists: oxlint ships `jest/expect-expect`, but its Rust
-// implementation only recognizes `jest` and `vitest` imports — it silently
-// ignores `bun:test`. This plugin reimplements the rule for the bun:test API
-// using oxlint's JS plugins API (https://oxc.rs/docs/guide/usage/linter/js-plugins.html).
-//
-// The plugin runs natively as TypeScript under Bun, so there is no build step.
+// Custom oxlint JS plugin: every runnable bun:test test/it call must contain
+// at least one `expect()` assertion. Reimplements `jest/expect-expect` for
+// bun:test — the built-in Rust rule only recognizes jest/vitest imports.
+// Runs natively as TypeScript under Bun (no build step); JS plugins API:
+// https://oxc.rs/docs/guide/usage/linter/js-plugins.html
 
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
@@ -36,12 +32,8 @@ function isFunctionNode(node: AstNode | undefined): boolean {
 
 /**
  * Resolve the leftmost identifier name of a callee chain.
- *
- * Examples (callee -> result):
- *   test                       -> "test"
- *   test.skip                  -> "test"
- *   test.skipIf(cond)          -> "test"
- *   expect(x).toBe             -> "expect"
+ * Examples: `test` -> "test"; `test.skip` -> "test";
+ * `test.skipIf(cond)` -> "test"; `expect(x).toBe` -> "expect".
  */
 function leftmostName(node: AstNode | undefined): string | undefined {
   let current = node;
@@ -68,12 +60,8 @@ function leftmostName(node: AstNode | undefined): string | undefined {
 
 /**
  * Collect the member method names used in a callee chain.
- *
- * Examples (callee -> result):
- *   test.skip                  -> ["skip"]
- *   test.skipIf(cond)          -> ["skipIf"]
- *   test.each(rows)            -> ["each"]
- *   test                       -> []
+ * Examples: `test.skip` -> ["skip"]; `test.skipIf(cond)` -> ["skipIf"];
+ * `test.each(rows)` -> ["each"]; `test` -> [].
  */
 function memberMethods(node: AstNode | undefined): string[] {
   const methods: string[] = [];

@@ -94,12 +94,8 @@ interface SyntaxViolation {
 
 /**
  * Check that a `.rules.ts` file follows the required syntax conventions:
- * 1. Triple-slash reference directive: `/// <reference path="..." />`
- *    pointing to `rules.d.ts` (provides ambient types without imports).
- * 2. `satisfies RuleSet` on the default export (compile-time validation).
- *
- * These are authoring conventions that ensure rule files get proper
- * type-checking and remain self-documenting.
+ * a triple-slash reference to `rules.d.ts` (ambient types without imports)
+ * and `satisfies RuleSet` on the default export (compile-time validation).
  */
 function checkRuleSyntax(source: string): SyntaxViolation[] {
   const violations: SyntaxViolation[] = [];
@@ -146,13 +142,10 @@ interface ParsedAdrEntry {
 }
 
 /**
- * Process-level cache of `readdir + read + parse` for each project root.
- * `archgate review-context --run-checks` used to parse every ADR twice
- * (once for briefings, once for rule loading); the cache lets both paths
- * share the I/O. `archgate check` + `adr list` benefit too.
- *
- * Cache lifetime is per-process — consistent with other per-invocation
- * caches in this codebase (git ls-files, repo context, install method).
+ * Process-level cache of `readdir + read + parse` per project root, so
+ * briefings and rule loading share one parse pass in the same invocation.
+ * Per-process lifetime is consistent with the other per-invocation caches
+ * here (git ls-files, repo context, install method).
  */
 const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
 

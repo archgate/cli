@@ -385,9 +385,9 @@ describe("replaceBinary", () => {
 
       replaceBinary(currentPath, newBinaryPath);
 
-      // new binary should have been renamed to currentPath
+      // after replaceBinary, currentPath holds the new binary
       expect(existsSync(currentPath)).toBe(true);
-      // the new binary path should no longer exist (it was renamed)
+      // and the staging path must be gone (rename, not copy)
       expect(existsSync(newBinaryPath)).toBe(false);
 
       // verify chmod 755 was applied

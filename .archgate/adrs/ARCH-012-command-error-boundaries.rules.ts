@@ -1,17 +1,11 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * ARCH-012 enforcement, rewritten on top of ctx.ast() (ARCH-022).
- *
- * The previous implementation only regex-detected the PRESENCE of a try-catch
- * inside an async action. That let partial boundaries pass: src/commands/
- * check.ts once wrapped only loadRuleAdrs() in try/catch, and a UserError
- * thrown later by runChecks() escaped to main().catch(), where it was
- * miscaptured to Sentry with exit 2 (incident CLI-5). These rules now walk
- * the ESTree produced by ctx.ast(file, "typescript"): the boundary rule
- * additionally flags top-level awaited statements that sit OUTSIDE the
- * action's try block — the exact statements whose rejections escape the
- * boundary.
+ * ARCH-012 enforcement on top of ctx.ast() (ARCH-022). Detecting only the
+ * PRESENCE of a try-catch lets partial boundaries pass (incident CLI-5), so
+ * the boundary rule walks the ESTree and additionally flags top-level awaited
+ * statements sitting OUTSIDE the action's try block — the exact statements
+ * whose rejections escape to main().catch() and miscapture to Sentry.
  */
 
 /** Node types whose bodies run in their own context — awaits inside them are

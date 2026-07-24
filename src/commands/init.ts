@@ -157,13 +157,10 @@ export function registerInitCommand(program: Command) {
           });
         }
 
-        // One-time `project_initialized` event. The hashed `repo_id` ships in
-        // every event already via the common props; this richer event is the
-        // only place the raw remote URL / owner / name appear, and only for
-        // repositories we can confirm public via the host's unauthenticated
-        // API. Users who don't want the event at all disable telemetry
-        // (`ARCHGATE_TELEMETRY=0` / `archgate telemetry disable`) — no
-        // identity-specific knob is needed on top of that.
+        // One-time `project_initialized` event — the only place the raw remote
+        // URL / owner / name appear, and only for repositories confirmed public
+        // via the host's unauthenticated API. Disabling telemetry
+        // (`ARCHGATE_TELEMETRY=0` / `archgate telemetry disable`) opts out.
         const repo = await getRepoContext();
         const repoPublic = await isPublicRepo(repo);
         const shareIdentity = shouldShareRepoIdentity(repoPublic);

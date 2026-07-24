@@ -2,13 +2,9 @@
 // Copyright 2026 Archgate
 /**
  * telemetry-config.ts — Manages telemetry preferences in ~/.archgate/config.json.
- *
- * Telemetry is opt-out: enabled by default, users disable via:
- *   - ARCHGATE_TELEMETRY=0 environment variable
- *   - `archgate telemetry disable` command
- *
- * An anonymous installId (UUID v4) is generated on first use for aggregate
- * counting — it is not derived from any user data.
+ * Telemetry is opt-out: disable via ARCHGATE_TELEMETRY=0 or
+ * `archgate telemetry disable`. An anonymous installId (UUID v4, not derived
+ * from user data) is generated on first use for aggregate counting.
  */
 
 import { randomUUID } from "node:crypto";

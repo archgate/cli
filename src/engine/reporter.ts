@@ -46,14 +46,10 @@ export interface ReportSummary {
 
 /**
  * Rules that have something to report: failures, rule errors, and anything
- * carrying violations.
- *
- * The `violations.length` half is load-bearing — `buildSummary` sets status
- * "fail" only for error-severity violations, so a warning- or info-only rule is
- * status "pass" with a non-empty violations[]. Filtering on status alone would
- * silently swallow every warning (ARCH-003: don't decide omission from a status
- * field alone). Shared by every consumer that projects results for an agent, so
- * the two call sites cannot drift apart on that subtlety.
+ * carrying violations. The `violations.length` half is load-bearing — a
+ * warning- or info-only rule is status "pass" with a non-empty violations[],
+ * so filtering on status alone would silently swallow every warning
+ * (ARCH-003: don't decide omission from a status field alone).
  */
 export function resultsWithFindings(
   results: ReportSummary["results"]
@@ -264,23 +260,11 @@ export function reportConsole(
 }
 
 /**
- * Output results as JSON.
- *
- * `results` carries only rules that have something to report — failures, rule
- * errors, and anything with violations (including warning- and info-only rules,
- * which are status "pass"). A clean rule's entry is pure restatement of static
- * ADR text, and on a large project those entries are ~99% of the payload (25KB
- * across 84 rules), which pushes the output past the threshold where agent
- * harnesses spill a tool result to a file and stop showing it inline
- * (ARCH-003 §7). Omitting them makes the payload scale with the number of
- * findings rather than the number of rules. The summary counts above still
- * report exactly how many rules passed, so no information is lost — and
- * `--verbose` restores the full list, matching both `reportConsole` and the
- * flag's documented meaning ("Show passing rules and timing info").
- *
- * @param forcePretty - When true, always pretty-print (e.g., explicit --json flag).
- *                      When omitted, format is auto-detected based on TTY/CI context.
- * @param verbose - When true, include passing rules in `results`.
+ * Output results as JSON. `results` carries only rules with something to
+ * report — clean-rule entries restate static ADR text and would push the
+ * payload past the spill threshold of ARCH-003 §7; `verbose` restores the
+ * full list. `forcePretty` forces pretty-printing (explicit --json flag);
+ * when omitted, format is auto-detected from TTY/CI context.
  */
 export function reportJSON(
   result: CheckResult,

@@ -25,19 +25,11 @@ interface OpencodeSessionSummary {
 interface ReadOpencodeSessionOptions extends ReadSessionOptions {
   sessionId?: string;
   /**
-   * Resolve to the top-level (root) session. Without `sessionId` this is
-   * an explicit alias for the default behavior (recency selection already
-   * only considers top-level sessions); combined with a `sessionId` that
-   * names a sub-agent child session, walks the `parent_id` chain up to the
-   * top-level ancestor.
-   *
-   * Opencode is the only session-context backend with a real parent/child
-   * session graph, so this option lives here rather than in the shared
-   * `ReadSessionOptions`. A recency-based guess cannot distinguish the
-   * true parent from a sibling sub-agent session once more than one
-   * sibling exists — and an inline Skill invocation creates no session
-   * row at all. Ancestry via `parent_id` is correct regardless of nesting
-   * depth or sibling fan-out.
+   * Resolve to the top-level (root) session: without `sessionId`, an alias
+   * for the default recency selection (top-level sessions only); with a
+   * sub-agent child `sessionId`, walks the `parent_id` chain to the
+   * top-level ancestor. Opencode-specific — only opencode has a
+   * parent/child session graph.
    */
   root?: boolean;
 }
@@ -129,25 +121,11 @@ export function listOpencodeSessions(
 }
 
 /**
- * Read an opencode session transcript for a project.
- *
- * Opencode stores data in a SQLite database at
- * `$XDG_DATA_HOME/opencode/opencode.db` (default `~/.local/share/opencode/opencode.db`):
- * - `session` table — session metadata with `directory` for project matching
- *   and `parent_id` linking sub-agent sessions to their parent
- * - `message` table — messages with `role` in the `data` JSON column
- * - `part` table — content parts with `type` and `text` in the `data` JSON column
- *
- * Sessions are matched by comparing the `directory` field in session rows
- * to the provided project root.
- *
- * Sub-agent runs are stored as child sessions (`parent_id` set) that share
- * the parent's `directory`, so recency selection only considers top-level
- * sessions — otherwise sub-agent transcripts shadow the main session. Note
- * that opencode skills run inline in the calling session (they do NOT
- * create their own session), so the most recent top-level session is the
- * current development session. An explicit `sessionId` can still read any
- * session, including sub-agent children.
+ * Read an opencode session transcript for a project from the SQLite database
+ * at `$XDG_DATA_HOME/opencode/opencode.db` (`session`/`message`/`part`
+ * tables; sessions match on `directory` = project root). Recency selection
+ * considers only top-level sessions so sub-agent children don't shadow the
+ * main session; an explicit `sessionId` can read any session.
  */
 export function readOpencodeSession(
   projectRoot: string | null,
