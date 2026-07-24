@@ -20,6 +20,28 @@ const SANCTIONED_SPAWN_FILES = new Set([
   "src/engine/git-files.ts", // git subprocess helper, predates ARCH-022
 ]);
 
+/**
+ * Extract the member names declared inside the `interface RuleContext { … }`
+ * block of a source text. Regex over raw text, NOT ctx.ast(): Bun.Transpiler
+ * erases type-only interface declarations before parsing, so the tree never
+ * contains them. Member lines are 2-space-indented identifiers followed by
+ * `(` or `:`; overloads repeat a name, hence the Set. Works on both the real
+ * interface (src/formats/rules.ts) and the shim's template literal
+ * (src/helpers/rules-shim.ts), whose member lines are textually identical.
+ */
+function ruleContextMembers(content: string): Set<string> {
+  const members = new Set<string>();
+  const start = content.indexOf("interface RuleContext {");
+  if (start === -1) return members;
+  const block = content.slice(start);
+  const end = block.indexOf("\n}");
+  const body = end === -1 ? block : block.slice(0, end);
+  for (const match of body.matchAll(/^ {2}([A-Za-z_$][\w$]*)\??\s*[(:]/gmu)) {
+    members.add(match[1]);
+  }
+  return members;
+}
+
 /** Depth-first walk over an ESTree-shaped tree. */
 function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
   if (Array.isArray(node)) {
@@ -195,6 +217,50 @@ export default {
               "Python AST subprocess is missing the -I isolation flag — a hostile project could shadow stdlib modules (ast.py/json.py) and execute arbitrary code during `archgate check`",
             file,
             fix: 'Add "-I" as the first argument before "-c": `[interpreter, "-I", "-c", PYTHON_AST_PROGRAM, absPath]`',
+          });
+        }
+      },
+    },
+    "rulecontext-shim-parity": {
+      description:
+        "RuleContext members in src/formats/rules.ts and the generated shim in src/helpers/rules-shim.ts must stay in sync — a drifted shim silently hands rule authors wrong types",
+      severity: "error",
+      async check(ctx) {
+        const sourceFile = "src/formats/rules.ts";
+        const shimFile = "src/helpers/rules-shim.ts";
+        const [sourceMembers, shimMembers] = await Promise.all([
+          ctx.readFile(sourceFile).then((c) => ruleContextMembers(c)),
+          ctx.readFile(shimFile).then((c) => ruleContextMembers(c)),
+        ]);
+
+        const surfaces: [string, Set<string>][] = [
+          [sourceFile, sourceMembers],
+          [shimFile, shimMembers],
+        ];
+        for (const [file, members] of surfaces) {
+          if (members.size > 0) continue;
+          ctx.report.violation({
+            message: `Could not locate any members in the \`interface RuleContext\` block of ${file} — parity cannot be verified`,
+            file,
+            fix: "Restore the interface RuleContext { … } declaration (2-space-indented members)",
+          });
+        }
+        if (sourceMembers.size === 0 || shimMembers.size === 0) return;
+
+        for (const member of sourceMembers) {
+          if (shimMembers.has(member)) continue;
+          ctx.report.violation({
+            message: `RuleContext member "${member}" is declared in ${sourceFile} but missing from the generated shim ${shimFile}`,
+            file: shimFile,
+            fix: `Mirror the "${member}" declaration (and any ambient types it references) into the RuleContext block of generateRulesDts() in ${shimFile}`,
+          });
+        }
+        for (const member of shimMembers) {
+          if (sourceMembers.has(member)) continue;
+          ctx.report.violation({
+            message: `RuleContext member "${member}" is declared in the shim ${shimFile} but missing from ${sourceFile}`,
+            file: sourceFile,
+            fix: `Add "${member}" to the RuleContext interface in ${sourceFile}, or remove it from the shim`,
           });
         }
       },

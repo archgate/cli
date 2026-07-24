@@ -12,6 +12,7 @@ metadata:
 - **`no-negated-condition`** — write ternaries/`if-else` with the positive condition first: `x === null ? A : B`, not `x !== null ? B : A`.
 - **`no-unused-vars` on catch params** — use bare `catch { }` when the error is unused, not `catch (err) { }`.
 - **`no-await-in-loop`** — sequential `await` in a `for` loop is flagged; suppress with a reason comment when the sequential order is intentional.
+- **`eslint(max-lines)` caps files at 500 code lines; `src/engine/runner.ts` sits at the cap** — implement new `ctx.*` helper logic in its own `src/engine/` module (thin wiring in `createRuleContext`), and remember ARCH-005's `test-mirrors-src` then requires a matching test file. Hit on the readYAML/checkCase PR (safePath trio extracted to `src/engine/safe-path.ts`).
 - **ARCH-020's `glob-scan-dot` rule matches `.scan()` inside comments too** (regex `/\.scan\(([^)]*)\)/gu`) — rephrase comments to avoid the literal `.scan()` text.
 - **jsPlugins get the full ESLint-compatible `context.sourceCode`** — incl. `getAllComments()`, `getCommentsBefore/After/Inside`, `getJSDocComment`, `lines`, `getLocFromIndex` (verified 2026-07-24). This is what powers the token-based GEN-004 comment rules in `.archgate/lint/concise-comments.ts`; `context.report({loc, message})` works without a node.
 - **`*/` inside a JSDoc block terminates it early** — a glob path like `archgate-*/SKILL.md` written in a `/** */` comment breaks the parse; reword the path or use `//` comments.
