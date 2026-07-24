@@ -94,6 +94,44 @@ describe("scanRuleSource", () => {
     // rule-scanner-escapes.test.ts alongside the other sandbox escapes.
   });
 
+  // Regression: an `export` declaration with no `from` clause carries
+  // `source: null` in ESTree. The AST node schema must tolerate that null, or
+  // the whole node (and its subtree) is dropped and anything dangerous inside a
+  // top-level `export function` / `export const` goes unscanned.
+  describe("top-level export declarations are scanned", () => {
+    test("blocks a banned global inside `export function`", () => {
+      const violations = scanRuleSource(`export function h() { fetch("x"); }`);
+      expect(violations.some((v) => v.message.includes(`"fetch" global`))).toBe(
+        true
+      );
+    });
+
+    test("blocks a banned global inside `export const`", () => {
+      const violations = scanRuleSource(`export const x = fetch("evil");`);
+      expect(violations.some((v) => v.message.includes(`"fetch" global`))).toBe(
+        true
+      );
+    });
+
+    // A specifier-only local export (`export { x }`, no `from`) also carries
+    // `source: null`, but it holds no scannable subtree: an export specifier
+    // must name a module-local binding, so `export { fetch as local }` naming
+    // the global is not valid ESM, and `Bun.Transpiler` erases the undeclared
+    // specifier down to `export {}` before the walk ever sees it. There is thus
+    // no reference to flag — the declaration-form cases above are what actually
+    // guard the `source: null` subtree against a schema regression.
+    test("a local export without a `from` clause has nothing to scan", () => {
+      expect(scanRuleSource(`export { fetch as local };`)).toHaveLength(0);
+    });
+
+    test("blocks a banned import inside `export ... from`", () => {
+      const violations = scanRuleSource(`export { x } from "node:fs";`);
+      expect(violations.some((v) => v.message.includes('"node:fs"'))).toBe(
+        true
+      );
+    });
+  });
+
   describe("TypeScript support", () => {
     test("handles TypeScript syntax (interfaces, type annotations)", () => {
       const source = `
