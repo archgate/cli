@@ -113,6 +113,17 @@ describe("scanRuleSource", () => {
       );
     });
 
+    // A specifier-only local export (`export { x }`, no `from`) also carries
+    // `source: null`, but it holds no scannable subtree: an export specifier
+    // must name a module-local binding, so `export { fetch as local }` naming
+    // the global is not valid ESM, and `Bun.Transpiler` erases the undeclared
+    // specifier down to `export {}` before the walk ever sees it. There is thus
+    // no reference to flag — the declaration-form cases above are what actually
+    // guard the `source: null` subtree against a schema regression.
+    test("a local export without a `from` clause has nothing to scan", () => {
+      expect(scanRuleSource(`export { fetch as local };`)).toHaveLength(0);
+    });
+
     test("blocks a banned import inside `export ... from`", () => {
       const violations = scanRuleSource(`export { x } from "node:fs";`);
       expect(violations.some((v) => v.message.includes('"node:fs"'))).toBe(
