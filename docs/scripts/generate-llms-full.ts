@@ -62,6 +62,32 @@ function stripJsx(content: string): string {
     .replaceAll(/\n{3,}/gu, "\n\n"); // collapse excess blank lines
 }
 
+/**
+ * Fenced code blocks (``` / ~~~) and inline code spans (`…`), captured so
+ * `String.split` keeps them as odd-indexed parts. Fences come first in the
+ * alternation so a fence containing backticks is consumed whole rather than
+ * being carved up by the inline-span branch.
+ */
+const CODE_SEGMENT_REGEX =
+  /(^ {0,3}(?:```|~~~)[\s\S]*?^ {0,3}(?:```|~~~)[ \t]*$|`+[^`\n]+`+)/gmu;
+
+/**
+ * Apply `stripJsx` to prose only, leaving code byte-identical.
+ *
+ * The component-tag patterns cannot distinguish a JSX tag from a TypeScript
+ * generic whose argument is capitalized, so running them over code silently
+ * ate real type arguments: `Promise<GrepMatch[]>`, `Promise<AstNode>` and
+ * `Promise<ReadYamlResult>` all published as a bare `Promise`, while
+ * lowercase ones (`Promise<string>`) survived. This affected both fenced
+ * blocks and inline spans in tables, so both are protected here.
+ */
+function stripJsxOutsideCode(content: string): string {
+  return content
+    .split(CODE_SEGMENT_REGEX)
+    .map((part, index) => (index % 2 === 1 ? part : stripJsx(part)))
+    .join("");
+}
+
 /** Convert a file path to its URL path on the site. */
 function fileToUrl(filePath: string): string {
   const rel = relative(docsDir, filePath)
@@ -94,7 +120,7 @@ const parts: string[] = [
 const indexPath = join(docsDir, "index.mdx");
 const indexContent = readFileSync(indexPath, "utf-8");
 const indexTitle = extractTitle(indexContent) ?? "Home";
-const indexBody = stripJsx(stripFrontmatter(indexContent)).trim();
+const indexBody = stripJsxOutsideCode(stripFrontmatter(indexContent)).trim();
 if (indexBody) {
   parts.push(
     `## ${indexTitle}`,
@@ -127,7 +153,7 @@ for (const section of sections) {
   for (const file of enFiles) {
     const content = readFileSync(file, "utf-8");
     const title = extractTitle(content) ?? relative(docsDir, file);
-    const body = stripJsx(stripFrontmatter(content)).trim();
+    const body = stripJsxOutsideCode(stripFrontmatter(content)).trim();
     if (!body) continue;
 
     parts.push(

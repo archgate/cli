@@ -867,8 +867,8 @@ The `check` function receives a `RuleContext` object that provides everything a 
 
 | Method                             | Returns                | Description                                  |
 | ---------------------------------- | ---------------------- | -------------------------------------------- |
-| `ctx.grep(file, pattern)`          | `Promise` | Search a single file with a regex pattern    |
-| `ctx.grepFiles(pattern, fileGlob)` | `Promise` | Search across multiple files matching a glob |
+| `ctx.grep(file, pattern)`          | `Promise<GrepMatch[]>` | Search a single file with a regex pattern    |
+| `ctx.grepFiles(pattern, fileGlob)` | `Promise<GrepMatch[]>` | Search across multiple files matching a glob |
 
 Both `grep` and `grepFiles` return an array of `GrepMatch` objects:
 
@@ -3330,7 +3330,7 @@ Archgate supports inline `archgate-ignore` comments that suppress violations wit
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned for Q3
-
+import chalk from "chalk";
 ```
 
 **File-level suppression** suppresses all matching violations anywhere in the file:
@@ -3344,7 +3344,7 @@ Archgate supports inline `archgate-ignore` comments that suppress violations wit
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep
 // archgate-ignore ARCH-003/use-style-text third-party lib handles colors
-
+import chalk from "chalk";
 ```
 
 Consecutive suppression comments all target the first non-suppression line that follows.
@@ -3389,7 +3389,7 @@ The developer opts out by adding the directive to their file:
 
 ```typescript
 // @no-presentational: this component only redirects, no UI to render
-
+import { useNavigate } from "react-router";
 ```
 
 ### When to use which
@@ -5215,13 +5215,13 @@ interface RuleContext {
   scopedFiles: string[];
   changedFiles: string[];
   glob(pattern: string): Promise<string[]>;
-  grep(file: string, pattern: RegExp): Promise;
-  grepFiles(pattern: RegExp, fileGlob: string): Promise;
+  grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
+  grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
-  readYAML(path: string): Promise;
-  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise;
+  readYAML(path: string): Promise<ReadYamlResult>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
   checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
@@ -5279,7 +5279,7 @@ const testFiles = await ctx.glob("tests/**/*.test.ts");
 #### grep
 
 ```typescript
-grep(file: string, pattern: RegExp): Promise;
+grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
 ```
 
 Search a single file for lines matching a regular expression. Returns an array of `GrepMatch` objects with file path, line number, column, and matched content.
@@ -5291,7 +5291,7 @@ const matches = await ctx.grep(file, /console\.error\(/);
 #### grepFiles
 
 ```typescript
-grepFiles(pattern: RegExp, fileGlob: string): Promise;
+grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
 ```
 
 Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
@@ -5353,7 +5353,7 @@ const pkg = (await ctx.readJSON("package.json")) as {
 #### readYAML
 
 ```typescript
-readYAML(path: string): Promise;
+readYAML(path: string): Promise<ReadYamlResult>;
 
 interface ReadYamlResult {
   frontmatter: Record<string, YamlValue> | null;
@@ -5410,7 +5410,7 @@ ast(
   path: string,
   language: "typescript" | "javascript" | "python" | "ruby",
   opts?: AstOptions
-): Promise;
+): Promise<AstNode>;
 
 interface AstOptions {
   rev?: "base";
@@ -5740,7 +5740,7 @@ Violations can be suppressed in source code using `archgate-ignore` comments. Th
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
-
+import chalk from "chalk";
 ```
 
 A reason is required. File-level suppression uses `archgate-ignore-file`. Stack multiple comments to suppress more than one rule on the same line. See [Opt-out directives](/guides/writing-rules/#opt-out-directives) for full details and custom directive patterns.
@@ -6114,7 +6114,7 @@ Or, with an opt-out:
 
 ```typescript title="src/components/RedirectConnected.tsx"
 // @no-presentational: this component only redirects, no UI to render
-
+import { useNavigate } from "react-router";
 // ...
 ```
 
@@ -6322,6 +6322,7 @@ src/
 
 ```typescript
 /// <reference path="../rules.d.ts" />
+import { basename } from "node:path";
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
 
@@ -6709,6 +6710,7 @@ This pattern generalizes to any API you want to ban while allowing a safe altern
 const result = await Bun.$`git status`;
 
 // Import
+import { $ } from "bun";
 
 // Destructured usage
 const output = await $`ls -la`;
@@ -6814,17 +6816,17 @@ Teams often ban heavy or deprecated libraries in favor of lighter or native alte
 ## Examples of **incorrect** code
 
 ```typescript title="src/utils/date.ts"
-
+import { format } from "moment";
 ```
 
 ```typescript title="src/api/client.ts"
-
+import axios from "axios";
 ```
 
 ## Examples of **correct** code
 
 ```typescript title="src/utils/date.ts"
-
+import { format } from "date-fns";
 ```
 
 ```typescript title="src/api/client.ts"
@@ -6921,7 +6923,8 @@ export function getHelperVersion(): string {
 Or better, delete `index.ts` entirely and import directly:
 
 ```typescript
-
+import { logInfo } from "./helpers/log";
+import { resolvePaths } from "./helpers/paths";
 ```
 
 ## Rule implementation
@@ -7016,6 +7019,7 @@ console.log("\x1b[32mSuccess\x1b[0m"); // raw ANSI
 ## Examples of **correct** code
 
 ```typescript title="src/commands/check.ts"
+import { styleText } from "node:util";
 
 console.log("All checks passed");
 console.log("Validation failed");
@@ -7248,6 +7252,7 @@ When a backend framework supports OpenAPI integration (e.g., `@hono/zod-openapi`
 ## Examples of **incorrect** code
 
 ```typescript title="packages/backend/src/routes/users.ts"
+import { Hono } from "hono";
 
 const app = new Hono();
 
@@ -7260,6 +7265,7 @@ app.get("/users", async (c) => {
 ## Examples of **correct** code
 
 ```typescript title="packages/backend/src/routes/users.ts"
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 
 const route = createRoute({
   method: "get",
@@ -7359,6 +7365,8 @@ In frontend architectures that separate routing from logic, page components shou
 ## Examples of **incorrect** code
 
 ```tsx title="src/pages/DashboardPage.tsx"
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 export default function DashboardPage() {
   const [filter, setFilter] = useState(""); // ✗ state hook
@@ -7370,12 +7378,14 @@ export default function DashboardPage() {
 ## Examples of **correct** code
 
 ```tsx title="src/pages/DashboardPage.tsx"
+import { DashboardConnected } from "../components/DashboardConnected";
+import { Sidebar } from "../components/Sidebar";
 
 export default function DashboardPage() {
   return (
     <div className="flex">
-      
-      
+      <Sidebar />
+      <DashboardConnected />
     </div>
   );
 }
@@ -7480,6 +7490,7 @@ export function deploy() {
 ## Examples of **correct** code
 
 ```typescript title="src/commands/deploy.ts"
+import type { Command } from "commander";
 
 export function registerDeployCommand(program: Command) {
   program
@@ -7554,6 +7565,7 @@ Open-source projects benefit from per-file license declarations. They survive fi
 ## Examples of **incorrect** code
 
 ```typescript title="src/helpers/utils.ts"
+import { join } from "node:path";
 
 export function resolvePath(base: string, rel: string): string {
   return join(base, rel);
@@ -7567,6 +7579,7 @@ File is missing the SPDX license identifier header.
 ```typescript title="src/helpers/utils.ts"
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { join } from "node:path";
 
 export function resolvePath(base: string, rel: string): string {
   return join(base, rel);
@@ -7579,7 +7592,7 @@ For files with a shebang:
 #!/usr/bin/env bun
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-
+import { Command } from "commander";
 ```
 
 ## Rule implementation
@@ -7679,6 +7692,7 @@ tests/
 
 ```typescript
 /// <reference path="../rules.d.ts" />
+import { relative } from "node:path";
 
 export default {
   rules: {
@@ -7889,6 +7903,7 @@ if (process.platform === "win32") {
 ## Examples of **correct** code
 
 ```typescript title="src/commands/build.ts"
+import { isWindows } from "../helpers/platform";
 
 if (isWindows()) {
   // Windows-specific logic

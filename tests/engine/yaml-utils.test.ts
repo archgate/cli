@@ -70,6 +70,33 @@ describe("parseYamlDocument — frontmatter files (everything else)", () => {
     expect(result.frontmatter).toBeNull();
   });
 
+  test("rejects a malformed closing fence instead of parsing a partial block", () => {
+    // `----` / `---note` must NOT terminate the block — a bare `\n---` match
+    // would parse a truncated block and leave the stray chars in the body.
+    for (const fence of ["----", "---note", "--- note"]) {
+      const result = parseYamlDocument(
+        `---\ntitle: x\n${fence}\nBody\n`,
+        "doc.md"
+      );
+      expect(
+        result.frontmatter,
+        `fence "${fence}" must not terminate`
+      ).toBeNull();
+    }
+  });
+
+  test("tolerates trailing spaces/tabs on either fence", () => {
+    const result = parseYamlDocument("--- \ntitle: x\n---\t\nBody\n", "doc.md");
+    expect(result.frontmatter).toEqual({ title: "x" });
+    expect(result.content).toBe("Body");
+  });
+
+  test("accepts a closing fence at end of input with no trailing newline", () => {
+    const result = parseYamlDocument("---\ntitle: x\n---", "doc.md");
+    expect(result.frontmatter).toEqual({ title: "x" });
+    expect(result.content).toBe("");
+  });
+
   test("returns {} for an empty frontmatter block", () => {
     const result = parseYamlDocument("---\n\n---\nBody\n", "doc.md");
     expect(result.frontmatter).toEqual({});

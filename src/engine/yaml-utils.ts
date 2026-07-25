@@ -3,12 +3,20 @@
 import type { ReadYamlResult, YamlValue } from "../formats/rules";
 
 /**
- * Leading `---`-delimited YAML frontmatter block — the same pattern ADR
- * parsing uses (`parseAdr` in src/formats/adr.ts). The block must start at
- * the very first character of the file (after an optional BOM, which is
- * stripped first).
+ * Leading `---`-delimited YAML frontmatter block. The block must start at the
+ * very first character of the file (after an optional BOM, which is stripped
+ * first), and BOTH fences must be a bare `---` occupying their whole line
+ * (trailing spaces/tabs tolerated).
+ *
+ * Anchoring the closing fence to the line end is deliberate: a bare `\n---`
+ * match would accept `----` or `---note` as the terminator, silently parsing
+ * a truncated block and leaving the stray characters at the head of the body.
+ * This is marginally stricter than `parseAdr`'s regex in
+ * src/formats/adr.ts — the two agree on every well-formed file and differ
+ * only on malformed fences, where this one reports "no frontmatter" rather
+ * than parsing a partial block.
  */
-const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---/u;
+const FRONTMATTER_REGEX = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/u;
 
 /** Extensions parsed as whole YAML documents rather than frontmatter+body. */
 const YAML_EXTENSIONS = [".yml", ".yaml"];

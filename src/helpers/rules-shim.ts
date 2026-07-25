@@ -75,6 +75,8 @@ declare interface PackageJson {
  * and PascalCase follow the ecosystem convention (typescript-eslint's
  * \`naming-convention\`): a leading lower/uppercase letter followed by any
  * ASCII alphanumerics, so acronym runs (\`parseURL\`, \`HTTPServer\`) match.
+ * Degenerate values can satisfy several schemes at once (\`value\` is valid
+ * kebab-case, snake_case, and camelCase).
  */
 declare type CaseScheme =
   | "kebab-case"
