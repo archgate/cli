@@ -184,6 +184,77 @@ describe("check command security", () => {
     rmSync(outsideDir, { recursive: true, force: true });
   });
 
+  test("blocks reads that tunnel out through a symlinked ancestor directory", async () => {
+    // The leaf here is an ordinary file — only an ANCESTOR is the symlink, so
+    // a leaf-only lstat reports "not a link" while the OS still resolves the
+    // real path outside the project and reads it.
+    const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
+    writeFileSync(join(outsideDir, "secret.txt"), "sensitive data");
+
+    try {
+      // "junction" is ignored on POSIX (plain symlink) but on Windows creates
+      // a directory junction, which needs no admin privileges and which
+      // lstat() reports as a symbolic link — so unlike the file-symlink test
+      // above, this case runs for real on every platform instead of skipping.
+      symlinkSync(outsideDir, join(tempDir, "src", "linkdir"), "junction");
+    } catch {
+      rmSync(outsideDir, { recursive: true, force: true });
+      return;
+    }
+
+    writeAdrAndRule(
+      "SEC-007",
+      `export default {
+  rules: {
+    "read-through-symlinked-dir": {
+      description: "Attempt to read a real file via a symlinked parent",
+      async check(ctx) {
+        await ctx.readFile("src/linkdir/secret.txt");
+      },
+    },
+  },
+};
+`
+    );
+
+    const loaded = await loadRuleAdrs(tempDir);
+    const result = await runChecks(tempDir, loaded);
+    expect(result.results[0].error).toContain("access denied");
+    expect(result.results[0].error).toContain("symbolic link");
+
+    rmSync(outsideDir, { recursive: true, force: true });
+  });
+
+  test("allows reads under real nested directories (no false positives)", async () => {
+    // Guards the ancestor walk against over-rejecting: a deep, entirely real
+    // directory chain must still be readable.
+    mkdirSync(join(tempDir, "src", "a", "b", "c"), { recursive: true });
+    writeFileSync(join(tempDir, "src", "a", "b", "c", "deep.ts"), "export {};");
+
+    writeAdrAndRule(
+      "SEC-008",
+      `export default {
+  rules: {
+    "read-deep-real-path": {
+      description: "Read a file nested under real directories",
+      async check(ctx) {
+        const content = await ctx.readFile("src/a/b/c/deep.ts");
+        if (!content.includes("export")) {
+          ctx.report.violation({ message: "unexpected content" });
+        }
+      },
+    },
+  },
+};
+`
+    );
+
+    const loaded = await loadRuleAdrs(tempDir);
+    const result = await runChecks(tempDir, loaded);
+    expect(result.results[0].error).toBeUndefined();
+    expect(result.results[0].violations).toHaveLength(0);
+  });
+
   test("allows legitimate file reads within project", async () => {
     writeFileSync(join(tempDir, "src", "app.ts"), "export const x = 1;\n");
 

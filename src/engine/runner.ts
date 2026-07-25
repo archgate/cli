@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { lstatSync } from "node:fs";
-import { relative, resolve, isAbsolute } from "node:path";
+import { relative, resolve } from "node:path";
 
 import type {
   AstLanguage,
@@ -16,7 +15,6 @@ import type {
   ViolationDetail,
 } from "../formats/rules";
 import { logDebug, logWarn } from "../helpers/log";
-import { UserError } from "../helpers/user-error";
 import {
   AST_LANGUAGE_EXTENSIONS,
   PYTHON_AST_PROGRAM,
@@ -48,58 +46,8 @@ import {
 import { listMatchingFiles, matchLines } from "./glob-utils";
 import { parseTsOrJsSource } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
+import { isWithinRoot, resolveUserPath, safePath } from "./safe-path";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
-
-/**
- * Resolve a user-supplied path against projectRoot without any boundary check.
- */
-function resolveUserPath(resolvedRoot: string, userPath: string): string {
-  return isAbsolute(userPath)
-    ? resolve(userPath)
-    : resolve(resolvedRoot, userPath);
-}
-
-/**
- * Check whether an already-resolved absolute path stays within projectRoot.
- * On Windows, paths on different drives produce a full absolute relative()
- * result rather than a ".." prefix — use startsWith on the normalized paths.
- */
-function isWithinRoot(resolvedRoot: string, absPath: string): boolean {
-  return (
-    absPath.startsWith(resolvedRoot + "/") ||
-    absPath.startsWith(resolvedRoot + "\\") ||
-    absPath === resolvedRoot
-  );
-}
-
-/**
- * Resolve a user-supplied path and ensure it stays within projectRoot.
- *
- * @throws {UserError} When the resolved path escapes the project boundary or
- * is a symlink.
- */
-function safePath(resolvedRoot: string, userPath: string): string {
-  const absPath = resolveUserPath(resolvedRoot, userPath);
-  if (!isWithinRoot(resolvedRoot, absPath)) {
-    throw new UserError(
-      `Path "${userPath}" escapes project root — access denied`
-    );
-  }
-  // Reject symlinks to prevent following links to files outside the project
-  try {
-    if (lstatSync(absPath).isSymbolicLink()) {
-      throw new UserError(
-        `Path "${userPath}" is a symbolic link — access denied`
-      );
-    }
-  } catch (err) {
-    // Re-throw our own errors; ignore ENOENT (file may not exist yet for glob results)
-    if (err instanceof Error && err.message.includes("access denied")) {
-      throw err;
-    }
-  }
-  return absPath;
-}
 
 const RULE_TIMEOUT_MS = 30_000;
 
