@@ -3,23 +3,13 @@
 import type { ReadYamlResult, YamlValue } from "../formats/rules";
 
 /**
- * Leading `---`-delimited YAML frontmatter block. The block must start at the
- * very first character of the file (after an optional BOM, which is stripped
- * first), and BOTH fences must be a bare `---` occupying their whole line
- * (trailing spaces/tabs tolerated).
+ * Leading `---`-delimited frontmatter. Both fences must be a bare `---` on
+ * their own line (trailing spaces/tabs tolerated), which keeps `----` and
+ * `---note` from terminating the block. The body group is OPTIONAL so a fully
+ * empty `---`/`---` block matches and yields `{}`; `match[1]` is `undefined`
+ * there, so callers coalesce.
  *
- * Anchoring the closing fence to the line end is deliberate: it keeps `----`
- * and `---note` from acting as the terminator, which would parse a truncated
- * block and leave the stray characters at the head of the body. This is
- * marginally stricter than `parseAdr`'s regex in src/formats/adr.ts — the two
- * agree on every well-formed file and differ only on malformed fences, where
- * this one reports "no frontmatter" rather than parsing a partial block.
- *
- * The body group is OPTIONAL so a fully empty block (`---` immediately
- * followed by `---`, with no line between) matches and yields `{}`, per the
- * documented contract. A required `\r?\n` before the closing fence would
- * instead report "no frontmatter" and leave both delimiters in the body.
- * `match[1]` is `undefined` in that case — callers must coalesce.
+ * @see tests/engine/yaml-utils.test.ts — the fence and empty-block cases
  */
 const FRONTMATTER_REGEX =
   /^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/u;
@@ -60,20 +50,11 @@ function parseFrontmatterBlock(
 
 /**
  * Parse a file for `ctx.readYAML()`. Dispatch is extension-based, so a
- * multi-document YAML stream (whose `---` separators look exactly like a
- * frontmatter block) is never misdetected as frontmatter:
+ * multi-document YAML stream's `---` separators are never misread as
+ * frontmatter. `relPath` drives that dispatch and the error messages.
  *
- * - `.yml` / `.yaml`: the whole source parses as one YAML document —
- *   `frontmatter` is always `null`, `content` is the parsed value. Invalid
- *   YAML throws (fail-closed, like `ast()`), so a malformed file surfaces
- *   as a rule execution error instead of a false pass.
- * - Any other file (typically Markdown): the leading `---`-delimited block
- *   parses as `frontmatter` — `null` when absent, `{}` when present but
- *   empty, and a throw when it is invalid YAML or a non-mapping (scalar /
- *   sequence). `content` is the remaining body text (the whole file when
- *   there is no frontmatter), trimmed; it is NOT parsed as YAML.
- *
- * `relPath` is used only for error messages and the extension dispatch.
+ * @throws {Error} On invalid YAML, or a frontmatter block that is not a mapping.
+ * @see RuleContext.readYAML in src/formats/rules.ts — the full contract
  */
 export function parseYamlDocument(
   source: string,

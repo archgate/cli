@@ -58,13 +58,11 @@ export interface PackageJson {
 // --- Case Scheme ---
 
 /**
- * Casing schemes supported by `RuleContext.checkCase()`. Matching is
- * ASCII-only and all-or-nothing: the entire string must conform. `camelCase`
- * and `PascalCase` follow the ecosystem convention (typescript-eslint's
- * `naming-convention`): a leading lower/uppercase letter followed by any
- * ASCII alphanumerics, so acronym runs (`parseURL`, `HTTPServer`) match.
- * Degenerate values can satisfy several schemes at once (`value` is valid
- * kebab-case, snake_case, and camelCase).
+ * Casing schemes for `RuleContext.checkCase()`. Matching is ASCII-only and
+ * all-or-nothing. `camelCase`/`PascalCase` follow typescript-eslint's
+ * `naming-convention`, so acronym runs (`parseURL`, `HTTPServer`) match.
+ * Degenerate values satisfy several schemes at once — `value` is valid
+ * kebab-case, snake_case and camelCase.
  */
 export type CaseScheme =
   | "kebab-case"
@@ -89,14 +87,10 @@ export type YamlValue =
   | { [key: string]: YamlValue };
 
 /**
- * Return shape of `RuleContext.readYAML()`, covering both YAML documents and
- * Markdown frontmatter in one object.
- *
- * - For `.yml`/`.yaml` files: `frontmatter` is always `null` and `content`
- *   is the parsed YAML document.
- * - For any other file (typically Markdown): `frontmatter` is the parsed
- *   leading `---`-delimited block (`null` when absent, `{}` when empty) and
- *   `content` is the remaining body text, trimmed — not parsed as YAML.
+ * Return shape of `RuleContext.readYAML()`, covering YAML documents and
+ * Markdown frontmatter in one object. For `.yml`/`.yaml`, `frontmatter` is
+ * `null` and `content` is the parsed document; otherwise `frontmatter` is the
+ * parsed leading block and `content` the trimmed body text.
  */
 export interface ReadYamlResult {
   frontmatter: Record<string, YamlValue> | null;
@@ -266,24 +260,15 @@ export interface RuleContext {
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
-   * Read a YAML file or a Markdown file with YAML frontmatter, returning one
-   * {@link ReadYamlResult} object covering both: a nullable `frontmatter`
-   * mapping and a `content` typed as {@link YamlValue} — the JSON-like data
-   * YAML's core schema produces, so a `typeof` check is enough to index into
-   * mappings and sequences without a cast.
+   * Read a YAML file, or a Markdown file with YAML frontmatter, as one
+   * {@link ReadYamlResult}. Dispatch is extension-based, so a multi-document
+   * stream's `---` separators are never misread as frontmatter. `frontmatter`
+   * is `null` when a file has none — one null test, mirroring `fileAtBase` —
+   * and `{}` when the block is empty.
    *
-   * Dispatch is extension-based. `.yml`/`.yaml` files parse as one YAML
-   * document (`frontmatter: null`, `content` = the parsed value); a
-   * multi-document stream's `---` separators are therefore never misread as
-   * frontmatter. Every other file
-   * parses its leading `---`-delimited block as `frontmatter` — `null` when
-   * absent ("does this file have frontmatter?" is one null test, mirroring
-   * `fileAtBase`), `{}` when empty — with the remaining body text (trimmed,
-   * not YAML-parsed) as `content`.
-   *
-   * Throws (fail-closed, like `ast()`) when a `.yml`/`.yaml` file is invalid
-   * YAML, or when a frontmatter block is invalid YAML or parses to a
-   * non-mapping (scalar/sequence).
+   * @throws {Error} On invalid YAML, or frontmatter that is not a mapping.
+   * @see ReadYamlResult — the per-extension shape
+   * @see YamlValue — why `content` needs no cast
    */
   readYAML(path: string): Promise<ReadYamlResult>;
   /**

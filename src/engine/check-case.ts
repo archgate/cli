@@ -3,17 +3,11 @@
 import type { CaseScheme } from "../formats/rules";
 
 /**
- * Anchored ASCII pattern per supported casing scheme. Each pattern matches the
- * ENTIRE string — no partial credit — and the vocabulary is ASCII letters and
- * digits only:
+ * Anchored ASCII pattern per casing scheme — each matches the ENTIRE string,
+ * over ASCII letters and digits only. `camelCase`/`PascalCase` follow
+ * typescript-eslint's `naming-convention`, so acronym runs match.
  *
- * - `kebab-case` / `snake_case`: lowercase alphanumeric segments joined by a
- *   single `-` / `_`; segments may start with a digit (`2fa-setup`).
- * - `SCREAMING_SNAKE_CASE`: the uppercase counterpart of `snake_case`.
- * - `camelCase` / `PascalCase`: a leading lowercase/uppercase letter followed
- *   by any ASCII alphanumerics — the same definition typescript-eslint's
- *   `naming-convention` uses, so acronym runs match (`parseURL`,
- *   `HTTPServer`). No separators allowed.
+ * @see CaseScheme in src/formats/rules.ts — the per-scheme contract
  */
 const CASE_PATTERNS: Record<CaseScheme, RegExp> = {
   "kebab-case": /^[a-z0-9]+(?:-[a-z0-9]+)*$/u,

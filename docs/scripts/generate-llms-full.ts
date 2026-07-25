@@ -72,15 +72,11 @@ const CODE_SEGMENT_REGEX =
   /(^ {0,3}(?:```|~~~)[\s\S]*?^ {0,3}(?:```|~~~)[ \t]*$|`+[^`\n]+`+)/gmu;
 
 /**
- * Apply `stripJsx` to prose only, leaving code byte-identical.
- *
- * The component-tag patterns cannot distinguish a JSX tag from a TypeScript
- * generic whose argument is capitalized, so applying them to code strips real
- * type arguments: `Promise<GrepMatch[]>`, `Promise<AstNode>` and
- * `Promise<ReadYamlResult>` publish as a bare `Promise`, while lowercase
- * arguments such as `Promise<string>` pass through untouched. Both fenced
- * blocks and inline spans — which carry signatures in reference tables — are
- * therefore protected.
+ * Apply `stripJsx` to prose only, leaving code byte-identical. The
+ * component-tag patterns cannot tell a JSX tag from a generic with a
+ * capitalized argument, so over code they strip real type arguments —
+ * `Promise<AstNode>` would publish as a bare `Promise`. Fenced blocks and
+ * inline spans (signatures in reference tables) are both protected.
  */
 function stripJsxOutsideCode(content: string): string {
   return content

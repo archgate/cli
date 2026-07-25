@@ -21,13 +21,10 @@ const SANCTIONED_SPAWN_FILES = new Set([
 ]);
 
 /**
- * Extract the member names declared inside the `interface RuleContext { … }`
- * block of a source text. Regex over raw text, NOT ctx.ast(): Bun.Transpiler
- * erases type-only interface declarations before parsing, so the tree never
- * contains them. Member lines are 2-space-indented identifiers followed by
- * `(` or `:`; overloads repeat a name, hence the Set. Works on both the real
- * interface (src/formats/rules.ts) and the shim's template literal
- * (src/helpers/rules-shim.ts), whose member lines are textually identical.
+ * Member names declared inside an `interface RuleContext { … }` block. Regex
+ * over raw text, NOT ctx.ast(): Bun.Transpiler erases type-only declarations
+ * before parsing. Overloads repeat a name, hence the Set. Works on both the
+ * real interface and the shim's template literal, whose member lines match.
  */
 function ruleContextMembers(content: string): Set<string> {
   const members = new Set<string>();
