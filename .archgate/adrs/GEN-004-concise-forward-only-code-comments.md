@@ -53,6 +53,8 @@ Comments in all project-authored TypeScript MUST be concise and MUST describe cu
 
 Applies to all project-authored TypeScript: `src/`, `tests/`, `lint/`, `scripts/`, `shims/`, `.archgate/lint/`, and the ADR companion rules files (`.archgate/adrs/**/*.rules.ts`) — the code enforcing this decision is subject to it. Test files (`tests/**`) are exempt from the conciseness bound only (fixture-explaining blocks are common and low-risk there); the forward-only requirement still applies to them. `tests/fixtures/**` is fully exempt (fixture content is deliberately arbitrary). Markdown, YAML, and JSON are governed by this ADR's prose but not by the automated checks.
 
+**Agent memory (`.claude/agent-memory/**`) is exempt from the forward-only requirement.** Those files exist to record incident history — a memory entry's `**Why:**` line is deliberately a past-tense account of the failure that produced the rule, and that account is what lets a future agent judge edge cases instead of following the rule blindly. Applying forward-only prose there would delete the very content the memory system is for. Conciseness still applies by convention (memory is loaded into every session's context), but neither requirement is machine-checked in that directory. This exemption is what makes "move deep rationale to an ADR or memory file" a real remedy rather than a redirection to a second place the rationale is banned.
+
 ## Do's and Don'ts
 
 ### Do

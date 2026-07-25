@@ -49,10 +49,16 @@ function proseLines(comment: CommentToken): string[] {
     .filter((l) => l !== "" && !DIVIDER_ONLY.test(l) && !NON_PROSE.test(l));
 }
 
-// True when nothing but whitespace precedes the comment on its first line.
+// True when the comment occupies its lines alone — nothing but whitespace
+// before it and nothing but whitespace after it, so `/* c */ const x = 1`
+// stays out of block runs.
 function isWholeLine(comment: CommentToken, lines: string[]): boolean {
-  const lineText = lines[comment.loc.start.line - 1] ?? "";
-  return lineText.slice(0, comment.loc.start.column).trim() === "";
+  const firstLine = lines[comment.loc.start.line - 1] ?? "";
+  const lastLine = lines[comment.loc.end.line - 1] ?? "";
+  return (
+    firstLine.slice(0, comment.loc.start.column).trim() === "" &&
+    lastLine.slice(comment.loc.end.column).trim() === ""
+  );
 }
 
 const noNarrationInComments = {
@@ -69,6 +75,8 @@ const noNarrationInComments = {
               loc: comment.loc,
               message: `Comment ${kind} instead of describing current behavior. Rewrite in present tense — git history already records what changed (GEN-004).`,
             });
+            // One diagnostic per comment, even when both patterns match.
+            break;
           }
         }
       },

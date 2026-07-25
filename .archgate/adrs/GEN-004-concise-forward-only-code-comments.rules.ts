@@ -19,11 +19,13 @@ const NON_PROSE =
 
 const OVERSIZED_BLOCK_THRESHOLD = 5;
 
+// A leading `*` counts only when followed by space or end of line, so a
+// generator declaration (`*method() {`) is not mistaken for a JSDoc body.
 function looksLikeComment(trimmed: string): boolean {
   return (
     trimmed.startsWith("//") ||
     trimmed.startsWith("/*") ||
-    trimmed.startsWith("*")
+    /^\*(\s|\/|$)/u.test(trimmed)
   );
 }
 
@@ -73,6 +75,8 @@ export default {
                 line: index + 1,
                 fix: "Rewrite in present tense describing what the code does now — git history already records what changed",
               });
+              // One diagnostic per comment, even when both patterns match.
+              break;
             }
           });
         });

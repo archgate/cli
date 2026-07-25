@@ -83,7 +83,8 @@ async function main() {
   // Start error tracking and telemetry initialization concurrently without
   // awaiting: the preAction hook awaits this promise right before the first
   // telemetry event fires, so `repo_id` is always present on `command_executed`
-  // events while --help/--version skip the ~150ms SDK + git cost (PR #211).
+  // events, while paths that never reach preAction (--help, --version) leave
+  // the ~150ms of SDK parse and repo_id resolution off the critical path.
   const telemetryReady = Promise.all([initSentry(), initTelemetry()]);
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")

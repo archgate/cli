@@ -1,11 +1,11 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * ARCH-012 enforcement on top of ctx.ast() (ARCH-022). Detecting only the
- * PRESENCE of a try-catch lets partial boundaries pass (incident CLI-5), so
- * the boundary rule walks the ESTree and additionally flags top-level awaited
- * statements sitting OUTSIDE the action's try block — the exact statements
- * whose rejections escape to main().catch() and miscapture to Sentry.
+ * ARCH-012 enforcement on top of ctx.ast() (ARCH-022). A try-catch that
+ * covers only part of an action is as leaky as none, so the boundary rule
+ * walks the ESTree and flags top-level awaited statements sitting OUTSIDE
+ * the action's try block, whose rejections escape to main().catch() and
+ * miscapture to Sentry. See ARCH-012 for the failure it prevents.
  */
 
 /** Node types whose bodies run in their own context — awaits inside them are

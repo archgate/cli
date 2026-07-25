@@ -113,8 +113,9 @@ export function parseSuppressions(
 /**
  * Apply inline suppressions to rule results: a violation with `file`/`line`
  * is dropped when an `archgate-ignore` comment precedes that line or an
- * `archgate-ignore-file` comment appears anywhere in the file. Suppressions
- * without a reason are ignored with a warning; unused ones also warn.
+ * `archgate-ignore-file` comment appears anywhere in the file. A suppression
+ * missing its reason suppresses nothing and warns once it is scope-matched;
+ * an unused suppression that has a reason warns too.
  */
 export async function applySuppressions(
   projectRoot: string,

@@ -95,7 +95,8 @@ interface SyntaxViolation {
 /**
  * Check that a `.rules.ts` file follows the required syntax conventions:
  * a triple-slash reference to `rules.d.ts` (ambient types without imports)
- * and `satisfies RuleSet` on the default export (compile-time validation).
+ * and a `satisfies RuleSet` clause (compile-time validation). Both are
+ * presence checks over the source text, not placement checks.
  */
 function checkRuleSyntax(source: string): SyntaxViolation[] {
   const violations: SyntaxViolation[] = [];

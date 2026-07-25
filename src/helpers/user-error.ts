@@ -3,9 +3,9 @@
 /**
  * user-error.ts — Typed error class for expected, user-facing failures
  * (invalid input, missing config, network/auth errors): "exit-code-1"
- * errors the user fixes. Anything that is NOT a {@link UserError} counts as
- * an unexpected bug and is captured to Sentry via {@link handleCommandError}
- * in `exit.ts`.
+ * errors the user fixes. {@link handleCommandError} in `exit.ts` captures
+ * to Sentry anything that is neither a {@link UserError} nor an
+ * `ExitPromptError` (Ctrl+C cancellation, exit 130).
  */
 
 /**

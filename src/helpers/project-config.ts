@@ -243,8 +243,8 @@ export async function removeCustomDomain(
 /**
  * Resolve project paths with config-aware overrides: reads
  * `.archgate/config.json` and applies custom `paths.adrs` / `paths.rules`.
- * Unset `paths.rules` means rules co-locate with ADRs; no `paths` config at
- * all means the standard `.archgate/adrs/` and `.archgate/lint/` defaults.
+ * Each key falls back independently to its standard default — `.archgate/adrs/`
+ * for ADRs and `.archgate/lint/` for rules — as does a missing `paths` block.
  */
 export function resolvedProjectPaths(projectRoot: string): {
   root: string;

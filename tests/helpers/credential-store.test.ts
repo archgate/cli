@@ -32,10 +32,10 @@ describe("credential-store", () => {
   });
 
   afterEach(() => {
-    // restoreEnv deletes when the original was unset. HOME and
-    // GIT_CONFIG_GLOBAL are normally unset on Windows, so a bare restore leaked
-    // them as the string "undefined" into every later test file and any
-    // subprocess those tests spawned (Bun.env is process-global).
+    // restoreEnv deletes when the captured value was unset, which matters
+    // because HOME and GIT_CONFIG_GLOBAL are normally unset on Windows: a
+    // bare assignment stores the string "undefined" and Bun.env is
+    // process-global, so it reaches every later test file and subprocess.
     restoreEnv("HOME", originalHome);
     restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
     restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
