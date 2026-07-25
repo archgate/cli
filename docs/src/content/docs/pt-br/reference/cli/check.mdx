@@ -137,9 +137,11 @@ Portanto, `archgate check` relata toda seção de ADR que excede o limite, em to
 
 As mesmas entradas aparecem na saída JSON em `briefingWarnings`, com `adrId`, `file`, `section`, `length` e `cap`.
 
-Elas são **consultivas e nunca afetam `pass`**. Um ADR cuja seção não pode encolher sem perder uma cláusula normativa — uma lista enumerada de identificadores, uma barreira de proteção ordenada, uma isenção — deve mesmo exceder o limite. Quando isso ocorrer, registre o motivo na seção Compliance do próprio ADR e organize a seção para que o conteúdo mais normativo venha antes do corte, já que o truncamento sempre remove o final.
+Elas são **consultivas e nunca afetam `pass`**.
 
-Para reduzir um excesso: mova justificativas para Context ou Consequences, que nunca entram no resumo e portanto nunca têm limite; remova narrativa histórica; e mescle regras duplicadas.
+Para eliminar um excesso, aplique primeiro os remédios que não podem custar uma regra: mova justificativas para Context ou Consequences, que nunca entram no resumo e portanto nunca têm limite; remova narrativa histórica; e mescle itens que enunciam a mesma regra duas vezes.
+
+Se o próximo corte removeria uma cláusula normativa — uma lista enumerada de identificadores, uma barreira de proteção ordenada, uma isenção — **pare**. Espera-se mesmo que essa seção exceda o limite, e ela NÃO DEVE ser encurtada além disso. Registre o motivo na seção Compliance do próprio ADR e organize a seção para que o conteúdo mais normativo venha antes do corte, já que o truncamento sempre remove o final.
 
 Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"severity": "warning"`) nunca alteram o código de saída. Passe `--max-warnings <n>` para fazer `archgate check` sair com código 1 quando a contagem total de avisos exceder `n`. `--max-warnings 0` falha com qualquer aviso. Quando o limite é excedido, o campo `warningsExceeded` da saída JSON é `true` e `pass` é `false`.
 

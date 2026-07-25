@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, afterEach, beforeEach } from "bun:test";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   BRIEFED_SECTIONS,
   DEFAULT_MAX_SECTION_CHARS,
   collectBriefingBudgetWarnings,
+  collectBriefingDiagnostics,
   extractAdrSections,
   truncateSection,
 } from "../../src/engine/adr-sections";
 import type { AdrDocument, AdrDomain } from "../../src/formats/adr";
+import { safeRmSync } from "../test-utils";
 
 function makeAdr(
   id: string,
@@ -160,5 +165,60 @@ describe("collectBriefingBudgetWarnings", () => {
     expect(collectBriefingBudgetWarnings([adr], 100)[0].file).toBe(
       "/repo/.archgate/adrs/ARCH-008-x.md"
     );
+  });
+});
+
+describe("collectBriefingDiagnostics", () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "archgate-adrsec-"));
+    mkdirSync(join(dir, ".archgate", "adrs"), { recursive: true });
+  });
+
+  afterEach(() => {
+    safeRmSync(dir);
+  });
+
+  function writeAdrFile(name: string, body: string) {
+    writeFileSync(join(dir, ".archgate", "adrs", name), body);
+  }
+
+  test("reports over-budget sections with project-relative paths", async () => {
+    writeAdrFile(
+      "ARCH-001-x.md",
+      `---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\n${"A".repeat(3000)}\n`
+    );
+    const { briefingWarnings, unparsedAdrs } =
+      await collectBriefingDiagnostics(dir);
+    expect(unparsedAdrs).toEqual([]);
+    expect(briefingWarnings).toHaveLength(1);
+    expect(briefingWarnings[0].adrId).toBe("ARCH-001");
+    expect(briefingWarnings[0].file).toBe(".archgate/adrs/ARCH-001-x.md");
+  });
+
+  // An unparsed ADR is measured by nothing, so silence here would read as
+  // "nothing over budget" when the file was simply never inspected.
+  test("names ADRs that could not be parsed", async () => {
+    writeAdrFile(
+      "ARCH-001-x.md",
+      "---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\nShort.\n"
+    );
+    writeAdrFile("ZZ-broken.md", "no frontmatter at all");
+    const { briefingWarnings, unparsedAdrs } =
+      await collectBriefingDiagnostics(dir);
+    expect(unparsedAdrs).toEqual(["ZZ-broken.md"]);
+    expect(briefingWarnings).toEqual([]);
+  });
+
+  test("honours a caller-supplied cap so diagnostics match the truncation applied", async () => {
+    writeAdrFile(
+      "ARCH-002-y.md",
+      "---\nid: ARCH-002\ntitle: Y\ndomain: architecture\nrules: false\n---\n\n## Decision\nJust over fifty characters of prose for this decision.\n"
+    );
+    const tight = await collectBriefingDiagnostics(dir, 20);
+    expect(tight.briefingWarnings[0].cap).toBe(20);
+    const loose = await collectBriefingDiagnostics(dir, 0);
+    expect(loose.briefingWarnings).toEqual([]);
   });
 });

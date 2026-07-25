@@ -67,19 +67,21 @@ Use four exit codes with clear semantics:
 ### Good Example
 
 ```typescript
-// Expected failure — user error with actionable suggestion
-import { logError } from "../helpers/log";
+// Expected failure — throw UserError and let the command's error boundary
+// log it and exit 1 (ARCH-012). Calling logError + exit here would bypass it.
+import { UserError } from "../helpers/user-error";
 
 if (!existsSync(resolve(projectRoot, ".archgate/adrs"))) {
-  logError(
+  throw new UserError(
     "No .archgate/ directory found. Run `archgate init` to initialize governance."
   );
-  process.exit(1);
 }
 
 // Validation failure — report and exit with code 1
 const exitCode = getExitCode(await runChecks(adrs)); // 0 clean, 1 violations
-process.exit(exitCode);
+// exitWith() flushes telemetry/Sentry and tags the outcome; a bare
+// process.exit() here would skip both.
+await exitWith(exitCode);
 ```
 
 ### Bad Example
