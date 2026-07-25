@@ -12,7 +12,7 @@ files: ["src/**/*.ts"]
 
 `Bun.Glob.scan()` defaults to `dot: false`, which skips any match whose path contains a dot-prefixed segment — **even when the pattern explicitly names that directory**. A pattern like `.github/workflows/release.yml` returns nothing under the default. Worse, the behavior is platform-dependent: Windows reliably drops the match while Linux can match the same pattern, so a glob appears to "work in CI" but silently no-ops on a contributor's Windows machine.
 
-Archgate is a code-governance tool. The directories it must inspect — `.github/`, `.husky/`, `.vscode/`, `.archgate/` — are dot-prefixed by convention. Treating them as first-class source means every `scan()` over the project tree must opt into dotfiles, or rules that target CI workflows and tooling config will silently scan nothing. This caused [archgate/cli#222](https://github.com/archgate/cli/issues/222): rules over `.github/workflows/**` no-opped locally while passing in CI.
+Archgate is a code-governance tool. The directories it must inspect — `.github/`, `.husky/`, `.vscode/`, `.archgate/` — are dot-prefixed by convention. Treating them as first-class source means every `scan()` over the project tree must opt into dotfiles, or rules that target CI workflows and tooling config silently scan nothing — see [archgate/cli#222](https://github.com/archgate/cli/issues/222), where rules over `.github/workflows/**` no-op locally while passing in CI.
 
 ### Alternatives Analysis
 

@@ -10,9 +10,7 @@ files:
 
 ## Context
 
-[ARCH-015](./ARCH-015-cli-command-documentation-coverage.md) guarantees that every top-level CLI command has a corresponding `.mdx` reference page. However, it does not check whether **subcommands** are documented inside that page. A top-level command group like `adr` can gain new subcommands (`import`, `sync`) without ARCH-015 flagging anything, because `adr.mdx` already exists.
-
-This gap caused real drift: `archgate adr import` and `archgate adr sync` shipped without being documented in `adr.mdx`, and the omission was only caught by manual audit.
+[ARCH-015](./ARCH-015-cli-command-documentation-coverage.md) guarantees that every top-level CLI command has a corresponding `.mdx` reference page, but it does not check whether **subcommands** are documented inside that page. A command group like `adr` can gain new subcommands without ARCH-015 flagging anything, because `adr.mdx` already exists — a gap that has produced real drift.
 
 **Drift surfaces:**
 
@@ -21,9 +19,9 @@ This gap caused real drift: `archgate adr import` and `archgate adr sync` shippe
 
 **Alternatives considered:**
 
-- **Full option/flag cross-check via AST parsing.** Parsing Commander.js `.option()` chains from TypeScript files and comparing against documented options in `.mdx` files. This provides the deepest accuracy but requires a TypeScript parser, is brittle against Commander API changes, and adds significant complexity to the rule. Option-level accuracy is better enforced through code review.
+- **Full option/flag cross-check via AST parsing.** Parsing Commander.js `.option()` chains and comparing against documented options gives the deepest accuracy, but requires a TypeScript parser, is brittle against Commander API changes, and adds significant rule complexity. Option-level accuracy is better enforced through code review.
 - **Auto-generating docs from `--help` output.** Eliminates all drift but loses the hand-written prose, examples, and troubleshooting sections that make the reference pages useful. Already rejected in ARCH-015.
-- **Extending ARCH-015 directly.** The existing ADR is well-scoped to top-level command-to-page parity. Adding subcommand checks would mix two different granularities of enforcement in one rule. A separate ADR keeps the responsibilities clear and each rule focused.
+- **Extending ARCH-015 directly.** Adding subcommand checks to an ADR scoped to top-level command-to-page parity would mix two granularities of enforcement in one rule. A separate ADR keeps each rule focused.
 
 **Cross-references:**
 
@@ -63,26 +61,26 @@ Conversely, every heading in a `.mdx` file that matches the pattern `archgate <p
 
 ### Positive
 
-- **Subcommand discoverability guaranteed.** Every subcommand shipped in the CLI has documentation in the parent's reference page -- no more silent omissions like `adr import` and `adr sync`.
+- **Subcommand discoverability guaranteed.** Every subcommand shipped in the CLI has documentation in the parent's reference page.
 - **Orphan detection.** Documented subcommands that no longer exist in code are flagged automatically.
 - **Composable with ARCH-015.** This ADR handles subcommand-level coverage; ARCH-015 handles page-level coverage. Together they guarantee every command at every level is documented.
 - **Lightweight enforcement.** The rule reads directory listings and greps headings -- no AST parsing, no process spawning.
 
 ### Negative
 
-- **Does not check option accuracy.** The rule verifies subcommand headings exist but not that the documented options/flags match the actual Commander definition. Option-level accuracy requires code review.
+- **Does not check option accuracy.** The rule verifies subcommand headings exist but not that documented options/flags match the actual Commander definition. Option-level accuracy requires code review.
 - **Does not enforce skill reference sync.** The `commands.md` files in the plugins repo are outside the rule's reach. Drift between the website docs and skill reference must be caught through review.
 
 ### Risks
 
-- **Non-standard heading format bypasses the rule.** If a contributor documents a subcommand with a heading like `## Import ADRs` instead of `## archgate adr import`, the rule won't detect it. **Mitigation:** The Do's section specifies the required format, and the rule's fix suggestion includes the expected heading text.
-- **Nested group misdetection.** A directory like `src/commands/adr/domain/` contains both `index.ts` (the group) and `add.ts`, `remove.ts`, `list.ts` (the sub-subcommands). The rule treats `domain` as a subcommand of `adr` (correctly) but does not recurse into `domain/`'s children. **Mitigation:** Deeply nested subcommands are rare and are covered by the parent group's documentation pattern (table inside the heading section).
+- **Non-standard heading format bypasses the rule.** A heading like `## Import ADRs` instead of `## archgate adr import` goes undetected. **Mitigation:** The Do's section specifies the required format, and the rule's fix suggestion includes the expected heading text.
+- **Nested group misdetection.** `src/commands/adr/domain/` contains both `index.ts` (the group) and its sub-subcommand files. The rule treats `domain` as a subcommand of `adr` (correctly) but does not recurse into `domain/`'s children. **Mitigation:** Deeply nested subcommands are rare and are covered by the parent group's documentation pattern (table inside the heading section).
 
 ## Compliance and Enforcement
 
 ### Automated Enforcement
 
-- **Archgate rule** `ARCH-016/subcommand-has-docs-heading`: For each subcommand file under `src/commands/`, verifies a matching heading exists in the parent's `.mdx` page. Also checks the reverse: headings in `.mdx` files that look like subcommand references must correspond to actual files. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
+- **Archgate rule** `ARCH-016/subcommand-has-docs-heading`: For each subcommand file under `src/commands/`, verifies a matching heading exists in the parent's `.mdx` page, and the reverse — headings that look like subcommand references must correspond to actual files. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
 
 ### Manual Enforcement
 

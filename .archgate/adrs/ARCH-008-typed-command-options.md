@@ -11,14 +11,14 @@ files: ["src/commands/**/*.ts"]
 Commander.js `.option()` accepts arbitrary strings and produces loosely typed option values. This causes two problems:
 
 1. **Fixed choices** — When a command accepts a fixed set of values (e.g., `--editor claude|cursor|vscode|copilot`), using `.option()` requires manual runtime validation and `as` casts to narrow the type — boilerplate that is easy to forget and produces unhelpful error messages.
-2. **Custom parsers** — Passing a parser function (e.g., `parseInt`) as the third argument to `.option()` loses type information. The `opts` object infers `string` instead of the parser's return type. Worse, passing `parseInt` directly is a subtle bug: Commander passes `(value, previous)` but `parseInt` interprets `previous` as `radix`.
+2. **Custom parsers** — Passing a parser function (e.g., `parseInt`) as the third argument to `.option()` loses type information: `opts` infers `string` instead of the parser's return type. Passing `parseInt` directly is also a subtle bug — Commander passes `(value, previous)`, and `parseInt` interprets `previous` as `radix`.
 
 **Alternatives considered:**
 
-- **Plain `.option()` with manual validation** — The developer writes a runtime check (`if (!VALID.includes(val))`) and casts to the narrow type. This works but scatters validation logic, produces inconsistent error messages across commands, and the `opts` object remains typed as `string`, requiring `as` casts at every usage site.
-- **Zod/custom parsing in `.option()` argParser** — Commander supports a custom parse function as the third argument to `.option()`. While this gives runtime validation, it does not narrow the TypeScript type in the `opts` object when using `@commander-js/extra-typings`.
+- **Plain `.option()` with manual validation** — A runtime check (`if (!VALID.includes(val))`) plus a cast works, but scatters validation logic, produces inconsistent error messages across commands, and leaves `opts` typed as `string`, requiring `as` casts at every usage site.
+- **Zod/custom parsing in `.option()` argParser** — Commander's third-argument parse function gives runtime validation but does not narrow the TypeScript type in `opts` under `@commander-js/extra-typings`.
 
-The `@commander-js/extra-typings` package provides the `Option` class with `.choices()` for enum-like options and `.argParser()` for custom parsers. Both methods correctly narrow the TypeScript type in the action callback's `opts` parameter. Using `.addOption()` instead of `.option()` integrates these typed options into the command.
+`@commander-js/extra-typings` provides the `Option` class with `.choices()` for enum-like options and `.argParser()` for custom parsers. Both narrow the TypeScript type in the action callback's `opts` parameter, and `.addOption()` registers them on the command.
 
 ## Decision
 
@@ -68,12 +68,10 @@ export function registerExampleCommand(program: Command) {
     .addOption(editorOption)
     .action(async (opts) => {
       // opts.editor is typed as "claude" | "cursor" | "vscode" | "copilot"
+      // TypeScript enforces exhaustive matching
       switch (opts.editor) {
         case "claude":
           break;
-        case "cursor":
-          break;
-        // TypeScript enforces exhaustive matching
       }
     });
 }
@@ -82,57 +80,40 @@ export function registerExampleCommand(program: Command) {
 ### Good Example (argParser)
 
 ```typescript
-import type { Command } from "@commander-js/extra-typings";
-import { Option } from "@commander-js/extra-typings";
-
 const maxEntriesOption = new Option(
   "--max-entries <n>",
-  "maximum entries to return"
+  "maximum entries"
 ).argParser((val) => parseInt(val, 10));
 
-export function registerExampleCommand(program: Command) {
-  program
-    .command("example")
-    .addOption(maxEntriesOption)
-    .action(async (opts) => {
-      // opts.maxEntries is typed as number | undefined
-      const limit = opts.maxEntries ?? 200;
-    });
-}
+// registered with .addOption(maxEntriesOption)
+// opts.maxEntries is typed as number | undefined
 ```
 
 ### Bad Example (choices)
 
 ```typescript
 // BAD: loose typing, manual validation, casts
-export function registerExampleCommand(program: Command) {
-  program
-    .command("example")
-    .option("--editor <editor>", "target editor", "claude")
-    .action(async (opts) => {
-      // opts.editor is string — no narrowing
-      if (!["claude", "cursor"].includes(opts.editor)) {
-        logError(`Unknown editor "${opts.editor}"`);
-        process.exit(1);
-      }
-      const editor = opts.editor as EditorTarget; // unsafe cast
-    });
-}
+program
+  .command("example")
+  .option("--editor <editor>", "target editor", "claude")
+  .action(async (opts) => {
+    // opts.editor is string — no narrowing
+    if (!["claude", "cursor"].includes(opts.editor)) {
+      logError(`Unknown editor "${opts.editor}"`);
+      process.exit(1);
+    }
+    const editor = opts.editor as EditorTarget; // unsafe cast
+  });
 ```
 
 ### Bad Example (argParser)
 
 ```typescript
-// BAD: parseInt passed directly — previous value becomes radix, type is wrong
-export function registerExampleCommand(program: Command) {
-  program
-    .command("example")
-    .option("--max-entries <n>", "maximum entries", parseInt)
-    .action(async (opts) => {
-      // opts.maxEntries type is not correctly inferred as number
-      // parseInt receives (value, previous) — previous becomes radix (bug)
-    });
-}
+// BAD: parseInt passed directly — Commander passes (value, previous),
+// so previous becomes radix (bug), and opts.maxEntries is not inferred as number
+program
+  .command("example")
+  .option("--max-entries <n>", "maximum entries", parseInt);
 ```
 
 ## Consequences
@@ -146,18 +127,18 @@ export function registerExampleCommand(program: Command) {
 
 ### Negative
 
-- **Slightly more verbose declaration** — `new Option().choices().default()` with `.addOption()` is more code than `.option()` for simple cases. This is acceptable given the type safety gained.
+- **Slightly more verbose declaration** — `new Option().choices().default()` with `.addOption()` is more code than `.option()` for simple cases. Acceptable given the type safety gained.
 
 ### Risks
 
-- **Regression** — A developer unfamiliar with this ADR may use `.option()` with manual validation or a bare parser function. The automated rules catch both patterns at check time.
+- **Regression** — A developer unfamiliar with this ADR may use `.option()` with manual validation or a bare parser function. **Mitigation:** the automated rules catch both patterns at check time.
 
 ## Compliance and Enforcement
 
 ### Automated Enforcement
 
-- **Archgate rule** ARCH-008/use-add-option-for-choices: Scans command files for `.option()` calls that include a hardcoded choices-like pattern and flags them for migration to `.addOption()` with `.choices()`. Severity: error.
-- **Archgate rule** ARCH-008/use-add-option-for-arg-parser: Scans command files for `.option()` calls that pass a parser function (e.g., `parseInt`, `parseFloat`, or arrow functions) as the third argument, and flags them for migration to `new Option().argParser()` with `.addOption()`. Severity: error.
+- **Archgate rule** ARCH-008/use-add-option-for-choices: Flags `.option()` calls in command files containing a hardcoded choices-like pattern for migration to `.addOption()` with `.choices()`. Severity: error.
+- **Archgate rule** ARCH-008/use-add-option-for-arg-parser: Flags `.option()` calls that pass a parser function (e.g., `parseInt`, `parseFloat`, or arrow functions) as the third argument, for migration to `new Option().argParser()` with `.addOption()`. Severity: error.
 
 ### Manual Enforcement
 

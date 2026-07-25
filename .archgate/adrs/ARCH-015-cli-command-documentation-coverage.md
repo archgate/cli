@@ -14,16 +14,16 @@ The CLI reference docs under `docs/src/content/docs/reference/cli/` are the auth
 
 Drift happens in two directions:
 
-1. **Undocumented commands.** A new `register*Command(program)` call lands in [src/cli.ts](../../src/cli.ts) without a matching `.mdx` file. Recent example: the `telemetry` command shipped without `docs/src/content/docs/reference/cli/telemetry.mdx`.
+1. **Undocumented commands.** A new `register*Command(program)` call lands in [src/cli.ts](../../src/cli.ts) without a matching `.mdx` file.
 2. **Orphan docs.** A command is removed but its docs page lingers, advertising a flag that no longer exists.
 
 **Alternatives considered:**
 
-- **Manual review only.** Relies on reviewers remembering to check both surfaces on every command change. Has already failed (see the `telemetry` gap above).
-- **Auto-generate the docs from `--help` output.** Eliminates drift but loses the hand-written prose (examples, troubleshooting sections, tips) that distinguish our reference pages from a flat flag dump.
-- **A single monolithic `cli.mdx`.** Centralises everything into one file, which kills the per-command URL structure users link to and breaks Starlight's per-page search indexing.
+- **Manual review only.** Relies on reviewers remembering to check both surfaces on every command change; it has failed in practice.
+- **Auto-generate the docs from `--help` output.** Eliminates drift but loses the hand-written prose (examples, troubleshooting sections, tips) that distinguishes our reference pages from a flat flag dump.
+- **A single monolithic `cli.mdx`.** Kills the per-command URL structure users link to and breaks Starlight's per-page search indexing.
 
-An automated cross-check that pairs every top-level command with exactly one `.mdx` file — while letting each page stay hand-written — preserves the prose quality we want and catches drift mechanically.
+An automated cross-check that pairs every top-level command with exactly one hand-written `.mdx` file preserves prose quality and catches drift mechanically.
 
 **Cross-references:**
 
@@ -69,7 +69,7 @@ Nested subcommand files (`src/commands/adr/create.ts`, `src/commands/adr/domain/
 
 ### Positive
 
-- **Discoverability guaranteed.** Every command shipped in the CLI has a dedicated, linkable reference page — no more silent omissions.
+- **Discoverability guaranteed.** Every command shipped in the CLI has a dedicated, linkable reference page.
 - **Orphan detection.** Docs pages that outlive their command are flagged automatically, keeping the reference section truthful.
 - **Cheap to enforce.** The rule reads directory listings only — no AST parsing of `src/cli.ts`, no `--help` invocation, no cross-process work.
 - **Aligns with existing conventions.** Piggybacks on the `src/commands/<name>.ts` / `src/commands/<name>/index.ts` pattern from ARCH-001 without introducing new metadata.
@@ -77,13 +77,13 @@ Nested subcommand files (`src/commands/adr/create.ts`, `src/commands/adr/domain/
 
 ### Negative
 
-- **Prose overhead on new commands.** Adding a top-level command now requires writing a reference page, not just code + tests. Mitigated by the short, templated structure of existing `.mdx` files (most are under 100 lines).
-- **False negative for exotic layouts.** If a contributor invents a new command-registration pattern that bypasses both `src/commands/<name>.ts` and `src/commands/<name>/index.ts`, the rule won't see it. ARCH-001 forbids this, so the drift would be caught there first.
+- **Prose overhead on new commands.** Adding a top-level command requires writing a reference page, not just code + tests. Mitigated by the short, templated structure of existing `.mdx` files.
+- **False negative for exotic layouts.** A command-registration pattern that bypasses both `src/commands/<name>.ts` and `src/commands/<name>/index.ts` is invisible to the rule. ARCH-001 forbids this, so the drift is caught there first.
 
 ### Risks
 
-- **A rename splits command and docs.** Renaming `src/commands/old.ts` → `src/commands/new.ts` without renaming `old.mdx` → `new.mdx` triggers two violations (orphan + missing). **Mitigation:** the rule's `fix` suggestions explicitly recommend the rename, and `bun run validate` catches it before the PR lands.
-- **Rule rejects a deliberately undocumented internal command.** If a command is experimental and not yet ready for public docs, the rule blocks its introduction. **Mitigation:** either (a) don't register it in `src/cli.ts` until it is user-facing, or (b) ship a stub `.mdx` marked "Experimental — subject to change". The rule intentionally does not support a shared exemption list; decisions to ship commands undocumented should be deliberate and visible.
+- **A rename splits command and docs.** Renaming `src/commands/old.ts` → `src/commands/new.ts` without renaming `old.mdx` → `new.mdx` triggers two violations (orphan + missing). **Mitigation:** the rule's `fix` suggestions recommend the rename, and `bun run validate` catches it before the PR lands.
+- **Rule rejects a deliberately undocumented internal command.** An experimental command not ready for public docs is blocked at introduction. **Mitigation:** either (a) don't register it in `src/cli.ts` until it is user-facing, or (b) ship a stub `.mdx` marked "Experimental — subject to change". The rule intentionally has no shared exemption list; shipping a command undocumented should be deliberate and visible.
 
 ## Compliance and Enforcement
 

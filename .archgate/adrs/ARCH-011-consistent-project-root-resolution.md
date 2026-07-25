@@ -15,7 +15,7 @@ Commands that operate on project-level resources (ADRs, rules, `.archgate/` conf
 - Commands using `findProjectRoot()` (walks up from cwd to find `.archgate/adrs/`) work correctly from any subdirectory
 - Commands using `process.cwd()` directly fail when the user is in a subdirectory because they assume cwd IS the project root
 
-This inconsistency was discovered during a repository-wide consistency review where `archgate check` worked from subdirectories but `archgate adr list` did not.
+The divergence is user-visible: `archgate check` and `archgate adr list` must behave identically when invoked from a subdirectory such as `src/`, and a `process.cwd()`-based command does not.
 
 **Alternatives considered:**
 
@@ -46,7 +46,7 @@ All commands that operate on `.archgate/` project resources MUST use `findProjec
 
 - Don't use `process.cwd()` to locate `.archgate/` in command files (except `init`)
 - Don't define local `findProjectRoot()` variants — use the shared implementation
-- Don't hand-roll the `if (!projectRoot) { logError(...); await exitWith(1); return; }` guard in commands that require a project — that block was copy-pasted across ~10 command files before `requireProjectRoot()` replaced it
+- Don't hand-roll the `if (!projectRoot) { logError(...); await exitWith(1); return; }` guard in commands that require a project — `requireProjectRoot()` is the single implementation of it
 - Don't assume the user is running from the project root
 
 ## Consequences

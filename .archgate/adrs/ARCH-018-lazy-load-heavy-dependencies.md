@@ -18,15 +18,15 @@ Several dependencies are large enough that parsing them dominates cold-start lat
 - **`posthog-node`** — only needed when telemetry is enabled and an event is actually sent.
 - **`@sentry/node-core`** — only needed when error reporting initializes.
 
-If these are imported statically at module load, every invocation pays their parse cost. For a CLI whose most common interactions are fast, non-interactive commands (and machine/agent invocations of `check`, `review-context`, `session-context`), that cost is pure waste.
+Imported statically, every invocation pays their parse cost. For a CLI whose most common interactions are fast, non-interactive commands (and machine/agent invocations of `check`, `review-context`, `session-context`), that cost is pure waste.
 
 ### Alternatives Analysis
 
 **Static imports everywhere (status quo for small deps)**: Simple, but forces every invocation to parse heavy modules it will never use. Rejected for heavy deps.
 
-**Dynamic `import()` at the call site**: `const { default: inquirer } = await import("inquirer")` inside the function that needs it. The module is parsed only when that code path runs. This is the chosen approach.
+**Dynamic `import()` at the call site**: `const { default: inquirer } = await import("inquirer")` inside the function that needs it, so the module is parsed only when that code path runs. Chosen.
 
-**Eager-start / lazy-await for init-style work**: For SDKs that must initialize early but whose result is only needed later (Sentry, telemetry), start the async work before command registration and `await` it only at the first point of use (the `preAction` hook). This overlaps the cost with other startup work and skips it entirely for `--help`/`--version` which never reach `preAction`.
+**Eager-start / lazy-await for init-style work**: For SDKs that must initialize early but whose result is only needed later (Sentry, telemetry), start the async work before command registration and `await` it at the first point of use (the `preAction` hook). This overlaps the cost with other startup work and skips it entirely for `--help`/`--version`, which never reach `preAction`.
 
 ## Decision
 
@@ -78,7 +78,7 @@ This applies to `inquirer`, `posthog-node`, `@sentry/*`, and any future dependen
 
 ### Manual
 
-Code reviewers MUST verify that any newly added large dependency is loaded via dynamic `import()` at its point of use, and that `HEAVY_MODULES` in the companion rule is updated to cover it.
+Code reviewers MUST verify that any newly added large dependency is loaded via dynamic `import()` at its point of use, and that `HEAVY_MODULES` in the companion rule covers it.
 
 ## References
 

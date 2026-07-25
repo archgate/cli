@@ -16,13 +16,11 @@ Async command actions that lack try-catch error boundaries produce poor user exp
 2. Users cannot distinguish between a command failure (code 1) and a CLI bug (code 2)
 3. Error messages lack context about what the command was trying to do
 
-This was discovered during a repository-wide review where `review-context`, `session-context claude-code`, and `session-context cursor` all lacked error boundaries.
-
-The failure mode is also documented by incident CLI-5: `src/commands/check.ts` once wrapped only `loadRuleAdrs()` in try-catch, so a `UserError` thrown later by `runChecks()` escaped to `main().catch()`, where it was miscaptured to Sentry and exited with code 2 instead of 1. A boundary that covers only part of the action body fails exactly like no boundary at all — the try-catch MUST span the entire action.
+A boundary that covers only part of the action body fails exactly like no boundary at all — the try-catch MUST span the entire action.
 
 ARCH-002 defines the exit code convention and logging patterns, but does not require error boundaries in command actions. This ADR complements ARCH-002 by making error boundaries mandatory.
 
-**Why not a global Commander.js error handler?** Commander provides `.exitOverride()` and `.configureOutput()` for parsing errors (unknown options, missing arguments), but these do **not** cover errors thrown inside async `.action()` callbacks. Commander's `preAction`/`postAction` hooks could theoretically wrap actions, but they don't catch async errors from the action body. The `main().catch()` in `cli.ts` catches unhandled rejections as a safety net (exit 2), but per-command try-catch is needed to produce contextual error messages and exit with code 1 instead of 2.
+**Why not a global Commander.js error handler?** Commander's `.exitOverride()` and `.configureOutput()` cover parsing errors (unknown options, missing arguments) but **not** errors thrown inside async `.action()` callbacks, and `preAction`/`postAction` hooks do not catch async errors from the action body either. The `main().catch()` in `cli.ts` catches unhandled rejections as a safety net (exit 2), but per-command try-catch is needed to produce contextual error messages and exit with code 1 instead of 2.
 
 ## Decision
 
@@ -88,7 +86,7 @@ The top-level `main().catch()` in `cli.ts` remains as a safety net for truly une
 
 ### Automated Enforcement
 
-- **Archgate rule** `ARCH-012/async-action-error-boundary`: Walks the AST (`ctx.ast`) of each async command action and enforces two things: (1) the action body contains a top-level try-catch, and (2) no top-level awaited statement sits _outside_ that try block — escaped awaits are the exact statements whose rejections bypass the boundary into `main().catch()` (incident CLI-5). Awaits of the sanctioned exit paths (`exitWith`, `handleCommandError`) are exempt — they end in `process.exit()` and cannot produce a meaningful rejection, so early-return guards remain allowed. Severity: `warning` (some commands may have valid reasons for alternative patterns). **Remaining limitation:** synchronous statements outside the try are not flagged — sync throws from prelude code (e.g. argument validation) still escape; keep preludes trivial or move them inside the try.
+- **Archgate rule** `ARCH-012/async-action-error-boundary`: Walks the AST (`ctx.ast`) of each async command action and enforces (1) the action body contains a top-level try-catch, and (2) no top-level awaited statement sits _outside_ that try block — escaped awaits are the statements whose rejections bypass the boundary into `main().catch()` (incident CLI-5). Awaits of the sanctioned exit paths (`exitWith`, `handleCommandError`) are exempt — they end in `process.exit()` and cannot produce a meaningful rejection, so early-return guards remain allowed. Severity: `warning` (some commands may have valid reasons for alternative patterns). **Remaining limitation:** synchronous statements outside the try are not flagged — sync throws from prelude code (e.g. argument validation) still escape; keep preludes trivial or move them inside the try.
 - **Archgate rule** `ARCH-012/exit-prompt-error-rethrow`: Verifies that async command actions with try-catch blocks include the `ExitPromptError` re-throw pattern. Severity: `error` — missing re-throws silently convert user cancellation (Ctrl+C, exit 130) into command failure (exit 1).
 
 ### Manual Enforcement
