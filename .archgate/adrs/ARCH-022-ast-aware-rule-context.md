@@ -94,6 +94,7 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 - **DO** resolve the base as the merge base of `--base` and HEAD, matching `changedFiles`' three-dot (`ref...HEAD`) diff, so a rule compares against the same commit as its change set
 - **DO** use `ast(path, language, { comments: true })` for comment-governance rules — the returned tree's `comments` array is structured (`type`/`value`/`loc`), replacing fragile line-by-line regex
 - **DO** rely on comment `loc` being ORIGINAL-source-accurate even for `"typescript"` (comments are scanned from the pre-transpile source), unlike the tree's own transpiled-relative `loc`
+- **DO** mirror every `RuleContext` surface change — methods, properties, and the ambient types they reference — into the generated shim in `src/helpers/rules-shim.ts` in the same change; the `rulecontext-shim-parity` rule fails on member-name drift, and reviewers MUST verify the full signatures and JSDoc match as well
 
 ### Don't
 
@@ -148,12 +149,13 @@ This method dispatches internally based on `language`, and the dispatch mechanis
 
 ### Automated Enforcement
 
-`ctx.ast()` has shipped, and this ADR now carries `rules: true` with four companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
+`ctx.ast()` has shipped, and this ADR now carries `rules: true` with five companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
 
 - **`ast-guardrail-ordering`** — parses `src/engine/runner.ts` via `ctx.ast()` itself (dogfooding the capability this ADR introduces) and verifies the `ast()` method inside `createRuleContext()` invokes the four guardrail markers — `safePath`, `AST_LANGUAGE_EXTENSIONS`, `probeInterpreter`, `runAstSubprocess` — each present and in exactly that order.
 - **`no-unsanctioned-engine-subprocess`** — flags any `Bun.spawn`/`Bun.spawnSync` call in `src/engine/` outside the sanctioned helpers (`ast-support.ts` for `ctx.ast()`, `git-files.ts` for git), and bans `child_process` imports in the engine entirely, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns.
 - **`single-ast-method`** — verifies `RuleContext` (in `src/formats/rules.ts` and the generated shim in `src/helpers/rules-shim.ts`) declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.).
 - **`python-subprocess-isolated`** — asserts the Python branch of the guarded invocation in `src/engine/runner.ts` includes the `-I` isolation flag, so a future refactor cannot silently reintroduce the cwd stdlib-shadowing code-execution vector.
+- **`rulecontext-shim-parity`** — extracts the member names of the `interface RuleContext { … }` block from `src/formats/rules.ts` and from the generated shim template in `src/helpers/rules-shim.ts` (regex over raw text — `ctx.ast()` cannot see type-only declarations, which `Bun.Transpiler` erases before parsing) and fails on any member present in one surface but missing from the other, in both directions. Added when the `readYAML`/`checkCase` helpers showed the shim mirror is maintained entirely by hand and only the `ast()` signature was previously enforced (`single-ast-method`); a drifted shim silently hands rule authors wrong types. The check is member-name parity — full signature and JSDoc parity remains a manual review item.
 
 The base-revision surface (`ast(path, language, { rev: "base" })` and `fileAtBase()`) is covered by the four rules above unchanged — it adds no new subprocess site and no new guardrail — plus behavioural coverage in `tests/engine/runner-ast-base.test.ts` (base parsing per language, comment-only structural equivalence, and the throw-vs-null semantics of `ast({ rev: "base" })` versus `fileAtBase()`).
 

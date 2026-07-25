@@ -66,8 +66,10 @@ interface RuleContext {
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
+  readYAML(path: string): Promise<ReadYamlResult>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+  checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
 ```
@@ -192,6 +194,59 @@ Les og parse en JSON-fil. Stien er relativ til prosjektroten. Returnerer den par
 const pkg = (await ctx.readJSON("package.json")) as {
   dependencies?: Record<string, string>;
 };
+```
+
+#### readYAML
+
+```typescript
+readYAML(path: string): Promise<ReadYamlResult>;
+
+interface ReadYamlResult {
+  frontmatter: Record<string, YamlValue> | null;
+  content: YamlValue;
+}
+
+type YamlValue =
+  | string
+  | number
+  | boolean
+  | null
+  | YamlValue[]
+  | { [key: string]: YamlValue };
+```
+
+Les en YAML-fil eller en Markdown-fil med YAML-frontmatter. Stien er relativ til prosjektroten og går gjennom samme sandkasse som `readFile`. Ett resultatobjekt dekker begge formene -- en nullbar `frontmatter`-mapping og en `content` av typen `YamlValue`, de JSON-lignende dataene YAMLs kjerneskjema produserer (etter en `typeof`-sjekk kan du indeksere i mappinger og sekvenser uten cast) -- og valget er **basert på filendelsen**:
+
+- **`.yml`-/`.yaml`-filer**: hele dokumentet parses som YAML. `frontmatter` er alltid `null`; `content` er den parsede verdien, innsnevret med en `typeof`-sjekk i stedet for en cast -- i motsetning til `readJSON`, som returnerer `unknown`. Fordi valget skjer per filendelse, blir `---`-skilletegnene i en flerdokumentstrøm (Kubernetes-manifester, CI-konfigurasjoner) aldri feiltolket som frontmatter.
+- **Alle andre filer** (typisk Markdown): den innledende `---`-avgrensede blokken parses som `frontmatter` -- `null` når den mangler ("har denne filen frontmatter?" er én enkelt null-test, som speiler `fileAtBase`), `{}` når den finnes, men er tom. `content` er resten av brødteksten, trimmet -- den parses **ikke** som YAML.
+
+`readYAML()` **kaster** (fail-closed, som `ast()`) når en `.yml`-/`.yaml`-fil er ugyldig YAML, eller når en frontmatter-blokk er ugyldig YAML eller parses til noe annet enn en mapping (en skalar eller en sekvens) -- og vises som en regelkjøringsfeil med exit-kode 2 i stedet for en falsk bestått sjekk.
+
+```typescript
+const { content } = await ctx.readYAML(".github/workflows/ci.yml");
+if (
+  typeof content === "object" &&
+  content !== null &&
+  !Array.isArray(content)
+) {
+  const jobs = content.jobs; // YamlValue -- no cast needed
+}
+```
+
+```typescript
+for (const file of await ctx.glob("docs/**/*.md")) {
+  const { frontmatter } = await ctx.readYAML(file);
+  if (frontmatter === null) {
+    ctx.report.violation({ message: `${file} is missing frontmatter`, file });
+    continue;
+  }
+  if (typeof frontmatter.title !== "string") {
+    ctx.report.violation({
+      message: `${file} frontmatter must declare a title`,
+      file,
+    });
+  }
+}
 ```
 
 #### ast
@@ -331,6 +386,43 @@ Etter:
 ```typescript
 const tree = await ctx.ast("app/models.py", "python");
 const funcDefs = ctx.findAstNodes(tree, "FunctionDef", "AsyncFunctionDef");
+```
+
+#### checkCase
+
+```typescript
+checkCase(value: string, scheme: CaseScheme): boolean;
+
+type CaseScheme =
+  | "kebab-case"
+  | "camelCase"
+  | "PascalCase"
+  | "snake_case"
+  | "SCREAMING_SNAKE_CASE";
+```
+
+Sjekk om en streng følger et casing-skjema -- den innebygde erstatningen for regexene per skjema som navngivningsregler tidligere måtte håndrulle. Synkron og ren -- ingen `await` nødvendig. Matchingen er alt-eller-ingenting (hele strengen må samsvare; den tomme strengen matcher ingen skjemaer), og vokabularet er kun ASCII-bokstaver og sifre.
+
+| Skjema                 | Matcher                      | Avviser                                            |
+| ---------------------- | ---------------------------- | -------------------------------------------------- |
+| `kebab-case`           | `writing-rules`, `2fa-setup` | `Writing-Rules`, `writing_rules`, `writing--rules` |
+| `camelCase`            | `checkCase`, `parseURL`      | `CheckCase`, `check_case`, `2fast`                 |
+| `PascalCase`           | `CheckCase`, `HTTPServer`    | `checkCase`, `Check_Case`, `1Value`                |
+| `snake_case`           | `check_case`, `2fa_setup`    | `Check_Case`, `check-case`, `check__case`          |
+| `SCREAMING_SNAKE_CASE` | `CHECK_CASE`, `V2`           | `check_case`, `CHECK-CASE`, `CHECK__CASE`          |
+
+`camelCase` og `PascalCase` følger økosystemkonvensjonen (typescript-eslints `naming-convention`): en innledende liten/stor bokstav etterfulgt av vilkårlige ASCII-alfanumeriske tegn, så akronymsekvenser (`parseURL`, `HTTPServer`) matcher. Degenererte verdier kan tilfredsstille flere skjemaer samtidig (`value` er gyldig kebab-case, snake_case og camelCase). Å sende inn et ukjent skjemanavn **kaster** i stedet for å stille returnere `false`, slik at en skrivefeil vises som en regelfeil i stedet for et falskt resultat.
+
+```typescript
+for (const file of await ctx.glob("docs/**/*.md")) {
+  const stem = file.split("/").pop()?.replace(/\.md$/, "") ?? "";
+  if (!ctx.checkCase(stem, "kebab-case")) {
+    ctx.report.violation({
+      message: `${file} must have a kebab-case filename`,
+      file,
+    });
+  }
+}
 ```
 
 ---

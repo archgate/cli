@@ -55,6 +55,48 @@ export interface PackageJson {
   [key: string]: unknown;
 }
 
+// --- Case Scheme ---
+
+/**
+ * Casing schemes for `RuleContext.checkCase()`. Matching is ASCII-only and
+ * all-or-nothing. `camelCase`/`PascalCase` follow typescript-eslint's
+ * `naming-convention`, so acronym runs (`parseURL`, `HTTPServer`) match.
+ * Degenerate values satisfy several schemes at once — `value` is valid
+ * kebab-case, snake_case and camelCase.
+ */
+export type CaseScheme =
+  | "kebab-case"
+  | "camelCase"
+  | "PascalCase"
+  | "snake_case"
+  | "SCREAMING_SNAKE_CASE";
+
+// --- YAML ---
+
+/**
+ * A parsed YAML value — the JSON-like data the YAML 1.2 core schema
+ * produces. Narrower than `unknown`: after a `typeof` check a rule can
+ * index into mappings and sequences without casting.
+ */
+export type YamlValue =
+  | string
+  | number
+  | boolean
+  | null
+  | YamlValue[]
+  | { [key: string]: YamlValue };
+
+/**
+ * Return shape of `RuleContext.readYAML()`, covering YAML documents and
+ * Markdown frontmatter in one object. For `.yml`/`.yaml`, `frontmatter` is
+ * `null` and `content` is the parsed document; otherwise `frontmatter` is the
+ * parsed leading block and `content` the trimmed body text.
+ */
+export interface ReadYamlResult {
+  frontmatter: Record<string, YamlValue> | null;
+  content: YamlValue;
+}
+
 // --- AST ---
 
 /** Languages supported by `RuleContext.ast()`. */
@@ -218,6 +260,18 @@ export interface RuleContext {
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
+   * Read a YAML file, or a Markdown file with YAML frontmatter, as one
+   * {@link ReadYamlResult}. Dispatch is extension-based, so a multi-document
+   * stream's `---` separators are never misread as frontmatter. `frontmatter`
+   * is `null` when a file has none — one null test, mirroring `fileAtBase` —
+   * and `{}` when the block is empty.
+   *
+   * @throws {Error} On invalid YAML, or frontmatter that is not a mapping.
+   * @see ReadYamlResult — the per-extension shape
+   * @see YamlValue — why `content` needs no cast
+   */
+  readYAML(path: string): Promise<ReadYamlResult>;
+  /**
    * Parse a source file into its language-native AST.
    *
    * @param path - Project-relative path to parse.
@@ -268,6 +322,14 @@ export interface RuleContext {
     tree: unknown,
     ...types: string[]
   ): (EsTreeNode | PythonAstNode)[];
+  /**
+   * Check whether a string conforms to a casing scheme (see
+   * {@link CaseScheme}). Pure and synchronous — no I/O, no `await`. The
+   * entire string must match (the empty string matches no scheme), and the
+   * vocabulary is ASCII letters and digits only. Throws on an unrecognized
+   * scheme name rather than silently returning false.
+   */
+  checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
 

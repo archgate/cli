@@ -867,8 +867,8 @@ The `check` function receives a `RuleContext` object that provides everything a 
 
 | Method                             | Returns                | Description                                  |
 | ---------------------------------- | ---------------------- | -------------------------------------------- |
-| `ctx.grep(file, pattern)`          | `Promise` | Search a single file with a regex pattern    |
-| `ctx.grepFiles(pattern, fileGlob)` | `Promise` | Search across multiple files matching a glob |
+| `ctx.grep(file, pattern)`          | `Promise<GrepMatch[]>` | Search a single file with a regex pattern    |
+| `ctx.grepFiles(pattern, fileGlob)` | `Promise<GrepMatch[]>` | Search across multiple files matching a glob |
 
 Both `grep` and `grepFiles` return an array of `GrepMatch` objects:
 
@@ -3330,7 +3330,7 @@ Archgate supports inline `archgate-ignore` comments that suppress violations wit
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned for Q3
-
+import chalk from "chalk";
 ```
 
 **File-level suppression** suppresses all matching violations anywhere in the file:
@@ -3344,7 +3344,7 @@ Archgate supports inline `archgate-ignore` comments that suppress violations wit
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep
 // archgate-ignore ARCH-003/use-style-text third-party lib handles colors
-
+import chalk from "chalk";
 ```
 
 Consecutive suppression comments all target the first non-suppression line that follows.
@@ -3389,7 +3389,7 @@ The developer opts out by adding the directive to their file:
 
 ```typescript
 // @no-presentational: this component only redirects, no UI to render
-
+import { useNavigate } from "react-router";
 ```
 
 ### When to use which
@@ -5215,13 +5215,15 @@ interface RuleContext {
   scopedFiles: string[];
   changedFiles: string[];
   glob(pattern: string): Promise<string[]>;
-  grep(file: string, pattern: RegExp): Promise;
-  grepFiles(pattern: RegExp, fileGlob: string): Promise;
+  grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
+  grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: string): Promise<unknown>;
-  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise;
+  readYAML(path: string): Promise<ReadYamlResult>;
+  ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+  checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
 ```
@@ -5277,7 +5279,7 @@ const testFiles = await ctx.glob("tests/**/*.test.ts");
 #### grep
 
 ```typescript
-grep(file: string, pattern: RegExp): Promise;
+grep(file: string, pattern: RegExp): Promise<GrepMatch[]>;
 ```
 
 Search a single file for lines matching a regular expression. Returns an array of `GrepMatch` objects with file path, line number, column, and matched content.
@@ -5289,7 +5291,7 @@ const matches = await ctx.grep(file, /console\.error\(/);
 #### grepFiles
 
 ```typescript
-grepFiles(pattern: RegExp, fileGlob: string): Promise;
+grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
 ```
 
 Search multiple files matching a glob pattern for lines matching a regular expression. Combines `glob` and `grep` into a single call. Files ignored by `.gitignore` are excluded by default. Set `respectGitignore: false` in the ADR frontmatter to include them.
@@ -5348,6 +5350,59 @@ const pkg = (await ctx.readJSON("package.json")) as {
 };
 ```
 
+#### readYAML
+
+```typescript
+readYAML(path: string): Promise<ReadYamlResult>;
+
+interface ReadYamlResult {
+  frontmatter: Record<string, YamlValue> | null;
+  content: YamlValue;
+}
+
+type YamlValue =
+  | string
+  | number
+  | boolean
+  | null
+  | YamlValue[]
+  | { [key: string]: YamlValue };
+```
+
+Read a YAML file or a Markdown file with YAML frontmatter. The path is relative to the project root and passes through the same sandbox as `readFile`. One result object covers both shapes -- a nullable `frontmatter` mapping and a `content` typed as `YamlValue`, the JSON-like data YAML's core schema produces (after a `typeof` check you can index into mappings and sequences without casting) -- and dispatch is **extension-based**:
+
+- **`.yml` / `.yaml` files**: the whole document is parsed as YAML. `frontmatter` is always `null`; `content` is the parsed value, narrowed by a `typeof` check rather than a cast -- unlike `readJSON`, which returns `unknown`. Because dispatch is by extension, a multi-document stream's `---` separators (Kubernetes manifests, CI configs) are never misread as frontmatter.
+- **Every other file** (typically Markdown): the leading `---`-delimited block is parsed as `frontmatter` -- `null` when absent ("does this file have frontmatter?" is a single null test, mirroring `fileAtBase`), `{}` when present but empty. `content` is the remaining body text, trimmed -- it is **not** parsed as YAML.
+
+`readYAML()` **throws** (fail-closed, like `ast()`) when a `.yml`/`.yaml` file is invalid YAML, or when a frontmatter block is invalid YAML or parses to something other than a mapping (a scalar or a sequence) -- surfacing as a rule execution error with exit code 2 rather than a false pass.
+
+```typescript
+const { content } = await ctx.readYAML(".github/workflows/ci.yml");
+if (
+  typeof content === "object" &&
+  content !== null &&
+  !Array.isArray(content)
+) {
+  const jobs = content.jobs; // YamlValue -- no cast needed
+}
+```
+
+```typescript
+for (const file of await ctx.glob("docs/**/*.md")) {
+  const { frontmatter } = await ctx.readYAML(file);
+  if (frontmatter === null) {
+    ctx.report.violation({ message: `${file} is missing frontmatter`, file });
+    continue;
+  }
+  if (typeof frontmatter.title !== "string") {
+    ctx.report.violation({
+      message: `${file} frontmatter must declare a title`,
+      file,
+    });
+  }
+}
+```
+
 #### ast
 
 ```typescript
@@ -5355,7 +5410,7 @@ ast(
   path: string,
   language: "typescript" | "javascript" | "python" | "ruby",
   opts?: AstOptions
-): Promise;
+): Promise<AstNode>;
 
 interface AstOptions {
   rev?: "base";
@@ -5484,6 +5539,43 @@ After:
 ```typescript
 const tree = await ctx.ast("app/models.py", "python");
 const funcDefs = ctx.findAstNodes(tree, "FunctionDef", "AsyncFunctionDef");
+```
+
+#### checkCase
+
+```typescript
+checkCase(value: string, scheme: CaseScheme): boolean;
+
+type CaseScheme =
+  | "kebab-case"
+  | "camelCase"
+  | "PascalCase"
+  | "snake_case"
+  | "SCREAMING_SNAKE_CASE";
+```
+
+Check whether a string conforms to a casing scheme -- the built-in replacement for the per-scheme regexes naming rules used to hand-roll. Synchronous and pure -- no `await` needed. Matching is all-or-nothing (the entire string must conform; the empty string matches no scheme) and the vocabulary is ASCII letters and digits only.
+
+| Scheme                 | Matches                      | Rejects                                            |
+| ---------------------- | ---------------------------- | -------------------------------------------------- |
+| `kebab-case`           | `writing-rules`, `2fa-setup` | `Writing-Rules`, `writing_rules`, `writing--rules` |
+| `camelCase`            | `checkCase`, `parseURL`      | `CheckCase`, `check_case`, `2fast`                 |
+| `PascalCase`           | `CheckCase`, `HTTPServer`    | `checkCase`, `Check_Case`, `1Value`                |
+| `snake_case`           | `check_case`, `2fa_setup`    | `Check_Case`, `check-case`, `check__case`          |
+| `SCREAMING_SNAKE_CASE` | `CHECK_CASE`, `V2`           | `check_case`, `CHECK-CASE`, `CHECK__CASE`          |
+
+`camelCase` and `PascalCase` follow the ecosystem convention (typescript-eslint's `naming-convention`): a leading lower/uppercase letter followed by any ASCII alphanumerics, so acronym runs (`parseURL`, `HTTPServer`) match. Degenerate values can satisfy several schemes at once (`value` is valid kebab-case, snake_case, and camelCase). Passing an unrecognized scheme name **throws** rather than silently returning `false`, so a typo surfaces as a rule error instead of a false pass/fail.
+
+```typescript
+for (const file of await ctx.glob("docs/**/*.md")) {
+  const stem = file.split("/").pop()?.replace(/\.md$/, "") ?? "";
+  if (!ctx.checkCase(stem, "kebab-case")) {
+    ctx.report.violation({
+      message: `${file} must have a kebab-case filename`,
+      file,
+    });
+  }
+}
 ```
 
 ---
@@ -5648,7 +5740,7 @@ Violations can be suppressed in source code using `archgate-ignore` comments. Th
 
 ```typescript
 // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
-
+import chalk from "chalk";
 ```
 
 A reason is required. File-level suppression uses `archgate-ignore-file`. Stack multiple comments to suppress more than one rule on the same line. See [Opt-out directives](/guides/writing-rules/#opt-out-directives) for full details and custom directive patterns.
@@ -6022,7 +6114,7 @@ Or, with an opt-out:
 
 ```typescript title="src/components/RedirectConnected.tsx"
 // @no-presentational: this component only redirects, no UI to render
-
+import { useNavigate } from "react-router";
 // ...
 ```
 
@@ -6230,6 +6322,7 @@ src/
 
 ```typescript
 /// <reference path="../rules.d.ts" />
+import { basename } from "node:path";
 
 const KEBAB_CASE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
 
@@ -6617,6 +6710,7 @@ This pattern generalizes to any API you want to ban while allowing a safe altern
 const result = await Bun.$`git status`;
 
 // Import
+import { $ } from "bun";
 
 // Destructured usage
 const output = await $`ls -la`;
@@ -6722,17 +6816,17 @@ Teams often ban heavy or deprecated libraries in favor of lighter or native alte
 ## Examples of **incorrect** code
 
 ```typescript title="src/utils/date.ts"
-
+import { format } from "moment";
 ```
 
 ```typescript title="src/api/client.ts"
-
+import axios from "axios";
 ```
 
 ## Examples of **correct** code
 
 ```typescript title="src/utils/date.ts"
-
+import { format } from "date-fns";
 ```
 
 ```typescript title="src/api/client.ts"
@@ -6829,7 +6923,8 @@ export function getHelperVersion(): string {
 Or better, delete `index.ts` entirely and import directly:
 
 ```typescript
-
+import { logInfo } from "./helpers/log";
+import { resolvePaths } from "./helpers/paths";
 ```
 
 ## Rule implementation
@@ -6924,6 +7019,7 @@ console.log("\x1b[32mSuccess\x1b[0m"); // raw ANSI
 ## Examples of **correct** code
 
 ```typescript title="src/commands/check.ts"
+import { styleText } from "node:util";
 
 console.log("All checks passed");
 console.log("Validation failed");
@@ -7156,6 +7252,7 @@ When a backend framework supports OpenAPI integration (e.g., `@hono/zod-openapi`
 ## Examples of **incorrect** code
 
 ```typescript title="packages/backend/src/routes/users.ts"
+import { Hono } from "hono";
 
 const app = new Hono();
 
@@ -7168,6 +7265,7 @@ app.get("/users", async (c) => {
 ## Examples of **correct** code
 
 ```typescript title="packages/backend/src/routes/users.ts"
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 
 const route = createRoute({
   method: "get",
@@ -7267,6 +7365,8 @@ In frontend architectures that separate routing from logic, page components shou
 ## Examples of **incorrect** code
 
 ```tsx title="src/pages/DashboardPage.tsx"
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 export default function DashboardPage() {
   const [filter, setFilter] = useState(""); // ✗ state hook
@@ -7278,12 +7378,14 @@ export default function DashboardPage() {
 ## Examples of **correct** code
 
 ```tsx title="src/pages/DashboardPage.tsx"
+import { DashboardConnected } from "../components/DashboardConnected";
+import { Sidebar } from "../components/Sidebar";
 
 export default function DashboardPage() {
   return (
     <div className="flex">
-      
-      
+      <Sidebar />
+      <DashboardConnected />
     </div>
   );
 }
@@ -7388,6 +7490,7 @@ export function deploy() {
 ## Examples of **correct** code
 
 ```typescript title="src/commands/deploy.ts"
+import type { Command } from "commander";
 
 export function registerDeployCommand(program: Command) {
   program
@@ -7462,6 +7565,7 @@ Open-source projects benefit from per-file license declarations. They survive fi
 ## Examples of **incorrect** code
 
 ```typescript title="src/helpers/utils.ts"
+import { join } from "node:path";
 
 export function resolvePath(base: string, rel: string): string {
   return join(base, rel);
@@ -7475,6 +7579,7 @@ File is missing the SPDX license identifier header.
 ```typescript title="src/helpers/utils.ts"
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { join } from "node:path";
 
 export function resolvePath(base: string, rel: string): string {
   return join(base, rel);
@@ -7487,7 +7592,7 @@ For files with a shebang:
 #!/usr/bin/env bun
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-
+import { Command } from "commander";
 ```
 
 ## Rule implementation
@@ -7587,6 +7692,7 @@ tests/
 
 ```typescript
 /// <reference path="../rules.d.ts" />
+import { relative } from "node:path";
 
 export default {
   rules: {
@@ -7797,6 +7903,7 @@ if (process.platform === "win32") {
 ## Examples of **correct** code
 
 ```typescript title="src/commands/build.ts"
+import { isWindows } from "../helpers/platform";
 
 if (isWindows()) {
   // Windows-specific logic
