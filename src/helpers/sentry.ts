@@ -1,18 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * sentry.ts — Error tracking via @sentry/node-core light mode.
- *
- * Uses Sentry's lightweight "light" SDK variant which excludes all
- * OpenTelemetry auto-instrumentation — ideal for a CLI that only needs
- * error capture with breadcrumbs. This avoids pulling in 600+ modules
- * of OTel instrumentation for MongoDB, Redis, Express, etc.
- *
- * IP anonymization: the Sentry project has "Prevent Storing of IP Addresses"
- * enabled server-side.
- *
- * Sentry is only initialized when telemetry is enabled. All Sentry calls
- * are wrapped to never affect CLI behavior or exit codes.
+ * sentry.ts — Error tracking via @sentry/node-core "light" mode, which
+ * excludes OTel auto-instrumentation (600+ modules the CLI never needs).
+ * The Sentry project stores no IP addresses (server-side setting). Sentry
+ * initializes only when telemetry is enabled, and every call is wrapped so
+ * it can never affect CLI behavior or exit codes.
  */
 
 import type * as SentryNs from "@sentry/node-core/light";
@@ -91,7 +84,6 @@ export async function initSentry(): Promise<void> {
       tunnel: SENTRY_TUNNEL,
       release: cliVersion,
       environment: Bun.env.NODE_ENV ?? "production",
-      // Disable sending events in test environments
       enabled: Bun.env.NODE_ENV !== "test",
       // Do not send default PII (hostnames, IPs, etc.)
       sendDefaultPii: false,
@@ -148,9 +140,9 @@ export async function initSentry(): Promise<void> {
 }
 
 /**
- * Add a breadcrumb to the current Sentry scope.
- * Breadcrumbs are attached to the next error event, providing context
- * about the sequence of operations leading to a crash.
+ * Add a breadcrumb to the current Sentry scope. Breadcrumbs attach to the
+ * next error event, providing context about the sequence of operations
+ * leading to a crash.
  *
  * @param category Short category name (e.g., "command", "config", "check")
  * @param message Human-readable description

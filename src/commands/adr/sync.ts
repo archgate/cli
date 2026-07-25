@@ -26,7 +26,6 @@ interface AdrDiff {
   localPath: string;
   upstreamPath: string;
   hasChanges: boolean;
-  /** Human-readable summary of what changed */
   summary: string;
 }
 
@@ -58,9 +57,6 @@ function saveImportsManifest(
 
 // ---------- Diff helpers ----------
 
-/**
- * Find the local ADR file by ID in the adrs directory.
- */
 function findLocalAdr(adrsDir: string, adrId: string): string | null {
   if (!existsSync(adrsDir)) return null;
   const files = readdirSync(adrsDir);
@@ -82,7 +78,6 @@ function diffSummary(localContent: string, upstreamContent: string): string {
 
   const changedSections: string[] = [];
 
-  // Track which sections have differences
   const localSections = new Map<string, string[]>();
   const upstreamSections = new Map<string, string[]>();
 
@@ -108,7 +103,6 @@ function diffSummary(localContent: string, upstreamContent: string): string {
     }
   }
 
-  // Check for new sections in upstream
   for (const section of upstreamSections.keys()) {
     if (!localSections.has(section) && !changedSections.includes(section)) {
       changedSections.push(section);
@@ -162,7 +156,6 @@ export function registerAdrSyncCommand(adr: Command) {
           return;
         }
 
-        // Filter imports by source args if provided
         let imports = manifest.imports;
         if (sources.length > 0) {
           imports = imports.filter((entry) =>
@@ -226,7 +219,6 @@ export function registerAdrSyncCommand(adr: Command) {
             }
           }
 
-          // Compare each ADR in this import entry
           for (const adrId of entry.adrIds) {
             result.checked++;
 
@@ -237,7 +229,6 @@ export function registerAdrSyncCommand(adr: Command) {
               continue;
             }
 
-            // Find the upstream ADR file
             const upstreamSubpath = resolved.subpath;
             const upstreamAdrsDir = join(cloneDir, upstreamSubpath, "adrs");
 
@@ -411,7 +402,6 @@ export function registerAdrSyncCommand(adr: Command) {
           }
 
           if (action === "take") {
-            // Read upstream content and rewrite the ID to match local
             const upstreamContent = readFileSync(diff.upstreamPath, "utf-8");
             const rewritten = upstreamContent.replace(
               /^(id:\s*).*$/mu,
@@ -431,7 +421,6 @@ export function registerAdrSyncCommand(adr: Command) {
           }
         }
 
-        // Update imports.json timestamps
         const updatedManifest = loadImportsManifest(projectRoot);
         for (const entry of updatedManifest.imports) {
           if (

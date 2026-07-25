@@ -12,10 +12,6 @@ import * as sessionContextHelpers from "../../../src/helpers/session-context";
 import { runCli } from "../../integration/cli-harness";
 import { safeRmSync } from "../../test-utils";
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("registerClaudeCodeSessionContextCommand", () => {
   test("registers 'claude-code' as a subcommand", () => {
     const parent = new Command("session-context");

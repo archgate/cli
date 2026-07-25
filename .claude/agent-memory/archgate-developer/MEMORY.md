@@ -23,7 +23,8 @@ Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to inv
 - [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock in tests (e.g. spyOn), never alter prod semantics for test isolation
 - [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — static syntax → custom oxlint rule; executable behavior → tests; cross-file/governance → ADR `.rules.ts`. Never write an ADR rule that only asserts implementation shape — `rules: false` is a valid outcome
 - [This repo is PUBLIC — no private sibling-repo internals, no Claude session links in PRs/commits](feedback_public_repo_privacy.md)
-- [Keep code comments and memory entries concise](feedback_concise_comments.md) — one line + terse why, link out for detail
+- [Keep code comments and memory entries concise](feedback_concise_comments.md) — code side now machine-enforced by GEN-004 (oxlint `archgate/*` + `archgate check`); memory-entry conciseness still manual
+- [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — especially declined ones; a summary PR comment does not close the loop (recurring miss)
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not logError + exitWith(1); the action's handleCommandError boundary does that
 - [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — describe current state; no "previously"/"rather than"/"shipped" framing, no pinned release version or drift-prone counts; git & package.json are the source of truth
 
@@ -58,6 +59,10 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 ## Translation Quality
 
 - [i18n translation quality checks](project_i18n_translation_quality.md) — nb/ + pt-br/ dual-locale requirement, Norwegian diacritical corruption patterns to scan for
+
+## Performance
+
+- [CLI startup baselines](project_cli_perf_baselines.md) — measured numbers behind the `cli-perf.test.ts` budgets, and how to tell a real regression from a slow runner
 
 ## Validation Pipeline
 

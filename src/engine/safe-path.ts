@@ -39,17 +39,13 @@ const verifiedRealDirs = new Set<string>();
 
 /**
  * Reject a symlink anywhere in the path below the project root — the leaf OR
- * any ancestor. A leaf-only check is insufficient: with `<root>/docs` linked
- * outside the project, `<root>/docs/secret.txt` is an ordinary file, so the
- * lexical `isWithinRoot` and an lstat of the leaf both pass while the OS
- * resolves through the link and reads outside.
+ * any ancestor, since a linked ancestor makes the leaf look like an ordinary
+ * file to both `isWithinRoot` and a leaf `lstat`. Components at or above the
+ * root are deliberately not inspected, and each test is a boolean `lstat`
+ * rather than a `realpath` comparison.
  *
- * Components at or above the root are deliberately NOT inspected: the root's
- * own location is the user's business, and macOS's temp prefix is itself a
- * symlink (`/var` -> `/private/var`), which would reject every temp-dir root.
- * Each component is a boolean lstat rather than a string comparison against
- * `realpath`, which case-canonicalizes on Windows/macOS and would reject
- * case-mismatched-but-legitimate paths.
+ * @throws {UserError} When any component below the root is a symbolic link.
+ * @see ARCH-022 — why the walk stops at the root and avoids `realpath`
  */
 function assertNoSymlinkInPath(
   resolvedRoot: string,

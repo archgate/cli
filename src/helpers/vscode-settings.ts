@@ -122,7 +122,6 @@ export async function configureVscodeSettings(
 ): Promise<string> {
   const vscodeDir = join(projectRoot, ".vscode");
 
-  // --- User-level: chat.plugins.marketplaces ---
   if (marketplaceUrl) {
     await addMarketplaceToUserSettings(marketplaceUrl);
   }

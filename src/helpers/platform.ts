@@ -63,9 +63,6 @@ export function getPlatformInfo(): PlatformInfo {
   return cachedPlatformInfo;
 }
 
-/**
- * Shorthand: returns true if running inside WSL.
- */
 export function isWSL(): boolean {
   return getPlatformInfo().isWSL;
 }
@@ -77,9 +74,6 @@ export function isWindows(): boolean {
   return getPlatformInfo().runtime === "win32";
 }
 
-/**
- * Returns true if the process is running on macOS.
- */
 export function isMacOS(): boolean {
   return getPlatformInfo().runtime === "darwin";
 }
@@ -105,8 +99,15 @@ export function isSupportedPlatform(): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Convert a WSL path to a Windows path (e.g. /mnt/c/Users → C:\Users).
- * Returns null if not in WSL or conversion fails.
+ * Convert a WSL path to a Windows path by delegating to `wslpath -w`.
+ *
+ * @param wslPath - A WSL-style absolute path.
+ * @returns The Windows equivalent, or `null` outside WSL and whenever the
+ * conversion fails.
+ * @example
+ * ```ts
+ * await toWindowsPath("/mnt/c/Users"); // "C:\\Users"
+ * ```
  */
 export async function toWindowsPath(wslPath: string): Promise<string | null> {
   if (!isWSL()) return null;
@@ -125,8 +126,15 @@ export async function toWindowsPath(wslPath: string): Promise<string | null> {
 }
 
 /**
- * Convert a Windows path to a WSL path (e.g. C:\Users → /mnt/c/Users).
- * Returns null if not in WSL or conversion fails.
+ * Convert a Windows path to a WSL path by delegating to `wslpath -u`.
+ *
+ * @param windowsPath - A Windows-style absolute path.
+ * @returns The WSL equivalent, or `null` outside WSL and whenever the
+ * conversion fails.
+ * @example
+ * ```ts
+ * await toWslPath("C:\\Users"); // "/mnt/c/Users"
+ * ```
  */
 export async function toWslPath(windowsPath: string): Promise<string | null> {
   if (!isWSL()) return null;

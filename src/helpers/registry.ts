@@ -33,10 +33,8 @@ function stripRef(input: string): { base: string; ref?: string } {
   // git@ URLs use @ as part of the host syntax, not as a ref separator.
   // Only consider an @ that comes after the last `/` or `:` for git@ URLs.
   if (input.startsWith("git@")) {
-    // For git@ URLs, look for @ref only after the path portion
     const lastSlash = input.lastIndexOf("/");
     const atIdx = input.lastIndexOf("@");
-    // Only split on @ if it appears after the last path separator
     if (atIdx > lastSlash && lastSlash > 0) {
       return { base: input.slice(0, atIdx), ref: input.slice(atIdx + 1) };
     }
@@ -51,13 +49,19 @@ function stripRef(input: string): { base: string; ref?: string } {
 const OFFICIAL_REGISTRY_URL = "https://github.com/archgate/awesome-adrs.git";
 
 /**
- * Resolve a source string into a repo URL, optional ref, and subpath.
+ * Resolve a source string into a repo URL, optional ref, and subpath. An
+ * `@<ref>` suffix is stripped first, then the first matching form wins.
  *
- * Resolution rules (first match wins):
- * 1. Starts with "packs/" — official registry
- * 2. Is a URL (https://, http://, git@) — parse GitHub /tree/<ref>/<path>, else pass-through
- * 3. Has 3+ slash-separated segments — GitHub org/repo/path
- * 4. None of the above — error
+ * @param input - Source string in one of the forms shown below.
+ * @returns The repo URL, ref, and subpath, tagged with the matched `kind`.
+ * @throws {UserError} When the input matches none of the supported forms.
+ * @example
+ * ```ts
+ * resolveSource("packs/security");        // kind: "official"
+ * resolveSource("acme/adrs/backend@v2");  // kind: "github-repo", ref "v2"
+ * resolveSource("https://github.com/acme/adrs/tree/main/backend");
+ * resolveSource("git@github.com:acme/adrs.git"); // kind: "git-url", subpath "."
+ * ```
  */
 export function resolveSource(input: string): ResolvedSource {
   const { base, ref } = stripRef(input);
@@ -207,8 +211,8 @@ function listAvailablePacks(cloneDir: string): string[] {
  * Detect whether the subpath within a cloned repo points to a full pack
  * (has archgate-pack.yaml) or a single ADR file (.md).
  *
- * @param sourceKind - The kind of source (official, github-repo, git-url)
- *   used to tailor error messages. When "official", the error lists available
+ * @param sourceKind - The kind of source (official, github-repo, git-url);
+ *   tailors error messages. When "official", the error lists available
  *   packs from the registry.
  */
 export async function detectTarget(
@@ -222,7 +226,6 @@ export async function detectTarget(
     throw new UserError(`Path "${subpath}" escapes the repository root.`);
   }
 
-  // Check for a pack (directory with archgate-pack.yaml)
   const packYaml = join(fullPath, "archgate-pack.yaml");
   if (existsSync(packYaml)) {
     const raw = await Bun.file(packYaml).text();
@@ -245,7 +248,6 @@ export async function detectTarget(
     return { kind: "pack", packMeta, adrFiles, rulesFiles, baseDir: adrsDir };
   }
 
-  // Check for a single ADR file
   const mdPath = fullPath.endsWith(".md") ? fullPath : `${fullPath}.md`;
   if (existsSync(mdPath)) {
     const rulesPath = mdPath.replace(/\.md$/u, ".rules.ts");

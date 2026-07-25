@@ -7,7 +7,7 @@ import { logDebug } from "./log";
 import { internalPath } from "./paths";
 
 const CACHE_FILE = "last-update-check";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Only check for updates in a genuine interactive terminal — never during

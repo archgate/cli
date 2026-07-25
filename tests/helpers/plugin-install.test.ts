@@ -12,9 +12,6 @@ import {
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-// ---------------------------------------------------------------------------
-// Imports under test
-// ---------------------------------------------------------------------------
 
 import { opencodeConfigDir } from "../../src/helpers/paths";
 import * as platform from "../../src/helpers/platform";
@@ -105,11 +102,10 @@ beforeEach(() => {
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
 
   // Redirect user-scope paths into a temp dir. The install functions create
-  // directories AND delete stale archgate-* files under cursorUserDir() /
-  // opencodeConfigDir() / internalPath() before the (mocked) tar extraction —
-  // without this override they destroy the developer's real installed plugin
-  // files in ~/.cursor and ~/.config/opencode. All three resolvers read
-  // Bun.env.HOME / XDG_CONFIG_HOME at call time, so an env override works.
+  // directories and delete stale archgate files under cursorUserDir() /
+  // opencodeConfigDir() / internalPath(), so without this override they wipe
+  // the developer's real plugins in ~/.cursor and ~/.config/opencode. All
+  // three resolvers read HOME / XDG_CONFIG_HOME at call time.
   tempHome = mkdtempSync(join(tmpdir(), "archgate-plugin-install-"));
   savedHome = Bun.env.HOME;
   savedXdg = Bun.env.XDG_CONFIG_HOME;
@@ -300,7 +296,6 @@ describe("plugin-install", () => {
 
       await installClaudePlugin();
 
-      // Two spawn calls: marketplace add + plugin install
       expect(spawnSpy).toHaveBeenCalledTimes(2);
       const firstCall = spawnSpy.mock.calls[0][0] as string[];
       expect(firstCall).toContain("marketplace");
@@ -379,10 +374,8 @@ describe("plugin-install", () => {
       spawnSpy.mockImplementation(() => {
         callCount++;
         if (callCount === 1) {
-          // marketplace add fails with "already registered"
           return fakeSpawnResult(1, "already registered", "");
         }
-        // plugin install succeeds
         return fakeSpawnResult(0);
       });
 
@@ -418,7 +411,6 @@ describe("plugin-install", () => {
 
       await installVscodeExtension("test-token");
 
-      // fetch was called for the download
       expect(spawnSpy).toHaveBeenCalledTimes(1);
       const callArgs = spawnSpy.mock.calls[0][0] as string[];
       expect(callArgs).toContain("--install-extension");
@@ -465,7 +457,6 @@ describe("plugin-install", () => {
 
       await installOpencodePlugin("test-token");
 
-      // One spawn call for tar extraction
       expect(spawnSpy).toHaveBeenCalledTimes(1);
       const callArgs = spawnSpy.mock.calls[0][0] as string[];
       expect(callArgs[0]).toBe("tar");
@@ -510,7 +501,6 @@ describe("plugin-install", () => {
 
       await installCursorPlugin("test-token");
 
-      // One spawn call for tar extraction
       expect(spawnSpy).toHaveBeenCalledTimes(1);
       const callArgs = spawnSpy.mock.calls[0][0] as string[];
       expect(callArgs[0]).toBe("tar");

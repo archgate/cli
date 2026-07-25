@@ -114,9 +114,7 @@ describe("configureOpencodeSettings", () => {
     await configureOpencodeSettings();
 
     const content = await Bun.file(join(configDir, "opencode.json")).json();
-    // Existing default_agent preserved
     expect(content.default_agent).toBe("my-custom-agent");
-    // Existing model preserved
     expect(content.model).toBe("anthropic/claude-sonnet-4-5");
   });
 

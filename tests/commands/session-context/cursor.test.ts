@@ -11,10 +11,6 @@ import { registerCursorSessionContextCommand } from "../../../src/commands/sessi
 import * as sessionContextHelpers from "../../../src/helpers/session-context";
 import { safeRmSync } from "../../test-utils";
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("registerCursorSessionContextCommand", () => {
   test("registers 'cursor' as a subcommand", () => {
     const parent = new Command("session-context");

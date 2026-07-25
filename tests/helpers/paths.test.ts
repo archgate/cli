@@ -58,7 +58,6 @@ describe("findProjectRoot", () => {
     const parent = join(tempDir, "parent");
     const child = join(parent, "child");
     mkdirSync(child, { recursive: true });
-    // Create bare .archgate/ with no adrs/ or lint/
     mkdirSync(join(parent, ".archgate"), { recursive: true });
 
     const result = findProjectRoot(child);

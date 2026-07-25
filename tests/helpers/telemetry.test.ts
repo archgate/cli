@@ -27,8 +27,8 @@ describe("telemetry", () => {
 
   afterEach(async () => {
     // `env.X = undefined` assigns the string "undefined" rather than unsetting,
-    // so HOME (normally unset on Windows) leaked into every later test file.
-    // Bun.env and process.env are the same store, so restoreEnv covers both.
+    // which would leak HOME (normally unset on Windows) into every later test
+    // file. Bun.env and process.env are the same store, so restoreEnv covers both.
     restoreEnv("HOME", originalHome);
     restoreEnv("ARCHGATE_TELEMETRY", originalTelemetryEnv);
     restoreEnv("NODE_ENV", originalNodeEnv);
@@ -67,7 +67,6 @@ describe("telemetry", () => {
       await initTelemetry();
       expect(_getClient()).not.toBeNull();
 
-      // Second init overwrites state — should not throw
       await initTelemetry();
       expect(_getClient()).not.toBeNull();
     });

@@ -37,7 +37,6 @@ export function registerAdrCreateCommand(adr: Command) {
         let files: string[] | undefined;
         let body: string | undefined;
 
-        // Non-interactive mode when --title and --domain are provided
         if (opts.title && opts.domain) {
           domain = opts.domain;
           title = opts.title;
@@ -54,7 +53,6 @@ export function registerAdrCreateCommand(adr: Command) {
           // needed for interactive prompts, not for scripted --title/--domain
           // invocations or --help/--version.
           const { default: inquirer } = await import("inquirer");
-          // Interactive mode
           const answers = await withPromptFix(() =>
             inquirer.prompt([
               {

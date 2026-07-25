@@ -213,7 +213,6 @@ describe("login action handlers", () => {
         .join("\n");
       expect(allOutput).toContain("Already logged in");
       expect(allOutput).toContain("octocat");
-      // runLoginFlow should NOT have been called
       expect(runLoginFlowSpy).not.toHaveBeenCalled();
     });
 

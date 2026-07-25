@@ -13,17 +13,10 @@ import type { CommentToken } from "../formats/rules";
 export type MeriyahProgram = ReturnType<typeof parseModule>;
 
 /**
- * Parse JavaScript source into an ESTree AST via meriyah.
- *
- * This is the single sanctioned meriyah call site, shared by the rule-file
- * sandbox scanner (`rule-scanner.ts`) and the `ctx.ast()`
- * TypeScript/JavaScript branch in `runner.ts` — per ARCH-022, the parse
- * call must not be duplicated inline at each consumer.
- *
- * `sourceType: "script"` parses sloppy-mode CommonJS (used for `.cjs`
- * files, which cannot legally contain import/export in Node). It enables
- * `globalReturn` because Node allows top-level `return` in CJS modules.
- *
+ * Parse JavaScript source into an ESTree AST via meriyah. The single
+ * sanctioned meriyah call site per ARCH-022, shared by `rule-scanner.ts` and
+ * `ctx.ast()` in `runner.ts`. `sourceType: "script"` parses sloppy-mode
+ * CommonJS with `globalReturn` (Node allows top-level `return` in CJS).
  * Throws on syntax errors; callers decide how to surface them.
  */
 export function parseJsModule(
@@ -45,13 +38,9 @@ export function parseJsModule(
 /**
  * Extract `//` line and `/* … *​/` block comments from TypeScript/JavaScript
  * source, with delimiter-stripped text and original-source positions (0-based
- * columns, matching ESTree `loc` and Python `col_offset`).
- *
- * String and template literals are skipped so a `//` or `/*` inside a string is
- * not mistaken for a comment. Regular-expression literals are NOT tracked, so a
- * comment delimiter inside a regex (e.g. `/foo\/\//`) is a known blind spot —
- * acceptable for the comment-governance rules this serves, and consistent with
- * the scanner in `source-positions.ts`.
+ * columns, matching ESTree `loc` and Python `col_offset`). String and
+ * template literals are skipped; regex literals are NOT tracked — a known
+ * blind spot shared with the scanner in `source-positions.ts`.
  */
 export function extractJsComments(source: string): CommentToken[] {
   const comments: CommentToken[] = [];
@@ -128,17 +117,11 @@ export function extractJsComments(source: string): CommentToken[] {
 }
 
 /**
- * Parse TypeScript/JavaScript *source* into an ESTree AST, selecting the right
- * transpile/parse mode from the file extension. Shared by `ctx.ast()`'s TS/JS
- * branch for both working-tree and base-revision (`{ rev: "base" }`) source.
- *
- * TypeScript is transpiled by `Bun.Transpiler` first (which strips types and
- * comments — see ARCH-022 on why `loc` is transpiled-relative for TS). `.cts`
- * and `.cjs` are CommonJS and parse as sloppy-mode scripts; `.jsx` enables JSX.
- *
- * With `collectComments`, a `comments` array is attached to the returned tree,
- * extracted from the ORIGINAL `source` (so it survives TS transpilation and
- * carries original-source positions, unlike the tree's own `loc`).
+ * Parse TypeScript/JavaScript *source* into an ESTree AST for `ctx.ast()`,
+ * selecting the mode from the file extension: TS goes through
+ * `Bun.Transpiler` (ARCH-022: `loc` is transpiled-relative), `.cts`/`.cjs`
+ * parse as sloppy scripts, `.jsx` enables JSX. `collectComments` attaches
+ * `comments` read from the ORIGINAL source, carrying original positions.
  */
 export function parseTsOrJsSource(
   language: "typescript" | "javascript",

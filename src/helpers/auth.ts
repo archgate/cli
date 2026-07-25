@@ -89,8 +89,16 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
 }
 
 /**
- * Step 2: Poll GitHub until the user authorizes (or the code expires).
- * Returns the GitHub access token on success.
+ * Step 2: Poll GitHub until the user authorizes, or the code expires.
+ *
+ * @param deviceCode - Device code from the step-1 authorization request.
+ * @param interval - Seconds to wait between polls, per RFC 8628. GitHub can
+ * widen this via a `slow_down` response.
+ * @param expiresIn - Lifetime of the device code in seconds, forming the
+ * polling deadline.
+ * @returns The GitHub access token.
+ * @throws {UserError} When GitHub rejects a poll, or the code expires or is
+ * denied before authorization completes.
  */
 export async function pollForAccessToken(
   deviceCode: string,

@@ -19,17 +19,12 @@ import {
 } from "./plugin-install";
 import { withPromptFix } from "./prompt";
 
-/** Result of editor availability detection. */
 export interface DetectedEditor {
   id: EditorTarget;
   label: string;
   available: boolean;
 }
 
-/**
- * Detect which editor CLIs are available on PATH.
- * Runs all checks in parallel for speed.
- */
 export async function detectEditors(): Promise<DetectedEditor[]> {
   logDebug("Detecting available editor CLIs");
   const [claude, cursor, vscode, copilot, opencode] = await Promise.all([
@@ -60,8 +55,11 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
 
 /**
  * Prompt the user to select one or more editors from the detected list.
- * Detected editors are pre-checked; unavailable ones are shown but unchecked.
- * Returns at least one selection (validation enforced).
+ *
+ * @param detected - Candidate editors; installed ones are pre-checked, the
+ * rest are listed unchecked.
+ * @returns At least one editor — the prompt's own validation rejects an
+ * empty selection.
  */
 export async function promptEditorSelection(
   detected: DetectedEditor[]

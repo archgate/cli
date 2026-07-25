@@ -1,17 +1,11 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * ARCH-012 enforcement, rewritten on top of ctx.ast() (ARCH-022).
- *
- * The previous implementation only regex-detected the PRESENCE of a try-catch
- * inside an async action. That let partial boundaries pass: src/commands/
- * check.ts once wrapped only loadRuleAdrs() in try/catch, and a UserError
- * thrown later by runChecks() escaped to main().catch(), where it was
- * miscaptured to Sentry with exit 2 (incident CLI-5). These rules now walk
- * the ESTree produced by ctx.ast(file, "typescript"): the boundary rule
- * additionally flags top-level awaited statements that sit OUTSIDE the
- * action's try block — the exact statements whose rejections escape the
- * boundary.
+ * ARCH-012 enforcement on top of ctx.ast() (ARCH-022). A try-catch that
+ * covers only part of an action is as leaky as none, so the boundary rule
+ * walks the ESTree and flags top-level awaited statements sitting OUTSIDE
+ * the action's try block, whose rejections escape to main().catch() and
+ * miscapture to Sentry. See ARCH-012 for the failure it prevents.
  */
 
 /** Node types whose bodies run in their own context — awaits inside them are
@@ -153,7 +147,6 @@ export default {
         "Async command actions must include try-catch error boundaries",
       severity: "warning",
       async check(ctx) {
-        // Only check non-index command files
         const files = ctx.scopedFiles.filter(
           (f) => f.includes("commands/") && !f.endsWith("index.ts")
         );
@@ -235,7 +228,6 @@ export default {
       description:
         "Catch blocks in async command actions must re-throw ExitPromptError for proper Ctrl+C handling (exit 130)",
       async check(ctx) {
-        // Only check non-index command files that have async actions
         const files = ctx.scopedFiles.filter(
           (f) => f.includes("commands/") && !f.endsWith("index.ts")
         );
@@ -243,7 +235,6 @@ export default {
         const checks = files.map(async (file) => {
           const content = await ctx.readFile(file);
 
-          // Only check files with async actions that have try-catch
           const hasAsyncActionWithTryCatch =
             /\.action\(\s*async\s[\s\S]*?\btry\s*\{/u.test(content);
           if (!hasAsyncActionWithTryCatch) return;

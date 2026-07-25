@@ -10,25 +10,11 @@ import type { EditorTarget } from "./init-project";
 import { isWSL, toWindowsPath } from "./platform";
 
 /**
- * Encode a project root path into the directory name used by Claude/Cursor
- * for storing session files under `~/.claude/projects/` or `~/.cursor/projects/`.
- *
- * Replaces path separators (`\`, `/`) and dots (`.`) with dashes (`-`).
- * Drive-letter colons (`:`) are handled per-tool: Claude Code replaces them
- * with dashes while Cursor strips them entirely.
- *
- * Examples (target = "claude", the default):
- * - `/home/user/project`          → `-home-user-project`
- * - `C:\Users\user\project`       → `C--Users-user-project`
- * - `E:\foo\.claude\worktrees\x`  → `E--foo--claude-worktrees-x`
- *
- * Examples (target = "cursor"):
- * - `/home/user/project`          → `-home-user-project`
- * - `C:\Users\user\project`       → `C-Users-user-project`
- * - `E:\foo\.claude\worktrees\x`  → `E-foo--claude-worktrees-x`
- *
- * In WSL, converts to the Windows path first so the encoded name matches
- * what the Windows-side editor uses.
+ * Encode a project root into the session-directory name under
+ * `~/.claude/projects/` or `~/.cursor/projects/`: separators (`\`, `/`) and
+ * dots become dashes; drive-letter colons become dashes for Claude Code
+ * (`C:\Users\x` → `C--Users-x`) but are stripped by Cursor (`C-Users-x`).
+ * In WSL, converts to the Windows path first to match the Windows-side editor.
  */
 export async function encodeProjectPath(
   projectRoot: string,
@@ -98,7 +84,6 @@ interface ClaudeSessionSummary {
   transcript: Array<{ type: string; role?: string; contentPreview: string }>;
 }
 
-/** One entry in a list result: session id + last-update timestamp. */
 export interface SessionListEntry {
   id: string;
   /** Session title — only populated by editors that store one (opencode). */
@@ -141,7 +126,6 @@ function parseContentBlock(block: ContentBlock): string | null {
   return null;
 }
 
-/** Extract a concise content preview from a transcript entry. */
 export function getContentPreview(entry: TranscriptEntry): string {
   const content = entry.message?.content;
   if (typeof content === "string") {
@@ -170,7 +154,6 @@ interface ReadCursorSessionOptions extends ReadSessionOptions {
   sessionId?: string;
 }
 
-/** Resolve the Claude Code projects dir for a project root. */
 async function claudeProjectsDir(projectRoot: string | null): Promise<string> {
   const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
   return join(homedir(), ".claude", "projects", encodedPath);
@@ -218,9 +201,13 @@ export async function listClaudeCodeSessions(
 
 /**
  * Read the most recent Claude Code session transcript for a project —
- * normally the conversation that is running right now. Pass `sessionId`
- * (from `listClaudeCodeSessions`) to read an earlier session instead.
- * Falls back to cwd when no project root is found.
+ * normally the conversation that is running right now.
+ *
+ * @param projectRoot - Project to read sessions for; `null` falls back to cwd.
+ * @param options - `sessionId` (from {@link listClaudeCodeSessions}) selects
+ * an earlier session; `maxEntries` caps returned transcript entries.
+ * @returns The transcript on success, or a result carrying the reason no
+ * session could be read.
  */
 export async function readClaudeCodeSession(
   projectRoot: string | null,
@@ -291,7 +278,6 @@ export async function readClaudeCodeSession(
   };
 }
 
-/** Resolve the Cursor agent-transcripts dir for a project root. */
 async function cursorTranscriptsDir(
   projectRoot: string | null
 ): Promise<string> {
@@ -359,9 +345,13 @@ export async function listCursorSessions(
 
 /**
  * Read the most recent Cursor agent session transcript for a project —
- * normally the conversation that is running right now. Pass `sessionId`
- * (from `listCursorSessions`) to read an earlier session instead.
- * Falls back to cwd when no project root is found.
+ * normally the conversation that is running right now.
+ *
+ * @param projectRoot - Project to read sessions for; `null` falls back to cwd.
+ * @param options - `sessionId` (from {@link listCursorSessions}) selects an
+ * earlier session; `maxEntries` caps returned transcript entries.
+ * @returns The transcript on success, or a result carrying the reason no
+ * session could be read.
  */
 export async function readCursorSession(
   projectRoot: string | null,

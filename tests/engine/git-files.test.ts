@@ -72,7 +72,6 @@ describe("git-files", () => {
       writeFileSync(join(tempDir, "a.ts"), "export const a = 1;");
       await git(["add", "a.ts"], tempDir);
       await git(["commit", "-m", "init"], tempDir);
-      // Stage a new file (staged change)
       writeFileSync(join(tempDir, "b.ts"), "export const b = 1;");
       await git(["add", "b.ts"], tempDir);
       // Modify a committed file without staging (unstaged change)
@@ -179,7 +178,6 @@ describe("git-files", () => {
       await git(["add", "file.ts"], tempDir);
       await git(["commit", "-m", "init"], tempDir);
 
-      // Pre-create config with a custom baseBranch
       mkdirSync(join(tempDir, ".archgate"), { recursive: true });
       await Bun.write(
         join(tempDir, ".archgate", "config.json"),
@@ -209,7 +207,6 @@ describe("git-files", () => {
       writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
       await git(["add", "base.ts"], tempDir);
       await git(["commit", "-m", "init"], tempDir);
-      // Create feature branch and add files
       await git(["checkout", "-b", "feature"], tempDir);
       writeFileSync(join(tempDir, "new-file.ts"), "export const y = 2;");
       await git(["add", "new-file.ts"], tempDir);
@@ -231,8 +228,8 @@ describe("git-files", () => {
     });
 
     // Regression: archgate/cli#403 — base...HEAD only sees committed
-    // changes, so uncommitted working-tree edits were silently omitted
-    // whenever a base ref was detected (i.e., almost always).
+    // changes, so uncommitted working-tree edits must be unioned in
+    // whenever a base ref is detected (i.e., almost always).
     test("includes uncommitted edits to tracked files (regression archgate/cli#403)", async () => {
       await git(["init", "--initial-branch=main"], tempDir);
       await git(["config", "user.email", "test@test.com"], tempDir);
@@ -364,9 +361,9 @@ describe("git-files", () => {
     });
 
     // Regression: archgate/cli#222 — ADR `files:` globs must match
-    // dot-prefixed source dirs like `.github/`. Bun.Glob with `dot: false`
-    // silently drops these on Windows, so ADRs scoped to `.github/**` had
-    // empty scopedFiles on Windows local-dev runs.
+    // dot-prefixed source dirs like `.github/`. Bun.Glob defaults to
+    // `dot: false`, which silently drops these on Windows, so the scan
+    // must opt in for ADRs scoped to `.github/**` to see any files.
     test("resolves dot-prefixed paths (regression archgate/cli#222)", async () => {
       await git(["init"], tempDir);
       mkdirSync(join(tempDir, ".github", "workflows"), { recursive: true });

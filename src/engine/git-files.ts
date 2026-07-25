@@ -48,15 +48,11 @@ export function getGitTrackedFiles(
   if (cached) return cached;
 
   const promise = (async () => {
-    // `--cached` lists files deleted from the worktree but not yet staged;
-    // a filesystem walk would never return those. Subtract `--deleted` so
-    // in-memory pattern matching (matchTrackedFiles) sees exactly the
-    // files that exist on disk. `--others` entries exist by definition.
-    //
-    // allSettled, not all: in a non-git directory the first spawn rejects,
-    // and Promise.all would return while the sibling git process is still
-    // running with projectRoot as its cwd — on Windows that live cwd handle
-    // locks the directory (EBUSY on removal). Both must fully exit first.
+    // Subtract `--deleted` from `--cached` so in-memory pattern matching
+    // (matchTrackedFiles) sees exactly the files on disk (ARCH-023).
+    // allSettled, not all: both git processes must fully exit before this
+    // returns — a still-running child's cwd handle locks the directory on
+    // Windows (EBUSY on removal).
     const [listed, deleted] = await Promise.allSettled([
       runGit(
         ["ls-files", "--cached", "--others", "--exclude-standard"],
@@ -165,7 +161,6 @@ export async function resolveScopedFiles(
   return all;
 }
 
-/** Get changed files from git staging area. */
 export async function getStagedFiles(projectRoot: string): Promise<string[]> {
   try {
     const result = await runGit(
@@ -199,13 +194,12 @@ export async function getChangedFiles(projectRoot: string): Promise<string[]> {
 }
 
 /**
- * Detect the base ref to compare against for branch-level change detection.
+ * Detect the base ref for branch-level change detection.
  *
- * Resolution order:
- * 1. Remote HEAD symref (e.g. `origin/main`) — fast, local, no network
- * 2. `origin/main` or `origin/master` tracking refs
- * 3. Local `main` or `master` branches (repos without remotes)
- * 4. `null` — detection failed, caller falls back to empty changedFiles
+ * @returns The first ref that resolves, tried in order: remote HEAD symref
+ * (e.g. `origin/main`), `origin/main`/`origin/master` tracking refs, then
+ * local `main`/`master` for repos without remotes. Null when detection
+ * fails, and the caller falls back to empty `changedFiles`.
  */
 export async function detectBaseRef(
   projectRoot: string
@@ -285,17 +279,13 @@ export async function resolveBaseRef(
 }
 
 /**
- * Get files changed between a base ref and the working tree.
+ * Get files changed between a base ref and the working tree. Unions committed
+ * branch changes (`git diff base...HEAD`), staged + unstaged edits, and
+ * untracked files so uncommitted work is never silently omitted
+ * (archgate/cli#403).
  *
- * Unions three sources so uncommitted work is never silently omitted
- * (see archgate/cli#403):
- * 1. `git diff base...HEAD` — committed branch changes (three-dot diff
- *    finds the merge-base automatically)
- * 2. staged + unstaged edits to tracked files
- * 3. untracked (non-gitignored) files
- *
- * Returns an empty array when the ref cannot be diffed (bad ref or not
- * a git repo), matching the previous behavior.
+ * @returns Changed file paths, or an empty array when the ref cannot be
+ * diffed (bad ref or not a git repo).
  */
 export async function getFilesChangedSinceRef(
   projectRoot: string,
@@ -345,14 +335,13 @@ async function runGitOrNull(
 }
 
 /**
- * Resolve the merge base of `ref` and HEAD — the commit `changedFiles`
- * compares against.
+ * Resolve the merge base of `ref` and HEAD — the same commit the three-dot
+ * `ref...HEAD` diff in `getFilesChangedSinceRef` resolves against, so
+ * base-revision reads compare against the exact base of the change set.
  *
- * `getFilesChangedSinceRef` diffs `ref...HEAD` (three-dot), which git resolves
- * against `merge-base(ref, HEAD)`. Base-revision reads MUST use that same
- * commit, or a rule would compare the working tree against a different point
- * than the change set it was handed. Returns null when no merge base exists
- * (unrelated histories) or `ref` is unknown.
+ * @returns The merge-base SHA, or null when no merge base exists (unrelated
+ * histories) or `ref` is unknown.
+ * @see getFilesChangedSinceRef
  */
 export async function getMergeBase(
   projectRoot: string,
@@ -366,13 +355,14 @@ export async function getMergeBase(
 /**
  * Read a file's contents at a specific revision via `git show <rev>:<path>`.
  *
- * Returns null when the path did not exist at that revision (an added file) or
- * the revision is unresolvable — callers distinguish "absent at base" from a
- * present-but-empty file (which returns "").
- *
- * `path` MUST be repo-relative with forward slashes, exactly as it appears in
- * `changedFiles`/`scopedFiles`. Passed as an array argument (no shell), so a
- * path with spaces or shell metacharacters is safe.
+ * @param projectRoot - Repository root the git command runs in.
+ * @param rev - Revision to read from, typically a merge-base SHA.
+ * @param path - Repo-relative path with forward slashes, exactly as it appears
+ * in `changedFiles`/`scopedFiles`. Passed as an array argument (no shell), so
+ * spaces and shell metacharacters are safe.
+ * @returns The file's content, or null when the path is absent at that
+ * revision (an added file) or the revision is unresolvable. A present but
+ * empty file returns `""`, which callers must distinguish from null.
  */
 export function getFileAtRev(
   projectRoot: string,

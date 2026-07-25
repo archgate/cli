@@ -147,7 +147,6 @@ describe("check command security", () => {
   });
 
   test("blocks symlink to file outside project", async () => {
-    // Create a real file outside the project
     const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
     writeFileSync(join(outsideDir, "secret.txt"), "sensitive data");
 

@@ -3,21 +3,10 @@
 /**
  * Performance regression tests for CLI startup and exit latency.
  *
- * Two concerns, two describe blocks:
- *
- * 1. **Exit tail guard** — catches leaked `setTimeout` / `Bun.sleep` that
- *    keep the event loop alive after the command completes (the ~3s tail
- *    from PR #213). Budget: 4000ms — generous, only fires on timer leaks.
- *
- * 2. **Startup latency budget** — catches import-time regressions like
- *    static `import inquirer` (costs ~200ms) or blocking telemetry init
- *    (~150ms). Budgets are ~3-4x the measured baseline so they don't
- *    flake on slow CI, but tight enough to catch a heavy dependency
- *    being pulled into the startup path.
- *
- * Strategy: run commands end-to-end via `Bun.spawn`, take the median of
- * multiple runs to smooth out cold-start variance, and assert wall-clock
- * time stays under the budget.
+ * One describe block guards the exit tail against leaked timers holding the
+ * event loop open; the other guards startup against import-time cost such as
+ * a static `inquirer` import. Commands run end-to-end via `Bun.spawn`, taking
+ * the median of several runs against a budget set well above baseline.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -26,20 +15,23 @@ import { resolve } from "node:path";
 const CLI_PATH = resolve(import.meta.dir, "..", "..", "src", "cli.ts");
 
 /**
- * Ceiling for a trivially-fast command. The historical regression
- * pushed this to 3.5–4s. Normal runs sit well under 2s even on slow
- * CI. 4000ms catches the regression with plenty of headroom.
+ * Ceiling for a trivially-fast command. Normal runs sit well under 2s even on
+ * slow CI, while a leaked exit-path timer pushes them to 3.5-4s, so 4000ms
+ * separates the two with headroom.
+ *
+ * @see https://github.com/archgate/cli/pull/213 — the leak this budget guards
  */
 const FAST_COMMAND_MAX_MS = 4000;
 
 /**
  * Run the CLI with the given args and return the wall-clock duration.
- * `NODE_ENV=test` suppresses actual telemetry event capture so no real
- * traffic is sent, but the telemetry / Sentry SDKs still initialize
- * and flush — which is exactly the path the timer-leak regression
- * lived on. Leaving `ARCHGATE_TELEMETRY` unset means we exercise the
- * enabled path; the `_=test` env guard inside `trackEvent` /
- * `Sentry.init`'s `enabled` flag prevents real event delivery.
+ *
+ * `NODE_ENV=test` suppresses event capture, so no real traffic is sent while
+ * the telemetry and Sentry SDKs still initialize and flush — the path a timer
+ * leak lives on. `ARCHGATE_TELEMETRY` stays unset to exercise the enabled path.
+ *
+ * @param args - Arguments passed to the CLI after the script path.
+ * @returns Wall-clock milliseconds from spawn to process exit.
  */
 async function timeCli(args: string[]): Promise<number> {
   const start = performance.now();
@@ -125,22 +117,10 @@ describe("CLI performance — exit tail regression guard", () => {
 // Startup latency budgets
 // ---------------------------------------------------------------------------
 //
-// These budgets are tighter than the exit-tail guard above. They protect
-// against import-time regressions:
-//
-//   - Re-adding a static `import inquirer` (costs ~200ms)
-//   - Blocking on telemetry/sentry init before command parsing (~150ms)
-//   - Pulling a heavy new dependency into the top-level import chain
-//
-// Baseline (measured 2026-05-09 on Windows, subprocess via Bun.spawn):
-//   --help:    ~260ms    --version: ~250ms
-//   adr list:  ~400ms    check:     ~750ms
-//
-// Budgets are set at ~3-4x the baseline to absorb CI variance (GitHub
-// Actions Windows runners are typically 1.5-2x slower than local dev)
-// without masking a real regression. If a budget fires, profile the
-// startup with `bun -e "..."` import-time measurements (see the commit
-// that introduced these tests for the technique).
+// Tighter than the exit-tail guard above, these protect against import-time
+// cost: a static `import inquirer` (~200ms), blocking telemetry init (~150ms),
+// or a heavy dependency entering the top-level import chain. Each sits at
+// ~3-4x its measured baseline so CI variance cannot mask a real regression.
 
 /**
  * Budget for commands that do zero project I/O — pure startup + parse +

@@ -9,7 +9,6 @@ const LOCALES = ["pt-br", "nb"];
 
 const CONTENT_ROOT = "docs/src/content/docs";
 
-/** Patterns that match locale-prefixed internal links in MDX files. */
 const LOCALE_LINK_PATTERNS = LOCALES.map(
   (locale) => new RegExp(`(?:href="|\\]\\()/${locale}/`, "gu")
 );
@@ -53,7 +52,6 @@ export default {
       async check(ctx) {
         const allMdxFiles = await ctx.glob(`${CONTENT_ROOT}/**/*.mdx`);
 
-        // Separate root files from locale files
         const rootFiles: string[] = [];
         const localeFiles = new Map<string, string[]>();
 
@@ -128,7 +126,6 @@ export default {
 
         if (changedRootFiles.length === 0) return;
 
-        // Pre-build a set of all existing locale files for fast lookup
         const localeFileArrays = await Promise.all(
           LOCALES.map((locale) =>
             ctx.glob(`${CONTENT_ROOT}/${locale}/**/*.mdx`)

@@ -18,10 +18,6 @@ export interface RunResult {
   stderr: string;
 }
 
-/**
- * Run a CLI command in the given project directory.
- * Returns captured stdout, stderr, and exit code.
- */
 export async function runCli(
   args: string[],
   cwd: string,
@@ -53,25 +49,15 @@ export async function runCli(
   return { exitCode, stdout: stdout.trim(), stderr: stderr.trim() };
 }
 
-/**
- * Create an isolated temp project directory with optional .archgate scaffold.
- */
 export function createTempProject(prefix = "archgate-integ-"): string {
   return mkdtempSync(join(tmpdir(), prefix));
 }
 
-/**
- * Initialize a minimal .archgate project in the given directory.
- * Includes the adrs/ and lint/ directories.
- */
 export function scaffoldProject(dir: string): void {
   mkdirSync(join(dir, ".archgate", "adrs"), { recursive: true });
   mkdirSync(join(dir, ".archgate", "lint"), { recursive: true });
 }
 
-/**
- * Write an ADR markdown file to the project's adrs directory.
- */
 export function writeAdr(dir: string, filename: string, content: string): void {
   writeFileSync(join(dir, ".archgate", "adrs", filename), content);
 }
@@ -96,9 +82,6 @@ export function writeRules(
   writeFileSync(join(dir, ".archgate", "adrs", filename), wrapped);
 }
 
-/**
- * Build a minimal ADR markdown string.
- */
 export function makeAdr(opts: {
   id: string;
   title: string;

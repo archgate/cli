@@ -52,16 +52,11 @@ import { applySuppressions, type SuppressionWarning } from "./suppressions";
 const RULE_TIMEOUT_MS = 30_000;
 
 /**
- * Per-invocation caches shared across every rule context in a check run.
- * Rules overwhelmingly glob the same patterns and read the same files —
- * without these caches, 40+ rules each repeat identical filesystem work.
- *
- * Values are promises so concurrent rules share in-flight work instead of
- * racing to duplicate it. Glob results are copied on return, file contents
- * are immutable strings. AST results are cached as shared trees — rules must
- * treat them as read-only. `readJSON` is deliberately NOT cached — rules
- * receive a mutable object, and sharing one instance would leak mutations
- * between rules.
+ * Per-invocation caches shared across every rule context in a check run —
+ * without them, 40+ rules repeat identical glob/read/parse work. Values are
+ * promises so concurrent rules share in-flight work. Glob results are copied
+ * on return; file text is immutable; AST trees are shared and read-only.
+ * `readJSON` is NOT cached — sharing its mutable object would leak mutations.
  */
 interface RunCaches {
   /** Glob results keyed by `tracked:`/`all:` + pattern. */
@@ -88,9 +83,6 @@ export interface CheckResult {
   suppressionWarnings?: SuppressionWarning[];
 }
 
-/**
- * Create a RuleContext for a specific rule execution.
- */
 function createRuleContext(
   projectRoot: string,
   scopedFiles: string[],
@@ -145,9 +137,8 @@ function createRuleContext(
   // ARCH-022: ctx.ast() implementation. Overload declarations match
   // RuleContext["ast"] so each language narrows to the correct return type.
   // The four guardrails below MUST run in this order before any subprocess.
-  // `{ rev: "base" }` parses the file's content at the comparison base commit
-  // instead of the working tree; the guardrails are identical, only the source
-  // acquisition differs.
+  // `{ rev: "base" }` swaps only the source acquisition (content at the
+  // comparison base commit); the guardrails are identical.
   async function astImpl(
     path: string,
     language: "typescript" | "javascript",
@@ -194,10 +185,9 @@ function createRuleContext(
     /**
      * The uncached parse: TS/JS in-process, Python/Ruby via guardrails 3–4.
      * Errors below are CACHED (see the astResults lookup), so they
-     * interpolate the normalized `relPath` — never the raw `path` —
-     * otherwise a cached rejection would carry the first caller's path
-     * spelling (e.g. "src/./a.py") into every later caller's error, since
-     * aliased spellings resolve to the same cache entry.
+     * interpolate the normalized `relPath` — never the raw `path` — else a
+     * cached rejection would carry the first caller's path spelling into
+     * every later caller's error (aliased spellings share a cache entry).
      */
     async function parseUncached(): Promise<AstNode> {
       // In-process branch: TypeScript/JavaScript via the shared meriyah
@@ -246,11 +236,10 @@ function createRuleContext(
 
       try {
         // Guardrail 4: guarded invocation — array args only, path via argv.
-        // Python runs in isolated mode (-I): without it, `python -c` puts the
-        // cwd (the target project root) on sys.path, so a hostile project
-        // could shadow stdlib modules (ast.py, json.py) and execute arbitrary
-        // code when the serializer imports them. Ruby is safe as-is — its
-        // load path has not included the cwd since 1.9.2.
+        // Python runs isolated (-I): without it `python -c` puts the target
+        // project root on sys.path, letting a hostile project shadow stdlib
+        // modules (ast.py, json.py) for arbitrary code execution. Ruby's load
+        // path excludes the cwd (1.9.2+), so it is safe as-is.
         const pyProgram = wantComments
           ? PYTHON_AST_WITH_COMMENTS_PROGRAM
           : PYTHON_AST_PROGRAM;
@@ -285,16 +274,11 @@ function createRuleContext(
       }
     }
 
-    // Per-run parse cache, mirroring cachedGlob/cachedFileText: keyed on the
-    // full tuple that determines the output, NUL-joined (NUL cannot appear in
-    // a path, so distinct tuples never collide). The PROMISE is cached, so
-    // concurrent identical calls share one in-flight parse/subprocess spawn.
-    // Rejected promises stay cached — a deliberate decision: ctx.ast() is
-    // fail-closed (ARCH-022), so every rule touching the same input fails
-    // fast with the identical error instead of re-paying the spawn. The
-    // cheap argument-validation guardrails above (path safety, language
-    // plausibility) still run per call, before this lookup, preserving
-    // ARCH-022's guardrail ordering on cache hits too.
+    // Per-run parse cache mirroring cachedGlob/cachedFileText, keyed on the
+    // full output-determining tuple, NUL-joined (NUL cannot appear in a path).
+    // The PROMISE is cached so concurrent identical calls share one in-flight
+    // parse; rejections stay cached — ctx.ast() is fail-closed (ARCH-022) —
+    // and the cheap guardrails above still run per call before this lookup.
     const cacheKey = astCacheKey(absPath, language, useBase, wantComments);
     let hit = caches.astResults.get(cacheKey);
     if (!hit) {
@@ -360,11 +344,10 @@ function createRuleContext(
 
     /**
      * Read a file's source at the comparison base revision. Returns null when
-     * no base is resolved (no `--base`, or unrelated histories) or the path did
-     * not exist at the base (an added file) — the two "nothing to compare
-     * against" cases a caller checks with a single null test. Unlike
-     * `ctx.ast({ rev: "base" })`, this primitive reports absence as null rather
-     * than throwing.
+     * no base is resolved (no `--base`, or unrelated histories) or the path
+     * did not exist at the base — the two "nothing to compare against" cases,
+     * checkable with one null test. Unlike `ctx.ast({ rev: "base" })`, this
+     * primitive reports absence as null rather than throwing.
      */
     fileAtBase(path: string): Promise<string | null> {
       const absPath = safePath(resolvedRoot, path);
@@ -399,16 +382,11 @@ export async function runChecks(
   // concurrently with the merge-base resolution below.
   const allTrackedFilesPromise = getGitTrackedFiles(projectRoot);
 
-  // Resolve the base commit ONCE per run — the merge base of `--base` and HEAD —
-  // and reuse that single SHA for BOTH `changedFiles` and base-revision reads
-  // (`ctx.fileAtBase()` / `ctx.ast({ rev: "base" })`). Resolving it separately
-  // for each (as `getFilesChangedSinceRef(options.base)` + `getMergeBase`) would
-  // let a branch that moves between the two git calls hand a rule a change set
-  // and a base AST computed against different commits (ARCH-022). Null for
-  // staged/default runs, so base-revision access reports "no base". Awaited here
-  // (concurrent with the tracked-file listing) so `changedFiles` can diff the
-  // resolved SHA: diffing the merge-base SHA three-dot against HEAD is identical
-  // to `options.base...HEAD`, since the merge base is an ancestor of HEAD.
+  // Resolve the base commit ONCE per run — the merge base of `--base` and HEAD
+  // — and reuse the single SHA for BOTH `changedFiles` and base-revision reads
+  // (`ctx.fileAtBase()` / `ctx.ast({ rev: "base" })`); separate resolution
+  // could hand a rule a change set and a base AST from different commits if
+  // the branch moves mid-run (ARCH-022). Null for staged/default runs.
   const baseRev: string | null =
     !options.staged && options.base
       ? await getMergeBase(projectRoot, options.base)
@@ -469,7 +447,6 @@ export async function runChecks(
     astResults: new Map(),
   };
 
-  // Run ADRs in parallel
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
       const respectGitignore = adr.frontmatter.respectGitignore !== false;
@@ -481,19 +458,16 @@ export async function runChecks(
         { respectGitignore, adrId: adr.frontmatter.id }
       );
 
-      // When files are specified, narrow scopedFiles to the intersection
       if (filterFiles) {
         scopedFiles = scopedFiles.filter((f) => filterFiles.has(f));
       }
 
-      // Skip this ADR entirely if no specified files are in scope
       if (filterFiles && scopedFiles.length === 0) {
         return [];
       }
 
       const adrRuleResults: RuleResult[] = [];
 
-      // Run rules within an ADR sequentially
       for (const [ruleId, ruleConfig] of Object.entries(ruleSet.rules)) {
         const violations: ViolationDetail[] = [];
         const ruleStart = performance.now();
@@ -560,7 +534,6 @@ export async function runChecks(
     })
   );
 
-  // Collect results
   for (const result of adrResults) {
     if (result.status === "fulfilled") {
       for (const r of result.value) results.push(r);
@@ -570,7 +543,6 @@ export async function runChecks(
   // Apply inline suppressions (archgate-ignore / archgate-ignore-file comments)
   const suppression = await applySuppressions(projectRoot, results);
 
-  // Filter suppressed violations from each rule result
   if (suppression.suppressedCount > 0) {
     for (const r of results) {
       r.violations = r.violations.filter((v) =>

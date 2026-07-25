@@ -43,18 +43,10 @@ function usableEnv(value: string | undefined): string | null {
 
 /**
  * Resolve the opencode user-scope config directory (`~/.config/opencode/`).
- *
- * Opencode uses the `xdg-basedir` package to locate its config root. That
- * package reads `$XDG_CONFIG_HOME` when set and otherwise falls back to
- * `~/.config` on **all platforms** — including Windows, where the resolved
- * path is `C:\Users\<user>\.config\opencode\` rather than anything under
- * `%APPDATA%`. We mirror the same resolution here so the CLI writes to
- * the exact directory opencode reads from.
- *
- * The path is resolved at call time, not cached — tests override `HOME` /
- * `XDG_CONFIG_HOME` per-test and expect the helper to pick up the override.
- *
- * Used by `opencodeAgentsDir()` and `opencodeConfigPath()`.
+ * Mirrors opencode's own `xdg-basedir` resolution: `$XDG_CONFIG_HOME` when
+ * set, else `~/.config` on ALL platforms — including Windows (never
+ * `%APPDATA%`; see CLAUDE.md "Adding a New Editor Target"). Resolved at
+ * call time, not cached, so tests can override HOME / XDG_CONFIG_HOME.
  */
 export function opencodeConfigDir(): string {
   const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
@@ -80,14 +72,10 @@ export function copilotSessionStateDir(): string {
 }
 
 /**
- * Resolve the opencode SQLite database path.
- *
- * Opencode stores session/message/part data in a SQLite database at
- * `$XDG_DATA_HOME/opencode/opencode.db` (defaulting to
- * `~/.local/share/opencode/opencode.db`).
- *
- * Resolved at call time (not cached) so tests can override HOME /
- * XDG_DATA_HOME.
+ * Resolve the opencode SQLite database path — session/message/part data at
+ * `$XDG_DATA_HOME/opencode/opencode.db` (default
+ * `~/.local/share/opencode/opencode.db`). Resolved at call time (not
+ * cached) so tests can override HOME / XDG_DATA_HOME.
  */
 export function opencodeDbPath(): string {
   const xdg = usableEnv(Bun.env.XDG_DATA_HOME);
@@ -132,22 +120,15 @@ export function createPathIfNotExists(path: string) {
 }
 
 /**
- * Walk up from cwd to find the nearest directory containing an archgate
- * project. A directory is a project root when it has either:
- *   - `.archgate/adrs/` — standard project layout
- *   - `.archgate/lint/` — also created by `archgate init`
+ * Walk up to the nearest directory containing `.archgate/adrs/` or
+ * `.archgate/lint/` (both created by `archgate init`). Matching `.archgate/`
+ * or `.archgate/config.json` alone would false-positive on the user-level
+ * `~/.archgate/` cache.
  *
- * Both directories are created by `archgate init` and are project-specific.
- * We cannot match on `.archgate/` alone because `~/.archgate/` is the
- * CLI's user-level cache directory (binary installs, credentials, etc.)
- * and would produce false positives. We also avoid matching on
- * `.archgate/config.json` because `~/.archgate/config.json` stores
- * telemetry settings.
- *
- * **Test isolation:** Set `ARCHGATE_PROJECT_CEILING` to a directory path
- * to prevent the walk-up from escaping above it — analogous to git's
- * `GIT_CEILING_DIRECTORIES`. The ceiling directory itself is still
- * checked, but the walk stops there.
+ * @param startDir - Directory to start the walk from. Defaults to `cwd`.
+ * @returns The project root, or `null` when the walk reaches the filesystem
+ * root or the `ARCHGATE_PROJECT_CEILING` bound without a match. That ceiling
+ * isolates tests the way git's ceiling dirs do, and is itself still checked.
  */
 export function findProjectRoot(startDir?: string): string | null {
   const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
@@ -161,7 +142,6 @@ export function findProjectRoot(startDir?: string): string | null {
       return dir;
     }
 
-    // Don't walk above the ceiling directory
     if (ceiling && resolve(dir) === ceiling) {
       return null;
     }
@@ -175,12 +155,14 @@ export function findProjectRoot(startDir?: string): string | null {
 }
 
 /**
- * Like {@link findProjectRoot}, but throws a {@link UserError} when no
- * project is found. For command actions whose body is wrapped in the
- * ARCH-012 error boundary (handleCommandError): the boundary logs the
- * message and exits 1 without Sentry. Commands that can operate without a
- * project (e.g. `session-context` falling back to cwd) should keep using
- * `findProjectRoot()` directly.
+ * Resolve the project root for commands that require one.
+ *
+ * @param startDir - Directory to start the walk from. Defaults to `cwd`.
+ * @returns The project root directory.
+ * @throws {UserError} When no project is found. The ARCH-012 boundary
+ * (`handleCommandError`) logs it and exits 1 without Sentry.
+ * @see {@link findProjectRoot} — used directly by commands that can operate
+ * without a project, such as `session-context` falling back to cwd.
  */
 export function requireProjectRoot(startDir?: string): string {
   const projectRoot = findProjectRoot(startDir);

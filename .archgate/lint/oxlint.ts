@@ -1,30 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 
-// Custom oxlint JS plugin: validate `type:` literals passed to
-// inquirer.prompt() against the prompt types registered by the installed
-// inquirer version.
-//
-// Why this exists: inquirer v14 removed the legacy "list" prompt type
-// (renamed "select" in v10), which crashed `archgate login` at runtime with
-// 'Prompt type "list" is not registered'. Nothing else can catch this class
-// of bug statically or in CI:
-//   - tsc cannot: inquirer's legacy prompt() types accept ANY `type: string`
-//     via the CustomQuestion escape hatch that exists for registerPrompt().
-//   - tests cannot: interactive prompts need a TTY, so every test mocks the
-//     inquirer module entirely and the runtime prompt registry never runs.
-// The invariant is purely syntactic, so it belongs in the linter.
-//
-// The registered set is read from the installed inquirer at plugin load, so
-// the rule self-updates on dependency bumps — a future rename/removal makes
-// stale call sites fail lint in the bump PR itself.
-//
-// The plugin runs natively as TypeScript under Bun, so there is no build step.
+// Custom oxlint JS plugin (`archgate/*`), running natively as TypeScript
+// under Bun. Validates `type:` literals passed to inquirer.prompt() against
+// the prompt registry of the INSTALLED inquirer — neither tsc (CustomQuestion
+// accepts any string) nor tests (prompts are mocked, no TTY in CI) can catch
+// an unregistered prompt type; only the linter can. See ARCH-019 context.
+
+import { conciseCommentRules } from "./concise-comments.ts";
 
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-/** Narrow an unknown value to an AST node (an object with a string `type`). */
 function asNode(value: unknown): AstNode | undefined {
   if (
     value !== null &&
@@ -37,15 +24,10 @@ function asNode(value: unknown): AstNode | undefined {
 }
 
 /**
- * Prompt types registered by the INSTALLED inquirer, read at plugin load.
- *
- * Deliberately not a hardcoded allowlist: when a future inquirer version
- * renames or removes a prompt type (as v10 did with "list" -> "select"),
- * the registry shrinks and stale call sites fail `bun run lint` immediately
- * in the dependency-bump PR — no manual list maintenance.
- *
- * If inquirer ever changes the registry's API shape, the loud throw below
- * fails the whole lint run rather than silently disabling the rule.
+ * Prompt types read from the installed inquirer at plugin load — not a
+ * hardcoded allowlist, so stale call sites fail lint in the dependency-bump
+ * PR itself. The loud throw below fails the whole lint run if inquirer ever
+ * changes the registry's API shape, rather than silently disabling the rule.
  */
 const { default: inquirer } = await import("inquirer");
 const REGISTERED_PROMPT_TYPES = new Set(Object.keys(inquirer.prompt.prompts));
@@ -55,7 +37,6 @@ if (REGISTERED_PROMPT_TYPES.size === 0) {
   );
 }
 
-/** True when the callee is exactly `inquirer.prompt`. */
 function isInquirerPromptCallee(callee: AstNode | undefined): boolean {
   if (callee?.type !== "MemberExpression") return false;
   const object = asNode(callee.object);
@@ -145,7 +126,10 @@ const validInquirerPromptType = {
 
 const plugin = {
   meta: { name: "archgate" },
-  rules: { "valid-inquirer-prompt-type": validInquirerPromptType },
+  rules: {
+    "valid-inquirer-prompt-type": validInquirerPromptType,
+    ...conciseCommentRules,
+  },
 };
 
 export default plugin;

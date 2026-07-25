@@ -80,15 +80,11 @@ cleanupStaleBinary();
 async function main() {
   await installGit();
 
-  // Start error tracking and telemetry initialization concurrently but do NOT
-  // await them here. Both SDKs are lazy-loaded via dynamic `import()` inside
-  // these functions, so the `ARCHGATE_TELEMETRY=0` path is a cheap no-op.
-  //
-  // The promise is awaited in the preAction hook — right before the first
-  // telemetry event fires — so `repo_id` is always present on `command_executed`
-  // events (see PR #211). This defers ~150ms of SDK parse + git subprocess cost
-  // off the critical path for --help, --version, and fast-exit commands that
-  // never trigger preAction.
+  // Start error tracking and telemetry initialization concurrently without
+  // awaiting: the preAction hook awaits this promise right before the first
+  // telemetry event fires, so `repo_id` is always present on `command_executed`
+  // events, while paths that never reach preAction (--help, --version) leave
+  // the ~150ms of SDK parse and repo_id resolution off the critical path.
   const telemetryReady = Promise.all([initSentry(), initTelemetry()]);
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
@@ -116,7 +112,6 @@ async function main() {
     // so this await is effectively free in practice.
     await telemetryReady;
 
-    // Apply log level from global option before any command runs
     const rootOpts = program.opts();
     setLogLevel(rootOpts.logLevel);
     const fullCommand = getFullCommandName(actionCommand);
@@ -160,7 +155,6 @@ async function main() {
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);
 
-  // Flush telemetry and error tracking before exit
   await Promise.all([flushTelemetry(), flushSentry()]);
 
   // Belt-and-braces: force exit so any stray handle left by a third-party

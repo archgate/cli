@@ -232,17 +232,14 @@ export default { invalid syntax here !!! } satisfies RuleSet;
   });
 
   test("loads ADRs from custom directory configured in config.json", async () => {
-    // Create a custom ADR directory outside .archgate/
     const customAdrsDir = join(tempDir, "docs", "adrs");
     mkdirSync(customAdrsDir, { recursive: true });
 
-    // Configure the custom path
     await saveProjectConfig(tempDir, {
       domains: {},
       paths: { adrs: "docs/adrs" },
     });
 
-    // Place ADR + rules in the custom directory
     copyFileSync(
       join(fixturesDir, "TEST-001-sample.md"),
       join(customAdrsDir, "TEST-001-sample.md")
@@ -276,7 +273,6 @@ export default { invalid syntax here !!! } satisfies RuleSet;
   });
 
   test("parseAllAdrs reads from custom directory", async () => {
-    // Configure custom path
     const customAdrsDir = join(tempDir, "governance");
     mkdirSync(customAdrsDir, { recursive: true });
 

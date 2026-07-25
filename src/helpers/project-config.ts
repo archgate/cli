@@ -58,9 +58,6 @@ export function loadProjectConfig(projectRoot: string): ProjectConfig {
   }
 }
 
-/**
- * Write the project config to disk.
- */
 export async function saveProjectConfig(
   projectRoot: string,
   config: ProjectConfig
@@ -109,7 +106,9 @@ export function resolveDomainPrefix(
 
 /**
  * Read the `baseBranch` value from `.archgate/config.json`.
- * Returns `null` when unconfigured.
+ *
+ * @param projectRoot - Project root holding the `.archgate/` directory.
+ * @returns The configured base branch, or `null` when unconfigured.
  */
 export function getConfiguredBaseBranch(projectRoot: string): string | null {
   const config = loadProjectConfig(projectRoot);
@@ -241,13 +240,10 @@ export async function removeCustomDomain(
 }
 
 /**
- * Resolve project paths with config-aware overrides.
- *
- * Reads `.archgate/config.json` and applies any custom `paths.adrs` or
- * `paths.rules` overrides. When `paths.rules` is not set, rules are
- * loaded from the same directory as ADRs (co-location convention).
- * Falls back to the standard `.archgate/adrs/` and `.archgate/lint/`
- * defaults when no `paths` config is present.
+ * Resolve project paths with config-aware overrides: reads
+ * `.archgate/config.json` and applies custom `paths.adrs` / `paths.rules`.
+ * Each key falls back independently to its standard default — `.archgate/adrs/`
+ * for ADRs and `.archgate/lint/` for rules — as does a missing `paths` block.
  */
 export function resolvedProjectPaths(projectRoot: string): {
   root: string;

@@ -19,9 +19,6 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-// ---------------------------------------------------------------------------
-// Imports under test
-// ---------------------------------------------------------------------------
 
 import * as platform from "../../src/helpers/platform";
 import {
@@ -186,7 +183,6 @@ describe("plugin install — stale file cleanup", () => {
       const targetIdx = callArgs.indexOf("-C");
       expect(targetIdx).toBeGreaterThanOrEqual(0);
       const targetDir = callArgs[targetIdx + 1];
-      // Must end with /opencode (config dir), not /opencode/agents
       expect(targetDir).toMatch(/opencode$/u);
       expect(targetDir).not.toMatch(/agents$/u);
     });

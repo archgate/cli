@@ -158,7 +158,6 @@ describe("checkForUpdatesIfNeeded", () => {
   });
 
   test("skips check when cache is recent", async () => {
-    // Write a fresh cache timestamp
     const cacheDir = join(tempDir, ".archgate");
     await Bun.write(join(cacheDir, "last-update-check"), String(Date.now()));
 
@@ -194,17 +193,14 @@ describe("checkForUpdatesIfNeeded", () => {
     expect(result).toContain("0.2.0");
     expect(existsSync(cacheFile)).toBe(true);
 
-    // Cache file should contain a numeric timestamp
     const content = await Bun.file(cacheFile).text();
     const timestamp = Math.trunc(Number(content.trim()));
     expect(isNaN(timestamp)).toBe(false);
-    // Timestamp should be within the last 5 seconds
     expect(Date.now() - timestamp).toBeLessThan(5_000);
   });
 
   test("rewrites cache file when cache is stale", async () => {
     const cacheFile = join(tempDir, ".archgate", "last-update-check");
-    // Write a stale timestamp (25 hours ago)
     const staleTimestamp = Date.now() - 25 * 60 * 60 * 1000;
     await Bun.write(cacheFile, String(staleTimestamp));
 
@@ -224,7 +220,6 @@ describe("checkForUpdatesIfNeeded", () => {
     expect(result).toContain("0.3.0");
     expect(mockFetch).toHaveBeenCalled();
 
-    // Cache file should have been rewritten with a fresh timestamp
     const content = await Bun.file(cacheFile).text();
     const newTimestamp = Math.trunc(Number(content.trim()));
     expect(newTimestamp).toBeGreaterThan(staleTimestamp);
@@ -244,13 +239,11 @@ describe("checkForUpdatesIfNeeded", () => {
       `../../src/helpers/update-check?t=${Date.now()}`
     );
 
-    // Pass a version string that semver cannot parse
     const result = await checkForUpdatesIfNeeded("not-a-version");
     expect(result).toBeNull();
   });
 
   test("returns null when an error is thrown during execution", async () => {
-    // Simulate a disk write failure by making Bun.write throw
     Bun.write = (() => {
       throw new Error("simulated disk write failure");
     }) as unknown as typeof Bun.write;

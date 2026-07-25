@@ -51,7 +51,7 @@ describe("install-info", () => {
     });
 
     test("returns equal (not identical) contexts across calls", () => {
-      // getProjectContext is no longer cached — each call re-reads the
+      // getProjectContext is not cached — each call re-reads the
       // filesystem so post-init events reflect newly-created ADRs.
       const first = getProjectContext();
       const second = getProjectContext();

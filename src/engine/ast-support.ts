@@ -145,21 +145,11 @@ puts JSON.generate(sexp, max_nesting: false)
 `;
 
 /**
- * Serializer used for Ruby `{ comments: true }`: prints the same
- * `{"_tree", "comments"}` envelope as the Python with-comments program, with
- * comments from a second `Ripper.lex` pass (`Ripper.sexp` carries none).
- * `#` comments become `type: "line"` tokens (`#` stripped, newline chomped);
- * each `=begin`/`=end` region becomes ONE `type: "block"` token whose value is
- * the inner content (marker lines stripped, like TS/JS stripping the
- * delimiters) and whose loc spans the `=begin` line through the `=end` line.
- * Ripper reports columns as BYTE offsets; they are converted to CHARACTER
- * columns (via a byteslice of the source line) so comment locs share the
- * Python/TS unit — the sexp tree's own node positions stay byte-based, as
- * Ripper emits them. Block values normalize CRLF to LF: Windows text-mode
- * reads already strip the CR, so normalizing keeps the value identical
- * across OSes. Lex errors on otherwise-parseable source degrade to an empty
- * comment list rather than failing the parse, matching Python's
- * tokenizer-error fallback.
+ * Serializer for Ruby `{ comments: true }`: the same `{"_tree", "comments"}`
+ * envelope as the Python program, with comments from a second `Ripper.lex`
+ * pass (`Ripper.sexp` carries none). Byte columns convert to character
+ * columns and block values normalize CRLF so comment locs match Python/TS;
+ * lex errors degrade to an empty comment list (ARCH-022 has the details).
  */
 export const RUBY_AST_WITH_COMMENTS_PROGRAM = `
 source = File.read(ARGV[0], mode: "r:bom|utf-8")
@@ -211,12 +201,10 @@ puts JSON.generate({ _tree: sexp, comments: comments }, max_nesting: false)
 
 /**
  * Candidate executable names per language, in probe order. `python3` is not
- * a universal PATH alias on Windows (the common installer exposes `python`),
- * so the order flips per platform (ARCH-009's isWindows()). Windows also
- * probes the `py` launcher last — the python.org installer registers it
- * unconditionally even when "Add python.exe to PATH" is left unchecked, and
- * the probe already rejects a stale launcher with no registered CPython
- * (`py --version` exits non-zero).
+ * a universal PATH alias on Windows (installers expose `python`), so the
+ * order flips per platform (ARCH-009). Windows probes the `py` launcher
+ * last — python.org registers it even when PATH integration is unchecked,
+ * and the probe rejects a launcher with no registered CPython.
  */
 export function interpreterCandidates(language: "python" | "ruby"): string[] {
   if (language === "ruby") return ["ruby"];
@@ -229,7 +217,9 @@ export function interpreterCandidates(language: "python" | "ruby"): string[] {
  * not enough on Windows — the Microsoft Store ships a `python.exe` App
  * Execution Alias stub that exists on PATH but exits non-zero.
  *
- * Callers cache the returned promise once per `check` invocation.
+ * @param candidates - Executable names in probe order.
+ * @returns The first candidate that exits 0, or null when none does. Callers
+ * cache the returned promise once per `check` invocation.
  */
 export async function probeInterpreter(
   candidates: string[]
@@ -312,6 +302,8 @@ export async function runAstSubprocess(
  * Parse an AST subprocess's stdout as JSON, mapping malformed output to the
  * same throw contract as any other `ctx.ast()` failure. Subprocess stdout is
  * not a file read, so `Bun.file().json()` (ARCH-010) does not apply here.
+ *
+ * @throws When stdout is not valid JSON, naming the path and language.
  */
 export function parseAstJson(
   stdout: string,
@@ -329,11 +321,12 @@ export function parseAstJson(
 
 /**
  * Read a file's source at the comparison base revision for
- * `ctx.ast(path, lang, { rev: "base" })`, throwing on the two cases the AST
- * contract must never paper over: no base is resolvable, or the path did not
- * exist at the base. Both throw rather than returning null — a silent miss
- * would let a rule report a false "no change." `displayPath` is the
- * caller-facing path used in error messages.
+ * `ctx.ast(path, lang, { rev: "base" })`.
+ *
+ * @param displayPath - Caller-facing path used in error messages.
+ * @throws When no base is resolvable, or the path is absent at the base —
+ * never returns null, because a silent miss would let a rule report a false
+ * "no change".
  */
 export async function readBaseSourceOrThrow(
   projectRoot: string,
@@ -356,23 +349,14 @@ export async function readBaseSourceOrThrow(
 }
 
 /**
- * Write source to a throwaway temp file and return its path plus a cleanup
- * thunk. Used only for `ctx.ast(path, lang, { rev: "base" })` on Python/Ruby:
- * the base revision's content is not on disk, but the interpreter serializers
- * read a file path from argv. Writing it to a temp file lets the existing,
- * unchanged `PYTHON_AST_PROGRAM`/`RUBY_AST_PROGRAM` (and the mandatory `-I`
- * isolation) parse it without a second code path.
+ * Write source to a throwaway temp file for `{ rev: "base" }` Python/Ruby
+ * parses — the interpreter serializers read a file path from argv. A private
+ * `mkdtempSync` dir (0700) plus exclusive create (`wx`, 0600) defeats
+ * shared-tmpdir symlink attacks and keeps base source owner-only (ARCH-022).
  *
- * Security: the file goes in a per-call private directory created with
- * `mkdtempSync` (0700, owner-only, unpredictable name), and is created
- * exclusively (`wx`) with mode `0600`. This closes the shared-`tmpdir` attacks
- * a predictable name would expose on a multi-user host: a pre-planted symlink
- * at the path can no longer redirect the write (exclusive create fails on an
- * existing entry, and the private parent is not writable by others), and the
- * base source — which may be sensitive — is never world-readable or left where
- * another user could read it. It also lives outside any interpreter's
- * cwd-derived load path even before `-I` is considered. `cleanup()` removes the
- * whole private directory, is best-effort, and never throws.
+ * @returns The temp file `path`, and a `cleanup()` thunk that removes the
+ * whole dir — best-effort, and never throws.
+ * @see ARCH-022
  */
 export function writeTempSourceFile(
   content: string,
@@ -427,12 +411,11 @@ export async function materializeAstInput(args: {
 }
 
 /**
- * Fold the `{ comments: true }` Python/Ruby subprocess output back into the
- * shape `ctx.ast()` promises. Those serializers print `{ _tree, comments }`;
- * unwrap it to the tree with `comments` attached, so the return shape matches
- * the ESTree one (a tree carrying a `comments` array). Ruby's tree is an
- * array, so `comments` rides on it as a non-index property. For every other
- * case the subprocess output is already the tree — pass it through untouched.
+ * Fold the `{ comments: true }` Python/Ruby subprocess envelope
+ * (`{ _tree, comments }`) back into the shape `ctx.ast()` promises: the tree
+ * with `comments` attached, matching ESTree. Ruby's array tree carries
+ * `comments` as a non-index property; every other output is already the
+ * tree and passes through untouched.
  */
 export function finalizeAstResult(
   parsed: Record<string, unknown> | unknown[],
@@ -450,16 +433,11 @@ export function finalizeAstResult(
 }
 
 /**
- * `ctx.findAstNodes()`: collect every node in a parsed AST whose
- * type-discriminant field matches one of `types`. Language-agnostic — each
- * object node is checked against whichever discriminant field it carries:
- * `_type` (Python) or `type` (ESTree TypeScript/JavaScript). Own-enumerable
- * object values and arrays are traversed, and `tree` itself is a match
- * candidate. Ruby's `Ripper.sexp` nodes are plain arrays with no object
- * discriminant field, so a Ruby tree is traversed but its array-shaped nodes
- * never match. The traversal is iterative (explicit stack, preorder) so a
- * deeply nested tree cannot overflow the call stack, and a visited set
- * guards against cycles — cheap insurance, real ASTs are acyclic.
+ * `ctx.findAstNodes()`: collect every node whose type-discriminant field
+ * (`_type` Python, `type` ESTree TS/JS) matches one of `types`; `tree`
+ * itself is a candidate. Ruby's array-shaped sexp nodes carry no
+ * discriminant, so a Ruby tree traverses but never matches. Iterative
+ * preorder with a visited set — deep trees cannot overflow the call stack.
  */
 export function findAstNodes(
   tree: EsTreeNode,

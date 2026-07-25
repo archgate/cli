@@ -21,9 +21,6 @@ export class SignupRequiredError extends Error {
   }
 }
 
-/**
- * Returns true if the error message indicates the user needs to sign up.
- */
 export function isSignupRequiredError(message?: string): boolean {
   if (!message) return false;
   const lower = message.toLowerCase();

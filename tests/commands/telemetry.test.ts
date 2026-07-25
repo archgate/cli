@@ -205,7 +205,6 @@ describe("telemetry enable", () => {
     const output = collectOutput(logSpy);
     expect(output).toContain("ARCHGATE_TELEMETRY environment variable");
     expect(output).toContain("Remove the environment variable");
-    // Still calls setTelemetryEnabled
     expect(setTelemetryEnabledSpy).toHaveBeenCalledWith(true);
   });
 
@@ -231,7 +230,6 @@ describe("telemetry enable", () => {
       program.parseAsync(["node", "test", "telemetry", "enable"])
     ).rejects.toThrow("prompt cancelled");
 
-    // logError should NOT be called for ExitPromptError
     expect(logErrorSpy).not.toHaveBeenCalled();
   });
 });

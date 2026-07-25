@@ -47,7 +47,6 @@ const PyprojectSchema = z.object({
     .optional(),
 });
 
-/** Config file extensions commonly used by JS/TS frameworks. */
 const JS_CONFIG_EXTENSIONS = ["js", "cjs", "mjs", "ts", "mts", "cts"];
 
 /** Check whether any of `<basename>.<ext>` exists in `dir`. */
@@ -192,7 +191,6 @@ async function writeCache(
 export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   const fingerprint = buildFingerprint(projectRoot);
 
-  // Check disk cache
   const cached = await readCache(projectRoot);
   if (cached && cached.fingerprint === fingerprint) {
     logDebug("Stack cache hit for", projectRoot);

@@ -44,7 +44,6 @@ export type SignupEditor =
   | "cursor"
   | "opencode";
 
-/** Map editor targets to signup API identifiers. */
 export const SIGNUP_EDITORS: Record<EditorTarget, SignupEditor> = {
   claude: "claude-code",
   cursor: "cursor",
@@ -93,13 +92,11 @@ export async function initProject(
   // without requiring node_modules
   await writeRulesShim(projectRoot);
 
-  // Ensure generated shim files are gitignored
   await ensureGitignoreEntries(projectRoot);
 
   // Disable triple-slash-reference lint rule for .archgate/adrs/ if linter detected
   await ensureLinterOverrides(projectRoot);
 
-  // Only generate the example ADR when no ADRs exist yet
   const hasExistingAdrs =
     existsSync(paths.adrsDir) &&
     readdirSync(paths.adrsDir).some((f) => f.endsWith(".md"));
@@ -163,9 +160,6 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
   };
 }
 
-/**
- * Route editor settings configuration to the appropriate helper.
- */
 async function configureEditorSettings(
   projectRoot: string,
   editor: EditorTarget
@@ -270,7 +264,10 @@ async function ensureEslintrcOverride(projectRoot: string): Promise<void> {
 
 /**
  * Attempt to install the archgate plugin using stored credentials.
- * Returns null-safe result — never throws.
+ *
+ * @param editor - The editor to install the plugin for.
+ * @returns A result describing success or the reason for skipping. Never
+ * throws, so a failed install cannot abort `archgate init`.
  */
 async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
   const { loadCredentials } = await import("./credential-store");
@@ -313,12 +310,10 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
     const { isOpencodeAvailable, installOpencodePlugin } =
       await import("./plugin-install");
 
-    // Writing agent markdown to `~/.config/opencode/agents/` is only useful
-    // if opencode is actually installed — otherwise we leave stale files in
-    // a directory nothing reads. `isOpencodeAvailable()` recognizes both the
-    // CLI (on PATH) and the Desktop app (no CLI, but shares the same
-    // user-scope config directory), mirroring the detect-before-install
-    // guard that every other editor's install path already uses.
+    // Install only when opencode exists — otherwise the agent markdown lands
+    // in a directory nothing reads. `isOpencodeAvailable()` recognizes both
+    // the CLI (on PATH) and the Desktop app (no CLI, same user-scope config
+    // dir), mirroring every other editor's detect-before-install guard.
     if (!(await isOpencodeAvailable())) {
       return {
         installed: true,

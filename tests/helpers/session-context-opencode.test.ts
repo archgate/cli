@@ -12,10 +12,6 @@ import {
 } from "../../src/helpers/session-context-opencode";
 import { restoreEnv } from "../test-utils";
 
-/**
- * Tests for readOpencodeSession — reads session data from
- * opencode's SQLite database.
- */
 describe("readOpencodeSession", () => {
   const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const projectRoot = resolve(`/__archgate_opencode_test_${uniqueId}`);
@@ -46,7 +42,6 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  /** Create the opencode database schema. */
   function createDb(): Database {
     const db = new Database(dbPath);
     // Use DELETE journal mode to avoid WAL/SHM files that lock on Windows
@@ -238,7 +233,6 @@ describe("readOpencodeSession", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_roles`;
 
-    // Insert messages with various roles — system and tool should be filtered out
     const now = Date.now();
     makeSession(db, sessionId, projectRoot, undefined, now);
 
@@ -284,7 +278,6 @@ describe("readOpencodeSession", () => {
   test("returns error when session has no messages", async () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_nomsg`;
-    // Create session but no messages
     makeSession(db, sessionId, projectRoot);
     db.close();
 
@@ -339,7 +332,6 @@ describe("readOpencodeSession", () => {
   });
 
   test("returns error when database does not exist", async () => {
-    // Point to a non-existent directory
     Bun.env.XDG_DATA_HOME = join(tempDir, "nonexistent");
 
     const result = await readOpencodeSession(projectRoot);
@@ -375,7 +367,6 @@ describe("readOpencodeSession", () => {
     expect(result.data.transcript[0]?.contentPreview).toBe(
       "actual user question"
     );
-    // The synthetic part should not appear
     expect(result.data.transcript[0]?.contentPreview).not.toContain(
       "system-reminder"
     );
@@ -451,12 +442,11 @@ describe("readOpencodeSession", () => {
   });
 
   test("selects the true parent when sibling sub-agents fan out and are more recent", async () => {
-    // Real-world fan-out reproduced from a live incident: one parent session
-    // spawns several sibling sub-agent sessions against the same directory
-    // (e.g. the reviewer skill's parallel domain reviews). Every sibling
-    // sorts ahead of the parent by recency; none of them may shadow it.
-    // The old recency-based `--skip 1` landed on whichever sibling sat
-    // second in recency order instead of the parent.
+    // Real-world fan-out: one parent session spawns several sibling sub-agent
+    // sessions against the same directory (e.g. the reviewer skill's parallel
+    // domain reviews). Every sibling sorts ahead of the parent by recency, so
+    // a recency-based pick lands on a sibling instead; selection must resolve
+    // the parent no matter how many siblings outrank it.
     const db = createDb();
     makeSimpleSession(db, "ses_parent", "parent development session", 1000);
     makeSimpleSession(db, "ses_sib_a", "domain review a", 2000, "ses_parent");

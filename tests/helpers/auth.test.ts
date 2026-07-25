@@ -36,11 +36,10 @@ describe("auth", () => {
 
   afterEach(() => {
     // `Bun.env.X = undefined` assigns the STRING "undefined" and leaves the key
-    // present — it does not unset. Since HOME and GIT_CONFIG_GLOBAL are normally
-    // unset on Windows, a plain restore leaked HOME="undefined" into the shared
-    // process env, and every later test that spawned a subprocess inherited it.
-    // Bun.env is process-global and test files share one process, so this must
-    // delete when the original was absent.
+    // present — it does not unset. HOME and GIT_CONFIG_GLOBAL are normally unset
+    // on Windows, and Bun.env is process-global across test files, so a plain
+    // restore would publish HOME="undefined" to every later test and any
+    // subprocess it spawns. restoreEnv deletes when the capture was absent.
     restoreEnv("HOME", originalHome);
     restoreEnv("USERPROFILE", originalUserProfile);
     restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);

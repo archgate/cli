@@ -63,7 +63,6 @@ export function registerInitCommand(program: Command) {
     )
     .action(async (opts) => {
       try {
-        // Resolve editors: explicit flag, interactive prompt, or default
         let editors: EditorTarget[];
         if (opts.editor) {
           editors = [opts.editor];
@@ -79,8 +78,8 @@ export function registerInitCommand(program: Command) {
         );
         let hasCredentials = (await loadCredentials()) !== null;
 
-        // If no credentials and --install-plugin not explicitly set, offer to log in
-        // Skip interactive prompts in non-TTY environments (agent-driven runs)
+        // Interactive prompts are skipped in non-TTY environments
+        // (agent-driven runs).
         if (
           !hasCredentials &&
           opts.installPlugin === undefined &&
@@ -131,7 +130,6 @@ export function registerInitCommand(program: Command) {
           }
           console.log(`  ${dir.padEnd(13)}- ${label} settings configured`);
 
-          // Plugin install output
           if (result.plugin?.installed) {
             console.log("");
             if (result.plugin.autoInstalled) {
@@ -157,13 +155,10 @@ export function registerInitCommand(program: Command) {
           });
         }
 
-        // One-time `project_initialized` event. The hashed `repo_id` ships in
-        // every event already via the common props; this richer event is the
-        // only place the raw remote URL / owner / name appear, and only for
-        // repositories we can confirm public via the host's unauthenticated
-        // API. Users who don't want the event at all disable telemetry
-        // (`ARCHGATE_TELEMETRY=0` / `archgate telemetry disable`) — no
-        // identity-specific knob is needed on top of that.
+        // One-time `project_initialized` event — the only place the raw remote
+        // URL / owner / name appear, and only for repositories confirmed public
+        // via the host's unauthenticated API. Disabling telemetry
+        // (`ARCHGATE_TELEMETRY=0` / `archgate telemetry disable`) opts out.
         const repo = await getRepoContext();
         const repoPublic = await isPublicRepo(repo);
         const shareIdentity = shouldShareRepoIdentity(repoPublic);
@@ -185,7 +180,6 @@ export function registerInitCommand(program: Command) {
             : {}),
         });
 
-        // --- Greenfield wizard: offer starter packs when no ADRs exist ---
         if (process.stdin.isTTY && !hadExistingProject) {
           await runGreenfieldWizard(process.cwd());
         }
@@ -236,7 +230,6 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
 
   const stack = await detectStack(projectRoot);
 
-  // Show detected stack summary
   const stackParts: string[] = [];
   if (stack.languages.length > 0) stackParts.push(...stack.languages);
   if (stack.runtimes.length > 0) stackParts.push(...stack.runtimes);

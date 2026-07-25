@@ -43,7 +43,6 @@ describe("configureCursorSettings", () => {
     configureCursorSettings(tempDir);
     const hooksPath = join(tempDir, ".cursor", "hooks.json");
     await Bun.write(hooksPath, "custom hooks");
-    // Re-run — should not overwrite
     configureCursorSettings(tempDir);
     expect(readFileSync(hooksPath, "utf-8")).toBe("custom hooks");
   });

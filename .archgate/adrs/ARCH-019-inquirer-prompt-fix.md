@@ -74,3 +74,4 @@ Code reviewers MUST verify any new interactive flow wraps its prompts in `withPr
 
 - [ARCH-018: Lazy-Load Heavy Dependencies](./ARCH-018-lazy-load-heavy-dependencies.md) — `inquirer` is loaded lazily; this ADR governs how its prompts are invoked
 - [`src/helpers/prompt.ts`](../../src/helpers/prompt.ts) — defines `withPromptFix()` and the stdout patch
+- [Inquirer.js issue #2123](https://github.com/SBoudrias/Inquirer.js/issues/2123) — upstream report of the unrestored Windows console-mode flag

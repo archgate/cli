@@ -98,7 +98,6 @@ export async function runDoctor(): Promise<DoctorReport> {
   const integrations = detectIntegrations();
   const configDir = internalPath();
 
-  // Run async checks in parallel
   const [editors, gitCmd, credentials] = await Promise.all([
     detectEditors(),
     resolveCommand("git").then((r) => r !== null),

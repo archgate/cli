@@ -4,8 +4,6 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Configure Copilot CLI settings for archgate integration.
- *
  * Creates the `.github/copilot/` directory if it does not exist.
  * Plugin installation is handled separately via `archgate init --install-plugin`.
  *

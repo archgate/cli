@@ -22,7 +22,7 @@ import { restoreEnv } from "../test-utils";
 
 /**
  * Bulk form of `restoreEnv` for the snapshot-many-vars pattern used below:
- * restores saved env vars, deleting keys that were originally unset.
+ * restores saved env vars, deleting keys that were unset at capture time.
  *
  * Neither `Object.assign(process.env, saved)` nor a plain `env[k] = v` loop
  * works — both stringify `undefined` into the literal "undefined", corrupting
@@ -128,7 +128,6 @@ describe("configureVscodeSettings", () => {
   test("does not create user settings file when no marketplace URL is provided", async () => {
     await configureVscodeSettings(tempDir);
 
-    // The user settings file should not be created
     const path = await getVscodeUserSettingsPath();
     expect(existsSync(path)).toBe(false);
   });
@@ -238,7 +237,6 @@ describe("addMarketplaceToUserSettings", () => {
     process.env.APPDATA = deepHome; // Windows
     homedirSpy.mockReturnValue(deepHome); // macOS/Linux
 
-    // addMarketplaceToUserSettings should create the entire directory tree
     await addMarketplaceToUserSettings(URL);
 
     const path = await settingsPath();
@@ -337,7 +335,6 @@ describe("getVscodeUserSettingsPath", () => {
       delete process.env.APPDATA;
       const path = await getVscodeUserSettingsPath();
       const normalized = path.replaceAll("\\", "/");
-      // Should fall back to homedir()/AppData/Roaming
       expect(normalized).toContain("AppData/Roaming/Code/User/settings.json");
     } finally {
       restoreEnv("APPDATA", savedAppData);

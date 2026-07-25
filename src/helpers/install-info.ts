@@ -20,11 +20,11 @@ import { resolvedProjectPaths } from "./project-config";
 let cachedInstallMethod: string | null = null;
 
 /**
- * Detect how archgate was installed.
- * Returns: "binary" | "proto" | "local" | "global-pm"
+ * Detect how archgate was installed, reading `process.execPath` for compiled
+ * binaries and `Bun.main` for `bun run` development mode (where
+ * `process.execPath` is the bun runtime rather than archgate).
  *
- * Uses process.execPath for compiled binaries and Bun.main for `bun run`
- * development mode (where process.execPath is the bun runtime, not archgate).
+ * @returns One of `"binary"`, `"proto"`, `"local"`, or `"global-pm"`.
  */
 export function detectInstallMethod(): string {
   if (cachedInstallMethod) return cachedInstallMethod;
@@ -69,14 +69,11 @@ export interface ProjectContext {
 }
 
 /**
- * Scan the current working directory for an archgate project.
- *
- * This used to be cached per process, but the cache was a source of stale
- * data: if the first call happened BEFORE `archgate init` created the project
- * (during the Commander `preAction` hook), the post-init `init_completed`
- * event reused the pre-init snapshot and incorrectly reported
- * `has_project=false, adr_count=0`. The read is a single `readdirSync` —
- * cheap enough to re-run on every event, and worth it for accuracy.
+ * Scan the current working directory for an archgate project. Deliberately
+ * uncached: a per-process cache goes stale when the first call precedes
+ * `archgate init` (the Commander `preAction` hook), making later events
+ * report `has_project=false`. The read is a single `readdirSync` — cheap
+ * enough to re-run on every event.
  */
 export function getProjectContext(): ProjectContext {
   const cwd = process.cwd();

@@ -62,10 +62,6 @@ import { SignupRequiredError } from "../../src/helpers/signup";
 
 let originalFetch: typeof globalThis.fetch;
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("login-flow", () => {
   beforeEach(() => {
     // Silence console output (restored via mock.restore() in afterEach).
@@ -138,10 +134,6 @@ describe("login-flow", () => {
     expect(failure.githubUser).toBeUndefined();
   });
 
-  // -----------------------------------------------------------------------
-  // Successful login flow
-  // -----------------------------------------------------------------------
-
   test("successful login: device code -> poll -> claim -> save", async () => {
     const result = await runLoginFlow();
 
@@ -163,10 +155,6 @@ describe("login-flow", () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // requestDeviceCode failure
-  // -----------------------------------------------------------------------
-
   test("requestDeviceCode throws -> propagates error", async () => {
     mockRequestDeviceCode.mockImplementation(() =>
       Promise.reject(new Error("GitHub device code request failed (HTTP 500)"))
@@ -179,10 +167,6 @@ describe("login-flow", () => {
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
 
-  // -----------------------------------------------------------------------
-  // pollForAccessToken failure
-  // -----------------------------------------------------------------------
-
   test("pollForAccessToken throws -> propagates error", async () => {
     mockPollForAccessToken.mockImplementation(() =>
       Promise.reject(new Error("Device code expired"))
@@ -192,10 +176,6 @@ describe("login-flow", () => {
     expect(mockClaimArchgateToken).not.toHaveBeenCalled();
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
-
-  // -----------------------------------------------------------------------
-  // getGitHubUser failure
-  // -----------------------------------------------------------------------
 
   test("getGitHubUser throws -> propagates error", async () => {
     mockGetGitHubUser.mockImplementation(() =>
@@ -262,10 +242,6 @@ describe("login-flow", () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Signup flow: no token from signup, fallback to claimArchgateToken
-  // -----------------------------------------------------------------------
-
   test("signup without auto-token falls back to second claim call", async () => {
     // First claimArchgateToken call throws, second succeeds
     let claimCallCount = 0;
@@ -318,10 +294,6 @@ describe("login-flow", () => {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Signup cancelled by user (confirmed = false)
-  // -----------------------------------------------------------------------
-
   test("signup cancelled (confirmed=false) -> returns ok:false", async () => {
     mockClaimArchgateToken.mockImplementation(() =>
       Promise.reject(new SignupRequiredError())
@@ -350,10 +322,6 @@ describe("login-flow", () => {
     expect(result.githubUser).toBeUndefined();
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
-
-  // -----------------------------------------------------------------------
-  // Signup request fails (API returns non-201)
-  // -----------------------------------------------------------------------
 
   test("signup request fails -> returns ok:false", async () => {
     mockClaimArchgateToken.mockImplementation(() =>
@@ -397,10 +365,6 @@ describe("login-flow", () => {
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
 
-  // -----------------------------------------------------------------------
-  // Pre-selected editor in options -> skips editor prompt
-  // -----------------------------------------------------------------------
-
   test("pre-selected editor skips editor prompt in signup flow", async () => {
     mockClaimArchgateToken.mockImplementation(() =>
       Promise.reject(new SignupRequiredError())
@@ -439,10 +403,6 @@ describe("login-flow", () => {
     // Only 3 prompts (no editor prompt)
     expect(promptCallCount).toBe(3);
   });
-
-  // -----------------------------------------------------------------------
-  // claimArchgateToken throws non-SignupRequired error -> propagates
-  // -----------------------------------------------------------------------
 
   test("claimArchgateToken throws non-signup error -> propagates", async () => {
     mockClaimArchgateToken.mockImplementation(() =>

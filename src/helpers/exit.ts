@@ -1,27 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * exit.ts — Centralized process-exit helper for the CLI.
- *
- * Every command that needs a non-zero exit (and some that need zero) must go
- * through {@link exitWith} instead of calling `process.exit(code)` directly.
- * The helper records a `command_completed` telemetry event with the real exit
- * code + a high-level outcome tag, then flushes PostHog and Sentry before
- * exiting. Calling `process.exit` directly skips the Commander `postAction`
- * hook AND the `main()`-level flush, dropping the event on the floor — which
- * is exactly why `exit_code` used to be stuck at 0 in the dashboard.
- *
- * Lifecycle:
- *   1. Commander preAction hook calls {@link beginCommand} with the full
- *      command path so we know which command we're timing.
- *   2. The action runs. On the happy path it returns and Commander's
- *      `postAction` hook calls {@link finalizeCommand}`(cmd, 0, "success")`.
- *   3. On an expected failure, the action calls `await exitWith(1, ...)` which
- *      finalizes + flushes + exits.
- *   4. On an unexpected crash, `main().catch()` calls `await exitWith(2, ...)`.
- *
- * The module-level guard prevents double-counting when both `exitWith` and the
- * Commander `postAction` hook fire for the same invocation.
+ * Centralized process-exit helper. Exits go through {@link exitWith}, which
+ * records a `command_completed` telemetry event and flushes PostHog/Sentry
+ * before exiting; a direct `process.exit` skips both and drops the event.
+ * A module-level guard prevents double-counting when both `exitWith` and
+ * Commander's `postAction` hook fire for the same invocation.
  */
 
 import { logError } from "./log";
@@ -83,18 +67,14 @@ export function finalizeCommand(
 }
 
 /**
- * Terminate the process after recording + flushing telemetry.
+ * Terminate the process after recording + flushing telemetry. Use instead of
+ * `process.exit(code)` in command actions and the top-level error boundary.
  *
- * Use this instead of `process.exit(code)` anywhere inside a command action
- * or the top-level error boundary. Safe to `await` — the returned promise is
- * typed `Promise<never>` because control never returns.
- *
- * The outcome tag defaults to a sensible value derived from the exit code:
- *   - 0   → "success"
- *   - 1   → "user_error"
- *   - 2   → "internal_error"
- *   - 130 → "cancelled"
- * Override via the `outcome` option when the default doesn't fit.
+ * @param code - Process exit code: 0 success, 1 user error, 2 internal
+ * error, 130 cancellation.
+ * @param opts - `outcome` overrides the telemetry outcome tag that otherwise
+ * derives from `code`; `errorKind` attaches a {@link classifyErrorKind} tag.
+ * @returns Typed `Promise<never>` — control never returns to the caller.
  */
 export async function exitWith(
   code: 0 | 1 | 2 | 130,
@@ -119,18 +99,16 @@ export async function exitWith(
 }
 
 /**
- * Centralized error handler for command catch blocks.
+ * Centralized error handler for command catch blocks (ARCH-012). Helpers
+ * throw {@link UserError} for expected failures: those are logged and never
+ * sent to Sentry.
  *
- * Every async command action's catch block should delegate here instead of
- * inlining `logError + exitWith`.  The handler:
- *
- *   1. Re-throws `ExitPromptError` so `main().catch()` handles Ctrl+C (exit 130)
- *   2. Captures **unexpected** errors (non-{@link UserError}) to Sentry
- *   3. Logs the error message via `logError()`
- *   4. Exits with code 1 (UserError) or code 2 (unexpected bug)
- *
- * Expected user-facing errors (validation, network, auth) should be thrown as
- * {@link UserError} in helpers — these are logged but not sent to Sentry.
+ * @param err - The caught error, of any shape.
+ * @throws The original error when it is an `ExitPromptError`, so
+ * `main().catch()` handles Ctrl+C as exit 130.
+ * @returns Never returns: exits 1 for a {@link UserError}, or captures to
+ * Sentry and exits 2 for an unexpected bug.
+ * @see {@link exitWith}
  */
 export function handleCommandError(err: unknown): Promise<never> {
   if (err instanceof Error && err.name === "ExitPromptError") throw err;
@@ -138,7 +116,6 @@ export function handleCommandError(err: unknown): Promise<never> {
   const errorKind = classifyErrorKind(err);
   const isExpected = err instanceof UserError;
 
-  // Only capture unexpected errors to Sentry — UserError is expected
   if (!isExpected) {
     captureException(err, { command: currentCommand ?? "unknown", errorKind });
   }
@@ -154,7 +131,10 @@ export function handleCommandError(err: unknown): Promise<never> {
 
 /**
  * Classify an error into a high-level bucket for telemetry.
- * Returns a short tag — never the raw error message.
+ *
+ * @param err - The error to classify, of any shape.
+ * @returns A short tag such as `network` or `tls` — never the raw error
+ * message, which could carry user data.
  */
 export function classifyErrorKind(err: unknown): string {
   if (!(err instanceof Error)) return "unknown";

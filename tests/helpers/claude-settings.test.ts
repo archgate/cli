@@ -135,13 +135,9 @@ describe("configureClaudeSettings", () => {
     const content = JSON.parse(
       await Bun.file(join(claudeDir, "settings.local.json")).text()
     );
-    // Existing agent preserved
     expect(content.agent).toBe("my-custom-agent");
-    // Custom key preserved
     expect(content.myCustomKey).toBe(true);
-    // Deny permissions preserved
     expect(content.permissions.deny).toEqual(["Bash(rm *)"]);
-    // Allow permissions appended
     expect(content.permissions.allow).toContain("Bash(git *)");
     expect(content.permissions.allow).toContain("Skill(archgate:architect)");
   });

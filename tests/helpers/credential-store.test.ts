@@ -32,10 +32,10 @@ describe("credential-store", () => {
   });
 
   afterEach(() => {
-    // restoreEnv deletes when the original was unset. HOME and
-    // GIT_CONFIG_GLOBAL are normally unset on Windows, so a bare restore leaked
-    // them as the string "undefined" into every later test file and any
-    // subprocess those tests spawned (Bun.env is process-global).
+    // restoreEnv deletes when the captured value was unset, which matters
+    // because HOME and GIT_CONFIG_GLOBAL are normally unset on Windows: a
+    // bare assignment stores the string "undefined" and Bun.env is
+    // process-global, so it reaches every later test file and subprocess.
     restoreEnv("HOME", originalHome);
     restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
     restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
@@ -64,7 +64,6 @@ describe("credential-store", () => {
     test.skipIf(process.platform !== "win32")(
       "cleans up legacy metadata file on save",
       async () => {
-        // Create a legacy metadata file
         mkdirSync(join(tempDir, ".archgate"), { recursive: true });
         const credPath = join(tempDir, ".archgate", "credentials");
         await Bun.write(
@@ -77,7 +76,6 @@ describe("credential-store", () => {
           github_user: "testuser",
         });
 
-        // Legacy file should be removed.
         expect(await Bun.file(credPath).exists()).toBe(false);
       }
     );
@@ -212,13 +210,11 @@ describe("credential-store", () => {
         warnSpy.mockRestore();
       }
 
-      // Load should return the saved credentials
       const loaded = await loadCredentials();
       expect(loaded).not.toBeNull();
       expect(loaded!.token).toBe("ag_beta_roundtrip");
       expect(loaded!.github_user).toBe("rounduser");
 
-      // Clear should remove them
       await clearCredentials();
       const afterClear = await loadCredentials();
       expect(afterClear).toBeNull();

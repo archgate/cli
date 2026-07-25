@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * user-error.ts — Typed error class for expected, user-facing failures.
- *
- * Helpers throw {@link UserError} for errors that are part of normal CLI
- * operation: invalid input, missing config, network failures, auth
- * rejections, etc.  These are "exit-code-1" errors — the user (or their
- * environment) needs to fix something, not us.
- *
- * Any error that is **not** a {@link UserError} is treated as an
- * unexpected bug and captured to Sentry via {@link handleCommandError}
- * in `exit.ts`.  This keeps Sentry focused on genuine crashes rather
- * than being flooded with routine validation noise.
+ * user-error.ts — Typed error class for expected, user-facing failures
+ * (invalid input, missing config, network/auth errors): "exit-code-1"
+ * errors the user fixes. {@link handleCommandError} in `exit.ts` captures
+ * to Sentry anything that is neither a {@link UserError} nor an
+ * `ExitPromptError` (Ctrl+C cancellation, exit 130).
  *
  * @example
  * ```ts

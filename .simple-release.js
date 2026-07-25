@@ -4,14 +4,11 @@ import { NpmProject } from "@simple-release/npm";
 
 class ArchgateProject extends NpmProject {
   /**
-   * Pre-1.0 semver policy: breaking changes bump the MINOR version, not
-   * the major. The project ships no support guarantees yet, so v1.0.0
-   * must be an explicit decision — force it via the `version` (or `as`)
-   * bump option when the time comes — never an automatic consequence of
-   * a `feat!`/BREAKING CHANGE commit landing on main.
-   *
-   * `bump()` derives its version from this method, so capping here keeps
-   * the manifest writes, changelog, release PR title, and tag consistent.
+   * Pre-1.0 semver policy: breaking changes bump the MINOR version, not the
+   * major, so v1.0.0 only ships via an explicit `version`/`as` bump option —
+   * never as an automatic consequence of a `feat!`/BREAKING CHANGE commit.
+   * `bump()` derives its version from this method, so capping here keeps the
+   * manifest writes, changelog, release PR title, and tag consistent.
    */
   async getNextVersion(options) {
     const next = await super.getNextVersion(options);
@@ -200,13 +197,10 @@ class ArchgateProject extends NpmProject {
       }
 
       // ---------------------------------------------------------------
-      // Sync shim package LICENSE.md to the canonical root LICENSE.md
-      //
-      // The npm package publishes the root LICENSE directly, so it needs
-      // no copy. Every other ecosystem ships its own copy that must stay
-      // byte-identical to root (enforced by ARCH-013/shim-license-sync).
-      // Registries and pkg.go.dev detect the license from files inside
-      // the package, not from the repository root.
+      // Sync shim package LICENSE.md to the canonical root LICENSE.md.
+      // npm publishes the root LICENSE directly; every other ecosystem
+      // ships a byte-identical copy (ARCH-013/shim-license-sync) because
+      // registries detect the license from files inside the package.
       // ---------------------------------------------------------------
       const rootLicensePath = "LICENSE.md";
       if (existsSync(rootLicensePath)) {

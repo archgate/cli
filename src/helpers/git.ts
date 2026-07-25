@@ -13,7 +13,6 @@ import { UserError } from "./user-error";
  * ceremony (and its WSL fallback subprocess on Windows) from the startup path.
  */
 export async function installGit() {
-  // Fast path: git on PATH — no subprocess, no await, no WSL fallback.
   if (Bun.which("git")) {
     logDebug("Git is already installed");
     return;

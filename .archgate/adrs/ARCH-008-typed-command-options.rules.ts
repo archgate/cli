@@ -1,21 +1,17 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * ARCH-008 enforcement, rewritten on top of ctx.ast() (ARCH-022).
- *
- * The previous implementation grepped single lines for `.option(...)` and
- * missed any call formatted across multiple lines — exactly the fragility
- * ARCH-022 was introduced to fix. These rules now walk the ESTree produced
- * by ctx.ast(file, "typescript") and inspect real CallExpression arguments,
- * so formatting, whitespace, and string escaping no longer matter.
+ * ARCH-008 enforcement on top of ctx.ast() (ARCH-022): rules walk the ESTree
+ * produced by ctx.ast(file, "typescript") and inspect real CallExpression
+ * arguments, so formatting, whitespace, and string escaping do not matter —
+ * multi-line `.option(...)` calls match the same as single-line ones.
  */
 
 /**
  * Description strings that enumerate a fixed set of values, e.g.
  * "editor integration to configure (claude, cursor, vscode, copilot)" or
  * "ADR domain: backend, frontend, data, architecture, general".
- * Same heuristic as the previous regex rule, but applied to the parsed
- * Literal VALUE rather than raw source text.
+ * Matched against the parsed Literal VALUE, not raw source text.
  */
 const CHOICE_ENUMERATION = /(?:claude.*cursor|backend.*frontend)/u;
 
@@ -60,14 +56,11 @@ function isStringLiteral(
 }
 
 /**
- * Locate the 1-based line of an option's flag string in the ORIGINAL source.
- *
- * ctx.ast(file, "typescript") parses Bun-transpiled output, which reprints
- * the module and collapses multi-line calls onto single lines — node.loc
- * therefore refers to transpiled lines and is unusable for reporting.
- * Searching the untranspiled source for the quoted flag literal gives an
- * exact line instead; when the flag can't be found (e.g. built dynamically),
- * the violation is reported file-only rather than with a wrong line.
+ * Locate the 1-based line of an option's flag string in the ORIGINAL source:
+ * ctx.ast(file, "typescript") parses Bun-transpiled output whose node.loc
+ * refers to transpiled lines, so the untranspiled source is searched for the
+ * quoted flag literal instead. A flag that can't be found (e.g. built
+ * dynamically) is reported file-only rather than with a wrong line.
  */
 function findFlagLine(source: string, flag: string): number | undefined {
   const needles = [`"${flag}"`, `'${flag}'`, `\`${flag}\``];

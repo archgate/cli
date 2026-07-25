@@ -5,24 +5,11 @@ import { z } from "zod";
 import { parseJsModule, type MeriyahProgram } from "./js-parser";
 
 /**
- * Module specifiers a rule file is permitted to import.
- *
- * This is an ALLOWLIST, and deliberately so. A denylist of "dangerous" modules
- * is not a viable boundary here: `.rules.ts` files are imported and executed
- * in-process by `archgate check`, so reaching *any* module outside this set is
- * arbitrary code execution, and the ways to name one are effectively unbounded
- * — `data:text/javascript,...` URLs, relative paths to files the scanner never
- * sees, bare npm packages, and `node:module`'s `createRequire` all resolve to
- * executable code without naming a banned builtin. Enumerating those is
- * unwinnable; enumerating the handful of safe modules is not.
- *
- * Only `node:`-prefixed specifiers are allowed. The bare forms (`path`) are
- * shadowable by a `node_modules/path` package in the *target* project, which
- * would hand execution straight back to the untrusted code this scanner exists
- * to contain; the `node:` scheme always resolves to the built-in.
- *
- * Type-only imports need no entry here — `Bun.Transpiler` erases them before
- * this scanner ever sees the AST.
+ * Module specifiers a rule file may import — an allowlist, because a denylist
+ * is unwinnable: rule files execute in-process, so reaching ANY module outside
+ * this set is arbitrary code execution (data: URLs, relative paths, bare npm
+ * packages, createRequire). Only `node:`-prefixed forms qualify — bare names
+ * are shadowable by a target-project `node_modules` package. See ARCH-024.
  */
 const ALLOWED_MODULES = new Set([
   "node:path",
@@ -32,26 +19,11 @@ const ALLOWED_MODULES = new Set([
 ]);
 
 /**
- * Live globals in the rule runtime whose mere *naming* is blocked — in any
- * position, code only (a same-named property key or string is fine).
- *
- * This is the module allowlist's logic (above) applied to globals. A rule file
- * runs in-process, so `Bun`, `process`, and the global object are live and
- * expose subprocess/filesystem/network/native capabilities directly — no import
- * needed. Blocking specific *shapes* of reaching them (`Bun.spawn`, `Bun[x]`)
- * is the same losing game as a module denylist: `const B = Bun; B.spawn(...)`,
- * `const { spawn } = Bun`, `Reflect.get(Bun, "spawn")`, and `global.Bun.spawn`
- * all reach the identical capability without matching any of those shapes.
- * Enumerating the evasions is unwinnable; refusing to let rule code *name* the
- * capability source is not. Rules touch the project only through `ctx`.
- *
- * Grouped by what each reaches:
- * - the global object and its aliases, and reflection over it;
- * - dynamic code execution (`eval`, and `Function` — the `Function` constructor
- *   is `eval`), which also subsumes the `.constructor` chain blocked below;
- * - network;
- * - module loading (`require`; `import.meta.require` is handled separately as it
- *   is a MetaProperty member, not a bare identifier).
+ * Live globals whose mere NAMING is blocked in rule code (a same-named
+ * property key or string is fine). Blocking specific access shapes
+ * (`Bun.spawn`, aliases, `Reflect.get`) is unwinnable, so rule code may not
+ * name a capability source at all — rules touch the project only through
+ * `ctx`. The grouping and the `import.meta.require` case live in ARCH-024.
  */
 const BANNED_GLOBALS = new Set([
   "globalThis",
@@ -70,24 +42,11 @@ const BANNED_GLOBALS = new Set([
 ]);
 
 /**
- * Characters that let source render differently from how it parses.
- *
- * This is the one class of problem the AST cannot see, and the reason this
- * scanner also inspects raw text. The parser resolves the true meaning, so a
- * bidi override or an invisible character is invisible to it *by design*; the
- * target of the attack is the human reading the diff -- a reviewer approving an
- * imported rule pack -- not the parser. See "Trojan Source" (CVE-2021-42574).
- *
- * A denylist is legitimate here, unlike for module specifiers: this set is
- * closed by the Unicode specification rather than by our imagination.
- *
- * Keyed by code point on purpose. Spelling these as literal characters would
- * put the very things this scanner rejects into its own source, where no
- * reviewer could see them -- and writing them as escapes is not enough either,
- * since a formatter may normalise an escape back into the literal character.
- * (Drafting this comment did exactly that: a U+202E written as an escape came
- * back as an invisible override sitting in this paragraph.) A number cannot be
- * made invisible, so the code points are spelled numerically and never as text.
+ * Characters that render differently from how they parse ("Trojan Source",
+ * CVE-2021-42574). The attack targets the human reviewing a rule pack, not the
+ * parser — hence the raw-text pass. A denylist is sound here: the Unicode spec
+ * closes the set. Keyed by NUMERIC code point on purpose: literal characters
+ * would hide in this very source, and formatters normalise escapes back.
  */
 const INVISIBLE_CHARS = new Map<number, string>([
   [0x202a, "LEFT-TO-RIGHT EMBEDDING"],
@@ -125,21 +84,11 @@ export interface ScanViolation {
 }
 
 /**
- * Scan raw source text, before transpilation or parsing.
- *
- * This is deliberately NOT a text search for dangerous names. Such a search
- * would be strictly worse than the AST walk that follows it: the parser
- * resolves escapes, so `import("node:child_process")` is caught by the
- * module allowlist even though its raw text never contains the string
- * "node:child_process". A regex looking for that string would miss it. Text
- * matching also cannot tell code from data, and rule files legitimately
- * contain dangerous-looking strings as the patterns they search *for* —
- * ARCH-007's and ARCH-022's own rules mention `child_process` by name.
- *
- * What this pass catches is the one thing the AST cannot: characters that make
- * the rendered source differ from the parsed source. The AST is blind to them
- * because it sees the true program, which is exactly the point — the target is
- * the human reviewing an imported rule pack.
+ * Scan raw source text, before transpilation or parsing. Deliberately NOT a
+ * text search for dangerous names — the AST walk is stronger there (the parser
+ * resolves escapes, and rule files legitimately contain dangerous-looking
+ * strings as the patterns they search for). This pass catches the one thing
+ * the AST cannot see: characters that render differently from how they parse.
  */
 function scanSourceText(source: string): ScanViolation[] {
   const violations: ScanViolation[] = [];
@@ -183,12 +132,11 @@ function scanSourceText(source: string): ScanViolation[] {
 interface AstNode {
   type: string;
   name?: string;
-  // A literal's `value` can be a string, number, boolean, null, or — for exotic
-  // literals — a `bigint` (`123n`) or a plain object (a `RegExpLiteral` carries
-  // `value: {}`). It is only ever *read* through `typeof … === "string"` guards
-  // (`staticPropName`, `checkModuleSpecifier`), so its type is intentionally
-  // wide: the schema must never reject a node over a value shape it does not
-  // consume. See the schema note below on why a rejected node is a security bug.
+  // A literal's `value` may be string/number/boolean/null, a `bigint` (`123n`),
+  // or a plain object (`RegExpLiteral`). It is only read through
+  // `typeof … === "string"` guards, so the type stays intentionally wide — the
+  // schema must never reject a node over a value shape it does not consume
+  // (see the schema note below: a rejected node is a silently unscanned one).
   value?: unknown;
   computed?: boolean;
   source?: AstNode | null;
@@ -203,24 +151,18 @@ const AstNodeSchema: z.ZodType<AstNode> = z
   .object({
     type: z.string(),
     name: z.string().optional(),
-    // A node dropped by `safeParse` is dropped *with its entire subtree* from
-    // the walk — a silent false-negative, exactly the failure mode the null
-    // `source` fix (below) addresses. `type` is always present on an ESTree
-    // node and every typed child field recurses back into this schema, so a
-    // literal's `value` is the only leaf that can make a node fail to parse.
-    // Meriyah emits a `bigint` for `123n` and an object for a `RegExpLiteral`
-    // (`/x/.constructor.constructor` reaches the Function constructor = eval),
-    // neither of which a narrow union admits. `value` is read only through
-    // `typeof`-guarded string checks, so accept anything and never reject a
-    // node — and thus never skip scanning its children — over its value shape.
+    // A node `safeParse` rejects is dropped WITH ITS ENTIRE SUBTREE — a silent
+    // false negative (ARCH-024). `type` is always present and every typed
+    // child recurses into this schema, so a literal's `value` is the only leaf
+    // that can fail: meriyah emits `bigint` for `123n` and an object for a
+    // RegExpLiteral. Accept anything; never skip children over a value shape.
     value: z.unknown().optional(),
     computed: z.boolean().optional(),
-    // ESTree sets `source: null` on an `export` declaration that has no `from`
-    // clause (`export function`, `export const`, `export { local }`). Without
-    // `.nullable()` the whole node fails validation and `parseNode` drops it —
-    // silently skipping every child, so anything dangerous inside a top-level
-    // `export`-declaration would go unscanned. Tolerating null keeps the node
-    // in the walk; `checkModuleSpecifier` still correctly no-ops on a null src.
+    // ESTree sets `source: null` on an `export` declaration with no `from`
+    // clause. Without `.nullable()` the node fails validation and `parseNode`
+    // drops it — silently skipping every child inside a top-level export.
+    // Tolerating null keeps the node in the walk; `checkModuleSpecifier`
+    // still no-ops on a null source.
     source: z
       .lazy(() => AstNodeSchema)
       .nullable()
@@ -232,7 +174,6 @@ const AstNodeSchema: z.ZodType<AstNode> = z
   })
   .passthrough();
 
-/** Parse an unknown value into an AstNode, or return null. */
 function parseNode(value: unknown): AstNode | null {
   const result = AstNodeSchema.safeParse(value);
   return result.success ? result.data : null;
@@ -241,25 +182,10 @@ function parseNode(value: unknown): AstNode | null {
 import { remapViolations, type RawViolation } from "./source-positions";
 
 /**
- * Scan a `.rules.ts` source string for banned patterns.
- *
- * Two passes, in this order:
- *
- * 1. **Raw text** (`scanSourceText`) — the source exactly as written, before
- *    any transformation, checked for characters that make the rendered code
- *    differ from the parsed code. This must run on the untransformed text:
- *    transpiling normalises some of what it looks for.
- * 2. **AST** — transpile TypeScript to JavaScript (`Bun.Transpiler`), parse to
- *    an ESTree tree (`meriyah`), and walk every node for blocked imports,
- *    globals, and escapes.
- *
- * The division is deliberate. The AST pass is the stronger of the two for
- * anything semantic, *including* obfuscation: the parser resolves escapes and
- * constant forms, so it sees `import("node:child_process")` however it is
- * spelled. Text matching is reserved for the one thing a parser cannot report,
- * because it is defined by what a human sees rather than what the code means.
- *
- * Returns an empty array if the rule is clean; violations if blocked patterns are found.
+ * Scan a `.rules.ts` source string for banned patterns; returns [] when clean.
+ * Raw text runs first (`scanSourceText`, on the untransformed source, which
+ * transpiling would normalise), then an AST walk (Bun.Transpiler + meriyah)
+ * blocks imports, globals, and escapes however they are spelled (ARCH-024).
  */
 /** Shared transpiler — stateless, safe to reuse across calls. */
 const tsTranspiler = new Bun.Transpiler({ loader: "ts" });
@@ -349,13 +275,11 @@ export function scanRuleSource(
     ) {
       return;
     }
-    // Advance the occurrence counter for EVERY code-position occurrence of the
-    // name — property-key slots included — so it stays aligned with the position
-    // remapper, which counts all code occurrences (it skips only strings and
-    // comments, not property keys). A property key (`{ Bun: 1 }`, `foo.Bun`)
-    // names a property, not the global, so it is counted but never emitted;
-    // skipping the count here would make a later *real* reference remap onto the
-    // earlier key. Bypasses `pushViolation` because it must count-without-emit.
+    // Advance the occurrence counter for EVERY code-position occurrence —
+    // property-key slots included — to stay aligned with the position remapper,
+    // which skips only strings and comments. A property key (`{ Bun: 1 }`,
+    // `foo.Bun`) names a property, not the global: counted, never emitted.
+    // Bypasses `pushViolation` because it must count-without-emit.
     const count = seenCounts.get(node.name) ?? 0;
     seenCounts.set(node.name, count + 1);
     if (!isPropertyKey) {
@@ -400,14 +324,10 @@ export function scanRuleSource(
       }
       case "ObjectPattern": {
         // Destructuring `const { constructor: F } = obj` READS `obj.constructor`
-        // — the Function constructor (= eval), the same reach as `.constructor`
-        // member access, but through a binding pattern the MemberExpression case
-        // never sees. An object *literal* `{ constructor: 1 }` (ObjectExpression)
-        // only names a property and is fine; only the pattern form performs the
-        // read. `staticPropName` covers `{ constructor: F }`, `{ ["constructor"]:
-        // F }`, and the shorthand `{ constructor }`. A runtime-computed key
-        // (`{ [c]: F }`) is the same documented static-analysis residual as the
-        // computed-variable member case (see ARCH-024).
+        // — the Function constructor (= eval) — via a binding pattern the
+        // MemberExpression case never sees; an object LITERAL `{ constructor: 1 }`
+        // only names a property. Runtime-computed keys (`{ [c]: F }`) are the
+        // same static-analysis residual documented in ARCH-024.
         const props = Array.isArray(node.properties) ? node.properties : [];
         for (const raw of props) {
           const p = parseNode(raw);
@@ -431,12 +351,11 @@ export function scanRuleSource(
         if (!obj || !prop) break;
         const computed = node.computed ?? false;
 
-        // Block `.constructor` (dotted or computed-literal), on ANY receiver.
-        // `(() => {}).constructor` is the `Function` constructor — i.e. eval —
-        // so `f = (() => {}).constructor; f("return import('node:fs')")()`
-        // would run arbitrary, unscanned code, bypassing every other check
-        // including the module allowlist. Naming `Function`/`eval` directly is
-        // already blocked as a global; this closes the property-chain route.
+        // Block `.constructor` (dotted or computed-literal) on ANY receiver:
+        // `(() => {}).constructor` is the Function constructor — i.e. eval —
+        // so it would run arbitrary unscanned code past the module allowlist.
+        // Naming `Function`/`eval` directly is already blocked as a global;
+        // this closes the property-chain route.
         if (staticPropName(prop, computed) === "constructor") {
           pushViolation(
             "Access to `.constructor` is blocked in rule files — it reaches the Function constructor, which is equivalent to eval.",
@@ -474,10 +393,9 @@ export function scanRuleSource(
           );
           break;
         }
-        // A *literal* specifier must still clear the allowlist. This case
-        // previously checked only for non-literal arguments, so the constant
-        // form — `await import("node:child_process")` — was a complete bypass
-        // of the module ban that ImportDeclaration enforces.
+        // A *literal* specifier must still clear the allowlist — without this
+        // check, the constant form `await import("node:child_process")` would
+        // bypass the module ban that ImportDeclaration enforces.
         const src =
           typeof node.source?.value === "string"
             ? node.source.value
@@ -533,18 +451,11 @@ export function scanRuleSource(
 }
 
 /**
- * Scan an imported (untrusted) `.rules.ts` source.
- *
- * Historically this added stricter checks than `scanRuleSource()` — imported
- * rules were forbidden the environment reads (via `Bun` and `process`),
- * `require()`, and `WebSocket` that first-party rules were allowed. Those are
- * all now blocked for *every* rule file: naming `Bun`, `process`, `require`, or
- * `WebSocket`
- * (or any other runtime global) is refused by the banned-globals check in
- * `scanRuleSource()`. First-party and imported scans have therefore converged,
- * and this delegates. It remains a distinct export so the `adr import` call
- * site reads intentionally, and so the two can diverge again if a future
- * imported-only restriction is ever needed.
+ * Scan an imported (untrusted) `.rules.ts` source. The banned-globals check in
+ * `scanRuleSource()` applies to ALL rule files, so first-party and imported
+ * scans share one implementation and this delegates. It stays a distinct
+ * export so the `adr import` call site reads intentionally and the two can
+ * diverge if an imported-only restriction is ever needed.
  */
 export function scanImportedRuleSource(source: string): ScanViolation[] {
   return scanRuleSource(source);

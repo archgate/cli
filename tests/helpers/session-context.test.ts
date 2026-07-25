@@ -277,7 +277,6 @@ describe("readClaudeCodeSession", () => {
         ].join("\n")
       );
 
-      // Backdate the earlier session's mtime
       const { utimesSync } = await import("node:fs");
       const past = new Date(Date.now() - 60_000);
       utimesSync(olderFile, past, past);

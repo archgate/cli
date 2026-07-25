@@ -43,16 +43,10 @@ export interface SuppressionResult {
 // --- Parsing ---
 
 /**
- * Matches both `//` and `#` style comments:
- *   // archgate-ignore ARCH-006/no-unapproved-deps legacy dep, migration planned
- *   // archgate-ignore-file ARCH-005/test-mirrors-src generated file
- *   # archgate-ignore GEN-003/scripts-only Makefile target
- *
- * Capture groups:
- *   1: "-file" or undefined (scope)
- *   2: ADR ID (e.g. "ARCH-006")
- *   3: rule ID (e.g. "no-unapproved-deps")
- *   4: reason text or undefined
+ * Matches `//` and `#` style suppression comments, e.g.
+ * `# archgate-ignore ARCH-006/no-unapproved-deps legacy dep` or the
+ * `archgate-ignore-file` variant. Capture groups: 1 = "-file" scope or
+ * undefined, 2 = ADR ID, 3 = rule ID, 4 = reason text or undefined.
  */
 const SUPPRESSION_RE =
   /^[ \t]*(?:\/\/|#)\s*archgate-ignore(-file)?\s+([\w-]+)\/([\w-]+)(?:\s+(.+))?$/u;
@@ -61,12 +55,11 @@ const SUPPRESSION_RE =
 const FENCE_RE = /^[ \t]*(`{3,}|~{3,})/u;
 
 /**
- * Parse suppression comments from file content.
- * Returns one entry per matching comment line.
+ * Parse suppression comments from file content. In markdown files (.md, .mdx),
+ * lines inside fenced code blocks are skipped so that documented examples of
+ * `archgate-ignore` are not treated as real suppression directives.
  *
- * In markdown files (.md, .mdx), lines inside fenced code blocks are skipped
- * so that documented examples of `archgate-ignore` are not treated as real
- * suppression directives.
+ * @returns One entry per matching comment line.
  */
 export function parseSuppressions(
   content: string,
@@ -78,7 +71,6 @@ export function parseSuppressions(
   let insideCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
-    // Track fenced code blocks in markdown so examples are not parsed
     if (isMarkdown && FENCE_RE.test(lines[i])) {
       insideCodeBlock = !insideCodeBlock;
       continue;
@@ -117,20 +109,16 @@ export function parseSuppressions(
 // --- Filtering ---
 
 /**
- * Apply inline suppressions to rule results.
- *
- * For each violation with a `file` and `line`, checks whether the source file
- * contains an `archgate-ignore` comment on the preceding line (next-line scope)
- * or an `archgate-ignore-file` comment anywhere in the file (file scope).
- *
- * Suppressions without a reason are ignored — a warning is emitted instead.
- * Unused suppressions also produce warnings.
+ * Apply inline suppressions to rule results: a violation with `file`/`line`
+ * is dropped when an `archgate-ignore` comment precedes that line or an
+ * `archgate-ignore-file` comment appears anywhere in the file. A suppression
+ * missing its reason suppresses nothing and warns once it is scope-matched;
+ * an unused suppression that has a reason warns too.
  */
 export async function applySuppressions(
   projectRoot: string,
   results: RuleResult[]
 ): Promise<SuppressionResult> {
-  // Collect unique file paths referenced by violations
   const filePathsNeeded = new Set<string>();
   for (const r of results) {
     for (const v of r.violations) {
@@ -150,7 +138,6 @@ export async function applySuppressions(
     };
   }
 
-  // Read files in parallel and parse suppressions
   const fileSuppressions = new Map<string, SuppressionComment[]>();
   const readPromises = Array.from(filePathsNeeded, async (relPath) => {
     try {
@@ -167,7 +154,6 @@ export async function applySuppressions(
   });
   await Promise.all(readPromises);
 
-  // Filter violations
   const activeViolations = new Set<ViolationDetail>();
   const warnings: SuppressionWarning[] = [];
   let suppressedCount = 0;
@@ -183,7 +169,6 @@ export async function applySuppressions(
     }
   }
 
-  // Detect unused suppressions
   for (const [, suppressions] of fileSuppressions) {
     for (const s of suppressions) {
       if (s.reason === null) continue; // already warned about missing reason
@@ -206,7 +191,10 @@ export async function applySuppressions(
 
 /**
  * Check whether a single violation is suppressed by any comment in its file.
- * Returns true if suppressed.
+ *
+ * @returns True when a scope-matching suppression carries a reason. A
+ * scope-matching suppression missing its reason pushes a warning and returns
+ * false, so the violation still reports.
  */
 function checkSuppression(
   violation: ViolationDetail,

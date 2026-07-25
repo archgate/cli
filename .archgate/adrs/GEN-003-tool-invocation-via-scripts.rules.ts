@@ -13,7 +13,6 @@ export default {
         "Lint/format tools must be invoked via package.json scripts, not bunx/npx",
       severity: "error",
       async check(ctx) {
-        // Build an alternation like (prettier|oxfmt|oxlint|eslint|biome).
         const toolGroup = LINT_FORMAT_TOOLS.join("|");
         // Match `bunx <tool>` or `npx <tool>`, allowing flags between the
         // runner and the tool name (e.g. `bunx --bun oxfmt`).

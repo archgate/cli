@@ -180,12 +180,10 @@ describe("adr update", () => {
       title: "Completely Different Title",
     });
 
-    // Filename should not change even when title changes
     expect(result.fileName).toBe(created.fileName);
     expect(result.filePath).toBe(created.filePath);
     expect(existsSync(result.filePath)).toBe(true);
 
-    // Only one file should exist (same path)
     const files = readdirSync(paths.adrsDir).filter((f) => f.endsWith(".md"));
     expect(files).toHaveLength(1);
   });

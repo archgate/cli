@@ -55,7 +55,6 @@ export type LoadResult =
   | { type: "loaded"; value: LoadedAdr }
   | { type: "blocked"; value: BlockedAdr };
 
-/** Convert a BlockedAdr into a RuleResult-shaped object for reporting. */
 export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
   const id = b.adr.frontmatter.id;
   const isSyntax = b.error.includes("syntax convention");
@@ -94,17 +93,13 @@ interface SyntaxViolation {
 
 /**
  * Check that a `.rules.ts` file follows the required syntax conventions:
- * 1. Triple-slash reference directive: `/// <reference path="..." />`
- *    pointing to `rules.d.ts` (provides ambient types without imports).
- * 2. `satisfies RuleSet` on the default export (compile-time validation).
- *
- * These are authoring conventions that ensure rule files get proper
- * type-checking and remain self-documenting.
+ * a triple-slash reference to `rules.d.ts` (ambient types without imports)
+ * and a `satisfies RuleSet` clause (compile-time validation). Both are
+ * presence checks over the source text, not placement checks.
  */
 function checkRuleSyntax(source: string): SyntaxViolation[] {
   const violations: SyntaxViolation[] = [];
 
-  // Check for triple-slash reference to rules.d.ts
   const hasTripleSlash =
     /^\/\/\/\s*<reference\s+path=["'][^"']*rules\.d\.ts["']\s*\/>$/mu.test(
       source
@@ -121,7 +116,6 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
     });
   }
 
-  // Check for `satisfies RuleSet` on the default export
   const hasSatisfies = /\bsatisfies\s+RuleSet\b/u.test(source);
   if (!hasSatisfies) {
     // Point to the last line as a reasonable location for the missing satisfies
@@ -146,20 +140,19 @@ interface ParsedAdrEntry {
 }
 
 /**
- * Process-level cache of `readdir + read + parse` for each project root.
- * `archgate review-context --run-checks` used to parse every ADR twice
- * (once for briefings, once for rule loading); the cache lets both paths
- * share the I/O. `archgate check` + `adr list` benefit too.
- *
- * Cache lifetime is per-process — consistent with other per-invocation
- * caches in this codebase (git ls-files, repo context, install method).
+ * Process-level cache of `readdir + read + parse` per project root, so
+ * briefings and rule loading share one parse pass in the same invocation.
+ * Per-process lifetime is consistent with the other per-invocation caches
+ * here (git ls-files, repo context, install method).
  */
 const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
 
 /**
  * Read and parse every ADR markdown file in the project, caching the result
- * per-process. Returns entries in directory order. Unparseable files are
- * silently skipped (logged at debug level).
+ * per-process.
+ *
+ * @returns Entries in directory order. Unparseable files are silently
+ * skipped, logged at debug level.
  */
 export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
   const cached = parsedAdrsCache.get(projectRoot);
@@ -245,7 +238,6 @@ export async function loadRuleAdrs(
   // Phase 1: Read and parse all ADR files in parallel (cached per process)
   const parsedAdrs = await parseAllAdrs(projectRoot);
 
-  // Filter to ADRs that have rules enabled
   const ruleAdrs = parsedAdrs.filter((entry) => {
     if (!entry.adr.frontmatter.rules) return false;
     if (filterAdrId && entry.adr.frontmatter.id !== filterAdrId) return false;

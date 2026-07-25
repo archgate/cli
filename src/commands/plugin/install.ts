@@ -36,13 +36,14 @@ const editorOption = new Option(
 ).choices(EDITOR_TARGETS);
 
 /**
- * Install the archgate plugin for a single editor.
+ * Install the archgate plugin for a single editor. Dispatches to the
+ * editor-specific install function, checks CLI availability, and surfaces
+ * manual instructions when the CLI is missing. Exported for reuse by the
+ * `upgrade --plugins` flow.
  *
- * Dispatches to the editor-specific install function, checks CLI availability,
- * and surfaces manual instructions when the CLI is missing. Throws on failure
- * so callers can collect errors and report them together.
- *
- * Exported for reuse by the `upgrade --plugins` flow.
+ * @throws On install failure, so callers can collect errors and report them
+ * together.
+ * @see runPluginInstalls
  */
 export async function installForEditor(
   editor: EditorTarget,
@@ -134,11 +135,7 @@ export async function installForEditor(
   }
 }
 
-/**
- * Print manual installation instructions for a given editor.
- *
- * Exported for reuse by the `upgrade --plugins` flow.
- */
+/** Exported for reuse by the `upgrade --plugins` flow. */
 export function printManualInstructions(editor: EditorTarget): void {
   switch (editor) {
     case "claude": {
@@ -195,12 +192,11 @@ export function printManualInstructions(editor: EditorTarget): void {
 }
 
 /**
- * Run plugin installs for a list of editors, collecting failures.
+ * Run plugin installs for a list of editors, collecting failures. Exported
+ * for reuse by the `upgrade --plugins` flow.
  *
- * Returns the failure list so callers can decide how to handle them
- * (e.g., exit 1 for `plugin install`, or just report for `upgrade`).
- *
- * Exported for reuse by the `upgrade --plugins` flow.
+ * @returns The failure list, so callers decide how to handle it — exit 1 for
+ * `plugin install`, or report only for `upgrade`.
  */
 export async function runPluginInstalls(
   editors: EditorTarget[],

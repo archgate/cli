@@ -420,7 +420,6 @@ describe("adr sync command", () => {
     expect(output()).toContain("Decision");
   });
 
-  // Non-interactive (no TTY, no --yes) skips updates
   test("non-interactive without --yes skips changes", async () => {
     const localPath = setupSync("Old.", "New.");
     await run();

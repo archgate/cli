@@ -10,7 +10,7 @@ import { UserError } from "../helpers/user-error";
 /**
  * Find every line of `content` matching `pattern`, as 1-based line/column
  * `GrepMatch`es labelled with `file`. Shared by `ctx.grep` (one file) and
- * `ctx.grepFiles` (many), which otherwise duplicated this scan.
+ * `ctx.grepFiles` (many).
  */
 export function matchLines(
   content: string,
@@ -20,7 +20,7 @@ export function matchLines(
   const lines = content.split("\n");
   // Clone the pattern and drive it with `exec()`, resetting `lastIndex` per
   // line. `String.prototype.match` with a global (`/g`) pattern returns every
-  // match but strips the `index`, which collapsed the reported column to 1;
+  // match but strips the `index`, collapsing the reported column to 1;
   // `exec()` always carries `index`. Cloning also keeps a caller's stateful
   // `/g` regex from leaking `lastIndex` across our per-line scan.
   const linePattern = new RegExp(pattern.source, pattern.flags);
@@ -42,6 +42,8 @@ export function matchLines(
 
 /**
  * Validate that a glob pattern cannot escape projectRoot via `..` segments.
+ *
+ * @throws {UserError} When the pattern contains `..` or is absolute.
  */
 function safeGlob(pattern: string): void {
   if (pattern.includes("..")) {
@@ -57,17 +59,12 @@ function safeGlob(pattern: string): void {
 }
 
 /**
- * Expand brace patterns that contain path separators into separate patterns.
+ * Expand brace groups whose alternatives contain `/` into separate patterns,
+ * since Bun.Glob scanning silently returns empty results for those. Braces
+ * with only simple alternatives are left for Bun.Glob to handle natively.
  *
- * Bun.Glob scanning silently returns empty results for brace groups whose
- * alternatives contain `/` (e.g. `svc/{src/env.ts,env.ts}`).  match() handles
- * them correctly — only the scanner is broken.  Filed upstream as
- * https://github.com/oven-sh/bun/issues/32596.
- *
- * This function detects `{alt1,alt2,...}` groups where at least one alternative
- * contains `/` and expands them into separate patterns so each one can be
- * scanned individually.  Braces whose alternatives are all simple names (no `/`)
- * are left for Bun.Glob to handle natively.
+ * @see https://github.com/oven-sh/bun/issues/32596 — scanning only; `match()`
+ * is unaffected.
  */
 export function expandBracePattern(pattern: string): string[] {
   const match = pattern.match(/^(.*?)\{([^{}]+)\}(.*)$/u);
@@ -91,15 +88,12 @@ export function expandBracePattern(pattern: string): string[] {
 
 /**
  * Match glob patterns against the git-tracked file list in memory instead of
- * walking the filesystem. On large projects a directory walk visits every
- * entry under node_modules/, .venv/, data/, etc. only to discard them against
- * `trackedFiles` afterwards — per pattern, per rule. Matching the (much
- * smaller) tracked list directly eliminates that traversal entirely.
+ * walking the filesystem. `Bun.Glob#match()` matches dot-prefixed segments
+ * without options and handles `/`-containing brace groups, so patterns come
+ * in unexpanded.
  *
- * `Bun.Glob#match()` matches dot-prefixed path segments without any option
- * (unlike directory scanning, see ARCH-020) and handles brace groups with
- * path separators correctly (oven-sh/bun#32596 only affects scanning), so
- * callers may pass patterns unexpanded.
+ * @see ARCH-023 — why in-memory matching is both faster and simpler.
+ * @see ARCH-020 — scanning needs `dot: true`, matching does not.
  */
 export function matchTrackedFiles(
   patterns: string[],
@@ -115,16 +109,10 @@ export function matchTrackedFiles(
 
 /**
  * List project files matching a rule-supplied glob pattern, sorted and
- * `/`-normalized.
- *
- * The pattern and every brace-expanded alternative are validated first —
+ * `/`-normalized. Every brace-expanded alternative is validated first —
  * expansion can surface absolute or `..` alternatives hidden inside a brace
- * group (e.g. `{/etc/passwd,src/a.ts}`), and the sandbox contract must hold
- * on both paths below.
- *
- * Fast path: match against the git-tracked file list in memory — avoids
- * walking ignored trees (node_modules/, .venv/, ...) only to discard them
- * afterwards. Fallback (no git repo): walk the filesystem.
+ * group, and the sandbox contract must hold on both paths below. Fast path:
+ * in-memory match against git-tracked files (ARCH-023); fallback: walk.
  */
 export async function listMatchingFiles(
   projectRoot: string,

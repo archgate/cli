@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * telemetry.ts — Anonymous usage analytics via PostHog Node SDK.
- *
- * Uses the official posthog-node SDK for event capture with automatic
- * batching and flush. Events are captured during command execution and
- * flushed before process exit.
- *
- * IP anonymization: the CLI sends `$ip: null` on every event to signal
- * PostHog to resolve geo server-side then discard the IP. The project
- * also has "Discard client IP data" enabled in PostHog settings.
- *
- * See https://cli.archgate.dev/reference/telemetry for the full privacy policy.
+ * telemetry.ts — Anonymous usage analytics via the posthog-node SDK, with
+ * events captured during command execution and flushed before process exit.
+ * Every event sends `$ip: null` so PostHog resolves geo server-side and
+ * discards the IP. Full privacy policy:
+ * https://cli.archgate.dev/reference/telemetry
  */
 
 import { basename } from "node:path";
@@ -106,16 +100,11 @@ function detectLocale(): string | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Cache of the slow-changing portion of the common event properties. Platform
- * detection, install-method detection, CI detection, and locale resolution
- * are all effectively constant for the lifetime of a CLI invocation, so we
- * compute them once and reuse across events.
- *
- * The project context and repo snapshot are intentionally NOT cached here:
- *   - project context changes when `archgate init` creates the directory
- *     mid-command, so we always re-read it.
- *   - repo context lives in `repoContextSnapshot` which is written by
- *     `initTelemetry`.
+ * Cache of common event properties that stay constant for the lifetime of a
+ * CLI invocation (platform, install method, CI, locale). Project context is
+ * intentionally NOT cached (`archgate init` can create the directory
+ * mid-command); repo context lives in `repoContextSnapshot`, written by
+ * `initTelemetry`.
  */
 let staticPropertiesSnapshot: Record<string, unknown> | null = null;
 
@@ -169,14 +158,10 @@ function getCommonProperties(): Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 /**
- * Initialize telemetry. Call once at CLI startup.
- * If telemetry is disabled, this is a no-op and all subsequent calls are too.
- *
- * Returns a promise that resolves once the async repo-context lookup is done.
- * Callers should `await` before emitting events so every event carries
- * `repo_id` / `repo_host` — emitting before the await resolves means the
- * event ships without repo identity. The repo lookup runs a handful of git
- * subprocesses (cached per-process), so the added startup latency is small.
+ * Initialize telemetry. Call once at CLI startup; a no-op when telemetry is
+ * disabled. Callers must `await` the returned promise before emitting events
+ * so every event carries `repo_id` / `repo_host` from the async repo-context
+ * lookup (a few git subprocesses, cached per-process).
  */
 export async function initTelemetry(): Promise<void> {
   if (!isTelemetryEnabled()) {
@@ -205,21 +190,16 @@ export async function initTelemetry(): Promise<void> {
     const { PostHog } = await import("posthog-node");
     client = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
-      // Disable polling for feature flags — we don't use them in the CLI
       disableGeoip: false,
       flushAt: 20,
-      // Disable automatic interval-based flushing. The CLI runs a single
-      // command and exits — we flush explicitly via `client.shutdown()` in
-      // `flushTelemetry()`. A 10s auto-flush timer is harmful: if the user
-      // is behind a corporate proxy with SSL inspection (self-signed cert),
-      // the timer fires mid-command and the PostHog SDK logs the TLS error
-      // via stderr, dumping an ugly stack trace into the CLI output.
+      // No interval-based auto-flush: the CLI flushes explicitly via
+      // `client.shutdown()` in `flushTelemetry()`. A timer firing mid-command
+      // would let the SDK dump TLS errors to stderr behind SSL-inspecting
+      // proxies.
       flushInterval: 0,
-      // Wrap fetch so network / TLS errors never reach the PostHog SDK's
-      // internal logFlushError → stderr path. Telemetry is
-      // non-critical: silently dropping events is preferable to printing
-      // unactionable errors (e.g. SELF_SIGNED_CERT_IN_CHAIN behind a
-      // corporate proxy).
+      // Wrap fetch so network/TLS errors never reach the SDK's stderr
+      // logging. Telemetry is non-critical: silently dropping events beats
+      // printing unactionable proxy/TLS errors.
       fetch: async (url, options) => {
         try {
           return await fetch(url, options);
@@ -344,9 +324,6 @@ export function trackCheckResult(properties: {
   trackEvent("check_completed", properties);
 }
 
-/**
- * Track the outcome of `archgate init`.
- */
 export function trackInitResult(properties: {
   editor: string;
   plugin_installed: boolean;
@@ -357,13 +334,11 @@ export function trackInitResult(properties: {
 }
 
 /**
- * Track the `project_initialized` event on `archgate init`.
- *
- * Identity (raw remote URL / owner / name) ships only when the repo is
- * confirmed public on a recognised host AND the user has not opted out via
- * `--no-share-repo-identity` or `ARCHGATE_SHARE_REPO_IDENTITY=0`. The hashed
- * `repo_id` is always included via common properties — it lets us count
- * repos without learning names.
+ * Track the `project_initialized` event on `archgate init`. Raw repo
+ * identity (remote URL / owner / name) ships only when the repo is confirmed
+ * public on a recognised host AND the user has not opted out via
+ * `--no-share-repo-identity` or `ARCHGATE_SHARE_REPO_IDENTITY=0`; the hashed
+ * `repo_id` always ships via common properties.
  */
 export function trackProjectInitialized(properties: {
   editors: string[];
@@ -387,9 +362,6 @@ export function trackProjectInitialized(properties: {
   trackEvent("project_initialized", properties);
 }
 
-/**
- * Track the outcome of `archgate upgrade`.
- */
 export function trackUpgradeResult(properties: {
   from_version: string;
   to_version: string;
@@ -401,7 +373,6 @@ export function trackUpgradeResult(properties: {
   trackEvent("upgrade_completed", properties);
 }
 
-/** Track the outcome of `archgate login`. */
 export function trackLoginResult(properties: {
   subcommand: "login" | "logout" | "refresh" | "status";
   success: boolean;
@@ -417,7 +388,6 @@ export function trackTelemetryPreferenceChange(properties: {
   trackEvent("telemetry_preference_changed", properties);
 }
 
-/** Track when the greenfield wizard prompt is displayed. */
 export function trackGreenfieldWizardShown(): void {
   trackEvent("adoption.greenfield_wizard_shown");
 }
@@ -459,20 +429,22 @@ export function trackCustomDomainRemoved(properties: {
 }
 
 /**
- * Flush pending events to PostHog. Call before process exit to ensure
- * events are delivered.
+ * Flush pending events to PostHog. Call before process exit so events are
+ * delivered.
+ *
+ * @param timeoutMs - How long to wait for the flush before giving up, so a
+ * slow or blocked network cannot hang the exit path.
+ * @defaultValue 3000
  */
 export async function flushTelemetry(timeoutMs = 3000): Promise<void> {
   if (!initialized || !client) return;
 
   try {
     logDebug("Flushing telemetry events");
-    // Race shutdown against a timeout to prevent hanging on exit.
-    //
-    // The timeout MUST be cancelled when shutdown wins — a dangling
-    // `setTimeout` keeps the Bun/Node event loop alive for its full
-    // duration, which used to add 3s of latency to every command that
-    // exited via `main()` returning naturally (instead of `process.exit`).
+    // Race shutdown against a timeout to prevent hanging on exit. The
+    // timeout MUST be cancelled when shutdown wins — a dangling `setTimeout`
+    // keeps the event loop alive for its full duration, adding latency to
+    // every command that exits via `main()` returning naturally.
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       await Promise.race([

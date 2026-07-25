@@ -18,6 +18,8 @@ Async command actions that lack try-catch error boundaries produce poor user exp
 
 This was discovered during a repository-wide review where `review-context`, `session-context claude-code`, and `session-context cursor` all lacked error boundaries.
 
+The failure mode is also documented by incident CLI-5: `src/commands/check.ts` once wrapped only `loadRuleAdrs()` in try-catch, so a `UserError` thrown later by `runChecks()` escaped to `main().catch()`, where it was miscaptured to Sentry and exited with code 2 instead of 1. A boundary that covers only part of the action body fails exactly like no boundary at all — the try-catch MUST span the entire action.
+
 ARCH-002 defines the exit code convention and logging patterns, but does not require error boundaries in command actions. This ADR complements ARCH-002 by making error boundaries mandatory.
 
 **Why not a global Commander.js error handler?** Commander provides `.exitOverride()` and `.configureOutput()` for parsing errors (unknown options, missing arguments), but these do **not** cover errors thrown inside async `.action()` callbacks. Commander's `preAction`/`postAction` hooks could theoretically wrap actions, but they don't catch async errors from the action body. The `main().catch()` in `cli.ts` catches unhandled rejections as a safety net (exit 2), but per-command try-catch is needed to produce contextual error messages and exit with code 1 instead of 2.

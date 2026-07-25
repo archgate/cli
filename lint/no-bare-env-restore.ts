@@ -1,34 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 
-// Custom oxlint JS plugin: enforce that tests restore environment variables
-// through `restoreEnv()` rather than a bare `Bun.env.X = original` assignment.
-//
-// Why this exists: `Bun.env.X = undefined` (and `process.env.X = undefined`)
-// assigns the literal STRING "undefined" and leaves the key present — it does
-// NOT unset. So the idiomatic-looking capture-and-restore
-//   const original = Bun.env.HOME; ...; Bun.env.HOME = original;
-// silently leaks HOME="undefined" whenever the variable was unset to begin
-// with, which is the normal case on Windows for HOME and GIT_CONFIG_GLOBAL.
-// Bun's test runner shares ONE process across test files, so the bogus value
-// escapes into every later test file and into every subprocess they spawn.
-// Nothing else catches this class of bug:
-//   - tsc cannot: `Bun.env.X = original` is well-typed; the coercion to
-//     "undefined" happens at runtime.
-//   - tests cannot: the leak is invisible to the leaking file. It surfaces as
-//     an unrelated, order-dependent failure in some LATER file — the 2026-07-15
-//     incident where a leaked HOME="undefined" made `review-context` report
-//     zero changed files.
-// The invariant is purely syntactic, so it belongs in the linter.
-//
-// See ARCH-005 (Testing Standards) for the Do/Don't this rule enforces.
-//
-// The plugin runs natively as TypeScript under Bun, so there is no build step.
+// Custom oxlint JS plugin: tests must restore environment variables via
+// `restoreEnv()` (tests/test-utils.ts), never a bare `Bun.env.X = original` —
+// assigning undefined coerces it to the STRING "undefined" instead of
+// unsetting the key, and Bun's single-process test runner leaks that value
+// into every later test file. See ARCH-005 and project_test_isolation_gotchas.md.
 
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-/** Narrow an unknown value to an AST node (an object with a string `type`). */
 function asNode(value: unknown): AstNode | undefined {
   if (
     value !== null &&
@@ -69,12 +50,14 @@ function staticPropertyName(node: AstNode): string | undefined {
 }
 
 /**
- * True when the node is a dotted env access — `Bun.env.NAME` or
+ * Read the variable name off a dotted env access — `Bun.env.NAME` or
  * `process.env.NAME`.
  *
- * Computed access (`Bun.env[key]`) is deliberately NOT matched: a dynamic key
- * is the shape of a generic helper such as `restoreEnv` itself, not the
- * hand-rolled capture-and-restore idiom this rule targets.
+ * @returns The accessed name (`NAME`), or undefined when the node is not a
+ * dotted env access. Computed access (`Bun.env[key]`) deliberately returns
+ * undefined: a dynamic key is the shape of a generic helper such as
+ * `restoreEnv` itself, not the hand-rolled capture-and-restore idiom this
+ * rule targets.
  */
 function envVarName(node: AstNode | undefined): string | undefined {
   if (node?.type !== "MemberExpression") return undefined;
@@ -92,13 +75,10 @@ function envVarName(node: AstNode | undefined): string | undefined {
 
 /**
  * Names of local variables that captured an env value, e.g. `originalHome` in
- * `const originalHome = Bun.env.HOME`.
- *
- * This is what separates a restore from an override. Both are spelled
- * `Bun.env.HOME = <identifier>`; only a restore assigns back a value that was
- * itself read out of the environment. `Bun.env.HOME = tempDir` (an override
- * onto a mkdtemp path) is therefore left alone, with no reliance on a naming
- * convention like `original*`.
+ * `const originalHome = Bun.env.HOME`. Capture separates a restore from an
+ * override: only `Bun.env.X = <captured>` is flagged, so overrides like
+ * `Bun.env.HOME = tempDir` are left alone with no `original*` naming
+ * convention required.
  */
 function collectCapturedNames(root: AstNode): Set<string> {
   const captured = new Set<string>();

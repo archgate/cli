@@ -1,19 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * repo-probe.ts — Unauthenticated API probes to determine whether a Git
- * repository is public on its host (GitHub, GitLab, Bitbucket, Azure DevOps).
- *
- * Why it's a separate module: the probe code is network-y and host-specific,
- * while the rest of `repo.ts` is local-only git inspection. Keeping them apart
- * keeps each file small and testable, and keeps the network surface out of
- * the fast path for every command (the probe is only called from
- * `archgate init`).
- *
- * Privacy rationale: the probe is the gate that decides whether a repo's
- * owner / name / remote URL ship on the `project_initialized` event. Only
- * repos that a random anonymous user of the host can already see get their
- * identity shared.
+ * repo-probe.ts — Unauthenticated API probes deciding whether a repo is
+ * public on its host (GitHub, GitLab, Bitbucket, Azure DevOps). This is the
+ * privacy gate for sharing owner/name/URL on `project_initialized`: only
+ * repos an anonymous user can already see get their identity shared. Called
+ * only from `archgate init`; `repo.ts` stays local-only.
  */
 
 import { z } from "zod";
@@ -41,16 +33,11 @@ let cachedPublicProbe: Promise<boolean | null> | null = null;
 // ---------------------------------------------------------------------------
 
 /**
- * Probe the host's unauthenticated API to determine whether the repo is
- * public. Returns:
- *   - `true`  — confirmed public on a recognised host
- *   - `false` — confirmed private / not visible to anonymous users
- *   - `null`  — couldn't determine (self-hosted, network failure, timeout,
- *               rate-limited)
- *
- * Bounded by a 3s timeout — telemetry must not slow down the CLI when the
- * network is misbehaving. Errors are swallowed; we never probe again after
- * the first call in a given process.
+ * Probe the host's unauthenticated API for repo visibility: `true` =
+ * confirmed public, `false` = private/not anonymously visible, `null` =
+ * undetermined (self-hosted, network failure, timeout, rate-limited).
+ * Bounded by a 3s timeout with errors swallowed — telemetry must not slow
+ * the CLI down; probes once per process.
  */
 export function isPublicRepo(
   repo: Pick<RepoContext, "host" | "owner" | "name">
@@ -179,13 +166,10 @@ async function probeBitbucket(
 }
 
 /**
- * Azure DevOps owner is `{organization}/{project}`. We probe the project's
- * visibility endpoint — a public Azure DevOps project returns the record
- * unauthenticated, a private project responds with 401.
- *
- * Note: this doesn't try to prove the specific repository is public; Azure
- * DevOps project visibility governs repo visibility, and individual repos
- * aren't separately togglable to public within a private project.
+ * Azure DevOps owner is `{organization}/{project}`; the project visibility
+ * endpoint answers unauthenticated for public projects and 401 for private.
+ * Project visibility governs repo visibility, so the specific repository
+ * needs no separate check.
  */
 async function probeAzureDevOps(
   owner: string,

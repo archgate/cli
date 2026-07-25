@@ -42,7 +42,6 @@ export default {
         );
 
         for (const m of matches) {
-          // Extract the full `uses:` value from the matched line
           const usesMatch = m.content.match(
             /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/u
           );

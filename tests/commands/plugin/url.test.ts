@@ -34,10 +34,6 @@ import {
   buildVscodeMarketplaceUrl,
 } from "../../../src/helpers/plugin-install";
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("registerPluginUrlCommand", () => {
   test("registers 'url' as a subcommand", () => {
     const program = new Command();

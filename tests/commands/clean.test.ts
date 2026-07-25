@@ -120,7 +120,6 @@ describe("clean action handler", () => {
       const program = makeProgram();
       await program.parseAsync(["node", "test", "clean"]);
 
-      // cache/ should be removed, bin/ should be preserved
       expect(existsSync(binDir)).toBe(true);
       expect(existsSync(join(archgateDir, "cache"))).toBe(false);
 

@@ -23,7 +23,7 @@ export interface RawViolation {
 
 /**
  * Build a set of character ranges that are inside comments or string literals.
- * Used to filter out false matches when remapping violation positions.
+ * Filters out false matches when remapping violation positions.
  */
 function buildNonCodeRanges(source: string): Array<[number, number]> {
   const ranges: Array<[number, number]> = [];
@@ -93,9 +93,6 @@ function buildNonCodeRanges(source: string): Array<[number, number]> {
   return ranges;
 }
 
-/**
- * Check if a character offset falls inside any non-code range.
- */
 function isInNonCode(offset: number, ranges: Array<[number, number]>): boolean {
   for (const [start, end] of ranges) {
     if (offset >= start && offset < end) return true;

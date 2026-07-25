@@ -19,7 +19,6 @@ export function registerLoginCommand(program: Command) {
 
   login.action(async () => {
     try {
-      // Check if already logged in
       const existing = await loadCredentials();
       if (existing) {
         logInfo(

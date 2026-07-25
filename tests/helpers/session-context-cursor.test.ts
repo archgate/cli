@@ -205,7 +205,6 @@ describe("readCursorSession", () => {
   });
 
   test("sessionId reads an earlier session; default reads the most recent", async () => {
-    // Create an earlier session (make it older)
     makeSession("session-earlier", [
       JSON.stringify({
         role: "user",
@@ -222,7 +221,6 @@ describe("readCursorSession", () => {
     const past = new Date(Date.now() - 60_000);
     utimesSync(join(transcriptsDir, "session-earlier"), past, past);
 
-    // Create the current session (newer)
     makeSession("session-current", [
       JSON.stringify({
         role: "user",
@@ -292,7 +290,6 @@ describe("readCursorSession", () => {
   });
 
   test("ignores non-directory entries in transcripts dir", async () => {
-    // Put a plain file in the transcripts dir — it should be skipped
     writeFileSync(join(transcriptsDir, "stray-file.txt"), "noise");
     makeSession("session-good", [
       JSON.stringify({
