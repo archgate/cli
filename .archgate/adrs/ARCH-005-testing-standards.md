@@ -70,6 +70,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+import { git } from "../test-utils";
+
 describe("runChecks", () => {
   let tempDir: string;
 
@@ -79,11 +81,12 @@ describe("runChecks", () => {
 
   it("returns zero violations for a compliant codebase", async () => {
     tempDir = await mkdtemp(join(tmpdir(), "archgate-test-"));
-    await Bun.$`git init`.cwd(tempDir).quiet();
+    // GOOD: the shared `git` helper wraps Bun.spawn with array args (ARCH-007)
+    await git(["init"], tempDir);
     // GOOD: local identity before any commit — CI has no global git config
-    await Bun.$`git config user.email "test@test.com"`.cwd(tempDir).quiet();
-    await Bun.$`git config user.name "Test"`.cwd(tempDir).quiet();
-    await Bun.$`git commit --allow-empty -m "init"`.cwd(tempDir).quiet();
+    await git(["config", "user.email", "test@test.com"], tempDir);
+    await git(["config", "user.name", "Test"], tempDir);
+    await git(["commit", "--allow-empty", "-m", "init"], tempDir);
     const results = await runChecks(adrs, { projectRoot: tempDir });
     expect(results.violations).toHaveLength(0);
   });
@@ -147,7 +150,7 @@ afterEach(() => {
 
 ### Negative
 
-- **Fewer features than Jest/Vitest** — coverage reporting is limited to the `--coverage` flag, there is no snapshot testing, and mock utilities are sparse next to Jest's.
+- **Fewer features than Jest/Vitest** — coverage reporting is limited to the `--coverage` flag and mock utilities are sparse next to Jest's, though snapshot testing (`toMatchSnapshot`, `toMatchInlineSnapshot`) is supported.
 - **Limited community resources** — fewer Stack Overflow answers and tutorials; contributors consult Bun documentation directly.
 - **One shared process** — `mock.module()` is process-global and not undone by `mock.restore()`, and env writes escape into later test files, so isolation is the test author's responsibility rather than the runner's.
 

@@ -79,8 +79,14 @@ async function run(cmd: string[], opts?: { cwd?: string }) {
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
-  return { exitCode: await proc.exited, stdout };
+  // Drain both pipes concurrently. Awaiting stdout alone deadlocks when the
+  // child fills the stderr buffer, because `proc.exited` never resolves.
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stdout, stderr };
 }
 
 // CLI availability check — the command may not be on PATH
