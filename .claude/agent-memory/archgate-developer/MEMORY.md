@@ -22,7 +22,7 @@ Two exceptions to steps 2–3: minor follow-up tweaks after validation already p
 
 - [Always commit with --signoff](feedback_git_signoff.md) — DCO CI rejects commits without `Signed-off-by`
 - [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock in tests; never bend prod semantics for isolation
-- [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — syntax → oxlint rule; behavior → tests; governance → ADR rules; `rules: false` is valid
+- [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — syntax → oxlint rule; behavior → tests; governance → ADR rules; CLI's own behavior → built-in check, never a dogfooded ADR
 - [This repo is PUBLIC](feedback_public_repo_privacy.md) — no private sibling-repo internals, no Claude session links in PRs or commits
 - [Keep comments and memory entries concise](feedback_concise_comments.md) — code side is machine-enforced by GEN-004; memory conciseness is manual
 - [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — especially declined ones; a summary comment does not close the loop
