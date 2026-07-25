@@ -18,7 +18,7 @@ The failure is asymmetric in a way that rewards the wrong instinct: the most con
 ### Alternatives considered
 
 1. **Raise the cap until every ADR fits**: Rejected — the cap exists because verbose prose dominates the payload, and a large enough payload stops being displayed inline by agent harnesses at all. Trading silent truncation for silent non-display is not a fix.
-2. **Truncate with no signal (status quo before this ADR)**: Rejected — a consumer cannot distinguish a short section from a cut one, so incomplete governance reads as complete.
+2. **Truncate with no signal**: Rejected — a consumer cannot distinguish a short section from a cut one, so incomplete governance reads as complete.
 3. **Block oversized sections at `error` severity**: Rejected — some ADRs cannot comply. A section that is an enumeration of normative identifiers (banned globals, ordered guardrails, license lists) has an irreducible floor above the cap, and an unfixable blocking rule trains authors to suppress it.
 4. **Warn at authoring time and report at consumption time (chosen)**: The author is told before merge, the consumer is told when context is actually missing, and neither is blocked.
 

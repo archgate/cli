@@ -33,12 +33,15 @@ Bruk `--verbose` for å inkludere teksten for Decision og Do's/Don'ts fra hver a
 
 ## Avkortede sammendrag
 
-Sammendragsteksten har en øvre grense per seksjon. Når en Decision- eller Do's and Don'ts-seksjon overskrider grensen, blir den kuttet, og utelatelsen rapporteres på tre måter:
+Sammendragsteksten har en øvre grense per seksjon. Når en Decision- eller Do's and Don'ts-seksjon overskrider grensen, blir den kuttet, og utelatelsen rapporteres på fire måter:
 
 - Kuttpunktet markeres i teksten med `[... truncated — read full ADR via adr://<id>]`.
 - ADR-ens eget sammendrag lister de berørte seksjonsnavnene i `truncatedSections`.
-- Alle berørte ADR-id-er samles i `truncatedBriefings` på øverste nivå, og en advarsel som navngir dem skrives til stderr.
+- Alle berørte ADR-id-er samles i `truncatedBriefings` på øverste nivå. Listen fylles etter `--domain`-filtrering, så den navngir bare ADR-er som finnes i svaret.
+- En advarsel som navngir disse ADR-ene skrives til stderr, slik at stdout forblir gyldig JSON.
 
 Tolk alle disse signalene som at ADR-ens styrende tekst er ufullstendig: reglene den fastsetter kan ligge i den delen som ble kuttet. Les hele dokumentet med `archgate adr show <id>` før du stoler på sammendraget.
+
+To andre grenser avkorter dette svaret, hver med sin egen advarsel til stderr. `truncatedFiles` settes når listen over endrede filer overskrider grensen sin, slik at filer utover den mangler i alle domener. Med `--run-checks` settes `checkSummary.truncated` når en regel rapporterte flere brudd enn grensen per regel — kjør [`archgate check`](/reference/cli/check/) for den fullstendige listen.
 
 Når `--run-checks` brukes, følger `checkSummary` samme regel som [`archgate check --json`](/reference/cli/check/): `results`-listen inneholder bare regler som har noe å rapportere, mens tellerne ved siden av fortsatt dekker alle reglene som ble kjørt.

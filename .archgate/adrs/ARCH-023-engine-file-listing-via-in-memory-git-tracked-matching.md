@@ -55,7 +55,7 @@ The rules engine (`src/engine/`) MUST list files by matching globs **in memory**
 
 **Positive:**
 
-- **Performance:** Engine time on ignored-tree-heavy projects drops by an order of magnitude, and CPU saturation during `archgate check` disappears
+- **Performance:** Engine time on ignored-tree-heavy projects drops more than sevenfold (see the measurement in Context), and CPU saturation during `archgate check` disappears
 - **Correctness:** `Bun.Glob#match()` sidesteps the scanner's brace-group bug (oven-sh/bun#32596) and dot-handling pitfalls (ARCH-020) on the primary path
 - **Single source of truth:** The file universe is exactly what git considers part of the project
 - **Deduplication:** `RunCaches` removes repeated identical globs and reads across every rule in a run
