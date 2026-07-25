@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-- **Custom oxlint JS plugins live in `lint/*.ts`, registered via `jsPlugins` in `.oxlintrc.json`.** `lint/expect-expect.ts` (rule `bun-test/expect-expect`) fails any runnable `bun:test` `test()`/`it()` (incl. `.skipIf()()`, `.each()()`) with no `expect()` call, because oxlint's built-in `jest/expect-expect` doesn't recognize `bun:test`. `lint/no-bare-env-restore.ts` (rule `test-isolation/no-bare-env-restore`) catches the `env.X = orig` restore that leaks `"undefined"` — see [[project_test_isolation_gotchas]]. ESLint-compatible default-export shape, runs as native TS under Bun. `lint/` is excluded from `tsconfig.json` and `knip.json` but IS linted by oxlint itself, so the plugin file must pass all oxlint rules. Enable a rule only for tests via an `overrides` entry for `tests/**/*.test.ts`. Documented in ARCH-005.
+- **Authoring a custom oxlint JS plugin in `lint/*.ts`** (ARCH-005 lists the plugins themselves and their enablement): ESLint-compatible default-export shape, runs as native TS under Bun. `lint/` is excluded from `tsconfig.json` and `knip.json` but IS linted by oxlint itself, so a plugin file must pass every oxlint rule. Scope a rule to tests via an `overrides` entry for `tests/**/*.test.ts`.
 - **`unicorn/no-array-callback-reference`** — don't pass a bare function reference to `.map()`/`.find()`/`.filter()`; wrap in an arrow: `args.map((x) => asNode(x))`.
 - **`require-unicode-regexp`** — regex literals need the `u` flag, including in test `toThrow(/.../u)`.
 - **`prefer-regexp-test`** — `Bun.Glob.match()` returns a boolean but oxlint can't tell; suppress with `// oxlint-disable-next-line prefer-regexp-test -- Bun.Glob.match() returns boolean, not RegExp`.
