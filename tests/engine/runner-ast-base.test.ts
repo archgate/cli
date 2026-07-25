@@ -286,7 +286,10 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
       },
     });
 
-    await runChecks(dir, [loaded], { base: "HEAD" });
+    const result = await runChecks(dir, [loaded], { base: "HEAD" });
+    expect(result.results[0].error).toBeUndefined();
+    expect(baseStructure).toBeDefined();
+    expect(headStructure).toBeDefined();
     expect(baseStructure).toEqual(headStructure);
   });
 
@@ -317,7 +320,10 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
       },
     });
 
-    await runChecks(dir, [loaded], { base: "HEAD" });
+    const result = await runChecks(dir, [loaded], { base: "HEAD" });
+    expect(result.results[0].error).toBeUndefined();
+    expect(baseStructure).toBeDefined();
+    expect(headStructure).toBeDefined();
     expect(bodyLen).toBe(1);
     expect(baseStructure).toEqual(headStructure);
   });
