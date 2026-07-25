@@ -29,26 +29,14 @@ describe("SignupRequiredError", () => {
 });
 
 describe("isSignupRequiredError", () => {
-  test("matches 'No approved signup found'", () => {
-    expect(
-      isSignupRequiredError("No approved signup found for this GitHub account")
-    ).toBe(true);
-  });
-
-  test("matches 'not registered'", () => {
-    expect(isSignupRequiredError("User is not registered")).toBe(true);
-  });
-
-  test("is case-insensitive", () => {
-    expect(isSignupRequiredError("NO APPROVED SIGNUP")).toBe(true);
-  });
-
-  test("returns false for unrelated messages", () => {
-    expect(isSignupRequiredError("Token expired")).toBe(false);
-  });
-
-  test("returns false for no argument", () => {
-    expect(isSignupRequiredError()).toBe(false);
+  test.each<[string | undefined, boolean]>([
+    ["No approved signup found for this GitHub account", true],
+    ["User is not registered", true],
+    ["NO APPROVED SIGNUP", true],
+    ["Token expired", false],
+    [undefined, false],
+  ])("returns %p for %p", (input, expected) => {
+    expect(isSignupRequiredError(input)).toBe(expected);
   });
 });
 
@@ -120,6 +108,19 @@ describe("requestSignup", () => {
       );
       expect(result.ok).toBe(true);
       expect(result.token).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("propagates rejection when fetch fails (e.g. network error or timeout)", async () => {
+    const originalFetch = globalThis.fetch;
+    mockFetch(() => Promise.reject(new Error("network down")));
+
+    try {
+      await expect(
+        requestSignup("octocat", "octo@example.com", "testing")
+      ).rejects.toThrow("network down");
     } finally {
       globalThis.fetch = originalFetch;
     }

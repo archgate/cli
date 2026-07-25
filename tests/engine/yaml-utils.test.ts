@@ -70,20 +70,18 @@ describe("parseYamlDocument — frontmatter files (everything else)", () => {
     expect(result.frontmatter).toBeNull();
   });
 
-  test("rejects a malformed closing fence instead of parsing a partial block", () => {
-    // `----` / `---note` must NOT terminate the block — a bare `\n---` match
-    // would parse a truncated block and leave the stray chars in the body.
-    for (const fence of ["----", "---note", "--- note"]) {
+  // `----` / `---note` must NOT terminate the block — a bare `\n---` match
+  // would parse a truncated block and leave the stray chars in the body.
+  test.each(["----", "---note", "--- note"])(
+    "rejects malformed closing fence: %s",
+    (fence) => {
       const result = parseYamlDocument(
         `---\ntitle: x\n${fence}\nBody\n`,
         "doc.md"
       );
-      expect(
-        result.frontmatter,
-        `fence "${fence}" must not terminate`
-      ).toBeNull();
+      expect(result.frontmatter).toBeNull();
     }
-  });
+  );
 
   test("tolerates trailing spaces/tabs on either fence", () => {
     const result = parseYamlDocument("--- \ntitle: x\n---\t\nBody\n", "doc.md");

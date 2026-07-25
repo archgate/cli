@@ -327,17 +327,18 @@ describe("getVscodeUserSettingsPath", () => {
     }
   );
 
-  test("falls back to AppData/Roaming when APPDATA is unset on Windows", async () => {
-    if (!isWindows()) return; // Only meaningful on Windows
-
-    const savedAppData = process.env.APPDATA;
-    try {
-      delete process.env.APPDATA;
-      const path = await getVscodeUserSettingsPath();
-      const normalized = path.replaceAll("\\", "/");
-      expect(normalized).toContain("AppData/Roaming/Code/User/settings.json");
-    } finally {
-      restoreEnv("APPDATA", savedAppData);
+  test.skipIf(!isWindows())(
+    "falls back to AppData/Roaming when APPDATA is unset on Windows",
+    async () => {
+      const savedAppData = process.env.APPDATA;
+      try {
+        delete process.env.APPDATA;
+        const path = await getVscodeUserSettingsPath();
+        const normalized = path.replaceAll("\\", "/");
+        expect(normalized).toContain("AppData/Roaming/Code/User/settings.json");
+      } finally {
+        restoreEnv("APPDATA", savedAppData);
+      }
     }
-  });
+  );
 });

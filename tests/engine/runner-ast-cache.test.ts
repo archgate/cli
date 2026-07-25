@@ -79,7 +79,7 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
     });
     const result = await runChecks(tempDir, [loaded]);
 
-    expect(result.results.every((r) => r.error === undefined)).toBe(true);
+    for (const r of result.results) expect(r.error).toBeUndefined();
     expect(trees).toHaveLength(3);
     expect(trees[1]).toBe(trees[0]);
     expect(trees[2]).toBe(trees[0]);
@@ -88,17 +88,17 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
   test("concurrent identical calls collapse into one in-flight parse", async () => {
     writeFileSync(join(tempDir, "src", "b.ts"), "export const n = 2;\n");
 
-    let same = false;
+    let treeOne: unknown;
+    let treeTwo: unknown;
     const loaded = makeLoadedAdr({
       rules: {
         concurrent: {
           description: "two overlapping parses of the same file",
           async check(ctx) {
-            const [t1, t2] = await Promise.all([
+            [treeOne, treeTwo] = await Promise.all([
               ctx.ast("src/b.ts", "typescript"),
               ctx.ast("src/b.ts", "typescript"),
             ]);
-            same = t1 === t2;
           },
         },
       },
@@ -106,7 +106,7 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
 
     const result = await runChecks(tempDir, [loaded]);
     expect(result.results[0].error).toBeUndefined();
-    expect(same).toBe(true);
+    expect(treeOne).toBe(treeTwo);
   });
 
   test.skipIf(!pythonInterpreter)(
@@ -129,7 +129,7 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
         });
         const result = await runChecks(tempDir, [loaded]);
 
-        expect(result.results.every((r) => r.error === undefined)).toBe(true);
+        for (const r of result.results) expect(r.error).toBeUndefined();
         // Three rules, one subprocess: the parse promise is shared.
         expect(countAstSpawns(spawnSpy)).toBe(1);
         expect(trees[1]).toBe(trees[0]);

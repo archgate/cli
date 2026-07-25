@@ -84,7 +84,7 @@ describe("check integration", () => {
     const { exitCode, stdout } = await runCli(["check"], dir);
     expect(exitCode).toBe(1);
     const lower = stdout.toLowerCase();
-    expect(lower.includes("violation") || lower.includes("failed")).toBe(true);
+    expect(lower).toMatch(/violation|failed/u);
   });
 
   test("--json flag → exit 0 and output has expected shape", async () => {
@@ -104,7 +104,7 @@ describe("check integration", () => {
     const json = JSON.parse(stdout);
     expect(json.pass).toBe(true);
     expect(typeof json.total).toBe("number");
-    expect(Array.isArray(json.results)).toBe(true);
+    expect(json.results).toBeInstanceOf(Array);
   });
 
   test("--json with violations → pass: false and violations present", async () => {

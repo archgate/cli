@@ -29,7 +29,7 @@ describe("doctor", () => {
       expect(report.project).toBeDefined();
       expect(typeof report.project.has_project).toBe("boolean");
       expect(typeof report.project.adr_count).toBe("number");
-      expect(Array.isArray(report.project.domains)).toBe(true);
+      expect(report.project.domains).toBeInstanceOf(Array);
 
       expect(report.editors).toBeDefined();
       expect(typeof report.editors.git).toBe("boolean");

@@ -293,8 +293,8 @@ describe("scanRuleSource position remapping", () => {
     expect(violations).toHaveLength(3);
     // Each names the `Bun` global; the Nth code occurrence maps to the Nth line.
     expect(violations.map((v) => v.line)).toEqual([1, 2, 3]);
-    expect(violations.every((v) => v.message.includes(`"Bun" global`))).toBe(
-      true
+    expect(violations.map((v) => v.message)).toEqual(
+      violations.map(() => expect.stringContaining(`"Bun" global`))
     );
   });
 });

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -64,52 +64,41 @@ describe("install-info", () => {
       expect(ctx.domains).toEqual(sorted);
     });
 
-    test("returns zero counts when adrsDir does not exist", () => {
-      let tempDir: string | undefined;
-      const originalCwd = process.cwd();
-      try {
+    describe("with an isolated temp project directory", () => {
+      let tempDir: string;
+      let originalCwd: string;
+
+      beforeEach(() => {
+        originalCwd = process.cwd();
         tempDir = mkdtempSync(join(tmpdir(), "archgate-installinfo-test-"));
+        process.chdir(tempDir);
+      });
+
+      afterEach(() => {
+        process.chdir(originalCwd);
+        rmSync(tempDir, { recursive: true, force: true });
+      });
+
+      test("returns zero counts when adrsDir does not exist", () => {
         // Create .archgate dir but NOT .archgate/adrs/
         mkdirSync(join(tempDir, ".archgate"), { recursive: true });
-
-        // Change cwd to the temp project
-        process.chdir(tempDir);
 
         const ctx = getProjectContext();
         expect(ctx.hasProject).toBe(true);
         expect(ctx.adrCount).toBe(0);
         expect(ctx.adrWithRulesCount).toBe(0);
         expect(ctx.domains).toEqual([]);
-      } finally {
-        process.chdir(originalCwd);
-        if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-      }
-    });
+      });
 
-    test("returns hasProject false when .archgate dir does not exist", () => {
-      let tempDir: string | undefined;
-      const originalCwd = process.cwd();
-      try {
-        tempDir = mkdtempSync(join(tmpdir(), "archgate-installinfo-test-"));
-
-        process.chdir(tempDir);
-
+      test("returns hasProject false when .archgate dir does not exist", () => {
         const ctx = getProjectContext();
         expect(ctx.hasProject).toBe(false);
         expect(ctx.adrCount).toBe(0);
         expect(ctx.adrWithRulesCount).toBe(0);
         expect(ctx.domains).toEqual([]);
-      } finally {
-        process.chdir(originalCwd);
-        if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-      }
-    });
+      });
 
-    test("counts ADR files with different domain prefixes correctly", () => {
-      let tempDir: string | undefined;
-      const originalCwd = process.cwd();
-      try {
-        tempDir = mkdtempSync(join(tmpdir(), "archgate-installinfo-test-"));
+      test("counts ADR files with different domain prefixes correctly", () => {
         const adrsDir = join(tempDir, ".archgate", "adrs");
         mkdirSync(adrsDir, { recursive: true });
 
@@ -140,39 +129,24 @@ describe("install-info", () => {
           "export default {};"
         );
 
-        process.chdir(tempDir);
-
         const ctx = getProjectContext();
         expect(ctx.hasProject).toBe(true);
         expect(ctx.adrCount).toBe(4);
         expect(ctx.adrWithRulesCount).toBe(2);
         expect(ctx.domains).toEqual(["ARCH", "CI", "LEGAL"]);
-      } finally {
-        process.chdir(originalCwd);
-        if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-      }
-    });
+      });
 
-    test("handles readdirSync errors gracefully", () => {
-      let tempDir: string | undefined;
-      const originalCwd = process.cwd();
-      try {
-        tempDir = mkdtempSync(join(tmpdir(), "archgate-installinfo-test-"));
+      test("handles readdirSync errors gracefully", () => {
         mkdirSync(join(tempDir, ".archgate"), { recursive: true });
         // Create adrsDir as a file instead of a directory to cause readdirSync to throw
         writeFileSync(join(tempDir, ".archgate", "adrs"), "not a directory");
-
-        process.chdir(tempDir);
 
         const ctx = getProjectContext();
         expect(ctx.hasProject).toBe(true);
         expect(ctx.adrCount).toBe(0);
         expect(ctx.adrWithRulesCount).toBe(0);
         expect(ctx.domains).toEqual([]);
-      } finally {
-        process.chdir(originalCwd);
-        if (tempDir) rmSync(tempDir, { recursive: true, force: true });
-      }
+      });
     });
   });
 });

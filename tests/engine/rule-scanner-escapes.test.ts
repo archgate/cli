@@ -23,19 +23,15 @@ describe("rule sandbox escapes", () => {
   // `await import("node:child_process")` executes at import time and `check`
   // still reports the ADR as passing.
   describe("dynamic import with a literal specifier", () => {
-    for (const mod of [
-      "node:child_process",
-      "child_process",
-      "node:fs",
-      "bun",
-    ]) {
-      test(`blocks dynamic import of ${mod}`, () => {
+    test.each(["node:child_process", "child_process", "node:fs", "bun"])(
+      "blocks dynamic import of %s",
+      (mod) => {
         const violations = scanRuleSource(`const m = await import("${mod}");`);
         expect(violations).toHaveLength(1);
         expect(violations[0].message).toContain(`"${mod}"`);
         expect(violations[0].message).toContain("blocked");
-      });
-    }
+      }
+    );
 
     test("reports the line of a blocked dynamic import", () => {
       const violations = scanRuleSource(
@@ -67,11 +63,9 @@ describe("rule sandbox escapes", () => {
       ["re-export named", `export { spawn } from "node:child_process";`],
     ];
 
-    for (const [label, source] of escapes) {
-      test(`blocks ${label}`, () => {
-        expect(scanRuleSource(source).length).toBeGreaterThan(0);
-      });
-    }
+    test.each(escapes)("blocks %s", (_label, source) => {
+      expect(scanRuleSource(source).length).toBeGreaterThan(0);
+    });
 
     // `path` resolves to a node_modules package if the target project ships
     // one, handing execution back to the untrusted code this scanner contains;
@@ -190,11 +184,9 @@ p["binding"]("spawn_sync");`,
       ],
     ];
 
-    for (const [label, source] of spellings) {
-      test(`blocks ${label}`, () => {
-        expect(scanRuleSource(source).length).toBeGreaterThan(0);
-      });
-    }
+    test.each(spellings)("blocks %s", (_label, source) => {
+      expect(scanRuleSource(source).length).toBeGreaterThan(0);
+    });
 
     test("still allows ordinary computed access on a plain object", () => {
       expect(
@@ -287,11 +279,9 @@ const b = 2${RLO};`);
       ],
     ];
 
-    for (const [label, source] of obfuscated) {
-      test(`blocks specifier hidden by ${label}`, () => {
-        expect(scanRuleSource(source).length).toBeGreaterThan(0);
-      });
-    }
+    test.each(obfuscated)("blocks specifier hidden by %s", (_label, source) => {
+      expect(scanRuleSource(source).length).toBeGreaterThan(0);
+    });
 
     test("escaped identifiers resolve too", () => {
       expect(scanRuleSource(IDENT).length).toBeGreaterThan(0);
@@ -319,12 +309,10 @@ const b = 2${RLO};`);
       ["Reflect.get(process, ...)", `Reflect.get(process, "binding")("x");`],
     ];
 
-    for (const [label, source] of reachSpawn) {
-      test(`blocks ${label}`, () => {
-        const violations = scanRuleSource(source);
-        expect(violations.length).toBeGreaterThan(0);
-      });
-    }
+    test.each(reachSpawn)("blocks %s", (_label, source) => {
+      const violations = scanRuleSource(source);
+      expect(violations.length).toBeGreaterThan(0);
+    });
 
     // Every eval-equivalent identifier is banned, and — crucially — so is
     // aliasing it, which a callee-name check alone would miss.
@@ -340,11 +328,9 @@ const b = 2${RLO};`);
       ["EventSource", `new EventSource("http://x");`],
     ];
 
-    for (const [label, source] of codegen) {
-      test(`blocks ${label}`, () => {
-        expect(scanRuleSource(source).length).toBeGreaterThan(0);
-      });
-    }
+    test.each(codegen)("blocks %s", (_label, source) => {
+      expect(scanRuleSource(source).length).toBeGreaterThan(0);
+    });
 
     // `.constructor` reaches the Function constructor (= eval) from any object,
     // which would otherwise bypass every check including the module allowlist.
@@ -374,13 +360,14 @@ const b = 2${RLO};`);
       ["shorthand key", `const { constructor } = (() => {});`],
     ];
 
-    for (const [label, source] of destructured) {
-      test(`blocks .constructor destructured via ${label}`, () => {
+    test.each(destructured)(
+      "blocks .constructor destructured via %s",
+      (_label, source) => {
         const violations = scanRuleSource(source);
         expect(violations.length).toBeGreaterThan(0);
         expect(violations[0].message).toContain("constructor");
-      });
-    }
+      }
+    );
 
     // The computed-*variable* key is the same static-analysis residual as the
     // member form above: `{ [c]: F }` with `c` bound at runtime is unknowable
@@ -449,11 +436,9 @@ const b = 2${RLO};`);
       ],
     ];
 
-    for (const [label, source] of escapes) {
-      test(`scans a ${label}`, () => {
-        expect(scanRuleSource(source).length).toBeGreaterThan(0);
-      });
-    }
+    test.each(escapes)("scans a %s", (_label, source) => {
+      expect(scanRuleSource(source).length).toBeGreaterThan(0);
+    });
 
     // Positive controls: the literals themselves are perfectly legal in a rule
     // file — the scanner keeps the node in the walk without flagging it.

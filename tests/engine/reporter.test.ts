@@ -196,9 +196,10 @@ describe("reporter", () => {
           ],
         })
       );
-      expect(logs.some((l) => l.includes("::error"))).toBe(true);
-      expect(logs.some((l) => l.includes("file=src/foo.ts"))).toBe(true);
-      expect(logs.some((l) => l.includes("line=10"))).toBe(true);
+      const output = logs.join("\n");
+      expect(output).toContain("::error");
+      expect(output).toContain("file=src/foo.ts");
+      expect(output).toContain("line=10");
     });
 
     test("outputs warning annotations", () => {
@@ -214,7 +215,7 @@ describe("reporter", () => {
           ],
         })
       );
-      expect(logs.some((l) => l.includes("::warning"))).toBe(true);
+      expect(logs.join("\n")).toContain("::warning");
     });
 
     test("outputs notice for info severity", () => {
@@ -225,14 +226,14 @@ describe("reporter", () => {
           ],
         })
       );
-      expect(logs.some((l) => l.includes("::notice"))).toBe(true);
+      expect(logs.join("\n")).toContain("::notice");
     });
   });
 
   describe("reportConsole", () => {
     test("outputs passing summary", () => {
       reportConsole(makeResult(), false);
-      expect(logs.some((l) => l.includes("passed"))).toBe(true);
+      expect(logs.join("\n")).toContain("passed");
     });
 
     test("outputs failing violations", () => {
@@ -249,7 +250,7 @@ describe("reporter", () => {
         }),
         false
       );
-      expect(logs.some((l) => l.includes("bad thing"))).toBe(true);
+      expect(logs.join("\n")).toContain("bad thing");
     });
   });
 

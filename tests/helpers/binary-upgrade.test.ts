@@ -30,16 +30,19 @@ function mockFetch(handler: () => Promise<Response>) {
 }
 
 describe("getArtifactInfo", () => {
-  test("returns artifact info for the current platform", () => {
-    const info = getArtifactInfo();
+  test.skipIf(getArtifactInfo() === null)(
+    "returns artifact info for the current platform",
+    () => {
+      const info = getArtifactInfo();
 
-    // Should return non-null for any supported CI platform
-    if (info === null) return;
-
-    expect(info.name).toMatch(/^archgate-(darwin-arm64|linux-x64|win32-x64)$/u);
-    expect(info.ext).toMatch(/^\.(tar\.gz|zip)$/u);
-    expect(info.binaryName).toMatch(/^archgate(\.exe)?$/u);
-  });
+      expect(info).not.toBeNull();
+      expect(info!.name).toMatch(
+        /^archgate-(darwin-arm64|linux-x64|win32-x64)$/u
+      );
+      expect(info!.ext).toMatch(/^\.(tar\.gz|zip)$/u);
+      expect(info!.binaryName).toMatch(/^archgate(\.exe)?$/u);
+    }
+  );
 
   test.skipIf(process.platform !== "win32")(
     "returns .zip extension for win32",
@@ -463,31 +466,33 @@ describe("cleanupStaleBinary", () => {
     restoreEnv("HOME", savedHome);
   });
 
-  test("deletes the .old binary when present", async () => {
-    const artifact = getArtifactInfo();
-    if (!artifact) return; // unsupported platform
+  test.skipIf(getArtifactInfo() === null)(
+    "deletes the .old binary when present",
+    async () => {
+      const artifact = getArtifactInfo()!;
 
-    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
-    Bun.env.HOME = tmpDir;
+      const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
+      Bun.env.HOME = tmpDir;
 
-    // Recreate the ~/.archgate/bin/ structure
-    const binDir = join(tmpDir, ".archgate", "bin");
-    mkdirSync(binDir, { recursive: true });
-    const oldPath = join(binDir, `${artifact.binaryName}.old`);
-    writeFileSync(oldPath, "stale binary");
+      // Recreate the ~/.archgate/bin/ structure
+      const binDir = join(tmpDir, ".archgate", "bin");
+      mkdirSync(binDir, { recursive: true });
+      const oldPath = join(binDir, `${artifact.binaryName}.old`);
+      writeFileSync(oldPath, "stale binary");
 
-    await cleanupStaleBinary();
+      await cleanupStaleBinary();
 
-    expect(existsSync(oldPath)).toBe(false);
-  });
+      expect(existsSync(oldPath)).toBe(false);
+    }
+  );
 
-  test("resolves silently when no .old file exists", async () => {
-    const artifact = getArtifactInfo();
-    if (!artifact) return; // unsupported platform
+  test.skipIf(getArtifactInfo() === null)(
+    "resolves silently when no .old file exists",
+    async () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
+      Bun.env.HOME = tmpDir;
 
-    const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
-    Bun.env.HOME = tmpDir;
-
-    await expect(cleanupStaleBinary()).resolves.toBeUndefined();
-  });
+      await expect(cleanupStaleBinary()).resolves.toBeUndefined();
+    }
+  );
 });

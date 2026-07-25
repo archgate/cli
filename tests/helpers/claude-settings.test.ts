@@ -61,7 +61,7 @@ describe("mergeClaudeSettings", () => {
     );
 
     expect(result.permissions?.deny).toEqual(["Bash(rm -rf *)"]);
-    expect(Array.isArray(result.permissions?.allow)).toBe(true);
+    expect(result.permissions?.allow).toBeInstanceOf(Array);
   });
 
   test("preserves unknown top-level keys", () => {

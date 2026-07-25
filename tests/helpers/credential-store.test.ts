@@ -98,10 +98,7 @@ describe("credential-store", () => {
           // Either the "approve failed" or "could not be verified" warning fires.
           expect(warnSpy).toHaveBeenCalled();
           const allArgs = warnSpy.mock.calls.flat().join(" ");
-          const hasVerifyWarning =
-            allArgs.includes("could not be verified") ||
-            allArgs.includes("approve failed");
-          expect(hasVerifyWarning).toBe(true);
+          expect(allArgs).toMatch(/could not be verified|approve failed/u);
         } finally {
           warnSpy.mockRestore();
         }
@@ -201,11 +198,8 @@ describe("credential-store", () => {
 
         // With a working helper, verification succeeds — no warning about
         // "could not be verified".
-        const verifyWarning = warnSpy.mock.calls
-          .flat()
-          .join(" ")
-          .includes("could not be verified");
-        expect(verifyWarning).toBe(false);
+        const allArgsJoined = warnSpy.mock.calls.flat().join(" ");
+        expect(allArgsJoined).not.toContain("could not be verified");
       } finally {
         warnSpy.mockRestore();
       }

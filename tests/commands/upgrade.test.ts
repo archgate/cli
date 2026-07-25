@@ -200,16 +200,18 @@ describe("install method detection", () => {
 // ---------------------------------------------------------------------------
 
 describe("_formatBytes", () => {
-  test("formats bytes, KB, and MB ranges", () => {
-    expect(_formatBytes(0)).toBe("0 B");
-    expect(_formatBytes(512)).toBe("512 B");
-    expect(_formatBytes(1023)).toBe("1023 B");
-    expect(_formatBytes(1024)).toBe("1.0 KB");
-    expect(_formatBytes(1536)).toBe("1.5 KB");
-    expect(_formatBytes(1024 * 100)).toBe("100.0 KB");
-    expect(_formatBytes(1024 * 1024)).toBe("1.0 MB");
-    expect(_formatBytes(1024 * 1024 * 5.5)).toBe("5.5 MB");
-    expect(_formatBytes(1024 * 1024 * 100)).toBe("100.0 MB");
+  test.each([
+    [0, "0 B"],
+    [512, "512 B"],
+    [1023, "1023 B"],
+    [1024, "1.0 KB"],
+    [1536, "1.5 KB"],
+    [1024 * 100, "100.0 KB"],
+    [1024 * 1024, "1.0 MB"],
+    [1024 * 1024 * 5.5, "5.5 MB"],
+    [1024 * 1024 * 100, "100.0 MB"],
+  ])("formats %p bytes as %p", (input, expected) => {
+    expect(_formatBytes(input)).toBe(expected);
   });
 });
 
@@ -274,11 +276,10 @@ describe("upgrade action handler", () => {
     // package.json version is 0.36.3; returning same version = up-to-date
     mockGitHubRelease("v0.36.3");
     const program = makeProgram();
-    try {
-      await program.parseAsync(["node", "test", "upgrade"]);
-    } catch {
-      // exitWith(0) → process.exit(0) → throws "process.exit"
-    }
+    // exitWith(0) → process.exit(0) → throws "process.exit"
+    await expect(
+      program.parseAsync(["node", "test", "upgrade"])
+    ).rejects.toThrow("process.exit");
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
@@ -288,22 +289,20 @@ describe("upgrade action handler", () => {
   test("prints error and exits 1 when version fetch fails", async () => {
     mockGitHubRelease(null);
     const program = makeProgram();
-    try {
-      await program.parseAsync(["node", "test", "upgrade"]);
-    } catch {
-      // exitWith(1) → process.exit(1) → throws "process.exit"
-    }
+    // exitWith(1) → process.exit(1) → throws "process.exit"
+    await expect(
+      program.parseAsync(["node", "test", "upgrade"])
+    ).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   test("treats older remote version as up-to-date", async () => {
     mockGitHubRelease("v0.1.0");
     const program = makeProgram();
-    try {
-      await program.parseAsync(["node", "test", "upgrade"]);
-    } catch {
-      // exitWith(0) → process.exit(0) → throws "process.exit"
-    }
+    // exitWith(0) → process.exit(0) → throws "process.exit"
+    await expect(
+      program.parseAsync(["node", "test", "upgrade"])
+    ).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(0);
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
@@ -315,11 +314,10 @@ describe("upgrade action handler", () => {
     globalThis.fetch = (() =>
       Promise.reject(new Error("network error"))) as unknown as typeof fetch;
     const program = makeProgram();
-    try {
-      await program.parseAsync(["node", "test", "upgrade"]);
-    } catch {
-      // exitWith(2) → process.exit(2) → throws
-    }
+    // exitWith(2) → process.exit(2) → throws "process.exit"
+    await expect(
+      program.parseAsync(["node", "test", "upgrade"])
+    ).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(2);
   });
 });

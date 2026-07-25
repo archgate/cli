@@ -264,7 +264,8 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
       "// a new explanatory comment\nexport const v = 1;\n"
     );
 
-    let equal = false;
+    let baseStructure: unknown;
+    let headStructure: unknown;
     const loaded = makeLoadedAdr({
       rules: {
         r: {
@@ -278,16 +279,15 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
             // the location-free trees match when only a comment was added.
             // Compare the WHOLE tree (not just top-level node types) so that a
             // value change like `v = 1` vs `v = 2` would be detected too.
-            equal =
-              JSON.stringify(esStructure(baseTree.body)) ===
-              JSON.stringify(esStructure(headTree.body));
+            baseStructure = esStructure(baseTree.body);
+            headStructure = esStructure(headTree.body);
           },
         },
       },
     });
 
     await runChecks(dir, [loaded], { base: "HEAD" });
-    expect(equal).toBe(true);
+    expect(baseStructure).toEqual(headStructure);
   });
 
   test("javascript: base vs working-tree dispatch; comment-only edit is structurally identical", async () => {
@@ -297,7 +297,8 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
       "// a new explanatory comment\nexport const v = 1;\n"
     );
 
-    let equal = false;
+    let baseStructure: unknown;
+    let headStructure: unknown;
     let bodyLen = 0;
     const loaded = makeLoadedAdr({
       rules: {
@@ -309,9 +310,8 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
             });
             const headTree = await ctx.ast("src/a.js", "javascript");
             bodyLen = headTree.body.length;
-            equal =
-              JSON.stringify(esStructure(baseTree.body)) ===
-              JSON.stringify(esStructure(headTree.body));
+            baseStructure = esStructure(baseTree.body);
+            headStructure = esStructure(headTree.body);
           },
         },
       },
@@ -319,7 +319,7 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
 
     await runChecks(dir, [loaded], { base: "HEAD" });
     expect(bodyLen).toBe(1);
-    expect(equal).toBe(true);
+    expect(baseStructure).toEqual(headStructure);
   });
 
   test.skipIf(!rubyInterpreter)(
@@ -327,8 +327,8 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
     async () => {
       await commitThenEdit("src/a.rb", "def foo\nend\n", "def bar\nend\n");
 
-      let baseHasFoo = false;
-      let headHasBar = false;
+      let baseTreeJson = "";
+      let headTreeJson = "";
       const loaded = makeLoadedAdr({
         rules: {
           r: {
@@ -339,16 +339,16 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
               });
               const headTree = await ctx.ast("src/a.rb", "ruby");
               // Ripper's s-expression carries the method name as a string.
-              baseHasFoo = JSON.stringify(baseTree).includes("foo");
-              headHasBar = JSON.stringify(headTree).includes("bar");
+              baseTreeJson = JSON.stringify(baseTree);
+              headTreeJson = JSON.stringify(headTree);
             },
           },
         },
       });
 
       await runChecks(dir, [loaded], { base: "HEAD" });
-      expect(baseHasFoo).toBe(true);
-      expect(headHasBar).toBe(true);
+      expect(baseTreeJson).toContain("foo");
+      expect(headTreeJson).toContain("bar");
     }
   );
 

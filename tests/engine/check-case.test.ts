@@ -51,28 +51,27 @@ describe("checkCase", () => {
     },
   };
 
-  for (const [scheme, { pass, fail }] of Object.entries(cases) as [
-    CaseScheme,
-    { pass: string[]; fail: string[] },
-  ][]) {
-    test(`${scheme}: accepts conforming strings`, () => {
-      for (const value of pass) {
-        expect(
-          checkCase(value, scheme),
-          `"${value}" should match ${scheme}`
-        ).toBe(true);
-      }
-    });
+  const passCases = (
+    Object.entries(cases) as [CaseScheme, { pass: string[]; fail: string[] }][]
+  ).flatMap(([scheme, { pass }]) => pass.map((value) => ({ scheme, value })));
 
-    test(`${scheme}: rejects non-conforming strings`, () => {
-      for (const value of fail) {
-        expect(
-          checkCase(value, scheme),
-          `"${value}" should NOT match ${scheme}`
-        ).toBe(false);
-      }
-    });
-  }
+  const failCases = (
+    Object.entries(cases) as [CaseScheme, { pass: string[]; fail: string[] }][]
+  ).flatMap(([scheme, { fail }]) => fail.map((value) => ({ scheme, value })));
+
+  test.each(passCases)(
+    "$scheme accepts conforming string $value",
+    ({ scheme, value }) => {
+      expect(checkCase(value, scheme)).toBe(true);
+    }
+  );
+
+  test.each(failCases)(
+    "$scheme rejects non-conforming string $value",
+    ({ scheme, value }) => {
+      expect(checkCase(value, scheme)).toBe(false);
+    }
+  );
 
   test("empty string matches no scheme", () => {
     for (const scheme of Object.keys(cases) as CaseScheme[]) {
@@ -91,21 +90,18 @@ describe("checkCase", () => {
     );
   });
 
-  test("inherited property names are unknown schemes, not TypeErrors", () => {
-    // A truthiness guard would let these through: they resolve to functions on
-    // Object.prototype, then blow up on `.test()` instead of reporting the
-    // documented unknown-scheme error.
-    for (const inherited of [
-      "constructor",
-      "toString",
-      "hasOwnProperty",
-      "valueOf",
-      "__proto__",
-    ]) {
-      expect(
-        () => checkCase("value", inherited as CaseScheme),
-        `"${inherited}" should report an unknown scheme`
-      ).toThrow(new RegExp(`Unknown case scheme "${inherited}"`, "u"));
-    }
+  // A truthiness guard would let these through: they resolve to functions on
+  // Object.prototype, then blow up on `.test()` instead of reporting the
+  // documented unknown-scheme error.
+  test.each([
+    "constructor",
+    "toString",
+    "hasOwnProperty",
+    "valueOf",
+    "__proto__",
+  ])("%s is reported as an unknown scheme", (inherited) => {
+    expect(() => checkCase("value", inherited as CaseScheme)).toThrow(
+      new RegExp(`Unknown case scheme "${inherited}"`, "u")
+    );
   });
 });
