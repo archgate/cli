@@ -191,6 +191,7 @@ const EMPTY_SUMMARY: ReportSummary = {
   truncated: false,
   suppressed: 0,
   suppressionWarnings: [],
+  unparsedAdrs: [],
   briefingWarnings: [],
   results: [],
   durationMs: 0,
@@ -244,6 +245,9 @@ export async function buildReviewContext(
       const checkResult = await runChecks(projectRoot, loadResults, {
         staged,
         base,
+        // Same cap the briefings above are truncated at, so the diagnostics
+        // cannot describe a limit this response did not apply.
+        maxSectionChars,
       });
       const summary = buildSummary(checkResult, { maxViolationsPerRule });
       // Same projection reportJSON applies: a cleanly-passing rule's entry only

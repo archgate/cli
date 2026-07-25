@@ -137,7 +137,7 @@ Reviewers MUST verify on every PR touching project TypeScript:
 - **Suppressions**: genuine false positives only, always with a stated reason.
 - **No directory-level exemptions**: there are no per-path carve-outs from either rule. Test files, fixtures, lint plugins, and the ADR companion rules files are all in scope, and any future exemption MUST be recorded here rather than added silently to `.oxlintrc.json`.
 
-**Documented briefing-budget overflow** (reported by rchgate check)**:** the `Decision` section exceeds the `review-context` briefing cap and MUST NOT be shortened further. Its floor is set by the two TSDoc tag lists, which are preserved tag-for-tag because both enforcement layers trust them and MUST stay in sync. The section is ordered so the 5-line bound, the narration prohibition, and the agent-memory exemption precede the cut; only the Scope path list is truncated, and those paths are already carried in every `review-context` payload as this ADR's `files` globs.
+**Documented briefing-budget overflow** (reported by `archgate check`): the `Decision` section exceeds the `review-context` briefing cap and MUST NOT be shortened further. Its floor is set by the two TSDoc tag lists, which are preserved tag-for-tag because both enforcement layers trust them and MUST stay in sync. The section is ordered so the 5-line bound, the narration prohibition, and the agent-memory exemption precede the cut; only the Scope path list is truncated, and those paths are already carried in every `review-context` payload as this ADR's `files` globs.
 
 ## References
 

@@ -35,6 +35,12 @@ export interface ReportSummary {
     length: number;
     cap: number;
   }>;
+  /**
+   * ADR files that could not be parsed, so they were measured by nothing
+   * above. An empty `briefingWarnings` means "nothing over budget" only when
+   * this is empty too.
+   */
+  unparsedAdrs: string[];
   results: Array<{
     adrId: string;
     ruleId: string;
@@ -159,6 +165,7 @@ export function buildSummary(
     truncated: anyTruncated,
     suppressed: result.suppressedCount ?? 0,
     briefingWarnings: result.briefingWarnings ?? [],
+    unparsedAdrs: result.unparsedAdrs ?? [],
     suppressionWarnings: (result.suppressionWarnings ?? []).map((w) => ({
       message: w.message,
       file: w.file,
@@ -236,6 +243,12 @@ export function reportConsole(
   for (const w of summary.briefingWarnings) {
     console.log(
       `    ${styleText("yellow", "[briefing]")} ${w.adrId} "${w.section}" is ${w.length} chars; review-context truncates at ${w.cap}, hiding ${w.length - w.cap} from agent briefings ${styleText("dim", w.file)}`
+    );
+  }
+
+  for (const file of summary.unparsedAdrs) {
+    console.log(
+      `    ${styleText("yellow", "[adr]")} could not be parsed, so it was excluded from every check above ${styleText("dim", file)}`
     );
   }
 
@@ -341,6 +354,12 @@ export function reportCI(
   for (const w of summary.briefingWarnings) {
     console.log(
       `::warning file=${w.file} title=briefing-budget::${w.adrId} "${w.section}" is ${w.length} chars; review-context truncates at ${w.cap}`
+    );
+  }
+
+  for (const file of summary.unparsedAdrs) {
+    console.log(
+      `::warning file=${file} title=unparsed-adr::ADR could not be parsed and was excluded from every check`
     );
   }
 

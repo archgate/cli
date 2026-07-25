@@ -18,7 +18,7 @@ import type {
 import { logDebug, logWarn } from "../helpers/log";
 import {
   type BriefingBudgetWarning,
-  collectBriefingBudgetWarnings,
+  collectBriefingDiagnostics,
 } from "./adr-sections";
 import {
   AST_LANGUAGE_EXTENSIONS,
@@ -51,7 +51,7 @@ import {
 } from "./git-files";
 import { listMatchingFiles, matchLines } from "./glob-utils";
 import { parseTsOrJsSource } from "./js-parser";
-import { type LoadResult, blockedToRuleResult, parseAllAdrs } from "./loader";
+import { type LoadResult, blockedToRuleResult } from "./loader";
 import { isWithinRoot, resolveUserPath, safePath } from "./safe-path";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
 import { parseYamlDocument } from "./yaml-utils";
@@ -90,6 +90,12 @@ export interface CheckResult {
   suppressionWarnings?: SuppressionWarning[];
   /** ADR sections that `review-context --verbose` would truncate. */
   briefingWarnings?: BriefingBudgetWarning[];
+  /**
+   * ADR files that could not be read or parsed. They are absent from every
+   * other result here, so an empty `briefingWarnings` means "nothing over
+   * budget" only when this is empty too.
+   */
+  unparsedAdrs?: string[];
 }
 
 function createRuleContext(
@@ -396,7 +402,17 @@ function createRuleContext(
 export async function runChecks(
   projectRoot: string,
   loadResults: LoadResult[],
-  options: { staged?: boolean; files?: string[]; base?: string } = {}
+  options: {
+    staged?: boolean;
+    files?: string[];
+    base?: string;
+    /**
+     * Briefing cap used for the budget diagnostics. Callers that render
+     * briefings MUST pass the same value they truncate at, or the diagnostics
+     * describe a cap the consumer never saw. Defaults to the engine's.
+     */
+    maxSectionChars?: number;
+  } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
 
@@ -573,17 +589,10 @@ export async function runChecks(
     }
   }
 
-  // Measured over EVERY ADR, not just those with rules: an ADR that governs by
-  // prose alone is still briefed, and is still truncated when oversized.
-  const briefingWarnings = collectBriefingBudgetWarnings(
-    (await parseAllAdrs(projectRoot)).map((entry) => entry.adr)
-  ).map((w) => ({
-    adrId: w.adrId,
-    file: relative(projectRoot, w.file).replaceAll("\\", "/"),
-    section: w.section,
-    length: w.length,
-    cap: w.cap,
-  }));
+  const { briefingWarnings, unparsedAdrs } = await collectBriefingDiagnostics(
+    projectRoot,
+    options.maxSectionChars
+  );
 
   return {
     results,
@@ -591,5 +600,6 @@ export async function runChecks(
     suppressedCount: suppression.suppressedCount,
     suppressionWarnings: suppression.warnings,
     briefingWarnings,
+    unparsedAdrs,
   };
 }

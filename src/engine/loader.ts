@@ -148,6 +148,22 @@ interface ParsedAdrEntry {
 const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
 
 /**
+ * Files in the ADR directory that could not be read or parsed, per project
+ * root. Populated by the same pass that fills `parsedAdrsCache`.
+ */
+const skippedAdrsCache = new Map<string, string[]>();
+
+/**
+ * ADR files that were skipped during parsing, so a caller reporting on the
+ * corpus can say the listing is incomplete instead of implying it is clean.
+ *
+ * @returns Filenames relative to the ADR directory. Call after `parseAllAdrs`.
+ */
+export function getSkippedAdrs(projectRoot: string): string[] {
+  return skippedAdrsCache.get(projectRoot) ?? [];
+}
+
+/**
  * Read and parse every ADR markdown file in the project, caching the result
  * per-process.
  *
@@ -169,6 +185,7 @@ export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
       return [];
     }
 
+    const skipped: string[] = [];
     const parsed = await Promise.all(
       files.map(async (file): Promise<ParsedAdrEntry | null> => {
         const filePath = join(adrsDir, file);
@@ -177,11 +194,13 @@ export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
           return { file, adr: parseAdr(content, filePath) };
         } catch (err) {
           logDebug(`Skipping unparseable ADR: ${filePath}`, err);
+          skipped.push(file);
           return null;
         }
       })
     );
 
+    skippedAdrsCache.set(projectRoot, skipped);
     const entries = parsed.filter((e): e is ParsedAdrEntry => e !== null);
 
     // Detect duplicate ADR IDs — two files sharing the same frontmatter id

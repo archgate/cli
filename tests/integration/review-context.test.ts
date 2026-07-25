@@ -263,7 +263,7 @@ describe("review-context integration", () => {
     };
     expect(ctx.allChangedFiles).toContain("src/new-feature.ts");
     expect(ctx.allChangedFiles).not.toContain("src/base.ts");
-  }, 30_000);
+  });
 
   // Regression guard for archgate/cli#403: with a base ref detected,
   // review-context must report uncommitted working-tree edits (the files
@@ -310,7 +310,7 @@ describe("review-context integration", () => {
     expect(ctx.allChangedFiles).toContain("src/committed.ts");
     expect(ctx.allChangedFiles).toContain("src/base.ts");
     expect(ctx.allChangedFiles).toContain("src/untracked.ts");
-  }, 30_000);
+  });
 
   test("--staged takes precedence over --base for review-context", async () => {
     scaffoldProject(dir);
@@ -350,7 +350,7 @@ describe("review-context integration", () => {
     const ctx = JSON.parse(stdout) as { allChangedFiles: string[] };
     expect(ctx.allChangedFiles).toContain("src/staged.ts");
     expect(ctx.allChangedFiles).not.toContain("src/committed.ts");
-  }, 30_000);
+  });
 
   test("reports truncated briefings in the payload and on stderr", async () => {
     scaffoldProject(dir);
@@ -390,7 +390,7 @@ describe("review-context integration", () => {
     // The warning must reach stderr without corrupting the JSON on stdout.
     expect(stderr).toContain("ARCH-001");
     expect(stderr).toContain("truncated");
-  }, 30_000);
+  });
 
   test("truncatedBriefings only lists ADRs surviving --domain filtering", async () => {
     scaffoldProject(dir);
@@ -431,5 +431,5 @@ describe("review-context integration", () => {
 
     const ctx = JSON.parse(stdout) as { truncatedBriefings: string[] };
     expect(ctx.truncatedBriefings).toEqual(["GEN-001"]);
-  }, 30_000);
+  });
 });

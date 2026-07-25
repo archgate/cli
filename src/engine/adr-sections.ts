@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { relative } from "node:path";
+
 import type { AdrDocument } from "../formats/adr";
+import { getSkippedAdrs, parseAllAdrs } from "./loader";
 
 /**
  * Sections `review-context --verbose` embeds in an ADR briefing. Prose in any
@@ -111,4 +114,32 @@ export function collectBriefingBudgetWarnings(
     }
   }
   return warnings;
+}
+
+/**
+ * Budget diagnostics for a project, project-relative, covering every ADR.
+ *
+ * @param maxChars - Cap the caller truncates at; defaults to the engine's.
+ * @returns Over-budget sections, plus ADRs that failed to parse.
+ */
+export async function collectBriefingDiagnostics(
+  projectRoot: string,
+  maxChars?: number
+): Promise<{
+  briefingWarnings: BriefingBudgetWarning[];
+  unparsedAdrs: string[];
+}> {
+  const parsed = await parseAllAdrs(projectRoot);
+  const briefingWarnings = collectBriefingBudgetWarnings(
+    parsed.map((entry) => entry.adr),
+    maxChars
+  ).map((w) => ({
+    adrId: w.adrId,
+    file: relative(projectRoot, w.file).replaceAll("\\", "/"),
+    section: w.section,
+    length: w.length,
+    cap: w.cap,
+  }));
+
+  return { briefingWarnings, unparsedAdrs: getSkippedAdrs(projectRoot) };
 }
