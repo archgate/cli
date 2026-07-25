@@ -18,18 +18,21 @@ const CASE_PATTERNS: Record<CaseScheme, RegExp> = {
 };
 
 /**
- * Check whether `value` conforms to a casing scheme. Pure and synchronous —
- * no I/O. The empty string matches no scheme. Throws on an unrecognized
- * scheme (rule files may pass a dynamically-built string that defeats the
- * `CaseScheme` type) rather than silently returning false, so a typo in a
- * scheme name surfaces as a rule error instead of a false pass/fail.
+ * Check whether `value` conforms to a casing scheme. Pure and synchronous; the
+ * empty string matches no scheme. An unrecognized scheme throws rather than
+ * returning false, so a typo in a dynamically-built name that defeats the
+ * `CaseScheme` type surfaces as a rule error, not a false pass.
+ *
+ * @throws {Error} When `scheme` is not one of {@link CaseScheme}.
  */
 export function checkCase(value: string, scheme: CaseScheme): boolean {
-  const pattern = CASE_PATTERNS[scheme];
-  if (!pattern) {
+  // Object.hasOwn, not a truthiness test: an inherited name such as
+  // "constructor" or "toString" resolves to a function off Object.prototype,
+  // which would pass a `!pattern` guard and then throw TypeError on .test().
+  if (!Object.hasOwn(CASE_PATTERNS, scheme)) {
     throw new Error(
       `Unknown case scheme "${scheme}" — supported schemes: ${Object.keys(CASE_PATTERNS).join(", ")}`
     );
   }
-  return pattern.test(value);
+  return CASE_PATTERNS[scheme].test(value);
 }

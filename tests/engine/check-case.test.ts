@@ -90,4 +90,22 @@ describe("checkCase", () => {
       /Unknown case scheme "Train-Case"/u
     );
   });
+
+  test("inherited property names are unknown schemes, not TypeErrors", () => {
+    // A truthiness guard would let these through: they resolve to functions on
+    // Object.prototype, then blow up on `.test()` instead of reporting the
+    // documented unknown-scheme error.
+    for (const inherited of [
+      "constructor",
+      "toString",
+      "hasOwnProperty",
+      "valueOf",
+      "__proto__",
+    ]) {
+      expect(
+        () => checkCase("value", inherited as CaseScheme),
+        `"${inherited}" should report an unknown scheme`
+      ).toThrow(new RegExp(`Unknown case scheme "${inherited}"`, "u"));
+    }
+  });
 });
