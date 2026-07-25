@@ -17,16 +17,56 @@ import {
   safePath,
 } from "../../src/engine/safe-path";
 
+/**
+ * Whether this platform/account can create a link of the given kind. Probed
+ * once: Windows allows directory junctions unprivileged but needs elevation
+ * (or Developer Mode) for file symlinks, so the two differ and a single probe
+ * would wrongly enable the file-link tests on Windows.
+ */
+function canLink(kind: "dir" | "file"): boolean {
+  const probe = mkdtempSync(join(tmpdir(), "archgate-linkprobe-"));
+  try {
+    if (kind === "dir") {
+      symlinkSync(probe, join(probe, "link"), "junction");
+    } else {
+      writeFileSync(join(probe, "f.txt"), "x");
+      symlinkSync(join(probe, "f.txt"), join(probe, "link.txt"));
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+}
+
+const DIR_LINKS = canLink("dir");
+const FILE_LINKS = canLink("file");
+
 describe("safe-path", () => {
   let tempDir: string;
+  let outsideDirs: string[];
 
   beforeEach(() => {
     tempDir = resolve(mkdtempSync(join(tmpdir(), "archgate-safe-path-")));
+    outsideDirs = [];
   });
 
+  // Cleanup runs here, not after each assertion: a failing expect() throws
+  // immediately, so a trailing rmSync would be skipped and leak the temp dir.
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
+    for (const dir of outsideDirs) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
+
+  /** A temp directory outside the project root, removed in afterEach. */
+  function makeOutsideDir(): string {
+    const dir = resolve(mkdtempSync(join(tmpdir(), "archgate-outside-")));
+    outsideDirs.push(dir);
+    return dir;
+  }
 
   describe("resolveUserPath", () => {
     test("resolves a relative path against the root", () => {
@@ -79,94 +119,111 @@ describe("safe-path", () => {
       );
     });
 
-    test("throws when an ANCESTOR directory links OUTSIDE the project", () => {
-      // The leaf is an ordinary file — only the parent is a link, which a
-      // leaf-only lstat cannot see.
-      const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
-      writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
-      try {
-        // "junction" is ignored on POSIX; on Windows it needs no admin rights
-        // and lstat reports it as a symlink, so this runs on every platform.
+    test.skipIf(!DIR_LINKS)(
+      "throws when an ANCESTOR directory links OUTSIDE the project",
+      () => {
+        // The leaf is an ordinary file — only the parent is a link, which a
+        // leaf-only lstat cannot see.
+        const outsideDir = makeOutsideDir();
+        writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
         symlinkSync(outsideDir, join(tempDir, "linkdir"), "junction");
-      } catch {
-        rmSync(outsideDir, { recursive: true, force: true });
-        return;
-      }
-      expect(() => safePath(tempDir, "linkdir/secret.txt")).toThrow(
-        /resolves outside the project through symbolic link "linkdir" — access denied/u
-      );
-      rmSync(outsideDir, { recursive: true, force: true });
-    });
 
-    test("ALLOWS an ancestor directory symlink that stays inside the project", () => {
-      // The workspace-monorepo layout: apps/web/shared -> packages/shared.
-      // This escapes nothing, so refusing it would refuse to govern ordinary
-      // repositories (pnpm/npm/yarn/bun all symlink workspace packages).
-      mkdirSync(join(tempDir, "packages", "shared"), { recursive: true });
-      writeFileSync(
-        join(tempDir, "packages", "shared", "index.ts"),
-        "export {};"
-      );
-      mkdirSync(join(tempDir, "apps", "web"), { recursive: true });
-      try {
+        expect(() => safePath(tempDir, "linkdir/secret.txt")).toThrow(
+          /resolves outside the project through symbolic link "linkdir" — access denied/u
+        );
+      }
+    );
+
+    test.skipIf(!DIR_LINKS)(
+      "ALLOWS an ancestor directory symlink that stays inside the project",
+      () => {
+        // The workspace-monorepo layout: apps/web/shared -> packages/shared.
+        // This escapes nothing, so refusing it would refuse to govern ordinary
+        // repositories (pnpm/npm/yarn/bun all symlink workspace packages).
+        mkdirSync(join(tempDir, "packages", "shared"), { recursive: true });
+        writeFileSync(
+          join(tempDir, "packages", "shared", "index.ts"),
+          "export {};"
+        );
+        mkdirSync(join(tempDir, "apps", "web"), { recursive: true });
         symlinkSync(
           join(tempDir, "packages", "shared"),
           join(tempDir, "apps", "web", "shared"),
           "junction"
         );
-      } catch {
-        return;
-      }
-      expect(() => safePath(tempDir, "apps/web/shared/index.ts")).not.toThrow();
-    });
 
-    test("throws when the LEAF links OUTSIDE the project", () => {
-      const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
-      writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
-      try {
+        expect(() =>
+          safePath(tempDir, "apps/web/shared/index.ts")
+        ).not.toThrow();
+      }
+    );
+
+    test.skipIf(!FILE_LINKS)(
+      "throws when the LEAF links OUTSIDE the project",
+      () => {
+        const outsideDir = makeOutsideDir();
+        writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
         symlinkSync(join(outsideDir, "secret.txt"), join(tempDir, "link.txt"));
-      } catch {
-        // File symlinks still need admin/developer mode on Windows — skip.
-        rmSync(outsideDir, { recursive: true, force: true });
-        return;
-      }
-      expect(() => safePath(tempDir, "link.txt")).toThrow(
-        /resolves outside the project through symbolic link "link.txt" — access denied/u
-      );
-      rmSync(outsideDir, { recursive: true, force: true });
-    });
 
-    test("ALLOWS a leaf symlink that stays inside the project", () => {
-      mkdirSync(join(tempDir, "real"), { recursive: true });
-      writeFileSync(join(tempDir, "real", "config.ts"), "export {};");
-      try {
+        expect(() => safePath(tempDir, "link.txt")).toThrow(
+          /resolves outside the project through symbolic link "link.txt" — access denied/u
+        );
+      }
+    );
+
+    test.skipIf(!FILE_LINKS)(
+      "ALLOWS a leaf symlink that stays inside the project",
+      () => {
+        mkdirSync(join(tempDir, "real"), { recursive: true });
+        writeFileSync(join(tempDir, "real", "config.ts"), "export {};");
         symlinkSync(
           join(tempDir, "real", "config.ts"),
           join(tempDir, "config.ts")
         );
-      } catch {
-        return;
-      }
-      expect(() => safePath(tempDir, "config.ts")).not.toThrow();
-    });
 
-    test("throws when a chain hops inside the project and then out", () => {
-      // inside-link -> real dir; real dir contains escape -> outside.
-      // Allowing the first hop must not stop the walk checking later ones.
-      const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
-      writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
-      mkdirSync(join(tempDir, "real"), { recursive: true });
-      try {
+        expect(() => safePath(tempDir, "config.ts")).not.toThrow();
+      }
+    );
+
+    test.skipIf(!DIR_LINKS)(
+      "throws when a chain hops inside the project and then out",
+      () => {
+        // inside-link -> real dir; real dir contains escape -> outside.
+        // Allowing the first hop must not stop the walk checking later ones.
+        const outsideDir = makeOutsideDir();
+        writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
+        mkdirSync(join(tempDir, "real"), { recursive: true });
         symlinkSync(join(tempDir, "real"), join(tempDir, "hop"), "junction");
         symlinkSync(outsideDir, join(tempDir, "real", "escape"), "junction");
-      } catch {
-        rmSync(outsideDir, { recursive: true, force: true });
-        return;
+
+        expect(() => safePath(tempDir, "hop/escape/secret.txt")).toThrow(
+          /resolves outside the project.*access denied/u
+        );
       }
-      expect(() => safePath(tempDir, "hop/escape/secret.txt")).toThrow(
-        /resolves outside the project.*access denied/u
-      );
-      rmSync(outsideDir, { recursive: true, force: true });
-    });
+    );
+
+    test.skipIf(!DIR_LINKS)(
+      "re-resolves a symlink on every call rather than memoizing its verdict",
+      () => {
+        // A link that passed once must not be trusted afterwards: repointing
+        // it must be caught, so the verified-component memo skips symlinks.
+        const insideTarget = join(tempDir, "inside");
+        mkdirSync(insideTarget, { recursive: true });
+        writeFileSync(join(insideTarget, "f.txt"), "ok");
+        const outsideDir = makeOutsideDir();
+        writeFileSync(join(outsideDir, "f.txt"), "sensitive");
+
+        const link = join(tempDir, "swap");
+        symlinkSync(insideTarget, link, "junction");
+        expect(() => safePath(tempDir, "swap/f.txt")).not.toThrow();
+
+        // Repoint the same link outside the project.
+        rmSync(link, { recursive: true, force: true });
+        symlinkSync(outsideDir, link, "junction");
+        expect(() => safePath(tempDir, "swap/f.txt")).toThrow(
+          /resolves outside the project.*access denied/u
+        );
+      }
+    );
   });
 });

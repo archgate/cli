@@ -31,10 +31,10 @@ export function isWithinRoot(resolvedRoot: string, absPath: string): boolean {
 }
 
 /**
- * Components already verified safe, memoized per process: safePath runs once
- * per glob result and siblings share every ancestor. Nested per root — the
- * same component under two roots can differ, since a link leaving root A may
- * land inside an enclosing root B.
+ * Real (non-symlink) components already verified, memoized per process:
+ * safePath runs once per glob result and siblings share every ancestor.
+ * Symlinks are never stored — they are re-resolved on every access. Nested per
+ * root, since a link leaving root A may land inside an enclosing root B.
  */
 const verifiedComponents = new Map<string, Set<string>>();
 
@@ -109,6 +109,9 @@ function assertNoEscapingSymlink(
           `Path "${userPath}" resolves outside the project through symbolic link "${segment}" — access denied`
         );
       }
+      // Deliberately NOT memoized: a link is re-resolved on every access, so a
+      // target repointed later in the process cannot ride an earlier pass.
+      continue;
     }
     verified.add(current);
   }
