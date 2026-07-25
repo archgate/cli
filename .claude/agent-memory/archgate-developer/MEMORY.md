@@ -2,80 +2,57 @@
 
 ## MANDATORY: Post-Coding Workflow (DO NOT SKIP)
 
-Every work loop MUST end with these steps — no exceptions, even for trivial changes:
+Every work loop MUST end with these three steps, even for trivial changes. The user should never have to ask for them:
 
-1. **`bun run validate`** — lint, typecheck, format:check, test, ADR check, knip, build check (fail-fast)
-2. **`@reviewer` skill** — Invoke via `Skill tool` with skill `"archgate:reviewer"`. Validates structural ADR compliance beyond automated rules.
-3. **`@lessons-learned` skill** — Invoke via `Skill tool` with skill `"archgate:lessons-learned"`. Captures learnings and governance gaps.
+1. **`bun run validate`** — the full gate (see CLAUDE.md for the stage list)
+2. **`@reviewer` skill** — `Skill` tool, `archgate:reviewer`. Structural ADR compliance beyond automated rules.
+3. **`@lessons-learned` skill** — `Skill` tool, `archgate:lessons-learned`. Captures learnings and governance gaps.
 
-Skipping steps 2 or 3 is a workflow violation. The user should NEVER have to invoke these manually.
+Two exceptions to steps 2–3: minor follow-up tweaks after validation already passed, and non-code changes.
 
-## Version References
+## Repo Facts Not Derivable From CLAUDE.md
 
-- **Minimum version** (`>=1.2.21`) in `src/cli.ts`/CLAUDE.md "Technology Stack" is the user-facing floor; **pinned version** (`1.3.14`) in `.prototools`/CLAUDE.md "Toolchain" is the dev toolchain version — these are intentionally different. Pre-1.0 breaking changes bump MINOR, not major (`.simple-release.js` cap); v1.0.0 requires an explicit forced bump.
-
-## Git Workflow
-
-- [Always commit with --signoff](feedback_git_signoff.md) — DCO CI check rejects commits without `Signed-off-by`
+- **`archgate` is not on PATH here** — this IS the CLI repo. Use `bun run cli <command>`.
+- **All ADR rule severities are `error`**, so any violation is a hard blocker.
+- **Pre-1.0 breaking changes bump MINOR, not major** (`.simple-release.js` cap); v1.0.0 needs an explicit forced bump.
+- **The npm shim must keep its `.cjs` extension** — root `package.json` is `"type": "module"`, so a `.js` shim parses as ESM and fails.
+- **Content filtering blocks policy/legal boilerplate** — generating a Contributor Covenant or license text can trip API filtering. Ask the user to copy it from the official source.
 
 ## Approach Guidance
 
-- [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock in tests (e.g. spyOn), never alter prod semantics for test isolation
-- [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — static syntax → custom oxlint rule; executable behavior → tests; cross-file/governance → ADR `.rules.ts`. Never write an ADR rule that only asserts implementation shape — `rules: false` is a valid outcome
-- [This repo is PUBLIC — no private sibling-repo internals, no Claude session links in PRs/commits](feedback_public_repo_privacy.md)
-- [Keep code comments and memory entries concise](feedback_concise_comments.md) — code side now machine-enforced by GEN-004 (oxlint `archgate/*` + `archgate check`); memory-entry conciseness still manual
-- [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — especially declined ones; a summary PR comment does not close the loop (recurring miss)
-- [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not logError + exitWith(1); the action's handleCommandError boundary does that
-- [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — describe current state; no "previously"/"rather than"/"shipped" framing, no pinned release version or drift-prone counts; git & package.json are the source of truth
-
-## Known Bugs
-
-- _(none currently)_
-
-## Platform Limitations
-
-- **Content filtering on policy/legal text** — Auto-generating Contributor Covenant/license boilerplate (e.g. `CODE_OF_CONDUCT.md`) can trigger API content filtering. Tell the user to copy it manually from the official source instead.
+- [Always commit with --signoff](feedback_git_signoff.md) — DCO CI rejects commits without `Signed-off-by`
+- [No prod changes for testability](feedback_no_prod_changes_for_tests.md) — mock in tests; never bend prod semantics for isolation
+- [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — syntax → oxlint rule; behavior → tests; governance → ADR rules; `rules: false` is valid
+- [This repo is PUBLIC](feedback_public_repo_privacy.md) — no private sibling-repo internals, no Claude session links in PRs or commits
+- [Keep comments and memory entries concise](feedback_concise_comments.md) — code side is machine-enforced by GEN-004; memory conciseness is manual
+- [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — especially declined ones; a summary comment does not close the loop
+- [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not `logError` + `exitWith(1)`
+- [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — no "previously"; no pinned versions or drift-prone counts
 
 ## Patterns & Fixes
 
-Non-enforceable lessons — environment/CI/platform quirks no static rule can reliably catch. (Conventions that ARE machine-checked live in their ADRs under `.archgate/adrs/`, so they're not duplicated here.)
+Environment, CI, and platform quirks no static rule catches. Machine-checked conventions live in their ADRs instead.
 
-- [oxlint rule gotchas + custom jsPlugins convention](project_oxlint_gotchas.md) — expect-expect plugin, array-callback-reference, unicode-regexp, prefer-regexp-test, no-negated-condition, catch-param, no-await-in-loop, ARCH-020 comment trigger, oxfmt-on-markdown
-- [Test isolation gotchas](project_test_isolation_gotchas.md) — mock.module process-global leakage, Bun.env leaking across test files, Windows git-credential/GCM isolation, bun:sqlite EBUSY, macOS /var symlink, don't test PATH tools
-- [Windows subprocess/path gotchas](project_windows_subprocess_gotchas.md) — Git Bash /tmp invisible to native tools, YAML backslash escaping, binary-upgrade `.old` cleanup, module-level `Bun.env` spread capture
-- [CI workflow gotchas](project_ci_workflow_gotchas.md) — GITHUB_TOKEN pushes don't trigger workflows, secrets vs vars namespaces, jq CRLF on Windows Git Bash
-- [Rules engine / command internals](project_rules_engine_internals.md) — Bun.Glob scan-vs-match semantics + ARCH-023 in-memory matching, pending .rules.ts load-cache follow-up, commander option hoisting, cross-command I/O sharing, reviewer-finding verification (hallucinated ADR citations AND misquoted file text), dogfood+fire-test workflow, scanner node-drop = silent scan gap (ARCH-024 cl.7) + z.unknown() non-optional + transpiler dead-code stripping
-- [session-context --skip 1 inline-skill bug](project_session_context_skip_root_fix.md) — opencode fixed via top-level default + `--root`; other editors fixed with plain command; includes opencode.db inspection technique
-- [CLI-skill flag sequencing across releases](project_cli_skill_flag_sequencing.md) — ship CLI first for flag additions, ship plugin promptly after for removals; installed lessons-learned skill v0.13.1 confirmed still broken
-- [PR review thread triage](project_pr_review_thread_triage.md) — REST API doesn't expose resolved state; use GraphQL `reviewThreads.isResolved` to find genuinely outstanding comments
-- [Release pipeline gotchas](project_release_pipeline_gotchas.md) — workflow-trigger race, moonrepo/setup-toolchain cache bug, update-check stdout pollution, publish-go-tag permissions
+- [Rules engine and AST internals](project_rules_engine_internals.md) — glob semantics, scanner/transpiler traps, per-run caches, rule authoring, reviewer verification
+- [ADR corpus maintenance](project_adr_corpus_maintenance.md) — the briefing budget, what's machine-load-bearing in an ADR, and why not to fabricate Consequences
+- [Stale context vs disk](project_stale_context_vs_disk.md) — the CLAUDE.md snapshot and a squash-merged branch both lie; verify against disk and `origin/main`
+- [oxlint rule gotchas](project_oxlint_gotchas.md) — custom `jsPlugins` convention and the rules that misfire on this codebase
+- [Test isolation gotchas](project_test_isolation_gotchas.md) — `mock.module` leaks process-wide, env vars leak across files, Windows/macOS flakiness
+- [Windows subprocess/path gotchas](project_windows_subprocess_gotchas.md) — Git Bash `/tmp` invisible to native tools, YAML escaping, binary-upgrade cleanup
+- [CI workflow gotchas](project_ci_workflow_gotchas.md) — `GITHUB_TOKEN` pushes don't trigger workflows, `secrets` vs `vars`, jq CRLF on Windows
+- [Release pipeline gotchas](project_release_pipeline_gotchas.md) — workflow-trigger race, toolchain cache bug, stdout pollution, publish-go-tag permissions
+- [Shim publishing gotchas](project_shim_publishing.md) — per-ecosystem packaging traps and advertised-vs-installable version lag
+- [session-context `--skip 1` inline-skill bug](project_session_context_skip_root_fix.md) — the `--root` fix, plus how to inspect `opencode.db`
+- [CLI-skill flag sequencing](project_cli_skill_flag_sequencing.md) — ship the CLI first when adding a flag, the plugin promptly when removing one
+- [PR review thread triage](project_pr_review_thread_triage.md) — REST hides resolved state; use the GraphQL `reviewThreads.isResolved` field
+- [CLI startup baselines](project_cli_perf_baselines.md) — the numbers behind the perf budgets, and how to spot a real regression
 
 ## Claude Code Harness Config
 
-- [Hooks config (`.claude/settings.json`)](project_claude_code_hooks_config.md) — WorktreeCreate contract (stdin JSON in, path-only stdout out) + the `"shell": "bash"` requirement for POSIX hooks
-- [WorktreeCreate hook bug history](project_worktree_create_hook_contract.md) — 5 rounds of fixes, re-test all of them if this hook changes
-- [Cursor Approval Agent is external, not in-repo](reference_cursor_approval_agent.md) — "Archgate CLI Approver" automation lives on cursor.com; no APPROVAL_POLICY.md/ROUTING.md exist in this repo
+- [Hooks config](project_claude_code_hooks_config.md) — the `WorktreeCreate` stdin/stdout contract and the `"shell": "bash"` requirement
+- [WorktreeCreate hook bug history](project_worktree_create_hook_contract.md) — 5 fixes worth re-testing if that hook changes
+- [Cursor Approval Agent is external](reference_cursor_approval_agent.md) — it lives on cursor.com; no policy files for it exist in this repo
 
 ## Translation Quality
 
-- [i18n translation quality checks](project_i18n_translation_quality.md) — nb/ + pt-br/ dual-locale requirement, Norwegian diacritical corruption patterns to scan for
-
-## Performance
-
-- [CLI startup baselines](project_cli_perf_baselines.md) — measured numbers behind the `cli-perf.test.ts` budgets, and how to tell a real regression from a slow runner
-
-## Validation Pipeline
-
-- `bun run validate` is the mandatory gate: lint → typecheck → format:check → test → ADR check → knip → build:check
-- All ADR rule severities are `error` (not `warning`) — violations are hard blockers
-- The pipeline is fail-fast — fix failures in order
-
-## CLI Repo Quirk
-
-- **`archgate` command = `bun run cli`** — This is the CLI repo itself, so the `archgate` binary is not installed in PATH. Use `bun run cli <command>` instead of `archgate <command>`.
-
-## Distribution / Packaging
-
-- **npm shim + GitHub Releases** — The npm package is a thin shim (`shims/npm/archgate.cjs`, wired via package.json `bin`/`files`) that downloads the platform binary on first run and caches it to `~/.archgate/bin/`. Verify the path against package.json `bin` before quoting.
-- **`.cjs` extension is mandatory** for the Node.js CJS shim wrapper — root `package.json` has `"type": "module"`, so `.js` gets parsed as ESM and fails.
-- [Shim publishing pipeline gotchas](project_shim_publishing.md) — PyPI README, RubyGem Rakefile/working-dir, Maven waitUntil, advertised-vs-installable version lag, Go module registration on pkg.go.dev
+- [i18n translation checks](project_i18n_translation_quality.md) — nb + pt-br parity, and the Norwegian corruption patterns to scan for

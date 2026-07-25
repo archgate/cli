@@ -1,11 +1,11 @@
 ---
 name: shim-publishing-pipeline
-description: Non-obvious build/publish requirements for the multi-ecosystem shims in publish-shims.yml (pypi, rubygem, maven) that `archgate check` does NOT catch
+description: Build/publish requirements for the multi-ecosystem shims in publish-shims.yml (pypi, rubygem, maven) that `archgate check` does NOT catch
 metadata:
   type: project
 ---
 
-`publish-shims.yml` publishes thin shim packages to PyPI, RubyGems, Maven Central, NuGet, and Go. Each ecosystem has build-time requirements that no archgate rule enforces (ARCH-013's `shim-version-sync` only checks version strings) — so a green `archgate check` does NOT mean the shims will publish. These are external-tool config (hatchling, bundler, Sonatype central-publishing plugin) and breakage only surfaces at release time.
+`publish-shims.yml` publishes thin shim packages to PyPI, RubyGems, Maven Central, NuGet, and Go. Each ecosystem has build-time requirements that no archgate rule enforces (ARCH-013's `shim-version-sync` only checks version strings) — a green `archgate check` does NOT mean the shims will publish. These are external-tool config (hatchling, bundler, Sonatype central-publishing plugin) and breakage only surfaces at release time.
 
 **When editing any shim under `shims/` or `publish-shims.yml`:**
 

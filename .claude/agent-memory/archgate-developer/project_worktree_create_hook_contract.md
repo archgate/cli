@@ -1,13 +1,13 @@
 ---
 name: project-worktree-create-hook-contract
-description: WorktreeCreate hook contract (stdin JSON in, path-only stdout out) and the 5 rounds of bugs found fixing it
+description: WorktreeCreate hook contract (stdin JSON in, path-only stdout out) and the 5 bugs found fixing it
 metadata:
   type: project
 ---
 
 Once `hooks.WorktreeCreate` is configured in `.claude/settings.json`, the harness defers the **entire** worktree creation to it — no parallel automatic git worktree creation happens. Contract: hook receives `{"cwd","name","session_id",...}` on **stdin**, and must print ONLY the final absolute worktree path as its last stdout line — any other stdout (unsilenced `bun install`/`git worktree add` banners) gets misread as the path and corrupts session state. Redirect all setup output to `>&2`.
 
-See [CLAUDE.md](../../../CLAUDE.md) "Claude Code Harness Config" for the current, correct hook implementation. Do not simplify it back to a bare `bun install` — that regression is exactly what broke it originally (21 stale empty worktree dirs found from the old broken version).
+See [[project_claude_code_hooks_config]] for the current, correct hook implementation. Do not simplify it back to a bare `bun install` — that regression is what broke it originally (21 stale empty worktree dirs from the old version).
 
 **Bugs found fixing it (all true positives, all confirmed by reproduction before fixing — reproduce Bugbot/reviewer findings against the real script, don't just reason about the code):**
 
