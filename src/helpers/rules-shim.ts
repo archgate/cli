@@ -272,7 +272,9 @@ declare interface RuleContext {
   /**
    * Read a YAML file or a Markdown file with YAML frontmatter, returning one
    * \`ReadYamlResult\` object covering both: a nullable \`frontmatter\`
-   * mapping and an \`unknown\` \`content\`.
+   * mapping and a \`content\` typed as \`YamlValue\` — the JSON-like data
+   * YAML's core schema produces, so a \`typeof\` check is enough to index
+   * into mappings and sequences without a cast.
    *
    * Dispatch is extension-based. \`.yml\`/\`.yaml\` files parse as one YAML
    * document (\`frontmatter: null\`, \`content\` = the parsed value); a

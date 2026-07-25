@@ -268,12 +268,14 @@ export interface RuleContext {
   /**
    * Read a YAML file or a Markdown file with YAML frontmatter, returning one
    * {@link ReadYamlResult} object covering both: a nullable `frontmatter`
-   * mapping and an `unknown` `content`.
+   * mapping and a `content` typed as {@link YamlValue} — the JSON-like data
+   * YAML's core schema produces, so a `typeof` check is enough to index into
+   * mappings and sequences without a cast.
    *
    * Dispatch is extension-based. `.yml`/`.yaml` files parse as one YAML
-   * document (`frontmatter: null`, `content` = the parsed value — cast to
-   * the expected shape, as with `readJSON`); a multi-document stream's `---`
-   * separators are therefore never misread as frontmatter. Every other file
+   * document (`frontmatter: null`, `content` = the parsed value); a
+   * multi-document stream's `---` separators are therefore never misread as
+   * frontmatter. Every other file
    * parses its leading `---`-delimited block as `frontmatter` — `null` when
    * absent ("does this file have frontmatter?" is one null test, mirroring
    * `fileAtBase`), `{}` when empty — with the remaining body text (trimmed,

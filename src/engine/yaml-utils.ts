@@ -8,15 +8,21 @@ import type { ReadYamlResult, YamlValue } from "../formats/rules";
  * first), and BOTH fences must be a bare `---` occupying their whole line
  * (trailing spaces/tabs tolerated).
  *
- * Anchoring the closing fence to the line end is deliberate: a bare `\n---`
- * match would accept `----` or `---note` as the terminator, silently parsing
- * a truncated block and leaving the stray characters at the head of the body.
- * This is marginally stricter than `parseAdr`'s regex in
- * src/formats/adr.ts — the two agree on every well-formed file and differ
- * only on malformed fences, where this one reports "no frontmatter" rather
- * than parsing a partial block.
+ * Anchoring the closing fence to the line end is deliberate: it keeps `----`
+ * and `---note` from acting as the terminator, which would parse a truncated
+ * block and leave the stray characters at the head of the body. This is
+ * marginally stricter than `parseAdr`'s regex in src/formats/adr.ts — the two
+ * agree on every well-formed file and differ only on malformed fences, where
+ * this one reports "no frontmatter" rather than parsing a partial block.
+ *
+ * The body group is OPTIONAL so a fully empty block (`---` immediately
+ * followed by `---`, with no line between) matches and yields `{}`, per the
+ * documented contract. A required `\r?\n` before the closing fence would
+ * instead report "no frontmatter" and leave both delimiters in the body.
+ * `match[1]` is `undefined` in that case — callers must coalesce.
  */
-const FRONTMATTER_REGEX = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/u;
+const FRONTMATTER_REGEX =
+  /^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?---[ \t]*(?:\r?\n|$)/u;
 
 /** Extensions parsed as whole YAML documents rather than frontmatter+body. */
 const YAML_EXTENSIONS = [".yml", ".yaml"];
@@ -93,7 +99,9 @@ export function parseYamlDocument(
   if (!match) return { frontmatter: null, content: text.trim() };
 
   return {
-    frontmatter: parseFrontmatterBlock(match[1], relPath),
+    // `?? ""` covers a fully empty block, where the optional body group did
+    // not participate in the match and `match[1]` is undefined.
+    frontmatter: parseFrontmatterBlock(match[1] ?? "", relPath),
     content: text.slice(match[0].length).trim(),
   };
 }

@@ -103,6 +103,27 @@ describe("parseYamlDocument — frontmatter files (everything else)", () => {
     expect(result.content).toBe("Body");
   });
 
+  test("returns {} for a FULLY empty block with no line between fences", () => {
+    // `---\n---` is the degenerate empty block. Distinct from the case above,
+    // which has a blank line the body group can capture — testing only that
+    // variant hides a required-newline-before-the-closing-fence bug.
+    const result = parseYamlDocument("---\n---\nBody\n", "doc.md");
+    expect(result.frontmatter).toEqual({});
+    expect(result.content).toBe("Body");
+  });
+
+  test("returns {} for a fully empty block at end of input", () => {
+    const result = parseYamlDocument("---\n---", "doc.md");
+    expect(result.frontmatter).toEqual({});
+    expect(result.content).toBe("");
+  });
+
+  test("returns {} for a fully empty block with CRLF endings", () => {
+    const result = parseYamlDocument("---\r\n---\r\nBody\r\n", "doc.md");
+    expect(result.frontmatter).toEqual({});
+    expect(result.content).toBe("Body");
+  });
+
   test("body content is never parsed as YAML (no spurious throw)", () => {
     const md = "---\ntitle: x\n---\nkey: [unclosed looks like bad YAML\n";
     expect(parseYamlDocument(md, "doc.md").content).toBe(
