@@ -13,7 +13,7 @@ Two exceptions to steps 2–3: minor follow-up tweaks after validation already p
 ## Repo Facts Not Derivable From CLAUDE.md
 
 - **`archgate` is not on PATH here** — this IS the CLI repo. Use `bun run cli <command>`.
-- **ADR rules are `error` severity by default, so a violation is a hard blocker** — but `warning`-severity rules exist (`GEN-005/briefing-budget`) and report without blocking. Check the severity before treating a finding as a merge blocker.
+- **ADR rule violations are hard blockers, but `archgate check` also emits non-blocking diagnostics** — `[suppression]` and `[briefing]` lines are built-in advisories, not rule failures, and never affect `pass`. Check what kind of finding you have before treating it as a merge blocker.
 - **Pre-1.0 breaking changes bump MINOR, not major** (`.simple-release.js` cap); v1.0.0 needs an explicit forced bump.
 - **The npm shim must keep its `.cjs` extension** — root `package.json` is `"type": "module"`, so a `.js` shim parses as ESM and fails.
 - **Content filtering blocks policy/legal boilerplate** — generating a Contributor Covenant or license text can trip API filtering. Ask the user to copy it from the official source.

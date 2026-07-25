@@ -22,6 +22,19 @@ export interface ReportSummary {
   suppressed: number;
   /** Warnings from the suppression system (missing reason, unused suppression). */
   suppressionWarnings: Array<{ message: string; file: string; line: number }>;
+  /**
+   * ADR sections that exceed the briefing cap, so `review-context --verbose`
+   * hides part of them from the agents those ADRs govern. Advisory: an ADR
+   * whose section cannot shrink without losing a normative clause is expected
+   * to exceed it, so these never affect `pass`.
+   */
+  briefingWarnings: Array<{
+    adrId: string;
+    file: string;
+    section: string;
+    length: number;
+    cap: number;
+  }>;
   results: Array<{
     adrId: string;
     ruleId: string;
@@ -145,6 +158,7 @@ export function buildSummary(
     warningsExceeded,
     truncated: anyTruncated,
     suppressed: result.suppressedCount ?? 0,
+    briefingWarnings: result.briefingWarnings ?? [],
     suppressionWarnings: (result.suppressionWarnings ?? []).map((w) => ({
       message: w.message,
       file: w.file,
@@ -216,6 +230,12 @@ export function reportConsole(
     const loc = w.line ? `${w.file}:${w.line}` : w.file;
     console.log(
       `    ${styleText("yellow", "[suppression]")} ${w.message} ${styleText("dim", loc)}`
+    );
+  }
+
+  for (const w of summary.briefingWarnings) {
+    console.log(
+      `    ${styleText("yellow", "[briefing]")} ${w.adrId} "${w.section}" is ${w.length} chars; review-context truncates at ${w.cap}, hiding ${w.length - w.cap} from agent briefings ${styleText("dim", w.file)}`
     );
   }
 
@@ -315,6 +335,12 @@ export function reportCI(
     const linePart = w.line ? `,line=${w.line}` : "";
     console.log(
       `::warning${filePart}${linePart} title=suppression::${w.message}`
+    );
+  }
+
+  for (const w of summary.briefingWarnings) {
+    console.log(
+      `::warning file=${w.file} title=briefing-budget::${w.adrId} "${w.section}" is ${w.length} chars; review-context truncates at ${w.cap}`
     );
   }
 

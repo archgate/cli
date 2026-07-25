@@ -2,6 +2,12 @@
 // Copyright 2026 Archgate
 import type { AdrDocument, AdrDomain } from "../formats/adr";
 import {
+  BRIEFED_SECTIONS,
+  DEFAULT_MAX_SECTION_CHARS,
+  extractAdrSections,
+  truncateSection,
+} from "./adr-sections";
+import {
   getChangedFiles,
   getFilesChangedSinceRef,
   getStagedFiles,
@@ -48,74 +54,11 @@ interface ReviewContext {
   checkSummary: ReportSummary | null;
 }
 
-/**
- * Extract named ## sections from ADR markdown body.
- * Missing sections map to empty strings. Matching is case-insensitive.
- */
-export function extractAdrSections(
-  body: string,
-  sectionNames: string[]
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const name of sectionNames) result[name] = "";
-
-  const lines = body.split("\n");
-  let currentSection: string | null = null;
-  const sectionLines: string[] = [];
-
-  const flushSection = () => {
-    if (currentSection !== null) {
-      const lowerName = currentSection.toLowerCase();
-      for (const name of sectionNames) {
-        if (name.toLowerCase() === lowerName) {
-          result[name] = sectionLines.join("\n").trim();
-          break;
-        }
-      }
-    }
-    sectionLines.length = 0;
-  };
-
-  for (const line of lines) {
-    const headingMatch = line.match(/^## (.+)$/u);
-    if (headingMatch) {
-      flushSection();
-      currentSection = headingMatch[1].trim();
-      continue;
-    }
-    sectionLines.push(line);
-  }
-  flushSection();
-  return result;
-}
-
 interface BriefAdrOptions {
   /** Max chars per section. 0 = unlimited. Default: 2000. */
   maxSectionChars?: number;
   /** Include Decision and Do's/Don'ts prose. Default: false (ARCH-003 §7). */
   briefings?: boolean;
-}
-
-const DEFAULT_MAX_SECTION_CHARS = 2000;
-
-/**
- * Truncate content to maxChars, appending a pointer to the full ADR.
- *
- * @returns The (possibly cut) text and whether anything was removed. Callers
- * surface the flag so hidden context is never silent.
- */
-function truncateSection(
-  content: string,
-  adrId: string,
-  maxChars: number
-): { text: string; truncated: boolean } {
-  if (maxChars <= 0 || content.length <= maxChars) {
-    return { text: content, truncated: false };
-  }
-  return {
-    text: `${content.slice(0, maxChars)}\n\n[... truncated — read full ADR via adr://${adrId}]`,
-    truncated: true,
-  };
 }
 
 /**
@@ -140,10 +83,7 @@ export function briefAdr(
   if (!options?.briefings) return briefing;
 
   const maxChars = options?.maxSectionChars ?? DEFAULT_MAX_SECTION_CHARS;
-  const sections = extractAdrSections(adr.body, [
-    "Decision",
-    "Do's and Don'ts",
-  ]);
+  const sections = extractAdrSections(adr.body, BRIEFED_SECTIONS);
   const decision = truncateSection(sections["Decision"], id, maxChars);
   const dosAndDonts = truncateSection(
     sections["Do's and Don'ts"],
@@ -251,6 +191,7 @@ const EMPTY_SUMMARY: ReportSummary = {
   truncated: false,
   suppressed: 0,
   suppressionWarnings: [],
+  briefingWarnings: [],
   results: [],
   durationMs: 0,
 };

@@ -125,6 +125,22 @@ Durante a execução, `archgate check` emite avisos para configurações incorre
 
 Esses avisos aparecem na saída padrão e não afetam o código de saída. Eles também aparecem na saída JSON quando `--json` é usado (como violações com `"severity": "warning"`).
 
+### Orçamento do resumo
+
+`archgate review-context --verbose` incorpora as seções **Decision** e **Do's and Don'ts** de cada ADR aplicável e trunca cada uma delas em um limite fixo de caracteres. O texto além desse ponto nunca chega ao agente que o ADR governa, e nenhuma regra companheira consegue detectá-lo — regras medem código, não o texto do próprio ADR.
+
+Portanto, `archgate check` relata toda seção de ADR que excede o limite, em todos os ADRs, inclusive os com `rules: false`:
+
+```
+[briefing] ARCH-024 "Decision" is 3574 chars; review-context truncates at 2000, hiding 1574 from agent briefings
+```
+
+As mesmas entradas aparecem na saída JSON em `briefingWarnings`, com `adrId`, `file`, `section`, `length` e `cap`.
+
+Elas são **consultivas e nunca afetam `pass`**. Um ADR cuja seção não pode encolher sem perder uma cláusula normativa — uma lista enumerada de identificadores, uma barreira de proteção ordenada, uma isenção — deve mesmo exceder o limite. Quando isso ocorrer, registre o motivo na seção Compliance do próprio ADR e organize a seção para que o conteúdo mais normativo venha antes do corte, já que o truncamento sempre remove o final.
+
+Para reduzir um excesso: mova justificativas para Context ou Consequences, que nunca entram no resumo e portanto nunca têm limite; remova narrativa histórica; e mescle regras duplicadas.
+
 Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"severity": "warning"`) nunca alteram o código de saída. Passe `--max-warnings <n>` para fazer `archgate check` sair com código 1 quando a contagem total de avisos exceder `n`. `--max-warnings 0` falha com qualquer aviso. Quando o limite é excedido, o campo `warningsExceeded` da saída JSON é `true` e `pass` é `false`.
 
 ## Formato da saída JSON

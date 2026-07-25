@@ -4169,6 +4169,22 @@ During execution, `archgate check` emits warnings for common misconfigurations t
 
 These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--json` is used (as violations with `"severity": "warning"`).
 
+### Briefing budget
+
+`archgate review-context --verbose` embeds each applicable ADR's **Decision** and **Do's and Don'ts** sections and truncates each one at a fixed character cap. Prose past that point never reaches the agent the ADR governs, and no companion rule can detect it — rules measure code, not the ADR's own prose.
+
+`archgate check` therefore reports every ADR section that exceeds the cap, across all ADRs including those with `rules: false`:
+
+```
+[briefing] ARCH-024 "Decision" is 3574 chars; review-context truncates at 2000, hiding 1574 from agent briefings
+```
+
+The same entries appear in JSON output under `briefingWarnings`, with `adrId`, `file`, `section`, `length`, and `cap`.
+
+These are **advisory and never affect `pass`**. An ADR whose section cannot shrink without dropping a normative clause — an enumerated identifier list, an ordered guardrail, an exemption — is expected to exceed the cap. Where that happens, record why in the ADR's own Compliance section and order the section so its most normative content precedes the cut, since truncation always removes the tail.
+
+To reduce an overflow: move rationale into Context or Consequences, which are never briefed and therefore never capped; drop historical narration; and merge duplicate rules.
+
 By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--max-warnings <n>` to make `archgate check` exit 1 when the total warning count exceeds `n`. `--max-warnings 0` fails on any warning. When the threshold is exceeded the JSON output's `warningsExceeded` field is `true` and `pass` is `false`.
 
 ## JSON output format

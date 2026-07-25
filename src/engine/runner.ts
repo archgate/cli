@@ -17,6 +17,10 @@ import type {
 } from "../formats/rules";
 import { logDebug, logWarn } from "../helpers/log";
 import {
+  type BriefingBudgetWarning,
+  collectBriefingBudgetWarnings,
+} from "./adr-sections";
+import {
   AST_LANGUAGE_EXTENSIONS,
   PYTHON_AST_PROGRAM,
   PYTHON_AST_WITH_COMMENTS_PROGRAM,
@@ -47,7 +51,7 @@ import {
 } from "./git-files";
 import { listMatchingFiles, matchLines } from "./glob-utils";
 import { parseTsOrJsSource } from "./js-parser";
-import { type LoadResult, blockedToRuleResult } from "./loader";
+import { type LoadResult, blockedToRuleResult, parseAllAdrs } from "./loader";
 import { isWithinRoot, resolveUserPath, safePath } from "./safe-path";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
 import { parseYamlDocument } from "./yaml-utils";
@@ -84,6 +88,8 @@ export interface CheckResult {
   totalDurationMs: number;
   suppressedCount?: number;
   suppressionWarnings?: SuppressionWarning[];
+  /** ADR sections that `review-context --verbose` would truncate. */
+  briefingWarnings?: BriefingBudgetWarning[];
 }
 
 function createRuleContext(
@@ -567,10 +573,23 @@ export async function runChecks(
     }
   }
 
+  // Measured over EVERY ADR, not just those with rules: an ADR that governs by
+  // prose alone is still briefed, and is still truncated when oversized.
+  const briefingWarnings = collectBriefingBudgetWarnings(
+    (await parseAllAdrs(projectRoot)).map((entry) => entry.adr)
+  ).map((w) => ({
+    adrId: w.adrId,
+    file: relative(projectRoot, w.file).replaceAll("\\", "/"),
+    section: w.section,
+    length: w.length,
+    cap: w.cap,
+  }));
+
   return {
     results,
     totalDurationMs: performance.now() - startTime,
     suppressedCount: suppression.suppressedCount,
     suppressionWarnings: suppression.warnings,
+    briefingWarnings,
   };
 }

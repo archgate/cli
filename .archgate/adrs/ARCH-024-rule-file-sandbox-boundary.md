@@ -148,7 +148,7 @@ Code reviewers MUST verify, for any PR touching `src/engine/rule-scanner.ts`, `s
 
 Any proposal to widen `ALLOWED_MODULES` beyond `node:`-prefixed specifiers, to follow imports transitively rather than refuse them, or to remove the import-time scan in `writeImportedAdrs()` MUST be documented as a separate ADR and approved by the project maintainer before implementation. Moving `.rules.ts` execution into a real sandbox (worker, subprocess, or restricted-resolver VM) is the sanctioned direction for strengthening this boundary and likewise warrants its own ADR — it would change the nature of the guarantee, not just its coverage.
 
-**Documented briefing-budget overflow ([GEN-005](./GEN-005-adr-briefing-budget.md)):** the `Decision` and `Do's and Don'ts` sections exceed the `review-context` briefing cap and MUST NOT be shortened further. Both enumerate identifiers whose omission would change what this ADR governs: the banned-global list, the five `.constructor` spellings, the `AstNodeSchema` field names, the four allowed module forms, and the seven numbered clauses cited by ID elsewhere in the repository. Consumers reading a truncated briefing MUST open the full ADR.
+**Documented briefing-budget overflow** (reported by rchgate check)**:** the `Decision` and `Do's and Don'ts` sections exceed the `review-context` briefing cap and MUST NOT be shortened further. Both enumerate identifiers whose omission would change what this ADR governs: the banned-global list, the five `.constructor` spellings, the `AstNodeSchema` field names, the four allowed module forms, and the seven numbered clauses cited by ID elsewhere in the repository. Consumers reading a truncated briefing MUST open the full ADR.
 
 ## References
 

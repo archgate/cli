@@ -5,8 +5,8 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { extractAdrSections } from "../../src/engine/adr-sections";
 import {
-  extractAdrSections,
   briefAdr,
   matchFilesToAdrs,
   buildReviewContext,

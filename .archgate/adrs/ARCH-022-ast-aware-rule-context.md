@@ -160,7 +160,7 @@ Code reviewers MUST verify, for any PR implementing or modifying `ctx.ast()`:
 
 Any proposal to add a bundled multi-language parser (tree-sitter, WASM grammars, or otherwise) to broaden `ctx.ast()`'s guarantees beyond this ADR's scope MUST be documented as a separate ADR, reviewed against [ARCH-006](./ARCH-006-dependency-policy.md)'s dependency-approval process, and approved by the project maintainer before implementation begins.
 
-**Documented briefing-budget overflow ([GEN-005](./GEN-005-adr-briefing-budget.md)):** the `Decision` and `Do's and Don'ts` sections exceed the `review-context` briefing cap and MUST NOT be shortened further. They carry a security boundary that degrades if partially stated: the four ordered guardrails and their marker names, the `-I` isolation invariant, the `assertNoSymlinkInPath` exemptions, the temp-file hardening modes, and the per-language comment serializer contracts. The `Decision` is front-loaded so a truncated briefing still delivers the guardrail sequence; consumers MUST open the full ADR for the rest.
+**Documented briefing-budget overflow** (reported by rchgate check)**:** the `Decision` and `Do's and Don'ts` sections exceed the `review-context` briefing cap and MUST NOT be shortened further. They carry a security boundary that degrades if partially stated: the four ordered guardrails and their marker names, the `-I` isolation invariant, the `assertNoSymlinkInPath` exemptions, the temp-file hardening modes, and the per-language comment serializer contracts. The `Decision` is front-loaded so a truncated briefing still delivers the guardrail sequence; consumers MUST open the full ADR for the rest.
 
 ## References
 

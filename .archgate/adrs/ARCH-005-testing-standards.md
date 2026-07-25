@@ -190,7 +190,7 @@ Code reviewers MUST verify:
 
 ### Exceptions
 
-**Documented briefing-budget overflow ([GEN-005](./GEN-005-adr-briefing-budget.md)):** the `Do's and Don'ts` section exceeds the `review-context` briefing cap. The section is ordered so the `Decision` and all ten `**DO**` items fit inside the window; the overflow is the `**DON'T**` list, where each item is the terse inverse of a visible Do or of a Decision convention. Shortening it further would drop a distinct anti-pattern, so the overflow stands and consumers MUST open the full ADR for the Don'ts.
+**Documented briefing-budget overflow** (reported by rchgate check)**:** the `Do's and Don'ts` section exceeds the `review-context` briefing cap. The section is ordered so the `Decision` and all ten `**DO**` items fit inside the window; the overflow is the `**DON'T**` list, where each item is the terse inverse of a visible Do or of a Decision convention. Shortening it further would drop a distinct anti-pattern, so the overflow stands and consumers MUST open the full ADR for the Don'ts.
 
 ## References
 
