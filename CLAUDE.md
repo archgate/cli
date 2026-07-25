@@ -45,13 +45,11 @@ Opt out of a specific hook: `git config --local hook.<name>.enabled false`. Skip
 
 ## Agent Memory
 
-Claude Code sessions in this repo maintain persistent memory at `.claude/agent-memory/archgate-developer/` (index: `MEMORY.md`). Operational gotchas that are incident history rather than standing conventions live there instead of here, including:
+Claude Code sessions in this repo keep a small persistent memory at `.claude/agent-memory/archgate-developer/` (index: `MEMORY.md`).
 
-- GitHub Actions `secrets.*` vs `vars.*` namespace confusion
-- Release pipeline gotchas (workflow-trigger races, toolchain cache bugs, update-check stdout pollution)
-- Claude Code hooks config for `.claude/settings.json` (the `WorktreeCreate` contract, the `"shell": "bash"` requirement for POSIX hooks)
+It is deliberately small. Governance lives in ADRs, companion `.rules.ts`, the oxlint plugins in `lint/`, and the test suite — all re-validated on every `bun run validate`. Memory holds only what no check can reach: Claude Code harness behaviour, GitHub state, external-tool quirks, and the agent's own working process. Anything a rule could enforce belongs in the rule, which stays true; a memory entry is validated by nobody and rots silently.
 
-If you're a memory-equipped agent, consult that index when working in these areas. If you're a fresh session, contributor, or tool without access to it, the same facts are recoverable from git history and the referenced source files (`.github/workflows/release.yml`, `publish-shims.yml`, `release-binaries.yml`, `src/helpers/update-check.ts`, `.claude/settings.json`).
+Before adding an entry, ask whether a rule, a test, or an ADR clause could carry it instead. Nothing here is required reading for contributors or tools without access to it.
 
 ## Architecture
 

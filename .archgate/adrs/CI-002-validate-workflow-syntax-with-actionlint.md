@@ -120,6 +120,6 @@ None. If `actionlint` produces a false positive for a legitimate, GitHub-support
 - [CI-001: Pin GitHub Actions by Commit SHA](./CI-001-pin-github-actions-by-hash.md) — governs `uses:` reference pinning; this ADR applies the same reproducibility principle to a non-`uses:` script fetch
 - [GEN-003: Tool Invocation via Package Scripts](./GEN-003-tool-invocation-via-scripts.md) — governs this project's own JS/TS toolchain invocation; does not apply to external CI-only tooling like `actionlint`
 - [ARCH-006: Dependency Policy](./ARCH-006-dependency-policy.md) — general project minimalism philosophy informing the rejection of a wrapper Action in favor of direct binary installation
-- `.claude/agent-memory/archgate-developer/project_release_pipeline_gotchas.md` — records the motivating incident and its correction
+- `.github/workflows/` — the pinned actionlint invocation and its checksum verification
 - [rhysd/actionlint](https://github.com/rhysd/actionlint) — the tool itself
 - [GitHub Actions workflow syntax — `permissions`](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax) — the authoritative schema `actionlint` validates against

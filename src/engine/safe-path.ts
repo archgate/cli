@@ -67,7 +67,7 @@ function realRootOf(resolvedRoot: string): string {
  *
  * @throws {UserError} When a component resolves outside the project root.
  * @see ARCH-022 — why the walk stops at the root
- * @see .claude/agent-memory/archgate-developer/project_rules_engine_internals.md — why both sides are realpath'd
+ * @see realRootOf — why both sides are realpath'd rather than compared lexically
  */
 function assertNoEscapingSymlink(
   resolvedRoot: string,

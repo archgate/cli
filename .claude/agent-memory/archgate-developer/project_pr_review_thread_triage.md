@@ -1,13 +1,11 @@
 ---
 name: project-pr-review-thread-triage
-description: How to distinguish already-resolved vs genuinely outstanding PR review comments — REST API doesn't expose resolution state
+description: Find genuinely outstanding PR review comments — the REST API does not expose thread resolution state, only GraphQL does
 metadata:
   type: project
 ---
 
-**`gh api repos/<owner>/<repo>/pulls/<n>/comments` (REST) does NOT expose whether a review comment thread is resolved.** A stale CodeRabbit/reviewer comment from an earlier commit stays in that endpoint's output forever, indistinguishable from a live, unaddressed one — reading it naively re-litigates already-fixed findings.
-
-**Fix: use the GraphQL `reviewThreads` field**, which has `isResolved` and `isOutdated`:
+The REST API does not report whether a review thread is resolved, so `gh pr view --json comments` lists finished threads as if they were open. Use the GraphQL `reviewThreads` field and filter on `isResolved`:
 
 ```bash
 gh api graphql -f query='
@@ -27,7 +25,3 @@ query {
   }
 }'
 ```
-
-Filter to `isResolved: false` for what actually still needs addressing. `isOutdated: true` alone does NOT mean resolved — a thread can be outdated (the line moved) but still unresolved if nobody marked it fixed.
-
-**How to apply:** before acting on "there are still outstanding comments," run this query first. Don't re-fix findings a prior commit already addressed, and don't miss ones marked outdated-but-unresolved.
