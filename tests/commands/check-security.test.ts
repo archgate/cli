@@ -14,20 +14,59 @@ import { join } from "node:path";
 import { loadRuleAdrs } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 
+/**
+ * Whether this platform/account can create a link of the given kind. Windows
+ * allows directory junctions unprivileged but needs elevation for file
+ * symlinks, so the two are probed separately.
+ */
+function canLink(kind: "dir" | "file"): boolean {
+  const probe = mkdtempSync(join(tmpdir(), "archgate-linkprobe-"));
+  try {
+    if (kind === "dir") {
+      symlinkSync(probe, join(probe, "link"), "junction");
+    } else {
+      writeFileSync(join(probe, "f.txt"), "x");
+      symlinkSync(join(probe, "f.txt"), join(probe, "link.txt"));
+    }
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(probe, { recursive: true, force: true });
+  }
+}
+
+const DIR_LINKS = canLink("dir");
+const FILE_LINKS = canLink("file");
+
 describe("check command security", () => {
   let tempDir: string;
   let adrsDir: string;
+  let outsideDirs: string[];
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-check-sec-"));
     adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });
     mkdirSync(join(tempDir, "src"), { recursive: true });
+    outsideDirs = [];
   });
 
+  // Cleanup runs here, not after each assertion: a failing expect() throws
+  // immediately, so a trailing rmSync would be skipped and leak the dir.
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
+    for (const dir of outsideDirs) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
+
+  /** A temp directory outside the project root, removed in afterEach. */
+  function makeOutsideDir(): string {
+    const dir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
+    outsideDirs.push(dir);
+    return dir;
+  }
 
   const adrTemplate = (id: string) =>
     `---\nid: ${id}\ntitle: Security Test\ndomain: general\nrules: true\n---\n`;
@@ -146,25 +185,19 @@ describe("check command security", () => {
     expect(result.results[0].error).toContain("access denied");
   });
 
-  test("blocks symlink to file outside project", async () => {
-    const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
-    writeFileSync(join(outsideDir, "secret.txt"), "sensitive data");
-
-    // Create a symlink inside the project pointing outside
-    try {
+  test.skipIf(!FILE_LINKS)(
+    "blocks symlink to file outside project",
+    async () => {
+      const outsideDir = makeOutsideDir();
+      writeFileSync(join(outsideDir, "secret.txt"), "sensitive data");
       symlinkSync(
         join(outsideDir, "secret.txt"),
         join(tempDir, "src", "linked.txt")
       );
-    } catch {
-      // Symlink creation may fail on Windows without admin privileges — skip
-      rmSync(outsideDir, { recursive: true, force: true });
-      return;
-    }
 
-    writeAdrAndRule(
-      "SEC-006",
-      `export default {
+      writeAdrAndRule(
+        "SEC-006",
+        `export default {
   rules: {
     "read-symlink": {
       description: "Attempt to read symlinked file",
@@ -175,36 +208,29 @@ describe("check command security", () => {
   },
 };
 `
-    );
+      );
 
-    const loaded = await loadRuleAdrs(tempDir);
-    const result = await runChecks(tempDir, loaded);
-    expect(result.results[0].error).toContain("symbolic link");
-
-    rmSync(outsideDir, { recursive: true, force: true });
-  });
-
-  test("blocks reads that tunnel out through a symlinked ancestor directory", async () => {
-    // The leaf here is an ordinary file — only an ANCESTOR is the symlink, so
-    // a leaf-only lstat reports "not a link" while the OS still resolves the
-    // real path outside the project and reads it.
-    const outsideDir = mkdtempSync(join(tmpdir(), "archgate-outside-"));
-    writeFileSync(join(outsideDir, "secret.txt"), "sensitive data");
-
-    try {
-      // "junction" is ignored on POSIX (plain symlink) but on Windows creates
-      // a directory junction, which needs no admin privileges and which
-      // lstat() reports as a symbolic link — so unlike the file-symlink test
-      // above, this case runs for real on every platform instead of skipping.
-      symlinkSync(outsideDir, join(tempDir, "src", "linkdir"), "junction");
-    } catch {
-      rmSync(outsideDir, { recursive: true, force: true });
-      return;
+      const loaded = await loadRuleAdrs(tempDir);
+      const result = await runChecks(tempDir, loaded);
+      expect(result.results[0].error).toContain("symbolic link");
     }
+  );
 
-    writeAdrAndRule(
-      "SEC-007",
-      `export default {
+  test.skipIf(!DIR_LINKS)(
+    "blocks reads that tunnel out through a symlinked ancestor directory",
+    async () => {
+      // The leaf here is an ordinary file — only an ANCESTOR is the symlink, so
+      // a leaf-only lstat reports "not a link" while the OS still resolves the
+      // real path outside the project and reads it.
+      const outsideDir = makeOutsideDir();
+      writeFileSync(join(outsideDir, "secret.txt"), "sensitive data");
+      // "junction" is ignored on POSIX; on Windows it needs no elevation and
+      // lstat reports it as a symlink, so this runs on every platform.
+      symlinkSync(outsideDir, join(tempDir, "src", "linkdir"), "junction");
+
+      writeAdrAndRule(
+        "SEC-007",
+        `export default {
   rules: {
     "read-through-symlinked-dir": {
       description: "Attempt to read a real file via a symlinked parent",
@@ -215,15 +241,14 @@ describe("check command security", () => {
   },
 };
 `
-    );
+      );
 
-    const loaded = await loadRuleAdrs(tempDir);
-    const result = await runChecks(tempDir, loaded);
-    expect(result.results[0].error).toContain("access denied");
-    expect(result.results[0].error).toContain("symbolic link");
-
-    rmSync(outsideDir, { recursive: true, force: true });
-  });
+      const loaded = await loadRuleAdrs(tempDir);
+      const result = await runChecks(tempDir, loaded);
+      expect(result.results[0].error).toContain("access denied");
+      expect(result.results[0].error).toContain("symbolic link");
+    }
+  );
 
   test("allows reads under real nested directories (no false positives)", async () => {
     // Guards the ancestor walk against over-rejecting: a deep, entirely real

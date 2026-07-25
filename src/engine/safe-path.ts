@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { lstatSync } from "node:fs";
+import { lstatSync, realpathSync } from "node:fs";
 import { resolve, isAbsolute, join, relative } from "node:path";
 
 import { UserError } from "../helpers/user-error";
@@ -31,23 +31,45 @@ export function isWithinRoot(resolvedRoot: string, absPath: string): boolean {
 }
 
 /**
- * Directories verified as real (non-symlink), memoized per process: safePath
- * runs once per glob result and siblings share every ancestor, so without this
- * the walk below re-lstats the same directories thousands of times per run.
+ * Real (non-symlink) components already verified, memoized per process:
+ * safePath runs once per glob result and siblings share every ancestor.
+ * Symlinks are never stored — they are re-resolved on every access. Nested per
+ * root, since a link leaving root A may land inside an enclosing root B.
  */
-const verifiedRealDirs = new Set<string>();
+const verifiedComponents = new Map<string, Set<string>>();
+
+/** Project roots resolved through `realpath`, memoized per process. */
+const realRoots = new Map<string, string>();
 
 /**
- * Reject a symlink anywhere in the path below the project root — the leaf OR
- * any ancestor, since a linked ancestor makes the leaf look like an ordinary
- * file to both `isWithinRoot` and a leaf `lstat`. Components at or above the
- * root are deliberately not inspected, and each test is a boolean `lstat`
- * rather than a `realpath` comparison.
- *
- * @throws {UserError} When any component below the root is a symbolic link.
- * @see ARCH-022 — why the walk stops at the root and avoids `realpath`
+ * The project root with symlinks in its own path resolved, so a link target
+ * compares against it like-for-like. Falls back to the lexical root.
  */
-function assertNoSymlinkInPath(
+function realRootOf(resolvedRoot: string): string {
+  let hit = realRoots.get(resolvedRoot);
+  if (hit === undefined) {
+    try {
+      hit = realpathSync(resolvedRoot);
+    } catch {
+      hit = resolvedRoot;
+    }
+    realRoots.set(resolvedRoot, hit);
+  }
+  return hit;
+}
+
+/**
+ * Reject a path whose real target lies outside the project root, testing every
+ * component below it — the leaf AND every ancestor, since a linked ancestor
+ * makes the leaf look ordinary to both `isWithinRoot` and a leaf `lstat`. The
+ * gate is where a link POINTS, not that one exists: links resolving back
+ * inside the project are a normal layout (workspace monorepos, shared dirs).
+ *
+ * @throws {UserError} When a component resolves outside the project root.
+ * @see ARCH-022 — why the walk stops at the root
+ * @see .claude/agent-memory/archgate-developer/project_rules_engine_internals.md — why both sides are realpath'd
+ */
+function assertNoEscapingSymlink(
   resolvedRoot: string,
   absPath: string,
   userPath: string
@@ -57,10 +79,16 @@ function assertNoSymlinkInPath(
   if (!rel || rel.startsWith("..")) return;
 
   const segments = rel.split(/[/\\]/u);
+  let verified = verifiedComponents.get(resolvedRoot);
+  if (!verified) {
+    verified = new Set();
+    verifiedComponents.set(resolvedRoot, verified);
+  }
+
   let current = resolvedRoot;
-  for (const [index, segment] of segments.entries()) {
+  for (const segment of segments) {
     current = join(current, segment);
-    if (verifiedRealDirs.has(current)) continue;
+    if (verified.has(current)) continue;
     let stat;
     try {
       stat = lstatSync(current);
@@ -70,20 +98,31 @@ function assertNoSymlinkInPath(
       return;
     }
     if (stat.isSymbolicLink()) {
-      throw new UserError(
-        index === segments.length - 1
-          ? `Path "${userPath}" is a symbolic link — access denied`
-          : `Path "${userPath}" traverses symbolic link "${segment}" — access denied`
-      );
+      let target: string;
+      try {
+        target = realpathSync(current);
+      } catch {
+        return; // Broken link — resolves to nothing, so it reaches nothing.
+      }
+      if (!isWithinRoot(realRootOf(resolvedRoot), target)) {
+        throw new UserError(
+          `Path "${userPath}" resolves outside the project through symbolic link "${segment}" — access denied`
+        );
+      }
+      // Deliberately NOT memoized: a link is re-resolved on every access, so a
+      // target repointed later in the process cannot ride an earlier pass.
+      continue;
     }
-    if (stat.isDirectory()) verifiedRealDirs.add(current);
+    verified.add(current);
   }
 }
 
 /**
- * Resolve a user-supplied path and ensure it stays within projectRoot.
- * Throws if the resolved path escapes the project boundary, is a symlink, or
- * reaches its target through a symlinked ancestor directory.
+ * Resolve a user-supplied path and ensure it stays within projectRoot, either
+ * lexically or after resolving symlinks at any component. Links resolving back
+ * inside the project are allowed.
+ *
+ * @throws {UserError} When the path escapes the project root.
  */
 export function safePath(resolvedRoot: string, userPath: string): string {
   const absPath = resolveUserPath(resolvedRoot, userPath);
@@ -92,6 +131,6 @@ export function safePath(resolvedRoot: string, userPath: string): string {
       `Path "${userPath}" escapes project root — access denied`
     );
   }
-  assertNoSymlinkInPath(resolvedRoot, absPath, userPath);
+  assertNoEscapingSymlink(resolvedRoot, absPath, userPath);
   return absPath;
 }
