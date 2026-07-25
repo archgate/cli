@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, afterEach, beforeEach } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -180,12 +180,12 @@ describe("collectBriefingDiagnostics", () => {
     safeRmSync(dir);
   });
 
-  function writeAdrFile(name: string, body: string) {
-    writeFileSync(join(dir, ".archgate", "adrs", name), body);
+  async function writeAdrFile(name: string, body: string) {
+    await Bun.write(join(dir, ".archgate", "adrs", name), body);
   }
 
   test("reports over-budget sections with project-relative paths", async () => {
-    writeAdrFile(
+    await writeAdrFile(
       "ARCH-001-x.md",
       `---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\n${"A".repeat(3000)}\n`
     );
@@ -200,11 +200,11 @@ describe("collectBriefingDiagnostics", () => {
   // An unparsed ADR is measured by nothing, so silence here would read as
   // "nothing over budget" when the file was simply never inspected.
   test("names ADRs that could not be parsed", async () => {
-    writeAdrFile(
+    await writeAdrFile(
       "ARCH-001-x.md",
       "---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\nShort.\n"
     );
-    writeAdrFile("ZZ-broken.md", "no frontmatter at all");
+    await writeAdrFile("ZZ-broken.md", "no frontmatter at all");
     const { briefingWarnings, unparsedAdrs } =
       await collectBriefingDiagnostics(dir);
     expect(unparsedAdrs).toEqual(["ZZ-broken.md"]);
@@ -212,7 +212,7 @@ describe("collectBriefingDiagnostics", () => {
   });
 
   test("honours a caller-supplied cap so diagnostics match the truncation applied", async () => {
-    writeAdrFile(
+    await writeAdrFile(
       "ARCH-002-y.md",
       "---\nid: ARCH-002\ntitle: Y\ndomain: architecture\nrules: false\n---\n\n## Decision\nJust over fifty characters of prose for this decision.\n"
     );

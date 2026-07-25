@@ -178,14 +178,22 @@ export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
   const adrsDir = pp.adrsDir;
 
   const promise = (async () => {
+    const skipped: string[] = [];
     let files: string[];
     try {
       files = readdirSync(adrsDir).filter((f) => f.endsWith(".md"));
-    } catch {
+    } catch (err) {
+      // A missing directory means "no ADRs", which is a clean state. Any other
+      // failure (EACCES, ENOTDIR) means the corpus was never inspected, and
+      // returning silently would report that as clean.
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") {
+        skippedAdrsCache.set(projectRoot, [
+          `${adrsDir} (unreadable: ${code ?? String(err)})`,
+        ]);
+      }
       return [];
     }
-
-    const skipped: string[] = [];
     const parsed = await Promise.all(
       files.map(async (file): Promise<ParsedAdrEntry | null> => {
         const filePath = join(adrsDir, file);

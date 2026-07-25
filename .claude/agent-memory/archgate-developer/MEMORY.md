@@ -2,7 +2,7 @@
 
 Almost everything this project knows is enforced, not remembered: ADRs in `.archgate/adrs/`, their companion `.rules.ts`, the oxlint plugins in `lint/`, and the test suite all re-run on every `bun run validate`. Those mechanisms are the memory. What lives here is only what no check can reach.
 
-**Before adding an entry, ask whether a rule, a test, or an ADR clause could carry it instead.** If one could, write that instead — it will be re-validated forever, while this file is validated by nobody and goes stale silently.
+**Before adding an entry, ask which layer should carry it instead** — static syntax → a custom oxlint rule; executable behaviour → a test; cross-file governance → an ADR companion `.rules.ts`; behaviour every archgate user shares → a built-in `CheckResult` diagnostic. Only what none of those can reach belongs here. Anything else written here is validated by nobody and goes stale silently.
 
 ## MANDATORY: Post-Coding Workflow
 

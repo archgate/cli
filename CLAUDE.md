@@ -49,7 +49,7 @@ Claude Code sessions in this repo keep a small persistent memory at `.claude/age
 
 It is deliberately small. Governance lives in ADRs, companion `.rules.ts`, the oxlint plugins in `lint/`, and the test suite — all re-validated on every `bun run validate`. Memory holds only what no check can reach: Claude Code harness behaviour, GitHub state, external-tool quirks, and the agent's own working process. Anything a rule could enforce belongs in the rule, which stays true; a memory entry is validated by nobody and rots silently.
 
-Before adding an entry, ask whether a rule, a test, or an ADR clause could carry it instead. Nothing here is required reading for contributors or tools without access to it.
+Before adding an entry, ask which layer should carry it instead: a static syntax invariant belongs in a custom oxlint rule, executable behaviour in a test, cross-file governance in an ADR companion `.rules.ts`, and behaviour every archgate user shares in a built-in `CheckResult` diagnostic. Only when none of those can reach it does it belong here. Nothing here is required reading for contributors or tools without access to it.
 
 ## Architecture
 

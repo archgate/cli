@@ -137,6 +137,14 @@ These warnings appear in the standard output and do not affect the exit code. Th
 
 The same entries appear in JSON output under `briefingWarnings`, with `adrId`, `file`, `section`, `length`, and `cap`.
 
+An ADR that cannot be read or parsed is measured by nothing, so it is reported separately rather than counted as compliant:
+
+```
+[adr] could not be parsed, so it was excluded from every check above  .archgate/adrs/BROKEN.md
+```
+
+JSON output lists those files under `unparsedAdrs`. **An empty `briefingWarnings` means "nothing over budget" only when `unparsedAdrs` is empty too** — otherwise part of the corpus was never inspected.
+
 These are **advisory and never affect `pass`**.
 
 To clear an overflow, apply the remedies that cannot cost a rule: move rationale into Context or Consequences, which are never briefed and therefore never capped; drop historical narration; and merge bullets stating the same rule twice.

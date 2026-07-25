@@ -137,6 +137,14 @@ Disse advarslene vises i standardutdataene og påvirker ikke avslutningskoden. D
 
 De samme oppføringene finnes i JSON-utdata under `briefingWarnings`, med `adrId`, `file`, `section`, `length` og `cap`.
 
+En ADR som ikke kan leses eller tolkes, blir målt av ingenting, og rapporteres derfor separat i stedet for å telle som etterlevd:
+
+```
+[adr] could not be parsed, so it was excluded from every check above  .archgate/adrs/BROKEN.md
+```
+
+JSON-utdata lister disse filene under `unparsedAdrs`. **En tom `briefingWarnings` betyr «ingenting over grensen» bare når `unparsedAdrs` også er tom** — ellers ble deler av korpuset aldri undersøkt.
+
 Disse er **veiledende og påvirker aldri `pass`**.
 
 For å fjerne en overskridelse, bruk først tiltakene som ikke kan koste en regel: flytt begrunnelser til Context eller Consequences, som aldri inngår i sammendraget og derfor aldri har grense; fjern historisk fortellende tekst; og slå sammen punkter som sier samme regel to ganger.
