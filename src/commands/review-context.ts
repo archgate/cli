@@ -5,6 +5,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { buildReviewContext } from "../engine/context";
 import { resolveBaseRef } from "../engine/git-files";
 import { handleCommandError } from "../helpers/exit";
+import { logWarn } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
 import { requireProjectRoot } from "../helpers/paths";
 import { getConfiguredBaseBranch } from "../helpers/project-config";
@@ -46,6 +47,25 @@ export function registerReviewContextCommand(program: Command) {
           // because that names what is actually included.
           briefings: opts.verbose,
         });
+
+        // Truncation hides governing text, so it is announced on stderr as
+        // well as flagged in the payload (ARCH-003 §5) — a consumer reading
+        // only the JSON still sees it, and one watching the terminal is told.
+        if (context.truncatedBriefings.length > 0) {
+          logWarn(
+            `ADR briefing prose truncated for ${context.truncatedBriefings.join(", ")} — Decision and/or Do's and Don'ts are incomplete. Read the full text with \`archgate adr show <id>\`.`
+          );
+        }
+        if (context.truncatedFiles) {
+          logWarn(
+            `Changed-file list truncated to ${context.allChangedFiles.length} files — files beyond that limit are absent from this context.`
+          );
+        }
+        if (context.checkSummary?.truncated) {
+          logWarn(
+            "Some rules reported more violations than the per-rule cap — the extra violations are absent from `checkSummary`. Run `archgate check` for the complete list."
+          );
+        }
 
         console.log(formatJSON(context));
       } catch (err) {

@@ -9,31 +9,23 @@ rules: true
 
 ## Context
 
-### Problem Statement
-
-AI agents and contributors working across multiple Archgate repositories encounter different toolchains: the plugins repo uses Prettier for formatting, while the CLI repo uses oxfmt. Both use OxLint for linting, but with different flags (`oxlint src/` vs `oxlint --deny-warnings .`). When agents invoke tools directly (e.g., `bunx prettier --write`, `bunx oxfmt --write`, `npx eslint`), they must know which tool each repository uses — and they routinely get it wrong, causing CI failures that require multiple push-fix-push cycles.
-
-### Pain Points
+Archgate repositories run different toolchains: the plugins repo formats with Prettier, the CLI repo with oxfmt; both lint with OxLint but under different flags (`oxlint src/` vs `oxlint --deny-warnings .`). Agents and contributors who invoke tools directly (`bunx prettier --write`, `bunx oxfmt --write`, `npx eslint`) must know which tool each repository uses, and routinely get it wrong.
 
 Without a standardized invocation pattern:
 
-- Agents run `bunx prettier --write` in a repository that uses oxfmt, reformatting files with the wrong tool and producing CI failures on every push
-- Different repositories use different linter flags (e.g., `--deny-warnings` in the CLI repo but not in the plugins repo); invoking linters directly bypasses these project-specific configurations
-- Contributors copy-paste tool commands from one project's documentation and use them in another, introducing subtle formatting differences that pass locally but fail in CI
-- CI failures from wrong-tool invocations waste time: each push-amend-force-push cycle adds 2-5 minutes of CI latency before the real issue is identified
-- The `validate` script aggregates lint, format, typecheck, test, and build checks in a project-specific order — running individual tools misses steps and gives false confidence
+- The wrong formatter reformats files, producing CI failures on every push
+- Project-specific linter flags (e.g., `--deny-warnings` in the CLI repo but not the plugins repo) are bypassed
+- Tool commands copy-pasted between projects introduce formatting differences that pass locally and fail in CI
+- Each push-amend-force-push cycle adds CI latency before the real issue is identified
+- Running individual tools skips steps that the `validate` script aggregates (lint, format, typecheck, test, build) in a project-specific order, giving false confidence
 
-### Alternatives Analysis
+**Alternatives considered:**
 
-**Direct tool invocation with per-repo knowledge**: Agents and contributors memorize which tool each repository uses and invoke it directly (`bunx prettier` here, `bunx oxfmt` there). This is fragile — it requires maintaining a mental mapping of repositories to tools, breaks when a project switches formatters, and fails silently when the wrong tool is used (both produce valid output, just different output).
+- **Direct invocation with per-repo knowledge** — Requires a mental map of repository to tool, breaks when a project switches formatters, and fails silently: both formatters produce valid output, just different output.
+- **Wrapper scripts in each repo** (`scripts/format.sh`) — Unnecessary indirection when `package.json` scripts already serve this purpose, and shell scripts are less portable across Windows and Unix.
+- **`package.json` scripts as the sole invocation layer** — Every repository already defines `lint`, `format`, `format:check`, and `validate`, encapsulating the correct tool, flags, and targets. Chosen: simplest, most portable, most robust.
 
-**Wrapper scripts in each repo**: Each repository provides a `scripts/format.sh` or similar. This adds unnecessary indirection when `package.json` scripts already serve this purpose. Shell scripts are also less portable across Windows and Unix.
-
-**Package.json scripts as the sole invocation layer**: Every repository already defines `lint`, `format`, `format:check`, and `validate` scripts in `package.json`. These scripts encapsulate the correct tool, flags, and targets. Agents and contributors run `bun run format` regardless of which formatter the project uses. This is the simplest, most portable, and most robust approach.
-
-### Project-Specific Motivation
-
-For the Archgate ecosystem, the plugins repository and the CLI repository are developed in parallel, often in the same coding session. An agent working on a VS Code extension feature may commit to the plugins repo (Prettier) and the CLI repo (oxfmt) within minutes of each other. The cost of invoking the wrong formatter is not a one-time mistake — it recurs every time an agent switches context between repositories. Standardizing on `bun run format` eliminates this entire class of errors.
+The plugins and CLI repositories are developed in parallel, often in the same session, so the cost of invoking the wrong formatter recurs on every context switch rather than being a one-time mistake.
 
 ## Decision
 
@@ -73,21 +65,21 @@ All linting, formatting, and validation MUST be invoked through `package.json` s
 
 ### Positive
 
-- **Repository-agnostic workflow**: Agents and contributors use the same commands (`bun run format`, `bun run lint`) in every repository, regardless of which specific tools are configured
-- **Zero CI regressions from tool confusion**: The wrong formatter can never be invoked because the script abstraction selects the correct one automatically
-- **Single point of change**: When a project switches formatters (e.g., from Prettier to oxfmt), only the `package.json` scripts change — all invocation sites continue working unchanged
-- **Flag consistency**: Project-specific flags (`--deny-warnings`, target directories, ignore patterns) are defined once in `package.json` and applied uniformly
-- **Complete validation**: `bun run validate` ensures all checks run in the correct order, preventing the false confidence of running only one check
+- **Repository-agnostic workflow**: The same commands (`bun run format`, `bun run lint`) work in every repository regardless of the tools configured
+- **Zero CI regressions from tool confusion**: The script abstraction selects the correct tool, so the wrong formatter can never be invoked
+- **Single point of change**: Switching formatters changes only the `package.json` scripts — all invocation sites keep working
+- **Flag consistency**: Project-specific flags (`--deny-warnings`, target directories, ignore patterns) are defined once and applied uniformly
+- **Complete validation**: `bun run validate` runs all checks in the correct order, preventing the false confidence of a single check
 
 ### Negative
 
-- **Indirection**: Contributors cannot see which tool is running without inspecting `package.json` — the command `bun run format` does not reveal whether it invokes Prettier, oxfmt, or another formatter
-- **Script maintenance**: Every repository must maintain four scripts (`lint`, `format`, `format:check`, `validate`), adding a small amount of boilerplate to each `package.json`
+- **Indirection**: `bun run format` does not reveal whether it invokes Prettier, oxfmt, or another formatter without inspecting `package.json`
+- **Script maintenance**: Every repository must maintain four scripts (`lint`, `format`, `format:check`, `validate`)
 
 ### Risks
 
-- **Missing scripts in new repositories**: A new Archgate repository might omit the required scripts, causing agents to fall back to direct invocation. **Mitigation:** The `archgate init` scaffolding MUST include these scripts in the generated `package.json`. Code review MUST verify their presence in any new `package.json` file.
-- **Script divergence across repos**: The `validate` script may have different steps in different repos (e.g., some include `bun run build:check`, others don't), creating inconsistent validation depth. **Mitigation:** This is acceptable — each repository's `validate` script reflects its specific needs. The invariant is that `bun run validate` always runs the _complete_ set of checks for that repository.
+- **Missing scripts in new repositories**: A new repository might omit the required scripts, pushing agents back to direct invocation. **Mitigation:** The `archgate init` scaffolding MUST include these scripts in the generated `package.json`, and code review MUST verify their presence in any new `package.json`.
+- **Script divergence across repos**: `validate` may cover different steps per repo (e.g., some include `bun run build:check`). **Mitigation:** Acceptable — each repository's `validate` reflects its own needs. The invariant is that `bun run validate` always runs the _complete_ set of checks for that repository.
 
 ## Compliance and Enforcement
 
@@ -96,7 +88,7 @@ All linting, formatting, and validation MUST be invoked through `package.json` s
 - **GEN-003/no-direct-lint-format-invocation**: Scans `.github/workflows/*` and `package.json` for `bunx`/`npx` invocations of lint/format tools (`prettier`, `oxfmt`, `oxlint`, `eslint`, `biome`). The only acceptable place for a direct tool binary is inside a `package.json` script body. Scope deliberately excludes Markdown so this ADR's own prohibited-example text is not self-flagged, and excludes non-lint tools so legitimate invocations like `bunx --bun astro` (docs build) remain allowed.
 - **GEN-003/no-bare-bun-test-in-ci**: Scans `.github/workflows/*` for bare `bun test` (as opposed to `bun run test`). Bare `bun test` skips the script-level flags in `package.json` (e.g. `--timeout 60000`), which causes filesystem/subprocess tests to time out on slow runners.
 
-The Archgate developer agent definition also instructs agents to use `bun run format`, `bun run lint`, `bun run test`, and `bun run validate` — never direct tool invocation. Agent memory records reinforce this across sessions.
+The Archgate developer agent definition also mandates `bun run format`, `bun run lint`, `bun run test`, and `bun run validate` — never direct tool invocation.
 
 **Manual enforcement**: Code reviewers MUST reject PRs that introduce direct tool invocations (e.g., `bunx prettier --write`, `npx oxlint`) in scripts, CI workflows, or documentation. The only acceptable place for direct tool invocation is inside the `package.json` scripts themselves.
 

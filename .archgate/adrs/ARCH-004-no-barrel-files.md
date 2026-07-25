@@ -10,23 +10,21 @@ files: ["src/**/*.ts"]
 
 ## Context
 
-Barrel files are `index.ts` files whose sole purpose is re-exporting symbols from sibling modules. While common in TypeScript projects, they introduce several concrete problems:
+Barrel files are `index.ts` files whose sole purpose is re-exporting symbols from sibling modules. They introduce five concrete problems:
 
-1. **Circular dependency risk** — Barrel files pull all siblings into a single module surface, making it trivially easy to create accidental import cycles as modules grow. When module A imports from the barrel that also re-exports module B (which imports from module A), the cycle is hidden behind the indirection layer.
-2. **Tree-shaking degradation** — Bundlers and runtimes must trace through re-export chains. Bun's module cache treats the barrel as a single unit, pulling in all symbols even when only one is needed, increasing memory footprint and startup time.
-3. **Hidden coupling** — Consumers import from a barrel without knowing which concrete module provides a symbol. This obscures the real dependency graph and makes refactoring harder — moving a function between source modules requires no import changes if the barrel re-exports both, masking architectural drift.
-4. **IDE confusion** — Auto-import suggestions become ambiguous when the same symbol is reachable from both the barrel (`../formats`) and the source module (`../formats/adr`). This leads to inconsistent import paths across the codebase, where some files import from the barrel and others from the source.
-5. **Grep-unfriendly navigation** — Searching for the definition of a symbol leads to the barrel first, requiring an extra hop to find the real implementation. This slows down code review and debugging.
+1. **Circular dependency risk** — A barrel pulls all siblings into one module surface, so cycles (module A imports the barrel that re-exports module B, which imports A) hide behind the indirection layer.
+2. **Tree-shaking degradation** — Bun's module cache treats the barrel as a single unit, pulling in all symbols even when only one is needed, increasing memory footprint and startup time.
+3. **Hidden coupling** — Consumers cannot tell which concrete module provides a symbol. This obscures the real dependency graph and masks architectural drift: moving a function between source modules requires no import change when the barrel re-exports both.
+4. **IDE confusion** — The same symbol is reachable from both the barrel (`../formats`) and the source module (`../formats/adr`), producing inconsistent import paths across the codebase.
+5. **Grep-unfriendly navigation** — Symbol searches land on the barrel first, costing an extra hop to reach the real implementation.
 
 **Alternatives considered:**
 
-- **Keep barrels as "public API" facades** — Some projects justify barrels as a way to define a module's public surface. This is appropriate for npm packages with external consumers, but Archgate CLI is a standalone application with no external module consumers. Every module is internal, so a "public API" layer adds indirection without value.
-- **Use barrels only at package boundaries** — A middle-ground approach where barrels exist only at top-level directories (e.g., `src/engine/index.ts`). This reduces the proliferation problem but still carries the circular dependency and tree-shaking costs. The cognitive overhead of deciding which directories "deserve" a barrel is not worth the marginal convenience.
-- **Use path aliases** — TypeScript path aliases (e.g., `@engine/loader`) can shorten import paths without introducing barrel files. However, Archgate uses Bun's native module resolution without path aliases ([ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md)), and adding `paths` configuration introduces its own maintenance burden.
+- **Barrels as "public API" facades** — Appropriate for npm packages with external consumers; Archgate CLI has none, so the facade adds indirection without value.
+- **Barrels only at package boundaries** (e.g., `src/engine/index.ts`) — Still carries the circular dependency and tree-shaking costs, plus the overhead of deciding which directories "deserve" one.
+- **Path aliases** (e.g., `@engine/loader`) — Archgate uses Bun's native module resolution without `paths` ([ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md)), and `paths` configuration carries its own maintenance burden.
 
-For Archgate CLI, every module is internal and consumed only within the same repository. Direct imports make the dependency graph explicit and auditable. The small increase in import path verbosity (e.g., `../formats/adr` vs `../formats`) is a worthwhile trade for clarity.
-
-This decision aligns with [ARCH-001 — Command Structure](./ARCH-001-command-structure.md), which already permits `index.ts` files for command groups that contain real logic (e.g., `src/commands/adr/index.ts` defines `registerAdrCommand()`). This ADR formalizes the distinction: `index.ts` files with logic are permitted; `index.ts` files that only re-export are forbidden.
+Every module here is internal and consumed only within this repository, so direct imports keep the dependency graph explicit and auditable; the extra path verbosity is a worthwhile trade. This refines [ARCH-001 — Command Structure](./ARCH-001-command-structure.md), which permits `index.ts` for command groups containing real logic: `index.ts` with logic is permitted, `index.ts` that only re-exports is forbidden.
 
 ## Decision
 
@@ -96,16 +94,11 @@ import { loadRuleAdrs, runChecks, reportConsole } from "../engine/index";
 import type { Command } from "@commander-js/extra-typings";
 import { registerAdrCreateCommand } from "./create";
 import { registerAdrListCommand } from "./list";
-import { registerAdrShowCommand } from "./show";
 
 export function registerAdrCommand(program: Command) {
-  const adr = program
-    .command("adr")
-    .description("Manage Architecture Decision Records");
-
+  const adr = program.command("adr").description("Manage ADRs");
   registerAdrCreateCommand(adr);
   registerAdrListCommand(adr);
-  registerAdrShowCommand(adr);
 }
 ```
 
@@ -113,25 +106,25 @@ export function registerAdrCommand(program: Command) {
 
 ### Positive
 
-- **Explicit dependency graph** — Every import points to its true source, making the codebase easier to navigate, refactor, and audit for dependency cycles
-- **No circular dependency risk from barrels** — Removing the re-export indirection eliminates an entire class of cycle bugs that are notoriously difficult to debug
-- **Faster IDE navigation** — Go-to-definition jumps directly to the source module, not an intermediary re-export
-- **Simpler grep results** — Searching for a symbol's definition finds the real implementation immediately, without extra hops through barrel files
-- **Consistent import style** — All imports follow the same direct pattern, eliminating ambiguity about whether to import from a barrel or source module
-- **Better tree-shaking** — Bun resolves only the specific module needed, without pulling in unrelated siblings through a shared barrel
+- **Explicit dependency graph** — Every import points to its true source, easing navigation, refactoring, and cycle audits
+- **No circular dependency risk from barrels** — Removing the re-export indirection eliminates an entire class of hard-to-debug cycle bugs
+- **Faster IDE navigation** — Go-to-definition jumps straight to the source module
+- **Simpler grep results** — Symbol searches find the real implementation without hops through barrels
+- **Consistent import style** — One direct pattern everywhere; no ambiguity between barrel and source
+- **Better tree-shaking** — Bun resolves only the module needed, not unrelated siblings behind a shared barrel
 
 ### Negative
 
-- **Longer import paths** — Imports like `../../formats/adr` are slightly more verbose than `../../formats`. This adds a few characters per import statement.
-- **More imports to update on file moves** — When a source module is renamed, all direct importers must update their paths. However, this is straightforward to automate with IDE refactoring tools or global find-and-replace.
-- **Multiple import lines from same directory** — When a file needs symbols from multiple sibling modules (e.g., `loader`, `runner`, and `reporter` from `engine/`), it requires separate import lines for each source module rather than a single barrel import.
+- **Longer import paths** — `../../formats/adr` is more verbose than `../../formats`.
+- **More imports to update on file moves** — Renaming a source module forces every direct importer to update, though IDE refactoring or find-and-replace automates this.
+- **Multiple import lines from same directory** — Needing `loader`, `runner`, and `reporter` from `engine/` costs three import lines instead of one barrel import.
 
 ### Risks
 
-- **Existing barrel file violations may be reintroduced** — Contributors unfamiliar with this ADR might create new barrel files out of habit.
-  - **Mitigation:** The companion automated rule (`ARCH-004/no-barrel-files`) runs in the `archgate check` pipeline and blocks CI. Violations are caught before merge.
-- **IDE auto-import may suggest directory-level imports** — Some IDE configurations default to shorter import paths that resolve through implicit `index.ts`.
-  - **Mitigation:** With barrel files deleted, there are no `index.ts` files to resolve to (except those with real logic). IDE auto-import will naturally point to the source module.
+- **Barrel files reintroduced out of habit** — Contributors unfamiliar with this ADR may create new ones.
+  - **Mitigation:** The companion rule `ARCH-004/no-barrel-files` runs in the `archgate check` pipeline and blocks CI, catching violations before merge.
+- **IDE auto-import may suggest directory-level imports** — Some IDE configurations default to shorter paths resolved through implicit `index.ts`.
+  - **Mitigation:** With no re-export-only `index.ts` files present, there is nothing for auto-import to resolve to except the source module.
 
 ## Compliance and Enforcement
 

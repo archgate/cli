@@ -10,15 +10,15 @@ files: ["src/**/*.ts"]
 
 ## Context
 
-CLI tools must provide clear, actionable error messages without exposing internal details to users. Inconsistent error handling leads to confusing experiences: some errors show stack traces, others silently swallow failures, and exit codes are unpredictable for scripts and CI integrations.
+CLI tools must provide clear, actionable error messages without exposing internal details. Inconsistent error handling produces confusing experiences: some errors show stack traces, others silently swallow failures, and exit codes are unpredictable for scripts and CI integrations.
 
 **Alternatives considered:**
 
-- **Try-catch everywhere** — Wrapping every function in try-catch blocks provides fine-grained error control but leads to deeply nested code and often results in errors being caught and swallowed unintentionally. Developers forget to re-throw or log, and errors disappear silently.
-- **Error middleware / centralized handler** — A single `process.on("uncaughtException")` handler catches all unhandled errors. This works for unexpected crashes but cannot distinguish between user errors (invalid input) and bugs (null pointer). All errors get the same treatment, losing the semantic distinction between "you made a mistake" and "we have a bug."
-- **Result types (Either/Result monad)** — Encoding success/failure in return types (e.g., `Result<T, E>`) makes error handling explicit. This is the most type-safe approach but adds significant ceremony for a CLI where most errors are terminal (print message, exit). The overhead is not justified when the error handling strategy is "tell the user and exit."
+- **Try-catch everywhere** — Fine-grained control at the cost of deeply nested code, and errors get swallowed whenever a developer forgets to re-throw or log.
+- **Error middleware / centralized handler** — A single `process.on("uncaughtException")` handler catches unexpected crashes but cannot distinguish user errors (invalid input) from bugs (null pointer), losing the "you made a mistake" vs "we have a bug" distinction.
+- **Result types (Either/Result monad)** — The most type-safe option, but the ceremony is not justified for a CLI where nearly every error is terminal: print a message and exit.
 
-The three-tier exit code model provides a simple contract that covers all CLI use cases: success, expected failure, and unexpected crash. Combined with `logError()` for consistent formatting, this gives users and CI systems predictable behavior without overengineering.
+The exit code model below covers every CLI case — success, expected failure, unexpected crash, user cancellation — and `logError()` keeps formatting consistent, giving users and CI systems predictable behavior without overengineering.
 
 ## Decision
 
@@ -43,71 +43,66 @@ Use four exit codes with clear semantics:
 
 ### Do
 
-- Use `logError()` from `src/helpers/log.ts` for user-facing errors
-- Exit with code 1 for expected failures (missing config, invalid input, violations found)
-- Let unexpected errors crash naturally (exit code 2)
-- Provide actionable suggestions in error messages
-- Write errors to stderr (via `logError()`), not stdout
-- **Commands that don't require `.archgate/` SHOULD fall back to `process.cwd()`** when `findProjectRoot()` returns null — e.g., `session-context` reads from `~/.claude/projects/` and uses `process.cwd()` as its path key when no project is found
-- **Handle `ExitPromptError` from Inquirer as user cancellation** — catch it in the top-level error boundary and exit with code 130 (SIGINT convention) without logging an error or sending to Sentry
-- **Handle `UserError` in the top-level safety net** — `main().catch()` in `src/cli.ts` MUST check `err instanceof UserError` and treat it as an expected failure (`logError()` + exit 1, NO Sentry capture) before falling through to the exit-2 + `captureException()` path, mirroring `handleCommandError()`. Only non-`UserError` errors reaching `main().catch()` are internal errors for Sentry
+- **DO** use `logError()` from `src/helpers/log.ts` for user-facing errors — it writes to stderr, never stdout
+- **DO** exit with code 1 for expected failures (missing config, invalid input, violations found)
+- **DO** let unexpected errors crash naturally (exit code 2)
+- **DO** provide actionable suggestions in error messages
+- **DO** fall back to `process.cwd()` when `findProjectRoot()` returns null in commands that don't require `.archgate/` — e.g., `session-context` reads `~/.claude/projects/` and uses `process.cwd()` as its path key
+- **DO** handle Inquirer's `ExitPromptError` as user cancellation — catch it in the top-level error boundary and exit with code 130 (SIGINT convention) without logging an error or sending to Sentry
+- **DO** handle `UserError` in the top-level safety net — `main().catch()` in `src/cli.ts` MUST check `err instanceof UserError` and treat it as an expected failure (`logError()` + exit 1, NO Sentry capture) before falling through to the exit-2 + `captureException()` path, mirroring `handleCommandError()`. Only non-`UserError` errors reaching `main().catch()` are internal errors for Sentry
 
 ### Don't
 
-- Don't catch and swallow unexpected errors — let them propagate
-- Don't show stack traces for user errors
-- Don't use `console.error()` directly — use `logError()` for consistent formatting
-- Don't use `console.log()` or `console.warn()` directly in helper or engine files — use `logInfo()` or `logWarn()` (command files are the I/O layer and may use console directly)
-- Don't exit with code 0 when an operation fails
-- Don't use exit codes other than 0, 1, 2, or 130
-- Don't send user-cancellation errors (e.g., `ExitPromptError` from Inquirer) to Sentry — filter them in `beforeSend`
-- Don't send `UserError` to Sentry from any error handler — including the `main().catch()` safety net. `UserError` means the user (or their environment) needs to fix something; capturing it floods Sentry with non-bugs (incident CLI-5)
+- **DON'T** catch and swallow unexpected errors — let them propagate
+- **DON'T** show stack traces for user errors
+- **DON'T** use `console.error()` directly — use `logError()` for consistent formatting
+- **DON'T** use `console.log()` or `console.warn()` directly in helper or engine files — use `logInfo()` or `logWarn()` (command files are the I/O layer and may use console directly)
+- **DON'T** exit with code 0 when an operation fails
+- **DON'T** use exit codes other than 0, 1, 2, or 130
+- **DON'T** send user-cancellation errors (`ExitPromptError` from Inquirer) to Sentry — filter them in `beforeSend`
+- **DON'T** send `UserError` to Sentry from any handler, including the `main().catch()` safety net — it means the user or their environment must fix something, and capturing it floods Sentry with non-bugs (incident CLI-5)
 
 ## Implementation Pattern
 
 ### Good Example
 
 ```typescript
-// Expected failure — user error with actionable suggestion
-import { logError } from "../helpers/log";
+// Expected failure — throw UserError and let the command's error boundary
+// log it and exit 1 (ARCH-012). Calling logError + exit here would bypass it.
+import { UserError } from "../helpers/user-error";
 
-const adrsPath = resolve(projectRoot, ".archgate/adrs");
-if (!existsSync(adrsPath)) {
-  logError(
+if (!existsSync(resolve(projectRoot, ".archgate/adrs"))) {
+  throw new UserError(
     "No .archgate/ directory found. Run `archgate init` to initialize governance."
   );
-  process.exit(1);
 }
-```
 
-```typescript
 // Validation failure — report and exit with code 1
-const results = await runChecks(adrs);
-const exitCode = getExitCode(results); // 0 if clean, 1 if violations
-process.exit(exitCode);
+const exitCode = getExitCode(await runChecks(adrs)); // 0 clean, 1 violations
+// exitWith() flushes telemetry/Sentry and tags the outcome; a bare
+// process.exit() here would skip both.
+await exitWith(exitCode);
 ```
 
 ### Bad Example
 
 ```typescript
-// BAD: swallowing errors silently
+// BAD: swallowing errors silently — caller never learns anything failed
 try {
-  const config = await loadConfig();
-} catch {
-  // Error is lost — caller has no idea something failed
-}
+  await loadConfig();
+} catch {}
 
-// BAD: using console.error directly
-console.error("Something went wrong"); // No consistent formatting
+// BAD: console.error directly — no consistent formatting
+console.error("Something went wrong");
 
-// BAD: non-standard exit code
-process.exit(42); // Scripts cannot interpret this
+// BAD: non-standard exit code — scripts cannot interpret this
+process.exit(42);
 
-// BAD: showing stack trace for user error
+// BAD: stack trace for a simple validation failure
 try {
   validateInput(args);
 } catch (e) {
-  console.error(e); // Prints stack trace for simple validation failure
+  console.error(e);
   process.exit(1);
 }
 ```
@@ -116,21 +111,21 @@ try {
 
 ### Positive
 
-- **Consistent error experience** — Users always see the same error format regardless of which command fails
-- **Exit codes enable scripting** — CI systems and shell scripts can branch on 0/1/2 with clear semantics
+- **Consistent error experience** — The same error format regardless of which command fails
+- **Exit codes enable scripting** — CI systems and shell scripts branch on 0/1/2 with clear semantics
 - **Clear separation between user errors and bugs** — Exit code 1 means "you need to fix something," exit code 2 means "we have a bug"
 - **Actionable messages reduce support burden** — Telling users what to do next prevents repeated "how do I fix this?" questions
 
 ### Negative
 
-- **Debugging requires environment variables** — Detailed error context (stack traces, internal state) is only available with `DEBUG` or `TRACE` env vars. This is intentional but can slow down debugging for contributors unfamiliar with the convention.
+- **Debugging requires environment variables** — Stack traces and internal state are available only with `DEBUG` or `TRACE` set. Intentional, but it slows contributors unfamiliar with the convention.
 
 ### Risks
 
-- **Swallowed errors in async code** — Async functions that catch errors without re-throwing can silently fail. Unhandled promise rejections in Bun terminate the process with a non-zero exit code, which provides a safety net, but the error message may be unclear.
-  - **Mitigation:** The log helper convention makes explicit error handling visible in code review. The `use-log-error` rule flags direct `console.error()` usage, and the `use-log-helpers` rule flags direct `console.log()`/`console.warn()` in helper and engine files, nudging developers toward the standard pattern.
-- **Exit code 2 masking real issues** — If an unexpected error occurs in a rule file, the CLI exits with code 2 ("internal error") rather than code 1 ("violations"). This could confuse CI systems that only check for non-zero exit.
-  - **Mitigation:** The check engine wraps rule execution with timeout and error boundaries, reporting rule errors separately from violations. The `--verbose` flag shows which rules errored.
+- **Swallowed errors in async code** — Async functions that catch without re-throwing fail silently. Bun's unhandled-rejection exit is a safety net, but the message may be unclear.
+  - **Mitigation:** Manual review is the control here — reviewers MUST reject any `try`/`catch` that neither logs nor re-throws. The `use-log-error` and `use-log-helpers` rules detect direct `console.*` usage only; neither can see an empty `catch`, so a green `archgate check` is not evidence that nothing is swallowed.
+- **Exit code 2 masking real issues** — An unexpected error inside a rule file exits 2 ("internal error") rather than 1 ("violations"), which can confuse CI that only checks for non-zero.
+  - **Mitigation:** The check engine wraps rule execution in timeout and error boundaries, reporting rule errors separately from violations; `--verbose` shows which rules errored.
 
 ## Compliance and Enforcement
 

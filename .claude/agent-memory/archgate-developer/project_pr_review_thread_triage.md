@@ -1,33 +1,31 @@
 ---
 name: project-pr-review-thread-triage
-description: How to distinguish already-resolved vs genuinely outstanding PR review comments — REST API doesn't expose resolution state
+description: Find genuinely outstanding PR review comments — the REST API does not expose thread resolution state, only GraphQL does
 metadata:
   type: project
 ---
 
-**`gh api repos/<owner>/<repo>/pulls/<n>/comments` (REST) does NOT expose whether a review comment thread is resolved.** A stale CodeRabbit/reviewer comment from an earlier commit stays in that endpoint's output forever, indistinguishable from a live, unaddressed one — reading it naively re-litigates already-fixed findings.
+The REST API does not report whether a review thread is resolved, so `gh pr view --json comments` lists finished threads as if they were open. Only GraphQL exposes `isResolved`.
 
-**Fix: use the GraphQL `reviewThreads` field**, which has `isResolved` and `isOutdated`:
+Two traps in the query itself: `reviewThreads` is a paginated connection, and selecting `isResolved` does not filter by it. A busy PR exceeds one page — this repo has had a PR with 54 threads — so page until `hasNextPage` is false and filter client-side.
 
 ```bash
-gh api graphql -f query='
-query {
-  repository(owner: "OWNER", name: "REPO") {
+gh api graphql --paginate \
+  -f query='
+query($endCursor: String) {
+  repository(owner: "archgate", name: "cli") {
     pullRequest(number: N) {
-      reviewThreads(first: 50) {
+      reviewThreads(first: 100, after: $endCursor) {
+        pageInfo { hasNextPage endCursor }
         nodes {
           isResolved
           isOutdated
           path
           line
-          comments(first: 5) { nodes { author { login } body createdAt } }
+          comments(first: 1) { nodes { author { login } body } }
         }
       }
     }
   }
-}'
+}' --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | "\(.path):\(.line)"'
 ```
-
-Filter to `isResolved: false` for what actually still needs addressing. `isOutdated: true` alone does NOT mean resolved — a thread can be outdated (the line moved) but still unresolved if nobody marked it fixed.
-
-**How to apply:** before acting on "there are still outstanding comments," run this query first. Don't re-fix findings a prior commit already addressed, and don't miss ones marked outdated-but-unresolved.

@@ -2,6 +2,12 @@
 // Copyright 2026 Archgate
 import type { AdrDocument, AdrDomain } from "../formats/adr";
 import {
+  BRIEFED_SECTIONS,
+  DEFAULT_MAX_SECTION_CHARS,
+  extractAdrSections,
+  truncateSection,
+} from "./adr-sections";
+import {
   getChangedFiles,
   getFilesChangedSinceRef,
   getStagedFiles,
@@ -21,6 +27,12 @@ interface AdrBriefing {
   decision?: string;
   /** Present only when briefings are requested — see `briefAdr`. */
   dosAndDonts?: string;
+  /**
+   * Section names whose prose was cut to fit `maxSectionChars`. Omitted when
+   * nothing was cut, so its presence alone means context is missing and the
+   * full ADR must be read via `archgate adr show <id>`.
+   */
+  truncatedSections?: string[];
 }
 
 interface DomainContext {
@@ -32,49 +44,14 @@ interface DomainContext {
 interface ReviewContext {
   allChangedFiles: string[];
   truncatedFiles: boolean;
+  /**
+   * IDs of ADRs whose briefing prose was cut, hoisted here so a consumer sees
+   * that context is missing without walking every domain. Empty when nothing
+   * was cut or when briefings were not requested.
+   */
+  truncatedBriefings: string[];
   domains: DomainContext[];
   checkSummary: ReportSummary | null;
-}
-
-/**
- * Extract named ## sections from ADR markdown body.
- * Missing sections map to empty strings. Matching is case-insensitive.
- */
-export function extractAdrSections(
-  body: string,
-  sectionNames: string[]
-): Record<string, string> {
-  const result: Record<string, string> = {};
-  for (const name of sectionNames) result[name] = "";
-
-  const lines = body.split("\n");
-  let currentSection: string | null = null;
-  const sectionLines: string[] = [];
-
-  const flushSection = () => {
-    if (currentSection !== null) {
-      const lowerName = currentSection.toLowerCase();
-      for (const name of sectionNames) {
-        if (name.toLowerCase() === lowerName) {
-          result[name] = sectionLines.join("\n").trim();
-          break;
-        }
-      }
-    }
-    sectionLines.length = 0;
-  };
-
-  for (const line of lines) {
-    const headingMatch = line.match(/^## (.+)$/u);
-    if (headingMatch) {
-      flushSection();
-      currentSection = headingMatch[1].trim();
-      continue;
-    }
-    sectionLines.push(line);
-  }
-  flushSection();
-  return result;
 }
 
 interface BriefAdrOptions {
@@ -82,18 +59,6 @@ interface BriefAdrOptions {
   maxSectionChars?: number;
   /** Include Decision and Do's/Don'ts prose. Default: false (ARCH-003 §7). */
   briefings?: boolean;
-}
-
-const DEFAULT_MAX_SECTION_CHARS = 2000;
-
-/** Truncate content to maxChars, appending a pointer to the full ADR. */
-function truncateSection(
-  content: string,
-  adrId: string,
-  maxChars: number
-): string {
-  if (maxChars <= 0 || content.length <= maxChars) return content;
-  return `${content.slice(0, maxChars)}\n\n[... truncated — read full ADR via adr://${adrId}]`;
 }
 
 /**
@@ -118,16 +83,22 @@ export function briefAdr(
   if (!options?.briefings) return briefing;
 
   const maxChars = options?.maxSectionChars ?? DEFAULT_MAX_SECTION_CHARS;
-  const sections = extractAdrSections(adr.body, [
-    "Decision",
-    "Do's and Don'ts",
-  ]);
-  briefing.decision = truncateSection(sections["Decision"], id, maxChars);
-  briefing.dosAndDonts = truncateSection(
+  const sections = extractAdrSections(adr.body, BRIEFED_SECTIONS);
+  const decision = truncateSection(sections["Decision"], id, maxChars);
+  const dosAndDonts = truncateSection(
     sections["Do's and Don'ts"],
     id,
     maxChars
   );
+  briefing.decision = decision.text;
+  briefing.dosAndDonts = dosAndDonts.text;
+
+  const truncatedSections: string[] = [];
+  if (decision.truncated) truncatedSections.push("Decision");
+  if (dosAndDonts.truncated) truncatedSections.push("Do's and Don'ts");
+  if (truncatedSections.length > 0) {
+    briefing.truncatedSections = truncatedSections;
+  }
   return briefing;
 }
 
@@ -220,6 +191,8 @@ const EMPTY_SUMMARY: ReportSummary = {
   truncated: false,
   suppressed: 0,
   suppressionWarnings: [],
+  unparsedAdrs: [],
+  briefingWarnings: [],
   results: [],
   durationMs: 0,
 };
@@ -272,6 +245,9 @@ export async function buildReviewContext(
       const checkResult = await runChecks(projectRoot, loadResults, {
         staged,
         base,
+        // Same cap the briefings above are truncated at, so the diagnostics
+        // cannot describe a limit this response did not apply.
+        maxSectionChars,
       });
       const summary = buildSummary(checkResult, { maxViolationsPerRule });
       // Same projection reportJSON applies: a cleanly-passing rule's entry only
@@ -287,5 +263,19 @@ export async function buildReviewContext(
     }
   }
 
-  return { allChangedFiles, truncatedFiles, domains, checkSummary };
+  // Collected after domain filtering so the list names only ADRs the caller
+  // actually received.
+  const truncatedBriefings = domains
+    .flatMap((d) => d.adrs)
+    .filter((a) => a.truncatedSections !== undefined)
+    .map((a) => a.id)
+    .sort();
+
+  return {
+    allChangedFiles,
+    truncatedFiles,
+    truncatedBriefings,
+    domains,
+    checkSummary,
+  };
 }

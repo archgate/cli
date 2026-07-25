@@ -21,9 +21,9 @@ The CLI version appears in multiple locations that must stay in sync:
 7. `shims/maven/pom.xml` — Maven artifact version
 8. `shims/rubygem/lib/archgate/version.rb` — RubyGem `VERSION` constant
 
-When versions diverge, users installing via different package managers get mismatched binaries. This was discovered during a consistency review where `package.json` was at `0.16.0` but `docs/astro.config.mjs` was still at `0.11.0`.
+When versions diverge, users installing via different package managers get mismatched binaries.
 
-Version strings are not the only artifact that must stay synchronized across shim packages. Each ecosystem renders a README on its registry page (PyPI, NuGet.org, pkg.go.dev) or ships one inside the published artifact, and users comparing packages across registries expect the same description everywhere. The canonical README is the repository root `README.md` — the exact file the npm package already publishes via the `readme` field in `package.json`. The other ecosystems each carry their own copy that must mirror root:
+Version strings are not the only artifact that must stay synchronized. Each ecosystem renders a README on its registry page (PyPI, NuGet.org, pkg.go.dev) or ships one inside the published artifact, and users comparing packages across registries expect the same description everywhere. The canonical README is the repository root `README.md` — the exact file the npm package already publishes via the `readme` field in `package.json`. The other ecosystems each carry their own copy that must mirror root:
 
 1. `shims/go/README.md` — rendered by pkg.go.dev for the Go module
 2. `shims/pypi/README.md` — referenced by `pyproject.toml` `readme = "README.md"`
@@ -31,9 +31,7 @@ Version strings are not the only artifact that must stay synchronized across shi
 4. `shims/rubygem/README.md` — included in the gem via the gemspec `spec.files` glob
 5. `shims/maven/README.md` — for source/repository readers (Maven Central renders the pom `<description>`, not a README file)
 
-README synchronization is automated by the same `.simple-release.js` bump hook that syncs version strings: during the release commit it copies the root `README.md` over every shim copy. The companion rule is the CI safety net that catches drift between releases (for example, when a `README.md` edit lands in a PR without the copies being regenerated).
-
-The license file is the third artifact that must be present inside each shim package. The repository declares Apache-2.0 in the root `LICENSE.md`, but registries and package indexes detect license information from files **inside the published package**, not from the repository root. This is most acute for the Go shim: it is published as a subdirectory module (`github.com/archgate/cli/shims/go`), and a subdirectory module's zip contains only files under that subtree — so the repo-root `LICENSE.md` is never included and pkg.go.dev reports "no license" until a `LICENSE.md` exists inside `shims/go/`. The same constraint applies to the other ecosystems, and is compounded by the synchronized README: because every shim README is byte-identical to the root `README.md`, it carries the root's relative license link and badge (`[Apache-2.0](LICENSE.md)`), which only resolves when a `LICENSE.md` sits beside the README in each shim directory. Each shim therefore carries its own copy that must mirror root:
+The license file is the third artifact that must be present inside each shim package. The repository declares Apache-2.0 in the root `LICENSE.md`, but registries and package indexes detect license information from files **inside the published package**, not from the repository root. This is most acute for the Go shim: it is published as a subdirectory module (`github.com/archgate/cli/shims/go`), and a subdirectory module's zip contains only files under that subtree — so the repo-root `LICENSE.md` is never included and pkg.go.dev reports "no license" until a `LICENSE.md` exists inside `shims/go/`. The synchronized README compounds this everywhere else: mirroring root, each copy carries the root's relative license link and badge (`[Apache-2.0](LICENSE.md)`), which only resolves when a `LICENSE.md` sits beside it. Each shim therefore carries its own copy that must mirror root:
 
 1. `shims/go/LICENSE.md` — detected by pkg.go.dev's license scan of the module subtree
 2. `shims/pypi/LICENSE.md` — resolves the README license link; complements the `pyproject.toml` license metadata
@@ -49,9 +47,7 @@ The license file is the third artifact that must be present inside each shim pac
 
 The shim packages (npm, PyPI, NuGet, Go, Maven Central, RubyGems) are thin wrappers that download the platform binary from GitHub Releases. Their embedded version determines which release to download, so version drift causes download failures (404) or installs the wrong version.
 
-Every shim package README MUST be byte-identical to the root `README.md` (normalized for line endings and trailing whitespace). The root `README.md` is the single source of README content. The npm package requires no separate copy because it publishes the root README directly; all other ecosystems ship a mirrored copy at the paths listed in the Context, regenerated by the bump hook.
-
-Every shim package directory MUST contain a `LICENSE.md` that is byte-identical to the root `LICENSE.md` (normalized for line endings and trailing whitespace). The root `LICENSE.md` is the single source of license content. The npm package requires no separate copy because npm always publishes the root `LICENSE.md` alongside the root README; all other ecosystems ship a mirrored copy at the paths listed in the Context, regenerated by the bump hook. The `ARCH-013/shim-license-sync` companion rule is the CI safety net that catches drift between releases.
+Every shim package README MUST match the root `README.md`, and every shim package directory MUST contain a `LICENSE.md` matching the root `LICENSE.md`. Matching is evaluated after normalizing line endings and trailing whitespace, so those two forms may differ and nothing else may. The root files are the single source of that content. The npm package needs no separate copy — it publishes the root `README.md` and root `LICENSE.md` directly; all other ecosystems ship a mirrored copy at the paths listed in the Context, regenerated by the bump hook. The `ARCH-013/shim-readme-sync` and `ARCH-013/shim-license-sync` companion rules are the CI safety net that catches drift between releases.
 
 ## Do's and Don'ts
 
@@ -60,7 +56,7 @@ Every shim package directory MUST contain a `LICENSE.md` that is byte-identical 
 - **DO** rely on `.simple-release.js` for all version, README, and LICENSE sync (do not update manually)
 - **DO** use the companion rules to catch version, README, and LICENSE drift in CI as a safety net
 - **DO** edit the root `README.md` and root `LICENSE.md` as the single source of that content — the bump hook propagates each to every shim
-- **DO** keep every shim package README byte-identical to the root `README.md`, and every shim `LICENSE.md` byte-identical to the root `LICENSE.md`
+- **DO** keep every shim package README and `LICENSE.md` matching their root counterparts, identical apart from line endings and trailing whitespace
 - **DO** regenerate the shim copies with `cp README.md <target>` / `cp LICENSE.md <target>` if you need them synced before a release (e.g. to satisfy `shim-readme-sync` / `shim-license-sync` in a PR that edits the root file)
 - **DO**, when adding a new shim ecosystem, add its version file, README path, and `LICENSE.md` path to `.simple-release.js` and to the companion `shim-version-sync` / `shim-readme-sync` / `shim-license-sync` rules
 - **DO**, when adding a new shim ecosystem, wire its `LICENSE.md` into the ecosystem's packaging where the license must ship inside the artifact (e.g. add `"LICENSE.md"` to the RubyGem `spec.files` glob)
@@ -80,12 +76,14 @@ Every shim package directory MUST contain a `LICENSE.md` that is byte-identical 
 - Consistent version information across user-facing surfaces
 - Consistent README content across every package registry (PyPI, NuGet, pkg.go.dev, RubyGems, npm)
 - Correct, discoverable license metadata on every registry — pkg.go.dev detects Apache-2.0, and the README license link resolves in each published package
+- No manual step at release time — the bump hook regenerates every version, README, and LICENSE copy
 - CI catches version drift, README drift, and LICENSE drift before it reaches production
 
 ### Negative
 
 - **Duplicated files in the repo:** Five identical README copies — and five identical `LICENSE.md` copies — live in the tree, which can surprise contributors who edit a copy instead of the root.
 - **Mid-cycle drift window:** Because the bump hook only regenerates the copies at release time, a `README.md` or `LICENSE.md` edit merged between releases leaves the committed shim copies stale until the next bump.
+- **Per-ecosystem wiring cost:** Each new shim must be registered in `.simple-release.js` and in all three companion rules, and have its `LICENSE.md` wired into that ecosystem's packaging, before it ships correctly.
 
 ### Risks
 
@@ -99,8 +97,8 @@ Every shim package directory MUST contain a `LICENSE.md` that is byte-identical 
 - **Release hook** `.simple-release.js`: Syncs all version locations and propagates the root `README.md` and root `LICENSE.md` to every shim copy during `bump()`. Fully automated.
 - **Archgate rule** `ARCH-013/docs-version-sync`: Checks that `softwareVersion` in `docs/astro.config.mjs` matches `package.json` version. Severity: `error`.
 - **Archgate rule** `ARCH-013/shim-version-sync`: Checks that all shim package versions match `package.json` version. Severity: `error`.
-- **Archgate rule** `ARCH-013/shim-readme-sync`: Checks that every shim package README (`shims/go/README.md`, `shims/pypi/README.md`, `shims/nuget/Archgate.Tool/README.md`, `shims/rubygem/README.md`, `shims/maven/README.md`) is byte-identical to the canonical root `README.md`, normalized for line endings and trailing whitespace. Severity: `error`. Like `shim-version-sync`, this is the CI safety net for the automated `.simple-release.js` propagation — it catches drift between releases.
-- **Archgate rule** `ARCH-013/shim-license-sync`: Checks that every shim package `LICENSE.md` (`shims/go/LICENSE.md`, `shims/maven/LICENSE.md`, `shims/nuget/Archgate.Tool/LICENSE.md`, `shims/pypi/LICENSE.md`, `shims/rubygem/LICENSE.md`) is byte-identical to the canonical root `LICENSE.md`, normalized for line endings and trailing whitespace. Severity: `error`. Parallel to `shim-readme-sync`, this is the CI safety net for the automated `.simple-release.js` propagation — it catches drift between releases.
+- **Archgate rule** `ARCH-013/shim-readme-sync`: Checks that every shim package README listed in the Context matches the canonical root `README.md` after normalizing line endings and trailing whitespace. Severity: `error`. Like `shim-version-sync`, it is the CI safety net for the automated `.simple-release.js` propagation, catching drift between releases.
+- **Archgate rule** `ARCH-013/shim-license-sync`: Checks that every shim package `LICENSE.md` listed in the Context matches the canonical root `LICENSE.md` after normalizing line endings and trailing whitespace. Severity: `error`. Parallel to `shim-readme-sync`, it is the CI safety net for the automated `.simple-release.js` propagation, catching drift between releases.
 
 ## References
 

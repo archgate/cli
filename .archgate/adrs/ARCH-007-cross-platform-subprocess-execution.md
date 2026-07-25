@@ -9,22 +9,20 @@ files:
 
 ## Context
 
-The Archgate CLI runs on macOS, Linux, and Windows. Several operations require spawning subprocesses: git commands (`git ls-files`, `git diff`), editor CLI calls (`claude plugin install`, `copilot plugin install`), archive extraction (`tar -xzf`), and package management (`npm install -g`). These subprocesses must work identically on all three platforms.
+The Archgate CLI runs on macOS, Linux, and Windows. Several operations spawn subprocesses: git commands (`git ls-files`, `git diff`), editor CLI calls (`claude plugin install`, `copilot plugin install`), archive extraction (`tar -xzf`), and package management (`npm install -g`). These must behave identically on all three platforms.
 
 Bun provides two subprocess APIs:
 
-- **`Bun.$` (shell template literals)** — A shell-like API that pipes commands through a subprocess shell. Convenient syntax (`await Bun.$\`git ls-files\`.text()`), but relies on platform-specific shell behavior.
-- **`Bun.spawn` (array-based)** — A lower-level API that executes a command directly (no intermediate shell). Takes an array of arguments, explicit pipe configuration, and returns a process handle with `stdout`, `stderr`, and `exited` properties.
-
-**The problem:** `Bun.$` hangs on Windows. The shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that block the calling thread indefinitely. This was discovered in production and fixed in commit `ca33377`, which replaced all `Bun.$` calls with `Bun.spawn`.
+- **`Bun.$` (shell template literals)** — Convenient syntax (`await Bun.$\`git ls-files\`.text()`) that pipes commands through a platform-specific subprocess shell. **It hangs on Windows:** the shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that block the calling thread indefinitely.
+- **`Bun.spawn` (array-based)** — Executes a command directly with no intermediate shell. Takes an argument array and explicit pipe configuration, and returns a process handle with `stdout`, `stderr`, and `exited`.
 
 **Alternatives considered:**
 
-- **`Bun.$` with `.nothrow().quiet()`** — Adding error handling modifiers does not resolve the pipe deadlock. The hang occurs at the pipe level before any Bun-level error handling takes effect.
-- **`node:child_process` (`execFile`, `spawn`)** — Node.js subprocess APIs work cross-platform but are callback-based or require manual stream wiring. `Bun.spawn` provides the same array-based execution model with native Promise/async support and direct `Bun.file`-compatible stdout.
-- **Third-party libraries (`execa`, `cross-spawn`)** — These add production dependencies that [ARCH-006](./ARCH-006-dependency-policy.md) explicitly prohibits when Bun built-ins suffice. `Bun.spawn` covers all use cases without external packages.
+- **`Bun.$` with `.nothrow().quiet()`** — The hang occurs at the pipe level, before any Bun-level error handling takes effect.
+- **`node:child_process` (`execFile`, `spawn`)** — Works cross-platform but is callback-based or requires manual stream wiring; `Bun.spawn` provides the same array-based execution model with native Promise/async support.
+- **Third-party libraries (`execa`, `cross-spawn`)** — Production dependencies that [ARCH-006](./ARCH-006-dependency-policy.md) prohibits when Bun built-ins suffice.
 
-For Archgate, every subprocess call is either a git command, an editor CLI invocation, or a system tool (`tar`, `npm`). All of these are simple array-based command executions that do not require shell features (pipes, globbing, redirection). `Bun.spawn` is the correct tool.
+Every Archgate subprocess call is a git command, an editor CLI invocation, or a system tool (`tar`, `npm`) — simple array-based executions that need no shell features (pipes, globbing, redirection). `Bun.spawn` is the correct tool.
 
 ## Decision
 
@@ -51,23 +49,23 @@ This decision does NOT cover:
 
 ### Do
 
-- **DO** use `Bun.spawn(["command", "arg1", "arg2"], { stdout: "pipe", stderr: "pipe" })` for commands whose output you need to capture
-- **DO** read stdout via `new Response(proc.stdout).text()` — this is the idiomatic Bun pattern for consuming a `ReadableStream`
-- **DO** always `await proc.exited` after reading stdout to ensure the process has terminated
-- **DO** use `stdout: "inherit"` and `stderr: "inherit"` for commands whose output should go directly to the terminal (e.g., `npm install -g`)
+- **DO** use `Bun.spawn(["command", "arg1"], { stdout: "pipe", stderr: "pipe" })` when you need to capture output
+- **DO** read stdout via `new Response(proc.stdout).text()` — the idiomatic Bun way to consume a `ReadableStream`
+- **DO** always `await proc.exited` after reading stdout, to ensure the process terminated
+- **DO** use `stdout: "inherit"` and `stderr: "inherit"` for commands whose output belongs on the terminal (e.g., `npm install -g`)
 - **DO** wrap CLI availability checks in `try/catch` returning a boolean — the command may not exist on the system
 - **DO** pass `cwd` via the options object when the command must run in a specific directory
-- **DO** extract a helper function (e.g., `run(cmd, opts)` or `runGit(args, cwd)`) when multiple subprocess calls share the same pattern within a module
-- **DO** use `Promise.allSettled` when running multiple spawned processes concurrently and any of them can reject — inspect statuses only after all have settled, so every process has fully exited before the caller proceeds (see `getGitTrackedFiles` in `src/engine/git-files.ts` for the reference implementation)
+- **DO** extract a helper (`run(cmd, opts)`, `runGit(args, cwd)`) when a module makes several subprocess calls of the same shape
+- **DO** use `Promise.allSettled` for concurrent spawns that can reject, inspecting statuses only after all settle so every process has fully exited before the caller proceeds (reference: `getGitTrackedFiles` in `src/engine/git-files.ts`)
 
 ### Don't
 
 - **DON'T** use `Bun.$` template literals (`Bun.$\`command\``) — they hang on Windows due to pipe deadlocks
 - **DON'T** import `$` from `"bun"` — this is the Bun shell API that causes Windows deadlocks
 - **DON'T** use shell features (pipes `|`, redirects `>`, globbing `*`) in subprocess arguments — `Bun.spawn` executes commands directly without a shell
-- **DON'T** forget to `await proc.exited` — reading stdout alone does not guarantee the process has terminated
+- **DON'T** forget to `await proc.exited` — reading stdout alone does not guarantee termination
 - **DON'T** use `node:child_process` when `Bun.spawn` provides the same capability — prefer Bun built-ins per [ARCH-006](./ARCH-006-dependency-policy.md)
-- **DON'T** race multiple spawned processes with `Promise.all` when one rejection can abandon a still-running sibling — the abandoned process keeps its `cwd` handle open, which on Windows locks that directory (`EBUSY` on removal; observed when `getGitTrackedFiles` ran two `git ls-files` variants against a non-git directory)
+- **DON'T** race spawns with `Promise.all` when one rejection can abandon a still-running sibling — the abandoned process keeps its `cwd` handle open, which on Windows locks that directory (`EBUSY` on removal)
 
 ## Implementation Pattern
 
@@ -75,41 +73,31 @@ This decision does NOT cover:
 
 ```typescript
 // Capture command output (git, tar, etc.)
-async function run(
-  cmd: string[],
-  opts?: { cwd?: string }
-): Promise<{ exitCode: number; stdout: string }> {
+async function run(cmd: string[], opts?: { cwd?: string }) {
   const proc = Bun.spawn(cmd, {
     cwd: opts?.cwd,
     stdout: "pipe",
     stderr: "pipe",
   });
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
-  return { exitCode, stdout };
+  // Drain both pipes concurrently. Awaiting stdout alone deadlocks when the
+  // child fills the stderr buffer, because `proc.exited` never resolves.
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stdout, stderr };
 }
 
-// Usage
-const { exitCode, stdout } = await run(
-  ["git", "diff", "--cached", "--name-only"],
-  { cwd: projectRoot }
-);
-const files = stdout.trim().split("\n").filter(Boolean);
-```
-
-```typescript
-// CLI availability check
+// CLI availability check — the command may not be on PATH
 async function isClaudeCliAvailable(): Promise<boolean> {
   try {
-    const { exitCode } = await run(["claude", "--version"]);
-    return exitCode === 0;
+    return (await run(["claude", "--version"])).exitCode === 0;
   } catch {
-    return false; // Command not found on PATH
+    return false;
   }
 }
-```
 
-```typescript
 // Inherit output for interactive/visible commands
 const proc = Bun.spawn(["npm", "install", "-g", "archgate@latest"], {
   stdout: "inherit",
@@ -136,26 +124,24 @@ Bun.spawn(["git diff --cached | head -5"]); // This is a single argument, not a 
 
 ### Positive
 
-- **Cross-platform reliability** — `Bun.spawn` works identically on macOS, Linux, and Windows. No platform-specific pipe handling differences.
-- **No deadlocks** — Array-based execution avoids the stdin/stdout pipe issues that cause `Bun.$` to hang on Windows.
-- **Explicit argument handling** — Array-based arguments prevent shell injection vulnerabilities. Each argument is passed directly to the command, not interpreted by a shell.
-- **No shell dependency** — The command does not require a shell interpreter (bash, cmd.exe, PowerShell) to be available or configured correctly.
-- **Consistent error handling** — `proc.exited` returns a Promise that resolves to the exit code, making error checking uniform across all subprocess calls.
+- **Cross-platform reliability** — `Bun.spawn` behaves identically on macOS, Linux, and Windows; no platform-specific pipe handling
+- **No deadlocks** — Array-based execution avoids the stdin/stdout pipe issues that hang `Bun.$` on Windows
+- **Explicit argument handling** — Each argument goes directly to the command rather than through a shell, preventing shell injection
+- **No shell dependency** — No shell interpreter (bash, cmd.exe, PowerShell) needs to be present or correctly configured
+- **Consistent error handling** — `proc.exited` resolves to the exit code, making error checking uniform across all subprocess calls
 
 ### Negative
 
-- **More verbose syntax** — `Bun.spawn(["git", "ls-files"], { stdout: "pipe" })` is more verbose than `Bun.$\`git ls-files\``. The convenience of template literals is lost.
-  - This is mitigated by extracting `run()` or `runGit()` helper functions within each module.
-- **No shell features** — Pipelines (`cmd1 | cmd2`), redirects (`> file`), and glob expansion (`*.ts`) are not available. Each must be implemented in JavaScript.
-  - The Archgate CLI does not use any of these shell features. All subprocess calls are simple command executions.
-- **Manual stream consumption** — Reading stdout requires `new Response(proc.stdout).text()` instead of the simpler `.text()` chain on `Bun.$`.
+- **More verbose syntax** — `Bun.spawn(["git", "ls-files"], { stdout: "pipe" })` costs more than the `Bun.$` shell form of the same `git ls-files` call; mitigated by per-module `run()`/`runGit()` helpers.
+- **No shell features** — Pipelines (`cmd1 | cmd2`), redirects (`> file`), and glob expansion (`*.ts`) must be implemented in JavaScript. Archgate uses none of them.
+- **Manual stream consumption** — Reading stdout requires `new Response(proc.stdout).text()` instead of a `.text()` chain.
 
 ### Risks
 
-- **Future Bun.$ fix** — Bun may fix the Windows pipe issue in a future version, making `Bun.$` safe again. At that point, the project could relax this restriction.
-  - **Mitigation:** The ADR stands until verified on all three platforms with the fixed Bun version. A relaxation requires updating this ADR with the minimum safe Bun version.
-- **Complex subprocess needs** — A future feature may require shell features (pipelines, redirects) that `Bun.spawn` cannot provide.
-  - **Mitigation:** Implement the pipeline logic in JavaScript (spawn multiple processes, pipe streams manually). If this becomes frequent, evaluate adding a subprocess helper library as an approved dependency under [ARCH-006](./ARCH-006-dependency-policy.md).
+- **Future Bun.$ fix** — Bun may fix the Windows pipe issue, making `Bun.$` safe again.
+  - **Mitigation:** The prohibition stands until verified on all three platforms; relaxing it requires updating this ADR with the minimum safe Bun version.
+- **Complex subprocess needs** — A future feature may want pipelines or redirects that `Bun.spawn` cannot provide.
+  - **Mitigation:** Implement the pipeline in JavaScript (spawn multiple processes, pipe streams manually). If that becomes frequent, evaluate a subprocess helper library as an approved dependency under [ARCH-006](./ARCH-006-dependency-policy.md).
 
 ## Compliance and Enforcement
 

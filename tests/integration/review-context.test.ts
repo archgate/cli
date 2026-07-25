@@ -263,7 +263,7 @@ describe("review-context integration", () => {
     };
     expect(ctx.allChangedFiles).toContain("src/new-feature.ts");
     expect(ctx.allChangedFiles).not.toContain("src/base.ts");
-  }, 30_000);
+  });
 
   // Regression guard for archgate/cli#403: with a base ref detected,
   // review-context must report uncommitted working-tree edits (the files
@@ -310,7 +310,7 @@ describe("review-context integration", () => {
     expect(ctx.allChangedFiles).toContain("src/committed.ts");
     expect(ctx.allChangedFiles).toContain("src/base.ts");
     expect(ctx.allChangedFiles).toContain("src/untracked.ts");
-  }, 30_000);
+  });
 
   test("--staged takes precedence over --base for review-context", async () => {
     scaffoldProject(dir);
@@ -350,5 +350,86 @@ describe("review-context integration", () => {
     const ctx = JSON.parse(stdout) as { allChangedFiles: string[] };
     expect(ctx.allChangedFiles).toContain("src/staged.ts");
     expect(ctx.allChangedFiles).not.toContain("src/committed.ts");
-  }, 30_000);
+  });
+
+  test("reports truncated briefings in the payload and on stderr", async () => {
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ARCH-001.md",
+      makeAdr({
+        id: "ARCH-001",
+        title: "Architecture ADR",
+        domain: "architecture",
+        rules: false,
+        body: `## Decision\n${"A".repeat(5000)}\n\n## Do's and Don'ts\nDo keep layers separate.`,
+      })
+    );
+    await initGitRepo(dir);
+    await commitAll(dir, "initial commit");
+
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "index.ts"), "export const x = 1;\n");
+
+    const { exitCode, stdout, stderr } = await runCli(
+      ["review-context", "--verbose"],
+      dir
+    );
+    expect(exitCode).toBe(0);
+
+    const ctx = JSON.parse(stdout) as {
+      truncatedBriefings: string[];
+      domains: { adrs: { id: string; truncatedSections?: string[] }[] }[];
+    };
+    expect(ctx.truncatedBriefings).toContain("ARCH-001");
+    const briefing = ctx.domains
+      .flatMap((d) => d.adrs)
+      .find((a) => a.id === "ARCH-001");
+    expect(briefing?.truncatedSections).toEqual(["Decision"]);
+
+    // The warning must reach stderr without corrupting the JSON on stdout.
+    expect(stderr).toContain("ARCH-001");
+    expect(stderr).toContain("truncated");
+  });
+
+  test("truncatedBriefings only lists ADRs surviving --domain filtering", async () => {
+    scaffoldProject(dir);
+    const longBody = `## Decision\n${"A".repeat(5000)}\n\n## Do's and Don'ts\nDo it.`;
+    writeAdr(
+      dir,
+      "ARCH-001.md",
+      makeAdr({
+        id: "ARCH-001",
+        title: "Architecture ADR",
+        domain: "architecture",
+        rules: false,
+        body: longBody,
+      })
+    );
+    writeAdr(
+      dir,
+      "GEN-001.md",
+      makeAdr({
+        id: "GEN-001",
+        title: "General ADR",
+        domain: "general",
+        rules: false,
+        body: longBody,
+      })
+    );
+    await initGitRepo(dir);
+    await commitAll(dir, "initial commit");
+
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "index.ts"), "export const x = 1;\n");
+
+    const { exitCode, stdout } = await runCli(
+      ["review-context", "--verbose", "--domain", "general"],
+      dir
+    );
+    expect(exitCode).toBe(0);
+
+    const ctx = JSON.parse(stdout) as { truncatedBriefings: string[] };
+    expect(ctx.truncatedBriefings).toEqual(["GEN-001"]);
+  });
 });

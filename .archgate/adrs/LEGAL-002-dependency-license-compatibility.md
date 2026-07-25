@@ -8,14 +8,14 @@ files: ["package.json"]
 
 ## Context
 
-The Archgate CLI is licensed under Apache-2.0, a permissive open-source license. When the CLI is compiled into a binary via `bun build --compile`, all runtime dependencies are bundled into the executable. This means the binary is a combined work that must comply with the license terms of every bundled dependency.
+The Archgate CLI is licensed under Apache-2.0. `bun build --compile` bundles all runtime dependencies into the executable, making the binary a combined work that must comply with the license terms of every bundled dependency.
 
-Copyleft licenses (GPL, AGPL, LGPL) impose "share-alike" requirements that could force the entire CLI to be distributed under copyleft terms — incompatible with the project's Apache-2.0 licensing. Even for devDependencies (which are not bundled), copyleft test frameworks or build tools could create legal ambiguity about the project's overall license posture.
+Copyleft licenses (GPL, AGPL, LGPL) impose "share-alike" requirements that could force the entire CLI to be distributed under copyleft terms — incompatible with Apache-2.0. Even for devDependencies (which are not bundled), copyleft test frameworks or build tools create legal ambiguity about the project's overall license posture.
 
 **Alternatives considered:**
 
-- **No automated checking** — Rely on manual review during dependency additions. Error-prone; a single copyleft transitive dependency could slip in unnoticed.
-- **FOSSA or Snyk integration** — Third-party SaaS license scanners. Adds external dependency, cost, and requires API tokens in CI. Overkill for a project with only 3 production dependencies.
+- **No automated checking** — Manual review at dependency-addition time is error-prone; a single copyleft transitive dependency could slip in unnoticed.
+- **FOSSA or Snyk integration** — Third-party SaaS license scanners add an external dependency, cost, and API tokens in CI. Overkill given the project's minimal production dependency set (see `package.json`).
 - **npm license-checker package** — Adds a devDependency for something achievable with a simple script. Counter to ARCH-006 (minimize dependencies).
 
 A lightweight, self-contained script that reads `node_modules/*/package.json` license fields provides the same coverage without external dependencies or API tokens.
@@ -73,9 +73,9 @@ SPDX OR expressions (e.g., `MIT OR Apache-2.0`) are allowed if at least one alte
 
 ### Risks
 
-- **Transitive dependency license change** — A previously-permissive dependency may change its license in a new version (e.g., the Elasticsearch SSPL relicensing).
+- **Transitive dependency license change** — A previously-permissive dependency may relicense in a new version (e.g., the Elasticsearch SSPL relicensing).
   - **Mitigation:** The `LEGAL-002/no-copyleft-deps` rule scans the installed `node_modules` tree on every `archgate check`, catching license changes on any version update.
-- **Missing license field in package.json** — Some packages declare their license only in a LICENSE file, not in the `license` field. The scanner may flag these as "no license."
+- **Missing license field in package.json** — Packages that declare their license only in a LICENSE file may be flagged as "no license."
   - **Mitigation:** If a package is clearly permissive (LICENSE file exists) but lacks a `package.json` license field, add it to the allowlist with a comment explaining the override.
 
 ## Compliance and Enforcement

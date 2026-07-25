@@ -13,18 +13,17 @@ The CLI runs exclusively on Bun (`>=1.2.21`), never on Node.js. Bun provides `Bu
 
 Using `process.env` in a Bun-only codebase has several drawbacks:
 
-1. **Type inconsistency** — `process.env` returns `string | undefined` for every key, requiring manual type narrowing. `Bun.env` behaves identically at runtime but signals intent: this code is Bun-native, not a Node.js port.
-2. **Misleading provenance** — When a developer reads `process.env`, they assume Node.js semantics and may reach for Node.js documentation. `Bun.env` makes the runtime dependency explicit.
-3. **Inconsistent codebase style** — A mix of `process.env` and `Bun.env` across files creates confusion about which accessor is canonical. New contributors copy whichever pattern they encounter first.
-4. **Alignment with project philosophy** — [ARCH-006 (Dependency Policy)](./ARCH-006-dependency-policy.md) establishes a "prefer Bun built-ins" principle. Environment variable access is no different: Bun provides a native API, and the CLI should use it consistently.
+1. **Misleading provenance** — `process.env` reads as Node.js semantics and sends developers to Node.js documentation. `Bun.env` behaves identically at runtime (both return `string | undefined` per key) but makes the runtime dependency explicit.
+2. **Inconsistent codebase style** — A mix of both accessors creates confusion about which is canonical; new contributors copy whichever pattern they encounter first.
+3. **Alignment with project philosophy** — [ARCH-006 (Dependency Policy)](./ARCH-006-dependency-policy.md) establishes a "prefer Bun built-ins" principle. Environment variable access is no different.
 
 **Alternatives considered:**
 
-- **Continue using `process.env`** — The most familiar option for developers with Node.js background. However, it obscures the Bun-native nature of the project and creates style inconsistency as new code adopts `Bun.env`.
-- **Wrapper helper (e.g., `getEnv()`)** — Centralizing env access through a helper would add indirection for no practical benefit. `Bun.env` is already a clean, well-typed API — wrapping it would violate the project's minimal-abstraction philosophy.
-- **Allow both interchangeably** — Permitting both `process.env` and `Bun.env` would perpetuate the inconsistency that prompted this decision. A single canonical accessor is easier to enforce and review.
+- **Continue using `process.env`** — Most familiar to developers with a Node.js background, but obscures the Bun-native nature of the project and creates style inconsistency as new code adopts `Bun.env`.
+- **Wrapper helper (e.g., `getEnv()`)** — Adds indirection for no practical benefit. `Bun.env` is already a clean, well-typed API; wrapping it would violate the project's minimal-abstraction philosophy.
+- **Allow both interchangeably** — Perpetuates the inconsistency that prompted this decision. A single canonical accessor is easier to enforce and review.
 
-For Archgate, the CLI entry point already validates `typeof Bun !== "undefined"` and rejects non-Bun runtimes. Every source file in `src/` can safely assume Bun is available, making `Bun.env` the natural choice.
+The CLI entry point already validates `typeof Bun !== "undefined"` and rejects non-Bun runtimes, so every source file in `src/` can safely assume Bun is available.
 
 ## Decision
 
@@ -63,19 +62,12 @@ All environment variable access in `src/` MUST use `Bun.env` instead of `process
 ### Good Example
 
 ```typescript
-// src/helpers/paths.ts — reading env vars
+// src/helpers/paths.ts — reading env vars with a default
 const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? homedir();
 
-// src/helpers/output.ts — checking CI flag
+// src/helpers/output.ts — truthy check on a flag
 export function isAgentContext(): boolean {
   return !process.stdout.isTTY && !Bun.env.CI;
-}
-
-// src/helpers/log.ts — debug flag
-export function logDebug(...args: Parameters<typeof console.debug>) {
-  if (Bun.env.DEBUG) {
-    console.warn(header, ...args);
-  }
 }
 ```
 
@@ -101,14 +93,14 @@ const ci = Bun.env.CI;
 
 ### Negative
 
-- **Unfamiliar to Node.js developers** — Contributors with Node.js background will instinctively reach for `process.env`. The linting rule provides immediate feedback.
-- **Test/source divergence** — Tests use `process.env` while source uses `Bun.env`. This is intentional but may confuse contributors unfamiliar with the distinction.
+- **Unfamiliar to Node.js developers** — Contributors with a Node.js background instinctively reach for `process.env`. The linting rule provides immediate feedback.
+- **Test/source divergence** — Tests use `process.env` while source uses `Bun.env`. Intentional, but may confuse contributors unfamiliar with the distinction.
 
 ### Risks
 
-- **Bun.env behavioral differences** — `Bun.env` is a Proxy object, not a plain object like `process.env`. Edge cases (e.g., `Object.keys()`, `JSON.stringify()`, spread) may behave differently.
-  - **Mitigation:** The CLI accesses env vars by name (`Bun.env.FOO`), never iterates or serializes the entire env object. This usage pattern is well-tested and stable.
-- **Contributors bypass the rule** — New contributors may not know about `Bun.env` and use `process.env` out of habit.
+- **Bun.env behavioral differences** — `Bun.env` is a Proxy object, so edge cases (e.g., `Object.keys()`, `JSON.stringify()`, spread) may behave differently.
+  - **Mitigation:** The CLI accesses env vars by name (`Bun.env.FOO`), never iterating or serializing the whole env object.
+- **Contributors bypass the rule** — New contributors may use `process.env` out of habit.
   - **Mitigation:** The automated rule (`ARCH-014/no-process-env`) flags violations at check time. CI blocks merging non-compliant code.
 
 ## Compliance and Enforcement

@@ -125,6 +125,32 @@ Durante a execução, `archgate check` emite avisos para configurações incorre
 
 Esses avisos aparecem na saída padrão e não afetam o código de saída. Eles também aparecem na saída JSON quando `--json` é usado (como violações com `"severity": "warning"`).
 
+### Orçamento do resumo
+
+`archgate review-context --verbose` incorpora as seções **Decision** e **Do's and Don'ts** de cada ADR aplicável e trunca cada uma delas em um limite fixo de caracteres. O texto além desse ponto nunca chega ao agente que o ADR governa, e nenhuma regra companheira consegue detectá-lo — regras medem código, não o texto do próprio ADR.
+
+Portanto, `archgate check` relata toda seção de ADR que excede o limite, em todos os ADRs, inclusive os com `rules: false`:
+
+```
+[briefing] ARCH-024 "Decision" is 3574 chars; review-context truncates at 2000, hiding 1574 from agent briefings
+```
+
+As mesmas entradas aparecem na saída JSON em `briefingWarnings`, com `adrId`, `file`, `section`, `length` e `cap`.
+
+Um ADR que não pode ser lido ou analisado não é medido por nada, então é relatado separadamente em vez de contar como conforme:
+
+```
+[adr] could not be parsed, so it was excluded from every check above  .archgate/adrs/BROKEN.md
+```
+
+A saída JSON lista esses arquivos em `unparsedAdrs`. **Um `briefingWarnings` vazio significa "nada acima do limite" apenas quando `unparsedAdrs` também estiver vazio** — caso contrário, parte do corpus nunca foi inspecionada.
+
+Elas são **consultivas e nunca afetam `pass`**.
+
+Para eliminar um excesso, aplique primeiro os remédios que não podem custar uma regra: mova justificativas para Context ou Consequences, que nunca entram no resumo e portanto nunca têm limite; remova narrativa histórica; e mescle itens que enunciam a mesma regra duas vezes.
+
+Se o próximo corte removeria uma cláusula normativa — uma lista enumerada de identificadores, uma barreira de proteção ordenada, uma isenção — **pare**. Espera-se mesmo que essa seção exceda o limite, e ela NÃO DEVE ser encurtada além disso. Registre o motivo na seção Compliance do próprio ADR e organize a seção para que o conteúdo mais normativo venha antes do corte, já que o truncamento sempre remove o final.
+
 Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"severity": "warning"`) nunca alteram o código de saída. Passe `--max-warnings <n>` para fazer `archgate check` sair com código 1 quando a contagem total de avisos exceder `n`. `--max-warnings 0` falha com qualquer aviso. Quando o limite é excedido, o campo `warningsExceeded` da saída JSON é `true` e `pass` é `false`.
 
 ## Formato da saída JSON

@@ -17,6 +17,10 @@ import type {
 } from "../formats/rules";
 import { logDebug, logWarn } from "../helpers/log";
 import {
+  type BriefingBudgetWarning,
+  collectBriefingDiagnostics,
+} from "./adr-sections";
+import {
   AST_LANGUAGE_EXTENSIONS,
   PYTHON_AST_PROGRAM,
   PYTHON_AST_WITH_COMMENTS_PROGRAM,
@@ -84,6 +88,14 @@ export interface CheckResult {
   totalDurationMs: number;
   suppressedCount?: number;
   suppressionWarnings?: SuppressionWarning[];
+  /** ADR sections that `review-context --verbose` would truncate. */
+  briefingWarnings?: BriefingBudgetWarning[];
+  /**
+   * ADR files that could not be read or parsed. They are absent from every
+   * other result here, so an empty `briefingWarnings` means "nothing over
+   * budget" only when this is empty too.
+   */
+  unparsedAdrs?: string[];
 }
 
 function createRuleContext(
@@ -390,7 +402,17 @@ function createRuleContext(
 export async function runChecks(
   projectRoot: string,
   loadResults: LoadResult[],
-  options: { staged?: boolean; files?: string[]; base?: string } = {}
+  options: {
+    staged?: boolean;
+    files?: string[];
+    base?: string;
+    /**
+     * Briefing cap used for the budget diagnostics. Callers that render
+     * briefings MUST pass the same value they truncate at, or the diagnostics
+     * describe a cap the consumer never saw. Defaults to the engine's.
+     */
+    maxSectionChars?: number;
+  } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
 
@@ -567,10 +589,17 @@ export async function runChecks(
     }
   }
 
+  const { briefingWarnings, unparsedAdrs } = await collectBriefingDiagnostics(
+    projectRoot,
+    options.maxSectionChars
+  );
+
   return {
     results,
     totalDurationMs: performance.now() - startTime,
     suppressedCount: suppression.suppressedCount,
     suppressionWarnings: suppression.warnings,
+    briefingWarnings,
+    unparsedAdrs,
   };
 }

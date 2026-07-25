@@ -12,13 +12,11 @@ files: ["src/**/*.ts"]
 
 When `inquirer` creates a readline interface on Windows, it enables Virtual Terminal Processing (VTP) and sets the console flag `DISABLE_NEWLINE_AUTO_RETURN`. That flag is **never restored** after the prompt closes. The consequence is global and persistent: once any inquirer prompt has run, a bare `\n` no longer returns the cursor to column 0 for **all subsequent output** in the same process — not just during the prompt. Tables, summaries, and multi-line messages printed after an interactive flow render as a staircase.
 
-An earlier per-prompt `cursorTo(process.stdout, 0)` fix only corrected the cursor position on the answer line; it did not address the console-mode change, so later output was still broken.
-
 The root-cause fix lives in `src/helpers/prompt.ts`, which exports `withPromptFix()`. It applies an idempotent, permanent patch to `process.stdout.write` that translates bare `\n` to `\r\n` (via the `(?<!\r)\n` pattern) and resets the cursor to column 0 after each prompt. Because the damage is process-global, the fix only works if **every** inquirer prompt goes through `withPromptFix()` — a single unwrapped prompt re-breaks newline handling for the rest of the process.
 
 ### Alternatives Analysis
 
-**Wrap each prompt individually with ad-hoc cursor fixes**: Insufficient — it doesn't undo the console-mode change, only the cursor position. Rejected.
+**Wrap each prompt individually with ad-hoc cursor fixes** (e.g. a per-prompt `cursorTo(process.stdout, 0)`): Insufficient — it corrects only the cursor position on the answer line, not the console-mode change, so later output stays broken. Rejected.
 
 **Patch `process.stdout.write` once at startup unconditionally**: Pays the patch cost (and behavior change) even for runs that never prompt, and is harder to reason about. `withPromptFix()` applies the patch lazily on first prompt and is idempotent thereafter. Chosen.
 

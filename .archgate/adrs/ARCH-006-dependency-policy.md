@@ -8,19 +8,19 @@ files: ["package.json"]
 
 ## Context
 
-Minimizing dependencies reduces supply chain risk, install size, and maintenance burden. Every production dependency is a trust relationship: the project trusts the dependency's maintainers, their CI/CD pipeline, and every transitive dependency in the tree. Supply chain attacks targeting popular npm packages (event-stream, ua-parser-js, colors.js) have demonstrated that this trust is frequently exploited.
+Minimizing dependencies reduces supply chain risk, install size, and maintenance burden. Every production dependency is a trust relationship — with the package's maintainers, their CI/CD pipeline, and every transitive dependency in the tree. Supply chain attacks on popular npm packages (event-stream, ua-parser-js, colors.js) show that this trust is frequently exploited.
 
-Bun provides many built-in capabilities that eliminate the need for external packages — file I/O (`Bun.file`, `Bun.write`), HTTP server, subprocess execution (`Bun.spawn`), glob (`Bun.Glob`), TOML/YAML parsing, and testing. The fewer external packages in the dependency tree, the smaller the attack surface and the faster the install.
+Bun provides built-ins that eliminate the need for external packages: file I/O (`Bun.file`, `Bun.write`), HTTP server, subprocess execution (`Bun.spawn`), glob (`Bun.Glob`), TOML/YAML parsing, and testing. Fewer external packages means a smaller attack surface and a faster install.
 
-> **Note on `Bun.$` (Bun shell):** The `Bun.$` template literal API hangs on Windows because the shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that freeze the process. This project uses `Bun.spawn` (array-based, no shell) exclusively for cross-platform subprocess execution. See commit `ca33377` for the migration.
+> **Note on `Bun.$` (Bun shell):** The `Bun.$` template literal API hangs on Windows because the shell subprocess does not properly close stdin/stdout pipes, deadlocking the process. This project uses `Bun.spawn` (array-based, no shell) exclusively for subprocess execution — see [ARCH-007 — Cross-Platform Subprocess Execution](./ARCH-007-cross-platform-subprocess-execution.md).
 
 **Alternatives considered:**
 
-- **Vendoring dependencies** — Copying dependency source code directly into the repository removes the supply chain risk but creates a maintenance burden: vendored code must be manually updated, and license compliance becomes the project's responsibility. Vendoring is appropriate for critical, stable dependencies but does not scale for the entire tree.
-- **Lockfile auditing only** — Running `npm audit` or `bun audit` on the lockfile catches known vulnerabilities but does not prevent new, zero-day supply chain attacks. Auditing is a complement to dependency minimization, not a replacement.
-- **Aggressive dependency adoption** — Using best-of-breed packages for every capability (chalk for colors, glob for file matching, zod for validation, etc.) maximizes developer ergonomics but balloons the dependency tree. Each package brings its own transitive dependencies, and any one of them can be compromised.
+- **Vendoring dependencies** — Removes the supply chain risk but shifts manual updates and license compliance onto the project; workable for a few critical, stable packages, not for the whole tree.
+- **Lockfile auditing only** — `npm audit`/`bun audit` catch known vulnerabilities but not zero-day supply chain attacks; a complement to minimization, not a replacement.
+- **Aggressive dependency adoption** — Best-of-breed packages for every capability (chalk, glob, etc.) maximize ergonomics but balloon the tree, and any transitive package can be compromised.
 
-The project strikes a balance: use Bun built-ins wherever possible, maintain a short, explicit approved list for essential capabilities that Bun does not provide, and require justification for any additions.
+The project balances these: Bun built-ins wherever possible, a short explicit approved list for capabilities Bun does not provide, and justification required for any addition.
 
 ## Decision
 
@@ -44,21 +44,21 @@ Development dependencies (`devDependencies`) are less restricted but should stil
 
 ### Do
 
-- Use Bun built-ins for file I/O (`Bun.file`, `Bun.write`), HTTP, subprocess execution (`Bun.spawn`), glob (`Bun.Glob`), testing (`bun:test`)
-- Use `Bun.spawn` with array-based arguments for all subprocess execution — it works correctly on macOS, Linux, and Windows
-- **DON'T** use `Bun.$` (Bun shell template literals) for subprocess execution — it hangs on Windows due to pipe handling issues
-- Justify any new production dependency in a PR description
-- Keep `devDependencies` for tooling only (linting, formatting, commitlint)
-- Review the transitive dependency tree before adding a package
-- Prefer `node:` built-in modules (e.g., `node:util`, `node:path`, `node:fs`) over npm alternatives
+- **DO** use Bun built-ins for file I/O (`Bun.file`, `Bun.write`), HTTP, subprocess execution (`Bun.spawn`), glob (`Bun.Glob`), testing (`bun:test`)
+- **DO** use `Bun.spawn` with array-based arguments for all subprocess execution — it works correctly on macOS, Linux, and Windows
+- **DO** justify any new production dependency in a PR description
+- **DO** keep `devDependencies` for tooling only (linting, formatting, commitlint)
+- **DO** review the transitive dependency tree before adding a package
+- **DO** prefer `node:` built-in modules (e.g., `node:util`, `node:path`, `node:fs`) over npm alternatives
 
 ### Don't
 
-- Don't add dependencies for functionality Bun provides natively
-- Don't use Node.js-specific APIs when Bun alternatives exist (e.g., use `Bun.file()` not `fs.readFile()` for simple reads)
-- Don't add utility libraries for single functions (e.g., no lodash for `_.pick`)
-- Don't use path aliases (`tsconfig paths`) — use relative imports with Bun's native module resolution
-- Don't install packages globally in development — use `bunx` for one-off tools
+- **DON'T** use `Bun.$` (Bun shell template literals) for subprocess execution — it hangs on Windows due to pipe handling issues
+- **DON'T** add dependencies for functionality Bun provides natively
+- **DON'T** use Node.js-specific APIs when Bun alternatives exist (e.g., `Bun.file()` not `fs.readFile()` for simple reads)
+- **DON'T** add utility libraries for single functions (e.g., no lodash for `_.pick`)
+- **DON'T** use path aliases (`tsconfig paths`) — use relative imports with Bun's native module resolution
+- **DON'T** install packages globally in development — use `bunx` for one-off tools
 
 ## Implementation Pattern
 
@@ -107,24 +107,24 @@ const subset = pick(obj, ["a", "b"]);
 
 ### Positive
 
-- **Smaller install footprint** — Fewer packages mean faster `bun install` and smaller `node_modules` (or no `node_modules` with Bun's module resolution)
-- **Fewer supply chain attack vectors** — Each removed dependency eliminates an entire trust chain. The approved list has been vetted for maintenance quality and security posture.
-- **Faster startup** — Fewer modules to resolve and load at startup. Bun built-ins are loaded from the runtime binary, not from disk.
-- **Simpler upgrades** — With fewer dependencies, `bun update` has fewer potential breaking changes to audit
+- **Smaller install footprint** — Fewer packages mean faster `bun install` and smaller `node_modules`
+- **Fewer supply chain attack vectors** — Each avoided dependency removes an entire trust chain; the approved list is vetted for maintenance quality and security posture
+- **Faster startup** — Fewer modules to resolve and load; Bun built-ins ship inside the runtime binary
+- **Simpler upgrades** — `bun update` has fewer potential breaking changes to audit
 
 ### Negative
 
-- **Bun built-in documentation is less comprehensive** — Some Bun APIs (`Bun.Glob`, `Bun.spawn`) have less documentation and fewer community examples than their npm counterparts (`glob`, `execa`). Contributors may need to reference Bun's source or test files.
-- **Bun API surface may change** — Bun is actively developing and some APIs may change between minor versions. Pinning via `.prototools` mitigates but does not eliminate this risk.
+- **Bun built-in documentation is less comprehensive** — `Bun.Glob` and `Bun.spawn` have fewer docs and community examples than `glob` or `execa`, so contributors may need Bun's source or test files.
+- **Bun API surface may change** — Bun develops actively and APIs can shift between minor versions. Pinning via `.prototools` mitigates but does not eliminate this.
 
 ### Risks
 
-- **Bun API instability** — Bun built-in APIs (especially newer ones like `Bun.Glob`, `Bun.spawn`) may introduce breaking changes or behavioral differences between versions. The `Bun.$` shell API is explicitly avoided due to Windows pipe deadlocks discovered in production.
-  - **Mitigation:** The project pins Bun version via `.prototools`. API changes are caught during controlled upgrades with full test suite validation.
-- **Bun built-in feature gaps** — Some functionality may be missing from Bun built-ins (e.g., advanced glob options, streaming HTTP edge cases). If a Bun built-in lacks a critical feature, the fallback is to add an approved dependency with full justification.
-  - **Mitigation:** The approved dependency list exists precisely for this case. The threshold is "Bun cannot do this," not "Bun can do this but an npm package is slightly more convenient."
-- **New dependency pressure from contributors** — Contributors may add packages out of habit without checking Bun alternatives.
-  - **Mitigation:** The `ARCH-006/no-unapproved-deps` automated rule scans `package.json` and flags any production dependency not on the approved list. This blocks CI.
+- **Bun API instability** — Newer built-ins (`Bun.Glob`, `Bun.spawn`) may introduce breaking changes or behavioral differences between versions; `Bun.$` is avoided outright for Windows pipe deadlocks.
+  - **Mitigation:** The project pins the Bun version via `.prototools`; API changes surface during controlled upgrades with full test suite validation.
+- **Bun built-in feature gaps** — A built-in may lack a critical feature (advanced glob options, streaming HTTP edge cases).
+  - **Mitigation:** Add an approved dependency with full justification. The threshold is "Bun cannot do this," not "Bun can do this but an npm package is slightly more convenient."
+- **New dependency pressure from contributors** — Packages get added out of habit without checking Bun alternatives.
+  - **Mitigation:** The `ARCH-006/no-unapproved-deps` rule scans `package.json` and flags any production dependency not on the approved list. This blocks CI.
 
 ## Compliance and Enforcement
 
