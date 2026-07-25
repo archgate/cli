@@ -21,6 +21,12 @@ interface AdrBriefing {
   decision?: string;
   /** Present only when briefings are requested — see `briefAdr`. */
   dosAndDonts?: string;
+  /**
+   * Section names whose prose was cut to fit `maxSectionChars`. Omitted when
+   * nothing was cut, so its presence alone means context is missing and the
+   * full ADR must be read via `archgate adr show <id>`.
+   */
+  truncatedSections?: string[];
 }
 
 interface DomainContext {
@@ -32,6 +38,12 @@ interface DomainContext {
 interface ReviewContext {
   allChangedFiles: string[];
   truncatedFiles: boolean;
+  /**
+   * IDs of ADRs whose briefing prose was cut, hoisted here so a consumer sees
+   * that context is missing without walking every domain. Empty when nothing
+   * was cut or when briefings were not requested.
+   */
+  truncatedBriefings: string[];
   domains: DomainContext[];
   checkSummary: ReportSummary | null;
 }
@@ -86,14 +98,24 @@ interface BriefAdrOptions {
 
 const DEFAULT_MAX_SECTION_CHARS = 2000;
 
-/** Truncate content to maxChars, appending a pointer to the full ADR. */
+/**
+ * Truncate content to maxChars, appending a pointer to the full ADR.
+ *
+ * @returns The (possibly cut) text and whether anything was removed. Callers
+ * surface the flag so hidden context is never silent.
+ */
 function truncateSection(
   content: string,
   adrId: string,
   maxChars: number
-): string {
-  if (maxChars <= 0 || content.length <= maxChars) return content;
-  return `${content.slice(0, maxChars)}\n\n[... truncated — read full ADR via adr://${adrId}]`;
+): { text: string; truncated: boolean } {
+  if (maxChars <= 0 || content.length <= maxChars) {
+    return { text: content, truncated: false };
+  }
+  return {
+    text: `${content.slice(0, maxChars)}\n\n[... truncated — read full ADR via adr://${adrId}]`,
+    truncated: true,
+  };
 }
 
 /**
@@ -122,12 +144,21 @@ export function briefAdr(
     "Decision",
     "Do's and Don'ts",
   ]);
-  briefing.decision = truncateSection(sections["Decision"], id, maxChars);
-  briefing.dosAndDonts = truncateSection(
+  const decision = truncateSection(sections["Decision"], id, maxChars);
+  const dosAndDonts = truncateSection(
     sections["Do's and Don'ts"],
     id,
     maxChars
   );
+  briefing.decision = decision.text;
+  briefing.dosAndDonts = dosAndDonts.text;
+
+  const truncatedSections: string[] = [];
+  if (decision.truncated) truncatedSections.push("Decision");
+  if (dosAndDonts.truncated) truncatedSections.push("Do's and Don'ts");
+  if (truncatedSections.length > 0) {
+    briefing.truncatedSections = truncatedSections;
+  }
   return briefing;
 }
 
@@ -287,5 +318,19 @@ export async function buildReviewContext(
     }
   }
 
-  return { allChangedFiles, truncatedFiles, domains, checkSummary };
+  // Collected after domain filtering so the list names only ADRs the caller
+  // actually received.
+  const truncatedBriefings = domains
+    .flatMap((d) => d.adrs)
+    .filter((a) => a.truncatedSections !== undefined)
+    .map((a) => a.id)
+    .sort();
+
+  return {
+    allChangedFiles,
+    truncatedFiles,
+    truncatedBriefings,
+    domains,
+    checkSummary,
+  };
 }

@@ -146,6 +146,36 @@ describe("briefAdr", () => {
     expect(briefing.decision).not.toContain("truncated");
   });
 
+  // Truncation removes governing text, so the briefing must say so rather
+  // than leaving the consumer to notice the marker in the prose.
+  test("names the truncated section in truncatedSections", () => {
+    const body = `## Decision\n${"A".repeat(3000)}\n\n## Do's and Don'ts\nShort.`;
+    const adr = makeAdr({ id: "ARCH-011" }, body);
+    const briefing = briefAdr(adr, { maxSectionChars: 100, briefings: true });
+    expect(briefing.truncatedSections).toEqual(["Decision"]);
+  });
+
+  test("names both sections when both are truncated", () => {
+    const body = `## Decision\n${"A".repeat(3000)}\n\n## Do's and Don'ts\n${"B".repeat(3000)}`;
+    const adr = makeAdr({ id: "ARCH-012" }, body);
+    const briefing = briefAdr(adr, { maxSectionChars: 100, briefings: true });
+    expect(briefing.truncatedSections).toEqual(["Decision", "Do's and Don'ts"]);
+  });
+
+  test("omits truncatedSections when nothing is cut", () => {
+    const body = "## Decision\nShort.\n\n## Do's and Don'ts\nAlso short.";
+    const adr = makeAdr({ id: "ARCH-013" }, body);
+    const briefing = briefAdr(adr, { maxSectionChars: 2000, briefings: true });
+    expect(briefing.truncatedSections).toBeUndefined();
+  });
+
+  test("omits truncatedSections when prose is not requested", () => {
+    const adr = makeAdr({ id: "ARCH-014" }, `## Decision\n${"A".repeat(3000)}`);
+    expect(
+      briefAdr(adr, { maxSectionChars: 100 }).truncatedSections
+    ).toBeUndefined();
+  });
+
   test("maxSectionChars 0 means unlimited", () => {
     const longContent = "D".repeat(10000);
     const body = `## Decision\n${longContent}`;
@@ -322,5 +352,27 @@ describe("buildReviewContext", () => {
     writeAdr("ARCH-001", "architecture");
     const ctx = await buildReviewContext(tempDir, { runChecks: false });
     expect(ctx.truncatedFiles).toBe(false);
+  });
+
+  test("truncatedBriefings is empty when nothing is cut", async () => {
+    writeAdr("ARCH-001", "architecture");
+    const ctx = await buildReviewContext(tempDir, { runChecks: false });
+    expect(ctx.truncatedBriefings).toEqual([]);
+  });
+});
+
+// Hoisting the IDs to the top level lets a consumer see that governing text is
+// missing without walking every domain.
+describe("truncatedBriefings collection", () => {
+  test("matchFilesToAdrs carries truncatedSections into the briefing", () => {
+    const adr = makeAdr(
+      { id: "ARCH-002", domain: "architecture", files: ["src/**/*.ts"] },
+      `## Decision\n${"X".repeat(5000)}`
+    );
+    const result = matchFilesToAdrs(["src/a.ts"], [adr], {
+      maxSectionChars: 50,
+      briefings: true,
+    });
+    expect(result[0].adrs[0].truncatedSections).toEqual(["Decision"]);
   });
 });
