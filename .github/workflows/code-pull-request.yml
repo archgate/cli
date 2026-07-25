@@ -150,7 +150,7 @@ jobs:
       # --- Maven ---
       - name: Setup Java
         if: matrix.shim == 'maven'
-        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.5.0
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "11"
@@ -171,9 +171,9 @@ jobs:
       # --- RubyGem ---
       - name: Setup Ruby
         if: matrix.shim == 'rubygem'
-        uses: ruby/setup-ruby@9eb537ca036ebaed86729dcb9309076e4c5c3b74 # v1.314.0
+        uses: ruby/setup-ruby@003a5c4d8d6321bd302e38f6f0ec593f77f06600 # v1.319.0
         with:
-          ruby-version: "4.0.5"
+          ruby-version: "4.0.6"
       - name: Test RubyGem shim
         if: matrix.shim == 'rubygem'
         working-directory: shims/rubygem
@@ -212,7 +212,7 @@ jobs:
         # `permissions:` above, so SARIF upload would fail — fall back to
         # console-only output and don't let that (or the pre-existing
         # findings backlog) fail the gate for external contributors.
-        uses: zizmorcore/zizmor-action@192e21d79ab29983730a13d1382995c2307fbcaa # v0.5.7
+        uses: zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02 # v0.6.0
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
         with:
           config: zizmor.yml
