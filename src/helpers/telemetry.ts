@@ -190,7 +190,6 @@ export async function initTelemetry(): Promise<void> {
     const { PostHog } = await import("posthog-node");
     client = new PostHog(POSTHOG_API_KEY, {
       host: POSTHOG_HOST,
-      // Disable polling for feature flags — we don't use them in the CLI
       disableGeoip: false,
       flushAt: 20,
       // No interval-based auto-flush: the CLI flushes explicitly via
@@ -325,9 +324,6 @@ export function trackCheckResult(properties: {
   trackEvent("check_completed", properties);
 }
 
-/**
- * Track the outcome of `archgate init`.
- */
 export function trackInitResult(properties: {
   editor: string;
   plugin_installed: boolean;
@@ -366,9 +362,6 @@ export function trackProjectInitialized(properties: {
   trackEvent("project_initialized", properties);
 }
 
-/**
- * Track the outcome of `archgate upgrade`.
- */
 export function trackUpgradeResult(properties: {
   from_version: string;
   to_version: string;
@@ -380,7 +373,6 @@ export function trackUpgradeResult(properties: {
   trackEvent("upgrade_completed", properties);
 }
 
-/** Track the outcome of `archgate login`. */
 export function trackLoginResult(properties: {
   subcommand: "login" | "logout" | "refresh" | "status";
   success: boolean;
@@ -396,7 +388,6 @@ export function trackTelemetryPreferenceChange(properties: {
   trackEvent("telemetry_preference_changed", properties);
 }
 
-/** Track when the greenfield wizard prompt is displayed. */
 export function trackGreenfieldWizardShown(): void {
   trackEvent("adoption.greenfield_wizard_shown");
 }
@@ -438,8 +429,12 @@ export function trackCustomDomainRemoved(properties: {
 }
 
 /**
- * Flush pending events to PostHog. Call before process exit to ensure
- * events are delivered.
+ * Flush pending events to PostHog. Call before process exit so events are
+ * delivered.
+ *
+ * @param timeoutMs - How long to wait for the flush before giving up, so a
+ * slow or blocked network cannot hang the exit path.
+ * @defaultValue 3000
  */
 export async function flushTelemetry(timeoutMs = 3000): Promise<void> {
   if (!initialized || !client) return;

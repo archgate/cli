@@ -147,7 +147,6 @@ export default {
         "Async command actions must include try-catch error boundaries",
       severity: "warning",
       async check(ctx) {
-        // Only check non-index command files
         const files = ctx.scopedFiles.filter(
           (f) => f.includes("commands/") && !f.endsWith("index.ts")
         );
@@ -229,7 +228,6 @@ export default {
       description:
         "Catch blocks in async command actions must re-throw ExitPromptError for proper Ctrl+C handling (exit 130)",
       async check(ctx) {
-        // Only check non-index command files that have async actions
         const files = ctx.scopedFiles.filter(
           (f) => f.includes("commands/") && !f.endsWith("index.ts")
         );
@@ -237,7 +235,6 @@ export default {
         const checks = files.map(async (file) => {
           const content = await ctx.readFile(file);
 
-          // Only check files with async actions that have try-catch
           const hasAsyncActionWithTryCatch =
             /\.action\(\s*async\s[\s\S]*?\btry\s*\{/u.test(content);
           if (!hasAsyncActionWithTryCatch) return;

@@ -148,10 +148,14 @@ function pickDefaultBranch(
 }
 
 /**
- * Share owner/name/remote URL in `project_initialized` iff the repository is
- * confirmed public on a recognised host; private, unknown, and self-hosted
- * repos return false. There is deliberately no identity-specific opt-out
- * knob — disabling telemetry itself suppresses the whole event upstream.
+ * Gate raw repo identity (owner / name / remote URL) in the
+ * `project_initialized` event. There is deliberately no identity-specific
+ * opt-out knob — disabling telemetry suppresses the whole event upstream.
+ *
+ * @param repoPublic - Whether the repo is confirmed public on a recognised
+ * host; `null` when that could not be determined.
+ * @returns `true` only for a confirmed-public repo, so private, unknown, and
+ * self-hosted repos all withhold identity.
  */
 export function shouldShareRepoIdentity(repoPublic: boolean | null): boolean {
   return repoPublic === true;
@@ -166,6 +170,11 @@ export function shouldShareRepoIdentity(repoPublic: boolean | null): boolean {
  * Bitbucket HTTPS and SCP-style SSH URLs, GitLab subgroups, Azure DevOps
  * HTTPS/SSH (including the `_git` infix and `v3` SSH prefix), and legacy
  * `{org}.visualstudio.com` URLs with the org encoded in the subdomain.
+ *
+ * @param raw - A remote URL in any of the supported forms.
+ * @returns The parsed parts, each field `null` where it cannot be
+ * determined — an empty or unrecognised URL yields an all-`null` result
+ * rather than throwing.
  */
 export function parseRemoteUrl(raw: string): ParsedRemote {
   const trimmed = raw.trim();

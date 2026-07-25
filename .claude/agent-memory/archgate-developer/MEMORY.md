@@ -60,6 +60,10 @@ Non-enforceable lessons — environment/CI/platform quirks no static rule can re
 
 - [i18n translation quality checks](project_i18n_translation_quality.md) — nb/ + pt-br/ dual-locale requirement, Norwegian diacritical corruption patterns to scan for
 
+## Performance
+
+- [CLI startup baselines](project_cli_perf_baselines.md) — measured numbers behind the `cli-perf.test.ts` budgets, and how to tell a real regression from a slow runner
+
 ## Validation Pipeline
 
 - `bun run validate` is the mandatory gate: lint → typecheck → format:check → test → ADR check → knip → build:check

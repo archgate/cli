@@ -17,6 +17,16 @@ const DIVIDER_ONLY = /^[─-╿=—\-_*\s]{3,}$/u;
 const NON_PROSE =
   /^(<reference\b|eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-|archgate-ignore|istanbul\s|c8\s|v8\s|region\b|endregion\b|SPDX-License-Identifier|Copyright\s)/iu;
 
+// TSDoc block tags whose length tracks the API surface — one entry per
+// parameter, thrown type, or example — rather than narrative padding. The tag
+// line and everything under it up to the next tag is exempt from the budget.
+const STRUCTURAL_TAG =
+  /^@(param|arg|argument|typeParam|template|returns?|throws|example|see|link|defaultValue|deprecated|internal|public|alpha|beta|experimental|module|packageDocumentation|typedef|callback|property|prop|overload|inheritDoc|label|satisfies)\b/iu;
+
+// Prose containers: their content is narrative, so it keeps counting.
+// Exempting these would reduce the bound to "write @remarks first".
+const PROSE_TAG = /^@(remarks|description|summary|notes?|todo|fixme)\b/iu;
+
 const OVERSIZED_BLOCK_THRESHOLD = 5;
 
 // A leading `*` counts only when followed by space or end of line, so a
@@ -37,18 +47,24 @@ function commentBody(trimmed: string): string {
     .trim();
 }
 
-function countsAsProse(trimmed: string): boolean {
+// Classify one line of a run. `inStructuralSection` carries the open TSDoc
+// tag's kind across lines: a structural tag's content is exempt, a prose
+// tag's is not, and the untagged summary above the first tag always counts.
+function classifyLine(
+  trimmed: string,
+  inStructuralSection: boolean
+): { counts: boolean; inStructuralSection: boolean } {
   const body = commentBody(trimmed);
-  if (body === "" || DIVIDER_ONLY.test(body)) return false;
-  return !NON_PROSE.test(body);
-}
-
-function isFixtureFile(file: string): boolean {
-  return file.replaceAll("\\", "/").includes("tests/fixtures/");
-}
-
-function isTestFile(file: string): boolean {
-  return file.replaceAll("\\", "/").startsWith("tests/");
+  if (body.startsWith("@")) {
+    return {
+      counts: false,
+      inStructuralSection: STRUCTURAL_TAG.test(body) && !PROSE_TAG.test(body),
+    };
+  }
+  if (inStructuralSection) return { counts: false, inStructuralSection };
+  const counts =
+    body !== "" && !DIVIDER_ONLY.test(body) && !NON_PROSE.test(body);
+  return { counts, inStructuralSection };
 }
 
 export default {
@@ -58,7 +74,7 @@ export default {
         "Comments must describe current behavior only — no historical or relocation narration (GEN-004)",
       severity: "error",
       async check(ctx) {
-        const files = ctx.scopedFiles.filter((f) => !isFixtureFile(f));
+        const files = ctx.scopedFiles;
         const checks = files.map(async (file) => {
           const content = await ctx.readFile(file);
           content.split(/\r?\n/u).forEach((line, index) => {
@@ -89,13 +105,12 @@ export default {
         "Contiguous comment runs must carry at most 5 lines of prose — move deeper rationale to an ADR or memory file (GEN-004)",
       severity: "error",
       async check(ctx) {
-        const files = ctx.scopedFiles.filter(
-          (f) => !isTestFile(f) && !isFixtureFile(f)
-        );
+        const files = ctx.scopedFiles;
         const checks = files.map(async (file) => {
           const lines = (await ctx.readFile(file)).split(/\r?\n/u);
           let runStart = -1;
           let prose = 0;
+          let inStructuralSection = false;
 
           const flush = () => {
             if (prose > OVERSIZED_BLOCK_THRESHOLD) {
@@ -108,13 +123,16 @@ export default {
             }
             runStart = -1;
             prose = 0;
+            inStructuralSection = false;
           };
 
           lines.forEach((line, index) => {
             const trimmed = line.trim();
             if (trimmed !== "" && looksLikeComment(trimmed)) {
               if (runStart === -1) runStart = index;
-              if (countsAsProse(trimmed)) prose++;
+              const result = classifyLine(trimmed, inStructuralSection);
+              inStructuralSection = result.inStructuralSection;
+              if (result.counts) prose++;
             } else {
               flush();
             }

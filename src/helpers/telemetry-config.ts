@@ -109,9 +109,6 @@ export function loadTelemetryConfig(): TelemetryConfig {
   return cachedConfig;
 }
 
-/**
- * Update telemetry enabled/disabled state and persist to disk.
- */
 export async function setTelemetryEnabled(enabled: boolean): Promise<void> {
   const config = loadTelemetryConfig();
   config.telemetry = enabled;
@@ -119,9 +116,6 @@ export async function setTelemetryEnabled(enabled: boolean): Promise<void> {
   await saveTelemetryConfig(config);
 }
 
-/**
- * Get the anonymous install ID for this CLI installation.
- */
 export function getInstallId(): string {
   return loadTelemetryConfig().installId;
 }

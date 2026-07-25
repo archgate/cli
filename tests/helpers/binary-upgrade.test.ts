@@ -143,7 +143,6 @@ describe("downloadReleaseBinary", () => {
   });
 
   test("calls onProgress callback with streaming progress", async () => {
-    // Create a fake ReadableStream that yields two chunks
     const chunk1 = new Uint8Array([1, 2, 3, 4]);
     const chunk2 = new Uint8Array([5, 6, 7, 8, 9, 10]);
     const totalSize = chunk1.byteLength + chunk2.byteLength;
@@ -168,7 +167,6 @@ describe("downloadReleaseBinary", () => {
           body: stream,
         } as Response);
       }
-      // Checksum fetch — not available
       return Promise.resolve({ ok: false, status: 404 } as Response);
     }) as unknown as typeof fetch;
 
@@ -379,7 +377,6 @@ describe("replaceBinary", () => {
       const currentPath = join(tmpDir, "archgate");
       const newBinaryPath = join(tmpDir, "archgate.new");
 
-      // Create placeholder files
       writeFileSync(currentPath, "old binary content");
       writeFileSync(newBinaryPath, "new binary content");
 
@@ -390,7 +387,6 @@ describe("replaceBinary", () => {
       // and the staging path must be gone (rename, not copy)
       expect(existsSync(newBinaryPath)).toBe(false);
 
-      // verify chmod 755 was applied
       const mode = statSync(currentPath).mode & 0o777;
       expect(mode).toBe(0o755);
     }
@@ -450,7 +446,6 @@ describe("replaceBinary", () => {
       expect(existsSync(oldPath)).toBe(true);
       expect(existsSync(newBinaryPath)).toBe(false);
 
-      // The .old file should contain "old binary content" (the just-replaced binary)
       const oldContent = readFileSync(oldPath, "utf8");
       expect(oldContent).toBe("old binary content");
     }
@@ -493,7 +488,6 @@ describe("cleanupStaleBinary", () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
     Bun.env.HOME = tmpDir;
 
-    // No .old file — should not throw
     await expect(cleanupStaleBinary()).resolves.toBeUndefined();
   });
 });

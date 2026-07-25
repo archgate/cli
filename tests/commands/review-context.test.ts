@@ -10,10 +10,6 @@ import { Command } from "@commander-js/extra-typings";
 import { registerReviewContextCommand } from "../../src/commands/review-context";
 import { safeRmSync } from "../test-utils";
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("registerReviewContextCommand", () => {
   test("registers 'review-context' as a subcommand", () => {
     const program = new Command();
@@ -209,7 +205,6 @@ Test.
       .map((c: unknown[]) => String(c[0]))
       .join("");
     const parsed = JSON.parse(output);
-    // All domains should only contain architecture entries
     for (const domain of parsed.domains) {
       expect(domain.domain).toBe("architecture");
     }

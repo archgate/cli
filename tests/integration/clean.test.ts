@@ -39,7 +39,6 @@ describe("clean integration", () => {
     const archgateDir = join(fakeHome, ".archgate");
     seedUpdateCache(archgateDir);
 
-    // First clean removes the directory
     await runCli(["clean"], dir, { HOME: fakeHome, USERPROFILE: fakeHome });
     // CLI startup re-creates ~/.archgate/cache; seed it again to prevent update-check writes
     seedUpdateCache(archgateDir);

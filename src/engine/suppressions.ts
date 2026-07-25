@@ -55,12 +55,11 @@ const SUPPRESSION_RE =
 const FENCE_RE = /^[ \t]*(`{3,}|~{3,})/u;
 
 /**
- * Parse suppression comments from file content.
- * Returns one entry per matching comment line.
+ * Parse suppression comments from file content. In markdown files (.md, .mdx),
+ * lines inside fenced code blocks are skipped so that documented examples of
+ * `archgate-ignore` are not treated as real suppression directives.
  *
- * In markdown files (.md, .mdx), lines inside fenced code blocks are skipped
- * so that documented examples of `archgate-ignore` are not treated as real
- * suppression directives.
+ * @returns One entry per matching comment line.
  */
 export function parseSuppressions(
   content: string,
@@ -72,7 +71,6 @@ export function parseSuppressions(
   let insideCodeBlock = false;
 
   for (let i = 0; i < lines.length; i++) {
-    // Track fenced code blocks in markdown so examples are not parsed
     if (isMarkdown && FENCE_RE.test(lines[i])) {
       insideCodeBlock = !insideCodeBlock;
       continue;
@@ -121,7 +119,6 @@ export async function applySuppressions(
   projectRoot: string,
   results: RuleResult[]
 ): Promise<SuppressionResult> {
-  // Collect unique file paths referenced by violations
   const filePathsNeeded = new Set<string>();
   for (const r of results) {
     for (const v of r.violations) {
@@ -141,7 +138,6 @@ export async function applySuppressions(
     };
   }
 
-  // Read files in parallel and parse suppressions
   const fileSuppressions = new Map<string, SuppressionComment[]>();
   const readPromises = Array.from(filePathsNeeded, async (relPath) => {
     try {
@@ -158,7 +154,6 @@ export async function applySuppressions(
   });
   await Promise.all(readPromises);
 
-  // Filter violations
   const activeViolations = new Set<ViolationDetail>();
   const warnings: SuppressionWarning[] = [];
   let suppressedCount = 0;
@@ -174,7 +169,6 @@ export async function applySuppressions(
     }
   }
 
-  // Detect unused suppressions
   for (const [, suppressions] of fileSuppressions) {
     for (const s of suppressions) {
       if (s.reason === null) continue; // already warned about missing reason
@@ -197,7 +191,10 @@ export async function applySuppressions(
 
 /**
  * Check whether a single violation is suppressed by any comment in its file.
- * Returns true if suppressed.
+ *
+ * @returns True when a scope-matching suppression carries a reason. A
+ * scope-matching suppression missing its reason pushes a warning and returns
+ * false, so the violation still reports.
  */
 function checkSuppression(
   violation: ViolationDetail,

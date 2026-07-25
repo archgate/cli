@@ -16,16 +16,13 @@ export default {
         // is checked: deeper files like adr/domain/add.ts are sub-subcommands
         // documented as a table in the parent's section, not as headings.
 
-        // Find all parent command groups (dirs with an index.ts).
         const groupIndexFiles = await ctx.glob(`${COMMANDS_DIR}/*/index.ts`);
 
-        // Extract parent names from index files.
         const parentNames = groupIndexFiles.map((indexFile) => {
           const rel = indexFile.slice(COMMANDS_DIR.length + 1);
           return rel.split("/")[0];
         });
 
-        // Discover subcommands for all parents in parallel.
         const subResults = await Promise.all(
           parentNames.map(async (parentName) => {
             const [subFiles, nestedGroupFiles] = await Promise.all([
@@ -35,7 +32,6 @@ export default {
 
             const subs = new Set<string>();
 
-            // Single-file subcommands
             for (const sf of subFiles) {
               const fileName = sf.slice(
                 `${COMMANDS_DIR}/${parentName}/`.length
@@ -44,7 +40,6 @@ export default {
               subs.add(fileName.slice(0, -".ts".length));
             }
 
-            // Nested command groups
             for (const ngf of nestedGroupFiles) {
               const nestedRel = ngf.slice(
                 `${COMMANDS_DIR}/${parentName}/`.length
@@ -68,7 +63,6 @@ export default {
         //                          ### archgate adr domain
         const headingPattern = /^#{1,4}\s+.*archgate\s+(\S+)\s+(\S+)/giu;
 
-        // Read all docs files in parallel.
         const docsResults = await Promise.all(
           [...subcommandsByParent.entries()].map(
             async ([parentName, subNames]) => {
@@ -85,7 +79,6 @@ export default {
           )
         );
 
-        // Report violations.
         for (const {
           parentName,
           subNames,
@@ -94,7 +87,6 @@ export default {
         } of docsResults) {
           if (docsContent === null) continue;
 
-          // Extract documented subcommand names from headings
           const documentedSubs = new Set<string>();
           let match;
           headingPattern.lastIndex = 0;

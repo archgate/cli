@@ -64,7 +64,6 @@ describe("initProject", () => {
     expect(second.adrsDir).toBe(first.adrsDir);
     expect(second.lintDir).toBe(first.lintDir);
 
-    // Directories and scaffolding files still exist after re-init
     expect(existsSync(join(tempDir, ".archgate", "lint", "README.md"))).toBe(
       true
     );
@@ -82,17 +81,14 @@ describe("initProject", () => {
     expect(existsSync(join(tempDir, ".cursor", "hooks.json"))).toBe(true);
     expect(existsSync(join(tempDir, ".cursor", "rules"))).toBe(false);
 
-    // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
       false
     );
 
-    // Result should point to .cursor/ directory
     expect(result.editorSettingsPath).toBe(join(tempDir, ".cursor"));
   });
 
   test("skips example ADR when ADRs already exist", async () => {
-    // Pre-create .archgate/adrs/ with an existing ADR
     const adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });
     await Bun.write(
@@ -102,9 +98,7 @@ describe("initProject", () => {
 
     await initProject(tempDir);
 
-    // Example ADR should NOT have been generated
     expect(existsSync(join(adrsDir, "GEN-001-example.md"))).toBe(false);
-    // Existing ADR should be untouched
     expect(existsSync(join(adrsDir, "PROJ-001-existing.md"))).toBe(true);
   });
 
@@ -191,7 +185,6 @@ describe("initProject", () => {
     expect(existsSync(copilotDir)).toBe(true);
     expect(result.editorSettingsPath).toBe(copilotDir);
 
-    // Claude settings should NOT exist
     expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
       false
     );
@@ -208,7 +201,6 @@ describe("initProject", () => {
       const expectedDir = join(tempDir, ".config", "opencode", "agents");
       expect(result.editorSettingsPath).toBe(expectedDir);
 
-      // Claude settings should NOT exist
       expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
         false
       );
@@ -232,7 +224,6 @@ describe("initProject", () => {
       const vscodeDir = join(tempDir, ".vscode");
       expect(result.editorSettingsPath).toBe(vscodeDir);
 
-      // Claude settings should NOT exist
       expect(existsSync(join(tempDir, ".claude", "settings.local.json"))).toBe(
         false
       );

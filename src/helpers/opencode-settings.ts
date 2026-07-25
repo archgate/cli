@@ -77,7 +77,6 @@ export async function configureOpencodeSettings(): Promise<string> {
 
   const merged = mergeOpencodeSettings(existing);
 
-  // Ensure parent directory exists
   const dir = opencodeConfigDir();
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

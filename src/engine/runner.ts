@@ -74,7 +74,9 @@ function isWithinRoot(resolvedRoot: string, absPath: string): boolean {
 
 /**
  * Resolve a user-supplied path and ensure it stays within projectRoot.
- * Throws if the resolved path escapes the project boundary or is a symlink.
+ *
+ * @throws {UserError} When the resolved path escapes the project boundary or
+ * is a symlink.
  */
 function safePath(resolvedRoot: string, userPath: string): string {
   const absPath = resolveUserPath(resolvedRoot, userPath);
@@ -133,9 +135,6 @@ export interface CheckResult {
   suppressionWarnings?: SuppressionWarning[];
 }
 
-/**
- * Create a RuleContext for a specific rule execution.
- */
 function createRuleContext(
   projectRoot: string,
   scopedFiles: string[],
@@ -500,7 +499,6 @@ export async function runChecks(
     astResults: new Map(),
   };
 
-  // Run ADRs in parallel
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
       const respectGitignore = adr.frontmatter.respectGitignore !== false;
@@ -512,19 +510,16 @@ export async function runChecks(
         { respectGitignore, adrId: adr.frontmatter.id }
       );
 
-      // When files are specified, narrow scopedFiles to the intersection
       if (filterFiles) {
         scopedFiles = scopedFiles.filter((f) => filterFiles.has(f));
       }
 
-      // Skip this ADR entirely if no specified files are in scope
       if (filterFiles && scopedFiles.length === 0) {
         return [];
       }
 
       const adrRuleResults: RuleResult[] = [];
 
-      // Run rules within an ADR sequentially
       for (const [ruleId, ruleConfig] of Object.entries(ruleSet.rules)) {
         const violations: ViolationDetail[] = [];
         const ruleStart = performance.now();
@@ -591,7 +586,6 @@ export async function runChecks(
     })
   );
 
-  // Collect results
   for (const result of adrResults) {
     if (result.status === "fulfilled") {
       for (const r of result.value) results.push(r);
@@ -601,7 +595,6 @@ export async function runChecks(
   // Apply inline suppressions (archgate-ignore / archgate-ignore-file comments)
   const suppression = await applySuppressions(projectRoot, results);
 
-  // Filter suppressed violations from each rule result
   if (suppression.suppressedCount > 0) {
     for (const r of results) {
       r.violations = r.violations.filter((v) =>

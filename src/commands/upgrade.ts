@@ -220,9 +220,11 @@ function formatBytes(bytes: number): string {
 
 /**
  * Create a progress callback that renders an updating line on stderr.
- * Returns `undefined` when stderr is not a TTY (piped / CI) — in that case
- * the download runs silently and the existing "Upgrading X -> Y..." message
- * is sufficient feedback.  Per ARCH-003: no progress output without a TTY.
+ *
+ * @returns The callback, or `undefined` when stderr is not a TTY (piped /
+ * CI) — the download then runs silently, and the existing
+ * "Upgrading X -> Y..." message is sufficient feedback.
+ * @see ARCH-003 — no progress output without a TTY.
  */
 function createDownloadProgress(): DownloadProgressCallback | undefined {
   if (!process.stderr.isTTY) return undefined;
@@ -438,7 +440,6 @@ export function registerUpgradeCommand(program: Command) {
 
         console.log(`Archgate upgraded to ${latestVersion} successfully.`);
 
-        // Offer plugin updates after a successful CLI upgrade
         await maybeUpdatePlugins(opts.plugins === true);
       } catch (err) {
         if (err instanceof Error && err.name === "ExitPromptError") throw err;

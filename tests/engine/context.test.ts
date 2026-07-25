@@ -124,7 +124,6 @@ describe("briefAdr", () => {
     expect(briefing.decision!.length).toBeLessThan(3000);
     expect(briefing.decision).toContain("[... truncated");
     expect(briefing.decision).toContain("adr://ARCH-010");
-    // Do's and Don'ts is short, should not be truncated
     expect(briefing.dosAndDonts).toBe("Short.");
   });
 

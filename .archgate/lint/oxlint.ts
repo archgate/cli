@@ -12,7 +12,6 @@ import { conciseCommentRules } from "./concise-comments.ts";
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-/** Narrow an unknown value to an AST node (an object with a string `type`). */
 function asNode(value: unknown): AstNode | undefined {
   if (
     value !== null &&
@@ -38,7 +37,6 @@ if (REGISTERED_PROMPT_TYPES.size === 0) {
   );
 }
 
-/** True when the callee is exactly `inquirer.prompt`. */
 function isInquirerPromptCallee(callee: AstNode | undefined): boolean {
   if (callee?.type !== "MemberExpression") return false;
   const object = asNode(callee.object);

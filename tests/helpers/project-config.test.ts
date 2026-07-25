@@ -137,10 +137,6 @@ describe("project-config", () => {
     expect(loadProjectConfig(projectRoot).domains.infra).toBe("INFRA");
   });
 
-  // -------------------------------------------------------------------------
-  // resolvedProjectPaths
-  // -------------------------------------------------------------------------
-
   describe("resolvedProjectPaths", () => {
     test("returns defaults when no paths config is set", () => {
       const paths = resolvedProjectPaths(projectRoot);
@@ -190,7 +186,6 @@ describe("project-config", () => {
     });
 
     test("ignores invalid config and falls back to defaults", async () => {
-      // Write a malformed config file
       const configPath = join(projectRoot, ".archgate", "config.json");
       await Bun.write(configPath, "not valid json");
       const paths = resolvedProjectPaths(projectRoot);

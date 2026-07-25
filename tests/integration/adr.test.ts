@@ -24,8 +24,6 @@ afterEach(() => {
 });
 
 describe("adr integration", () => {
-  // adr create
-
   describe("adr create", () => {
     test("creates ADR file", async () => {
       scaffoldProject(tempDir);
@@ -146,8 +144,6 @@ describe("adr integration", () => {
       expect(result.exitCode).not.toBe(0);
     });
   });
-
-  // adr list
 
   describe("adr list", () => {
     test("lists ADRs", async () => {

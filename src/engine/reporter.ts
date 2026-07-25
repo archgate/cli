@@ -186,7 +186,6 @@ export function reportConsole(
       );
     }
 
-    // Print violations
     for (const v of r.violations) {
       const loc = v.file ? (v.line ? `${v.file}:${v.line}` : v.file) : "";
       const sevColor =
@@ -213,7 +212,6 @@ export function reportConsole(
     }
   }
 
-  // Print suppression warnings
   for (const w of summary.suppressionWarnings) {
     const loc = w.line ? `${w.file}:${w.line}` : w.file;
     console.log(
@@ -221,7 +219,6 @@ export function reportConsole(
     );
   }
 
-  // Summary line
   console.log();
   const parts: string[] = [];
   if (summary.passed > 0)
@@ -262,9 +259,15 @@ export function reportConsole(
 /**
  * Output results as JSON. `results` carries only rules with something to
  * report — clean-rule entries restate static ADR text and would push the
- * payload past the spill threshold of ARCH-003 §7; `verbose` restores the
- * full list. `forcePretty` forces pretty-printing (explicit --json flag);
- * when omitted, format is auto-detected from TTY/CI context.
+ * payload past the spill threshold of ARCH-003 §7.
+ *
+ * @param result - Raw check result to summarize and print.
+ * @param forcePretty - Always pretty-print (explicit `--json` flag). When
+ * omitted, format is auto-detected from TTY/CI context.
+ * @param summary - Pre-built summary; defaults to `buildSummary(result)`.
+ * @param verbose - Include passing rules in `results` rather than only those
+ * with findings.
+ * @see resultsWithFindings
  */
 export function reportJSON(
   result: CheckResult,
@@ -307,7 +310,6 @@ export function reportCI(
     }
   }
 
-  // Suppression warnings
   for (const w of summary.suppressionWarnings) {
     const filePart = w.file ? ` file=${w.file}` : "";
     const linePart = w.line ? `,line=${w.line}` : "";
@@ -316,7 +318,6 @@ export function reportCI(
     );
   }
 
-  // Also output summary
   const status = summary.pass ? "check passed" : "check failed";
   console.log(
     `\n${status}: ${summary.passed} passed, ${summary.failed} failed, ${summary.warnings} warnings`

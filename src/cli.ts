@@ -112,7 +112,6 @@ async function main() {
     // so this await is effectively free in practice.
     await telemetryReady;
 
-    // Apply log level from global option before any command runs
     const rootOpts = program.opts();
     setLogLevel(rootOpts.logLevel);
     const fullCommand = getFullCommandName(actionCommand);
@@ -156,7 +155,6 @@ async function main() {
   const notice = await updateCheckPromise;
   if (notice) console.log(notice);
 
-  // Flush telemetry and error tracking before exit
   await Promise.all([flushTelemetry(), flushSentry()]);
 
   // Belt-and-braces: force exit so any stray handle left by a third-party

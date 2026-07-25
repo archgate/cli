@@ -151,14 +151,12 @@ export function readOpencodeSession(
   }
 
   try {
-    // 1. Find all sessions, sorted by most recently updated first
     const allSessions = queryAllSessions(db);
 
     if (allSessions.length === 0) {
       return { ok: false, error: "No opencode sessions found", path: dbPath };
     }
 
-    // 2. Filter sessions by project path
     const matching = allSessions.filter(
       (s) => s.directory && normalizePath(s.directory) === normalizedProjectRoot
     );
@@ -172,7 +170,6 @@ export function readOpencodeSession(
       };
     }
 
-    // 3. Select session by ID or most recent.
     // Recency selection only considers top-level sessions: sub-agent runs
     // are child sessions (parent_id set) sharing the parent's directory,
     // and would otherwise shadow the main session.
@@ -196,7 +193,7 @@ export function readOpencodeSession(
       };
     }
 
-    // 3b. With --root, walk the parent_id chain up to the top-level
+    // With --root, walk the parent_id chain up to the top-level
     // ancestor (relevant when --session-id names a sub-agent child).
     let selected = target;
     if (options?.root === true) {
@@ -210,7 +207,6 @@ export function readOpencodeSession(
       }
     }
 
-    // 4. Read messages for the session
     interface MessageRow {
       id: string;
       role: string;
@@ -229,7 +225,6 @@ export function readOpencodeSession(
       };
     }
 
-    // 5. Build transcript from text parts, skipping synthetic entries
     interface PartRow {
       type: string;
       text: string | null;

@@ -10,7 +10,7 @@ import { UserError } from "../helpers/user-error";
 /**
  * Find every line of `content` matching `pattern`, as 1-based line/column
  * `GrepMatch`es labelled with `file`. Shared by `ctx.grep` (one file) and
- * `ctx.grepFiles` (many), which otherwise duplicated this scan.
+ * `ctx.grepFiles` (many).
  */
 export function matchLines(
   content: string,
@@ -20,7 +20,7 @@ export function matchLines(
   const lines = content.split("\n");
   // Clone the pattern and drive it with `exec()`, resetting `lastIndex` per
   // line. `String.prototype.match` with a global (`/g`) pattern returns every
-  // match but strips the `index`, which collapsed the reported column to 1;
+  // match but strips the `index`, collapsing the reported column to 1;
   // `exec()` always carries `index`. Cloning also keeps a caller's stateful
   // `/g` regex from leaking `lastIndex` across our per-line scan.
   const linePattern = new RegExp(pattern.source, pattern.flags);
@@ -42,6 +42,8 @@ export function matchLines(
 
 /**
  * Validate that a glob pattern cannot escape projectRoot via `..` segments.
+ *
+ * @throws {UserError} When the pattern contains `..` or is absolute.
  */
 function safeGlob(pattern: string): void {
   if (pattern.includes("..")) {
@@ -58,9 +60,11 @@ function safeGlob(pattern: string): void {
 
 /**
  * Expand brace groups whose alternatives contain `/` into separate patterns,
- * since Bun.Glob scanning silently returns empty results for those
- * (oven-sh/bun#32596 — match() is unaffected). Braces with only simple
- * alternatives are left for Bun.Glob to handle natively.
+ * since Bun.Glob scanning silently returns empty results for those. Braces
+ * with only simple alternatives are left for Bun.Glob to handle natively.
+ *
+ * @see https://github.com/oven-sh/bun/issues/32596 — scanning only; `match()`
+ * is unaffected.
  */
 export function expandBracePattern(pattern: string): string[] {
   const match = pattern.match(/^(.*?)\{([^{}]+)\}(.*)$/u);
@@ -84,10 +88,12 @@ export function expandBracePattern(pattern: string): string[] {
 
 /**
  * Match glob patterns against the git-tracked file list in memory instead of
- * walking the filesystem — ARCH-023 explains why this is both faster and
- * simpler. `Bun.Glob#match()` matches dot-prefixed segments without options
- * (unlike scanning, see ARCH-020) and handles `/`-containing brace groups
- * (oven-sh/bun#32596 only affects scanning), so patterns come in unexpanded.
+ * walking the filesystem. `Bun.Glob#match()` matches dot-prefixed segments
+ * without options and handles `/`-containing brace groups, so patterns come
+ * in unexpanded.
+ *
+ * @see ARCH-023 — why in-memory matching is both faster and simpler.
+ * @see ARCH-020 — scanning needs `dot: true`, matching does not.
  */
 export function matchTrackedFiles(
   patterns: string[],

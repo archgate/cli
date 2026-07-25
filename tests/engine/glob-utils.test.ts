@@ -15,8 +15,8 @@ import { git, safeRmSync } from "../test-utils";
 
 describe("matchLines", () => {
   test("reports the true 1-based column with a global regex", () => {
-    // Regression: `String.match` with a `/g` pattern strips `.index`, which
-    // collapsed the column to 1. `matchLines` now uses `exec()` so the column
+    // Regression: `String.match` with a `/g` pattern strips `.index` and
+    // collapses the column to 1, so `matchLines` uses `exec()` and the column
     // reflects the real match offset.
     const matches = matchLines("const x = TODO;\n", /TODO/gu, "a.ts");
     expect(matches).toHaveLength(1);

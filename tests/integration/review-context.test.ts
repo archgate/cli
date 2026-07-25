@@ -246,7 +246,6 @@ describe("review-context integration", () => {
     writeFileSync(join(dir, "src", "base.ts"), "export const x = 1;\n");
     await commitAll(dir, "initial commit");
 
-    // Create feature branch and add a file
     await git(["checkout", "-b", "feature"], dir);
     writeFileSync(join(dir, "src", "new-feature.ts"), "export const y = 2;\n");
     await commitAll(dir, "add feature");
@@ -266,9 +265,10 @@ describe("review-context integration", () => {
     expect(ctx.allChangedFiles).not.toContain("src/base.ts");
   }, 30_000);
 
-  // Regression: archgate/cli#403 — with a base ref detected, review-context
-  // only listed committed branch changes and silently omitted uncommitted
-  // working-tree edits (the files actually under review in an agent session).
+  // Regression guard for archgate/cli#403: with a base ref detected,
+  // review-context must report uncommitted working-tree edits (the files
+  // actually under review in an agent session), not just committed branch
+  // changes.
   test("--base includes uncommitted working-tree changes (regression archgate/cli#403)", async () => {
     scaffoldProject(dir);
     writeAdr(
@@ -337,11 +337,9 @@ describe("review-context integration", () => {
     writeFileSync(join(dir, "src", "committed.ts"), "export const c = 3;\n");
     await commitAll(dir, "committed change");
 
-    // Stage a different file (not committed yet)
     writeFileSync(join(dir, "src", "staged.ts"), "export const s = 4;\n");
     await git(["add", "src/staged.ts"], dir);
 
-    // --staged should only show staged.ts, not committed.ts
     const { exitCode, stdout } = await runCli(
       ["review-context", "--staged"],
       dir,

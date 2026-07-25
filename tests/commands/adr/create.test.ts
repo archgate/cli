@@ -285,7 +285,6 @@ describe("adr create action handler", () => {
     const adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });
 
-    // Create a first ADR
     process.chdir(tempDir);
     const parent1 = makeProgram();
     await parent1.parseAsync([
@@ -298,7 +297,6 @@ describe("adr create action handler", () => {
       "backend",
     ]);
 
-    // Create a second ADR in the same domain
     const parent2 = makeProgram();
     await parent2.parseAsync([
       "node",

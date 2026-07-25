@@ -24,7 +24,6 @@ for (const pattern of patterns) {
   for (const match of glob.scanSync({ cwd: ROOT, absolute: true })) {
     const content = readFileSync(match, "utf-8");
 
-    // Skip if already has SPDX header
     if (content.includes("SPDX-License-Identifier")) {
       skipped++;
       continue;

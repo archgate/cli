@@ -18,7 +18,11 @@ export interface PackRecommendation {
 
 /**
  * Match a single pack tag against the detected stack.
- * Returns the relevance level or null if no match.
+ *
+ * @param tag - A `namespace:value` pack tag.
+ * @param stack - The stack detected for the project.
+ * @returns The matched tag with its relevance level, or `null` when the tag
+ * is malformed or does not apply to this stack.
  */
 function matchTag(
   tag: string,
@@ -51,9 +55,6 @@ function matchTag(
   }
 }
 
-/**
- * Count ADR markdown files in a pack's adrs/ directory.
- */
 function countAdrs(packDir: string): number {
   const adrsDir = join(packDir, "adrs");
   if (!existsSync(adrsDir)) return 0;
@@ -108,7 +109,6 @@ export function recommendPacksFromDir(
       }
     }
 
-    // Only recommend packs that have at least one matching tag
     if (matchedTags.length === 0) continue;
 
     recommendations.push({

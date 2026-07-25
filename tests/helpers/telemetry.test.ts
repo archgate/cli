@@ -67,7 +67,6 @@ describe("telemetry", () => {
       await initTelemetry();
       expect(_getClient()).not.toBeNull();
 
-      // Second init overwrites state — should not throw
       await initTelemetry();
       expect(_getClient()).not.toBeNull();
     });

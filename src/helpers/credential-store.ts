@@ -134,8 +134,9 @@ function legacyMetadataPath(): string {
 }
 
 /**
- * Delete the legacy ~/.archgate/credentials file if it exists.
- * Returns true if a file was found and deleted.
+ * Delete the legacy `~/.archgate/credentials` file if it exists.
+ *
+ * @returns `true` when a file was found and deleted, `false` when none existed.
  */
 async function cleanupLegacyMetadata(): Promise<boolean> {
   const file = Bun.file(legacyMetadataPath());
@@ -164,7 +165,6 @@ const CREDENTIAL_HELPER_HINT =
 export async function saveCredentials(
   credentials: StoredCredentials
 ): Promise<void> {
-  // Clean up any legacy metadata file from previous versions.
   await cleanupLegacyMetadata();
 
   const stored = await gitCredentialApprove(
@@ -194,11 +194,11 @@ export async function saveCredentials(
 }
 
 /**
- * Load stored archgate credentials from the OS credential manager.
- * Returns null if no credentials are stored.
+ * Load stored archgate credentials from the OS credential manager. A legacy
+ * `~/.archgate/credentials` file is deleted on sight and the user is asked
+ * to re-login.
  *
- * If a legacy ~/.archgate/credentials file exists, it is deleted and
- * the user is asked to re-login.
+ * @returns The stored credentials, or `null` when none are stored.
  */
 export async function loadCredentials(): Promise<StoredCredentials | null> {
   // Delete legacy metadata file — force re-login for a clean slate.

@@ -120,11 +120,15 @@ export function createPathIfNotExists(path: string) {
 }
 
 /**
- * Walk up from cwd to the nearest directory containing `.archgate/adrs/` or
+ * Walk up to the nearest directory containing `.archgate/adrs/` or
  * `.archgate/lint/` (both created by `archgate init`). Matching `.archgate/`
  * or `.archgate/config.json` alone would false-positive on the user-level
- * `~/.archgate/` cache. `ARCHGATE_PROJECT_CEILING` bounds the walk for test
- * isolation (like git's ceiling dirs); the ceiling itself is still checked.
+ * `~/.archgate/` cache.
+ *
+ * @param startDir - Directory to start the walk from. Defaults to `cwd`.
+ * @returns The project root, or `null` when the walk reaches the filesystem
+ * root or the `ARCHGATE_PROJECT_CEILING` bound without a match. That ceiling
+ * isolates tests the way git's ceiling dirs do, and is itself still checked.
  */
 export function findProjectRoot(startDir?: string): string | null {
   const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
@@ -138,7 +142,6 @@ export function findProjectRoot(startDir?: string): string | null {
       return dir;
     }
 
-    // Don't walk above the ceiling directory
     if (ceiling && resolve(dir) === ceiling) {
       return null;
     }
@@ -152,11 +155,14 @@ export function findProjectRoot(startDir?: string): string | null {
 }
 
 /**
- * Like {@link findProjectRoot}, but throws a {@link UserError} when no
- * project is found — the ARCH-012 boundary (handleCommandError) logs it and
- * exits 1 without Sentry. Commands that can operate without a project
- * (e.g. `session-context` falling back to cwd) keep using
- * `findProjectRoot()` directly.
+ * Resolve the project root for commands that require one.
+ *
+ * @param startDir - Directory to start the walk from. Defaults to `cwd`.
+ * @returns The project root directory.
+ * @throws {UserError} When no project is found. The ARCH-012 boundary
+ * (`handleCommandError`) logs it and exits 1 without Sentry.
+ * @see {@link findProjectRoot} — used directly by commands that can operate
+ * without a project, such as `session-context` falling back to cwd.
  */
 export function requireProjectRoot(startDir?: string): string {
   const projectRoot = findProjectRoot(startDir);

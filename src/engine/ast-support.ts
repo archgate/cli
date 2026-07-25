@@ -217,7 +217,9 @@ export function interpreterCandidates(language: "python" | "ruby"): string[] {
  * not enough on Windows — the Microsoft Store ships a `python.exe` App
  * Execution Alias stub that exists on PATH but exits non-zero.
  *
- * Callers cache the returned promise once per `check` invocation.
+ * @param candidates - Executable names in probe order.
+ * @returns The first candidate that exits 0, or null when none does. Callers
+ * cache the returned promise once per `check` invocation.
  */
 export async function probeInterpreter(
   candidates: string[]
@@ -300,6 +302,8 @@ export async function runAstSubprocess(
  * Parse an AST subprocess's stdout as JSON, mapping malformed output to the
  * same throw contract as any other `ctx.ast()` failure. Subprocess stdout is
  * not a file read, so `Bun.file().json()` (ARCH-010) does not apply here.
+ *
+ * @throws When stdout is not valid JSON, naming the path and language.
  */
 export function parseAstJson(
   stdout: string,
@@ -317,10 +321,12 @@ export function parseAstJson(
 
 /**
  * Read a file's source at the comparison base revision for
- * `ctx.ast(path, lang, { rev: "base" })`. Throws — never returns null — when
- * no base is resolvable or the path is absent at the base, because a silent
- * miss would let a rule report a false "no change". `displayPath` is the
- * caller-facing path used in error messages.
+ * `ctx.ast(path, lang, { rev: "base" })`.
+ *
+ * @param displayPath - Caller-facing path used in error messages.
+ * @throws When no base is resolvable, or the path is absent at the base —
+ * never returns null, because a silent miss would let a rule report a false
+ * "no change".
  */
 export async function readBaseSourceOrThrow(
   projectRoot: string,
@@ -347,7 +353,10 @@ export async function readBaseSourceOrThrow(
  * parses — the interpreter serializers read a file path from argv. A private
  * `mkdtempSync` dir (0700) plus exclusive create (`wx`, 0600) defeats
  * shared-tmpdir symlink attacks and keeps base source owner-only (ARCH-022).
- * `cleanup()` removes the whole dir, is best-effort, and never throws.
+ *
+ * @returns The temp file `path`, and a `cleanup()` thunk that removes the
+ * whole dir — best-effort, and never throws.
+ * @see ARCH-022
  */
 export function writeTempSourceFile(
   content: string,

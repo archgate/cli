@@ -68,10 +68,13 @@ export function finalizeCommand(
 
 /**
  * Terminate the process after recording + flushing telemetry. Use instead of
- * `process.exit(code)` in command actions and the top-level error boundary;
- * typed `Promise<never>` because control never returns. The outcome tag
- * defaults from the exit code (0 success, 1 user_error, 2 internal_error,
- * 130 cancelled); override via the `outcome` option when that doesn't fit.
+ * `process.exit(code)` in command actions and the top-level error boundary.
+ *
+ * @param code - Process exit code: 0 success, 1 user error, 2 internal
+ * error, 130 cancellation.
+ * @param opts - `outcome` overrides the telemetry outcome tag that otherwise
+ * derives from `code`; `errorKind` attaches a {@link classifyErrorKind} tag.
+ * @returns Typed `Promise<never>` — control never returns to the caller.
  */
 export async function exitWith(
   code: 0 | 1 | 2 | 130,
@@ -96,11 +99,16 @@ export async function exitWith(
 }
 
 /**
- * Centralized error handler for command catch blocks (ARCH-012): re-throws
- * `ExitPromptError` so `main().catch()` handles Ctrl+C (130), captures
- * unexpected errors to Sentry, logs via `logError()`, and exits 1 for
- * {@link UserError} or 2 for unexpected bugs. Expected user-facing errors
- * are thrown as {@link UserError} in helpers — logged, never sent to Sentry.
+ * Centralized error handler for command catch blocks (ARCH-012). Helpers
+ * throw {@link UserError} for expected failures: those are logged and never
+ * sent to Sentry.
+ *
+ * @param err - The caught error, of any shape.
+ * @throws The original error when it is an `ExitPromptError`, so
+ * `main().catch()` handles Ctrl+C as exit 130.
+ * @returns Never returns: exits 1 for a {@link UserError}, or captures to
+ * Sentry and exits 2 for an unexpected bug.
+ * @see {@link exitWith}
  */
 export function handleCommandError(err: unknown): Promise<never> {
   if (err instanceof Error && err.name === "ExitPromptError") throw err;
@@ -108,7 +116,6 @@ export function handleCommandError(err: unknown): Promise<never> {
   const errorKind = classifyErrorKind(err);
   const isExpected = err instanceof UserError;
 
-  // Only capture unexpected errors to Sentry — UserError is expected
   if (!isExpected) {
     captureException(err, { command: currentCommand ?? "unknown", errorKind });
   }
@@ -124,7 +131,10 @@ export function handleCommandError(err: unknown): Promise<never> {
 
 /**
  * Classify an error into a high-level bucket for telemetry.
- * Returns a short tag — never the raw error message.
+ *
+ * @param err - The error to classify, of any shape.
+ * @returns A short tag such as `network` or `tls` — never the raw error
+ * message, which could carry user data.
  */
 export function classifyErrorKind(err: unknown): string {
   if (!(err instanceof Error)) return "unknown";

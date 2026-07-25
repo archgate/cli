@@ -31,17 +31,6 @@
       }
     },
     {
-      "files": ["tests/**"],
-      "rules": { "archgate/oversized-comment-blocks": "off" }
-    },
-    {
-      "files": ["tests/fixtures/**"],
-      "rules": {
-        "archgate/no-narration-in-comments": "off",
-        "archgate/oversized-comment-blocks": "off"
-      }
-    },
-    {
       "files": [".archgate/adrs/*.rules.ts"],
       "rules": { "typescript/triple-slash-reference": "off" }
     },

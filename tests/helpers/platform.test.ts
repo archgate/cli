@@ -55,7 +55,6 @@ describe("getPlatformInfo", () => {
     const first = getPlatformInfo();
     _resetAllCaches();
     const second = getPlatformInfo();
-    // Values should be the same even though references differ
     expect(second.runtime).toBe(first.runtime);
     expect(second.isWSL).toBe(first.isWSL);
     expect(second.wslDistro).toBe(first.wslDistro);

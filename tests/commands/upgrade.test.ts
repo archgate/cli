@@ -201,15 +201,12 @@ describe("install method detection", () => {
 
 describe("_formatBytes", () => {
   test("formats bytes, KB, and MB ranges", () => {
-    // Bytes
     expect(_formatBytes(0)).toBe("0 B");
     expect(_formatBytes(512)).toBe("512 B");
     expect(_formatBytes(1023)).toBe("1023 B");
-    // KB
     expect(_formatBytes(1024)).toBe("1.0 KB");
     expect(_formatBytes(1536)).toBe("1.5 KB");
     expect(_formatBytes(1024 * 100)).toBe("100.0 KB");
-    // MB
     expect(_formatBytes(1024 * 1024)).toBe("1.0 MB");
     expect(_formatBytes(1024 * 1024 * 5.5)).toBe("5.5 MB");
     expect(_formatBytes(1024 * 1024 * 100)).toBe("100.0 MB");
@@ -264,7 +261,6 @@ describe("upgrade action handler", () => {
     return program;
   }
 
-  /** Mock fetch to return a GitHub release tag response. */
   function mockGitHubRelease(tag: string | null) {
     globalThis.fetch = (() =>
       Promise.resolve({

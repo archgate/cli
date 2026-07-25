@@ -84,7 +84,6 @@ export async function initSentry(): Promise<void> {
       tunnel: SENTRY_TUNNEL,
       release: cliVersion,
       environment: Bun.env.NODE_ENV ?? "production",
-      // Disable sending events in test environments
       enabled: Bun.env.NODE_ENV !== "test",
       // Do not send default PII (hostnames, IPs, etc.)
       sendDefaultPii: false,
@@ -141,9 +140,14 @@ export async function initSentry(): Promise<void> {
 }
 
 /**
- * Add a breadcrumb (category, message, optional data, level defaulting to
- * "info") to the current Sentry scope. Breadcrumbs attach to the next error
- * event, providing the sequence of operations leading to a crash.
+ * Add a breadcrumb to the current Sentry scope. Breadcrumbs attach to the
+ * next error event, providing context about the sequence of operations
+ * leading to a crash.
+ *
+ * @param category Short category name (e.g., "command", "config", "check")
+ * @param message Human-readable description
+ * @param data Optional structured data
+ * @param level Breadcrumb severity level (default: "info")
  */
 export function addBreadcrumb(
   category: string,

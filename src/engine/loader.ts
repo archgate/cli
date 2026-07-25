@@ -55,7 +55,6 @@ export type LoadResult =
   | { type: "loaded"; value: LoadedAdr }
   | { type: "blocked"; value: BlockedAdr };
 
-/** Convert a BlockedAdr into a RuleResult-shaped object for reporting. */
 export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
   const id = b.adr.frontmatter.id;
   const isSyntax = b.error.includes("syntax convention");
@@ -101,7 +100,6 @@ interface SyntaxViolation {
 function checkRuleSyntax(source: string): SyntaxViolation[] {
   const violations: SyntaxViolation[] = [];
 
-  // Check for triple-slash reference to rules.d.ts
   const hasTripleSlash =
     /^\/\/\/\s*<reference\s+path=["'][^"']*rules\.d\.ts["']\s*\/>$/mu.test(
       source
@@ -118,7 +116,6 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
     });
   }
 
-  // Check for `satisfies RuleSet` on the default export
   const hasSatisfies = /\bsatisfies\s+RuleSet\b/u.test(source);
   if (!hasSatisfies) {
     // Point to the last line as a reasonable location for the missing satisfies
@@ -152,8 +149,10 @@ const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
 
 /**
  * Read and parse every ADR markdown file in the project, caching the result
- * per-process. Returns entries in directory order. Unparseable files are
- * silently skipped (logged at debug level).
+ * per-process.
+ *
+ * @returns Entries in directory order. Unparseable files are silently
+ * skipped, logged at debug level.
  */
 export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
   const cached = parsedAdrsCache.get(projectRoot);
@@ -239,7 +238,6 @@ export async function loadRuleAdrs(
   // Phase 1: Read and parse all ADR files in parallel (cached per process)
   const parsedAdrs = await parseAllAdrs(projectRoot);
 
-  // Filter to ADRs that have rules enabled
   const ruleAdrs = parsedAdrs.filter((entry) => {
     if (!entry.adr.frontmatter.rules) return false;
     if (filterAdrId && entry.adr.frontmatter.id !== filterAdrId) return false;

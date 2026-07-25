@@ -128,7 +128,6 @@ export function registerCheckCommand(program: Command) {
           files: filterFiles.length > 0 ? filterFiles : undefined,
         });
 
-        // Determine output format for telemetry
         const outputFormat = opts.ci ? "ci" : useJson ? "json" : "console";
 
         // Build the summary once and share it with the reporters, telemetry,

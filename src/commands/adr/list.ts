@@ -49,7 +49,6 @@ export function registerAdrListCommand(adr: Command) {
           return;
         }
 
-        // Filter by domain if specified
         const filtered = options.domain
           ? adrs.filter((a) => a.frontmatter.domain === options.domain)
           : adrs;
@@ -65,7 +64,6 @@ export function registerAdrListCommand(adr: Command) {
           return;
         }
 
-        // Table output
         const idWidth = 12;
         const domainWidth = 14;
         const rulesWidth = 7;

@@ -157,8 +157,13 @@ export async function listCopilotSessions(
 
 /**
  * Read the most recent Copilot CLI session transcript for a project —
- * normally the conversation that is running right now. Pass `sessionId`
- * (from `listCopilotSessions`) to read an earlier session instead.
+ * normally the conversation that is running right now.
+ *
+ * @param projectRoot - Project to read sessions for; `null` falls back to cwd.
+ * @param options - `sessionId` (from {@link listCopilotSessions}) selects an
+ * earlier session; `maxEntries` caps returned transcript entries.
+ * @returns The transcript on success, or a result carrying the reason no
+ * session could be read.
  */
 export async function readCopilotSession(
   projectRoot: string | null,

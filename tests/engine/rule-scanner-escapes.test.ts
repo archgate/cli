@@ -3,15 +3,12 @@
 /**
  * Sandbox-escape regression tests for the `.rules.ts` security scanner.
  *
- * `archgate check` imports and executes every companion `.rules.ts` in-process,
- * so `scanRuleSource()` is the only thing standing between a rule file and
- * arbitrary code execution on the machine running the check. ARCH-022 depends
- * on that boundary holding: it states a rule author "MUST NEVER be able to
- * reach `Bun.spawn`, `child_process`, or any other subprocess/filesystem
- * primitive directly."
+ * `archgate check` executes every companion `.rules.ts` in-process, so
+ * `scanRuleSource()` is the only barrier against arbitrary code execution.
+ * Each case below is one route around the invariant that a rule author never
+ * reaches `Bun.spawn`, `child_process`, or another subprocess/fs primitive.
  *
- * Every case here is a way that boundary was, or could be, walked around.
- * They are grouped in their own file so the list reads as one attack surface.
+ * @see ARCH-024 for the boundary definition, ARCH-022 for the rule context.
  */
 import { describe, expect, test } from "bun:test";
 
@@ -21,10 +18,10 @@ import {
 } from "../../src/engine/rule-scanner";
 
 describe("rule sandbox escapes", () => {
-  // Regression: the ImportExpression case rejected only *non-literal*
-  // arguments, so a constant specifier skipped the module ban that
-  // ImportDeclaration enforced. `await import("node:child_process")` executed
-  // at import time and `check` still reported the ADR as passing.
+  // The ImportExpression case must apply the module ban to *literal*
+  // specifiers too, not just non-literal ones: an unbanned
+  // `await import("node:child_process")` executes at import time and `check`
+  // still reports the ADR as passing.
   describe("dynamic import with a literal specifier", () => {
     for (const mod of [
       "node:child_process",
@@ -303,7 +300,7 @@ const b = 2${RLO};`);
 
   // `Bun`, `process`, and the global object are LIVE globals in the rule
   // runtime — reachable with no import at all. Blocking the syntactic shapes
-  // (`Bun.spawn`, `Bun[x]`) is the same losing game the module denylist was:
+  // (`Bun.spawn`, `Bun[x]`) is the same losing game as a module denylist:
   // aliasing, destructuring, reflection, and global-object aliases all reach
   // the identical capability. The scanner instead blocks *naming* the global.
   describe("reflective and aliased access to runtime globals", () => {
@@ -330,7 +327,7 @@ const b = 2${RLO};`);
     }
 
     // Every eval-equivalent identifier is banned, and — crucially — so is
-    // aliasing it, which the old callee-name checks missed.
+    // aliasing it, which a callee-name check alone would miss.
     const codegen: Array<[string, string]> = [
       ["eval()", `eval("x");`],
       ["aliased eval", `const e = eval;\ne("x");`],
@@ -398,12 +395,11 @@ const b = 2${RLO};`);
       ).toHaveLength(0);
     });
 
-    // A property name built at runtime (`obj[variable]`) is unknowable to a
-    // scanner that does not track values — the documented static-analysis limit
-    // (see ARCH-024). Blocking all computed access would reject ordinary
-    // `arr[i]`/`obj[key]`, so this residual is left to execution-time
-    // isolation, not chased with more pattern-matching. Asserted so the limit
-    // is explicit rather than an accidental gap.
+    // A runtime-built property name (`obj[variable]`) is unknowable to a
+    // scanner that does not track values — the documented limit in ARCH-024.
+    // Blocking all computed access would reject ordinary `arr[i]`/`obj[key]`,
+    // so this residual is left to execution-time isolation. Asserted so the
+    // limit stays explicit rather than becoming an accidental gap.
     test("does NOT catch .constructor via a runtime-computed key (known limit)", () => {
       expect(
         scanRuleSource(`const c = "constructor";\nconst F = (() => {})[c];`)
@@ -417,15 +413,11 @@ const b = 2${RLO};`);
     });
   });
 
-  // Regression: a node the AST-node schema fails to validate is dropped by
-  // `parseNode` *with its entire subtree*, so anything dangerous underneath it
-  // goes unscanned — a silent false-negative `check` reports as a pass. The
-  // schema's only leaf that can fail is a Literal's `value`: `type` is always
-  // present and every other typed field recurses back into the schema. Meriyah
-  // emits shapes a narrow `value` union rejects — an object for a RegExp
-  // literal, a `bigint` for `123n` — so a payload hidden behind such a literal
-  // (`/x/.constructor.constructor`, a banned call to the right of `/re/ + …`)
-  // escaped the walk entirely. `value` is now tolerant of any shape.
+  // A node the AST-node schema rejects is dropped by `parseNode` with its
+  // entire subtree, so anything dangerous underneath goes unscanned — a silent
+  // false negative that `check` reports as a pass. A Literal's `value` is the
+  // only leaf that can fail validation (meriyah emits an object for a RegExp
+  // literal, a `bigint` for `123n`), so it stays tolerant of any shape.
   describe("payloads behind exotic-literal receivers stay in the walk", () => {
     const escapes: Array<[string, string]> = [
       [
@@ -464,7 +456,7 @@ const b = 2${RLO};`);
     }
 
     // Positive controls: the literals themselves are perfectly legal in a rule
-    // file — the fix must keep the node in the walk, not start flagging it.
+    // file — the scanner keeps the node in the walk without flagging it.
     test("a clean RegExp literal still passes", () => {
       expect(
         scanRuleSource(

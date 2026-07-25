@@ -13,10 +13,6 @@ import * as opencodeHelpers from "../../../src/helpers/session-context-opencode"
 import { runCli } from "../../integration/cli-harness";
 import { safeRmSync } from "../../test-utils";
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("registerOpencodeSessionContextCommand", () => {
   test("registers 'opencode' as a subcommand", () => {
     const parent = new Command("session-context");

@@ -84,7 +84,6 @@ interface ClaudeSessionSummary {
   transcript: Array<{ type: string; role?: string; contentPreview: string }>;
 }
 
-/** One entry in a list result: session id + last-update timestamp. */
 export interface SessionListEntry {
   id: string;
   /** Session title — only populated by editors that store one (opencode). */
@@ -127,7 +126,6 @@ function parseContentBlock(block: ContentBlock): string | null {
   return null;
 }
 
-/** Extract a concise content preview from a transcript entry. */
 export function getContentPreview(entry: TranscriptEntry): string {
   const content = entry.message?.content;
   if (typeof content === "string") {
@@ -156,7 +154,6 @@ interface ReadCursorSessionOptions extends ReadSessionOptions {
   sessionId?: string;
 }
 
-/** Resolve the Claude Code projects dir for a project root. */
 async function claudeProjectsDir(projectRoot: string | null): Promise<string> {
   const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
   return join(homedir(), ".claude", "projects", encodedPath);
@@ -204,9 +201,13 @@ export async function listClaudeCodeSessions(
 
 /**
  * Read the most recent Claude Code session transcript for a project —
- * normally the conversation that is running right now. Pass `sessionId`
- * (from `listClaudeCodeSessions`) to read an earlier session instead.
- * Falls back to cwd when no project root is found.
+ * normally the conversation that is running right now.
+ *
+ * @param projectRoot - Project to read sessions for; `null` falls back to cwd.
+ * @param options - `sessionId` (from {@link listClaudeCodeSessions}) selects
+ * an earlier session; `maxEntries` caps returned transcript entries.
+ * @returns The transcript on success, or a result carrying the reason no
+ * session could be read.
  */
 export async function readClaudeCodeSession(
   projectRoot: string | null,
@@ -277,7 +278,6 @@ export async function readClaudeCodeSession(
   };
 }
 
-/** Resolve the Cursor agent-transcripts dir for a project root. */
 async function cursorTranscriptsDir(
   projectRoot: string | null
 ): Promise<string> {
@@ -345,9 +345,13 @@ export async function listCursorSessions(
 
 /**
  * Read the most recent Cursor agent session transcript for a project —
- * normally the conversation that is running right now. Pass `sessionId`
- * (from `listCursorSessions`) to read an earlier session instead.
- * Falls back to cwd when no project root is found.
+ * normally the conversation that is running right now.
+ *
+ * @param projectRoot - Project to read sessions for; `null` falls back to cwd.
+ * @param options - `sessionId` (from {@link listCursorSessions}) selects an
+ * earlier session; `maxEntries` caps returned transcript entries.
+ * @returns The transcript on success, or a result carrying the reason no
+ * session could be read.
  */
 export async function readCursorSession(
   projectRoot: string | null,

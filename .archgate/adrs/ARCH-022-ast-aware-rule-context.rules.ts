@@ -72,8 +72,8 @@ export default {
             }
             return;
           }
-          // Fallback: inline `ast(path, language) { … }` object method, in
-          // case the implementation is ever moved back onto the object.
+          // Fallback: inline `ast(path, language) { … }` object method, for
+          // an implementation that lives directly on the returned object.
           if (n.type === "Property") {
             const key = n.key as (EsTreeNode & { name?: string }) | undefined;
             const value = n.value as EsTreeNode | undefined;

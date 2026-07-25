@@ -74,10 +74,19 @@ declare type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
  * A source comment, present on the tree's \`comments\` array when \`ast()\` is
- * called with \`{ comments: true }\`. \`value\` is the text without delimiters;
- * \`loc\` is a position in the ORIGINAL source, even for "typescript" whose
- * tree \`loc\` is transpiled-relative. Python has "line" comments only; a
- * Ruby \`=begin\`/\`=end\` region is one "block" token (character columns).
+ * called with \`{ comments: true }\`.
+ *
+ * @property type - "line" for \`//\` and \`#\` comments; "block" for a C-style
+ * delimited comment and for a whole Ruby \`=begin\`/\`=end\` region. Python has
+ * no block comments, so its tokens are always "line".
+ * @property value - Comment text with its delimiters removed. A Ruby block
+ * token carries the inner content only: marker lines stripped, line endings
+ * normalized to LF.
+ * @property loc - Position in the ORIGINAL source, accurate even for
+ * "typescript", whose tree \`loc\` is transpiled-relative. Columns are
+ * character offsets in every language, including Ruby, whose sexp node
+ * positions are byte offsets.
+ * @see AstOptions
  */
 declare interface CommentToken {
   type: "line" | "block";
@@ -89,11 +98,29 @@ declare interface CommentToken {
 }
 
 /**
- * Options for \`RuleContext.ast()\`. \`rev: "base"\` parses the file as of the
- * comparison base commit rather than the working tree, throwing when no
- * base resolves or the file is absent there (pair with \`fileAtBase()\`).
- * \`comments: true\` attaches a \`comments\` array of \`CommentToken\`s; for
- * "ruby" it rides on the sexp array as a non-index property.
+ * Options for \`RuleContext.ast()\`.
+ *
+ * @property rev - "base" parses the file as of the comparison base commit
+ * (merge base of \`--base\` and HEAD) rather than the working tree, so a rule
+ * can ask whether executable structure changed. Throws when no base resolves
+ * or the file is absent there; pair with \`fileAtBase()\` to detect that first.
+ * @property comments - Attaches a \`comments\` array of \`CommentToken\`s to the
+ * returned tree, the structured basis for comment-governance rules. Supported
+ * for every \`AstLanguage\`; for "ruby" the array rides on the returned sexp
+ * array as a non-index property.
+ * @example
+ * Detect a change in executable structure while ignoring comment-only edits.
+ * Comments drop out of both tree shapes but node positions do not, so compare
+ * a location-free projection:
+ * \`\`\`ts
+ * const strip = (tree: unknown) =>
+ *   JSON.stringify(tree, (key, value) =>
+ *     ["loc", "range", "lineno", "col_offset"].includes(key) ? undefined : value
+ *   );
+ * const changed =
+ *   strip(await ctx.ast(file, "typescript")) !==
+ *   strip(await ctx.ast(file, "typescript", { rev: "base" }));
+ * \`\`\`
  */
 declare interface AstOptions {
   rev?: "base";
@@ -185,20 +212,35 @@ declare interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   /**
-   * Read a file's source at the comparison base revision (merge base of
-   * \`--base\` and HEAD). Returns null when no base is resolved or the path did
-   * not exist at the base. For a structural comparison prefer
+   * Read a file's source at the comparison base revision (the merge base of
+   * \`--base\` and HEAD).
+   *
+   * @param path - Project-relative path to read.
+   * @returns The file's content at the base, or null for both
+   * "nothing to compare against" cases — no base resolved (no \`--base\`, or
+   * unrelated histories) and path absent at the base — so one null test
+   * covers each. For a structural comparison prefer
    * \`ast(path, language, { rev: "base" })\`.
    */
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
-   * Parse a source file into its language-native AST. The return shape
-   * follows the \`language\` literal and is NOT unified across languages —
-   * walk each against its own grammar. TS/JS parse in-process; "python" and
-   * "ruby" need their interpreter on PATH wherever \`archgate check\` runs.
-   * Throws when the file fails to parse or the interpreter is missing.
+   * Parse a source file into its language-native AST.
+   *
+   * @param path - Project-relative path to parse.
+   * @param language - Selects both the parser and the return shape. Shapes are
+   * language-native and NOT unified (ARCH-022) — walk each against its own
+   * grammar.
+   * @param opts - See \`AstOptions\` for \`rev\` and \`comments\`.
+   * @returns An \`EsTreeProgram\` for "typescript"/"javascript", a
+   * \`PythonAstModule\` for "python", or a \`RubyAstProgram\` for "ruby".
+   * TypeScript and JavaScript parse in-process; Python and Ruby require their
+   * interpreter (\`python3\`/\`python\`, \`ruby\`) on PATH wherever
+   * \`archgate check\` runs, locally and in CI.
+   * @throws When the file fails to parse or the required interpreter is
+   * missing — never returns null. The message distinguishes the two cases.
+   * @see ARCH-022
    */
   ast(
     path: string,
@@ -217,11 +259,16 @@ declare interface RuleContext {
   ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   /**
-   * Recursively collect every node in a parsed AST whose type-discriminant
-   * field matches one of \`types\` — \`_type\` (Python) or \`type\` (ESTree
-   * TS/JS). Own-enumerable object values and arrays are recursed; \`tree\`
-   * itself is a match candidate. Ruby \`Ripper.sexp\` array nodes carry no
-   * discriminant, so they never match. Pure synchronous traversal, no I/O.
+   * Collect every node in a parsed AST whose type-discriminant field matches
+   * one of \`types\`. Pure synchronous traversal — no I/O.
+   *
+   * @param tree - Any parsed tree or subtree; \`tree\` itself is a match
+   * candidate. Own-enumerable object values and arrays are traversed.
+   * @param types - Discriminant values to match against \`_type\` (Python) or
+   * \`type\` (ESTree TypeScript/JavaScript).
+   * @returns Matching nodes in preorder, empty when nothing matches. Ruby
+   * sexp nodes are plain arrays carrying no discriminant field, so only
+   * embedded object nodes can match.
    */
   findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
   findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];

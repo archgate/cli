@@ -11,10 +11,6 @@ import { registerCopilotSessionContextCommand } from "../../../src/commands/sess
 import * as copilotHelpers from "../../../src/helpers/session-context-copilot";
 import { safeRmSync } from "../../test-utils";
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 describe("registerCopilotSessionContextCommand", () => {
   test("registers 'copilot' as a subcommand", () => {
     const parent = new Command("session-context");

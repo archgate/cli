@@ -58,9 +58,6 @@ export function loadProjectConfig(projectRoot: string): ProjectConfig {
   }
 }
 
-/**
- * Write the project config to disk.
- */
 export async function saveProjectConfig(
   projectRoot: string,
   config: ProjectConfig
@@ -109,7 +106,9 @@ export function resolveDomainPrefix(
 
 /**
  * Read the `baseBranch` value from `.archgate/config.json`.
- * Returns `null` when unconfigured.
+ *
+ * @param projectRoot - Project root holding the `.archgate/` directory.
+ * @returns The configured base branch, or `null` when unconfigured.
  */
 export function getConfiguredBaseBranch(projectRoot: string): string | null {
   const config = loadProjectConfig(projectRoot);

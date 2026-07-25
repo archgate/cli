@@ -114,12 +114,10 @@ describe("scanRuleSource", () => {
     });
 
     // A specifier-only local export (`export { x }`, no `from`) also carries
-    // `source: null`, but it holds no scannable subtree: an export specifier
-    // must name a module-local binding, so `export { fetch as local }` naming
-    // the global is not valid ESM, and `Bun.Transpiler` erases the undeclared
-    // specifier down to `export {}` before the walk ever sees it. There is thus
-    // no reference to flag — the declaration-form cases above are what actually
-    // guard the `source: null` subtree against a schema regression.
+    // `source: null` but holds no scannable subtree: a specifier must name a
+    // module-local binding, and `Bun.Transpiler` erases an undeclared one to
+    // `export {}` before the walk sees it. The declaration-form cases above
+    // are what guard the `source: null` subtree against a schema regression.
     test("a local export without a `from` clause has nothing to scan", () => {
       expect(scanRuleSource(`export { fetch as local };`)).toHaveLength(0);
     });
@@ -248,11 +246,10 @@ describe("scanRuleSource", () => {
 });
 
 describe("scanImportedRuleSource", () => {
-  // scanImportedRuleSource now delegates to scanRuleSource: the patterns that
-  // were once imported-only (Bun.env, process.env, require, WebSocket) are
-  // blocked for every rule file by the banned-globals check, because each names
-  // a banned global. These confirm the block reaches through the imported
-  // entry point.
+  // scanImportedRuleSource delegates to scanRuleSource: Bun.env, process.env,
+  // require, and WebSocket each name a banned global, so the banned-globals
+  // check blocks them for every rule file. These confirm the block reaches
+  // through the imported entry point.
   describe("previously imported-only patterns are now always blocked", () => {
     const cases: Array<[string, string, string]> = [
       ["Bun.env read", `const token = Bun.env.FOO;`, "Bun"],

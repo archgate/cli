@@ -20,11 +20,11 @@ import { resolvedProjectPaths } from "./project-config";
 let cachedInstallMethod: string | null = null;
 
 /**
- * Detect how archgate was installed.
- * Returns: "binary" | "proto" | "local" | "global-pm"
+ * Detect how archgate was installed, reading `process.execPath` for compiled
+ * binaries and `Bun.main` for `bun run` development mode (where
+ * `process.execPath` is the bun runtime rather than archgate).
  *
- * Uses process.execPath for compiled binaries and Bun.main for `bun run`
- * development mode (where process.execPath is the bun runtime, not archgate).
+ * @returns One of `"binary"`, `"proto"`, `"local"`, or `"global-pm"`.
  */
 export function detectInstallMethod(): string {
   if (cachedInstallMethod) return cachedInstallMethod;

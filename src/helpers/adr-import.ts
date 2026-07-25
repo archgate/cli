@@ -73,7 +73,6 @@ export function rewriteAdrId(
   newId: string
 ): string {
   // Replace id in frontmatter YAML only (between --- delimiters).
-  // We extract the frontmatter block, replace the id line, and reconstruct.
   const fmRegex = /^(---\r?\n)([\s\S]*?\r?\n)(---)/mu;
   const match = content.match(fmRegex);
   if (!match) return content;
@@ -86,8 +85,8 @@ export function rewriteAdrId(
 // ---------- Source resolution & cloning ----------
 
 /**
- * Resolve and clone all sources. Uses a cache to avoid re-cloning the same repo.
- * Sequential because clone N may share a repo with clone N+1 (dedup).
+ * Caches clones so a repo shared by several sources is fetched once, and runs
+ * sequentially because clone N may share a repo with clone N+1 (dedup).
  */
 export async function resolveAndCloneSources(
   sources: string[]
@@ -123,9 +122,6 @@ export async function resolveAndCloneSources(
 
 // ---------- ADR collection ----------
 
-/**
- * Read all ADR files from resolved targets and build the import list.
- */
 export async function collectAdrsToImport(
   resolved: ResolvedImport[]
 ): Promise<AdrToImport[]> {
@@ -176,9 +172,6 @@ export async function collectAdrsToImport(
 
 // ---------- ID remapping ----------
 
-/**
- * Build an ID mapping for imported ADRs, assigning new IDs based on domain prefixes.
- */
 export function buildIdMap(
   adrsToImport: AdrToImport[],
   adrsDir: string,
@@ -208,7 +201,13 @@ export function buildIdMap(
 
 /**
  * Write imported ADR files to disk with remapped IDs.
- * Returns list of written file paths for rollback on failure.
+ *
+ * @param adrsToImport - The ADRs to write, each with its source path and
+ * optional companion rules path.
+ * @param idMap - Old-to-new ID mapping applied to filenames and content.
+ * @param adrsDir - Destination ADR directory.
+ * @returns Every written file path, in write order, so a caller can roll
+ * back the partial set when a later step fails.
  */
 export async function writeImportedAdrs(
   adrsToImport: AdrToImport[],
@@ -217,7 +216,6 @@ export async function writeImportedAdrs(
 ): Promise<string[]> {
   const writtenFiles: string[] = [];
 
-  // Read all source files in parallel first
   const readTasks = adrsToImport.map((adr) => Bun.file(adr.sourcePath).text());
   const ruleTasks = adrsToImport.map((adr) =>
     adr.rulesPath ? Bun.file(adr.rulesPath).text() : Promise.resolve(null)
@@ -277,7 +275,6 @@ export async function writeImportedAdrs(
       }
     }
   } catch (err) {
-    // Rollback: delete all written files
     for (const file of writtenFiles) {
       try {
         unlinkSync(file);
@@ -293,9 +290,6 @@ export async function writeImportedAdrs(
 
 // ---------- Manifest update ----------
 
-/**
- * Update the imports manifest with newly imported ADRs.
- */
 export function updateImportsManifest(
   manifest: ImportsManifest,
   adrsToImport: AdrToImport[],

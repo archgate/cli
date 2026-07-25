@@ -30,7 +30,6 @@ describe("init governance skeleton", () => {
     const exampleAdr = generateExampleAdr("test-project");
     await Bun.write(`${paths.adrsDir}/GEN-001-example.md`, exampleAdr);
 
-    // Verify structure
     expect(existsSync(paths.root)).toBe(true);
     expect(existsSync(paths.adrsDir)).toBe(true);
     expect(existsSync(paths.lintDir)).toBe(true);

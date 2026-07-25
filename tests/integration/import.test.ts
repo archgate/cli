@@ -81,23 +81,20 @@ describe("import integration (local fixtures)", () => {
     scaffoldProject();
     process.chdir(tempDir);
 
-    // We need to bypass git clone for local testing.
-    // Simulate by directly calling the import action with local paths.
-    // Instead, let's use the detectTarget + manual write approach.
+    // Bypass git clone for local testing: resolve the fixture with
+    // detectTarget and write the files directly.
     const target = await detectTarget(FIXTURE_REGISTRY, "packs/test-pack");
     expect(target.kind).toBe("pack");
 
     if (target.kind === "pack") {
       const adrsDir = join(tempDir, ".archgate", "adrs");
 
-      // Write ADR files with remapped IDs
       for (const adrFile of target.adrFiles) {
         const content = readFileSync(adrFile, "utf-8");
         const filename = adrFile.split(/[\\/]/u).pop()!;
         writeFileSync(join(adrsDir, filename), content);
       }
 
-      // Write rules files
       for (const rulesFile of target.rulesFiles) {
         const content = readFileSync(rulesFile, "utf-8");
         const filename = rulesFile.split(/[\\/]/u).pop()!;
@@ -163,11 +160,9 @@ describe("import integration (local fixtures)", () => {
     scaffoldProject();
     process.chdir(tempDir);
 
-    // Create a program that uses dry-run
     const parent = new Command("adr").exitOverride();
     registerAdrImportCommand(parent);
 
-    // With --list and no imports, should succeed
     await parent.parseAsync([
       "node",
       "adr",
@@ -181,7 +176,6 @@ describe("import integration (local fixtures)", () => {
       .join("\n");
     expect(allOutput).toContain("No ADRs have been imported yet.");
 
-    // No files should have been written to adrs dir
     const adrsDir = join(tempDir, ".archgate", "adrs");
     const files = readdirSync(adrsDir);
     expect(files.length).toBe(0);

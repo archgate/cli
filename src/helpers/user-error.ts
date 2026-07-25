@@ -6,6 +6,15 @@
  * errors the user fixes. {@link handleCommandError} in `exit.ts` captures
  * to Sentry anything that is neither a {@link UserError} nor an
  * `ExitPromptError` (Ctrl+C cancellation, exit 130).
+ *
+ * @example
+ * ```ts
+ * import { UserError } from "../helpers/user-error";
+ *
+ * if (!existsSync(configPath)) {
+ *   throw new UserError("No .archgate/ directory found.", "Run `archgate init` first.");
+ * }
+ * ```
  */
 
 /**

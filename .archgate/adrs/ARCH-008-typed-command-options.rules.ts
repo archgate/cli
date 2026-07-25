@@ -11,8 +11,7 @@
  * Description strings that enumerate a fixed set of values, e.g.
  * "editor integration to configure (claude, cursor, vscode, copilot)" or
  * "ADR domain: backend, frontend, data, architecture, general".
- * Same heuristic as the previous regex rule, but applied to the parsed
- * Literal VALUE rather than raw source text.
+ * Matched against the parsed Literal VALUE, not raw source text.
  */
 const CHOICE_ENUMERATION = /(?:claude.*cursor|backend.*frontend)/u;
 

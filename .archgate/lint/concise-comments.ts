@@ -19,6 +19,16 @@ const DIVIDER_ONLY = /^[─-╿=—\-_*\s]{3,}$/u;
 const NON_PROSE =
   /^(<reference\b|eslint-|oxlint-|biome-ignore|prettier-ignore|@ts-|archgate-ignore|istanbul\s|c8\s|v8\s|region\b|endregion\b|SPDX-License-Identifier|Copyright\s)/iu;
 
+// TSDoc block tags whose length tracks the API surface — one entry per
+// parameter, thrown type, or example — rather than narrative padding. The tag
+// line and everything under it up to the next tag is exempt from the budget.
+const STRUCTURAL_TAG =
+  /^@(param|arg|argument|typeParam|template|returns?|throws|example|see|link|defaultValue|deprecated|internal|public|alpha|beta|experimental|module|packageDocumentation|typedef|callback|property|prop|overload|inheritDoc|label|satisfies)\b/iu;
+
+// Prose containers: their content is narrative, so it keeps counting.
+// Exempting these would reduce the bound to "write @remarks first".
+const PROSE_TAG = /^@(remarks|description|summary|notes?|todo|fixme)\b/iu;
+
 // GEN-004: at most this many prose lines per contiguous comment run.
 const OVERSIZED_BLOCK_THRESHOLD = 5;
 
@@ -38,15 +48,29 @@ interface RuleContext {
   report(descriptor: { loc: SourceLocation; message: string }): void;
 }
 
-// Prose lines of a single comment token, markers stripped.
+// Prose lines of a single comment token, markers stripped. A TSDoc block tag
+// opens a section: a structural tag's section is exempt, a prose tag's is not,
+// and the untagged summary above the first tag always counts.
 function proseLines(comment: CommentToken): string[] {
   const raw =
     comment.type === "Line"
       ? [comment.value.replace(/^\/+/u, "")]
       : comment.value.split(/\r?\n/u).map((l) => l.replace(/^\s*\*+\s?/u, ""));
-  return raw
-    .map((l) => l.trim())
-    .filter((l) => l !== "" && !DIVIDER_ONLY.test(l) && !NON_PROSE.test(l));
+
+  const kept: string[] = [];
+  let inStructuralSection = false;
+  for (const line of raw) {
+    const text = line.trim();
+    if (text.startsWith("@")) {
+      inStructuralSection = STRUCTURAL_TAG.test(text) && !PROSE_TAG.test(text);
+      continue;
+    }
+    if (inStructuralSection) continue;
+    if (text === "" || DIVIDER_ONLY.test(text) || NON_PROSE.test(text))
+      continue;
+    kept.push(text);
+  }
+  return kept;
 }
 
 // True when the comment occupies its lines alone — nothing but whitespace

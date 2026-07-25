@@ -93,9 +93,6 @@ function buildNonCodeRanges(source: string): Array<[number, number]> {
   return ranges;
 }
 
-/**
- * Check if a character offset falls inside any non-code range.
- */
 function isInNonCode(offset: number, ranges: Array<[number, number]>): boolean {
   for (const [start, end] of ranges) {
     if (offset >= start && offset < end) return true;

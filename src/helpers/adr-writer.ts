@@ -107,7 +107,6 @@ export async function createAdrFile(
   const filePath = join(adrsDir, fileName);
   await Bun.write(filePath, content);
 
-  // Generate companion .rules.ts when rules are enabled
   if (opts.rules) {
     const rulesFileName = `${id}-${slug}.rules.ts`;
     const rulesFilePath = join(adrsDir, rulesFileName);

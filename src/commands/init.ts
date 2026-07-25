@@ -63,7 +63,6 @@ export function registerInitCommand(program: Command) {
     )
     .action(async (opts) => {
       try {
-        // Resolve editors: explicit flag, interactive prompt, or default
         let editors: EditorTarget[];
         if (opts.editor) {
           editors = [opts.editor];
@@ -79,8 +78,8 @@ export function registerInitCommand(program: Command) {
         );
         let hasCredentials = (await loadCredentials()) !== null;
 
-        // If no credentials and --install-plugin not explicitly set, offer to log in
-        // Skip interactive prompts in non-TTY environments (agent-driven runs)
+        // Interactive prompts are skipped in non-TTY environments
+        // (agent-driven runs).
         if (
           !hasCredentials &&
           opts.installPlugin === undefined &&
@@ -131,7 +130,6 @@ export function registerInitCommand(program: Command) {
           }
           console.log(`  ${dir.padEnd(13)}- ${label} settings configured`);
 
-          // Plugin install output
           if (result.plugin?.installed) {
             console.log("");
             if (result.plugin.autoInstalled) {
@@ -182,7 +180,6 @@ export function registerInitCommand(program: Command) {
             : {}),
         });
 
-        // --- Greenfield wizard: offer starter packs when no ADRs exist ---
         if (process.stdin.isTTY && !hadExistingProject) {
           await runGreenfieldWizard(process.cwd());
         }
@@ -233,7 +230,6 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
 
   const stack = await detectStack(projectRoot);
 
-  // Show detected stack summary
   const stackParts: string[] = [];
   if (stack.languages.length > 0) stackParts.push(...stack.languages);
   if (stack.runtimes.length > 0) stackParts.push(...stack.runtimes);

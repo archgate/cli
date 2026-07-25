@@ -11,8 +11,6 @@ import {
 } from "../../src/helpers/session-context-copilot";
 import { restoreEnv } from "../test-utils";
 
-// This file covers readCopilotSession happy-path and error-case tests.
-
 describe("readCopilotSession", () => {
   const uniqueId = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   // Use a fake project root that we'll put in workspace.yaml cwd
@@ -51,7 +49,6 @@ describe("readCopilotSession", () => {
     const yaml = `cwd: ${JSON.stringify(cwd)}\nid: ${JSON.stringify(sessionId)}\n`;
     writeFileSync(join(sessionDir, "workspace.yaml"), yaml);
 
-    // Write events.jsonl if provided
     if (events) {
       writeFileSync(join(sessionDir, "events.jsonl"), events.join("\n"));
     }
@@ -261,7 +258,6 @@ describe("readCopilotSession", () => {
     const past = new Date(Date.now() - 60_000);
     utimesSync(join(stateDir, earlierId), past, past);
 
-    // Create the current session (newer)
     const currentId = `copilot-${uniqueId}-current`;
     makeSession(currentId, projectRoot, [
       JSON.stringify({

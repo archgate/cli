@@ -10,7 +10,6 @@ describe("doctor", () => {
     test("returns a complete DoctorReport structure", async () => {
       const report = await runDoctor();
 
-      // System section
       expect(report.system).toBeDefined();
       expect(typeof report.system.os).toBe("string");
       expect(typeof report.system.arch).toBe("string");
@@ -18,7 +17,6 @@ describe("doctor", () => {
       expect(typeof report.system.bun_version).toBe("string");
       expect(typeof report.system.node_version).toBe("string");
 
-      // Archgate section
       expect(report.archgate).toBeDefined();
       expect(typeof report.archgate.version).toBe("string");
       expect(["binary", "proto", "local", "global-pm"]).toContain(
@@ -28,17 +26,14 @@ describe("doctor", () => {
       expect(typeof report.archgate.telemetry_enabled).toBe("boolean");
       expect(typeof report.archgate.logged_in).toBe("boolean");
 
-      // Project section
       expect(report.project).toBeDefined();
       expect(typeof report.project.has_project).toBe("boolean");
       expect(typeof report.project.adr_count).toBe("number");
       expect(Array.isArray(report.project.domains)).toBe(true);
 
-      // Editors section
       expect(report.editors).toBeDefined();
       expect(typeof report.editors.git).toBe("boolean");
 
-      // Integrations section
       expect(report.integrations).toBeDefined();
     });
 

@@ -10,17 +10,22 @@
  */
 
 /**
- * Returns true when the CLI is likely being invoked by an AI agent:
- * stdout is not a TTY AND not running in a CI environment.
+ * Detect whether the CLI is likely being driven by an AI agent.
+ *
+ * @returns `true` when stdout is not a TTY and no CI environment is detected.
  */
 export function isAgentContext(): boolean {
   return !process.stdout.isTTY && !Bun.env.CI;
 }
 
 /**
- * Serialize data to JSON with context-aware formatting:
- * - Agent context (non-TTY, non-CI): compact (no whitespace) to minimize tokens
- * - Human context (TTY or explicit --json): pretty-printed with 2-space indent
+ * Serialize data to JSON with context-aware formatting.
+ *
+ * @param data - The value to serialize.
+ * @param forcePretty - When true, always pretty-print (e.g. an explicit
+ * `--json` flag). Defaults to pretty-printing outside agent contexts.
+ * @returns Compact JSON in agent contexts (non-TTY, non-CI) to minimize
+ * tokens, otherwise JSON indented with 2 spaces.
  */
 export function formatJSON(data: unknown, forcePretty?: boolean): string {
   const pretty = forcePretty ?? !isAgentContext();

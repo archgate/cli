@@ -64,7 +64,6 @@ describe("credential-store", () => {
     test.skipIf(process.platform !== "win32")(
       "cleans up legacy metadata file on save",
       async () => {
-        // Create a legacy metadata file
         mkdirSync(join(tempDir, ".archgate"), { recursive: true });
         const credPath = join(tempDir, ".archgate", "credentials");
         await Bun.write(
@@ -77,7 +76,6 @@ describe("credential-store", () => {
           github_user: "testuser",
         });
 
-        // Legacy file should be removed.
         expect(await Bun.file(credPath).exists()).toBe(false);
       }
     );
@@ -212,13 +210,11 @@ describe("credential-store", () => {
         warnSpy.mockRestore();
       }
 
-      // Load should return the saved credentials
       const loaded = await loadCredentials();
       expect(loaded).not.toBeNull();
       expect(loaded!.token).toBe("ag_beta_roundtrip");
       expect(loaded!.github_user).toBe("rounduser");
 
-      // Clear should remove them
       await clearCredentials();
       const afterClear = await loadCredentials();
       expect(afterClear).toBeNull();

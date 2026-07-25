@@ -9,7 +9,6 @@ export default {
       description: "Test directory structure should mirror src/ structure",
       severity: "error",
       async check(ctx) {
-        // Get all src modules (non-index, non-cli.ts)
         const srcFiles = await ctx.glob("src/**/*.ts");
         const testFiles = await ctx.glob("tests/**/*.test.ts");
 

@@ -45,8 +45,9 @@ export interface LoginFlowResult {
  * Run the full GitHub device flow: authenticate, claim token (or sign up
  * if the user is unregistered), and store credentials.
  *
- * Returns `{ ok: true }` when credentials are stored, `{ ok: false }` on
- * failure (error is already printed).
+ * @param options - Flow overrides, such as a pre-selected editor target.
+ * @returns `{ ok: true }` once credentials are stored, or `{ ok: false }` on
+ * failure — the error is printed before returning, so callers exit quietly.
  */
 export async function runLoginFlow(
   options?: LoginFlowOptions
@@ -113,8 +114,14 @@ export async function runLoginFlow(
 }
 
 /**
- * Prompt for signup details, submit the request, and return the token.
- * Returns null on failure (error is already printed).
+ * Prompt for signup details and submit the registration request.
+ *
+ * @param githubUser - GitHub login of the authenticated user.
+ * @param githubToken - GitHub access token proving that identity.
+ * @param githubEmail - Email from GitHub, or `null` to prompt for one.
+ * @param preselectedEditor - Skips the editor prompt when supplied.
+ * @returns The archgate token, or `null` on failure — the error is printed
+ * before returning.
  */
 async function runSignupPrompt(
   githubUser: string,

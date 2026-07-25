@@ -2,8 +2,8 @@
 // Copyright 2026 Archgate
 
 // ---------------------------------------------------------------------------
-// Framework detection and caching tests — split from stack-detect.test.ts to
-// stay under the 500-line lint limit.
+// Framework detection and caching tests. They live apart from
+// stack-detect.test.ts so each file stays under the 500-line lint limit.
 // ---------------------------------------------------------------------------
 
 import { describe, expect, test, afterEach } from "bun:test";

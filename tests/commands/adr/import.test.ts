@@ -299,7 +299,6 @@ describe("import action handler", () => {
     expect(output).toContain("TP-002");
     expect(output).toContain("ARCH-");
     expect(output).toContain("Dry run");
-    // No files written
     const files = readdirSync(join(tempDir, ".archgate", "adrs"));
     expect(files.filter((f) => f.endsWith(".md"))).toHaveLength(0);
   });
@@ -357,7 +356,6 @@ describe("import action handler", () => {
       expect(content).toContain(`id: ${prefix}`);
     }
 
-    // Human-readable success message
     expect(allOutput()).toContain("Imported 2 ADR(s)");
   });
 
@@ -379,7 +377,6 @@ describe("import action handler", () => {
     // TP-001 has a companion .rules.ts, TP-002 does not
     expect(rulesFiles).toHaveLength(1);
     expect(rulesFiles[0]).toMatch(/^ARCH-\d{3}-.*\.rules\.ts$/u);
-    // rules.d.ts shim created
     expect(existsSync(join(tempDir, ".archgate", "rules.d.ts"))).toBe(true);
   });
 

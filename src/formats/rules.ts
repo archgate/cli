@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-// --- Severity ---
 
 export type Severity = "error" | "warning" | "info";
-
-// --- Grep Match ---
 
 export interface GrepMatch {
   file: string;
@@ -12,8 +9,6 @@ export interface GrepMatch {
   column: number;
   content: string;
 }
-
-// --- Violation Detail ---
 
 export interface ViolationDetail {
   ruleId: string;
@@ -36,8 +31,6 @@ export interface RuleReport {
   warning(detail: Omit<ViolationDetail, "ruleId" | "adrId" | "severity">): void;
   info(detail: Omit<ViolationDetail, "ruleId" | "adrId" | "severity">): void;
 }
-
-// --- Package JSON ---
 
 export interface PackageJson {
   name?: string;
@@ -69,10 +62,19 @@ export type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
 
 /**
  * A source comment, present on the tree's `comments` array when `ast()` is
- * called with `{ comments: true }`. `value` is the text without delimiters;
- * `loc` is a position in the ORIGINAL source, even for `"typescript"` whose
- * tree `loc` is transpiled-relative. Python has `"line"` comments only; a
- * Ruby `=begin`/`=end` region is one `"block"` token (character columns).
+ * called with `{ comments: true }`.
+ *
+ * @property type - `"line"` for `//` and `#` comments; `"block"` for a
+ * C-style delimited comment and for a whole Ruby `=begin`/`=end` region.
+ * Python has no block comments, so its tokens are always `"line"`.
+ * @property value - Comment text with its delimiters removed. A Ruby block
+ * token carries the inner content only: marker lines stripped, line endings
+ * normalized to LF.
+ * @property loc - Position in the ORIGINAL source, accurate even for
+ * `"typescript"`, whose tree `loc` is transpiled-relative. Columns are
+ * character offsets in every language, including Ruby, whose sexp node
+ * positions are byte offsets.
+ * @see AstOptions
  */
 export interface CommentToken {
   type: "line" | "block";
@@ -84,11 +86,29 @@ export interface CommentToken {
 }
 
 /**
- * Options for `RuleContext.ast()`. `rev: "base"` parses the file as of the
- * comparison base commit rather than the working tree, throwing when no
- * base resolves or the file is absent there (pair with `fileAtBase()`).
- * `comments: true` attaches a `comments` array of {@link CommentToken}s;
- * for `"ruby"` it rides on the sexp array as a non-index property.
+ * Options for `RuleContext.ast()`.
+ *
+ * @property rev - `"base"` parses the file as of the comparison base commit
+ * (merge base of `--base` and HEAD) rather than the working tree, so a rule
+ * can ask whether executable structure changed. Throws when no base resolves
+ * or the file is absent there; pair with `fileAtBase()` to detect that first.
+ * @property comments - Attaches a `comments` array of {@link CommentToken}s
+ * to the returned tree, the structured basis for comment-governance rules.
+ * Supported for every {@link AstLanguage}; for `"ruby"` the array rides on
+ * the returned sexp array as a non-index property.
+ * @example
+ * Detect a change in executable structure while ignoring comment-only edits.
+ * Comments drop out of both tree shapes but node positions do not, so compare
+ * a location-free projection:
+ * ```ts
+ * const strip = (tree: unknown) =>
+ *   JSON.stringify(tree, (key, value) =>
+ *     ["loc", "range", "lineno", "col_offset"].includes(key) ? undefined : value
+ *   );
+ * const changed =
+ *   strip(await ctx.ast(file, "typescript")) !==
+ *   strip(await ctx.ast(file, "typescript", { rev: "base" }));
+ * ```
  */
 export interface AstOptions {
   rev?: "base";
@@ -185,20 +205,34 @@ export interface RuleContext {
   readFile(path: string): Promise<string>;
   /**
    * Read a file's source at the comparison base revision (the merge base of
-   * `--base` and HEAD). Returns null when no base is resolved (no `--base`, or
-   * unrelated histories) or the path did not exist at the base — the two
-   * "nothing to compare against" cases, checkable with one null test. For a
-   * structural comparison prefer `ast(path, language, { rev: "base" })`.
+   * `--base` and HEAD).
+   *
+   * @param path - Project-relative path to read.
+   * @returns The file's content at the base, or null for both
+   * "nothing to compare against" cases — no base resolved (no `--base`, or
+   * unrelated histories) and path absent at the base — so one null test
+   * covers each. For a structural comparison prefer
+   * `ast(path, language, { rev: "base" })`.
    */
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
-   * Parse a source file into its language-native AST. The return type follows
-   * the `language` literal; shapes are language-native, NOT unified (ARCH-022)
-   * — walk each against its own grammar. TS/JS parse in-process; Python/Ruby
-   * need their interpreter on PATH ({@link AstOptions} covers `rev` and
-   * `comments`). Throws (never null) on parse failure or missing interpreter.
+   * Parse a source file into its language-native AST.
+   *
+   * @param path - Project-relative path to parse.
+   * @param language - Selects both the parser and the return shape. Shapes are
+   * language-native and NOT unified (ARCH-022) — walk each against its own
+   * grammar.
+   * @param opts - See {@link AstOptions} for `rev` and `comments`.
+   * @returns An {@link EsTreeProgram} for `"typescript"`/`"javascript"`, a
+   * {@link PythonAstModule} for `"python"`, or a {@link RubyAstProgram} for
+   * `"ruby"`. TypeScript and JavaScript parse in-process; Python and Ruby
+   * require their interpreter (`python3`/`python`, `ruby`) on PATH wherever
+   * `archgate check` runs, locally and in CI.
+   * @throws When the file fails to parse or the required interpreter is
+   * missing — never returns null. The message distinguishes the two cases.
+   * @see ARCH-022
    */
   ast(
     path: string,
@@ -217,11 +251,16 @@ export interface RuleContext {
   ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
   /**
-   * Recursively collect every node in a parsed AST whose type-discriminant
-   * field (`_type` for Python, `type` for ESTree TS/JS) matches one of `types`.
-   * Own-enumerable object values and arrays are recursed; `tree` itself is a
-   * candidate. Ruby sexp nodes are plain arrays with no discriminant, so only
-   * embedded object nodes can match. Pure synchronous traversal — no I/O.
+   * Collect every node in a parsed AST whose type-discriminant field matches
+   * one of `types`. Pure synchronous traversal — no I/O.
+   *
+   * @param tree - Any parsed tree or subtree; `tree` itself is a match
+   * candidate. Own-enumerable object values and arrays are traversed.
+   * @param types - Discriminant values to match against `_type` (Python) or
+   * `type` (ESTree TypeScript/JavaScript).
+   * @returns Matching nodes in preorder, empty when nothing matches. Ruby
+   * sexp nodes are plain arrays carrying no discriminant field, so only
+   * embedded object nodes can match.
    */
   findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
   findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
@@ -232,14 +271,10 @@ export interface RuleContext {
   report: RuleReport;
 }
 
-// --- Rule Config ---
-
 export interface RuleConfig {
   description: string;
   severity?: Severity;
   check: (ctx: RuleContext) => Promise<void>;
 }
-
-// --- Rule Set ---
 
 export type RuleSet = { rules: Record<string, RuleConfig> };

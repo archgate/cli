@@ -26,7 +26,6 @@ export function configureCursorSettings(projectRoot: string): string {
   const cursorDir = join(projectRoot, ".cursor");
   mkdirSync(cursorDir, { recursive: true });
 
-  // Write hooks.json
   const hooksPath = join(cursorDir, "hooks.json");
   if (!existsSync(hooksPath)) {
     writeFileSync(

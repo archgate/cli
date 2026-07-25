@@ -43,16 +43,13 @@ describe("initProject — baseBranch auto-detection", () => {
     await git(["add", "file.ts"], tempDir);
     await git(["commit", "-m", "init"], tempDir);
 
-    // First init saves baseBranch
     await initProject(tempDir);
 
-    // Manually change baseBranch to a custom value
     const configPath = join(tempDir, ".archgate", "config.json");
     const config = JSON.parse(await Bun.file(configPath).text());
     config.baseBranch = "develop";
     await Bun.write(configPath, JSON.stringify(config, null, 2) + "\n");
 
-    // Re-init should not overwrite the custom baseBranch
     await initProject(tempDir);
 
     const updatedConfig = JSON.parse(await Bun.file(configPath).text());

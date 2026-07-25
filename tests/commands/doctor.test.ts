@@ -159,7 +159,6 @@ describe("doctor action handler", () => {
         .map((c: unknown[]) => String(c[0]))
         .join("\n");
 
-      // Section headers
       expect(output).toContain("System");
       expect(output).toContain("Archgate");
       expect(output).toContain("Project");

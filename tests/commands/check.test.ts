@@ -61,7 +61,6 @@ describe("registerCheckCommand", () => {
     const sub = program.commands.find((c) => c.name() === "check")!;
     const adrOpt = sub.options.find((o) => o.long === "--adr");
     expect(adrOpt).toBeDefined();
-    // The option takes a required value argument when used
     expect(adrOpt!.flags).toContain("<id>");
   });
 
@@ -77,7 +76,6 @@ describe("registerCheckCommand", () => {
     const program = new Command();
     registerCheckCommand(program);
     const sub = program.commands.find((c) => c.name() === "check")!;
-    // Commander stores registered arguments
     const args = sub.registeredArguments;
     expect(args).toHaveLength(1);
     expect(args[0].name()).toBe("files");

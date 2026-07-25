@@ -35,7 +35,6 @@ export default {
           commandNames.add(name);
         }
 
-        // Collect docs stems.
         const docFiles = await ctx.glob(`${DOCS_DIR}/*.mdx`);
         const docStems = new Set<string>();
         for (const file of docFiles) {

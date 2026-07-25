@@ -25,8 +25,6 @@ import {
 import { withPromptFix } from "../../helpers/prompt";
 import { ensureRulesShim } from "../../helpers/rules-shim";
 
-// ---------- Command registration ----------
-
 export function registerAdrImportCommand(adr: Command) {
   adr
     .command("import")
@@ -43,7 +41,6 @@ export function registerAdrImportCommand(adr: Command) {
         const paths = resolvedProjectPaths(projectRoot);
         const useJson = opts.json || isAgentContext();
 
-        // --list: show ADRs already imported
         if (opts.list) {
           const manifest = await loadImportsManifest(projectRoot);
           if (useJson) {
@@ -64,13 +61,9 @@ export function registerAdrImportCommand(adr: Command) {
           return;
         }
 
-        // ---------- Resolve & clone ----------
-
         const cloned = await resolveAndCloneSources(sources);
         const { resolved } = cloned;
         tempDirs = cloned.tempDirs;
-
-        // ---------- Collect ADR files ----------
 
         const adrsToImport = await collectAdrsToImport(resolved);
 
@@ -114,8 +107,6 @@ export function registerAdrImportCommand(adr: Command) {
           console.log();
         }
 
-        // ---------- Dry run ----------
-
         if (opts.dryRun) {
           if (useJson) {
             console.log(
@@ -129,8 +120,6 @@ export function registerAdrImportCommand(adr: Command) {
           }
           return;
         }
-
-        // ---------- Confirmation ----------
 
         if (!opts.yes) {
           const { default: inquirer } = await import("inquirer");
@@ -150,17 +139,11 @@ export function registerAdrImportCommand(adr: Command) {
           }
         }
 
-        // ---------- Atomic write ----------
-
         await writeImportedAdrs(adrsToImport, idMap, paths.adrsDir);
-
-        // ---------- Update imports.json ----------
 
         const manifest = await loadImportsManifest(projectRoot);
         updateImportsManifest(manifest, adrsToImport, idMap);
         saveImportsManifest(projectRoot, manifest);
-
-        // ---------- Ensure rules.d.ts ----------
 
         await ensureRulesShim(projectRoot, paths.adrsDir);
 

@@ -309,7 +309,6 @@ describe("reporter", () => {
       const summary = buildSummary(makeResult({ violations }), {
         maxViolationsPerRule: 5,
       });
-      // errors count should reflect ALL 25 violations, not just the shown 5
       expect(summary.errors).toBe(25);
       expect(summary.results[0].shownViolations).toBe(5);
     });

@@ -88,7 +88,6 @@ export async function configureClaudeSettings(
   const claudeDir = join(projectRoot, ".claude");
   const settingsPath = join(claudeDir, "settings.local.json");
 
-  // Read existing settings or start with empty object
   let existing: ClaudeSettings = {};
   if (existsSync(settingsPath)) {
     try {
@@ -103,7 +102,6 @@ export async function configureClaudeSettings(
 
   const merged = mergeClaudeSettings(existing, ARCHGATE_CLAUDE_SETTINGS);
 
-  // Ensure .claude/ directory exists
   if (!existsSync(claudeDir)) {
     mkdirSync(claudeDir, { recursive: true });
   }

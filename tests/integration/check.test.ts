@@ -370,7 +370,6 @@ describe("check --base integration", () => {
 };`
     );
 
-    // Commit everything on main
     await git(["add", "."], dir);
     await git(["commit", "-m", "initial"], dir);
 

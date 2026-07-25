@@ -13,10 +13,6 @@ import { internalPath } from "./paths";
 import { isWindows } from "./platform";
 import { UserError } from "./user-error";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 const GITHUB_REPO = "archgate/cli";
 
 // ---------------------------------------------------------------------------
@@ -69,12 +65,14 @@ const GitHubReleaseSchema = z.object({ tag_name: z.string().optional() });
 const GITHUB_RELEASES_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
 
 /**
- * Fetch the latest version tag from GitHub Releases — returns the tag
- * (e.g. "v0.13.1") or null on failure.
+ * Fetch the latest version tag from GitHub Releases.
  *
- * @param timeoutMs Short (e.g. 5s) for the background update check at CLI
- *                  startup so a slow network never delays the user's
- *                  command; the 15s default is for `archgate upgrade`.
+ * @param timeoutMs Request timeout. Use a short value (e.g. 5s) for the
+ *                  opportunistic background update check at CLI startup so
+ *                  a slow network never delays the user's command. The
+ *                  longer default (15s) is reserved for the explicit
+ *                  `archgate upgrade` path where the user is waiting for it.
+ * @returns The tag (e.g. "v0.13.1"), or null on failure.
  */
 export async function fetchLatestGitHubVersion(
   timeoutMs = 15_000
@@ -104,7 +102,6 @@ export async function fetchLatestGitHubVersion(
 // ---------------------------------------------------------------------------
 
 export interface DownloadProgress {
-  /** Bytes received so far. */
   downloadedBytes: number;
   /** Total expected bytes (`null` when Content-Length is absent). */
   totalBytes: number | null;
@@ -122,7 +119,7 @@ export type DownloadProgressCallback = (progress: DownloadProgress) => void;
  *
  * When an `onProgress` callback is provided the response body is streamed
  * so the caller can display incremental progress.  Without the callback the
- * response is buffered in one shot (legacy behaviour).
+ * response is buffered in one shot.
  */
 export async function downloadReleaseBinary(
   tag: string,
@@ -136,9 +133,8 @@ export async function downloadReleaseBinary(
   logDebug("Downloading binary from:", archiveUrl);
   const response = await fetch(archiveUrl, {
     headers: { "User-Agent": "archgate-cli" },
-    // 5 minutes — release binaries can exceed 100 MB which may take a
-    // while on slower connections.  The previous 60 s limit caused
-    // timeouts for many users.
+    // 5 minutes — release binaries can exceed 100 MB, which takes a while
+    // on slower connections.
     signal: AbortSignal.timeout(300_000),
   });
 
@@ -184,7 +180,7 @@ export async function downloadReleaseBinary(
 
   logDebug("Downloaded", Math.round(buffer.byteLength / 1024), "KB");
 
-  // Verify SHA256 checksum when available (releases after this change)
+  // Verify the SHA256 checksum when the release publishes one
   try {
     const checksumResponse = await fetch(checksumUrl, {
       headers: { "User-Agent": "archgate-cli" },
@@ -330,9 +326,6 @@ export function cleanupStaleBinary(): Promise<void> {
   });
 }
 
-/**
- * Returns the manual install hint for the current platform.
- */
 export function getManualInstallHint(): string {
   return isWindows()
     ? "irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex"

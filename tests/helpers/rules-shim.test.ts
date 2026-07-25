@@ -54,7 +54,6 @@ describe("rules-shim", () => {
     const dtsContent = await Bun.file(dtsPath).text();
     expect(dtsContent).toContain("declare interface RuleContext");
 
-    // Should NOT create rules.js
     expect(existsSync(join(tempDir, ".archgate", "rules.js"))).toBe(false);
   });
 
@@ -73,7 +72,6 @@ describe("rules-shim", () => {
 
     const dtsPath = join(tempDir, ".archgate", "rules.d.ts");
 
-    // Overwrite with stale content
     await Bun.write(dtsPath, "stale");
 
     await ensureRulesShim(tempDir);

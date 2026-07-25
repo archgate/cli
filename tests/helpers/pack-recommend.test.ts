@@ -310,7 +310,6 @@ describe("recommendPacks", () => {
     expect(recs[0].adrCount).toBe(2);
     expect(recs[0].matchedTags).toContain("language:typescript");
 
-    // The function should have cleaned up the cloned directory
     expect(existsSync(fakeCloneDir)).toBe(false);
   });
 
@@ -341,7 +340,6 @@ describe("recommendPacks", () => {
       frameworks: [],
     };
 
-    // Even with no valid packs, the function returns empty and cleans up
     const recs = await recommendPacks(stack);
     expect(recs).toHaveLength(0);
     expect(existsSync(fakeCloneDir)).toBe(false);

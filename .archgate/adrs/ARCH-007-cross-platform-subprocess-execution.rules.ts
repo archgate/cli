@@ -10,7 +10,6 @@ export default {
           (f) => !f.includes("tests/") && !f.includes(".archgate/")
         );
 
-        // Check for Bun.$ template literal usage
         const bunShellMatches = await Promise.all(
           files.map((file) => ctx.grep(file, /Bun\.\$`/u))
         );
@@ -26,7 +25,6 @@ export default {
           }
         }
 
-        // Check for $ import from "bun" (the shell API)
         const dollarImportMatches = await Promise.all(
           files.map((file) =>
             ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/u)
@@ -44,7 +42,6 @@ export default {
           }
         }
 
-        // Check for await $` pattern (destructured $ usage)
         const destructuredMatches = await Promise.all(
           files.map((file) => ctx.grep(file, /await\s+\$`/u))
         );

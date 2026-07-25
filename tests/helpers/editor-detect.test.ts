@@ -26,10 +26,6 @@ import {
   promptSingleEditorSelection,
 } from "../../src/helpers/editor-detect";
 
-// ---------------------------------------------------------------------------
-// Shared test data
-// ---------------------------------------------------------------------------
-
 const MOCK_DETECTED: DetectedEditor[] = [
   { id: "claude", label: "Claude Code", available: true },
   { id: "cursor", label: "Cursor", available: false },
@@ -37,10 +33,6 @@ const MOCK_DETECTED: DetectedEditor[] = [
   { id: "copilot", label: "GitHub Copilot", available: false },
   { id: "opencode", label: "opencode", available: false },
 ];
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("editor-detect", () => {
   describe("detectEditors", () => {

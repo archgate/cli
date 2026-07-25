@@ -22,8 +22,11 @@ const CURSOR_MARKETPLACE_URL =
   "https://plugins.archgate.dev/archgate/cursor.git";
 
 /**
- * Run a command using Bun.spawn (cross-platform, no shell).
- * Returns { exitCode, stdout, stderr }.
+ * Run a command using `Bun.spawn` (cross-platform, no shell — ARCH-007).
+ *
+ * @param cmd - Argv array, the executable first.
+ * @param opts - `cwd` sets the working directory for the child process.
+ * @returns The exit code plus captured `stdout` and `stderr`.
  */
 async function run(
   cmd: string[],
@@ -162,12 +165,10 @@ async function mergeCursorHooks(cursorDir: string): Promise<void> {
     const existing: { event: string; command?: string }[] =
       await Bun.file(hooksPath).json();
 
-    // Remove any previous archgate hooks
     const filtered = existing.filter(
       (h) => !h.command?.includes("archgate check")
     );
 
-    // Add our hooks
     const archgateHooks = [
       {
         event: "afterFileEdit",
@@ -256,7 +257,6 @@ async function installEditorPluginBundle(opts: {
     rmSync(join(skillsDir, dir), { recursive: true, force: true });
   }
 
-  // Download and extract the tarball
   const tarballPath = internalPath(opts.tempFile);
   const buffer = await downloadPluginAsset(opts.apiPath, opts.token);
   logDebug(

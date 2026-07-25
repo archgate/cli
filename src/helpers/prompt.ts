@@ -17,10 +17,8 @@ import { isWindows } from "./platform";
 // LF → CRLF translation
 // ---------------------------------------------------------------------------
 
-/** Regex that matches bare LF (not preceded by CR). */
 const BARE_LF = /(?<!\r)\n/gu;
 
-/** Replace bare `\n` with `\r\n` in a string. */
 function toCrlf(text: string): string {
   return text.replaceAll(BARE_LF, "\r\n");
 }
@@ -29,7 +27,6 @@ function toCrlf(text: string): string {
 // One-time patches (idempotent)
 // ---------------------------------------------------------------------------
 
-/** Whether the patches have already been applied. */
 let patched = false;
 
 /**

@@ -10,7 +10,6 @@
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-/** Narrow an unknown value to an AST node (an object with a string `type`). */
 function asNode(value: unknown): AstNode | undefined {
   if (
     value !== null &&
@@ -51,12 +50,14 @@ function staticPropertyName(node: AstNode): string | undefined {
 }
 
 /**
- * True when the node is a dotted env access — `Bun.env.NAME` or
+ * Read the variable name off a dotted env access — `Bun.env.NAME` or
  * `process.env.NAME`.
  *
- * Computed access (`Bun.env[key]`) is deliberately NOT matched: a dynamic key
- * is the shape of a generic helper such as `restoreEnv` itself, not the
- * hand-rolled capture-and-restore idiom this rule targets.
+ * @returns The accessed name (`NAME`), or undefined when the node is not a
+ * dotted env access. Computed access (`Bun.env[key]`) deliberately returns
+ * undefined: a dynamic key is the shape of a generic helper such as
+ * `restoreEnv` itself, not the hand-rolled capture-and-restore idiom this
+ * rule targets.
  */
 function envVarName(node: AstNode | undefined): string | undefined {
   if (node?.type !== "MemberExpression") return undefined;

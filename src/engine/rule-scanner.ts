@@ -174,7 +174,6 @@ const AstNodeSchema: z.ZodType<AstNode> = z
   })
   .passthrough();
 
-/** Parse an unknown value into an AstNode, or return null. */
 function parseNode(value: unknown): AstNode | null {
   const result = AstNodeSchema.safeParse(value);
   return result.success ? result.data : null;

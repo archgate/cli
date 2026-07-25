@@ -2,8 +2,6 @@
 // Copyright 2026 Archgate
 import { describe, expect, test } from "bun:test";
 
-// Value import (not `import type`) to ensure the module is loaded at runtime,
-// which is necessary for code coverage to register the file.
 import type {
   GrepMatch,
   PackageJson,
@@ -20,8 +18,6 @@ import * as rulesModule from "../../src/formats/rules";
 
 describe("formats/rules module", () => {
   test("module is loadable at runtime", () => {
-    // The module exports only types, but importing it as a value ensures the
-    // runtime evaluates the file, making it appear in coverage reports.
     expect(rulesModule).toBeDefined();
     expect(typeof rulesModule).toBe("object");
   });
