@@ -132,7 +132,7 @@ Bun.spawn(["git diff --cached | head -5"]); // This is a single argument, not a 
 
 ### Negative
 
-- **More verbose syntax** — `Bun.spawn(["git", "ls-files"], { stdout: "pipe" })` costs more than `Bun.$\`git ls-files\``; mitigated by per-module `run()`/`runGit()` helpers.
+- **More verbose syntax** — `Bun.spawn(["git", "ls-files"], { stdout: "pipe" })` costs more than the `Bun.$` shell form of the same `git ls-files` call; mitigated by per-module `run()`/`runGit()` helpers.
 - **No shell features** — Pipelines (`cmd1 | cmd2`), redirects (`> file`), and glob expansion (`*.ts`) must be implemented in JavaScript. Archgate uses none of them.
 - **Manual stream consumption** — Reading stdout requires `new Response(proc.stdout).text()` instead of a `.text()` chain.
 

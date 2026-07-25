@@ -4,19 +4,33 @@
 // does. Keep in sync with `src/engine/context.ts`.
 const BRIEFED_SECTIONS = ["Decision", "Do's and Don'ts"];
 
-// Used when `src/engine/context.ts` is absent, i.e. outside this repository.
+const ENGINE_CONTEXT_FILE = "src/engine/context.ts";
+
+// Used when the engine source is absent, i.e. outside this repository.
 const FALLBACK_MAX_SECTION_CHARS = 2000;
 
-/** Read the engine's cap so this rule and `briefAdr` cannot disagree. */
+/**
+ * Read the engine's cap so this rule and `briefAdr` cannot disagree.
+ *
+ * Falls back to the documented default ONLY when the engine file is absent.
+ * A file that exists but cannot be read or does not declare the constant is an
+ * error: silently assuming 2000 there could suppress a real overflow warning.
+ *
+ * @throws When the engine file exists but its cap cannot be determined.
+ */
 async function resolveCap(ctx: RuleContext): Promise<number> {
-  try {
-    const source = await ctx.readFile("src/engine/context.ts");
-    const match = source.match(/DEFAULT_MAX_SECTION_CHARS\s*=\s*(\d+)/u);
-    if (match) return Number(match[1]);
-  } catch {
-    // Consumer project: fall through to the documented default.
+  const found = await ctx.glob(ENGINE_CONTEXT_FILE);
+  if (found.length === 0) return FALLBACK_MAX_SECTION_CHARS;
+
+  // Read errors propagate deliberately — see above.
+  const source = await ctx.readFile(ENGINE_CONTEXT_FILE);
+  const match = source.match(/DEFAULT_MAX_SECTION_CHARS\s*=\s*(\d+)/u);
+  if (!match) {
+    throw new Error(
+      `${ENGINE_CONTEXT_FILE} exists but declares no DEFAULT_MAX_SECTION_CHARS; cannot verify the briefing budget`
+    );
   }
-  return FALLBACK_MAX_SECTION_CHARS;
+  return Number(match[1]);
 }
 
 interface SectionSpan {
@@ -93,7 +107,14 @@ export default {
           let content: string;
           try {
             content = await ctx.readFile(file);
-          } catch {
+          } catch (err) {
+            // An unreadable ADR is unmeasured, not compliant — say so rather
+            // than letting silence read as a pass.
+            ctx.report.warning({
+              message: `Could not read this ADR to measure its briefing budget: ${err instanceof Error ? err.message : String(err)}`,
+              file,
+              fix: "Ensure the file is readable, then re-run `archgate check --adr GEN-005`.",
+            });
             return;
           }
 

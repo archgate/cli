@@ -26,7 +26,7 @@ Imported statically, every invocation pays their parse cost. For a CLI whose mos
 
 **Dynamic `import()` at the call site**: `const { default: inquirer } = await import("inquirer")` inside the function that needs it, so the module is parsed only when that code path runs. Chosen.
 
-**Eager-start / lazy-await for init-style work**: For SDKs that must initialize early but whose result is only needed later (Sentry, telemetry), start the async work before command registration and `await` it at the first point of use (the `preAction` hook). This overlaps the cost with other startup work and skips it entirely for `--help`/`--version`, which never reach `preAction`.
+**Eager-start / lazy-await for init-style work**: For SDKs that must initialize early but whose result is only needed later (Sentry, telemetry), start the async work before command registration and `await` it at the first point of use (the `preAction` hook). This overlaps the cost with other startup work. `--help` and `--version` never reach `preAction`, so they never block on the result — the work is still started, it is simply never awaited.
 
 ## Decision
 

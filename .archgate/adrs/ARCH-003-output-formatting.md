@@ -121,7 +121,7 @@ console.log(JSON.stringify(results, null, 2));
 - **Machine-readable output enables scripting** — `--json` lets CI systems and scripts consume structured results
 - **Zero dependency on color libraries** — `node:util` is built in, eliminating supply chain risk from color utilities
 - **Automatic `NO_COLOR` support** — `styleText` respects `NO_COLOR` with no additional code
-- **Token-efficient agent output** — Auto-compact JSON cuts agent token usage by 30-50% with zero config: agents get it automatically because their stdout is piped (non-TTY)
+- **Token-efficient agent output** — Auto-compact JSON removes indentation and whitespace from every agent-facing payload with zero config: agents get it automatically because their stdout is piped (non-TTY)
 
 ### Negative
 

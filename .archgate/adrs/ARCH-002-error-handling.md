@@ -121,7 +121,7 @@ try {
 ### Risks
 
 - **Swallowed errors in async code** — Async functions that catch without re-throwing fail silently. Bun's unhandled-rejection exit is a safety net, but the message may be unclear.
-  - **Mitigation:** The `use-log-error` rule flags direct `console.error()`, and `use-log-helpers` flags direct `console.log()`/`console.warn()` in helper and engine files, keeping explicit handling visible in review.
+  - **Mitigation:** Manual review is the control here — reviewers MUST reject any `try`/`catch` that neither logs nor re-throws. The `use-log-error` and `use-log-helpers` rules detect direct `console.*` usage only; neither can see an empty `catch`, so a green `archgate check` is not evidence that nothing is swallowed.
 - **Exit code 2 masking real issues** — An unexpected error inside a rule file exits 2 ("internal error") rather than 1 ("violations"), which can confuse CI that only checks for non-zero.
   - **Mitigation:** The check engine wraps rule execution in timeout and error boundaries, reporting rule errors separately from violations; `--verbose` shows which rules errored.
 
