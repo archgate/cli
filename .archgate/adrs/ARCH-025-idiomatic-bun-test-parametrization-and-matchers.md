@@ -4,7 +4,7 @@ title: Idiomatic bun:test Parametrization and Matchers
 domain: architecture
 rules: false
 files:
-  - "tests/**/*.ts"
+  - "tests/**/*.test.ts"
 ---
 
 ## Context
@@ -18,13 +18,13 @@ Both patterns compile, pass `oxlint`, and pass `bun test` — they are not caugh
 
 **Alternatives considered:**
 
-- **Add these as more Do's/Don'ts to ARCH-005** — Rejected: ARCH-005 is already 199 lines and its own Compliance section documents that its Do's and Don'ts already exceed the `archgate review-context` briefing budget (2000-char cap); appending more would push more of it out of every future briefing, including the parts already there.
+- **Add these as more Do's/Don'ts to ARCH-005** — Rejected: ARCH-005's own Compliance section already documents that its Do's and Don'ts section exceeds the `archgate review-context` briefing budget; appending more would push more of it out of every future briefing, including the parts already there.
 - **Enforce via a new oxlint plugin immediately** — Deferred, not rejected: this repo already has a precedent (`lint/expect-expect.ts`, `lint/no-bare-env-restore.ts`) for exactly this kind of AST-detectable test-shape rule, and it is the right enforcement layer for both patterns (syntax-detectable, not behavioral). Building it is out of scope for the session that produced this ADR, which only fixed existing instances; the rule is recorded as future work in Compliance and Enforcement below.
 - **Leave undocumented, rely on code review alone** — Rejected: the instances this ADR responds to were already written by reviewed, merged PRs across 24 files; undocumented convention did not prevent the drift.
 
 ## Decision
 
-Tests under `tests/**/*.ts` MUST express "the same assertion logic against multiple inputs" with `test.each()`/`describe.each()`, and MUST assert derived facts with the most specific matcher available rather than collapsing a comparison into a boolean passed to `.toBe(true)`/`.toBe(false)`.
+Tests under `tests/**/*.test.ts` MUST express "the same assertion logic against multiple inputs" with `test.each()`/`describe.each()`, and MUST assert derived facts with the most specific matcher available rather than collapsing a comparison into a boolean passed to `.toBe(true)`/`.toBe(false)`.
 
 **Scope:** This ADR covers test-case parametrization and matcher choice only. It does not cover test isolation, lifecycle hooks, or fixture/temp-directory handling — those remain governed by ARCH-005.
 
@@ -43,7 +43,7 @@ A loop that only builds shared setup data or fixtures for a single overall asser
 - **DO** use `describe.each(cases)(...)` when each case needs its own group of multiple related tests, not just one assertion.
 - **DO** pass array rows (`[a, b, expected]`) for positional destructuring and object rows (`{a, b, expected}`) when the case is easier to read as named fields (format the title with `$field`).
 - **DO** assert a derived comparison directly on the values being compared: `expect(actual).toBe(expected)`, `expect(actual).toEqual(expected)`.
-- **DO** use the matcher that matches the shape of the check: `.toContain()`/`.toMatch()` for substrings, `.toBeInstanceOf()` for type checks (including `Array.isArray` replacements), `.toHaveLength()` for counts, `.find(...) `+ `.toBeDefined()`/`.toBeUndefined()` for "does at least one item satisfy X."
+- **DO** use the matcher that matches the shape of the check: `.toContain()`/`.toMatch()` for substrings, `.toBeInstanceOf()` for type checks (including `Array.isArray` replacements), `.toHaveLength()` for counts, `.find(...)` + `.toBeDefined()`/`.toBeUndefined()` for "does at least one item satisfy X."
 - **DO** keep the loop→`test.each()` conversion 1:1 — every assertion that ran per-iteration in the original loop must still run per-case in the converted version; a conversion MUST NOT silently drop or merge assertions.
 
 ### Don't
@@ -122,7 +122,7 @@ expect(violations.some((v) => v.message.includes('"fetch" global'))).toBe(true);
 
 ### Manual Enforcement
 
-Code reviewers MUST verify, for any new or changed file under `tests/**/*.ts`:
+Code reviewers MUST verify, for any new or changed file under `tests/**/*.test.ts`:
 
 1. No `for`/`.forEach` loop registers a `test()`/`it()`/`describe()` call, and no `for`/`.forEach` loop inside a single test calls `expect()` once per logically independent case — either shape MUST be `test.each()`/`describe.each()` instead.
 2. No `expect(<comparison>).toBe(true)` or `.toBe(false)` where `<comparison>` is itself a boolean expression (`===`, `.some()`, `.every()`, `Array.isArray()`, `.includes()`) — the assertion MUST target the underlying values with a specific matcher.

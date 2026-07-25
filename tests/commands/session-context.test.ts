@@ -147,7 +147,11 @@ describe("registerSessionContextCommand", () => {
     const show = sub.commands.find((c) => c.name() === "show")!;
     const opts = show.options.map((o) => o.long);
     expect(opts).toContain("--max-entries");
-    expect(opts.includes("--root")).toBe(hasRoot);
+    if (hasRoot) {
+      expect(opts).toContain("--root");
+    } else {
+      expect(opts).not.toContain("--root");
+    }
   });
 
   test("opencode subcommand has only --max-entries (read current conversation)", () => {
