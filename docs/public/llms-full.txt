@@ -4663,13 +4663,16 @@ Pass `--verbose` to embed every applicable ADR's Decision and Do's/Don'ts prose 
 
 ## Truncated briefings
 
-Briefing prose is capped per section. When a Decision or Do's and Don'ts section exceeds the cap it is cut, and the omission is reported three ways:
+Briefing prose is capped per section. When a Decision or Do's and Don'ts section exceeds the cap it is cut, and the omission is reported four ways:
 
 - The cut point is marked inline with `[... truncated — read full ADR via adr://<id>]`.
 - The ADR's own briefing lists the affected section names in `truncatedSections`.
-- Every affected ADR id is collected in the top-level `truncatedBriefings` array, and a warning naming them is written to stderr.
+- Every affected ADR id is collected in the top-level `truncatedBriefings` array. It is populated after `--domain` filtering, so it names only ADRs present in the response.
+- A warning naming those ADRs is written to stderr, leaving stdout valid JSON.
 
 Treat any of these as meaning the ADR's governing text is incomplete: the rules it states may sit in the part that was cut. Read the full document with `archgate adr show <id>` before relying on the briefing.
+
+Two other limits truncate this payload, each with its own stderr warning. `truncatedFiles` is set when the changed-file list exceeds its cap, so files beyond it are absent from every domain. With `--run-checks`, `checkSummary.truncated` is set when a rule reported more violations than the per-rule cap — run [`archgate check`](/reference/cli/check/) for the complete list.
 
 When `--run-checks` is passed, `checkSummary` follows the same rule as [`archgate check --json`](/reference/cli/check/): its `results` array carries only rules with something to report, while the counts beside it still cover every rule that ran.
 
