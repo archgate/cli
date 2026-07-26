@@ -28,6 +28,6 @@
     "emitDeclarationOnly": true,
     "noErrorTruncation": true
   },
-  "include": ["src/", "tests/", "package.json"],
+  "include": ["src/", "tests/", "lint/", "package.json"],
   "exclude": ["node_modules", "dist", "tsbuild"]
 }
