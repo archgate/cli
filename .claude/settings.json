@@ -48,6 +48,20 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/install-cloud-deps.sh",
+            "shell": "bash",
+            "timeout": 120,
+            "statusMessage": "Installing dependencies in cloud session..."
+          }
+        ]
+      }
     ]
   },
   "agent": "archgate:developer"
