@@ -67,8 +67,8 @@ describe("review-context integration", () => {
     }
 
     const ctx = parsed as Record<string, unknown>;
-    expect(Array.isArray(ctx.allChangedFiles)).toBe(true);
-    expect(Array.isArray(ctx.domains)).toBe(true);
+    expect(ctx.allChangedFiles).toBeInstanceOf(Array);
+    expect(ctx.domains).toBeInstanceOf(Array);
   });
 
   test("filters output by --domain flag", async () => {
@@ -109,7 +109,7 @@ describe("review-context integration", () => {
     // Assert non-empty first: `.every()` is vacuously true on an empty array, so
     // without this the test passes even when no domains are returned at all.
     expect(domainNames.length).toBeGreaterThan(0);
-    expect(domainNames.every((d) => d === "architecture")).toBe(true);
+    expect(new Set(domainNames)).toEqual(new Set(["architecture"]));
     expect(domainNames).not.toContain("backend");
   });
 

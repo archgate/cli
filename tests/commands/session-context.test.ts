@@ -103,7 +103,7 @@ describe("registerSessionContextCommand", () => {
     expect(opts).not.toContain("--skip");
   });
 
-  test("each editor subcommand has list and show children", () => {
+  test("session-context has exactly the four editor subcommands", () => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
@@ -116,29 +116,41 @@ describe("registerSessionContextCommand", () => {
       "cursor",
       "opencode",
     ]);
-    for (const editor of ["claude-code", "copilot", "cursor", "opencode"]) {
+  });
+
+  test.each(["claude-code", "copilot", "cursor", "opencode"])(
+    "%s subcommand has list and show children",
+    (editor) => {
+      const program = new Command();
+      registerSessionContextCommand(program);
+      const parent = program.commands.find(
+        (c) => c.name() === "session-context"
+      )!;
       const sub = parent.commands.find((c) => c.name() === editor)!;
       const children = sub.commands.map((c) => c.name()).sort();
       expect(children).toEqual(["list", "show"]);
     }
-  });
+  );
 
-  test("only opencode show has --root", () => {
+  test.each([
+    ["claude-code", false],
+    ["copilot", false],
+    ["cursor", false],
+    ["opencode", true],
+  ] as const)("%s show has --root: %p", (editor, hasRoot) => {
     const program = new Command();
     registerSessionContextCommand(program);
     const parent = program.commands.find(
       (c) => c.name() === "session-context"
     )!;
-    for (const editor of ["claude-code", "copilot", "cursor", "opencode"]) {
-      const sub = parent.commands.find((c) => c.name() === editor)!;
-      const show = sub.commands.find((c) => c.name() === "show")!;
-      const opts = show.options.map((o) => o.long);
-      expect(opts).toContain("--max-entries");
-      if (editor === "opencode") {
-        expect(opts).toContain("--root");
-      } else {
-        expect(opts).not.toContain("--root");
-      }
+    const sub = parent.commands.find((c) => c.name() === editor)!;
+    const show = sub.commands.find((c) => c.name() === "show")!;
+    const opts = show.options.map((o) => o.long);
+    expect(opts).toContain("--max-entries");
+    if (hasRoot) {
+      expect(opts).toContain("--root");
+    } else {
+      expect(opts).not.toContain("--root");
     }
   });
 

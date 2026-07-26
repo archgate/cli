@@ -32,7 +32,7 @@ describe("UserError", () => {
   test("is distinguishable from plain Error via instanceof", () => {
     const userErr = new UserError("expected");
     const plainErr = new Error("unexpected");
-    expect(userErr instanceof UserError).toBe(true);
-    expect(plainErr instanceof UserError).toBe(false);
+    expect(userErr).toBeInstanceOf(UserError);
+    expect(plainErr).not.toBeInstanceOf(UserError);
   });
 });

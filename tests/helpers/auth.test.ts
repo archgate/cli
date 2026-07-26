@@ -18,6 +18,7 @@ describe("auth", () => {
   let originalUserProfile: string | undefined;
   let originalGitConfigNoSystem: string | undefined;
   let originalGitConfigGlobal: string | undefined;
+  let originalFetch: typeof fetch;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-auth-test-"));
@@ -32,6 +33,7 @@ describe("auth", () => {
     const emptyGitConfig = join(tempDir, ".gitconfig");
     writeFileSync(emptyGitConfig, "");
     Bun.env.GIT_CONFIG_GLOBAL = emptyGitConfig;
+    originalFetch = globalThis.fetch;
   });
 
   afterEach(() => {
@@ -45,6 +47,7 @@ describe("auth", () => {
     restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
     restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
     rmSync(tempDir, { recursive: true, force: true });
+    globalThis.fetch = originalFetch;
   });
 
   describe("saveCredentials / loadCredentials", () => {
@@ -116,7 +119,6 @@ describe("auth", () => {
     test("sends POST to GitHub device code endpoint", async () => {
       const { requestDeviceCode } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(
           Response.json({
@@ -129,30 +131,21 @@ describe("auth", () => {
         )
       );
 
-      try {
-        const result = await requestDeviceCode();
-        expect(result.device_code).toBe("dc_123");
-        expect(result.user_code).toBe("ABCD-1234");
-        expect(result.verification_uri).toBe("https://github.com/login/device");
-        expect(result.interval).toBe(5);
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      const result = await requestDeviceCode();
+      expect(result.device_code).toBe("dc_123");
+      expect(result.user_code).toBe("ABCD-1234");
+      expect(result.verification_uri).toBe("https://github.com/login/device");
+      expect(result.interval).toBe(5);
     });
 
     test("throws on non-200 response", async () => {
       const { requestDeviceCode } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(new Response("Bad Request", { status: 400 }))
       );
 
-      try {
-        await expect(requestDeviceCode()).rejects.toThrow("HTTP 400");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      await expect(requestDeviceCode()).rejects.toThrow("HTTP 400");
     });
   });
 
@@ -160,52 +153,37 @@ describe("auth", () => {
     test("returns login from GitHub API", async () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(
           Response.json({ login: "octocat", email: "octo@cat.com" })
         )
       );
 
-      try {
-        const user = await getGitHubUser("gho_test_token");
-        expect(user.login).toBe("octocat");
-        expect(user.email).toBe("octo@cat.com");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      const user = await getGitHubUser("gho_test_token");
+      expect(user.login).toBe("octocat");
+      expect(user.email).toBe("octo@cat.com");
     });
 
     test("throws when GitHub API returns non-200", async () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(new Response("Unauthorized", { status: 401 }))
       );
 
-      try {
-        await expect(getGitHubUser("bad_token")).rejects.toThrow("HTTP 401");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      await expect(getGitHubUser("bad_token")).rejects.toThrow("HTTP 401");
     });
 
     test("throws when login missing from response", async () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(Response.json({ email: "octo@cat.com" }))
       );
 
-      try {
-        await expect(getGitHubUser("gho_test_token")).rejects.toThrow(
-          "GitHub API did not return a username"
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      await expect(getGitHubUser("gho_test_token")).rejects.toThrow(
+        "GitHub API did not return a username"
+      );
     });
   });
 
@@ -213,24 +191,18 @@ describe("auth", () => {
     test("returns token from plugins service", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(Response.json({ token: "ag_beta_claimed_token" }))
       );
 
-      try {
-        const token = await claimArchgateToken("gho_github_token");
-        expect(token).toBe("ag_beta_claimed_token");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      const token = await claimArchgateToken("gho_github_token");
+      expect(token).toBe("ag_beta_claimed_token");
     });
 
     test("throws SignupRequiredError on 403 with no approved signup", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
       const { SignupRequiredError } = await import("../../src/helpers/signup");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(
           Response.json(
@@ -240,56 +212,50 @@ describe("auth", () => {
         )
       );
 
-      try {
-        await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
-          SignupRequiredError
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
+        SignupRequiredError
+      );
     });
 
     test("throws generic error on non-signup 403", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() =>
         Promise.resolve(
           Response.json({ error: "Account suspended" }, { status: 403 })
         )
       );
 
-      try {
-        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
-          "Account suspended"
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      await expect(claimArchgateToken("gho_token")).rejects.toThrow(
+        "Account suspended"
+      );
     });
 
     test("throws when token missing from successful response", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
       mockFetch(() => Promise.resolve(Response.json({})));
 
-      try {
-        await expect(claimArchgateToken("gho_token")).rejects.toThrow(
-          "Plugins service did not return a token"
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
+      await expect(claimArchgateToken("gho_token")).rejects.toThrow(
+        "Plugins service did not return a token"
+      );
     });
   });
 
   describe("pollForAccessToken", () => {
+    let originalSleep: typeof Bun.sleep;
+
+    beforeEach(() => {
+      originalSleep = Bun.sleep;
+    });
+
+    afterEach(() => {
+      Bun.sleep = originalSleep;
+    });
+
     test("returns token after authorization_pending then success", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
-      const originalSleep = Bun.sleep;
       Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
 
       let callCount = 0;
@@ -309,21 +275,14 @@ describe("auth", () => {
         );
       }) as unknown as typeof fetch;
 
-      try {
-        const token = await pollForAccessToken("dc_abc", 0, 60);
-        expect(token).toBe("gho_polled_token");
-        expect(callCount).toBe(2);
-      } finally {
-        globalThis.fetch = originalFetch;
-        Bun.sleep = originalSleep;
-      }
+      const token = await pollForAccessToken("dc_abc", 0, 60);
+      expect(token).toBe("gho_polled_token");
+      expect(callCount).toBe(2);
     });
 
     test("handles slow_down by increasing poll interval", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
-      const originalSleep = Bun.sleep;
       const sleepArgs: number[] = [];
       Bun.sleep = mock((ms: number) => {
         sleepArgs.push(ms);
@@ -345,22 +304,15 @@ describe("auth", () => {
         );
       }) as unknown as typeof fetch;
 
-      try {
-        const token = await pollForAccessToken("dc_abc", 0, 60);
-        expect(token).toBe("gho_after_slow_down");
-        // After slow_down, interval increases by 5; second sleep should be 5*1000
-        expect(sleepArgs[1]).toBe(5 * 1000);
-      } finally {
-        globalThis.fetch = originalFetch;
-        Bun.sleep = originalSleep;
-      }
+      const token = await pollForAccessToken("dc_abc", 0, 60);
+      expect(token).toBe("gho_after_slow_down");
+      // After slow_down, interval increases by 5; second sleep should be 5*1000
+      expect(sleepArgs[1]).toBe(5 * 1000);
     });
 
     test("throws on expired_token", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
-      const originalSleep = Bun.sleep;
       Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
 
       mockFetch(() =>
@@ -372,21 +324,14 @@ describe("auth", () => {
         )
       );
 
-      try {
-        await expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
-          "The device code has expired."
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-        Bun.sleep = originalSleep;
-      }
+      await expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
+        "The device code has expired."
+      );
     });
 
     test("throws on access_denied", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
-      const originalSleep = Bun.sleep;
       Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
 
       mockFetch(() =>
@@ -398,35 +343,23 @@ describe("auth", () => {
         )
       );
 
-      try {
-        await expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
-          "The user denied your request."
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-        Bun.sleep = originalSleep;
-      }
+      await expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
+        "The user denied your request."
+      );
     });
 
     test("throws when deadline expires before authorization", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      const originalFetch = globalThis.fetch;
-      const originalSleep = Bun.sleep;
       Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
 
       mockFetch(() =>
         Promise.resolve(Response.json({ error: "authorization_pending" }))
       );
 
-      try {
-        await expect(pollForAccessToken("dc_abc", 0, 0)).rejects.toThrow(
-          "Device code expired. Please try again."
-        );
-      } finally {
-        globalThis.fetch = originalFetch;
-        Bun.sleep = originalSleep;
-      }
+      await expect(pollForAccessToken("dc_abc", 0, 0)).rejects.toThrow(
+        "Device code expired. Please try again."
+      );
     });
   });
 });

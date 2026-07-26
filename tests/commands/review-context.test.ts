@@ -158,7 +158,7 @@ Test decision.
       .join("");
     const parsed = JSON.parse(output);
     // With no git changes, domains should still be populated but with no changed files
-    expect(Array.isArray(parsed.domains)).toBe(true);
+    expect(parsed.domains).toBeInstanceOf(Array);
     expect(parsed.allChangedFiles).toEqual([]);
   });
 

@@ -187,7 +187,7 @@ describe("adr integration", () => {
       const result = await runCli(["adr", "list", "--json"], tempDir);
       expect(result.exitCode).toBe(0);
       const parsed = JSON.parse(result.stdout);
-      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed).toBeInstanceOf(Array);
       expect(parsed.length).toBe(2);
       expect(parsed[0]).toHaveProperty("id");
       expect(parsed[0]).toHaveProperty("domain");

@@ -8,6 +8,15 @@ import { join } from "node:path";
 import { initProject } from "../../src/helpers/init-project";
 import { git, safeRmSync } from "../test-utils";
 
+async function initGitRepoWithCommit(dir: string): Promise<void> {
+  await git(["init", "--initial-branch=main"], dir);
+  await git(["config", "user.email", "test@test.com"], dir);
+  await git(["config", "user.name", "Test"], dir);
+  writeFileSync(join(dir, "file.ts"), "export const x = 1;");
+  await git(["add", "file.ts"], dir);
+  await git(["commit", "-m", "init"], dir);
+}
+
 describe("initProject — baseBranch auto-detection", () => {
   let tempDir: string;
 
@@ -20,12 +29,7 @@ describe("initProject — baseBranch auto-detection", () => {
   });
 
   test("saves detected baseBranch in config.json during init in a git repo", async () => {
-    await git(["init", "--initial-branch=main"], tempDir);
-    await git(["config", "user.email", "test@test.com"], tempDir);
-    await git(["config", "user.name", "Test"], tempDir);
-    writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-    await git(["add", "file.ts"], tempDir);
-    await git(["commit", "-m", "init"], tempDir);
+    await initGitRepoWithCommit(tempDir);
 
     await initProject(tempDir);
 
@@ -36,12 +40,7 @@ describe("initProject — baseBranch auto-detection", () => {
   }, 15_000);
 
   test("does not overwrite existing baseBranch on re-init", async () => {
-    await git(["init", "--initial-branch=main"], tempDir);
-    await git(["config", "user.email", "test@test.com"], tempDir);
-    await git(["config", "user.name", "Test"], tempDir);
-    writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-    await git(["add", "file.ts"], tempDir);
-    await git(["commit", "-m", "init"], tempDir);
+    await initGitRepoWithCommit(tempDir);
 
     await initProject(tempDir);
 

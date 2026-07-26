@@ -15,69 +15,28 @@ import {
 // Cursor happy-path tests live in session-context-cursor.test.ts to stay under max-lines.
 
 describe("encodeProjectPath", () => {
-  test("replaces forward slashes with dashes", async () => {
-    expect(await encodeProjectPath("/home/user/project")).toBe(
-      "-home-user-project"
-    );
-  });
-
-  test("handles paths without slashes", async () => {
-    expect(await encodeProjectPath("project")).toBe("project");
-  });
-
-  test("handles empty string", async () => {
-    expect(await encodeProjectPath("")).toBe("");
-  });
-
-  test("replaces multiple consecutive slashes", async () => {
-    expect(await encodeProjectPath("/a//b")).toBe("-a--b");
-  });
-
-  test("replaces backslashes and colons with dashes (Windows paths)", async () => {
-    expect(await encodeProjectPath("C:\\Users\\user\\project")).toBe(
-      "C--Users-user-project"
-    );
-  });
-
-  test("handles mixed slashes", async () => {
-    expect(await encodeProjectPath("C:\\Users/user\\project")).toBe(
-      "C--Users-user-project"
-    );
-  });
-
-  test("replaces dots with dashes", async () => {
-    expect(await encodeProjectPath("/home/user/.config/project")).toBe(
-      "-home-user--config-project"
-    );
-  });
-
-  test("encodes Windows worktree path (colons, backslashes, dots)", async () => {
-    expect(
-      await encodeProjectPath(
-        "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick"
-      )
-    ).toBe("E--archgate-cli--claude-worktrees-fancy-prancing-sedgewick");
-  });
-
-  test("cursor target strips colons instead of replacing with dashes", async () => {
-    expect(await encodeProjectPath("C:\\Users\\user\\project", "cursor")).toBe(
-      "C-Users-user-project"
-    );
-  });
-
-  test("cursor target handles mixed slashes", async () => {
-    expect(await encodeProjectPath("C:\\Users/user\\project", "cursor")).toBe(
-      "C-Users-user-project"
-    );
-  });
-
-  test("cursor target encodes Windows worktree path", async () => {
-    expect(
-      await encodeProjectPath(
-        "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick",
-        "cursor"
-      )
-    ).toBe("E-archgate-cli--claude-worktrees-fancy-prancing-sedgewick");
+  test.each<[string, "cursor" | undefined, string]>([
+    ["/home/user/project", undefined, "-home-user-project"],
+    ["project", undefined, "project"],
+    ["", undefined, ""],
+    ["/a//b", undefined, "-a--b"],
+    ["C:\\Users\\user\\project", undefined, "C--Users-user-project"],
+    ["C:\\Users/user\\project", undefined, "C--Users-user-project"],
+    ["/home/user/.config/project", undefined, "-home-user--config-project"],
+    [
+      "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick",
+      undefined,
+      "E--archgate-cli--claude-worktrees-fancy-prancing-sedgewick",
+    ],
+    ["C:\\Users\\user\\project", "cursor", "C-Users-user-project"],
+    ["C:\\Users/user\\project", "cursor", "C-Users-user-project"],
+    [
+      "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick",
+      "cursor",
+      "E-archgate-cli--claude-worktrees-fancy-prancing-sedgewick",
+    ],
+  ])("encodes %p (target=%p) -> %p", async (input, target, expected) => {
+    expect(await encodeProjectPath(input, target)).toBe(expected);
   });
 
   test("cursor target produces same result as default for Unix paths", async () => {
@@ -187,7 +146,7 @@ describe("readClaudeCodeSession", () => {
       if (!result.ok) throw new Error("expected ok");
       const preview = result.data.transcript[0]?.contentPreview ?? "";
       expect(preview).toHaveLength(503); // 500 chars + "..."
-      expect(preview.endsWith("...")).toBe(true);
+      expect(preview).toEndWith("...");
     });
 
     test("handles array content: text truncation, tool_use, tool_result", async () => {

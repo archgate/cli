@@ -7,6 +7,8 @@ import {
   scanRuleSource,
 } from "../../src/engine/rule-scanner";
 
+const SAFE_MODULES = ["node:path", "node:url", "node:util", "node:crypto"];
+
 describe("scanRuleSource", () => {
   describe("banned imports", () => {
     const bannedModules = [
@@ -26,23 +28,17 @@ describe("scanRuleSource", () => {
       "bun",
     ];
 
-    for (const mod of bannedModules) {
-      test(`blocks ${mod} import`, () => {
-        const violations = scanRuleSource(`import x from "${mod}";`);
-        expect(violations).toHaveLength(1);
-        expect(violations[0].message).toContain(`"${mod}"`);
-        expect(violations[0].message).toContain("blocked");
-      });
-    }
+    test.each(bannedModules)(`blocks %s import`, (mod) => {
+      const violations = scanRuleSource(`import x from "${mod}";`);
+      expect(violations).toHaveLength(1);
+      expect(violations[0].message).toContain(`"${mod}"`);
+      expect(violations[0].message).toContain("blocked");
+    });
 
-    const safeModules = ["node:path", "node:url", "node:util", "node:crypto"];
-
-    for (const mod of safeModules) {
-      test(`allows ${mod} import`, () => {
-        const violations = scanRuleSource(`import x from "${mod}";`);
-        expect(violations).toHaveLength(0);
-      });
-    }
+    test.each(SAFE_MODULES)(`allows %s import`, (mod) => {
+      const violations = scanRuleSource(`import x from "${mod}";`);
+      expect(violations).toHaveLength(0);
+    });
   });
 
   // Bun/process/globalThis and the eval-equivalents are blocked by naming the
@@ -69,13 +65,11 @@ describe("scanRuleSource", () => {
       ["process.env assignment", `process.env = {};`, "process"],
     ];
 
-    for (const [label, source, global] of cases) {
-      test(`blocks ${label}`, () => {
-        const violations = scanRuleSource(source);
-        expect(violations).toHaveLength(1);
-        expect(violations[0].message).toContain(`"${global}" global`);
-      });
-    }
+    test.each(cases)(`blocks %s`, (_label, source, global) => {
+      const violations = scanRuleSource(source);
+      expect(violations).toHaveLength(1);
+      expect(violations[0].message).toContain(`"${global}" global`);
+    });
   });
 
   describe("dynamic imports", () => {
@@ -101,16 +95,18 @@ describe("scanRuleSource", () => {
   describe("top-level export declarations are scanned", () => {
     test("blocks a banned global inside `export function`", () => {
       const violations = scanRuleSource(`export function h() { fetch("x"); }`);
-      expect(violations.some((v) => v.message.includes(`"fetch" global`))).toBe(
-        true
+      const found = violations.find((v) =>
+        v.message.includes(`"fetch" global`)
       );
+      expect(found).toBeDefined();
     });
 
     test("blocks a banned global inside `export const`", () => {
       const violations = scanRuleSource(`export const x = fetch("evil");`);
-      expect(violations.some((v) => v.message.includes(`"fetch" global`))).toBe(
-        true
+      const found = violations.find((v) =>
+        v.message.includes(`"fetch" global`)
       );
+      expect(found).toBeDefined();
     });
 
     // A specifier-only local export (`export { x }`, no `from`) also carries
@@ -261,14 +257,13 @@ describe("scanImportedRuleSource", () => {
         "WebSocket",
       ],
     ];
-    for (const [label, source, global] of cases) {
-      test(`blocks ${label}`, () => {
-        const violations = scanImportedRuleSource(source);
-        expect(
-          violations.some((v) => v.message.includes(`"${global}" global`))
-        ).toBe(true);
-      });
-    }
+    test.each(cases)(`blocks %s`, (_label, source, global) => {
+      const violations = scanImportedRuleSource(source);
+      const found = violations.find((v) =>
+        v.message.includes(`"${global}" global`)
+      );
+      expect(found).toBeDefined();
+    });
 
     test("reports a banned global once, not twice", () => {
       const violations = scanImportedRuleSource(`const mod = require("x");`);
@@ -281,8 +276,8 @@ describe("scanImportedRuleSource", () => {
       const messages = scanImportedRuleSource(
         `import { readFileSync } from "node:fs";\nconst token = Bun.env.TOKEN;`
       ).map((v) => v.message);
-      expect(messages.some((m) => m.includes('"node:fs"'))).toBe(true);
-      expect(messages.some((m) => m.includes(`"Bun" global`))).toBe(true);
+      expect(messages.find((m) => m.includes('"node:fs"'))).toBeDefined();
+      expect(messages.find((m) => m.includes(`"Bun" global`))).toBeDefined();
     });
   });
 
@@ -324,14 +319,10 @@ export default {
   });
 
   describe("safe module imports remain allowed", () => {
-    const safeModules = ["node:path", "node:url", "node:util", "node:crypto"];
-
-    for (const mod of safeModules) {
-      test(`allows ${mod} import in imported rules`, () => {
-        const violations = scanImportedRuleSource(`import x from "${mod}";`);
-        expect(violations).toHaveLength(0);
-      });
-    }
+    test.each(SAFE_MODULES)(`allows %s import in imported rules`, (mod) => {
+      const violations = scanImportedRuleSource(`import x from "${mod}";`);
+      expect(violations).toHaveLength(0);
+    });
   });
 
   describe("violation location for imported checks", () => {

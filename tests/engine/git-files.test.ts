@@ -88,27 +88,24 @@ describe("git-files", () => {
       expect(ref).toBeNull();
     });
 
-    test("detects local main branch", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-      await git(["add", "file.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      const ref = await detectBaseRef(tempDir);
-      expect(ref).toBe("main");
-    });
+    describe.each(["main", "master"] as const)(
+      "with a local %s branch",
+      (branch) => {
+        beforeEach(async () => {
+          await git(["init", `--initial-branch=${branch}`], tempDir);
+          await git(["config", "user.email", "test@test.com"], tempDir);
+          await git(["config", "user.name", "Test"], tempDir);
+          writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+          await git(["add", "file.ts"], tempDir);
+          await git(["commit", "-m", "init"], tempDir);
+        });
 
-    test("detects local master branch", async () => {
-      await git(["init", "--initial-branch=master"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-      await git(["add", "file.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      const ref = await detectBaseRef(tempDir);
-      expect(ref).toBe("master");
-    });
+        test("detects the branch", async () => {
+          const ref = await detectBaseRef(tempDir);
+          expect(ref).toBe(branch);
+        });
+      }
+    );
   });
 
   describe("resolveBaseRef", () => {
@@ -141,57 +138,47 @@ describe("git-files", () => {
       expect(ref).toBeUndefined();
     });
 
-    test("falls back to detectBaseRef and returns detected branch", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-      await git(["add", "file.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
+    describe("with a base commit on main", () => {
+      beforeEach(async () => {
+        await git(["init", "--initial-branch=main"], tempDir);
+        await git(["config", "user.email", "test@test.com"], tempDir);
+        await git(["config", "user.name", "Test"], tempDir);
+        writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+        await git(["add", "file.ts"], tempDir);
+        await git(["commit", "-m", "init"], tempDir);
+      });
 
-      const ref = await resolveBaseRef(tempDir, {});
-      expect(ref).toBe("main");
-    }, 15_000);
+      test("falls back to detectBaseRef and returns detected branch", async () => {
+        const ref = await resolveBaseRef(tempDir, {});
+        expect(ref).toBe("main");
+      }, 15_000);
 
-    test("lazy-saves detected base branch to config.json", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-      await git(["add", "file.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
+      test("lazy-saves detected base branch to config.json", async () => {
+        // No configBase — triggers detectBaseRef + lazy-save
+        await resolveBaseRef(tempDir, {});
 
-      // No configBase — triggers detectBaseRef + lazy-save
-      await resolveBaseRef(tempDir, {});
+        const configPath = join(tempDir, ".archgate", "config.json");
+        expect(existsSync(configPath)).toBe(true);
+        const config = JSON.parse(await Bun.file(configPath).text());
+        expect(config.baseBranch).toBe("main");
+      }, 15_000);
 
-      const configPath = join(tempDir, ".archgate", "config.json");
-      expect(existsSync(configPath)).toBe(true);
-      const config = JSON.parse(await Bun.file(configPath).text());
-      expect(config.baseBranch).toBe("main");
-    }, 15_000);
+      test("does not overwrite existing baseBranch on lazy-save", async () => {
+        mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+        await Bun.write(
+          join(tempDir, ".archgate", "config.json"),
+          JSON.stringify({ baseBranch: "develop" }, null, 2) + "\n"
+        );
 
-    test("does not overwrite existing baseBranch on lazy-save", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
-      await git(["add", "file.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
+        // configBase is null (simulating caller didn't find it) but config has baseBranch
+        await resolveBaseRef(tempDir, {});
 
-      mkdirSync(join(tempDir, ".archgate"), { recursive: true });
-      await Bun.write(
-        join(tempDir, ".archgate", "config.json"),
-        JSON.stringify({ baseBranch: "develop" }, null, 2) + "\n"
-      );
-
-      // configBase is null (simulating caller didn't find it) but config has baseBranch
-      await resolveBaseRef(tempDir, {});
-
-      const config = JSON.parse(
-        await Bun.file(join(tempDir, ".archgate", "config.json")).text()
-      );
-      expect(config.baseBranch).toBe("develop");
-    }, 15_000);
+        const config = JSON.parse(
+          await Bun.file(join(tempDir, ".archgate", "config.json")).text()
+        );
+        expect(config.baseBranch).toBe("develop");
+      }, 15_000);
+    });
   });
 
   describe("getFilesChangedSinceRef", () => {
@@ -200,102 +187,81 @@ describe("git-files", () => {
       expect(files).toEqual([]);
     });
 
-    test("returns files changed on a feature branch", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
-      await git(["add", "base.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      await git(["checkout", "-b", "feature"], tempDir);
-      writeFileSync(join(tempDir, "new-file.ts"), "export const y = 2;");
-      await git(["add", "new-file.ts"], tempDir);
-      await git(["commit", "-m", "add new file"], tempDir);
-      const files = await getFilesChangedSinceRef(tempDir, "main");
-      expect(files).toContain("new-file.ts");
-      expect(files).not.toContain("base.ts");
-    }, 15_000);
+    describe("with a base commit on main", () => {
+      beforeEach(async () => {
+        await git(["init", "--initial-branch=main"], tempDir);
+        await git(["config", "user.email", "test@test.com"], tempDir);
+        await git(["config", "user.name", "Test"], tempDir);
+        writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
+        await git(["add", "base.ts"], tempDir);
+        await git(["commit", "-m", "init"], tempDir);
+      });
 
-    test("returns empty when on the base branch with no new commits", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
-      await git(["add", "base.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      const files = await getFilesChangedSinceRef(tempDir, "main");
-      expect(files).toEqual([]);
+      test("returns files changed on a feature branch", async () => {
+        await git(["checkout", "-b", "feature"], tempDir);
+        writeFileSync(join(tempDir, "new-file.ts"), "export const y = 2;");
+        await git(["add", "new-file.ts"], tempDir);
+        await git(["commit", "-m", "add new file"], tempDir);
+        const files = await getFilesChangedSinceRef(tempDir, "main");
+        expect(files).toContain("new-file.ts");
+        expect(files).not.toContain("base.ts");
+      }, 15_000);
+
+      test("returns empty when on the base branch with no new commits", async () => {
+        const files = await getFilesChangedSinceRef(tempDir, "main");
+        expect(files).toEqual([]);
+      });
+
+      // Regression: archgate/cli#403 — base...HEAD only sees committed
+      // changes, so uncommitted working-tree edits must be unioned in
+      // whenever a base ref is detected (i.e., almost always).
+      test("includes uncommitted edits to tracked files (regression archgate/cli#403)", async () => {
+        await git(["checkout", "-b", "feature"], tempDir);
+        writeFileSync(join(tempDir, "committed.ts"), "export const y = 2;");
+        await git(["add", "committed.ts"], tempDir);
+        await git(["commit", "-m", "add committed file"], tempDir);
+        // Unstaged edit to a tracked file — not committed, not staged
+        writeFileSync(join(tempDir, "base.ts"), "export const x = 99;");
+        const files = await getFilesChangedSinceRef(tempDir, "main");
+        expect(files).toContain("committed.ts");
+        expect(files).toContain("base.ts");
+      }, 15_000);
+
+      test("includes staged-but-uncommitted files", async () => {
+        await git(["checkout", "-b", "feature"], tempDir);
+        writeFileSync(join(tempDir, "staged.ts"), "export const s = 1;");
+        await git(["add", "staged.ts"], tempDir);
+        const files = await getFilesChangedSinceRef(tempDir, "main");
+        expect(files).toContain("staged.ts");
+      }, 15_000);
+
+      test("includes untracked files but not gitignored ones", async () => {
+        // Committed separately from the base.ts hook commit — .gitignore
+        // just needs to exist on main before the feature branch is cut.
+        writeFileSync(join(tempDir, ".gitignore"), "dist/\n");
+        await git(["add", ".gitignore"], tempDir);
+        await git(["commit", "-m", "add gitignore"], tempDir);
+        await git(["checkout", "-b", "feature"], tempDir);
+        // Untracked new file — never staged
+        writeFileSync(join(tempDir, "untracked.ts"), "export const u = 1;");
+        // Gitignored file — must stay excluded
+        mkdirSync(join(tempDir, "dist"), { recursive: true });
+        writeFileSync(join(tempDir, "dist", "out.js"), "var u = 1;");
+        const files = await getFilesChangedSinceRef(tempDir, "main");
+        expect(files).toContain("untracked.ts");
+        expect(files).not.toContain("dist/out.js");
+      }, 15_000);
+
+      test("returns multiple changed files sorted", async () => {
+        await git(["checkout", "-b", "feature"], tempDir);
+        writeFileSync(join(tempDir, "z-file.ts"), "export const z = 3;");
+        writeFileSync(join(tempDir, "a-file.ts"), "export const a = 1;");
+        await git(["add", "."], tempDir);
+        await git(["commit", "-m", "add files"], tempDir);
+        const files = await getFilesChangedSinceRef(tempDir, "main");
+        expect(files).toEqual(["a-file.ts", "z-file.ts"]);
+      }, 15_000);
     });
-
-    // Regression: archgate/cli#403 — base...HEAD only sees committed
-    // changes, so uncommitted working-tree edits must be unioned in
-    // whenever a base ref is detected (i.e., almost always).
-    test("includes uncommitted edits to tracked files (regression archgate/cli#403)", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
-      await git(["add", "base.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      await git(["checkout", "-b", "feature"], tempDir);
-      writeFileSync(join(tempDir, "committed.ts"), "export const y = 2;");
-      await git(["add", "committed.ts"], tempDir);
-      await git(["commit", "-m", "add committed file"], tempDir);
-      // Unstaged edit to a tracked file — not committed, not staged
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 99;");
-      const files = await getFilesChangedSinceRef(tempDir, "main");
-      expect(files).toContain("committed.ts");
-      expect(files).toContain("base.ts");
-    }, 15_000);
-
-    test("includes staged-but-uncommitted files", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
-      await git(["add", "base.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      await git(["checkout", "-b", "feature"], tempDir);
-      writeFileSync(join(tempDir, "staged.ts"), "export const s = 1;");
-      await git(["add", "staged.ts"], tempDir);
-      const files = await getFilesChangedSinceRef(tempDir, "main");
-      expect(files).toContain("staged.ts");
-    }, 15_000);
-
-    test("includes untracked files but not gitignored ones", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, ".gitignore"), "dist/\n");
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
-      await git(["add", "."], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      await git(["checkout", "-b", "feature"], tempDir);
-      // Untracked new file — never staged
-      writeFileSync(join(tempDir, "untracked.ts"), "export const u = 1;");
-      // Gitignored file — must stay excluded
-      mkdirSync(join(tempDir, "dist"), { recursive: true });
-      writeFileSync(join(tempDir, "dist", "out.js"), "var u = 1;");
-      const files = await getFilesChangedSinceRef(tempDir, "main");
-      expect(files).toContain("untracked.ts");
-      expect(files).not.toContain("dist/out.js");
-    }, 15_000);
-
-    test("returns multiple changed files sorted", async () => {
-      await git(["init", "--initial-branch=main"], tempDir);
-      await git(["config", "user.email", "test@test.com"], tempDir);
-      await git(["config", "user.name", "Test"], tempDir);
-      writeFileSync(join(tempDir, "base.ts"), "export const x = 1;");
-      await git(["add", "base.ts"], tempDir);
-      await git(["commit", "-m", "init"], tempDir);
-      await git(["checkout", "-b", "feature"], tempDir);
-      writeFileSync(join(tempDir, "z-file.ts"), "export const z = 3;");
-      writeFileSync(join(tempDir, "a-file.ts"), "export const a = 1;");
-      await git(["add", "."], tempDir);
-      await git(["commit", "-m", "add files"], tempDir);
-      const files = await getFilesChangedSinceRef(tempDir, "main");
-      expect(files).toEqual(["a-file.ts", "z-file.ts"]);
-    }, 15_000);
   });
 
   describe("resolveScopedFiles", () => {

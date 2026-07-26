@@ -67,89 +67,50 @@ describe("editor-detect", () => {
   // Cursor reset is part of the Windows-only withPromptFix() workaround.
   // These tests only run on Windows where the fix is active.
   describe.skipIf(process.platform !== "win32")(
-    "promptEditorSelection — cursor reset (Windows)",
+    "cursor reset (Windows)",
     () => {
-      const originalIsTTY = process.stdout.isTTY;
+      describe.each([
+        ["promptEditorSelection", promptEditorSelection],
+        ["promptSingleEditorSelection", promptSingleEditorSelection],
+      ] as const)("%s", (_name, promptFn) => {
+        const originalIsTTY = process.stdout.isTTY;
 
-      beforeEach(() => {
-        mockCursorTo.mockClear();
-      });
-
-      afterEach(() => {
-        Object.defineProperty(process.stdout, "isTTY", {
-          value: originalIsTTY,
-          writable: true,
-          configurable: true,
-        });
-      });
-
-      test("resets cursor to column 0 after prompt when stdout is TTY", async () => {
-        Object.defineProperty(process.stdout, "isTTY", {
-          value: true,
-          writable: true,
-          configurable: true,
+        beforeEach(() => {
+          mockCursorTo.mockClear();
         });
 
-        await promptEditorSelection(MOCK_DETECTED);
-
-        expect(mockCursorTo).toHaveBeenCalledTimes(1);
-        expect(mockCursorTo).toHaveBeenCalledWith(process.stdout, 0);
-      });
-
-      test("does not call cursorTo when stdout is not TTY", async () => {
-        Object.defineProperty(process.stdout, "isTTY", {
-          value: undefined,
-          writable: true,
-          configurable: true,
+        afterEach(() => {
+          Object.defineProperty(process.stdout, "isTTY", {
+            value: originalIsTTY,
+            writable: true,
+            configurable: true,
+          });
         });
 
-        await promptEditorSelection(MOCK_DETECTED);
+        test("resets cursor to column 0 after prompt when stdout is TTY", async () => {
+          Object.defineProperty(process.stdout, "isTTY", {
+            value: true,
+            writable: true,
+            configurable: true,
+          });
 
-        expect(mockCursorTo).not.toHaveBeenCalled();
-      });
-    }
-  );
+          await promptFn(MOCK_DETECTED);
 
-  describe.skipIf(process.platform !== "win32")(
-    "promptSingleEditorSelection — cursor reset (Windows)",
-    () => {
-      const originalIsTTY = process.stdout.isTTY;
-
-      beforeEach(() => {
-        mockCursorTo.mockClear();
-      });
-
-      afterEach(() => {
-        Object.defineProperty(process.stdout, "isTTY", {
-          value: originalIsTTY,
-          writable: true,
-          configurable: true,
-        });
-      });
-
-      test("resets cursor to column 0 after prompt when stdout is TTY", async () => {
-        Object.defineProperty(process.stdout, "isTTY", {
-          value: true,
-          writable: true,
-          configurable: true,
+          expect(mockCursorTo).toHaveBeenCalledTimes(1);
+          expect(mockCursorTo).toHaveBeenCalledWith(process.stdout, 0);
         });
 
-        await promptSingleEditorSelection(MOCK_DETECTED);
+        test("does not call cursorTo when stdout is not TTY", async () => {
+          Object.defineProperty(process.stdout, "isTTY", {
+            value: undefined,
+            writable: true,
+            configurable: true,
+          });
 
-        expect(mockCursorTo).toHaveBeenCalledTimes(1);
-        expect(mockCursorTo).toHaveBeenCalledWith(process.stdout, 0);
-      });
+          await promptFn(MOCK_DETECTED);
 
-      test("does not call cursorTo when stdout is not TTY", async () => {
-        Object.defineProperty(process.stdout, "isTTY", {
-          value: undefined,
-          writable: true,
-          configurable: true,
+          expect(mockCursorTo).not.toHaveBeenCalled();
         });
-
-        await promptSingleEditorSelection(MOCK_DETECTED);
-
-        expect(mockCursorTo).not.toHaveBeenCalled();
       });
     }
   );

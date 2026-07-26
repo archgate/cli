@@ -6,7 +6,7 @@
 // stack-detect.test.ts so each file stays under the 500-line lint limit.
 // ---------------------------------------------------------------------------
 
-import { describe, expect, test, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,277 +17,244 @@ import { safeRmSync } from "../test-utils";
 describe("detectStack — frameworks", () => {
   let tempDir: string;
 
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
+  });
+
   afterEach(() => {
     if (tempDir) safeRmSync(tempDir);
   });
 
   // ---------------------------------------------------------------------------
-  // JS/TS dependency-based
+  // Single-signal framework detections: write one fixture, expect one
+  // framework to show up in `frameworks`.
   // ---------------------------------------------------------------------------
 
-  test("detects Express from package.json dependencies", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { express: "^4" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("express");
-  });
+  const packageJsonWith =
+    (
+      deps: Record<string, string>,
+      key: "dependencies" | "devDependencies" = "dependencies"
+    ) =>
+    (dir: string) => {
+      writeFileSync(
+        join(dir, "package.json"),
+        JSON.stringify({ name: "t", [key]: deps })
+      );
+    };
 
-  test("detects Vue from package.json dependencies", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { vue: "^3" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("vue");
-  });
+  const frameworkCases: Array<{
+    name: string;
+    setup: (dir: string) => void;
+    framework: string;
+  }> = [
+    {
+      name: "Express from package.json dependencies",
+      setup: packageJsonWith({ express: "^4" }),
+      framework: "express",
+    },
+    {
+      name: "Vue from package.json dependencies",
+      setup: packageJsonWith({ vue: "^3" }),
+      framework: "vue",
+    },
+    {
+      name: "Angular from @angular/core",
+      setup: packageJsonWith({ "@angular/core": "^17" }),
+      framework: "angular",
+    },
+    {
+      name: "Solid from solid-js",
+      setup: packageJsonWith({ "solid-js": "^1" }),
+      framework: "solid",
+    },
+    {
+      name: "NestJS from @nestjs/core",
+      setup: packageJsonWith({ "@nestjs/core": "^10" }),
+      framework: "nestjs",
+    },
+    { name: "Koa", setup: packageJsonWith({ koa: "^2" }), framework: "koa" },
+    {
+      name: "Elysia",
+      setup: packageJsonWith({ elysia: "^1" }),
+      framework: "elysia",
+    },
+    {
+      name: "Tailwind CSS from tailwind.config.ts",
+      setup: (dir) => {
+        writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "t" }));
+        writeFileSync(join(dir, "tailwind.config.ts"), "export default {}");
+      },
+      framework: "tailwindcss",
+    },
+    {
+      name: "MUI from @mui/material",
+      setup: packageJsonWith({ "@mui/material": "^5" }),
+      framework: "mui",
+    },
+    {
+      name: "TanStack Query from @tanstack/react-query",
+      setup: packageJsonWith({ "@tanstack/react-query": "^5" }),
+      framework: "tanstack-query",
+    },
+    {
+      name: "TanStack Router",
+      setup: packageJsonWith({ "@tanstack/react-router": "^1" }),
+      framework: "tanstack-router",
+    },
+    {
+      name: "TanStack Start",
+      setup: packageJsonWith({ "@tanstack/start": "^1" }),
+      framework: "tanstack-start",
+    },
+    {
+      name: "TanStack Form",
+      setup: packageJsonWith({ "@tanstack/react-form": "^0" }),
+      framework: "tanstack-form",
+    },
+    {
+      name: "FastAPI from requirements.txt",
+      setup: (dir) =>
+        writeFileSync(join(dir, "requirements.txt"), "fastapi>=0.100\n"),
+      framework: "fastapi",
+    },
+    {
+      name: "Streamlit from requirements.txt",
+      setup: (dir) =>
+        writeFileSync(join(dir, "requirements.txt"), "streamlit==1.30.0\n"),
+      framework: "streamlit",
+    },
+    {
+      name: "FastAPI from pyproject.toml",
+      setup: (dir) =>
+        writeFileSync(
+          join(dir, "pyproject.toml"),
+          '[project]\nname = "api"\ndependencies = ["fastapi>=0.100"]\n'
+        ),
+      framework: "fastapi",
+    },
+    {
+      name: "Flask from requirements.txt",
+      setup: (dir) =>
+        writeFileSync(join(dir, "requirements.txt"), "flask==3.0.0\n"),
+      framework: "flask",
+    },
+    {
+      name: "Prisma from devDependencies",
+      setup: packageJsonWith({ prisma: "^5" }, "devDependencies"),
+      framework: "prisma",
+    },
+    {
+      name: "Playwright from @playwright/test",
+      setup: packageJsonWith({ "@playwright/test": "^1" }, "devDependencies"),
+      framework: "playwright",
+    },
+  ];
 
-  test("detects Angular from @angular/core", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { "@angular/core": "^17" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("angular");
-  });
-
-  test("detects Solid from solid-js", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { "solid-js": "^1" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("solid");
-  });
-
-  test("detects NestJS from @nestjs/core", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { "@nestjs/core": "^10" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("nestjs");
-  });
-
-  test("detects Koa", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { koa: "^2" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("koa");
-  });
-
-  test("detects Elysia", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { elysia: "^1" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("elysia");
-  });
-
-  // ---------------------------------------------------------------------------
-  // Tailwind, MUI, TanStack
-  // ---------------------------------------------------------------------------
-
-  test("detects Tailwind CSS from tailwind.config.ts", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "package.json"), JSON.stringify({ name: "t" }));
-    writeFileSync(join(tempDir, "tailwind.config.ts"), "export default {}");
-    expect((await detectStack(tempDir)).frameworks).toContain("tailwindcss");
-  });
-
-  test("detects MUI from @mui/material", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { "@mui/material": "^5" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("mui");
-  });
-
-  test("detects TanStack Query from @tanstack/react-query", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({
-        name: "t",
-        dependencies: { "@tanstack/react-query": "^5" },
-      })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("tanstack-query");
-  });
-
-  test("detects TanStack Router", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({
-        name: "t",
-        dependencies: { "@tanstack/react-router": "^1" },
-      })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain(
-      "tanstack-router"
-    );
-  });
-
-  test("detects TanStack Start", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", dependencies: { "@tanstack/start": "^1" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("tanstack-start");
-  });
-
-  test("detects TanStack Form", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({
-        name: "t",
-        dependencies: { "@tanstack/react-form": "^0" },
-      })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("tanstack-form");
+  test.each(frameworkCases)("detects $name", async ({ setup, framework }) => {
+    setup(tempDir);
+    expect((await detectStack(tempDir)).frameworks).toContain(framework);
   });
 
   // ---------------------------------------------------------------------------
-  // Non-JS ecosystems
+  // Non-JS ecosystems: these also assert on detected `languages`, and a
+  // couple assert a framework is deliberately *not* detected without the
+  // framework's own marker file present.
   // ---------------------------------------------------------------------------
 
-  test("detects Rails from bin/rails", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "Gemfile"), 'gem "rails"');
-    mkdirSync(join(tempDir, "bin"), { recursive: true });
-    writeFileSync(join(tempDir, "bin", "rails"), "#!/usr/bin/env ruby");
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("ruby");
-    expect(s.frameworks).toContain("rails");
-  });
+  const ecosystemCases: Array<{
+    name: string;
+    setup: (dir: string) => void;
+    language?: string;
+    framework?: string;
+    notFramework?: string;
+  }> = [
+    {
+      name: "Rails from bin/rails",
+      setup: (dir) => {
+        writeFileSync(join(dir, "Gemfile"), 'gem "rails"');
+        mkdirSync(join(dir, "bin"), { recursive: true });
+        writeFileSync(join(dir, "bin", "rails"), "#!/usr/bin/env ruby");
+      },
+      language: "ruby",
+      framework: "rails",
+    },
+    {
+      name: "Rails from config/routes.rb",
+      setup: (dir) => {
+        writeFileSync(join(dir, "Gemfile"), 'gem "rails"');
+        mkdirSync(join(dir, "config"), { recursive: true });
+        writeFileSync(join(dir, "config", "routes.rb"), "Rails.routes {}");
+      },
+      framework: "rails",
+    },
+    {
+      name: "Django from manage.py",
+      setup: (dir) => {
+        writeFileSync(join(dir, "pyproject.toml"), "[project]\nname = 't'");
+        writeFileSync(join(dir, "manage.py"), "#!/usr/bin/env python");
+      },
+      language: "python",
+      framework: "django",
+    },
+    {
+      name: "Laravel from artisan file",
+      setup: (dir) => {
+        writeFileSync(join(dir, "composer.json"), '{"name":"v/p"}');
+        writeFileSync(join(dir, "artisan"), "#!/usr/bin/env php");
+      },
+      language: "php",
+      framework: "laravel",
+    },
+    {
+      name: "Flutter from pubspec.yaml",
+      setup: (dir) => {
+        writeFileSync(
+          join(dir, "pubspec.yaml"),
+          "name: app\ndependencies:\n  flutter:\n    sdk: flutter\n"
+        );
+      },
+      language: "dart",
+      framework: "flutter",
+    },
+    {
+      name: "does not detect Flutter for plain Dart",
+      setup: (dir) => {
+        writeFileSync(join(dir, "pubspec.yaml"), "name: cli\ndependencies:\n");
+      },
+      language: "dart",
+      notFramework: "flutter",
+    },
+    {
+      name: "Phoenix from mix.exs",
+      setup: (dir) => {
+        writeFileSync(
+          join(dir, "mix.exs"),
+          'defmodule App do\n  [{:phoenix, "~> 1.7"}]\nend'
+        );
+      },
+      language: "elixir",
+      framework: "phoenix",
+    },
+    {
+      name: "does not detect Phoenix for plain Elixir",
+      setup: (dir) => {
+        writeFileSync(join(dir, "mix.exs"), "defmodule App do\nend");
+      },
+      language: "elixir",
+      notFramework: "phoenix",
+    },
+  ];
 
-  test("detects Rails from config/routes.rb", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "Gemfile"), 'gem "rails"');
-    mkdirSync(join(tempDir, "config"), { recursive: true });
-    writeFileSync(join(tempDir, "config", "routes.rb"), "Rails.routes {}");
-    expect((await detectStack(tempDir)).frameworks).toContain("rails");
-  });
-
-  test("detects Django from manage.py", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "pyproject.toml"), "[project]\nname = 't'");
-    writeFileSync(join(tempDir, "manage.py"), "#!/usr/bin/env python");
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("python");
-    expect(s.frameworks).toContain("django");
-  });
-
-  test("detects Laravel from artisan file", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "composer.json"), '{"name":"v/p"}');
-    writeFileSync(join(tempDir, "artisan"), "#!/usr/bin/env php");
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("php");
-    expect(s.frameworks).toContain("laravel");
-  });
-
-  test("detects Flutter from pubspec.yaml", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "pubspec.yaml"),
-      "name: app\ndependencies:\n  flutter:\n    sdk: flutter\n"
-    );
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("dart");
-    expect(s.frameworks).toContain("flutter");
-  });
-
-  test("does not detect Flutter for plain Dart", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "pubspec.yaml"), "name: cli\ndependencies:\n");
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("dart");
-    expect(s.frameworks).not.toContain("flutter");
-  });
-
-  test("detects Phoenix from mix.exs", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "mix.exs"),
-      'defmodule App do\n  [{:phoenix, "~> 1.7"}]\nend'
-    );
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("elixir");
-    expect(s.frameworks).toContain("phoenix");
-  });
-
-  test("does not detect Phoenix for plain Elixir", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "mix.exs"), "defmodule App do\nend");
-    const s = await detectStack(tempDir);
-    expect(s.languages).toContain("elixir");
-    expect(s.frameworks).not.toContain("phoenix");
-  });
-
-  // ---------------------------------------------------------------------------
-  // Python frameworks (FastAPI, Streamlit, Flask)
-  // ---------------------------------------------------------------------------
-
-  test("detects FastAPI from requirements.txt", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "requirements.txt"), "fastapi>=0.100\n");
-    expect((await detectStack(tempDir)).frameworks).toContain("fastapi");
-  });
-
-  test("detects Streamlit from requirements.txt", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "requirements.txt"), "streamlit==1.30.0\n");
-    expect((await detectStack(tempDir)).frameworks).toContain("streamlit");
-  });
-
-  test("detects FastAPI from pyproject.toml", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "pyproject.toml"),
-      '[project]\nname = "api"\ndependencies = ["fastapi>=0.100"]\n'
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("fastapi");
-  });
-
-  test("detects Flask from requirements.txt", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(join(tempDir, "requirements.txt"), "flask==3.0.0\n");
-    expect((await detectStack(tempDir)).frameworks).toContain("flask");
-  });
-
-  // ---------------------------------------------------------------------------
-  // Testing & tooling
-  // ---------------------------------------------------------------------------
-
-  test("detects Prisma from devDependencies", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({ name: "t", devDependencies: { prisma: "^5" } })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("prisma");
-  });
-
-  test("detects Playwright from @playwright/test", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-stack-"));
-    writeFileSync(
-      join(tempDir, "package.json"),
-      JSON.stringify({
-        name: "t",
-        devDependencies: { "@playwright/test": "^1" },
-      })
-    );
-    expect((await detectStack(tempDir)).frameworks).toContain("playwright");
-  });
+  test.each(ecosystemCases)(
+    "$name",
+    async ({ setup, language, framework, notFramework }) => {
+      setup(tempDir);
+      const s = await detectStack(tempDir);
+      if (language) expect(s.languages).toContain(language);
+      if (framework) expect(s.frameworks).toContain(framework);
+      if (notFramework) expect(s.frameworks).not.toContain(notFramework);
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------

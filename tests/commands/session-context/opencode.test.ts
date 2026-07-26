@@ -54,6 +54,7 @@ describe("opencode action handler", () => {
   let errorSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
   let readSpy: ReturnType<typeof spyOn>;
+  let listSpy: ReturnType<typeof spyOn>;
 
   /** Minimal complete summary for the default happy-path spy. */
   function emptySummary() {
@@ -78,6 +79,7 @@ describe("opencode action handler", () => {
 
     readSpy = spyOn(opencodeHelpers, "readOpencodeSession");
     readSpy.mockReturnValue({ ok: true, data: emptySummary() });
+    listSpy = spyOn(opencodeHelpers, "listOpencodeSessions");
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
@@ -90,6 +92,7 @@ describe("opencode action handler", () => {
     delete Bun.env.ARCHGATE_PROJECT_CEILING;
     safeRmSync(tempDir);
     readSpy.mockRestore();
+    listSpy.mockRestore();
     logSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
@@ -170,52 +173,37 @@ describe("opencode action handler", () => {
   });
 
   test("list subcommand prints sessions", async () => {
-    const listSpy = spyOn(opencodeHelpers, "listOpencodeSessions");
-    try {
-      listSpy.mockReturnValue({
-        ok: true,
-        data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
-      });
+    listSpy.mockReturnValue({
+      ok: true,
+      data: { sessions: [{ id: "abc", updatedAt: "2026-01-01T00:00:00Z" }] },
+    });
 
-      await makeProgram().parseAsync([
-        "node",
-        "session-context",
-        "opencode",
-        "list",
-      ]);
+    await makeProgram().parseAsync([
+      "node",
+      "session-context",
+      "opencode",
+      "list",
+    ]);
 
-      expect(listSpy).toHaveBeenCalledWith(tempDir);
-      const output = logSpy.mock.calls
-        .map((c: unknown[]) => String(c[0]))
-        .join("");
-      expect(JSON.parse(output).sessions[0].id).toBe("abc");
-    } finally {
-      listSpy.mockRestore();
-    }
+    expect(listSpy).toHaveBeenCalledWith(tempDir);
+    const output = logSpy.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .join("");
+    expect(JSON.parse(output).sessions[0].id).toBe("abc");
   });
 
   test("list subcommand exits 1 on error result", async () => {
-    const listSpy = spyOn(opencodeHelpers, "listOpencodeSessions");
-    try {
-      listSpy.mockReturnValue({ ok: false, error: "store missing" });
+    listSpy.mockReturnValue({ ok: false, error: "store missing" });
 
-      await expect(
-        makeProgram().parseAsync([
-          "node",
-          "session-context",
-          "opencode",
-          "list",
-        ])
-      ).rejects.toThrow("process.exit");
+    await expect(
+      makeProgram().parseAsync(["node", "session-context", "opencode", "list"])
+    ).rejects.toThrow("process.exit");
 
-      expect(exitSpy).toHaveBeenCalledWith(1);
-      const errorOutput = errorSpy.mock.calls
-        .map((c: unknown[]) => c.join(" "))
-        .join(" ");
-      expect(errorOutput).toContain("store missing");
-    } finally {
-      listSpy.mockRestore();
-    }
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    const errorOutput = errorSpy.mock.calls
+      .map((c: unknown[]) => c.join(" "))
+      .join(" ");
+    expect(errorOutput).toContain("store missing");
   });
 
   test("show subcommand reads the given session id", async () => {

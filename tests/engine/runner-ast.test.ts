@@ -462,33 +462,29 @@ describe("runChecks ctx.ast()", () => {
     }
   );
 
-  test("plausibility guardrail: wrong extension is refused for every language", async () => {
-    writeFileSync(join(tempDir, "data.json"), "{}");
-    const languages = ["python", "ruby", "typescript", "javascript"] as const;
+  test.each(["python", "ruby", "typescript", "javascript"] as const)(
+    "plausibility guardrail: wrong extension is refused for %s",
+    async (language) => {
+      writeFileSync(join(tempDir, "data.json"), "{}");
 
-    const loaded = makeLoadedAdr(
-      {},
-      {
-        rules: Object.fromEntries(
-          languages.map((language) => [
-            `json-as-${language}`,
-            {
+      const loaded = makeLoadedAdr(
+        {},
+        {
+          rules: {
+            [`json-as-${language}`]: {
               description: `Attempt to parse JSON as ${language}`,
               async check(ctx: RuleContext) {
                 await ctx.ast("data.json", language);
               },
             },
-          ])
-        ),
-      }
-    );
+          },
+        }
+      );
 
-    const result = await runChecks(tempDir, [loaded]);
-    const byId = new Map(result.results.map((r) => [r.ruleId, r]));
-    for (const language of languages) {
-      expect(byId.get(`json-as-${language}`)?.error).toContain(
+      const result = await runChecks(tempDir, [loaded]);
+      expect(result.results[0].error).toContain(
         `does not look like ${language}`
       );
     }
-  });
+  );
 });

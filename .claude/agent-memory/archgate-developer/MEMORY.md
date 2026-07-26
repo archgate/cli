@@ -24,9 +24,11 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - **Fire-test a guard in BOTH directions** — that it blocks the bad case AND still permits the legitimate one. A green suite proves only that the gate closes, not that it isn't over-rejecting.
 - **Verify a review agent's claim before acting on it.** They misquote both ADRs and the files they have just read; `grep` the exact quoted string first. A governance finding citing no ADR cannot block on governance grounds — but a demonstrated defect blocks on its own merits.
 - **Content filtering blocks policy/legal boilerplate** — generating a Contributor Covenant or license text can trip API filtering. Ask the user to copy it from the official source.
+- **Files written under `/tmp` by this agent's own Bash/Write calls can vanish between tool calls** — observed for several scratch files with no deleting command run. Write anything that must survive several calls to a real Windows path instead (e.g. `C:/Users/<user>/AppData/Local/Temp/<task-name>/`); Bun/Node on Windows don't resolve Git-Bash-style `/c/Users/...` paths.
 
 ## Topic files
 
+- [Verify agents on TS changes must typecheck](feedback_verify_agents_run_typecheck.md) — `bun test`+lint+format missed a `noUnusedParameters` error a subagent self-reported as clean
 - [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — syntax → lint rule; behaviour → test; governance → ADR rule; CLI behaviour → built-in
 - [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — declines especially; a summary comment does not close the loop
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not `logError` + `exitWith(1)`

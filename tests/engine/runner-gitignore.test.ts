@@ -152,56 +152,51 @@ describe("runChecks gitignore filtering", () => {
     expect(matchedFiles).toEqual(["dist/app.js", "src/app.ts"]);
   });
 
-  test("warns when respectGitignore is false without files scope", async () => {
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  describe("console warnings", () => {
+    let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
 
-    const loaded = makeLoadedAdr(
-      { respectGitignore: false },
-      { rules: { "noop-rule": { description: "No-op", async check() {} } } }
-    );
+    beforeEach(() => {
+      warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    });
 
-    await runChecks(tempDir, [loaded]);
-    const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
-    expect(
-      warnCalls.some((msg) =>
-        msg.includes("respectGitignore is false without a files scope")
-      )
-    ).toBe(true);
-    warnSpy.mockRestore();
-  });
+    afterEach(() => {
+      warnSpy.mockRestore();
+    });
 
-  test("warns when file patterns match only gitignored files", async () => {
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    test("warns when respectGitignore is false without files scope", async () => {
+      const loaded = makeLoadedAdr(
+        { respectGitignore: false },
+        { rules: { "noop-rule": { description: "No-op", async check() {} } } }
+      );
 
-    const loaded = makeLoadedAdr(
-      { files: ["dist/**/*.js"] },
-      { rules: { "noop-rule": { description: "No-op", async check() {} } } }
-    );
+      await runChecks(tempDir, [loaded]);
+      const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+      expect(warnCalls.join("\n")).toContain(
+        "respectGitignore is false without a files scope"
+      );
+    });
 
-    await runChecks(tempDir, [loaded]);
-    const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
-    expect(
-      warnCalls.some((msg) => msg.includes("all are excluded by .gitignore"))
-    ).toBe(true);
-    warnSpy.mockRestore();
-  });
+    test("warns when file patterns match only gitignored files", async () => {
+      const loaded = makeLoadedAdr(
+        { files: ["dist/**/*.js"] },
+        { rules: { "noop-rule": { description: "No-op", async check() {} } } }
+      );
 
-  test("does not warn when file patterns match tracked files", async () => {
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      await runChecks(tempDir, [loaded]);
+      const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+      expect(warnCalls.join("\n")).toContain("all are excluded by .gitignore");
+    });
 
-    const loaded = makeLoadedAdr(
-      { files: ["src/**/*.ts"] },
-      { rules: { "noop-rule": { description: "No-op", async check() {} } } }
-    );
+    test("does not warn when file patterns match tracked files", async () => {
+      const loaded = makeLoadedAdr(
+        { files: ["src/**/*.ts"] },
+        { rules: { "noop-rule": { description: "No-op", async check() {} } } }
+      );
 
-    await runChecks(tempDir, [loaded]);
-    const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
-    expect(
-      warnCalls.some((msg) => msg.includes("excluded by .gitignore"))
-    ).toBe(false);
-    expect(
-      warnCalls.some((msg) => msg.includes("respectGitignore is false"))
-    ).toBe(false);
-    warnSpy.mockRestore();
+      await runChecks(tempDir, [loaded]);
+      const warnCalls = warnSpy.mock.calls.map((args) => args.join(" "));
+      expect(warnCalls.join("\n")).not.toContain("excluded by .gitignore");
+      expect(warnCalls.join("\n")).not.toContain("respectGitignore is false");
+    });
   });
 });

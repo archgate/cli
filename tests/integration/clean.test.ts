@@ -52,9 +52,7 @@ describe("clean integration", () => {
     });
     expect(exitCode).toBe(0);
     // Either cleaned up again or nothing to clean — both are valid
-    expect(
-      stdout.includes("cleaned up") || stdout.includes("Nothing to clean")
-    ).toBe(true);
+    expect(stdout).toMatch(/cleaned up|Nothing to clean/u);
   });
 
   test("removes ~/.archgate directory and prints 'cleaned up'", async () => {

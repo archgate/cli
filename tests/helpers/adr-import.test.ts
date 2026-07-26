@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   existsSync,
   mkdirSync,
@@ -55,6 +55,10 @@ describe("rewriteAdrId", () => {
 describe("buildIdMap", () => {
   let tempDir: string;
 
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-idmap-test-"));
+  });
+
   afterEach(() => {
     if (tempDir) {
       try {
@@ -66,7 +70,6 @@ describe("buildIdMap", () => {
   });
 
   test("assigns sequential IDs for a single domain prefix", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-idmap-test-"));
     const adrs: AdrToImport[] = [
       {
         sourcePath: "/tmp/a.md",
@@ -95,7 +98,6 @@ describe("buildIdMap", () => {
   });
 
   test("skips existing IDs in the adrs directory", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-idmap-test-"));
     writeFileSync(
       join(tempDir, "ARCH-001-existing.md"),
       "---\nid: ARCH-001\n---\n"
@@ -117,7 +119,6 @@ describe("buildIdMap", () => {
   });
 
   test("falls back to ARCH prefix when domain has no mapping", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-idmap-test-"));
     const adrs: AdrToImport[] = [
       {
         sourcePath: "/tmp/a.md",
@@ -134,7 +135,6 @@ describe("buildIdMap", () => {
   });
 
   test("handles multiple domain prefixes independently", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-idmap-test-"));
     const adrs: AdrToImport[] = [
       {
         sourcePath: "/tmp/a.md",
@@ -243,6 +243,11 @@ describe("updateImportsManifest", () => {
 describe("loadImportsManifest / saveImportsManifest", () => {
   let tempDir: string;
 
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-manifest-test-"));
+    mkdirSync(join(tempDir, ".archgate"), { recursive: true });
+  });
+
   afterEach(() => {
     if (tempDir) {
       try {
@@ -254,15 +259,11 @@ describe("loadImportsManifest / saveImportsManifest", () => {
   });
 
   test("returns empty manifest when imports.json does not exist", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-manifest-test-"));
-    mkdirSync(join(tempDir, ".archgate"), { recursive: true });
     const manifest = await loadImportsManifest(tempDir);
     expect(manifest.imports).toEqual([]);
   });
 
   test("round-trips a manifest through save and load", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-manifest-test-"));
-    mkdirSync(join(tempDir, ".archgate"), { recursive: true });
     const original: ImportsManifest = {
       imports: [
         {

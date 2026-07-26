@@ -78,12 +78,14 @@ describe("registerAdrListCommand", () => {
 
 describe("adr list action handler", () => {
   let tempDir: string;
+  let adrsDir: string;
   let originalCwd: string;
   let logSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-list-test-"));
+    adrsDir = join(tempDir, ".archgate", "adrs");
     originalCwd = process.cwd();
     // Prevent findProjectRoot() from walking above the temp dir
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
@@ -91,6 +93,7 @@ describe("adr list action handler", () => {
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
     });
+    process.chdir(tempDir);
   });
 
   afterEach(() => {
@@ -107,141 +110,128 @@ describe("adr list action handler", () => {
     return parent;
   }
 
-  test("lists ADRs from .archgate/adrs/ directory in table format", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
-    writeFileSync(
-      join(adrsDir, "GEN-001-use-conventional-commits.md"),
-      ADR_CONTENT_2
-    );
+  describe("with .archgate/adrs scaffolded", () => {
+    beforeEach(() => {
+      mkdirSync(adrsDir, { recursive: true });
+    });
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync(["node", "adr", "list"]);
+    test("lists ADRs from .archgate/adrs/ directory in table format", async () => {
+      writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
+      writeFileSync(
+        join(adrsDir, "GEN-001-use-conventional-commits.md"),
+        ADR_CONTENT_2
+      );
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    expect(allOutput).toContain("ARCH-001");
-    expect(allOutput).toContain("GEN-001");
-  });
+      const parent = makeProgram();
+      await parent.parseAsync(["node", "adr", "list"]);
 
-  test("outputs JSON when --json flag is passed", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
+      const allOutput = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      expect(allOutput).toContain("ARCH-001");
+      expect(allOutput).toContain("GEN-001");
+    });
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync(["node", "adr", "list", "--json"]);
+    test("outputs JSON when --json flag is passed", async () => {
+      writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    const parsed = JSON.parse(allOutput);
-    expect(Array.isArray(parsed)).toBe(true);
-    expect(parsed[0].id).toBe("ARCH-001");
-    expect(parsed[0].domain).toBe("architecture");
-  });
+      const parent = makeProgram();
+      await parent.parseAsync(["node", "adr", "list", "--json"]);
 
-  test("JSON output carries identity fields only, omitting files globs", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-    writeFileSync(
-      join(adrsDir, "BE-001-api-response-envelope.md"),
-      ADR_CONTENT_WITH_FILES
-    );
+      const allOutput = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      const parsed = JSON.parse(allOutput);
+      expect(parsed).toBeInstanceOf(Array);
+      expect(parsed[0].id).toBe("ARCH-001");
+      expect(parsed[0].domain).toBe("architecture");
+    });
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync(["node", "adr", "list", "--json"]);
+    test("JSON output carries identity fields only, omitting files globs", async () => {
+      writeFileSync(
+        join(adrsDir, "BE-001-api-response-envelope.md"),
+        ADR_CONTENT_WITH_FILES
+      );
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    const parsed = JSON.parse(allOutput);
+      const parent = makeProgram();
+      await parent.parseAsync(["node", "adr", "list", "--json"]);
 
-    // `files`/`respectGitignore` stay out of the listing so large ADR sets
-    // remain small enough for agents to read inline — `adr show` has the rest.
-    expect(Object.keys(parsed[0]).toSorted()).toEqual([
-      "domain",
-      "id",
-      "rules",
-      "title",
-    ]);
-    expect(allOutput).not.toContain("src/api/**");
-  });
+      const allOutput = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      const parsed = JSON.parse(allOutput);
 
-  test("filters by domain with --domain flag", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
-    writeFileSync(
-      join(adrsDir, "GEN-001-use-conventional-commits.md"),
-      ADR_CONTENT_2
-    );
+      // `files`/`respectGitignore` stay out of the listing so large ADR sets
+      // remain small enough for agents to read inline — `adr show` has the rest.
+      expect(Object.keys(parsed[0]).toSorted()).toEqual([
+        "domain",
+        "id",
+        "rules",
+        "title",
+      ]);
+      expect(allOutput).not.toContain("src/api/**");
+    });
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync([
-      "node",
-      "adr",
-      "list",
-      "--domain",
-      "architecture",
-    ]);
+    test("filters by domain with --domain flag", async () => {
+      writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
+      writeFileSync(
+        join(adrsDir, "GEN-001-use-conventional-commits.md"),
+        ADR_CONTENT_2
+      );
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    expect(allOutput).toContain("ARCH-001");
-    expect(allOutput).not.toContain("GEN-001");
-  });
+      const parent = makeProgram();
+      await parent.parseAsync([
+        "node",
+        "adr",
+        "list",
+        "--domain",
+        "architecture",
+      ]);
 
-  test("combines --domain and --json filters", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
-    writeFileSync(
-      join(adrsDir, "GEN-001-use-conventional-commits.md"),
-      ADR_CONTENT_2
-    );
+      const allOutput = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      expect(allOutput).toContain("ARCH-001");
+      expect(allOutput).not.toContain("GEN-001");
+    });
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync([
-      "node",
-      "adr",
-      "list",
-      "--domain",
-      "general",
-      "--json",
-    ]);
+    test("combines --domain and --json filters", async () => {
+      writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT_1);
+      writeFileSync(
+        join(adrsDir, "GEN-001-use-conventional-commits.md"),
+        ADR_CONTENT_2
+      );
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    const parsed = JSON.parse(allOutput);
-    expect(parsed).toHaveLength(1);
-    expect(parsed[0].id).toBe("GEN-001");
-  });
+      const parent = makeProgram();
+      await parent.parseAsync([
+        "node",
+        "adr",
+        "list",
+        "--domain",
+        "general",
+        "--json",
+      ]);
 
-  test("prints 'No ADRs found.' when adrs directory is empty", async () => {
-    mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
+      const allOutput = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      const parsed = JSON.parse(allOutput);
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].id).toBe("GEN-001");
+    });
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync(["node", "adr", "list"]);
+    test("prints 'No ADRs found.' when adrs directory is empty", async () => {
+      const parent = makeProgram();
+      await parent.parseAsync(["node", "adr", "list"]);
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    expect(allOutput).toContain("No ADRs found.");
+      const allOutput = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      expect(allOutput).toContain("No ADRs found.");
+    });
   });
 
   test("exits with error when .archgate/ directory is missing", async () => {
-    process.chdir(tempDir);
     const parent = makeProgram();
 
     await expect(parent.parseAsync(["node", "adr", "list"])).rejects.toThrow(

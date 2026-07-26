@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -14,6 +14,10 @@ import { safeRmSync } from "../test-utils";
 
 describe("recommendPacksFromDir", () => {
   let tempDir: string;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
+  });
 
   afterEach(() => {
     if (tempDir) safeRmSync(tempDir);
@@ -49,7 +53,6 @@ describe("recommendPacksFromDir", () => {
   }
 
   test("returns high relevance for language match", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "typescript-strict", {
       tags: ["language:typescript"],
       adrCount: 4,
@@ -70,7 +73,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("returns medium relevance for concern tags", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "security", {
       tags: ["concern:security"],
       adrCount: 3,
@@ -89,7 +91,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("sorts high relevance before medium", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "security", {
       tags: ["concern:security"],
       adrCount: 3,
@@ -112,7 +113,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("matches framework tags with high relevance", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "nextjs-app", {
       tags: ["framework:nextjs", "language:typescript"],
       adrCount: 3,
@@ -132,7 +132,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("excludes packs with no matching tags", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "rust-safety", {
       tags: ["language:rust"],
       adrCount: 2,
@@ -149,8 +148,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("returns empty array when no packs directory exists", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
-
     const stack: DetectedStack = {
       languages: ["typescript"],
       runtimes: [],
@@ -162,7 +159,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("counts ADR files correctly", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "testing", { tags: ["concern:testing"], adrCount: 5 });
 
     const stack: DetectedStack = {
@@ -177,7 +173,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("matches runtime tags", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "bun-best-practices", {
       tags: ["runtime:bun"],
       adrCount: 2,
@@ -196,7 +191,6 @@ describe("recommendPacksFromDir", () => {
   });
 
   test("alphabetical sort within same relevance", () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-recommend-"));
     createPack(tempDir, "zebra", { tags: ["concern:zebra"], adrCount: 1 });
     createPack(tempDir, "alpha", { tags: ["concern:alpha"], adrCount: 1 });
 
