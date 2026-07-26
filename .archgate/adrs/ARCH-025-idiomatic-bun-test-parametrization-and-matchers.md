@@ -39,20 +39,20 @@ A loop that only builds shared setup data or fixtures for a single overall asser
 
 ### Do
 
-- **DO** use `test.each(cases)("<title with %s/%p/%d>", (...args) => { ... })` when the same check runs against an array of independent inputs, so each case is its own named, independently-reportable test.
-- **DO** use `describe.each(cases)(...)` when each case needs its own group of multiple related tests, not just one assertion.
-- **DO** pass array rows (`[a, b, expected]`) for positional destructuring and object rows (`{a, b, expected}`) when the case is easier to read as named fields (format the title with `$field`).
-- **DO** assert a derived comparison directly on the values being compared: `expect(actual).toBe(expected)`, `expect(actual).toEqual(expected)`.
-- **DO** use the matcher that matches the shape of the check: `.toContain()`/`.toMatch()` for substrings, `.toBeInstanceOf()` for type checks (including `Array.isArray` replacements), `.toHaveLength()` for counts, `.find(...)` + `.toBeDefined()`/`.toBeUndefined()` for "does at least one item satisfy X."
-- **DO** keep the loop→`test.each()` conversion 1:1 — every assertion that ran per-iteration in the original loop must still run per-case in the converted version; a conversion MUST NOT silently drop or merge assertions.
+- **DO** use `test.each(cases)("<title with %s/%p/%d>", (...args) => {...})` for the same check against independent inputs — each case becomes its own named, independently-reportable test.
+- **DO** use `describe.each(cases)(...)` when a case needs its own group of related tests, not just one assertion.
+- **DO** pass array rows (`[a, b, expected]`) for positional destructuring, object rows (`{a, b, expected}`) for named fields (title with `$field`).
+- **DO** assert derived comparisons directly on the values: `expect(actual).toBe(expected)` / `.toEqual(expected)`.
+- **DO** match the matcher to the check: `.toContain()`/`.toMatch()` for substrings, `.toBeInstanceOf()` for type checks (including `Array.isArray` replacements), `.toHaveLength()` for counts, `.find(...)` + `.toBeDefined()`/`.toBeUndefined()` for "does any item satisfy X."
+- **DO** keep loop→`test.each()` conversions 1:1 — every assertion that ran per-iteration in the original loop must still run per-case; never drop or merge assertions.
 
 ### Don't
 
-- **DON'T** write `for (const case of cases) { test(...); }` or `for (const case of cases) { expect(...); }` inside a single test — use `test.each()`/`describe.each()` instead.
-- **DON'T** write `expect(a === b).toBe(true)` or `expect(a === b).toBe(false)` — assert `expect(a).toBe(b)` / `expect(a).not.toBe(b)` directly.
-- **DON'T** write `expect(arr.some(predicate)).toBe(true)` or `expect(arr.every(predicate)).toBe(true)` — these collapse an array-wide check into an opaque boolean that reports `false !== true` on failure with no indication of which element (or none) satisfied the predicate. Use `.find(predicate)` + `.toBeDefined()`, a per-item loop of `expect(item).toBe(...)` calls, or a matcher over the mapped values (e.g. `expect(arr.map(x => x.message)).toContain(...)`).
+- **DON'T** register a `test()`/`it()` or call `expect()` once per iteration inside a `for`/`.forEach` loop — use `test.each()`/`describe.each()` instead.
+- **DON'T** write `expect(a === b).toBe(true)` or `.toBe(false)` — assert `expect(a).toBe(b)` / `.not.toBe(b)` directly.
+- **DON'T** collapse `.some(predicate)`/`.every(predicate)` into `.toBe(true)` — it reports `false !== true` with no indication of which element (or none) satisfied the predicate. Use `.find(predicate)` + `.toBeDefined()`, a per-item `expect()` loop, or a matcher over the mapped values (e.g. `expect(arr.map(x => x.message)).toContain(...)`).
 - **DON'T** write `expect(Array.isArray(x)).toBe(true)` — use `expect(x).toBeInstanceOf(Array)`.
-- **DON'T** precompute a boolean in a local variable purely to assert it (`const equal = JSON.stringify(a) === JSON.stringify(b); expect(equal).toBe(true);`) — assert on `a` and `b` (or their comparable projections) directly with `.toEqual()`/`.toBe()` so a failure shows the actual diff.
+- **DON'T** precompute a boolean just to assert it (`const equal = JSON.stringify(a) === JSON.stringify(b); expect(equal).toBe(true);`) — assert on the values directly with `.toEqual()`/`.toBe()` so a failure shows the actual diff.
 
 ## Implementation Pattern
 

@@ -37,27 +37,26 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 
 ### Do
 
-- **DO** mirror `src/` in `tests/` (`src/engine/runner.ts` → `tests/engine/runner.test.ts`), keep sample data in `tests/fixtures/`, and confine filesystem writes to `mkdtemp` dirs removed in `afterEach`/`afterAll`.
-- **DO** test each module's public interface with descriptive behavior-stating names, never private internals.
-- **DO** restore environment variables with `restoreEnv(key, original)` from `tests/test-utils.ts` — required for every `Bun.env.X`/`process.env.X` capture, including `NODE_ENV`, `GIT_CONFIG_GLOBAL`, and `HOME`.
-- **DO** close external SDK instances (servers, clients, transports) with `await server.close()` in `afterEach`/`afterAll`, managing their lifecycle in hooks rather than test bodies.
-- **DO** set `git config user.email` and `user.name` locally right after `git init` and before any `git commit` — CI runners have no global git config.
-- **DO** assert with `expect()` in every test — every test MUST contain at least one assertion, and `bun-test/expect-expect` fails `bun run lint` otherwise. Spell out "does not throw" as `expect(() => fn()).not.toThrow()` or `await expect(promise).resolves.toBeUndefined()`; use `test.skip`/`test.todo` for placeholders.
-- **DO** mock fetch by assigning `globalThis.fetch = mockFn as unknown as typeof fetch`, restored in `afterEach` via `mock.restore()`.
-- **DO** wrap inline `spyOn`/`mockImplementation` in `try/finally` so `mockRestore()` runs even when an assertion throws, or manage spies in hooks instead.
-- **DO** make large production thresholds injectable — `resolveScopedFiles(root, globs, { fileWarnThreshold })` overrides `SCOPE_FILE_WARN_THRESHOLD` in `src/engine/git-files.ts`, so a test injects `5` instead of creating 1000 files.
-- **DO** mock first-party modules and `os.homedir()` with `import * as mod` + `spyOn(mod, "fn")` in `beforeEach`, restored by `mock.restore()` in `afterEach`.
+- **DO** mirror `src/` in `tests/`, fixtures in `tests/fixtures/`, writes in `mkdtemp` cleaned up in hooks.
+- **DO** test each module's public interface with descriptive names, never private internals.
+- **DO** restore env vars with `restoreEnv(key, original)` (`tests/test-utils.ts`) for every capture.
+- **DO** close external SDK instances with `await server.close()` in hooks, not test bodies.
+- **DO** set `git config user.email`/`user.name` locally after `git init`, before any commit.
+- **DO** assert with `expect()` — `bun-test/expect-expect` fails lint otherwise; use `test.skip`/`test.todo` for placeholders.
+- **DO** save `globalThis.fetch` before assigning a mock, restore it in `afterEach` — `mock.restore()` doesn't undo a direct assignment.
+- **DO** wrap inline `spyOn`/`mockImplementation` in `try/finally` so `mockRestore()` runs on failure, or manage spies in hooks.
+- **DO** make thresholds injectable, e.g. `resolveScopedFiles(root, globs, { fileWarnThreshold })` — inject `5`, never materialize 1000+ files (Consequences).
+- **DO** mock first-party modules and `os.homedir()` via `import * as mod` + `spyOn(mod, "fn")`, restored by `mock.restore()`.
 
 ### Don't
 
-- **DON'T** hit the network in unit tests, import from `node:test` (use `bun:test`), or try `mock.module("node:fetch", ...)` — Bun's runtime fetch is `globalThis.fetch`, so that mock silently does nothing.
-- **DON'T** call `mock.module()` on a first-party module — it is process-global, retroactive, and NOT undone by `mock.restore()`, so other test files intermittently receive the mock. Never split production code into an `-impl` file to dodge it; `mock.module()` stays acceptable for third-party modules (`inquirer`, `node:readline`).
-- **DON'T** restore an environment variable with a bare `Bun.env.X = original` / `process.env.X = original` assignment — `undefined` assigns the literal string `"undefined"` and leaves the key set.
-- **DON'T** leave temp files behind or external SDK instances open after a test.
-- **DON'T** rely on globally-configured git identity in a temp git repo — it works locally and fails only in CI, with a cryptic `ShellPromise` error.
-- **DON'T** let tests touch real state: set `Bun.env.NODE_ENV = "test"` before initializing Sentry (the SDK sets `enabled: Bun.env.NODE_ENV !== "test"`), and never write real user-scope paths (`~/.config/Code/User/settings.json`, `%APPDATA%`, `~/.cursor/`, `~/.config/opencode/`) — spy out the writer or mock `os.homedir()`.
-- **DON'T** write assertion-less tests, skip one with a bare early `return` or empty callback body (use `test.skipIf(condition)`, `test.skip`, or `test.todo`), or skip without a tracking issue.
-- **DON'T** materialize large filesystem fixtures (1000+ files, plus `git add .`) just to cross a production threshold — inject a small threshold instead.
+- **DON'T** hit the network, import `node:test` (use `bun:test`), or `mock.module("node:fetch")` — it silently no-ops.
+- **DON'T** `mock.module()` a first-party module (OK for `inquirer`, `node:readline`) — never dodge via an `-impl` file split.
+- **DON'T** restore an env var with bare `Bun.env.X = original` — `undefined` becomes the string `"undefined"`, not a clear.
+- **DON'T** leave temp files or SDK instances open post-test.
+- **DON'T** rely on global git identity in a temp repo — passes locally, fails only in CI (`ShellPromise` error).
+- **DON'T** touch real state — no real user-scope paths, no unset `NODE_ENV` before Sentry init; spy or mock `os.homedir()`.
+- **DON'T** write assertion-less tests or skip silently (bare `return`, empty callback) — use `test.skipIf`/`skip`/`todo` with an issue.
 
 ## Implementation Pattern
 
@@ -116,9 +115,17 @@ it("processes data", () => {
 mock.module("node:fetch", () => ({
   default: () => Promise.reject(new Error("network error")),
 }));
-// GOOD: assign globalThis.fetch directly
-globalThis.fetch = (() =>
-  Promise.reject(new Error("network error"))) as unknown as typeof fetch;
+// GOOD: assign globalThis.fetch directly, saved beforehand and restored in
+// afterEach — mock.restore() does not undo a direct assignment.
+let originalFetch: typeof fetch;
+beforeEach(() => {
+  originalFetch = globalThis.fetch;
+  globalThis.fetch = (() =>
+    Promise.reject(new Error("network error"))) as unknown as typeof fetch;
+});
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 // BAD: mock.module on a first-party module is process-global and leaks into
 // every other test file, so auth.test.ts receives this mock instead of the
@@ -152,7 +159,7 @@ afterEach(() => {
 
 - **Fewer features than Jest/Vitest** — coverage reporting is limited to the `--coverage` flag and mock utilities are sparse next to Jest's, though snapshot testing (`toMatchSnapshot`, `toMatchInlineSnapshot`) is supported.
 - **Limited community resources** — fewer Stack Overflow answers and tutorials; contributors consult Bun documentation directly.
-- **One shared process** — `mock.module()` is process-global and not undone by `mock.restore()`, and env writes escape into later test files, so isolation is the test author's responsibility rather than the runner's.
+- **One shared process** — `mock.module()` is process-global and retroactive (it patches a module for every importer, including ones that ran before the call) and not undone by `mock.restore()`, so other test files intermittently receive the mock instead of the real implementation; env writes escape into later test files the same way. Isolation is the test author's responsibility rather than the runner's — never dodge this by splitting production code into an `-impl` file, since that only changes what gets mocked, not whether the leak happens.
 
 ### Risks
 
@@ -160,7 +167,7 @@ afterEach(() => {
   - **Mitigation:** the project pins a Bun version via `.prototools`; API changes surface during controlled upgrades with full suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may misreport code paths, especially dynamically imported modules.
   - **Mitigation:** the 90% threshold is enforced on total line coverage, not per-file, and critical modules (engine, formats) are tested thoroughly regardless of the aggregate.
-- **Cross-file pollution from shared process state** — leaked env vars, leaked spies, and writes to real user-scope files produce order-dependent flakes that pass on a PR run and fail after merge with identical code.
+- **Cross-file pollution from shared process state** — leaked env vars, leaked spies, and writes to real user-scope paths (`~/.config/Code/User/settings.json`, `%APPDATA%`, `~/.cursor/`, `~/.config/opencode/`) produce order-dependent flakes that pass on a PR run and fail after merge with identical code. `Bun.env.NODE_ENV` left unset instead of set to `"test"` before Sentry initializes is the same class of leak — the SDK sets `enabled: Bun.env.NODE_ENV !== "test"`.
   - **Mitigation:** `restoreEnv()` for every env capture, `try/finally` around inline spies, and an `os.homedir()` spy that keeps writes inside a `mkdtemp` directory; `test-isolation/no-bare-env-restore` blocks the env variant at lint time.
 - **Platform-specific hangs and timeouts** — an external SDK instance left open keeps Bun's event loop alive on Linux and hangs `bun test` after every test passes, while slow Windows CI filesystems let large fixtures blow the per-test timeout and kill the staging subprocess (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM). Neither reproduces on macOS or locally.
   - **Mitigation:** close SDK instances in `afterEach`, inject small thresholds instead of generating large fixtures, and cap every CI job with `timeout-minutes` (10 minutes for `code-pull-request.yml`).
@@ -180,17 +187,13 @@ afterEach(() => {
 
 Code reviewers MUST verify:
 
-1. New source files have corresponding test files, and every test asserts with `expect()` — no smoke test that merely calls a function.
-2. Filesystem work happens in temp directories (no hardcoded paths), and both temp directories and external SDK instances are cleaned up in `afterEach`/`afterAll`, with SDK lifecycles managed in hooks rather than test bodies.
+1. New source files have corresponding test files, and every test asserts with `expect()` — no smoke test that merely calls a function. "Does not throw" is spelled `expect(() => fn()).not.toThrow()` or `await expect(promise).resolves.toBeUndefined()`, never a bare invocation with no assertion.
+2. Filesystem work happens in temp directories (no hardcoded paths), and both temp directories and external SDK instances (servers, clients, transports) are cleaned up in `afterEach`/`afterAll`, with SDK lifecycles managed in hooks rather than test bodies.
 3. Temp repos that call `git commit` configure `user.email` and `user.name` locally first.
-4. HTTP mocking assigns `globalThis.fetch`; first-party mocking uses `import * as mod` + `spyOn`, with no production module split into an `-impl` file to dodge `mock.module` leakage.
+4. HTTP mocking saves `globalThis.fetch` and restores it directly in `afterEach` (`mock.restore()` does not undo a direct assignment); first-party mocking uses `import * as mod` + `spyOn`, restored via `mock.restore()`, with no production module split into an `-impl` file to dodge `mock.module` leakage.
 5. Inline `spyOn`/`mockImplementation` usage wraps the spy lifecycle in `try/finally` so `mockRestore()` runs even when assertions fail.
 6. Threshold tests inject a small value rather than generating fixtures large enough to trip the production default, and no per-test timeout override is shorter than the global `--timeout 60000`.
-7. Shared test helpers under `tests/**` that are not `*.test.ts` files (e.g. `tests/integration/cli-harness.ts`, `tests/test-utils.ts`) restore environment variables via `restoreEnv` — `test-isolation/no-bare-env-restore` is scoped to `tests/**/*.test.ts` and does not cover them, yet a leak from a shared helper reaches every test that imports it.
-
-### Exceptions
-
-**Documented briefing-budget overflow** (reported by `archgate check`): the `Do's and Don'ts` section exceeds the `review-context` briefing cap. The section is ordered so the `Decision` and all ten `**DO**` items fit inside the window; the overflow is the `**DON'T**` list, where each item is the terse inverse of a visible Do or of a Decision convention. Shortening it further would drop a distinct anti-pattern, so the overflow stands and consumers MUST open the full ADR for the Don'ts.
+7. Shared test helpers under `tests/**` that are not `*.test.ts` files (e.g. `tests/integration/cli-harness.ts`, `tests/test-utils.ts`) restore environment variables via `restoreEnv` for every capture (`NODE_ENV`, `GIT_CONFIG_GLOBAL`, `HOME`, and any other `Bun.env.X`/`process.env.X` read) — `test-isolation/no-bare-env-restore` is scoped to `tests/**/*.test.ts` and does not cover them, yet a leak from a shared helper reaches every test that imports it.
 
 ## References
 

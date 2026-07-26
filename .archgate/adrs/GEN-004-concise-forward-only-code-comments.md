@@ -39,27 +39,26 @@ Comments in all project-authored TypeScript MUST be concise and MUST describe cu
 
 ### Conciseness
 
-- A contiguous run of whole-line comments MUST carry **at most 5 lines of prose**. Delimiters (`/**`, `*/`, bare `*`), dividers, SPDX headers (LEGAL-001), and tool directives (`oxlint-disable`, `@ts-expect-error`, `archgate-ignore`, and similar) keep a run contiguous but do not count.
-- Longer explanations belong in an ADR, agent-memory file, issue, or PR with a pointer from the comment; the 5 lines are a ceiling for safety-critical invariants, not an allowance.
-- Test code and fixtures meet the same bound as source.
+- A contiguous run of whole-line comments MUST carry **at most 5 lines of prose** — a ceiling, not an allowance (Compliance and Enforcement lists what counts toward a "run").
+- Longer explanations belong in an ADR, agent-memory file, issue, or PR with a pointer; test code and fixtures meet the same bound.
 
 ### Structured documentation is exempt
 
-The bound measures **narrative**: it applies to a doc comment's untagged summary only. A structural tag opens an exempt section — the tag line and every line under it, up to the next tag.
+The bound measures **narrative**: a doc comment's untagged summary only. A structural tag opens an exempt section — the tag line and every line under it, up to the next tag.
 
-- **Exempt (structural tags):** `@param`, `@arg`, `@typeParam`, `@template`, `@returns`, `@throws`, `@example`, `@see`, `@link`, `@defaultValue`, `@deprecated`, `@internal`, `@public`, `@alpha`, `@beta`, `@experimental`, `@module`, `@packageDocumentation`, `@typedef`, `@callback`, `@property`, `@overload`, `@inheritDoc`, `@label`.
-- **NOT exempt (prose-container tags):** `@remarks`, `@description`, `@summary`, `@notes`, `@todo`, `@fixme` — narrative in a tag's clothing, so they count exactly like untagged prose.
+- **Exempt:** `@param`, `@arg`, `@argument`, `@typeParam`, `@template`, `@returns`, `@throws`, `@example`, `@see`, `@link`, `@defaultValue`, `@deprecated`, `@internal`, `@public`, `@alpha`, `@beta`, `@experimental`, `@module`, `@packageDocumentation`, `@typedef`, `@callback`, `@property`, `@prop`, `@overload`, `@inheritDoc`, `@label`, `@satisfies`.
+- **NOT exempt:** `@remarks`, `@description`, `@summary`, `@notes`, `@todo`, `@fixme` — narrative in a tag's clothing, counted like untagged prose.
 
 ### Forward-only content
 
-- Comments MUST NOT narrate history, relocations, or refactors — any phrasing about what changed rather than what the code does. A move is an event in git history, not a property of the code; the Don'ts below list the flagged phrasings.
-- **Agent memory is exempt from the forward-only requirement** (`.claude/agent-memory/**`) — its entries deliberately record past incidents, which is what makes "move deep rationale to an ADR or memory file" a real remedy. Conciseness applies there by convention; neither requirement is machine-checked.
-- **Present-tense location prose is NOT narration and remains encouraged.** The test is grammatical: subject = the _change_ ("was migrated") is narration; subject = the _code as it stands_ ("lives in") is description.
+- Comments MUST NOT narrate history, relocations, or refactors — any phrasing about what changed rather than what the code does; the Don'ts below list flagged phrasings.
+- **Agent memory is exempt** (`.claude/agent-memory/**`) by convention; neither requirement there is machine-checked.
+- Present-tense location prose ("lives in") is description, not narration, and remains encouraged.
 - When behavior changes, rewrite the comment to the new contract; never append "(update: now does Y)".
 
 ### Scope
 
-Applies with no carve-outs to `src/`, `tests/` (including `tests/fixtures/`), `lint/`, `scripts/`, `shims/`, `.archgate/lint/`, and `.archgate/adrs/**/*.rules.ts` — the code enforcing this decision included. Markdown, YAML, and JSON are governed by this ADR's prose but not by the automated checks.
+Applies with no carve-outs to `src/`, `tests/`, `lint/`, `scripts/`, `shims/`, `.archgate/lint/`, `.archgate/adrs/**/*.rules.ts` (this ADR's `files` globs); Markdown, YAML, and JSON follow the same rule by prose only.
 
 ## Do's and Don'ts
 
@@ -91,7 +90,7 @@ Applies with no carve-outs to `src/`, `tests/` (including `tests/fixtures/`), `l
 - **No drift:** A comment describing only current behavior cannot contradict a previous state it never mentions.
 - **Two-layer backstop:** Violations surface in `bun run lint` (IDE-visible, AST-precise) and in `archgate check` (agent-facing briefings) — neither humans nor agents can miss them.
 - **Dogfooding:** Demonstrates archgate rules and custom lint rules covering one decision from both sides.
-- **Deep context survives:** Rationale moves to ADRs and memory files where it is maintained, instead of decaying inline.
+- **Deep context survives:** Rationale moves to ADRs and memory files where it is maintained, instead of decaying inline. `.claude/agent-memory/**` is exempt from the forward-only requirement specifically because its entries deliberately record past incidents — that is what makes "move deep rationale to an ADR or memory file" a real remedy rather than shifting the same violation elsewhere.
 - **Pressure toward structured documentation:** Tagged sections cost nothing against the budget while summary prose does, so the cheapest way to keep a long doc comment is `@param`/`@returns`/`@throws`/`@example`. The bound nudges authors toward machine-readable TSDoc rather than away from documenting.
 
 ### Negative
@@ -115,6 +114,7 @@ Two layers, same invariants, both `error` severity:
 
 - **oxlint plugin rules** (`.archgate/lint/oxlint.ts`, run by `bun run lint`): `archgate/no-narration-in-comments` and `archgate/oversized-comment-blocks` operate on real comment tokens via `sourceCode.getAllComments()` — string literals never match, block-comment interiors always do. Both run repo-wide with no per-directory overrides in `.oxlintrc.json`.
 - **Archgate rules** (companion `GEN-004-concise-forward-only-code-comments.rules.ts`, run by `archgate check`): `GEN-004/no-narration-in-comments` greps comment-looking lines for the narration and relocation patterns; `GEN-004/oversized-comment-blocks` counts prose lines in contiguous whole-line comment runs. These line-based heuristics carry one known, rare false positive — a match inside a string literal on a line starting with `//` — suppressible via `archgate-ignore` with a reason.
+- **What keeps a run "contiguous" without adding to its count:** delimiters (`/**`, `*/`, bare `*`), dividers, SPDX headers (LEGAL-001), and tool directives (`oxlint-disable`, `@ts-expect-error`, `archgate-ignore`, and similar).
 
 Both layers implement the structured-documentation exemption identically: a line opening a structural TSDoc tag, and every line under it up to the next tag, is skipped when counting prose; prose-container tags are counted. The two tag lists MUST stay in sync — they are the one piece of logic duplicated across the layers.
 
@@ -124,7 +124,7 @@ Both rules run at `error` against a codebase at zero violations. Any future tigh
 
 Reviewers MUST verify on every PR touching project TypeScript:
 
-1. New or modified comments describe current behavior only — no historical or relocation framing.
+1. New or modified comments describe current behavior only — no historical or relocation framing. The test is grammatical: subject = the _change_ ("was migrated") is narration; subject = the _code as it stands_ ("lives in") is description, and present-tense location prose of the latter form is encouraged, not flagged.
 2. Comment runs stay within 5 prose lines, and longer rationale went to an ADR/memory file with a pointer.
 3. Any suppression (`archgate-ignore`, `oxlint-disable`) carries a reason and marks a genuine false positive, not a parked violation.
 4. Changes to the narration/relocation patterns touch both `.archgate/lint/oxlint.ts` and the companion `.rules.ts`.
@@ -136,8 +136,6 @@ Reviewers MUST verify on every PR touching project TypeScript:
 - **`.claude/agent-memory/**`\*\*: exempt from the forward-only requirement, as described in Scope.
 - **Suppressions**: genuine false positives only, always with a stated reason.
 - **No directory-level exemptions**: there are no per-path carve-outs from either rule. Test files, fixtures, lint plugins, and the ADR companion rules files are all in scope, and any future exemption MUST be recorded here rather than added silently to `.oxlintrc.json`.
-
-**Documented briefing-budget overflow** (reported by `archgate check`): the `Decision` section exceeds the `review-context` briefing cap and MUST NOT be shortened further. Its floor is set by the two TSDoc tag lists, which are preserved tag-for-tag because both enforcement layers trust them and MUST stay in sync. The section is ordered so the 5-line bound, the narration prohibition, and the agent-memory exemption precede the cut; only the Scope path list is truncated, and those paths are already carried in every `review-context` payload as this ADR's `files` globs.
 
 ## References
 
