@@ -55,7 +55,7 @@ Every call to `Bun.Glob#scan()` (`glob.scan(...)`) in source MUST pass `{ dot: t
 
 ### Automated
 
-- **Archgate rule** ARCH-020/glob-scan-dot: Scans `src/**/*.ts` for `.scan(` calls and reports any whose argument list does not contain `dot:`. Severity: error.
+- **Archgate rule** ARCH-020/glob-scan-dot: Parses `src/**/*.ts` via `ctx.ast()` ([ARCH-022](./ARCH-022-ast-aware-rule-context.md)) and walks the ESTree for real `<expr>.scan(...)` `CallExpression` nodes, reporting any whose argument list has no object literal with a `dot` key. Structural, not text-based, so a comment or string that merely mentions `.scan()` cannot be misreported (see [archgate/cli#513](https://github.com/archgate/cli/issues/513)). Severity: error.
 
 ### Manual
 
@@ -64,5 +64,7 @@ Code reviewers MUST verify new `Bun.Glob` scans pass `dot: true` and that any in
 ## References
 
 - [archgate/cli#222](https://github.com/archgate/cli/issues/222) — the dotfile-skipping bug this ADR prevents
+- [archgate/cli#513](https://github.com/archgate/cli/issues/513) — the companion rule's regex-over-raw-text false positive on comments/strings, fixed by moving to `ctx.ast()`
 - [`src/engine/runner.ts`](../../src/engine/runner.ts), [`src/engine/git-files.ts`](../../src/engine/git-files.ts) — canonical `scan({ dot: true })` usage
 - [ARCH-009: Platform Detection Helper](./ARCH-009-platform-detection-helper.md) — related cross-platform correctness governance
+- [ARCH-022: AST-Aware Rule Context](./ARCH-022-ast-aware-rule-context.md) — `ctx.ast()` / `ctx.findAstNodes()`, the structural inspection primitive this rule's companion check now uses
