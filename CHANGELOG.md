@@ -1,3 +1,24 @@
+## [0.51.0](https://github.com/archgate/cli/compare/v0.50.0...v0.51.0) (2026-07-26)
+
+### Features
+
+* **adrs:** enforce concise, forward-only code comments (GEN-004) ([#496](https://github.com/archgate/cli/issues/496)) ([9a114b3](https://github.com/archgate/cli/commit/9a114b394161038988d4e688dc678063616ac8cf)), references [#2123](https://github.com/archgate/cli/issues/2123)
+* **adrs:** flag stray files at the repository root (GEN-005) ([#535](https://github.com/archgate/cli/issues/535)) ([6a6e765](https://github.com/archgate/cli/commit/6a6e765a87bcd6c3ca644bae1777d1057b77e73b)), closes [#514](https://github.com/archgate/cli/issues/514), references [#500](https://github.com/archgate/cli/issues/500)
+* **engine:** add ctx.readYAML and ctx.checkCase rule helpers ([#497](https://github.com/archgate/cli/issues/497)) ([c5d82c5](https://github.com/archgate/cli/commit/c5d82c5d507d5abd662472e988d2c04c540bba8b)), closes [#490](https://github.com/archgate/cli/issues/490), references [#490](https://github.com/archgate/cli/issues/490) [#491](https://github.com/archgate/cli/issues/491) [#499](https://github.com/archgate/cli/issues/499) [#499](https://github.com/archgate/cli/issues/499) [#499](https://github.com/archgate/cli/issues/499) [#499](https://github.com/archgate/cli/issues/499)
+* report truncated ADR briefings, trim the ADR corpus 15.6%, add GEN-005 briefing budget ([#501](https://github.com/archgate/cli/issues/501)) ([a9dab40](https://github.com/archgate/cli/commit/a9dab407acb2e4f35eb42331504c5c143da974fe))
+
+### Bug Fixes
+
+* **docs:** relocate ADR content to clear briefing-budget warnings ([#531](https://github.com/archgate/cli/issues/531)) ([c7419b3](https://github.com/archgate/cli/commit/c7419b34ba736d0b97c17748c39d696e156578fe))
+* **docs:** restore pt-br diacritics and enforce locale content integrity ([#523](https://github.com/archgate/cli/issues/523)) ([db39104](https://github.com/archgate/cli/commit/db39104da64cd19c04864e1abfb0da115fcce5cf)), closes [#516](https://github.com/archgate/cli/issues/516), references [#231](https://github.com/archgate/cli/issues/231)
+* **engine:** allow symlinks that resolve inside the project root ([#500](https://github.com/archgate/cli/issues/500)) ([387bf15](https://github.com/archgate/cli/commit/387bf150ee68f8121eeead5e1a52bf6c59489e29))
+* **engine:** reject rule-file reads through a symlinked ancestor directory ([#499](https://github.com/archgate/cli/issues/499)) ([a555f9d](https://github.com/archgate/cli/commit/a555f9d7c7e047c7eb66a77408299fd8b3605dca)), references [#497](https://github.com/archgate/cli/issues/497) [#491](https://github.com/archgate/cli/issues/491) [#497](https://github.com/archgate/cli/issues/497) [#497](https://github.com/archgate/cli/issues/497) [#497](https://github.com/archgate/cli/issues/497) [#497](https://github.com/archgate/cli/issues/497)
+* **engine:** scan top-level export declarations with a null source ([#493](https://github.com/archgate/cli/issues/493)) ([d07db03](https://github.com/archgate/cli/commit/d07db03985174c15b8f5480ad805d52a6c1e289b)), closes [#491](https://github.com/archgate/cli/issues/491)
+* **engine:** stop dropping AST nodes with exotic literal values ([#494](https://github.com/archgate/cli/issues/494)) ([0015542](https://github.com/archgate/cli/commit/001554264af011d713dd1f4eeba66e4b0bdd2a0c)), closes [#493](https://github.com/archgate/cli/issues/493) [#493](https://github.com/archgate/cli/issues/493)
+* **lint:** resolve no-bare-env-restore by captured key and lexical scope ([#524](https://github.com/archgate/cli/issues/524)) ([7094a3a](https://github.com/archgate/cli/commit/7094a3adac2c3d32c4eac1ab6a4c21c7c0bd7b89)), closes [#498](https://github.com/archgate/cli/issues/498)
+* **rules:** make ARCH-020 and ARCH-023 match ctx.ast() instead of raw text ([#533](https://github.com/archgate/cli/issues/533)) ([ad5529b](https://github.com/archgate/cli/commit/ad5529b90590461367706da8aa80c50a54813c18)), closes [#513](https://github.com/archgate/cli/issues/513), references [#486](https://github.com/archgate/cli/issues/486)
+* **tests:** replace bun:test anti-patterns with idiomatic patterns ([#512](https://github.com/archgate/cli/issues/512)) ([bcb086f](https://github.com/archgate/cli/commit/bcb086f7e5c4da4628a7c08aad9d826dc11e34ef))
+
 ## [0.50.0](https://github.com/archgate/cli/compare/v0.49.0...v0.50.0) (2026-07-17)
 
 ### Features
