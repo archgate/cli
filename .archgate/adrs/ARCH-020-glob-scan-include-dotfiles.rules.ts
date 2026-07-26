@@ -17,7 +17,12 @@ function isScanCall(node: EsTreeNode): boolean {
   return property?.type === "Identifier" && property.name === "scan";
 }
 
-/** Does this call's argument list include an object literal with a `dot` key? */
+/**
+ * Does this call's argument list include a `dot` option that isn't
+ * disqualified? A non-literal value (identifier, expression) can't be
+ * resolved statically, so it's treated as compliant; a literal value must
+ * be `true` -- `dot: false` reproduces the exact bug this ADR prevents.
+ */
 function hasDotOption(call: EsTreeNode): boolean {
   const args = (call.arguments as EsTreeNode[] | undefined) ?? [];
   return args.some((arg) => {
@@ -28,9 +33,15 @@ function hasDotOption(call: EsTreeNode): boolean {
       const key = prop.key as
         | (EsTreeNode & { name?: unknown; value?: unknown })
         | undefined;
-      if (key?.type === "Identifier") return key.name === "dot";
-      if (key?.type === "Literal") return key.value === "dot";
-      return false;
+      const isDotKey =
+        key?.type === "Identifier"
+          ? key.name === "dot"
+          : key?.type === "Literal" && key.value === "dot";
+      if (!isDotKey) return false;
+      const value = prop.value as
+        | (EsTreeNode & { value?: unknown })
+        | undefined;
+      return value?.type !== "Literal" || value.value === true;
     });
   });
 }

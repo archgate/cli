@@ -55,7 +55,7 @@ Every call to `Bun.Glob#scan()` (`glob.scan(...)`) in source MUST pass `{ dot: t
 
 ### Automated
 
-- **Archgate rule** ARCH-020/glob-scan-dot: Parses `src/**/*.ts` via `ctx.ast()` ([ARCH-022](./ARCH-022-ast-aware-rule-context.md)) and walks the ESTree for real `<expr>.scan(...)` `CallExpression` nodes, reporting any whose argument list has no object literal with a `dot` key. Structural, not text-based, so a comment or string that merely mentions `.scan()` cannot be misreported (see [archgate/cli#513](https://github.com/archgate/cli/issues/513)). Severity: error.
+- **Archgate rule** ARCH-020/glob-scan-dot: Parses `src/**/*.ts` via `ctx.ast()` ([ARCH-022](./ARCH-022-ast-aware-rule-context.md)) and walks the ESTree for real `<expr>.scan(...)` `CallExpression` nodes, reporting any whose argument list has no `dot` key with a `true` (or non-statically-resolvable) value — a literal `dot: false` is flagged. Structural, not text-based, so a comment or string that merely mentions `.scan()` cannot be misreported (see [archgate/cli#513](https://github.com/archgate/cli/issues/513)). Severity: error.
 
 ### Manual
 
