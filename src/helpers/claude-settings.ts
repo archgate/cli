@@ -12,7 +12,7 @@ const ClaudePermissionsSchema = z
   })
   .passthrough();
 
-/** @internal Exported for testing only. */
+/** Exported for testing only. */
 export const ClaudeSettingsSchema = z
   .object({
     // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default for optional fields
