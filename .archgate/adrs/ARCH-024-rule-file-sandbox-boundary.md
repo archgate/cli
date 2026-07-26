@@ -32,6 +32,8 @@ A denylist cannot hold it. The capability being contained is "evaluate code," an
 
 The same argument applies to runtime globals: `Bun.spawn` is reachable by aliasing (`const B = Bun`), destructuring, `Reflect.get`, and the `globalThis`/`global`/`self` aliases, and `(() => {}).constructor` is the `Function` constructor — that is, `eval` — reachable off any receiver, including through a destructuring binding pattern.
 
+A `node:`-prefixed specifier resists the same shadowing problem: Node's module resolution reserves the `node:` scheme, so a target project's own `node_modules/path` cannot intercept `node:path` the way it can intercept a bare `path` import — which is why the Decision's allowlist admits only the `node:` form.
+
 **Alternatives considered:**
 
 - **Keep the denylist and add the missing cases** — Rejected. Each escape above is a distinct category rather than a missing entry, and `data:` URLs alone are unbounded. A denylist is a permanent commitment to losing a race against the module resolver.
@@ -41,49 +43,65 @@ The same argument applies to runtime globals: `Bun.spawn` is reachable by aliasi
 
 ## Decision
 
-`.rules.ts` source MUST be statically scanned by `scanRuleSource()` and pass with zero violations before `src/engine/loader.ts` imports it.
+`.rules.ts` source MUST be statically scanned by `scanRuleSource()` and pass with zero violations before `loader.ts` imports it. Key Definitions carries the exact identifier lists these clauses cite.
 
-**1. The module check MUST be an allowlist, never a denylist.** `ALLOWED_MODULES` in `src/engine/rule-scanner.ts` enumerates every specifier a rule file may import; any other specifier MUST be blocked. A module denylist MUST NOT be reintroduced in any form.
+**1. Allowlist, never a denylist.** `ALLOWED_MODULES` (`rule-scanner.ts`) enumerates every specifier a rule file may import; any other specifier MUST be blocked, and a denylist MUST NOT be reintroduced.
 
-**2. Only `node:`-prefixed specifiers MAY be allowlisted:** `node:path`, `node:url`, `node:util`, `node:crypto`. Bare forms MUST NOT be allowed — they are shadowable by the target project's `node_modules`.
+**2. Only `node:`-prefixed specifiers MAY be allowlisted** (Key Definitions has the four); bare forms MUST NOT be allowed (Context: why `node:` resists shadowing).
 
-**3. Every construct that evaluates a module MUST pass the same check:** static `import`, dynamic `import()` with a literal specifier, `export ... from`, `export * from`. A non-literal `import()` specifier cannot be checked statically and MUST be refused outright.
+**3. Every construct that evaluates a module MUST pass the same check:** static `import`, literal-specifier dynamic `import()`, `export ... from`, `export * from`. A non-literal `import()` specifier MUST be refused outright.
 
-**4. Dangerous runtime globals MUST be blocked by name, not by usage shape.** Any code reference to `Bun`, `process`, `globalThis`, `global`, `self`, `Reflect`, `eval`, `Function`, `fetch`, `WebSocket`, `XMLHttpRequest`, `EventSource`, or `require` MUST be blocked outside a property-key slot (`foo.process`, `{ process: 1 }` are fine); `import.meta.require(...)` is a `MetaProperty`, blocked separately. `.constructor` — which yields `Function`, i.e. `eval` — MUST be refused on **any** receiver in every static spelling: `x.constructor`, `x["constructor"]`, and the binding patterns `{ constructor: F }`, `{ ["constructor"]: F }`, `{ constructor }`. Property matching MUST read both `o.name` and `o["name"]` (`staticPropName()`), closing aliased receivers. First-party and imported scans MUST stay converged (`scanImportedRuleSource()` delegates to `scanRuleSource()`): a first-party rule file also executes with full privilege. A `.constructor` reached through a runtime-computed key is an accepted residual, recorded under Consequences.
+**4. Dangerous runtime globals MUST be blocked by name, not usage shape** — Key Definitions has the identifier set, blocked `.constructor` spellings, and matching mechanism; Do's/Don'ts covers scan convergence.
 
-**5. Third-party rule files MUST be scanned at import time, before reaching disk.** `writeImportedAdrs()` in `src/helpers/adr-import.ts` MUST run `scanImportedRuleSource()` on every incoming `.rules.ts` and refuse the entire import on any violation, before the first file is written. Once a file lands in `.archgate/adrs/`, no provenance remains.
+**5. Third-party rule files MUST be scanned at import time, before reaching disk.** `writeImportedAdrs()` MUST run `scanImportedRuleSource()` on each incoming file and refuse the entire import on any violation, before the first file is written.
 
-**6. Raw source text MUST be scanned for invisible characters, and MUST NOT be scanned for dangerous names.** `scanSourceText()` MUST run before transpilation, rejecting bidi controls, directional marks, and zero-width or invisible characters — the "Trojan Source" class (CVE-2021-42574). A BOM at offset 0 is permitted. These violations MUST be reported even when the file fails to parse.
+**6. Raw source text MUST be scanned for invisible characters, and MUST NOT be scanned for dangerous names.** `scanSourceText()` runs before transpilation (Key Definitions lists the blocked classes). Reported even when the file fails to parse.
 
-**7. The walk MUST visit every node, and `AstNodeSchema` MUST NOT reject a node over a field the scanner does not read.** `parseNode()` drops a node failing `safeParse()` with its entire subtree, so an over-strict schema silently unscans the payload while clauses 1–6 still report a pass. The schema MUST use `.passthrough()`, MUST constrain only `type`, `name`, `computed`, `source`, `object`, `property`, `callee`, `left`, MUST keep `source` nullable, and MUST leave a `Literal`'s `value` as `z.unknown().optional()`. Restore a dropped node by _widening_ the schema, never by adding a new block.
+**7. The walk MUST visit every node; `AstNodeSchema` MUST NOT reject a node over a field the scanner does not read** — Consequences has the silent-drop risk this guards against, Key Definitions the exact constraints. Restore a dropped node by _widening_ the schema, never a new block.
 
-**Scope.** This ADR governs the static scan gating `.rules.ts` execution, and where that gate is applied. It does not cover the `RuleContext` API surface ([ARCH-022](./ARCH-022-ast-aware-rule-context.md)), the sandboxing of `ctx.readFile`/`ctx.glob` paths, or a future move to execution-time isolation — each its own ADR.
+**Scope.** Governs the static scan gating `.rules.ts` execution, not `RuleContext` ([ARCH-022](./ARCH-022-ast-aware-rule-context.md)), `ctx.readFile`/`ctx.glob` sandboxing, or a future execution-time isolation move.
+
+## Key Definitions
+
+**Allowed modules (clause 2):** `node:path`, `node:url`, `node:util`, `node:crypto` — the only specifiers `ALLOWED_MODULES` admits.
+
+**Blocked globals (clause 4):** `Bun`, `process`, `globalThis`, `global`, `self`, `Reflect`, `eval`, `Function`, `fetch`, `WebSocket`, `XMLHttpRequest`, `EventSource`, `require`, and `import.meta.require(...)`, blocked outside a property-key slot (`foo.process`, `{ process: 1 }` are fine).
+
+**Blocked `.constructor` spellings (clause 4):** `x.constructor`, `x["constructor"]`, `{ constructor: F }`, `{ ["constructor"]: F }`, `{ constructor }` — refused on any receiver, matched via `staticPropName()`. Consequences records the one accepted residual: a `.constructor` reached through a runtime-computed key.
+
+**Invisible-character classes blocked (clause 6):** bidi controls, directional marks, and zero-width/invisible characters — the "Trojan Source" class (CVE-2021-42574). A BOM at offset 0 is permitted.
+
+**`AstNodeSchema` constraints (clause 7):** `.passthrough()`, constrained only to `type`, `name`, `computed`, `source`, `object`, `property`, `callee`, `left`; `source` stays nullable, and a `Literal`'s `value` stays `z.unknown().optional()`.
+
+**Module-evaluating AST node types routed through the module check (clause 3):** `ImportDeclaration`, `ImportExpression`, `ExportNamedDeclaration`, `ExportAllDeclaration`.
+
+**Process-internal properties blocked alongside `.constructor` (clause 4):** `binding`, `dlopen`, `_linkedBinding`.
 
 ## Do's and Don'ts
 
 ### Do
 
-- **DO** keep the module check an allowlist — add to `ALLOWED_MODULES` only after establishing the specifier cannot be shadowed by the target project and cannot itself load further code
-- **DO** route every module-evaluating construct through that check (`ImportDeclaration`, `ImportExpression`, `ExportNamedDeclaration`, `ExportAllDeclaration`), and refuse a non-literal `import()` specifier
-- **DO** block _naming_ a dangerous runtime global (`Bun`, `process`, `globalThis`/`global`/`self`, `Reflect`, `eval`, `Function`, `fetch`, `WebSocket`, `require`, …) rather than the shapes of using it, and keep `scanImportedRuleSource()` delegating to `scanRuleSource()`
-- **DO** match a dangerous property by name alone, in both the `o.name` and `o["name"]` spellings — `.constructor` on any receiver (including the binding patterns `{ constructor: F }`, `{ ["constructor"]: F }`, `{ constructor }`) and the process internals `binding`, `dlopen`, `_linkedBinding`
+- **DO** keep the module check an allowlist (Manual Enforcement item 3)
+- **DO** route every module-evaluating construct through that check (Key Definitions), refuse non-literal `import()` specifiers
+- **DO** block dangerous globals by name, not usage shape (Key Definitions); keep `scanImportedRuleSource()` delegating to `scanRuleSource()`
+- **DO** match dangerous properties by name, both `o.name`/`o["name"]` spellings (Key Definitions)
 - **DO** scan imported rule files in `writeImportedAdrs()` before any file is written to disk
-- **DO** model `AstNodeSchema` so no valid ESTree node can fail validation — `.passthrough()`, constrain only the fields the walk reads, `Literal`'s `value` as `z.unknown().optional()`
-- **DO** add a failing regression case to `tests/engine/rule-scanner-escapes.test.ts` **before** fixing any newly discovered escape, and confirm the fix by having `archgate check` refuse a real payload
-- **DO** direct rule authors who need language tooling to `ctx.ast()` per [ARCH-022](./ARCH-022-ast-aware-rule-context.md)
-- **DO** keep the raw-text pass scoped to character-level integrity, and reach for the AST for anything semantic
-- **DO** spell blocked code points numerically (`0x202e`), never as literal characters and never as `\u` escapes
+- **DO** model `AstNodeSchema` so no valid ESTree node fails validation (Key Definitions)
+- **DO** add a failing case to `rule-scanner-escapes.test.ts` before fixing a new escape, confirmed by `archgate check` refusing it
+- **DO** direct rule authors needing language tooling to `ctx.ast()` ([ARCH-022](./ARCH-022-ast-aware-rule-context.md))
+- **DO** keep the raw-text pass scoped to character integrity; use the AST for anything semantic
+- **DO** spell blocked code points numerically (`0x202e`), never as literal characters or escapes
 
 ### Don't
 
-- **DON'T** reintroduce a denylist in any form — not of dangerous modules, not of `Bun`/`process` member shapes (`Bun.spawn`, `process.binding`)
-- **DON'T** allowlist a bare specifier (`path`, `url`) or `node:module`, whose `createRequire()` reconstitutes the capability the allowlist removes
-- **DON'T** add a module-evaluating AST node type to the walker without wiring it to the allowlist
-- **DON'T** assume a specifier is safe because it names no Node builtin — `./evil.ts`, `data:text/javascript,...`, and bare npm packages all execute code
-- **DON'T** import a rule file that has not been scanned, or scan it after `import()`; and don't rely on `scanImportedRuleSource()` alone, which is additive to `scanRuleSource()`, not a replacement
-- **DON'T** add a text search for `child_process`, `Bun.spawn`, or any other dangerous name — it misses `import("\x6eode:child_process")` and false-positives on this repository's own `ARCH-007-cross-platform-subprocess-execution.rules.ts`, `ARCH-014-prefer-bun-env.rules.ts`, and `ARCH-022-ast-aware-rule-context.rules.ts`
-- **DON'T** read a green signal as evidence the sandbox holds — a passing `archgate check` is what a successful escape produces, and an obfuscation fixture with no guard asserting it is still obfuscated is a no-op
-- **DON'T** tighten `AstNodeSchema` to a narrower union or a required/non-nullable field for a value the walk never reads (a `Literal`'s `value`, a declaration's `source`), and **DON'T** block all computed member access to close the computed-key route to `.constructor` — it would reject ordinary `obj[key]`; that residual belongs to execution-time isolation
+- **DON'T** reintroduce a denylist — of modules or `Bun`/`process` member shapes
+- **DON'T** allowlist a bare specifier or `node:module` — `createRequire()` reconstitutes what the allowlist removes
+- **DON'T** add a module-evaluating AST node type without wiring it to the allowlist
+- **DON'T** assume a specifier is safe for naming no Node builtin (Context's escape table)
+- **DON'T** import an unscanned rule file, or scan after `import()` — `scanImportedRuleSource()` is additive to, not a replacement for, `scanRuleSource()`
+- **DON'T** text-search for dangerous names — misses `import("\x6eode:child_process")`-style obfuscation (Manual Enforcement item 7)
+- **DON'T** read a green `archgate check` as proof the sandbox holds — a successful escape produces one too
+- **DON'T** tighten `AstNodeSchema`, or block all computed access to close the `.constructor` route (Consequences: the residual, and why)
 
 ## Consequences
 
@@ -139,7 +157,7 @@ Code reviewers MUST verify, for any PR touching `src/engine/rule-scanner.ts`, `s
 4. Any newly discovered escape arrives with a **failing** test in `tests/engine/rule-scanner-escapes.test.ts` added before the fix, so the test is demonstrated to catch it.
 5. A permissive assertion in the escape suite (any test named "allows...") is justified explicitly. The suite's default posture is refusal.
 6. `scanRuleSource()` still runs before `import()` in `loader.ts`, and `scanImportedRuleSource()` still runs before the first `writeFileSync()` in `writeImportedAdrs()`.
-7. The raw-text pass has not grown a search for dangerous names, and blocked code points are still spelled numerically rather than as literals or escapes.
+7. The raw-text pass has not grown a search for dangerous names, and blocked code points are still spelled numerically rather than as literals or escapes. A text search for `child_process`/`Bun.spawn`/etc. would miss an obfuscated specifier like `import("\x6eode:child_process")` and false-positive on this repo's own `ARCH-007-cross-platform-subprocess-execution.rules.ts`, `ARCH-014-prefer-bun-env.rules.ts`, and `ARCH-022-ast-aware-rule-context.rules.ts`, which name these identifiers legitimately.
 8. Dangerous globals are blocked by **naming** (the banned-identifier set), not by per-shape member/call checks. A newly added blocked global or `.constructor`-style property check arrives with a matching case in the reflective-globals block of the escape suite, and covers the `o.name`/`o["name"]` member spellings and the `{ name: v }` destructuring spelling via `staticPropName()`.
 9. The first-party and imported scans are still converged (`scanImportedRuleSource()` delegates), so a new global block cannot be closed for one entry point and left open for the other.
 10. Any narrowing of `AstNodeSchema` — a tighter union, a newly required or non-nullable field — is treated as security-relevant per clause 7: a node that fails `safeParse` is dropped with its subtree, so the change is justified against whether any valid ESTree node can now fail validation, and arrives with a coverage case in the escape suite.
@@ -147,8 +165,6 @@ Code reviewers MUST verify, for any PR touching `src/engine/rule-scanner.ts`, `s
 ### Exceptions
 
 Any proposal to widen `ALLOWED_MODULES` beyond `node:`-prefixed specifiers, to follow imports transitively rather than refuse them, or to remove the import-time scan in `writeImportedAdrs()` MUST be documented as a separate ADR and approved by the project maintainer before implementation. Moving `.rules.ts` execution into a real sandbox (worker, subprocess, or restricted-resolver VM) is the sanctioned direction for strengthening this boundary and likewise warrants its own ADR — it would change the nature of the guarantee, not just its coverage.
-
-**Documented briefing-budget overflow** (reported by `archgate check`): the `Decision` and `Do's and Don'ts` sections exceed the `review-context` briefing cap and MUST NOT be shortened further. Both enumerate identifiers whose omission would change what this ADR governs: the banned-global list, the five `.constructor` spellings, the `AstNodeSchema` field names, the four allowed module forms, and the seven numbered clauses cited by ID elsewhere in the repository. Consumers reading a truncated briefing MUST open the full ADR.
 
 ## References
 

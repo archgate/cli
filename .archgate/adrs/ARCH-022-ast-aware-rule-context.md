@@ -28,7 +28,7 @@ The lowest-cost path that adds real capability without expanding the CLI's delib
 
 ## Decision
 
-`RuleContext` MUST expose exactly one AST method, catch-all signature:
+`RuleContext` MUST expose exactly one AST method:
 
 ```typescript
 ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
@@ -36,33 +36,39 @@ ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
 // AstOptions  = { rev?: "base"; comments?: boolean }
 ```
 
-Dispatch on `language` is internal and MUST be invisible to rule authors: a rule gets a parsed tree or an exception, never the mechanism.
+Dispatch on `language` is internal and MUST be invisible to rule authors.
 
-- **`"typescript"` / `"javascript"`** MUST reuse the in-process `meriyah` parser, spawning no subprocess. `rule-scanner.ts`'s `parseModule()` call, duplicated inline in `scanRuleSource()`/`scanImportedRuleSource()`, MUST be factored into one shared exported helper (`parseTsOrJsSource`, `src/engine/js-parser.ts`) used by both the scanner and `ctx.ast()` — never a third inline copy.
-- **`"python"` / `"ruby"`** MUST invoke the language's own standard-library AST facility as a subprocess via `Bun.spawn`, per [ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md): Python's `ast` module (`<probed-python> -I -c "..."` → JSON), Ruby's `Ripper` (`ruby -rripper -rjson -e "..."` → JSON s-expression). `<probed-python>` comes from the availability probe — never hardcoded. The Python `-I` is mandatory: without it `python -c` puts the target project's cwd on `sys.path`, where a planted `ast.py`/`json.py` executes on stdlib import. Ruby's load path has excluded the cwd since 1.9.2, so it needs no equivalent flag. No third-party parser, native binding, or WASM grammar is introduced.
+1. **TS/JS MUST reuse the in-process `meriyah` parser**, no subprocess. `rule-scanner.ts`'s duplicated `parseModule()` MUST factor into one helper (`parseTsOrJsSource`) shared by scanner and `ctx.ast()`.
+2. **Python/Ruby MUST invoke its own stdlib AST facility as a subprocess** via `Bun.spawn` ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md); Key Definitions: commands). No third-party parser or binding.
+3. **Guardrail ordering.** Rule code MUST NEVER reach `Bun.spawn`, `child_process`, or any subprocess/filesystem primitive; `ctx.ast()` is the only door. All four MUST run inside `createRuleContext()`, before any subprocess, in the order Key Definitions lists.
+4. **Failure semantics.** `ctx.ast()` MUST throw — never `null` — on interpreter-unavailable, parse-failure, no-base-resolved, or absent-at-base (Key Definitions). `fileAtBase()` is the exception, returning `null` for base cases.
+5. **Base-revision access.** `ast(path, language, { rev: "base" })` and `fileAtBase(path)` MUST reach the base git revision (Key Definitions), closing the [ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md) gap.
+6. **Comment access.** `{ comments: true }` MUST attach a `comments` array of `CommentToken` (Key Definitions). Opt-in, all languages, folded into `ast()`.
 
-**Guardrail ordering — this ADR's core architectural constraint.** Rule code MUST NEVER reach `Bun.spawn`, `child_process`, or any other subprocess/filesystem primitive; `ctx.ast()` is the only door, exactly as `glob`/`grep`/`readFile` are. All four MUST execute inside `createRuleContext()` in `src/engine/runner.ts`, before any subprocess is spawned, in this order: **`safePath` → `AST_LANGUAGE_EXTENSIONS` → `probeInterpreter` → `runAstSubprocess`**.
+**Non-goal: cross-language shape unification.** `ctx.ast()` unifies the call site and failure contract, not the tree shape — ESTree for TS/JS, Python's `ast` schema, Ruby's s-expression. Authors MUST know the target vocabulary (Context: trade-off).
+
+**Scope.** Covers `ast()`'s signature, dispatch, guardrail ordering, failure semantics — not rollout or authoring guidance.
+
+## Key Definitions
+
+**Python/Ruby subprocess commands (clause 2):** Python's `ast` module (`<probed-python> -I -c "..."` → JSON), Ruby's `Ripper` (`ruby -rripper -rjson -e "..."` → JSON s-expression). `<probed-python>` comes from the availability probe — never hardcoded. The Python `-I` is mandatory: without it `python -c` puts the target project's cwd on `sys.path`, where a planted `ast.py`/`json.py` executes on stdlib import. Ruby's load path has excluded the cwd since 1.9.2, so it needs no equivalent flag. Both serializers MUST strip a leading UTF-8 BOM (`encoding="utf-8-sig"` / `mode: "r:bom|utf-8"`), since plain `utf-8` keeps U+FEFF and `ast.parse` rejects it.
+
+**The four guardrail steps (clause 3), in order:**
 
 1. **Path safety** — `safePath()`, the same sandbox as `readFile`/`glob`: no traversal outside `scopedFiles`, no symlink escapes. `assertNoSymlinkInPath()` (`src/engine/safe-path.ts`) MUST reject a link at **every component below the project root**, not just the leaf (a linked `<root>/docs` passes lexical containment and a leaf `lstat` while the OS reads outside). Two deliberate limits: components at or above the root are NOT inspected (macOS's temp prefix `/var` → `/private/var` is itself a link and would reject every temp root), and each component is tested by boolean `lstat`, never compared to `realpath`, which case-canonicalizes on Windows/macOS and would reject legitimate case-mismatched paths.
 2. **Language plausibility check** — extension and/or leading content MUST be checked against the requested `language` (`AST_LANGUAGE_EXTENSIONS`) before any interpreter is invoked; `ctx.ast("config.json", "python")` MUST fail here rather than hand arbitrary content to a Python interpreter.
 3. **Interpreter availability probe** — `probeInterpreter` MUST run `Bun.spawn([candidate, "--version"])` in `try/catch` (the pattern `isClaudeCliAvailable()` uses in ARCH-007) before the real invocation, trying candidates in order — `python3` then `python` off Windows; `python`, `python3`, then the `py` launcher on Windows, branching on [ARCH-009](./ARCH-009-platform-detection-helper.md)'s `isWindows()` — and use the first that resolves for both the probe and the real invocation. (`python3` is not a universal Windows PATH alias; the python.org installer registers `py` even when "Add python.exe to PATH" is unchecked.) The result MUST be cached once per `check` invocation, never re-probed per file.
 4. **Guarded invocation** — `runAstSubprocess` MUST use array-based arguments only, per ARCH-007, with no shell interpolation of file contents or paths.
 
-**Failure semantics.** `ctx.ast()` MUST throw — never return `null` or any other sentinel — in four cases: interpreter unavailable, parse failure, and under `{ rev: "base" }` no base revision resolved (run without `--base`) or the path absent at the base (added since). A sentinel would let a rule silently no-op and report a false "0 violations", masking a capability gap as a pass. No new error boundary or exit code is needed: `runner.ts`'s per-rule `try/catch` around each `check(ctx)` (the loop over `Object.entries(ruleSet.rules)`) isolates the throw to that rule while others continue, and `reporter.ts`'s `getExitCode()` already reserves exit `2` for rule execution errors, distinct from `1` (violations) and `0` (pass). That code is coarse by design ("a rule could not complete"), so the four cases MUST stay distinguishable in the thrown message text — e.g. "Python interpreter not found on PATH" vs. "Failed to parse `<path>`: `<parser error>`" vs. "needs a base revision, but none is resolved" vs. "did not exist at the base revision".
+**Failure semantics detail (clause 4).** A sentinel would let a rule silently no-op and report a false "0 violations", masking a capability gap as a pass. No new error boundary or exit code is needed: `runner.ts`'s per-rule `try/catch` around each `check(ctx)` (the loop over `Object.entries(ruleSet.rules)`) isolates the throw to that rule while others continue, and `reporter.ts`'s `getExitCode()` already reserves exit `2` for rule execution errors, distinct from `1` (violations) and `0` (pass). That code is coarse by design ("a rule could not complete"), so the four cases MUST stay distinguishable in the thrown message text — e.g. "Python interpreter not found on PATH" vs. "Failed to parse `<path>`: `<parser error>`" vs. "needs a base revision, but none is resolved" vs. "did not exist at the base revision". `fileAtBase()` is the exception because "is there a base to compare against?" is ordinary control flow and a forced `try/catch` would be the worse interface.
 
-`fileAtBase()` is the one deliberate exception to the throw contract: it returns `null` for the no-base and absent-at-base cases, because "is there a base to compare against?" is ordinary control flow and a forced `try/catch` would be the worse interface.
-
-**Base-revision access.** `RuleContext` MUST also reach a file at its **base git revision**, not just the working tree: `ast(path, language, { rev: "base" })` parses the base commit's content with the same language-native shape and throw contract, and `fileAtBase(path): Promise<string | null>` returns the raw base source (`null` per the exception above). This closes the gap [ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md) exposed — base comparison is a common legitimate pattern (documentation-only waivers, no-op detection), and the lack of a sanctioned path for it is what drove rule authors to spawn git and an interpreter directly.
-
-**The "base" is the merge base of `--base` and HEAD** — the exact commit `changedFiles` diffs against (git three-dot `ref...HEAD`), resolved once per `check` run by `getMergeBase` in `src/engine/git-files.ts` and `null` without `--base`. Base reads MUST use that same commit so a rule compares against the same point as the change set it was handed.
-
-**Base access introduces NO new privileged path and does NOT alter the four-step guardrail ordering** — only _source acquisition_ changes:
+**Base-revision mechanics (clause 5).** The "base" is the merge base of `--base` and HEAD — the exact commit `changedFiles` diffs against (git three-dot `ref...HEAD`), resolved once per `check` run by `getMergeBase` in `src/engine/git-files.ts` and `null` without `--base`. Base reads MUST use that same commit so a rule compares against the same point as the change set it was handed. Only _source acquisition_ changes, nothing else:
 
 - Git reads (`git merge-base`, `git show <mergebase>:<path>`) MUST stay in `src/engine/git-files.ts`, the sanctioned git subprocess site `no-unsanctioned-engine-subprocess` permits. No new `Bun.spawn` site, no `child_process`.
 - All four guardrails still run, in order, on the original path — `safePath` (which also yields the repo-relative form `git show` needs), `AST_LANGUAGE_EXTENSIONS`, interpreter probe, guarded invocation.
 - TS/JS base source goes through the same shared `parseTsOrJsSource`. Python/Ruby base content is not on disk, so `writeTempSourceFile` (`ast-support.ts`) writes it to a throwaway OS-temp file — outside the project tree, hence outside any cwd-derived load path — for the **same, unchanged** `PYTHON_AST_PROGRAM`/`RUBY_AST_PROGRAM` under the **same mandatory `-I` isolation**; `python-subprocess-isolated` is unchanged. That write MUST defeat shared-`/tmp` symlink pre-creation (an attacker planting a link at a predictable name) with a fresh `mkdtemp` directory (mode `0700`, unpredictable suffix) plus exclusive create (`wx`, mode `0600`), so the open fails rather than following a planted path.
 
-**Comment access.** `{ comments: true }` attaches to the returned tree a `comments` array of `CommentToken` (`{ type: "line" | "block"; value: string; loc: { start, end } }`) — structured data for comment-governance rules (length, style, content) in place of line-by-line regex. Opt-in, all four languages. It MUST fold into `ast()` rather than a separate method, so it runs inside the same four-guardrail flow and `single-ast-method` stays satisfied with the catch-all signature unchanged. **No new subprocess site and no new guardrail** — only an in-process TS/JS source scan plus alternate serializer programs selected inside the same guarded invocation — so `ast-guardrail-ordering` already covers it.
+**Comment access detail (clause 6).** `CommentToken` is `{ type: "line" | "block"; value: string; loc: { start, end } }` — structured data for comment-governance rules (length, style, content) in place of line-by-line regex.
 
 - `value` has its delimiters removed (`//`, `/* … *​/`, `#`). Python has only `"line"` comments; `"""` docstrings are string expressions in the `ast` tree, NOT comments.
 - **TS/JS comments come from the ORIGINAL source, not the tree** (`extractJsComments` in `js-parser.ts`), because `Bun.Transpiler` strips them before `meriyah` sees them — with the advantage that their `loc` is accurate against the original `.ts`, unlike the tree's transpiled-relative `loc`. The scan is string/template-literal aware but does NOT track regex literals, so a delimiter inside a regex literal (e.g. `/foo\/\//`) is a known blind spot, consistent with `source-positions.ts`.
@@ -70,35 +76,30 @@ Dispatch on `language` is internal and MUST be invisible to rule authors: a rule
 - Ruby `#` comments are `"line"` tokens; each `=begin`/`=end` region is ONE `"block"` token whose `value` is the inner content (marker lines stripped) with line endings normalized to LF, so a CRLF file yields the same value on every OS. Comment `loc` columns are converted from Ripper's byte offsets to character offsets, matching the Python/TS convention; the sexp tree's own node positions stay byte-based.
 - Tokenizer/lex errors on otherwise-parseable source degrade to an empty comment list rather than failing the parse.
 
-**Explicit non-goal: cross-language AST shape unification.** `ctx.ast()` unifies the call site and the failure contract, NOT the returned tree's shape: ESTree nodes for TypeScript/JavaScript (`meriyah`), the standard `ast` module's own schema for Python, `Ripper`'s native s-expression for Ruby. Rule authors MUST know the target language's own AST vocabulary. This trade is accepted explicitly, in exchange for avoiding the dependency and distribution cost of a unifying parser (see the tree-sitter alternatives above).
-
-**Scope.** This ADR covers `RuleContext.ast()`'s signature, internal dispatch, guardrail ordering, and failure semantics. It does not cover which languages ship in which release, rollout sequencing, or example rule-authoring guidance — product decisions tracked separately, not architectural constraints.
-
 ## Do's and Don'ts
 
 ### Do
 
-- **DO** implement `ast()` as a single `RuleContext` method, dispatch entirely internal to `createRuleContext()` in `src/engine/runner.ts`
-- **DO** give the catch-all overload the same third parameter as the literal-language overloads — `ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>` — or a caller holding a dynamically-typed `AstLanguage` silently loses `{ rev: "base" }` and `{ comments: true }`; `single-ast-method` enforces this exact signature
-- **DO** reuse the `meriyah` parser for `"typescript"`/`"javascript"`, factoring `rule-scanner.ts`'s duplicated `parseModule()` into one shared helper used by both the scanner and `ctx.ast()`
-- **DO** run path safety, language plausibility, interpreter availability, and guarded invocation in exactly that order before any subprocess is spawned, with `Bun.spawn` array-based arguments ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)), caching the probe once per `check` invocation
-- **DO** run the Python AST subprocess in isolated mode (`python -I -c ...`) — Ruby needs no equivalent, its load path having excluded the cwd since 1.9.2 — and strip a leading UTF-8 BOM in both serializers (`encoding="utf-8-sig"` / `mode: "r:bom|utf-8"`), since plain `utf-8` keeps U+FEFF and `ast.parse` rejects it
-- **DO** throw from `ctx.ast()` on missing interpreter or parse failure, letting it propagate to `runner.ts`'s per-rule `try/catch`
-- **DO** document, in the type signature or JSDoc, that the returned node shape differs per language
-- **DO** use `ast(path, language, { rev: "base" })` or `fileAtBase()` for base comparison — never shell out to git or an interpreter from rule code ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md)) — keeping base git reads in `src/engine/git-files.ts` and resolving the base as the merge base of `--base` and HEAD, matching `changedFiles`' `ref...HEAD` diff
-- **DO** use `ast(path, language, { comments: true })` for comment-governance rules — its `comments` array is structured (`type`/`value`/`loc`) and, even for `"typescript"`, `loc` is ORIGINAL-source-accurate, unlike the tree's transpiled-relative `loc`
-- **DO** mirror every `RuleContext` surface change — methods, properties, and the ambient types they reference — into the generated shim in `src/helpers/rules-shim.ts` in the same change; `rulecontext-shim-parity` fails on member-name drift, and reviewers MUST verify full signatures and JSDoc match too
+- **DO** implement `ast()` as one method, one catch-all signature, dispatch internal to `createRuleContext()`; `single-ast-method` enforces this
+- **DO** reuse the `meriyah` parser for TS/JS via one shared `parseTsOrJsSource` helper (Decision clause 1)
+- **DO** run the four guardrails in Key Definitions' order, array-based `Bun.spawn` args ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)), probe cached once per `check`
+- **DO** run the Python AST subprocess isolated (Key Definitions) — Ruby needs no equivalent flag
+- **DO** throw from `ctx.ast()` on missing interpreter or parse failure, propagating to `runner.ts`'s per-rule `try/catch`
+- **DO** document, in the signature or JSDoc, that the returned node shape differs per language
+- **DO** use `ast(path, language, { rev: "base" })`/`fileAtBase()` for base comparison — never shell out ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md))
+- **DO** use `ast(path, language, { comments: true })` for comment-governance rules (Key Definitions: shape)
+- **DO** mirror every `RuleContext` change into the shim in the same change; `rulecontext-shim-parity` fails on drift
 
 ### Don't
 
-- **DON'T** expose `Bun.spawn`, `child_process`, or any other raw subprocess primitive on `RuleContext`, or read a base revision by spawning git or an interpreter from a `.rules.ts` file — exactly the escape [ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md) blocks. `ctx.ast()` (with `{ rev: "base" }`) and `fileAtBase()` are the only sanctioned paths.
-- **DON'T** return `null` or any other silent-failure sentinel from `ctx.ast()`, including `ast({ rev: "base" })`'s no-base and added-file cases — those MUST throw, distinguishably; only `fileAtBase()` reports them as `null`.
-- **DON'T** invoke the Python/Ruby interpreter on a file before the language-plausibility check, or re-probe availability per file — cache it per `check` run.
-- **DON'T** add `tree-sitter`, `web-tree-sitter`, or any other new production dependency — Python/Ruby support MUST use only the interpreter's own standard-library AST facility.
-- **DON'T** normalize Python/Ruby output into an ESTree-like shape — explicitly out of scope.
-- **DON'T** trust `node.loc` for `language: "typescript"` — that branch parses `Bun.Transpiler` output, which drops type-only statements, comments, and blank lines, so `loc` is transpiled-relative. Re-locate in the original source (`ctx.readFile()` + `indexOf`) before reporting a line, as [ARCH-008](./ARCH-008-typed-command-options.md)'s own rules do; `loc` is source-accurate only for `"javascript"`, parsed directly.
-- **DON'T** drop the `-I` flag from the Python invocation when refactoring the guarded-invocation step — `python-subprocess-isolated` blocks this, and `tests/engine/runner-ast.test.ts` asserts a planted shadow `ast.py` cannot run.
-- **DON'T** expect a `comments` array without `{ comments: true }` (opt-in), expect Ruby comment `loc` columns to line up with the sexp tree's node positions (comment columns are character offsets, Ripper's node positions byte offsets), or treat the TS/JS comment scan as regex-literal aware (a delimiter inside a regex literal is a known blind spot).
+- **DON'T** expose `Bun.spawn`/`child_process` on `RuleContext` ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md))
+- **DON'T** return `null`/any sentinel from `ctx.ast()` (Decision clause 4) — only `fileAtBase()` returns `null`
+- **DON'T** invoke Python/Ruby before the plausibility check, or re-probe per file
+- **DON'T** add `tree-sitter`, `web-tree-sitter`, or any new production dependency (Manual Enforcement item 3)
+- **DON'T** normalize Python/Ruby output into an ESTree-like shape (non-goal)
+- **DON'T** trust `node.loc` for `"typescript"` (Key Definitions: why) — accurate only for `"javascript"`
+- **DON'T** drop the `-I` flag from Python — `python-subprocess-isolated` blocks it
+- **DON'T** expect a `comments` array without `{ comments: true }`, or treat Ruby/TS comment positions as uniform (Key Definitions)
 
 ## Consequences
 
@@ -159,8 +160,6 @@ Code reviewers MUST verify, for any PR implementing or modifying `ctx.ast()`:
 ### Exceptions
 
 Any proposal to add a bundled multi-language parser (tree-sitter, WASM grammars, or otherwise) to broaden `ctx.ast()`'s guarantees beyond this ADR's scope MUST be documented as a separate ADR, reviewed against [ARCH-006](./ARCH-006-dependency-policy.md)'s dependency-approval process, and approved by the project maintainer before implementation begins.
-
-**Documented briefing-budget overflow** (reported by `archgate check`): the `Decision` and `Do's and Don'ts` sections exceed the `review-context` briefing cap and MUST NOT be shortened further. They carry a security boundary that degrades if partially stated: the four ordered guardrails and their marker names, the `-I` isolation invariant, the `assertNoSymlinkInPath` exemptions, the temp-file hardening modes, and the per-language comment serializer contracts. The `Decision` is front-loaded so a truncated briefing still delivers the guardrail sequence; consumers MUST open the full ADR for the rest.
 
 ## References
 
