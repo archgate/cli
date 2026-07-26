@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +16,14 @@ import { join } from "node:path";
 import { Command } from "@commander-js/extra-typings";
 
 import { registerAdrListCommand } from "../../../src/commands/adr/list";
+import { AdrFrontmatterSchema } from "../../../src/formats/adr";
+
+const AdrListEntrySchema = AdrFrontmatterSchema.pick({
+  id: true,
+  title: true,
+  domain: true,
+  rules: true,
+}).array();
 
 const ADR_CONTENT_1 = `---
 id: ARCH-001
@@ -80,8 +96,8 @@ describe("adr list action handler", () => {
   let tempDir: string;
   let adrsDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-list-test-"));
@@ -141,7 +157,7 @@ describe("adr list action handler", () => {
       const allOutput = logSpy.mock.calls
         .map((c: unknown[]) => String(c[0]))
         .join("\n");
-      const parsed = JSON.parse(allOutput);
+      const parsed = AdrListEntrySchema.parse(JSON.parse(allOutput));
       expect(parsed).toBeInstanceOf(Array);
       expect(parsed[0].id).toBe("ARCH-001");
       expect(parsed[0].domain).toBe("architecture");
@@ -159,7 +175,7 @@ describe("adr list action handler", () => {
       const allOutput = logSpy.mock.calls
         .map((c: unknown[]) => String(c[0]))
         .join("\n");
-      const parsed = JSON.parse(allOutput);
+      const parsed = AdrListEntrySchema.parse(JSON.parse(allOutput));
 
       // `files`/`respectGitignore` stay out of the listing so large ADR sets
       // remain small enough for agents to read inline — `adr show` has the rest.
@@ -215,7 +231,7 @@ describe("adr list action handler", () => {
       const allOutput = logSpy.mock.calls
         .map((c: unknown[]) => String(c[0]))
         .join("\n");
-      const parsed = JSON.parse(allOutput);
+      const parsed = AdrListEntrySchema.parse(JSON.parse(allOutput));
       expect(parsed).toHaveLength(1);
       expect(parsed[0].id).toBe("GEN-001");
     });
@@ -234,7 +250,7 @@ describe("adr list action handler", () => {
   test("exits with error when .archgate/ directory is missing", async () => {
     const parent = makeProgram();
 
-    await expect(parent.parseAsync(["node", "adr", "list"])).rejects.toThrow(
+    expect(parent.parseAsync(["node", "adr", "list"])).rejects.toThrow(
       "process.exit"
     );
 

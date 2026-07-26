@@ -20,8 +20,7 @@ const DEFAULT_AGENT = "archgate-developer";
 
 const OpencodeConfigSchema = z
   // oxlint-disable-next-line no-useless-undefined -- Zod .catch() requires explicit default
-  .object({ default_agent: z.string().optional().catch(undefined) })
-  .passthrough();
+  .looseObject({ default_agent: z.string().optional().catch(undefined) });
 
 type OpencodeConfig = z.infer<typeof OpencodeConfigSchema>;
 

@@ -148,7 +148,7 @@ describe("adr update", () => {
 
   test("errors when ADR ID not found", async () => {
     const paths = projectPaths(tempDir);
-    await expect(
+    expect(
       updateAdrFile(paths.adrsDir, {
         id: "NONEXISTENT-999",
         body: "## Context\nBody.",
@@ -158,7 +158,7 @@ describe("adr update", () => {
 
   test("errors when adrs directory does not exist", async () => {
     const nonexistentDir = join(tempDir, "nonexistent", "adrs");
-    await expect(
+    expect(
       updateAdrFile(nonexistentDir, {
         id: "GEN-001",
         body: "## Context\nBody.",

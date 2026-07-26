@@ -51,6 +51,33 @@ function countAstSpawns(spy: { mock: { calls: unknown[][] } }): number {
   }).length;
 }
 
+/** Narrows `unknown` to a plain object without a type assertion. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Reads a parsed tree's `.comments` field (present only when requested). */
+function commentsOf(tree: unknown): unknown {
+  return isRecord(tree) ? tree.comments : undefined;
+}
+
+/** Reads `tree.body[0].declaration.id.name` off an ESTree Program, or "". */
+function firstDeclarationName(tree: unknown): string {
+  if (!isRecord(tree) || !Array.isArray(tree.body)) return "";
+  const first: unknown = tree.body[0];
+  if (!isRecord(first)) return "";
+  const declaration = first.declaration;
+  if (!isRecord(declaration)) return "";
+  const id = declaration.id;
+  if (!isRecord(id)) return "";
+  return typeof id.name === "string" ? id.name : "";
+}
+
+/** Reads an Error's `.message`, without asserting `unknown` is an `Error`. */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 describe("runChecks ctx.ast() per-run parse cache", () => {
   let tempDir: string;
 
@@ -59,7 +86,9 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
     mkdirSync(join(tempDir, "src"), { recursive: true });
   });
 
-  afterEach(() => safeRmSync(tempDir));
+  afterEach(() => {
+    safeRmSync(tempDir);
+  });
 
   test("identical calls across rules share one parse (same tree instance)", async () => {
     writeFileSync(join(tempDir, "src", "a.ts"), "export const v = 1;\n");
@@ -109,7 +138,7 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
     expect(treeOne).toBe(treeTwo);
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: interpreter spawn count does not scale with rule count",
     async () => {
       writeFileSync(join(tempDir, "src", "calc.py"), "x = 1\n");
@@ -168,10 +197,8 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
     expect(result.results[0].error).toBeUndefined();
     // Different outputs never collide...
     expect(trees.withComments).not.toBe(trees.plain);
-    expect(
-      (trees.withComments as { comments?: unknown[] }).comments
-    ).toBeDefined();
-    expect((trees.plain as { comments?: unknown[] }).comments).toBeUndefined();
+    expect(commentsOf(trees.withComments)).toBeDefined();
+    expect(commentsOf(trees.plain)).toBeUndefined();
     // ...while `comments: false` and omitted are the same tuple, so they share.
     expect(trees.explicitFalse).toBe(trees.plain);
   });
@@ -200,11 +227,8 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
               rev: "base",
             });
             trees.head2 = await ctx.ast("src/d.ts", "typescript");
-            const name = (tree: unknown) =>
-              (tree as { body: { declaration?: { id?: { name?: string } } }[] })
-                .body[0]?.declaration?.id?.name ?? "";
-            names.base = name(trees.base1);
-            names.head = name(trees.head1);
+            names.base = firstDeclarationName(trees.base1);
+            names.head = firstDeclarationName(trees.head1);
           },
         },
       },
@@ -245,7 +269,7 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
 
     expect(errors).toHaveLength(2);
     expect(errors[1]).toBe(errors[0]);
-    expect((errors[0] as Error).message).toContain("Failed to parse");
+    expect(errorMessage(errors[0])).toContain("Failed to parse");
   });
 
   test("aliased path spellings share one cache entry and a normalized error message", async () => {
@@ -278,12 +302,12 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
     expect(errors).toHaveLength(2);
     // One cache entry for both spellings: the very same error instance.
     expect(errors[1]).toBe(errors[0]);
-    const message = (errors[0] as Error).message;
+    const message = errorMessage(errors[0]);
     expect(message).toContain('"src/broken2.ts"');
     expect(message).not.toContain("src/./broken2.ts");
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: a rejected parse does not spawn a second interpreter",
     async () => {
       writeFileSync(join(tempDir, "src", "bad.py"), "def broken(:\n");
@@ -310,7 +334,7 @@ describe("runChecks ctx.ast() per-run parse cache", () => {
         expect(countAstSpawns(spawnSpy)).toBe(1);
         expect(errors).toHaveLength(2);
         expect(errors[1]).toBe(errors[0]);
-        expect((errors[0] as Error).message).toContain("Failed to parse");
+        expect(errorMessage(errors[0])).toContain("Failed to parse");
       } finally {
         spawnSpy.mockRestore();
       }

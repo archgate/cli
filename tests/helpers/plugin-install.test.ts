@@ -8,6 +8,7 @@ import {
   mock,
   spyOn,
   test,
+  type Mock,
 } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -50,6 +51,9 @@ function fakeSpawnResult(
   stdout = "",
   stderr = ""
 ): ReturnType<typeof Bun.spawn> {
+  // Deliberately incomplete fake Subprocess: only the fields run() actually
+  // reads (stdout/stderr/exited) need real values; the rest are inert filler.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return {
     stdout: new Response(stdout).body!,
     stderr: new Response(stderr).body!,
@@ -58,30 +62,34 @@ function fakeSpawnResult(
     exitCode: null,
     signalCode: null,
     killed: false,
+    // Unused by run(); `never` is filler, not a real stdin implementation.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     stdin: null as never,
     ref: () => {},
     unref: () => {},
     kill: () => {},
     readable: new ReadableStream(),
-    [Symbol.asyncDispose]: () => Promise.resolve(),
+    [Symbol.asyncDispose]: async () => {},
   } as unknown as ReturnType<typeof Bun.spawn>;
 }
 
 /** Replace globalThis.fetch with a mock returning the given status/body. */
 function mockFetch(status: number, body: ArrayBuffer | null = null): void {
-  globalThis.fetch = (() =>
-    Promise.resolve({
-      status,
-      ok: status >= 200 && status < 300,
-      arrayBuffer: () => Promise.resolve(body ?? new ArrayBuffer(0)),
-    })) as unknown as typeof fetch;
+  // Deliberately minimal fake `fetch`: only status/ok/arrayBuffer are
+  // exercised by callers.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  globalThis.fetch = (async () => ({
+    status,
+    ok: status >= 200 && status < 300,
+    arrayBuffer: async () => body ?? new ArrayBuffer(0),
+  })) as unknown as typeof fetch;
 }
 
 // ---------------------------------------------------------------------------
 // Setup / Teardown
 // ---------------------------------------------------------------------------
 
-let spawnSpy: ReturnType<typeof spyOn>;
+let spawnSpy: Mock<typeof Bun.spawn>;
 let tempHome: string;
 let savedHome: string | undefined;
 let savedXdg: string | undefined;
@@ -92,12 +100,12 @@ let savedXdg: string | undefined;
  * process-global, replaces the WHOLE module for every other test file, and is
  * not undone by mock.restore() (ARCH-005).
  */
-let mockResolveCommand: ReturnType<typeof spyOn>;
+let mockResolveCommand: Mock<typeof platform.resolveCommand>;
 
 beforeEach(() => {
   originalFetch = globalThis.fetch;
   mockResolveCommand = spyOn(platform, "resolveCommand").mockImplementation(
-    () => Promise.resolve(null)
+    async () => null
   );
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
 
@@ -191,13 +199,13 @@ describe("plugin-install", () => {
 
   describe("isClaudeCliAvailable", () => {
     test("returns true when resolveCommand finds claude", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("claude"));
+      mockResolveCommand.mockImplementation(async () => "claude");
       const result = await isClaudeCliAvailable();
       expect(result).toBe(true);
     });
 
     test("returns false when resolveCommand returns null", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       const result = await isClaudeCliAvailable();
       expect(result).toBe(false);
     });
@@ -205,13 +213,13 @@ describe("plugin-install", () => {
 
   describe("isCursorCliAvailable", () => {
     test("returns true when resolveCommand finds cursor", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("cursor"));
+      mockResolveCommand.mockImplementation(async () => "cursor");
       const result = await isCursorCliAvailable();
       expect(result).toBe(true);
     });
 
     test("returns false when resolveCommand returns null", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       const result = await isCursorCliAvailable();
       expect(result).toBe(false);
     });
@@ -219,13 +227,13 @@ describe("plugin-install", () => {
 
   describe("isVscodeCliAvailable", () => {
     test("returns true when resolveCommand finds code", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("code"));
+      mockResolveCommand.mockImplementation(async () => "code");
       const result = await isVscodeCliAvailable();
       expect(result).toBe(true);
     });
 
     test("returns false when resolveCommand returns null", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       const result = await isVscodeCliAvailable();
       expect(result).toBe(false);
     });
@@ -233,13 +241,13 @@ describe("plugin-install", () => {
 
   describe("isCopilotCliAvailable", () => {
     test("returns true when resolveCommand finds copilot", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("copilot"));
+      mockResolveCommand.mockImplementation(async () => "copilot");
       const result = await isCopilotCliAvailable();
       expect(result).toBe(true);
     });
 
     test("returns false when resolveCommand returns null", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       const result = await isCopilotCliAvailable();
       expect(result).toBe(false);
     });
@@ -247,13 +255,13 @@ describe("plugin-install", () => {
 
   describe("isOpencodeCliAvailable", () => {
     test("returns true when resolveCommand finds opencode", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("opencode"));
+      mockResolveCommand.mockImplementation(async () => "opencode");
       const result = await isOpencodeCliAvailable();
       expect(result).toBe(true);
     });
 
     test("returns false when resolveCommand returns null", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       const result = await isOpencodeCliAvailable();
       expect(result).toBe(false);
     });
@@ -261,7 +269,7 @@ describe("plugin-install", () => {
 
   describe("isOpencodeAvailable", () => {
     test("returns true when the CLI is on PATH", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("opencode"));
+      mockResolveCommand.mockImplementation(async () => "opencode");
       const result = await isOpencodeAvailable();
       expect(result).toBe(true);
     });
@@ -271,7 +279,7 @@ describe("plugin-install", () => {
       // ships no CLI binary at all, so isOpencodeCliAvailable() alone would
       // never detect it. Both distributions read/write the same user-scope
       // config directory, so its presence is a reliable signal on its own.
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       mkdirSync(opencodeConfigDir(), { recursive: true });
 
       const result = await isOpencodeAvailable();
@@ -279,7 +287,7 @@ describe("plugin-install", () => {
     });
 
     test("returns false when neither the CLI nor the config dir is present", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       const result = await isOpencodeAvailable();
       expect(result).toBe(false);
     });
@@ -291,31 +299,29 @@ describe("plugin-install", () => {
 
   describe("installClaudePlugin", () => {
     test("runs marketplace add and plugin install on success", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("claude"));
+      mockResolveCommand.mockImplementation(async () => "claude");
       spawnSpy.mockImplementation(() => fakeSpawnResult(0));
 
       await installClaudePlugin();
 
       expect(spawnSpy).toHaveBeenCalledTimes(2);
-      const firstCall = spawnSpy.mock.calls[0][0] as string[];
+      const firstCall = spawnSpy.mock.calls[0][0];
       expect(firstCall).toContain("marketplace");
       expect(firstCall).toContain("add");
-      const secondCall = spawnSpy.mock.calls[1][0] as string[];
+      const secondCall = spawnSpy.mock.calls[1][0];
       expect(secondCall).toContain("install");
       expect(secondCall).toContain("archgate@archgate");
     });
 
     test("throws when marketplace add fails", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("claude"));
+      mockResolveCommand.mockImplementation(async () => "claude");
       spawnSpy.mockImplementation(() => fakeSpawnResult(1));
 
-      await expect(installClaudePlugin()).rejects.toThrow(
-        "marketplace add failed"
-      );
+      expect(installClaudePlugin()).rejects.toThrow("marketplace add failed");
     });
 
     test("throws when plugin install fails", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("claude"));
+      mockResolveCommand.mockImplementation(async () => "claude");
       let callCount = 0;
       spawnSpy.mockImplementation(() => {
         callCount++;
@@ -323,18 +329,16 @@ describe("plugin-install", () => {
         return fakeSpawnResult(callCount === 1 ? 0 : 1);
       });
 
-      await expect(installClaudePlugin()).rejects.toThrow(
-        "plugin install failed"
-      );
+      expect(installClaudePlugin()).rejects.toThrow("plugin install failed");
     });
 
     test("falls back to 'claude' when resolveCommand returns null", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve(null));
+      mockResolveCommand.mockImplementation(async () => null);
       spawnSpy.mockImplementation(() => fakeSpawnResult(0));
 
       await installClaudePlugin();
 
-      const firstCall = spawnSpy.mock.calls[0][0] as string[];
+      const firstCall = spawnSpy.mock.calls[0][0];
       expect(firstCall[0]).toBe("claude");
     });
   });
@@ -345,31 +349,29 @@ describe("plugin-install", () => {
 
   describe("installCopilotPlugin", () => {
     test("runs marketplace add and plugin install on success", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("copilot"));
+      mockResolveCommand.mockImplementation(async () => "copilot");
       spawnSpy.mockImplementation(() => fakeSpawnResult(0));
 
       await installCopilotPlugin();
 
       expect(spawnSpy).toHaveBeenCalledTimes(2);
-      const firstCall = spawnSpy.mock.calls[0][0] as string[];
+      const firstCall = spawnSpy.mock.calls[0][0];
       expect(firstCall).toContain("marketplace");
       expect(firstCall).toContain("add");
-      const secondCall = spawnSpy.mock.calls[1][0] as string[];
+      const secondCall = spawnSpy.mock.calls[1][0];
       expect(secondCall).toContain("install");
       expect(secondCall).toContain("archgate@archgate");
     });
 
     test("throws when marketplace add fails with non-already-registered error", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("copilot"));
+      mockResolveCommand.mockImplementation(async () => "copilot");
       spawnSpy.mockImplementation(() => fakeSpawnResult(1, "", "some error"));
 
-      await expect(installCopilotPlugin()).rejects.toThrow(
-        "marketplace add failed"
-      );
+      expect(installCopilotPlugin()).rejects.toThrow("marketplace add failed");
     });
 
     test("skips marketplace add error when 'already registered'", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("copilot"));
+      mockResolveCommand.mockImplementation(async () => "copilot");
       let callCount = 0;
       spawnSpy.mockImplementation(() => {
         callCount++;
@@ -385,16 +387,14 @@ describe("plugin-install", () => {
     });
 
     test("throws when plugin install fails", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("copilot"));
+      mockResolveCommand.mockImplementation(async () => "copilot");
       let callCount = 0;
       spawnSpy.mockImplementation(() => {
         callCount++;
         return fakeSpawnResult(callCount === 1 ? 0 : 1);
       });
 
-      await expect(installCopilotPlugin()).rejects.toThrow(
-        "plugin install failed"
-      );
+      expect(installCopilotPlugin()).rejects.toThrow("plugin install failed");
     });
   });
 
@@ -404,7 +404,7 @@ describe("plugin-install", () => {
 
   describe("installVscodeExtension", () => {
     test("downloads vsix and installs via code CLI on success", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("code"));
+      mockResolveCommand.mockImplementation(async () => "code");
       const vsixContent = new ArrayBuffer(128);
       mockFetch(200, vsixContent);
       spawnSpy.mockImplementation(() => fakeSpawnResult(0));
@@ -412,34 +412,34 @@ describe("plugin-install", () => {
       await installVscodeExtension("test-token");
 
       expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      const callArgs = spawnSpy.mock.calls[0][0];
       expect(callArgs).toContain("--install-extension");
     });
 
     test("throws with vsix path when code CLI fails", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("code"));
+      mockResolveCommand.mockImplementation(async () => "code");
       mockFetch(200, new ArrayBuffer(64));
       spawnSpy.mockImplementation(() => fakeSpawnResult(1));
 
-      await expect(installVscodeExtension("test-token")).rejects.toThrow(
+      expect(installVscodeExtension("test-token")).rejects.toThrow(
         "install-extension failed"
       );
     });
 
     test("throws re-login message on 401 download", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("code"));
+      mockResolveCommand.mockImplementation(async () => "code");
       mockFetch(401);
 
-      await expect(installVscodeExtension("expired-token")).rejects.toThrow(
+      expect(installVscodeExtension("expired-token")).rejects.toThrow(
         "expired"
       );
     });
 
     test("throws generic error on non-401 HTTP failure", async () => {
-      mockResolveCommand.mockImplementation(() => Promise.resolve("code"));
+      mockResolveCommand.mockImplementation(async () => "code");
       mockFetch(500);
 
-      await expect(installVscodeExtension("test-token")).rejects.toThrow(
+      expect(installVscodeExtension("test-token")).rejects.toThrow(
         "Download failed (HTTP 500)"
       );
     });
@@ -458,7 +458,7 @@ describe("plugin-install", () => {
       await installOpencodePlugin("test-token");
 
       expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      const callArgs = spawnSpy.mock.calls[0][0];
       expect(callArgs[0]).toBe("tar");
       expect(callArgs).toContain("-xzf");
     });
@@ -467,7 +467,7 @@ describe("plugin-install", () => {
       mockFetch(200, new ArrayBuffer(64));
       spawnSpy.mockImplementation(() => fakeSpawnResult(2));
 
-      await expect(installOpencodePlugin("test-token")).rejects.toThrow(
+      expect(installOpencodePlugin("test-token")).rejects.toThrow(
         "tar -xzf failed"
       );
     });
@@ -475,15 +475,13 @@ describe("plugin-install", () => {
     test("throws re-login message on 401 download", async () => {
       mockFetch(401);
 
-      await expect(installOpencodePlugin("expired-token")).rejects.toThrow(
-        "expired"
-      );
+      expect(installOpencodePlugin("expired-token")).rejects.toThrow("expired");
     });
 
     test("throws generic error on non-401 HTTP failure", async () => {
       mockFetch(503);
 
-      await expect(installOpencodePlugin("test-token")).rejects.toThrow(
+      expect(installOpencodePlugin("test-token")).rejects.toThrow(
         "Download failed (HTTP 503)"
       );
     });
@@ -502,7 +500,7 @@ describe("plugin-install", () => {
       await installCursorPlugin("test-token");
 
       expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      const callArgs = spawnSpy.mock.calls[0][0];
       expect(callArgs[0]).toBe("tar");
     });
 
@@ -510,7 +508,7 @@ describe("plugin-install", () => {
       mockFetch(200, new ArrayBuffer(64));
       spawnSpy.mockImplementation(() => fakeSpawnResult(2));
 
-      await expect(installCursorPlugin("test-token")).rejects.toThrow(
+      expect(installCursorPlugin("test-token")).rejects.toThrow(
         "tar -xzf failed"
       );
     });
@@ -518,15 +516,13 @@ describe("plugin-install", () => {
     test("throws re-login message on 401 download", async () => {
       mockFetch(401);
 
-      await expect(installCursorPlugin("expired-token")).rejects.toThrow(
-        "expired"
-      );
+      expect(installCursorPlugin("expired-token")).rejects.toThrow("expired");
     });
 
     test("throws generic error on non-401 HTTP failure", async () => {
       mockFetch(503);
 
-      await expect(installCursorPlugin("test-token")).rejects.toThrow(
+      expect(installCursorPlugin("test-token")).rejects.toThrow(
         "Download failed (HTTP 503)"
       );
     });

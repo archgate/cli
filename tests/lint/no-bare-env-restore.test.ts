@@ -19,6 +19,10 @@ interface ReportedViolation {
  * the engine itself uses, rather than hand-authoring AST fixtures.
  */
 function lint(source: string): ReportedViolation[] {
+  // meriyah's Program type structurally satisfies the plugin's own loose
+  // AstNode shape (every node has a string `type` plus arbitrary fields);
+  // the plugin doesn't export a type to convert through instead.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const program = parseJsModule(source) as unknown as AstNode;
   const violations: ReportedViolation[] = [];
   const rule = plugin.rules["no-bare-env-restore"];

@@ -43,7 +43,7 @@ export function extractAdrSections(
   };
 
   for (const line of lines) {
-    const headingMatch = line.match(/^## (.+)$/u);
+    const headingMatch = /^## (.+)$/u.exec(line);
     if (headingMatch) {
       flushSection();
       currentSection = headingMatch[1].trim();

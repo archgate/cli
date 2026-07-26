@@ -127,11 +127,12 @@ export async function ensureBaseBranch(
   detectBaseRef: (root: string) => Promise<string | null>
 ): Promise<string | null> {
   const config = loadProjectConfig(projectRoot);
-  if (config.baseBranch) return config.baseBranch;
+  if (config.baseBranch !== undefined && config.baseBranch !== "")
+    return config.baseBranch;
 
   try {
     const detected = await detectBaseRef(projectRoot);
-    if (detected) {
+    if (detected !== null && detected !== "") {
       await saveProjectConfig(projectRoot, { ...config, baseBranch: detected });
       logDebug("Saved detected base branch to config:", detected);
     }
@@ -257,11 +258,13 @@ export function resolvedProjectPaths(projectRoot: string): {
 
   return {
     root: defaults.root,
-    adrsDir: config.paths.adrs
-      ? join(projectRoot, config.paths.adrs)
-      : defaults.adrsDir,
-    lintDir: config.paths.rules
-      ? join(projectRoot, config.paths.rules)
-      : defaults.lintDir,
+    adrsDir:
+      config.paths.adrs !== undefined && config.paths.adrs !== ""
+        ? join(projectRoot, config.paths.adrs)
+        : defaults.adrsDir,
+    lintDir:
+      config.paths.rules !== undefined && config.paths.rules !== ""
+        ? join(projectRoot, config.paths.rules)
+        : defaults.lintDir,
   };
 }

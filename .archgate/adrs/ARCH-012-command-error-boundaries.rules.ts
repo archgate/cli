@@ -25,28 +25,59 @@ const FUNCTION_NODE_TYPES = new Set([
  */
 const EXEMPT_AWAITED_CALLEES = new Set(["exitWith", "handleCommandError"]);
 
+/**
+ * Type guard narrowing an unknown AST value to an object node without an
+ * unsafe cast — mirrors the previous `typeof x === "object"` check, so the
+ * walk still descends into every plain object/array, not just ones that
+ * already carry a `type` field.
+ */
+function isEsTreeNode(value: unknown): value is EsTreeNode {
+  return typeof value === "object" && value !== null;
+}
+
+/** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */
+function asEsTreeNode(value: unknown): EsTreeNode | undefined {
+  return isEsTreeNode(value) ? value : undefined;
+}
+
+/** The first element of an unknown value, narrowed to EsTreeNode if it is one. */
+function firstNode(value: unknown): EsTreeNode | undefined {
+  return Array.isArray(value) ? asEsTreeNode(value[0]) : undefined;
+}
+
+/** Narrow an unknown value to an array of EsTreeNodes, dropping non-nodes. */
+function asEsTreeNodeArray(value: unknown): EsTreeNode[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is EsTreeNode => isEsTreeNode(item))
+    : [];
+}
+
+/** An ESTree node's `name` field, if it's actually a string. */
+function nodeName(node: EsTreeNode | undefined): string | undefined {
+  return typeof node?.name === "string" ? node.name : undefined;
+}
+
 /** Depth-first walk over an ESTree-shaped tree. */
 function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
   if (Array.isArray(node)) {
     for (const item of node) walk(item, visit);
     return;
   }
-  if (!node || typeof node !== "object") return;
-  const n = node as EsTreeNode;
-  if (typeof n.type === "string") visit(n);
-  for (const value of Object.values(n)) {
-    if (value && typeof value === "object") walk(value, visit);
+  if (!isEsTreeNode(node)) return;
+  if (typeof node.type === "string") visit(node);
+  for (const value of Object.values(node)) {
+    if (Boolean(value) && typeof value === "object") walk(value, visit);
   }
 }
 
 /** Callee name of a call expression node, or undefined for non-calls. */
 function calleeName(node: EsTreeNode | undefined): string | undefined {
   if (node?.type !== "CallExpression") return undefined;
-  const callee = node.callee as EsTreeNode | undefined;
-  if (callee?.type === "Identifier") return String(callee.name ?? "");
+  const callee = asEsTreeNode(node.callee);
+  if (callee?.type === "Identifier") return nodeName(callee) ?? "";
   if (callee?.type === "MemberExpression") {
-    const property = callee.property as EsTreeNode | undefined;
-    if (property?.type === "Identifier") return String(property.name ?? "");
+    const property = asEsTreeNode(callee.property);
+    if (property?.type === "Identifier") return nodeName(property) ?? "";
   }
   return undefined;
 }
@@ -61,11 +92,10 @@ function calleeName(node: EsTreeNode | undefined): string | undefined {
 function containsDirectAwait(node: unknown): boolean {
   if (Array.isArray(node))
     return node.some((item) => containsDirectAwait(item));
-  if (!node || typeof node !== "object") return false;
-  const n = node as EsTreeNode;
-  if (typeof n.type === "string") {
-    if (n.type === "AwaitExpression") {
-      const arg = n.argument as EsTreeNode | undefined;
+  if (!isEsTreeNode(node)) return false;
+  if (typeof node.type === "string") {
+    if (node.type === "AwaitExpression") {
+      const arg = asEsTreeNode(node.argument);
       const name = calleeName(arg);
       if (name === undefined || !EXEMPT_AWAITED_CALLEES.has(name)) {
         return true;
@@ -73,10 +103,14 @@ function containsDirectAwait(node: unknown): boolean {
       // Exempt await — still search its arguments for nested awaits.
       return containsDirectAwait(arg);
     }
-    if (FUNCTION_NODE_TYPES.has(n.type)) return false;
+    if (FUNCTION_NODE_TYPES.has(node.type)) return false;
   }
-  for (const value of Object.values(n)) {
-    if (value && typeof value === "object" && containsDirectAwait(value)) {
+  for (const value of Object.values(node)) {
+    if (
+      Boolean(value) &&
+      typeof value === "object" &&
+      containsDirectAwait(value)
+    ) {
       return true;
     }
   }
@@ -93,11 +127,11 @@ function findAsyncActionBodies(tree: EsTreeProgram): EsTreeNode[] {
   const bodies: EsTreeNode[] = [];
   walk(tree, (n) => {
     if (n.type !== "CallExpression") return;
-    const callee = n.callee as EsTreeNode | undefined;
+    const callee = asEsTreeNode(n.callee);
     if (callee?.type !== "MemberExpression" || callee.computed === true) return;
-    const property = callee.property as EsTreeNode | undefined;
+    const property = asEsTreeNode(callee.property);
     if (property?.type !== "Identifier" || property.name !== "action") return;
-    const handler = (n.arguments as EsTreeNode[] | undefined)?.[0];
+    const handler = firstNode(n.arguments);
     if (
       (handler?.type !== "ArrowFunctionExpression" &&
         handler?.type !== "FunctionExpression") ||
@@ -105,7 +139,7 @@ function findAsyncActionBodies(tree: EsTreeProgram): EsTreeNode[] {
     ) {
       return;
     }
-    const body = handler.body as EsTreeNode | undefined;
+    const body = asEsTreeNode(handler.body);
     if (body) bodies.push(body);
   });
   return bodies;
@@ -121,7 +155,7 @@ function awaitedCalleeName(statement: EsTreeNode): string | undefined {
   let name: string | undefined;
   walk(statement, (n) => {
     if (name !== undefined || n.type !== "AwaitExpression") return;
-    const candidate = calleeName(n.argument as EsTreeNode | undefined);
+    const candidate = calleeName(asEsTreeNode(n.argument));
     if (candidate !== undefined && !EXEMPT_AWAITED_CALLEES.has(candidate)) {
       name = candidate;
     }
@@ -184,7 +218,7 @@ export default {
               });
               continue;
             }
-            const statements = (body.body as EsTreeNode[] | undefined) ?? [];
+            const statements = asEsTreeNodeArray(body.body);
             const hasTopLevelTry = statements.some(
               (s) => s.type === "TryStatement"
             );

@@ -147,7 +147,7 @@ Archgate standardizes \`.archgate/lint/\` as the location for linter rules that 
 
   // Plugin installation (optional — requires stored credentials)
   let plugin: PluginResult | undefined;
-  if (options?.installPlugin) {
+  if (options?.installPlugin === true) {
     plugin = await tryInstallPlugin(editor);
   }
 
@@ -185,8 +185,12 @@ async function configureEditorSettings(
       // summary has something meaningful to print. The opencode.json config
       // (default_agent) is set inside installOpencodePlugin() itself.
       return opencodeAgentsDir();
-    default:
+    case "claude":
       return configureClaudeSettings(projectRoot);
+    default: {
+      const exhaustiveCheck: never = editor;
+      throw new Error(`Unhandled editor target: ${String(exhaustiveCheck)}`);
+    }
   }
 }
 
@@ -218,6 +222,11 @@ const ARCHGATE_RULES_GLOB = ".archgate/adrs/*.rules.ts";
 const TRIPLE_SLASH_RULE_ESLINT = "@typescript-eslint/triple-slash-reference";
 const TRIPLE_SLASH_RULE_OXLINT = "typescript/triple-slash-reference";
 
+/** Narrow a parsed-JSON value to a plain object before touching its keys. */
+function isJsonRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /**
  * Detect JSON-based linter configs and add an override to disable
  * the triple-slash-reference rule for archgate rule files.
@@ -238,8 +247,11 @@ async function addJsonOverride(
   const raw = await Bun.file(configPath).text();
   if (raw.includes(ARCHGATE_RULES_GLOB)) return;
 
-  const config = await Bun.file(configPath).json();
-  const overrides: unknown[] = config.overrides ?? [];
+  const parsed: unknown = await Bun.file(configPath).json();
+  const config: Record<string, unknown> = isJsonRecord(parsed) ? parsed : {};
+  const overrides: unknown[] = Array.isArray(config.overrides)
+    ? config.overrides
+    : [];
   overrides.push({
     files: [ARCHGATE_RULES_GLOB],
     rules: { [ruleName]: "off" },

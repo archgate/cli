@@ -31,7 +31,7 @@ describe("installGit", () => {
     await withBunWhich(
       () => "/usr/bin/git",
       async () => {
-        await expect(installGit()).resolves.toBeUndefined();
+        expect(installGit()).resolves.toBeUndefined();
       }
     );
   });
@@ -53,7 +53,7 @@ describe("installGit", () => {
         return realWhich(name);
       },
       async () => {
-        await expect(installGit()).resolves.toBeUndefined();
+        expect(installGit()).resolves.toBeUndefined();
       }
     );
   });
@@ -65,6 +65,9 @@ describe("installGit", () => {
       // of throwing. Force the WSL fallback (`wsl which git`) to report a miss
       // so resolveCommand returns null and installGit reaches the Windows throw.
       const originalSpawn = Bun.spawn;
+      // Deliberately incomplete fake Subprocess: installGit only reads
+      // `exited`, so the rest of the Subprocess shape is inert filler.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       Bun.spawn = (() => ({
         exited: Promise.resolve(1),
       })) as unknown as typeof Bun.spawn;
@@ -72,7 +75,7 @@ describe("installGit", () => {
         await withBunWhich(
           () => null,
           async () => {
-            await expect(installGit()).rejects.toThrow(/Git is not installed/u);
+            expect(installGit()).rejects.toThrow(/Git is not installed/u);
           }
         );
       } finally {

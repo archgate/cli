@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";
 
@@ -80,10 +88,10 @@ describe("registerDoctorCommand", () => {
 });
 
 describe("doctor action handler", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let doctorSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof process.exit>;
+  let doctorSpy: Mock<typeof doctorModule.runDoctor>;
 
   beforeEach(() => {
     doctorSpy = spyOn(doctorModule, "runDoctor").mockResolvedValue(MOCK_REPORT);
@@ -116,6 +124,10 @@ describe("doctor action handler", () => {
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
+    // No zod schema backs DoctorReport (plain interface); asserting the
+    // parsed CLI output's shape here is the only option — only specific
+    // fields are actually asserted below.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const parsed = JSON.parse(output) as DoctorReport;
 
     expect(parsed.system.os).toBe("linux");
@@ -260,9 +272,9 @@ describe("doctor action handler", () => {
 
     const program = makeProgram();
 
-    await expect(
-      program.parseAsync(["node", "test", "doctor"])
-    ).rejects.toThrow("process.exit");
+    expect(program.parseAsync(["node", "test", "doctor"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy).toHaveBeenCalledWith(2);
 
@@ -277,9 +289,9 @@ describe("doctor action handler", () => {
 
     const program = makeProgram();
 
-    await expect(
-      program.parseAsync(["node", "test", "doctor"])
-    ).rejects.toThrow("process.exit");
+    expect(program.parseAsync(["node", "test", "doctor"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy).toHaveBeenCalledWith(2);
 
@@ -296,8 +308,8 @@ describe("doctor action handler", () => {
 
     const program = makeProgram();
 
-    await expect(
-      program.parseAsync(["node", "test", "doctor"])
-    ).rejects.toThrow("exit prompt");
+    expect(program.parseAsync(["node", "test", "doctor"])).rejects.toThrow(
+      "exit prompt"
+    );
   });
 });

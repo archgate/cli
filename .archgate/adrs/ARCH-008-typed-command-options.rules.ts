@@ -21,17 +21,38 @@ const VALUE_TAKING_FLAG = /^--[\w-]+\s+<\w+>/u;
 /** Bare global parsers that must not be passed as .option()'s third arg. */
 const PARSER_IDENTIFIERS = new Set(["parseInt", "parseFloat", "Number"]);
 
+/**
+ * Type guard narrowing an unknown AST value to an object node without an
+ * unsafe cast — mirrors the previous `typeof x === "object"` check, so the
+ * walk still descends into every plain object/array, not just ones that
+ * already carry a `type` field.
+ */
+function isEsTreeNode(value: unknown): value is EsTreeNode {
+  return typeof value === "object" && value !== null;
+}
+
+/** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */
+function asEsTreeNode(value: unknown): EsTreeNode | undefined {
+  return isEsTreeNode(value) ? value : undefined;
+}
+
+/** Narrow an unknown value to an array of EsTreeNodes, dropping non-nodes. */
+function asEsTreeNodeArray(value: unknown): EsTreeNode[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is EsTreeNode => isEsTreeNode(item))
+    : [];
+}
+
 /** Depth-first walk over an ESTree-shaped tree. */
 function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
   if (Array.isArray(node)) {
     for (const item of node) walk(item, visit);
     return;
   }
-  if (!node || typeof node !== "object") return;
-  const n = node as EsTreeNode;
-  if (typeof n.type === "string") visit(n);
-  for (const value of Object.values(n)) {
-    if (value && typeof value === "object") walk(value, visit);
+  if (!isEsTreeNode(node)) return;
+  if (typeof node.type === "string") visit(node);
+  for (const value of Object.values(node)) {
+    if (Boolean(value) && typeof value === "object") walk(value, visit);
   }
 }
 
@@ -40,11 +61,11 @@ function findOptionCallArgs(tree: EsTreeProgram): EsTreeNode[][] {
   const calls: EsTreeNode[][] = [];
   walk(tree, (n) => {
     if (n.type !== "CallExpression") return;
-    const callee = n.callee as EsTreeNode | undefined;
+    const callee = asEsTreeNode(n.callee);
     if (callee?.type !== "MemberExpression" || callee.computed === true) return;
-    const property = callee.property as EsTreeNode | undefined;
+    const property = asEsTreeNode(callee.property);
     if (property?.type !== "Identifier" || property.name !== "option") return;
-    calls.push((n.arguments as EsTreeNode[] | undefined) ?? []);
+    calls.push(asEsTreeNodeArray(n.arguments));
   });
   return calls;
 }
@@ -150,11 +171,12 @@ export default {
               if (args.length < 3) continue;
               const third = args[2];
               const isFunctionArg =
-                third?.type === "ArrowFunctionExpression" ||
-                third?.type === "FunctionExpression";
+                third.type === "ArrowFunctionExpression" ||
+                third.type === "FunctionExpression";
               const isParserIdentifier =
-                third?.type === "Identifier" &&
-                PARSER_IDENTIFIERS.has(String(third.name ?? ""));
+                third.type === "Identifier" &&
+                typeof third.name === "string" &&
+                PARSER_IDENTIFIERS.has(third.name);
               if (!isFunctionArg && !isParserIdentifier) continue;
               const flag = args[0];
               flagged.push(isStringLiteral(flag) ? flag.value : undefined);

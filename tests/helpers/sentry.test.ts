@@ -45,7 +45,7 @@ describe("sentry", () => {
       const { initSentry } = await import("../../src/helpers/sentry");
 
       // Sentry.init is called internally — initialization must resolve cleanly.
-      await expect(initSentry()).resolves.toBeUndefined();
+      expect(initSentry()).resolves.toBeUndefined();
     });
 
     test("does not initialize when telemetry is disabled", async () => {
@@ -56,9 +56,9 @@ describe("sentry", () => {
 
       await initSentry();
       // captureException should be a no-op when telemetry is disabled.
-      expect(() =>
-        captureException(new Error("should not send"))
-      ).not.toThrow();
+      expect(() => {
+        captureException(new Error("should not send"));
+      }).not.toThrow();
     });
   });
 
@@ -66,9 +66,9 @@ describe("sentry", () => {
     test("is a no-op when not initialized", async () => {
       const { captureException } = await import("../../src/helpers/sentry");
 
-      expect(() =>
-        captureException(new Error("should not send"))
-      ).not.toThrow();
+      expect(() => {
+        captureException(new Error("should not send"));
+      }).not.toThrow();
     });
 
     test("handles non-Error values without throwing", async () => {
@@ -76,9 +76,9 @@ describe("sentry", () => {
         await import("../../src/helpers/sentry");
 
       await initSentry();
-      expect(() =>
-        captureException("string error", { command: "init" })
-      ).not.toThrow();
+      expect(() => {
+        captureException("string error", { command: "init" });
+      }).not.toThrow();
     });
   });
 
@@ -86,7 +86,9 @@ describe("sentry", () => {
     test("is a no-op when not initialized", async () => {
       const { addBreadcrumb } = await import("../../src/helpers/sentry");
 
-      expect(() => addBreadcrumb("test", "test breadcrumb")).not.toThrow();
+      expect(() => {
+        addBreadcrumb("test", "test breadcrumb");
+      }).not.toThrow();
     });
 
     test("adds breadcrumb when initialized", async () => {
@@ -94,9 +96,9 @@ describe("sentry", () => {
         await import("../../src/helpers/sentry");
 
       await initSentry();
-      expect(() =>
-        addBreadcrumb("command", "Running: check", { staged: true })
-      ).not.toThrow();
+      expect(() => {
+        addBreadcrumb("command", "Running: check", { staged: true });
+      }).not.toThrow();
     });
   });
 
@@ -104,7 +106,7 @@ describe("sentry", () => {
     test("is a no-op when not initialized", async () => {
       const { flushSentry } = await import("../../src/helpers/sentry");
 
-      await expect(flushSentry()).resolves.toBeUndefined();
+      expect(flushSentry()).resolves.toBeUndefined();
     });
 
     test("flushes when initialized", async () => {
@@ -112,7 +114,7 @@ describe("sentry", () => {
         await import("../../src/helpers/sentry");
 
       await initSentry();
-      await expect(flushSentry(100)).resolves.toBeUndefined();
+      expect(flushSentry(100)).resolves.toBeUndefined();
     });
   });
 });

@@ -150,7 +150,7 @@ export async function recommendPacks(
     );
     return recommendPacksFromDir(stack, cloneDir);
   } finally {
-    if (cloneDir) {
+    if (cloneDir !== undefined && cloneDir !== "") {
       try {
         rmSync(cloneDir, { recursive: true, force: true });
       } catch {

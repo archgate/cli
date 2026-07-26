@@ -18,7 +18,7 @@ export function registerDomainListCommand(domain: Command) {
       try {
         const projectRoot = requireProjectRoot();
         const entries = listDomainEntries(projectRoot);
-        const useJson = options.json || isAgentContext();
+        const useJson = options.json ?? isAgentContext();
 
         if (useJson) {
           console.log(formatJSON(entries, options.json ? true : undefined));

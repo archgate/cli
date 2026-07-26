@@ -45,8 +45,8 @@ describe("readOpencodeSession", () => {
   function createDb(): Database {
     const db = new Database(dbPath);
     // Use DELETE journal mode to avoid WAL/SHM files that lock on Windows
-    db.exec("PRAGMA journal_mode = DELETE");
-    db.exec(`
+    db.run("PRAGMA journal_mode = DELETE");
+    db.run(`
       CREATE TABLE session (
         id TEXT PRIMARY KEY,
         project_id TEXT NOT NULL DEFAULT '',
@@ -168,7 +168,7 @@ describe("readOpencodeSession", () => {
     );
   }
 
-  test("returns data for most recent session matching project", async () => {
+  test("returns data for most recent session matching project", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_1`;
     makeSession(db, sessionId, projectRoot, [
@@ -177,7 +177,7 @@ describe("readOpencodeSession", () => {
     ]);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
@@ -194,7 +194,7 @@ describe("readOpencodeSession", () => {
     });
   });
 
-  test("finds session by sessionId", async () => {
+  test("finds session by sessionId", () => {
     const db = createDb();
     const sessionId1 = `ses_${uniqueId}_first`;
     const sessionId2 = `ses_${uniqueId}_second`;
@@ -203,9 +203,7 @@ describe("readOpencodeSession", () => {
     makeSimpleSession(db, sessionId2, "second session", 2000);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot, {
-      sessionId: sessionId1,
-    });
+    const result = readOpencodeSession(projectRoot, { sessionId: sessionId1 });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
@@ -213,13 +211,13 @@ describe("readOpencodeSession", () => {
     expect(result.data.transcript[0]?.contentPreview).toBe("first session");
   });
 
-  test("returns error when sessionId not found (with available list)", async () => {
+  test("returns error when sessionId not found (with available list)", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_real`;
     makeSimpleSession(db, sessionId, "real", 1000);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot, {
+    const result = readOpencodeSession(projectRoot, {
       sessionId: "nonexistent-id",
     });
     expect(result.ok).toBe(false);
@@ -229,7 +227,7 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  test("filters to user/assistant roles only", async () => {
+  test("filters to user/assistant roles only", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_roles`;
 
@@ -248,7 +246,7 @@ describe("readOpencodeSession", () => {
     }
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
@@ -258,7 +256,7 @@ describe("readOpencodeSession", () => {
     expect(result.data.transcript[1]?.contentPreview).toBe("also visible");
   });
 
-  test("returns error when no sessions match the project", async () => {
+  test("returns error when no sessions match the project", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_other`;
     makeSession(db, sessionId, "/some/other/project", [
@@ -266,7 +264,7 @@ describe("readOpencodeSession", () => {
     ]);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(
@@ -275,20 +273,20 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  test("returns error when session has no messages", async () => {
+  test("returns error when session has no messages", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_nomsg`;
     makeSession(db, sessionId, projectRoot);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain("no messages");
     }
   });
 
-  test("respects maxEntries — keeps last N relevant entries", async () => {
+  test("respects maxEntries — keeps last N relevant entries", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_limit`;
 
@@ -303,7 +301,7 @@ describe("readOpencodeSession", () => {
     makeSession(db, sessionId, projectRoot, msgs);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot, { maxEntries: 2 });
+    const result = readOpencodeSession(projectRoot, { maxEntries: 2 });
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
@@ -314,7 +312,7 @@ describe("readOpencodeSession", () => {
     expect(result.data.transcript[1]?.contentPreview).toBe("msg 7");
   });
 
-  test("truncates string content preview to 500 chars", async () => {
+  test("truncates string content preview to 500 chars", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_truncate`;
     makeSession(db, sessionId, projectRoot, [
@@ -322,7 +320,7 @@ describe("readOpencodeSession", () => {
     ]);
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
@@ -331,17 +329,17 @@ describe("readOpencodeSession", () => {
     expect(preview.endsWith("...")).toBe(true);
   });
 
-  test("returns error when database does not exist", async () => {
+  test("returns error when database does not exist", () => {
     Bun.env.XDG_DATA_HOME = join(tempDir, "nonexistent");
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain("No opencode database found");
     }
   });
 
-  test("skips synthetic parts", async () => {
+  test("skips synthetic parts", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_synthetic`;
     const now = Date.now();
@@ -360,7 +358,7 @@ describe("readOpencodeSession", () => {
     });
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 
@@ -372,14 +370,14 @@ describe("readOpencodeSession", () => {
     );
   });
 
-  test("excludes sub-agent child sessions from recency selection", async () => {
+  test("excludes sub-agent child sessions from recency selection", () => {
     const db = createDb();
     makeSimpleSession(db, "ses_parent", "parent question", 1000);
     // Child session is newer — it must NOT shadow the parent session
     makeSimpleSession(db, "ses_sub", "sub-agent init", 2000, "ses_parent");
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.sessionId).toBe("ses_parent");
@@ -387,15 +385,13 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  test("sessionId can read a sub-agent child session explicitly", async () => {
+  test("sessionId can read a sub-agent child session explicitly", () => {
     const db = createDb();
     makeSimpleSession(db, "ses_parent", "parent question", 1000);
     makeSimpleSession(db, "ses_sub", "sub-agent init", 2000, "ses_parent");
     db.close();
 
-    const result = await readOpencodeSession(projectRoot, {
-      sessionId: "ses_sub",
-    });
+    const result = readOpencodeSession(projectRoot, { sessionId: "ses_sub" });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.sessionId).toBe("ses_sub");
@@ -421,7 +417,7 @@ describe("readOpencodeSession", () => {
     expect(Date.parse(result.data.sessions[0]?.updatedAt ?? "")).not.toBeNaN();
   });
 
-  test("root resolves to the top-level ancestor session", async () => {
+  test("root resolves to the top-level ancestor session", () => {
     const db = createDb();
     makeSimpleSession(db, "ses_parent", "parent question", 1000);
     makeSimpleSession(db, "ses_sub", "sub-agent init", 2000, "ses_parent");
@@ -429,19 +425,19 @@ describe("readOpencodeSession", () => {
     makeSimpleSession(db, "ses_grand", "grandchild", 3000, "ses_sub");
     db.close();
 
-    const viaChild = await readOpencodeSession(projectRoot, {
+    const viaChild = readOpencodeSession(projectRoot, {
       sessionId: "ses_grand",
       root: true,
     });
     expect(viaChild.ok).toBe(true);
     if (viaChild.ok) expect(viaChild.data.sessionId).toBe("ses_parent");
 
-    const noId = await readOpencodeSession(projectRoot, { root: true });
+    const noId = readOpencodeSession(projectRoot, { root: true });
     expect(noId.ok).toBe(true);
     if (noId.ok) expect(noId.data.sessionId).toBe("ses_parent");
   });
 
-  test("selects the true parent when sibling sub-agents fan out and are more recent", async () => {
+  test("selects the true parent when sibling sub-agents fan out and are more recent", () => {
     // Real-world fan-out: one parent session spawns several sibling sub-agent
     // sessions against the same directory (e.g. the reviewer skill's parallel
     // domain reviews). Every sibling sorts ahead of the parent by recency, so
@@ -463,16 +459,16 @@ describe("readOpencodeSession", () => {
     }
 
     // Default selection and explicit root both resolve to the parent.
-    const byDefault = await readOpencodeSession(projectRoot);
+    const byDefault = readOpencodeSession(projectRoot);
     expect(byDefault.ok).toBe(true);
     if (byDefault.ok) expect(byDefault.data.sessionId).toBe("ses_parent");
 
-    const rooted = await readOpencodeSession(projectRoot, { root: true });
+    const rooted = readOpencodeSession(projectRoot, { root: true });
     expect(rooted.ok).toBe(true);
     if (rooted.ok) expect(rooted.data.sessionId).toBe("ses_parent");
   });
 
-  test("returns error when only child sessions match the project", async () => {
+  test("returns error when only child sessions match the project", () => {
     const db = createDb();
     // Parent lives in a different directory; only the child matches here
     makeSession(db, "ses_parent", "/some/other/project", [
@@ -481,7 +477,7 @@ describe("readOpencodeSession", () => {
     makeSimpleSession(db, "ses_child", "child", 2000, "ses_parent");
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain(
@@ -491,7 +487,7 @@ describe("readOpencodeSession", () => {
     }
   });
 
-  test("includes tool parts as [tool: name]", async () => {
+  test("includes tool parts as [tool: name]", () => {
     const db = createDb();
     const sessionId = `ses_${uniqueId}_tools`;
     const now = Date.now();
@@ -508,7 +504,7 @@ describe("readOpencodeSession", () => {
     });
     db.close();
 
-    const result = await readOpencodeSession(projectRoot);
+    const result = readOpencodeSession(projectRoot);
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error("expected ok");
 

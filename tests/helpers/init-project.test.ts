@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +18,12 @@ import { initProject } from "../../src/helpers/init-project";
 import * as pluginInstall from "../../src/helpers/plugin-install";
 import * as vscodeSettings from "../../src/helpers/vscode-settings";
 import { restoreEnv, safeRmSync } from "../test-utils";
+
+// Shape of the linter override block initProject appends to .oxlintrc.json /
+// .eslintrc.json — only what these tests read back.
+interface LinterOverrideConfig {
+  overrides?: { files: string[]; rules: Record<string, string> }[];
+}
 
 describe("initProject", () => {
   let tempDir: string;
@@ -107,7 +121,11 @@ describe("initProject", () => {
     const settingsPath = join(tempDir, ".claude", "settings.local.json");
     expect(existsSync(settingsPath)).toBe(true);
 
-    const content = JSON.parse(await Bun.file(settingsPath).text());
+    // Narrowing an unvalidated JSON.parse result to the field this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const content = JSON.parse(
+      await Bun.file(settingsPath).text()
+    ) as unknown as { agent?: string };
     expect(content.agent).toBe("archgate:developer");
   });
 
@@ -151,22 +169,30 @@ describe("initProject", () => {
     await Bun.write(join(tempDir, ".oxlintrc.json"), '{"rules":{}}');
     await initProject(tempDir);
 
-    const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
+    // Narrowing an unvalidated JSON.parse result to the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const config = (await Bun.file(
+      join(tempDir, ".oxlintrc.json")
+    ).json()) as unknown as LinterOverrideConfig;
     expect(config.overrides).toHaveLength(1);
-    expect(config.overrides[0].files).toEqual([".archgate/adrs/*.rules.ts"]);
-    expect(config.overrides[0].rules["typescript/triple-slash-reference"]).toBe(
-      "off"
-    );
+    expect(config.overrides![0].files).toEqual([".archgate/adrs/*.rules.ts"]);
+    expect(
+      config.overrides![0].rules["typescript/triple-slash-reference"]
+    ).toBe("off");
   });
 
   test("adds eslintrc override for triple-slash-reference", async () => {
     await Bun.write(join(tempDir, ".eslintrc.json"), '{"rules":{}}');
     await initProject(tempDir);
 
-    const config = await Bun.file(join(tempDir, ".eslintrc.json")).json();
+    // Narrowing an unvalidated JSON.parse result to the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const config = (await Bun.file(
+      join(tempDir, ".eslintrc.json")
+    ).json()) as unknown as LinterOverrideConfig;
     expect(config.overrides).toHaveLength(1);
     expect(
-      config.overrides[0].rules["@typescript-eslint/triple-slash-reference"]
+      config.overrides![0].rules["@typescript-eslint/triple-slash-reference"]
     ).toBe("off");
   });
 
@@ -175,7 +201,11 @@ describe("initProject", () => {
     await initProject(tempDir);
     await initProject(tempDir);
 
-    const config = await Bun.file(join(tempDir, ".oxlintrc.json")).json();
+    // Narrowing an unvalidated JSON.parse result to the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const config = (await Bun.file(
+      join(tempDir, ".oxlintrc.json")
+    ).json()) as unknown as LinterOverrideConfig;
     expect(config.overrides).toHaveLength(1);
   });
 
@@ -240,7 +270,7 @@ describe("initProject", () => {
 
 describe("tryInstallPlugin via initProject", () => {
   let tempDir: string;
-  let credSpy: ReturnType<typeof spyOn>;
+  let credSpy: Mock<typeof credentialStore.loadCredentials>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-initproj-plugin-"));

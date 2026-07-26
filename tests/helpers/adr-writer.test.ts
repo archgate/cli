@@ -212,16 +212,14 @@ describe("findAdrFileById", () => {
       `---\nid: GEN-099\ntitle: Topic B\ndomain: general\nrules: false\n---\n# Topic B\n`
     );
 
-    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+    expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
       "Duplicate ADR ID"
     );
-    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
-      "GEN-099"
-    );
-    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+    expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow("GEN-099");
+    expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
       "GEN-099-topic-a.md"
     );
-    await expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
+    expect(findAdrFileById(tempDir, "GEN-099")).rejects.toThrow(
       "GEN-099-topic-b.md"
     );
   });

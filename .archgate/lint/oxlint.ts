@@ -12,15 +12,16 @@ import { conciseCommentRules } from "./concise-comments.ts";
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-function asNode(value: unknown): AstNode | undefined {
-  if (
+function isAstNode(value: unknown): value is AstNode {
+  return (
     value !== null &&
     typeof value === "object" &&
     typeof (value as { type?: unknown }).type === "string"
-  ) {
-    return value as AstNode;
-  }
-  return undefined;
+  );
+}
+
+function asNode(value: unknown): AstNode | undefined {
+  return isAstNode(value) ? value : undefined;
 }
 
 /**

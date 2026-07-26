@@ -23,6 +23,38 @@ const pythonInterpreter = await probeInterpreter(
 );
 const rubyInterpreter = await probeInterpreter(interpreterCandidates("ruby"));
 
+interface PythonModuleTree {
+  _type: string;
+  body: Array<{ _type: string; name?: string; lineno?: number }>;
+}
+
+interface Envelope {
+  _tree: unknown[];
+  comments: Array<{
+    type: string;
+    value: string;
+    loc: {
+      start: { line: number; column: number };
+      end: { line: number; column: number };
+    };
+  }>;
+}
+
+// JSON.parse() returns `any`; every call site below parses stdout from a
+// program we control, so the caller-supplied shape is trustworthy.
+function parsePythonTree(stdout: string): PythonModuleTree {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return JSON.parse(stdout) as PythonModuleTree;
+}
+function parseSexp(stdout: string): unknown[] {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return JSON.parse(stdout) as unknown[];
+}
+function parseEnvelope(stdout: string): Envelope {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return JSON.parse(stdout) as Envelope;
+}
+
 describe("interpreterCandidates", () => {
   test("ruby has a single candidate", () => {
     expect(interpreterCandidates("ruby")).toEqual(["ruby"]);
@@ -83,7 +115,7 @@ describe("runAstSubprocess", () => {
   });
 
   test("throws after the injected timeout and kills the subprocess", async () => {
-    await expect(
+    expect(
       runAstSubprocess(
         [process.execPath, "-e", "setTimeout(() => {}, 30000)"],
         50
@@ -148,7 +180,7 @@ describe("PYTHON_AST_PROGRAM end-to-end", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "serializes a valid module to JSON with _type Module",
     async () => {
       const interpreter = pythonInterpreter ?? "python";
@@ -166,10 +198,7 @@ describe("PYTHON_AST_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const tree = JSON.parse(stdout) as {
-        _type: string;
-        body: Array<{ _type: string; name?: string; lineno?: number }>;
-      };
+      const tree = parsePythonTree(stdout);
       expect(tree._type).toBe("Module");
       expect(tree.body).toHaveLength(1);
       expect(tree.body[0]._type).toBe("FunctionDef");
@@ -178,7 +207,7 @@ describe("PYTHON_AST_PROGRAM end-to-end", () => {
     }
   );
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "strips UTF-8 BOM and parses correctly",
     async () => {
       const interpreter = pythonInterpreter ?? "python";
@@ -193,12 +222,12 @@ describe("PYTHON_AST_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const tree = JSON.parse(stdout) as { _type: string };
+      const tree = parsePythonTree(stdout);
       expect(tree._type).toBe("Module");
     }
   );
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "exits 1 with a syntax message for invalid source",
     async () => {
       const interpreter = pythonInterpreter ?? "python";
@@ -228,7 +257,7 @@ describe("RUBY_AST_PROGRAM end-to-end", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "serializes a valid file to a JSON array starting with program",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -245,13 +274,13 @@ describe("RUBY_AST_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const sexp = JSON.parse(stdout) as unknown[];
+      const sexp = parseSexp(stdout);
       expect(Array.isArray(sexp)).toBe(true);
       expect(sexp[0]).toBe("program");
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "strips UTF-8 BOM and parses correctly",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -268,13 +297,13 @@ describe("RUBY_AST_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const sexp = JSON.parse(stdout) as unknown[];
+      const sexp = parseSexp(stdout);
       expect(Array.isArray(sexp)).toBe(true);
       expect(sexp[0]).toBe("program");
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "exits 1 with 'Ruby syntax error' for invalid source",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -306,19 +335,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  interface Envelope {
-    _tree: unknown[];
-    comments: Array<{
-      type: string;
-      value: string;
-      loc: {
-        start: { line: number; column: number };
-        end: { line: number; column: number };
-      };
-    }>;
-  }
-
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "emits the {_tree, comments} envelope with line and block tokens",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -347,7 +364,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const envelope = JSON.parse(stdout) as Envelope;
+      const envelope = parseEnvelope(stdout);
       expect(envelope._tree[0]).toBe("program");
       expect(envelope.comments.map((c) => `${c.type}:${c.value}`)).toEqual([
         "line: header",
@@ -366,7 +383,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "comment-free source yields an empty comments list",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -383,13 +400,13 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const envelope = JSON.parse(stdout) as Envelope;
+      const envelope = parseEnvelope(stdout);
       expect(envelope._tree[0]).toBe("program");
       expect(envelope.comments).toEqual([]);
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "degrades to an empty comments list when Ripper.lex raises",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -414,13 +431,13 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const envelope = JSON.parse(stdout) as Envelope;
+      const envelope = parseEnvelope(stdout);
       expect(envelope._tree[0]).toBe("program");
       expect(envelope.comments).toEqual([]);
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "reports character columns, not Ripper's byte offsets, on non-ASCII lines",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -438,7 +455,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const envelope = JSON.parse(stdout) as Envelope;
+      const envelope = parseEnvelope(stdout);
       expect(envelope.comments).toHaveLength(1);
       expect(envelope.comments[0].value).toBe(" café");
       // Char cols 6..12, matching Python tokenize on the same layout (bytes: 7..14).
@@ -449,7 +466,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "normalizes CRLF in block values so content is OS-independent",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";
@@ -469,7 +486,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
       ]);
       expect(exitCode).toBe(0);
 
-      const envelope = JSON.parse(stdout) as Envelope;
+      const envelope = parseEnvelope(stdout);
       // LF-joined on every OS — POSIX reads keep the \r bytes, Windows strips them.
       expect(envelope.comments.map((c) => `${c.type}:${c.value}`)).toEqual([
         "block:block one\nblock two",
@@ -479,7 +496,7 @@ describe("RUBY_AST_WITH_COMMENTS_PROGRAM end-to-end", () => {
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "exits 1 with 'Ruby syntax error' for invalid source",
     async () => {
       const interpreter = rubyInterpreter ?? "ruby";

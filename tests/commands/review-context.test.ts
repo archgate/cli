@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +17,14 @@ import { Command } from "@commander-js/extra-typings";
 
 import { registerReviewContextCommand } from "../../src/commands/review-context";
 import { safeRmSync } from "../test-utils";
+
+/** Narrows a JSON.parse() result without an unsafe `as` cast. */
+function hasKeys<K extends string>(
+  v: unknown,
+  ...keys: K[]
+): v is Record<K, unknown> {
+  return typeof v === "object" && v !== null && keys.every((k) => k in v);
+}
 
 describe("registerReviewContextCommand", () => {
   test("registers 'review-context' as a subcommand", () => {
@@ -61,9 +77,9 @@ describe("registerReviewContextCommand", () => {
 describe("review-context action handler", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-review-ctx-test-"));
@@ -95,7 +111,7 @@ describe("review-context action handler", () => {
     // tempDir has no .archgate/ directory, so findProjectRoot returns null
     process.chdir(tempDir);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "review-context"])
     ).rejects.toThrow("process.exit");
 
@@ -117,7 +133,7 @@ describe("review-context action handler", () => {
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("");
-    const parsed = JSON.parse(output);
+    const parsed: unknown = JSON.parse(output);
     expect(parsed).toHaveProperty("domains");
     expect(parsed).toHaveProperty("allChangedFiles");
   });
@@ -156,7 +172,10 @@ Test decision.
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("");
-    const parsed = JSON.parse(output);
+    const parsed: unknown = JSON.parse(output);
+    if (!hasKeys(parsed, "domains", "allChangedFiles")) {
+      throw new Error("expected domains and allChangedFiles in output");
+    }
     // With no git changes, domains should still be populated but with no changed files
     expect(parsed.domains).toBeInstanceOf(Array);
     expect(parsed.allChangedFiles).toEqual([]);
@@ -204,8 +223,18 @@ Test.
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("");
-    const parsed = JSON.parse(output);
-    for (const domain of parsed.domains) {
+    const parsed: unknown = JSON.parse(output);
+    if (!hasKeys(parsed, "domains")) {
+      throw new Error("expected domains in output");
+    }
+    const domains = parsed.domains;
+    if (!Array.isArray(domains)) {
+      throw new TypeError("expected domains to be an array");
+    }
+    for (const domain of domains) {
+      if (!hasKeys(domain, "domain")) {
+        throw new Error("expected a domain field on each entry");
+      }
       expect(domain.domain).toBe("architecture");
     }
   });

@@ -7,11 +7,20 @@
 // option forwarding, telemetry tracking).
 // ---------------------------------------------------------------------------
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";
 
 import { registerCheckCommand } from "../../src/commands/check";
+import type { LoadResult } from "../../src/engine/loader";
 import * as loaderModule from "../../src/engine/loader";
 import type { ReportSummary } from "../../src/engine/reporter";
 import * as reporterModule from "../../src/engine/reporter";
@@ -75,19 +84,19 @@ const MOCK_SUMMARY: ReportSummary = {
 // ---------------------------------------------------------------------------
 
 describe("check action handler", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let findProjectRootSpy: ReturnType<typeof spyOn>;
-  let loadRuleAdrsSpy: ReturnType<typeof spyOn>;
-  let runChecksSpy: ReturnType<typeof spyOn>;
-  let buildSummarySpy: ReturnType<typeof spyOn>;
-  let getExitCodeSpy: ReturnType<typeof spyOn>;
-  let reportConsoleSpy: ReturnType<typeof spyOn>;
-  let reportJSONSpy: ReturnType<typeof spyOn>;
-  let reportCISpy: ReturnType<typeof spyOn>;
-  let detectStackSpy: ReturnType<typeof spyOn>;
-  let trackCheckResultSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof exitModule.exitWith>;
+  let findProjectRootSpy: Mock<typeof pathsModule.findProjectRoot>;
+  let loadRuleAdrsSpy: Mock<typeof loaderModule.loadRuleAdrs>;
+  let runChecksSpy: Mock<typeof runnerModule.runChecks>;
+  let buildSummarySpy: Mock<typeof reporterModule.buildSummary>;
+  let getExitCodeSpy: Mock<typeof reporterModule.getExitCode>;
+  let reportConsoleSpy: Mock<typeof reporterModule.reportConsole>;
+  let reportJSONSpy: Mock<typeof reporterModule.reportJSON>;
+  let reportCISpy: Mock<typeof reporterModule.reportCI>;
+  let detectStackSpy: Mock<typeof stackDetectModule.detectStack>;
+  let trackCheckResultSpy: Mock<typeof telemetryModule.trackCheckResult>;
   let originalIsTTY: boolean | undefined;
 
   beforeEach(() => {
@@ -102,8 +111,11 @@ describe("check action handler", () => {
       "/fake/project"
     );
     loadRuleAdrsSpy = spyOn(loaderModule, "loadRuleAdrs").mockResolvedValue([
-      { type: "loaded", value: {} },
-    ] as never);
+      // Deliberately incomplete fake LoadResult: only array length/type is
+      // exercised by these tests, not ADR/ruleSet contents.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      { type: "loaded", value: {} } as unknown as LoadResult,
+    ]);
     runChecksSpy = spyOn(runnerModule, "runChecks").mockResolvedValue(
       MOCK_CHECK_RESULT
     );
@@ -170,9 +182,9 @@ describe("check action handler", () => {
   test("no project root logs error and exits 1", async () => {
     findProjectRootSpy.mockReturnValue(null);
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     // Thrown as UserError → handleCommandError → exitWith(1, user kind)
     expect(exitSpy).toHaveBeenCalledWith(1, { errorKind: "user" });
@@ -187,9 +199,9 @@ describe("check action handler", () => {
   test("no rules outputs text message and exits 0", async () => {
     loadRuleAdrsSpy.mockResolvedValue([]);
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy).toHaveBeenCalledWith(0);
     const output = logSpy.mock.calls
@@ -201,7 +213,7 @@ describe("check action handler", () => {
   test("no rules with --json outputs empty JSON result", async () => {
     loadRuleAdrsSpy.mockResolvedValue([]);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--json"])
     ).rejects.toThrow("process.exit");
 
@@ -209,7 +221,9 @@ describe("check action handler", () => {
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
-    const parsed = JSON.parse(output);
+    // Trusted CLI JSON output shape; no zod schema backs ReportSummary.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const parsed = JSON.parse(output) as ReportSummary;
     expect(parsed.pass).toBe(true);
     expect(parsed.total).toBe(0);
     expect(parsed.results).toEqual([]);
@@ -220,9 +234,9 @@ describe("check action handler", () => {
   test("load error logs message and exits 2 (unexpected)", async () => {
     loadRuleAdrsSpy.mockRejectedValue(new Error("failed to load rules"));
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy.mock.calls.at(-1)?.[0]).toBe(2);
     const errOutput = errorSpy.mock.calls
@@ -236,9 +250,9 @@ describe("check action handler", () => {
     exitPromptError.name = "ExitPromptError";
     loadRuleAdrsSpy.mockRejectedValue(exitPromptError);
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("user cancelled");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "user cancelled"
+    );
 
     // exitWith should NOT have been called — ExitPromptError is re-thrown
     expect(exitSpy).not.toHaveBeenCalled();
@@ -247,9 +261,9 @@ describe("check action handler", () => {
   // -- Output formats --
 
   test("default output calls reportConsole", async () => {
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(reportConsoleSpy).toHaveBeenCalledTimes(1);
     expect(reportJSONSpy).not.toHaveBeenCalled();
@@ -257,7 +271,7 @@ describe("check action handler", () => {
   });
 
   test("--json calls reportJSON", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--json"])
     ).rejects.toThrow("process.exit");
 
@@ -267,7 +281,7 @@ describe("check action handler", () => {
   });
 
   test("--ci calls reportCI", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--ci"])
     ).rejects.toThrow("process.exit");
 
@@ -277,7 +291,7 @@ describe("check action handler", () => {
   });
 
   test("--verbose is forwarded to reportConsole", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--verbose"])
     ).rejects.toThrow("process.exit");
 
@@ -295,7 +309,7 @@ describe("check action handler", () => {
     Bun.env.CI = "";
 
     try {
-      await expect(
+      expect(
         makeProgram().parseAsync(["node", "test", "check"])
       ).rejects.toThrow("process.exit");
 
@@ -311,9 +325,9 @@ describe("check action handler", () => {
   test("exits with code from getExitCode when rules fail", async () => {
     getExitCodeSpy.mockReturnValue(1);
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
@@ -321,9 +335,9 @@ describe("check action handler", () => {
   test("exits 0 when all rules pass", async () => {
     getExitCodeSpy.mockReturnValue(0);
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(exitSpy).toHaveBeenCalledWith(0);
   });
@@ -331,17 +345,22 @@ describe("check action handler", () => {
   // -- Options forwarding --
 
   test("--staged passes staged option to runChecks", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--staged"])
     ).rejects.toThrow("process.exit");
 
     expect(runChecksSpy).toHaveBeenCalledTimes(1);
-    const opts = runChecksSpy.mock.calls[0][2];
+    // runChecks's 3rd param has a default value, so tsc's Parameters<>
+    // extraction makes it an optional tuple element (`| undefined`) — a real
+    // static-typing nuance tsc gets right; oxlint's type-aware engine
+    // (tsgolint) doesn't model this, hence the "unnecessary" false report.
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
+    const opts = runChecksSpy.mock.calls[0][2]!;
     expect(opts.staged).toBe(true);
   });
 
   test("--adr passes filter to loadRuleAdrs", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--adr", "ARCH-001"])
     ).rejects.toThrow("process.exit");
 
@@ -350,7 +369,7 @@ describe("check action handler", () => {
   });
 
   test("file arguments are passed to runChecks", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync([
         "node",
         "test",
@@ -361,16 +380,18 @@ describe("check action handler", () => {
     ).rejects.toThrow("process.exit");
 
     expect(runChecksSpy).toHaveBeenCalledTimes(1);
-    const opts = runChecksSpy.mock.calls[0][2];
+    // See the identical tsc-vs-tsgolint note above.
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
+    const opts = runChecksSpy.mock.calls[0][2]!;
     expect(opts.files).toEqual(["src/a.ts", "src/b.ts"]);
   });
 
   // -- Telemetry --
 
   test("trackCheckResult is called with summary data", async () => {
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(trackCheckResultSpy).toHaveBeenCalledTimes(1);
     const data = trackCheckResultSpy.mock.calls[0][0];
@@ -382,7 +403,7 @@ describe("check action handler", () => {
   });
 
   test("telemetry records json output format", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--json"])
     ).rejects.toThrow("process.exit");
 
@@ -391,7 +412,7 @@ describe("check action handler", () => {
   });
 
   test("telemetry records ci output format", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "check", "--ci"])
     ).rejects.toThrow("process.exit");
 
@@ -400,7 +421,7 @@ describe("check action handler", () => {
   });
 
   test("telemetry records --staged and --adr usage", async () => {
-    await expect(
+    expect(
       makeProgram().parseAsync([
         "node",
         "test",
@@ -423,9 +444,9 @@ describe("check action handler", () => {
       frameworks: ["react", "nextjs"],
     });
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     const data = trackCheckResultSpy.mock.calls[0][0];
     expect(data.languages).toEqual(["typescript", "python"]);
@@ -436,9 +457,9 @@ describe("check action handler", () => {
   test("telemetry still fires when stack detection fails", async () => {
     detectStackSpy.mockRejectedValue(new Error("fs error"));
 
-    await expect(
-      makeProgram().parseAsync(["node", "test", "check"])
-    ).rejects.toThrow("process.exit");
+    expect(makeProgram().parseAsync(["node", "test", "check"])).rejects.toThrow(
+      "process.exit"
+    );
 
     expect(trackCheckResultSpy).toHaveBeenCalledTimes(1);
     const data = trackCheckResultSpy.mock.calls[0][0];

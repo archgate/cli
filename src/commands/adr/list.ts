@@ -49,11 +49,12 @@ export function registerAdrListCommand(adr: Command) {
           return;
         }
 
-        const filtered = options.domain
-          ? adrs.filter((a) => a.frontmatter.domain === options.domain)
-          : adrs;
+        const filtered =
+          options.domain !== undefined && options.domain !== ""
+            ? adrs.filter((a) => a.frontmatter.domain === options.domain)
+            : adrs;
 
-        const useJson = options.json || isAgentContext();
+        const useJson = options.json ?? isAgentContext();
         if (useJson) {
           console.log(
             formatJSON(

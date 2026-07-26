@@ -189,7 +189,7 @@ export async function getGitHubUser(
   }
 
   const data = GitHubUserSchema.parse(await response.json());
-  if (!data.login) {
+  if (data.login === undefined || data.login === "") {
     throw new Error("GitHub API did not return a username");
   }
   logDebug("GitHub user:", data.login);
@@ -233,7 +233,7 @@ export async function claimArchgateToken(githubToken: string): Promise<string> {
   }
 
   const data = TokenResponseSchema.parse(await response.json());
-  if (!data.token) {
+  if (data.token === undefined || data.token === "") {
     throw new Error("Plugins service did not return a token");
   }
   logDebug("Archgate token claimed successfully");

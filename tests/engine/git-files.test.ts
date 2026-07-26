@@ -15,6 +15,7 @@ import {
   resolveScopedFiles,
   SCOPE_FILE_WARN_THRESHOLD,
 } from "../../src/engine/git-files";
+import { ProjectConfigSchema } from "../../src/formats/project-config";
 import { git, safeRmSync } from "../test-utils";
 
 describe("git-files", () => {
@@ -159,7 +160,9 @@ describe("git-files", () => {
 
         const configPath = join(tempDir, ".archgate", "config.json");
         expect(existsSync(configPath)).toBe(true);
-        const config = JSON.parse(await Bun.file(configPath).text());
+        const config = ProjectConfigSchema.parse(
+          JSON.parse(await Bun.file(configPath).text())
+        );
         expect(config.baseBranch).toBe("main");
       }, 15_000);
 
@@ -173,8 +176,10 @@ describe("git-files", () => {
         // configBase is null (simulating caller didn't find it) but config has baseBranch
         await resolveBaseRef(tempDir, {});
 
-        const config = JSON.parse(
-          await Bun.file(join(tempDir, ".archgate", "config.json")).text()
+        const config = ProjectConfigSchema.parse(
+          JSON.parse(
+            await Bun.file(join(tempDir, ".archgate", "config.json")).text()
+          )
         );
         expect(config.baseBranch).toBe("develop");
       }, 15_000);

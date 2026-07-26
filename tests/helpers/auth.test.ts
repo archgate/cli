@@ -9,6 +9,7 @@ import { restoreEnv } from "../test-utils";
 
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
 }
 
@@ -111,7 +112,7 @@ describe("auth", () => {
       const { clearCredentials } =
         await import("../../src/helpers/credential-store");
 
-      await expect(clearCredentials()).resolves.toBeUndefined();
+      expect(clearCredentials()).resolves.toBeUndefined();
     });
   });
 
@@ -119,16 +120,14 @@ describe("auth", () => {
     test("sends POST to GitHub device code endpoint", async () => {
       const { requestDeviceCode } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json({
-            device_code: "dc_123",
-            user_code: "ABCD-1234",
-            verification_uri: "https://github.com/login/device",
-            expires_in: 900,
-            interval: 5,
-          })
-        )
+      mockFetch(async () =>
+        Response.json({
+          device_code: "dc_123",
+          user_code: "ABCD-1234",
+          verification_uri: "https://github.com/login/device",
+          expires_in: 900,
+          interval: 5,
+        })
       );
 
       const result = await requestDeviceCode();
@@ -141,11 +140,9 @@ describe("auth", () => {
     test("throws on non-200 response", async () => {
       const { requestDeviceCode } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(new Response("Bad Request", { status: 400 }))
-      );
+      mockFetch(async () => new Response("Bad Request", { status: 400 }));
 
-      await expect(requestDeviceCode()).rejects.toThrow("HTTP 400");
+      expect(requestDeviceCode()).rejects.toThrow("HTTP 400");
     });
   });
 
@@ -153,10 +150,8 @@ describe("auth", () => {
     test("returns login from GitHub API", async () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json({ login: "octocat", email: "octo@cat.com" })
-        )
+      mockFetch(async () =>
+        Response.json({ login: "octocat", email: "octo@cat.com" })
       );
 
       const user = await getGitHubUser("gho_test_token");
@@ -167,21 +162,17 @@ describe("auth", () => {
     test("throws when GitHub API returns non-200", async () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(new Response("Unauthorized", { status: 401 }))
-      );
+      mockFetch(async () => new Response("Unauthorized", { status: 401 }));
 
-      await expect(getGitHubUser("bad_token")).rejects.toThrow("HTTP 401");
+      expect(getGitHubUser("bad_token")).rejects.toThrow("HTTP 401");
     });
 
     test("throws when login missing from response", async () => {
       const { getGitHubUser } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(Response.json({ email: "octo@cat.com" }))
-      );
+      mockFetch(async () => Response.json({ email: "octo@cat.com" }));
 
-      await expect(getGitHubUser("gho_test_token")).rejects.toThrow(
+      expect(getGitHubUser("gho_test_token")).rejects.toThrow(
         "GitHub API did not return a username"
       );
     });
@@ -191,9 +182,7 @@ describe("auth", () => {
     test("returns token from plugins service", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(Response.json({ token: "ag_beta_claimed_token" }))
-      );
+      mockFetch(async () => Response.json({ token: "ag_beta_claimed_token" }));
 
       const token = await claimArchgateToken("gho_github_token");
       expect(token).toBe("ag_beta_claimed_token");
@@ -203,16 +192,14 @@ describe("auth", () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
       const { SignupRequiredError } = await import("../../src/helpers/signup");
 
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json(
-            { error: "No approved signup found for this GitHub account" },
-            { status: 403 }
-          )
+      mockFetch(async () =>
+        Response.json(
+          { error: "No approved signup found for this GitHub account" },
+          { status: 403 }
         )
       );
 
-      await expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
+      expect(claimArchgateToken("gho_token")).rejects.toBeInstanceOf(
         SignupRequiredError
       );
     });
@@ -220,13 +207,11 @@ describe("auth", () => {
     test("throws generic error on non-signup 403", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
 
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json({ error: "Account suspended" }, { status: 403 })
-        )
+      mockFetch(async () =>
+        Response.json({ error: "Account suspended" }, { status: 403 })
       );
 
-      await expect(claimArchgateToken("gho_token")).rejects.toThrow(
+      expect(claimArchgateToken("gho_token")).rejects.toThrow(
         "Account suspended"
       );
     });
@@ -234,9 +219,9 @@ describe("auth", () => {
     test("throws when token missing from successful response", async () => {
       const { claimArchgateToken } = await import("../../src/helpers/auth");
 
-      mockFetch(() => Promise.resolve(Response.json({})));
+      mockFetch(async () => Response.json({}));
 
-      await expect(claimArchgateToken("gho_token")).rejects.toThrow(
+      expect(claimArchgateToken("gho_token")).rejects.toThrow(
         "Plugins service did not return a token"
       );
     });
@@ -256,23 +241,22 @@ describe("auth", () => {
     test("returns token after authorization_pending then success", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
+      Bun.sleep = mock(async () => {});
 
       let callCount = 0;
-      globalThis.fetch = mock(() => {
+      // Deliberately incomplete fake: only the call signature fetch
+      // actually invokes matters for this test.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      globalThis.fetch = mock(async () => {
         callCount++;
         if (callCount === 1) {
-          return Promise.resolve(
-            Response.json({ error: "authorization_pending" })
-          );
+          return Response.json({ error: "authorization_pending" });
         }
-        return Promise.resolve(
-          Response.json({
-            access_token: "gho_polled_token",
-            token_type: "bearer",
-            scope: "read:user",
-          })
-        );
+        return Response.json({
+          access_token: "gho_polled_token",
+          token_type: "bearer",
+          scope: "read:user",
+        });
       }) as unknown as typeof fetch;
 
       const token = await pollForAccessToken("dc_abc", 0, 60);
@@ -284,24 +268,22 @@ describe("auth", () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
       const sleepArgs: number[] = [];
-      Bun.sleep = mock((ms: number) => {
-        sleepArgs.push(ms);
-        return Promise.resolve();
-      }) as unknown as typeof Bun.sleep;
+      Bun.sleep = mock(async (ms: number | Date) => {
+        sleepArgs.push(typeof ms === "number" ? ms : ms.getTime());
+      });
 
       let callCount = 0;
-      globalThis.fetch = mock(() => {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      globalThis.fetch = mock(async () => {
         callCount++;
         if (callCount === 1) {
-          return Promise.resolve(Response.json({ error: "slow_down" }));
+          return Response.json({ error: "slow_down" });
         }
-        return Promise.resolve(
-          Response.json({
-            access_token: "gho_after_slow_down",
-            token_type: "bearer",
-            scope: "read:user",
-          })
-        );
+        return Response.json({
+          access_token: "gho_after_slow_down",
+          token_type: "bearer",
+          scope: "read:user",
+        });
       }) as unknown as typeof fetch;
 
       const token = await pollForAccessToken("dc_abc", 0, 60);
@@ -313,18 +295,16 @@ describe("auth", () => {
     test("throws on expired_token", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
+      Bun.sleep = mock(async () => {});
 
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json({
-            error: "expired_token",
-            error_description: "The device code has expired.",
-          })
-        )
+      mockFetch(async () =>
+        Response.json({
+          error: "expired_token",
+          error_description: "The device code has expired.",
+        })
       );
 
-      await expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
+      expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
         "The device code has expired."
       );
     });
@@ -332,18 +312,16 @@ describe("auth", () => {
     test("throws on access_denied", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
+      Bun.sleep = mock(async () => {});
 
-      mockFetch(() =>
-        Promise.resolve(
-          Response.json({
-            error: "access_denied",
-            error_description: "The user denied your request.",
-          })
-        )
+      mockFetch(async () =>
+        Response.json({
+          error: "access_denied",
+          error_description: "The user denied your request.",
+        })
       );
 
-      await expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
+      expect(pollForAccessToken("dc_abc", 0, 60)).rejects.toThrow(
         "The user denied your request."
       );
     });
@@ -351,13 +329,11 @@ describe("auth", () => {
     test("throws when deadline expires before authorization", async () => {
       const { pollForAccessToken } = await import("../../src/helpers/auth");
 
-      Bun.sleep = mock(() => Promise.resolve()) as unknown as typeof Bun.sleep;
+      Bun.sleep = mock(async () => {});
 
-      mockFetch(() =>
-        Promise.resolve(Response.json({ error: "authorization_pending" }))
-      );
+      mockFetch(async () => Response.json({ error: "authorization_pending" }));
 
-      await expect(pollForAccessToken("dc_abc", 0, 0)).rejects.toThrow(
+      expect(pollForAccessToken("dc_abc", 0, 0)).rejects.toThrow(
         "Device code expired. Please try again."
       );
     });

@@ -39,17 +39,36 @@ function ruleContextMembers(content: string): Set<string> {
   return members;
 }
 
+/**
+ * Type guard narrowing an unknown AST value to an object node without an
+ * unsafe cast — mirrors the previous `typeof x === "object"` check, so the
+ * walk still descends into every plain object/array, not just ones that
+ * already carry a `type` field.
+ */
+function isEsTreeNode(value: unknown): value is EsTreeNode {
+  return typeof value === "object" && value !== null;
+}
+
+/** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */
+function asEsTreeNode(value: unknown): EsTreeNode | undefined {
+  return isEsTreeNode(value) ? value : undefined;
+}
+
+/** An ESTree node's `name` field, if it's actually a string. */
+function nodeName(node: EsTreeNode | undefined): string | undefined {
+  return typeof node?.name === "string" ? node.name : undefined;
+}
+
 /** Depth-first walk over an ESTree-shaped tree. */
 function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
   if (Array.isArray(node)) {
     for (const item of node) walk(item, visit);
     return;
   }
-  if (!node || typeof node !== "object") return;
-  const n = node as EsTreeNode;
-  if (typeof n.type === "string") visit(n);
-  for (const value of Object.values(n)) {
-    if (value && typeof value === "object") walk(value, visit);
+  if (!isEsTreeNode(node)) return;
+  if (typeof node.type === "string") visit(node);
+  for (const value of Object.values(node)) {
+    if (Boolean(value) && typeof value === "object") walk(value, visit);
   }
 }
 
@@ -72,10 +91,10 @@ export default {
           // cast is erased by transpilation before ctx.ast() parses this file,
           // so the declarator init is a bare arrow/function expression.
           if (n.type === "VariableDeclarator") {
-            const id = n.id as (EsTreeNode & { name?: string }) | undefined;
-            const init = n.init as EsTreeNode | undefined;
+            const id = asEsTreeNode(n.id);
+            const init = asEsTreeNode(n.init);
             if (
-              id?.name === "astImpl" &&
+              nodeName(id) === "astImpl" &&
               (init?.type === "ArrowFunctionExpression" ||
                 init?.type === "FunctionExpression")
             ) {
@@ -85,8 +104,8 @@ export default {
           }
           // Overloaded function declaration: `async function astImpl(…) {…}`
           if (n.type === "FunctionDeclaration") {
-            const id = n.id as (EsTreeNode & { name?: string }) | undefined;
-            if (id?.name === "astImpl") {
+            const id = asEsTreeNode(n.id);
+            if (nodeName(id) === "astImpl") {
               astMethodBody = n.body;
             }
             return;
@@ -94,10 +113,10 @@ export default {
           // Fallback: inline `ast(path, language) { … }` object method, for
           // an implementation that lives directly on the returned object.
           if (n.type === "Property") {
-            const key = n.key as (EsTreeNode & { name?: string }) | undefined;
-            const value = n.value as EsTreeNode | undefined;
+            const key = asEsTreeNode(n.key);
+            const value = asEsTreeNode(n.value);
             if (
-              key?.name === "ast" &&
+              nodeName(key) === "ast" &&
               (value?.type === "FunctionExpression" ||
                 value?.type === "ArrowFunctionExpression")
             ) {
@@ -106,7 +125,7 @@ export default {
           }
         });
 
-        if (!astMethodBody) {
+        if (astMethodBody === null) {
           ctx.report.violation({
             message:
               "Could not locate the ast() method inside createRuleContext() — ARCH-022 requires RuleContext to expose exactly this method",
@@ -197,8 +216,8 @@ export default {
         // argv includes the -I isolation flag before the -c program. Without
         // it, `python -c` puts the target project cwd on sys.path, letting a
         // planted ast.py/json.py run when the serializer imports them.
-        const pythonCmd = content.match(
-          /language === "python"\s*\?\s*\[([^\]]*)\]/u
+        const pythonCmd = /language === "python"\s*\?\s*\[([^\]]*)\]/u.exec(
+          content
         );
         if (!pythonCmd) {
           ctx.report.violation({
@@ -270,9 +289,10 @@ export default {
         const surfaces = ["src/formats/rules.ts", "src/helpers/rules-shim.ts"];
         const checks = surfaces.map(async (file) => {
           const content = await ctx.readFile(file);
-          const variantMatch = content.match(
-            /\b(?:python|ruby|typescript|javascript|ts|js|py|rb)Ast\s*\(/iu
-          );
+          const variantMatch =
+            /\b(?:python|ruby|typescript|javascript|ts|js|py|rb)Ast\s*\(/iu.exec(
+              content
+            );
           if (variantMatch) {
             ctx.report.violation({
               message: `Per-language AST method "${variantMatch[0].trim()}" found in ${file} — ARCH-022 mandates a single ast(path, language) method`,
@@ -283,7 +303,7 @@ export default {
           const astSignatures = content.match(
             /^\s*ast\(path: string, language: AstLanguage, opts\?: AstOptions\): Promise<AstNode>;/gmu
           );
-          if (!astSignatures || astSignatures.length !== 1) {
+          if (astSignatures?.length !== 1) {
             ctx.report.violation({
               message: `${file} must declare exactly one \`ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>\` signature on RuleContext (found ${astSignatures?.length ?? 0})`,
               file,

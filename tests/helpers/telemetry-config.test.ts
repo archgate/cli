@@ -7,6 +7,14 @@ import { join } from "node:path";
 
 import { restoreEnv } from "../test-utils";
 
+/** Narrows a JSON.parse() result without an unsafe `as` cast. */
+function hasKeys<K extends string>(
+  v: unknown,
+  ...keys: K[]
+): v is Record<K, unknown> {
+  return typeof v === "object" && v !== null && keys.every((k) => k in v);
+}
+
 describe("telemetry-config", () => {
   let tempDir: string;
   let originalHome: string | undefined;
@@ -187,7 +195,10 @@ describe("telemetry-config", () => {
       // Read from disk to verify persistence
       const configPath = join(tempDir, ".archgate", "config.json");
       const raw = readFileSync(configPath, "utf-8");
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
+      if (!hasKeys(parsed, "telemetry")) {
+        throw new Error("expected telemetry in config");
+      }
       expect(parsed.telemetry).toBe(false);
     });
 
@@ -203,7 +214,10 @@ describe("telemetry-config", () => {
 
       const configPath = join(tempDir, ".archgate", "config.json");
       const raw = readFileSync(configPath, "utf-8");
-      const parsed = JSON.parse(raw);
+      const parsed: unknown = JSON.parse(raw);
+      if (!hasKeys(parsed, "telemetry")) {
+        throw new Error("expected telemetry in config");
+      }
       expect(parsed.telemetry).toBe(true);
     });
   });

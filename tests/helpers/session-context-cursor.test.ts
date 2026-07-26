@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
@@ -24,7 +32,7 @@ describe("readCursorSession", () => {
     .replaceAll(":", "")
     .replaceAll(".", "-");
   let tempHome: string;
-  let homedirSpy: ReturnType<typeof spyOn>;
+  let homedirSpy: Mock<typeof os.homedir>;
   let transcriptsDir: string;
 
   beforeEach(() => {

@@ -11,7 +11,7 @@ export default {
         );
 
         const bunShellMatches = await Promise.all(
-          files.map((file) => ctx.grep(file, /Bun\.\$`/u))
+          files.map(async (file) => ctx.grep(file, /Bun\.\$`/u))
         );
         for (const fileMatches of bunShellMatches) {
           for (const m of fileMatches) {
@@ -26,7 +26,7 @@ export default {
         }
 
         const dollarImportMatches = await Promise.all(
-          files.map((file) =>
+          files.map(async (file) =>
             ctx.grep(file, /import\s*\{[^}]*\$[^}]*\}\s*from\s*["']bun["']/u)
           )
         );
@@ -43,7 +43,7 @@ export default {
         }
 
         const destructuredMatches = await Promise.all(
-          files.map((file) => ctx.grep(file, /await\s+\$`/u))
+          files.map(async (file) => ctx.grep(file, /await\s+\$`/u))
         );
         for (const fileMatches of destructuredMatches) {
           for (const m of fileMatches) {

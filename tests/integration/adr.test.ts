@@ -4,6 +4,8 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { safeRmSync } from "../test-utils";
 import {
   runCli,
@@ -12,6 +14,12 @@ import {
   writeAdr,
   makeAdr,
 } from "./cli-harness";
+
+const CreatedAdrJsonSchema = z.object({ id: z.string(), filePath: z.string() });
+const AdrListEntrySchema = z.looseObject({
+  id: z.string(),
+  domain: z.string(),
+});
 
 let tempDir: string;
 
@@ -61,7 +69,7 @@ describe("adr integration", () => {
         tempDir
       );
       expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
+      const parsed = CreatedAdrJsonSchema.parse(JSON.parse(result.stdout));
       expect(parsed.id).toBeTruthy();
       expect(parsed.filePath).toBeTruthy();
     });
@@ -186,7 +194,9 @@ describe("adr integration", () => {
       );
       const result = await runCli(["adr", "list", "--json"], tempDir);
       expect(result.exitCode).toBe(0);
-      const parsed = JSON.parse(result.stdout);
+      const parsed = z
+        .array(AdrListEntrySchema)
+        .parse(JSON.parse(result.stdout));
       expect(parsed).toBeInstanceOf(Array);
       expect(parsed.length).toBe(2);
       expect(parsed[0]).toHaveProperty("id");

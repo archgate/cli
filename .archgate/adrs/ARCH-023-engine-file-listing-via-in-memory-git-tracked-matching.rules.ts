@@ -35,7 +35,7 @@ export default {
           }
 
           for (const match of content.matchAll(callPattern)) {
-            const offset = match.index ?? 0;
+            const offset = match.index;
             const line = content.slice(0, offset).split("\n").length;
 
             ctx.report.violation({

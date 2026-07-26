@@ -37,15 +37,21 @@ export function registerAdrCreateCommand(adr: Command) {
         let files: string[] | undefined;
         let body: string | undefined;
 
-        if (opts.title && opts.domain) {
+        if (
+          opts.title !== undefined &&
+          opts.title !== "" &&
+          opts.domain !== undefined &&
+          opts.domain !== ""
+        ) {
           domain = opts.domain;
           title = opts.title;
-          files = opts.files
-            ? opts.files
-                .split(",")
-                .map((f) => f.trim())
-                .filter(Boolean)
-            : undefined;
+          files =
+            opts.files !== undefined && opts.files !== ""
+              ? opts.files
+                  .split(",")
+                  .map((f) => f.trim())
+                  .filter(Boolean)
+              : undefined;
           body = opts.body;
         } else {
           const choices = getAllDomainNames(projectRoot);
@@ -53,8 +59,12 @@ export function registerAdrCreateCommand(adr: Command) {
           // needed for interactive prompts, not for scripted --title/--domain
           // invocations or --help/--version.
           const { default: inquirer } = await import("inquirer");
-          const answers = await withPromptFix(() =>
-            inquirer.prompt([
+          const answers = await withPromptFix(async () =>
+            inquirer.prompt<{
+              domain: AdrDomain;
+              title: string;
+              files: string;
+            }>([
               {
                 type: "select",
                 name: "domain",
@@ -97,7 +107,7 @@ export function registerAdrCreateCommand(adr: Command) {
           rules: opts.rules,
         });
 
-        const useJson = opts.json || isAgentContext();
+        const useJson = opts.json ?? isAgentContext();
         if (useJson) {
           console.log(formatJSON(result, opts.json ? true : undefined));
         } else {

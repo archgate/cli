@@ -46,10 +46,11 @@ export function buildAdrContent(opts: {
   body?: string;
   rules?: boolean;
 }): string {
-  if (opts.body) {
-    const filesLine = opts.files?.length
-      ? `\nfiles: [${opts.files.map((f) => `"${f}"`).join(", ")}]`
-      : "";
+  if (opts.body !== undefined && opts.body !== "") {
+    const filesLine =
+      opts.files?.length !== undefined && opts.files.length > 0
+        ? `\nfiles: [${opts.files.map((f) => `"${f}"`).join(", ")}]`
+        : "";
     const rulesValue = opts.rules ?? false;
     return `---
 id: ${opts.id}
@@ -95,7 +96,7 @@ export async function createAdrFile(
   const prefix =
     opts.prefix ??
     Object.entries(DOMAIN_PREFIXES).find(([d]) => d === opts.domain)?.[1];
-  if (!prefix) {
+  if (prefix === undefined || prefix === "") {
     throw new UserError(
       `No prefix registered for domain '${opts.domain}'. Pass opts.prefix or register via \`archgate domain add\`.`
     );
@@ -107,7 +108,7 @@ export async function createAdrFile(
   const filePath = join(adrsDir, fileName);
   await Bun.write(filePath, content);
 
-  if (opts.rules) {
+  if (opts.rules === true) {
     const rulesFileName = `${id}-${slug}.rules.ts`;
     const rulesFilePath = join(adrsDir, rulesFileName);
     await Bun.write(rulesFilePath, generateRulesTemplate());

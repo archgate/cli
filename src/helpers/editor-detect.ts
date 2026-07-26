@@ -67,21 +67,22 @@ export async function promptEditorSelection(
   // Lazy-load inquirer — it costs ~200ms to parse and is only needed when
   // the user is interactively prompted, not on every CLI startup.
   const { default: inquirer } = await import("inquirer");
-  const { selected } = await withPromptFix(() =>
-    inquirer.prompt([
-      {
-        type: "checkbox",
-        name: "selected",
-        message: "Select editors to configure:",
-        choices: detected.map((e) => ({
-          name: e.available ? `${e.label} (detected)` : `${e.label}`,
-          value: e.id,
-          checked: e.available,
-        })),
-        validate: (input: EditorTarget[]) =>
-          input.length > 0 || "Select at least one editor.",
-      },
-    ])
+  const questions = [
+    {
+      type: "checkbox" as const,
+      name: "selected" as const,
+      message: "Select editors to configure:",
+      choices: detected.map((e) => ({
+        name: e.available ? `${e.label} (detected)` : e.label,
+        value: e.id,
+        checked: e.available,
+      })),
+      validate: (input: EditorTarget[]) =>
+        input.length > 0 || "Select at least one editor.",
+    },
+  ];
+  const { selected } = await withPromptFix<{ selected: EditorTarget[] }>(
+    async () => inquirer.prompt(questions)
   );
   return selected;
 }
@@ -97,19 +98,20 @@ export async function promptSingleEditorSelection(
   const available = detected.filter((e) => e.available);
   const defaultEditor = available.length > 0 ? available[0].id : "claude";
 
-  const { selected } = await withPromptFix(() =>
-    inquirer.prompt([
-      {
-        type: "select",
-        name: "selected",
-        message: "Select editor:",
-        choices: detected.map((e) => ({
-          name: e.available ? `${e.label} (detected)` : e.label,
-          value: e.id,
-        })),
-        default: defaultEditor,
-      },
-    ])
+  const questions = [
+    {
+      type: "select" as const,
+      name: "selected" as const,
+      message: "Select editor:",
+      choices: detected.map((e) => ({
+        name: e.available ? `${e.label} (detected)` : e.label,
+        value: e.id,
+      })),
+      default: defaultEditor,
+    },
+  ];
+  const { selected } = await withPromptFix<{ selected: EditorTarget }>(
+    async () => inquirer.prompt(questions)
   );
   return selected;
 }

@@ -13,7 +13,7 @@ import {
   extractAdrSections,
   truncateSection,
 } from "../../src/engine/adr-sections";
-import type { AdrDocument, AdrDomain } from "../../src/formats/adr";
+import type { AdrDocument } from "../../src/formats/adr";
 import { safeRmSync } from "../test-utils";
 
 function makeAdr(
@@ -25,7 +25,7 @@ function makeAdr(
     frontmatter: {
       id,
       title: `Test ${id}`,
-      domain: "architecture" as AdrDomain,
+      domain: "architecture",
       rules: false,
     },
     body,
@@ -37,14 +37,14 @@ describe("extractAdrSections", () => {
   test("extracts a named section up to the next heading", () => {
     const body =
       "## Context\nWhy.\n\n## Decision\nWe decided X.\nIt applies broadly.\n\n## Consequences\nFine.";
-    expect(extractAdrSections(body, ["Decision"])["Decision"]).toBe(
+    expect(extractAdrSections(body, ["Decision"]).Decision).toBe(
       "We decided X.\nIt applies broadly."
     );
   });
 
   test("matches heading names case-insensitively", () => {
     const body = "## decision\nLowercase heading.";
-    expect(extractAdrSections(body, ["Decision"])["Decision"]).toBe(
+    expect(extractAdrSections(body, ["Decision"]).Decision).toBe(
       "Lowercase heading."
     );
   });
@@ -54,7 +54,7 @@ describe("extractAdrSections", () => {
       "Decision",
       "Do's and Don'ts",
     ]);
-    expect(result["Decision"]).toBe("");
+    expect(result.Decision).toBe("");
     expect(result["Do's and Don'ts"]).toBe("");
   });
 

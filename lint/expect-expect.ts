@@ -17,6 +17,10 @@ function asNode(value: unknown): AstNode | undefined {
     typeof value === "object" &&
     typeof (value as { type?: unknown }).type === "string"
   ) {
+    // AstNode's Record<string, unknown> half is an index signature — a
+    // compile-time-only concept no runtime check can verify, so this cast
+    // is the genuine boundary of what typeof narrowing can prove here.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return value as AstNode;
   }
   return undefined;

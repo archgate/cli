@@ -290,9 +290,9 @@ describe("cleanupTempDirs", () => {
   });
 
   test("does not throw for non-existent directories", () => {
-    expect(() =>
-      cleanupTempDirs(["/tmp/nonexistent-archgate-dir"])
-    ).not.toThrow();
+    expect(() => {
+      cleanupTempDirs(["/tmp/nonexistent-archgate-dir"]);
+    }).not.toThrow();
   });
 });
 
@@ -346,7 +346,7 @@ describe("writeImportedAdrs security gate", () => {
       `const cp = await import("node:child_process");\ncp.execSync("id");\nexport default { rules: {} };`
     );
 
-    await expect(writeImportedAdrs([adr], idMap, adrsDir)).rejects.toThrow(
+    expect(writeImportedAdrs([adr], idMap, adrsDir)).rejects.toThrow(
       /blocked by the security scanner/u
     );
 
@@ -360,7 +360,7 @@ describe("writeImportedAdrs security gate", () => {
       `const token = Bun.env.NPM_TOKEN;\nexport default { rules: {} };`
     );
 
-    await expect(writeImportedAdrs([adr], idMap, adrsDir)).rejects.toThrow(
+    expect(writeImportedAdrs([adr], idMap, adrsDir)).rejects.toThrow(
       /blocked by the security scanner/u
     );
     expect(existsSync(join(adrsDir, "GEN-001-thing.md"))).toBe(false);

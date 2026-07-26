@@ -10,7 +10,8 @@
     "conventional-changelog-angular",
     "czg",
     "oxfmt",
-    "oxlint"
+    "oxlint",
+    "oxlint-tsgolint"
   ],
   "ignoreBinaries": [
     "conventional-changelog",

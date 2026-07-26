@@ -172,7 +172,7 @@ const AstNodeSchema: z.ZodType<AstNode> = z
     callee: z.lazy(() => AstNodeSchema).optional(),
     left: z.lazy(() => AstNodeSchema).optional(),
   })
-  .passthrough();
+  .loose();
 
 function parseNode(value: unknown): AstNode | null {
   const result = AstNodeSchema.safeParse(value);
@@ -200,7 +200,7 @@ export function scanRuleSource(
   const textViolations = scanSourceText(source);
 
   let js: string;
-  if (preTranspiled) {
+  if (preTranspiled !== undefined && preTranspiled !== "") {
     js = preTranspiled;
   } else {
     try {
@@ -310,8 +310,6 @@ export function scanRuleSource(
   }
 
   function walk(node: AstNode): void {
-    if (!node || typeof node !== "object") return;
-
     switch (node.type) {
       // `export ... from "x"` / `export * from "x"` evaluate the target module
       // just as an import does, so they run through the same allowlist. Nodes
@@ -331,7 +329,7 @@ export function scanRuleSource(
         const props = Array.isArray(node.properties) ? node.properties : [];
         for (const raw of props) {
           const p = parseNode(raw);
-          if (!p || p.type !== "Property") continue;
+          if (p?.type !== "Property") continue;
           const key = parseNode(p.key);
           if (
             key &&

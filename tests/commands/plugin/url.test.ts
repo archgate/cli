@@ -6,6 +6,7 @@ import {
   test,
   beforeEach,
   afterEach,
+  type Mock,
   spyOn,
   mock,
 } from "bun:test";
@@ -18,9 +19,9 @@ import { Command } from "@commander-js/extra-typings";
 
 // Mock editor-detect so non-TTY auto-detect paths don't require real editor
 // binaries on disk.
-mock.module("../../src/helpers/editor-detect", () => ({
-  detectEditors: mock(() => Promise.resolve([])),
-  promptSingleEditorSelection: mock(() => Promise.resolve("claude")),
+void mock.module("../../src/helpers/editor-detect", () => ({
+  detectEditors: mock(async () => []),
+  promptSingleEditorSelection: mock(async () => "claude"),
 }));
 
 // ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ describe("registerPluginUrlCommand", () => {
 // ---------------------------------------------------------------------------
 
 describe("plugin url action handler", () => {
-  let logSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});

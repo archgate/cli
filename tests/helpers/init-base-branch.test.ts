@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { initProject } from "../../src/helpers/init-project";
+import { loadProjectConfig } from "../../src/helpers/project-config";
 import { git, safeRmSync } from "../test-utils";
 
 async function initGitRepoWithCommit(dir: string): Promise<void> {
@@ -35,7 +36,7 @@ describe("initProject — baseBranch auto-detection", () => {
 
     const configPath = join(tempDir, ".archgate", "config.json");
     expect(existsSync(configPath)).toBe(true);
-    const config = JSON.parse(await Bun.file(configPath).text());
+    const config = loadProjectConfig(tempDir);
     expect(config.baseBranch).toBe("main");
   }, 15_000);
 
@@ -45,13 +46,13 @@ describe("initProject — baseBranch auto-detection", () => {
     await initProject(tempDir);
 
     const configPath = join(tempDir, ".archgate", "config.json");
-    const config = JSON.parse(await Bun.file(configPath).text());
+    const config = loadProjectConfig(tempDir);
     config.baseBranch = "develop";
     await Bun.write(configPath, JSON.stringify(config, null, 2) + "\n");
 
     await initProject(tempDir);
 
-    const updatedConfig = JSON.parse(await Bun.file(configPath).text());
+    const updatedConfig = loadProjectConfig(tempDir);
     expect(updatedConfig.baseBranch).toBe("develop");
   }, 15_000);
 
@@ -60,7 +61,7 @@ describe("initProject — baseBranch auto-detection", () => {
 
     const configPath = join(tempDir, ".archgate", "config.json");
     if (existsSync(configPath)) {
-      const config = JSON.parse(await Bun.file(configPath).text());
+      const config = loadProjectConfig(tempDir);
       expect(config.baseBranch).toBeUndefined();
     }
   });

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  type Mock,
+  spyOn,
+} from "bun:test";
 import {
   mkdtempSync,
   rmSync,
@@ -37,8 +45,8 @@ describe("clean action handler", () => {
   let fakeHome: string;
   let originalHome: string | undefined;
   let originalUserProfile: string | undefined;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-clean-test-"));

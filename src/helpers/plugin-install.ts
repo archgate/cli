@@ -151,6 +151,27 @@ export async function installCursorPlugin(token: string): Promise<void> {
 }
 
 /**
+ * Narrow an untyped JSON value to a hooks.json entry array without
+ * reconstructing entries — unrecognized per-entry fields (e.g. `type`) must
+ * survive the round-trip through {@link mergeCursorHooks}.
+ */
+function isCursorHookArray(
+  value: unknown
+): value is { event: string; command?: string }[] {
+  // Array.isArray narrows to any[], not unknown[] — reassign through an
+  // explicitly unknown[]-typed binding so element access below stays checked.
+  if (!Array.isArray(value)) return false;
+  const entries: unknown[] = value;
+  return entries.every(
+    (entry) =>
+      typeof entry === "object" &&
+      entry !== null &&
+      "event" in entry &&
+      typeof entry.event === "string"
+  );
+}
+
+/**
  * Merge archgate hooks into `~/.cursor/hooks.json`.
  *
  * If the file already exists, reads it, removes any previous archgate hooks
@@ -162,11 +183,14 @@ async function mergeCursorHooks(cursorDir: string): Promise<void> {
   if (!existsSync(hooksPath)) return;
 
   try {
-    const existing: { event: string; command?: string }[] =
-      await Bun.file(hooksPath).json();
+    const parsed: unknown = await Bun.file(hooksPath).json();
+    if (!isCursorHookArray(parsed)) {
+      throw new Error("hooks.json has an unexpected shape");
+    }
+    const existing = parsed;
 
     const filtered = existing.filter(
-      (h) => !h.command?.includes("archgate check")
+      (h) => h.command === undefined || !h.command.includes("archgate check")
     );
 
     const archgateHooks = [

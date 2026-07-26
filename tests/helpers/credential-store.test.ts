@@ -139,7 +139,7 @@ describe("credential-store", () => {
 
   describe("clearCredentials", () => {
     test("does not throw when no credentials exist", async () => {
-      await expect(clearCredentials()).resolves.toBeUndefined();
+      expect(clearCredentials()).resolves.toBeUndefined();
     });
 
     test("cleans up legacy metadata file", async () => {

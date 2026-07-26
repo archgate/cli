@@ -33,7 +33,7 @@ describe("runChecks file-filter boundary", () => {
         description: "No console.log",
         async check(ctx) {
           const results = await Promise.all(
-            ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+            ctx.scopedFiles.map(async (file) => ctx.grep(file, /console\.log/u))
           );
           for (const matches of results) {
             for (const m of matches) {

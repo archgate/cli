@@ -117,7 +117,7 @@ function createRuleContext(
    * Pattern sandboxing (no `..`, no absolute paths — including inside brace
    * alternatives) happens inside listMatchingFiles, on both of its paths.
    */
-  function cachedGlob(pattern: string): Promise<string[]> {
+  async function cachedGlob(pattern: string): Promise<string[]> {
     const key = (trackedFiles ? "tracked:" : "all:") + pattern;
     let hit = caches.globResults.get(key);
     if (!hit) {
@@ -128,7 +128,7 @@ function createRuleContext(
   }
 
   /** Read file text with per-run memoization (strings are immutable). */
-  function cachedFileText(absPath: string): Promise<string> {
+  async function cachedFileText(absPath: string): Promise<string> {
     let hit = caches.fileText.get(absPath);
     if (!hit) {
       hit = Bun.file(absPath).text();
@@ -212,9 +212,12 @@ function createRuleContext(
           ? await readBaseSourceOrThrow(projectRoot, baseRev, relPath, relPath)
           : await cachedFileText(absPath);
         try {
-          // Meriyah's Program is ESTree-shaped but lacks the index signature.
+          // Meriyah's Program is ESTree-shaped but lacks the index signature —
+          // no honest narrower type exists short of re-declaring meriyah's own
+          // AST types, which ARCH-022 keeps out of scope here.
           // `path` is safe here: it only picks the parse mode by extension.
           const tree = parseTsOrJsSource(language, path, source, wantComments);
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
           return tree as unknown as EsTreeProgram;
         } catch (err) {
           throw new Error(
@@ -231,7 +234,7 @@ function createRuleContext(
         interpreterCache.set(language, probe);
       }
       const interpreter = await probe;
-      if (!interpreter) {
+      if (interpreter === null) {
         throw interpreterNotFoundError(language, candidates, relPath);
       }
 
@@ -279,6 +282,10 @@ function createRuleContext(
             `Failed to parse "${relPath}" as ${language}: ${detail}`
           );
         }
+        // No schema exists for arbitrary Python/Ruby AST JSON to validate
+        // against `AstNode` further; parseAstJson already confirmed the
+        // subprocess emitted a well-formed object/array envelope.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
         return finalizeAstResult(
           parseAstJson(stdout, relPath, language),
           language,
@@ -352,7 +359,7 @@ function createRuleContext(
       return allMatches;
     },
 
-    readFile(path: string): Promise<string> {
+    async readFile(path: string): Promise<string> {
       const absPath = safePath(resolvedRoot, path);
       return cachedFileText(absPath);
     },
@@ -364,14 +371,14 @@ function createRuleContext(
      * checkable with one null test. Unlike `ctx.ast({ rev: "base" })`, this
      * primitive reports absence as null rather than throwing.
      */
-    fileAtBase(path: string): Promise<string | null> {
+    async fileAtBase(path: string): Promise<string | null> {
       const absPath = safePath(resolvedRoot, path);
-      if (!baseRev) return Promise.resolve(null);
+      if (baseRev === null || baseRev === "") return null;
       const relPath = relative(resolvedRoot, absPath).replaceAll("\\", "/");
       return getFileAtRev(projectRoot, baseRev, relPath);
     },
 
-    readJSON(path: string): Promise<any> {
+    async readJSON(path: string): Promise<any> {
       return Bun.file(safePath(resolvedRoot, path)).json();
     },
 
@@ -426,15 +433,16 @@ export async function runChecks(
   // could hand a rule a change set and a base AST from different commits if
   // the branch moves mid-run (ARCH-022). Null for staged/default runs.
   const baseRev: string | null =
-    !options.staged && options.base
+    options.staged !== true && options.base !== undefined && options.base !== ""
       ? await getMergeBase(projectRoot, options.base)
       : null;
 
-  const changedFilesPromise = options.staged
-    ? getStagedFiles(projectRoot)
-    : baseRev
-      ? getFilesChangedSinceRef(projectRoot, baseRev)
-      : Promise.resolve([]);
+  const changedFilesPromise =
+    options.staged === true
+      ? getStagedFiles(projectRoot)
+      : baseRev !== null && baseRev !== ""
+        ? getFilesChangedSinceRef(projectRoot, baseRev)
+        : Promise.resolve([]);
 
   // Do synchronous work while git subprocesses run
   const results: RuleResult[] = loadResults
@@ -531,15 +539,13 @@ export async function runChecks(
           await Promise.race([
             ruleConfig.check(ctx),
             new Promise<never>((_, reject) => {
-              timer = setTimeout(
-                () =>
-                  reject(
-                    new Error(
-                      `Rule ${ruleId} timed out after ${RULE_TIMEOUT_MS}ms`
-                    )
-                  ),
-                RULE_TIMEOUT_MS
-              );
+              timer = setTimeout(() => {
+                reject(
+                  new Error(
+                    `Rule ${ruleId} timed out after ${RULE_TIMEOUT_MS}ms`
+                  )
+                );
+              }, RULE_TIMEOUT_MS);
             }),
           ]).finally(() => {
             if (timer) clearTimeout(timer);

@@ -62,8 +62,12 @@ describe("getPlatformInfo", () => {
 });
 
 describe("isWSL", () => {
-  beforeEach(() => _resetAllCaches());
-  afterEach(() => _resetAllCaches());
+  beforeEach(() => {
+    _resetAllCaches();
+  });
+  afterEach(() => {
+    _resetAllCaches();
+  });
 
   test("returns a boolean", () => {
     expect(typeof isWSL()).toBe("boolean");
@@ -89,11 +93,17 @@ describe("resolveCommand", () => {
 });
 
 // WSL-only tests: path conversion and Windows home directory
-const inWSL = !!process.env.WSL_DISTRO_NAME;
+const inWSL =
+  process.env.WSL_DISTRO_NAME !== undefined &&
+  process.env.WSL_DISTRO_NAME !== "";
 
 describe("toWindowsPath", () => {
-  beforeEach(() => _resetAllCaches());
-  afterEach(() => _resetAllCaches());
+  beforeEach(() => {
+    _resetAllCaches();
+  });
+  afterEach(() => {
+    _resetAllCaches();
+  });
 
   test.skipIf(!inWSL)("converts /mnt/c to C:\\", async () => {
     const result = await toWindowsPath("/mnt/c");
@@ -117,8 +127,12 @@ describe("toWindowsPath", () => {
 });
 
 describe("toWslPath", () => {
-  beforeEach(() => _resetAllCaches());
-  afterEach(() => _resetAllCaches());
+  beforeEach(() => {
+    _resetAllCaches();
+  });
+  afterEach(() => {
+    _resetAllCaches();
+  });
 
   test.skipIf(!inWSL)("converts C:\\ to /mnt/c", async () => {
     const result = await toWslPath("C:\\");
@@ -140,8 +154,12 @@ describe("toWslPath", () => {
 });
 
 describe("getWindowsHomeDirFromWSL", () => {
-  beforeEach(() => _resetAllCaches());
-  afterEach(() => _resetAllCaches());
+  beforeEach(() => {
+    _resetAllCaches();
+  });
+  afterEach(() => {
+    _resetAllCaches();
+  });
 
   test.skipIf(!inWSL)("returns a path under /mnt/", async () => {
     const result = await getWindowsHomeDirFromWSL();
@@ -167,7 +185,9 @@ describe("getWindowsHomeDirFromWSL", () => {
 
 describe("WSL detection via env vars (Linux only)", () => {
   const isNativeLinux =
-    process.platform === "linux" && !process.env.WSL_DISTRO_NAME;
+    process.platform === "linux" &&
+    (process.env.WSL_DISTRO_NAME === undefined ||
+      process.env.WSL_DISTRO_NAME === "");
 
   let savedDistro: string | undefined;
   let savedInterop: string | undefined;

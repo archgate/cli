@@ -25,9 +25,10 @@ export default {
 
           for (const [index, line] of lines.entries()) {
             // Only consider static `import ... from "..."` statements.
-            const fromMatch = line.match(
-              /^\s*import\s+(?<clause>[^;]*?)\s+from\s+["'](?<source>[^"']+)["']/u
-            );
+            const fromMatch =
+              /^\s*import\s+(?<clause>[^;]*?)\s+from\s+["'](?<source>[^"']+)["']/u.exec(
+                line
+              );
             if (!fromMatch?.groups) continue;
 
             const { clause, source } = fromMatch.groups;

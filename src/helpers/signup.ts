@@ -22,7 +22,7 @@ export class SignupRequiredError extends Error {
 }
 
 export function isSignupRequiredError(message?: string): boolean {
-  if (!message) return false;
+  if (message === undefined || message === "") return false;
   const lower = message.toLowerCase();
   return (
     lower.includes("no approved signup") || lower.includes("not registered")

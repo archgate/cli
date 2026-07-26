@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,11 +54,11 @@ describe("registerClaudeCodeSessionContextCommand", () => {
 describe("claude-code action handler", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let readSpy: ReturnType<typeof spyOn>;
-  let listSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof process.exit>;
+  let readSpy: Mock<typeof sessionContextHelpers.readClaudeCodeSession>;
+  let listSpy: Mock<typeof sessionContextHelpers.listClaudeCodeSessions>;
 
   /** Minimal complete summary for the default happy-path spy. */
   function emptySummary() {
@@ -100,55 +108,56 @@ describe("claude-code action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
+    // The handler only JSON-serializes `data` verbatim, so a fake shape
+    // (not the real ClaudeSessionSummary) is enough to exercise passthrough.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     readSpy.mockResolvedValue({
       ok: true,
       data: { entries: [{ role: "user", content: "hello" }], total: 1 },
-    });
+    } as unknown as Awaited<
+      ReturnType<typeof sessionContextHelpers.readClaudeCodeSession>
+    >);
 
     await makeProgram().parseAsync(["node", "session-context", "claude-code"]);
 
     expect(logSpy).toHaveBeenCalled();
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("");
-    const parsed = JSON.parse(output);
-    expect(parsed.total).toBe(1);
+    const output = logSpy.mock.calls.map((c) => String(c[0])).join("");
+    const parsed: unknown = JSON.parse(output);
+    // Shape matches the fixture printed above; JSON.parse is untyped by nature.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    expect((parsed as { total: number }).total).toBe(1);
   });
 
-  test("exits 1 when reader returns error result", async () => {
+  test("exits 1 when reader returns error result", () => {
     readSpy.mockResolvedValue({ ok: false, error: "No session found" });
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const errorOutput = errorSpy.mock.calls
-      .map((c: unknown[]) => c.join(" "))
-      .join(" ");
+    const errorOutput = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(errorOutput).toContain("No session found");
   });
 
-  test("exits 2 when unexpected error is thrown", async () => {
+  test("exits 2 when unexpected error is thrown", () => {
     readSpy.mockRejectedValue(new Error("Unexpected disk failure"));
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(2);
-    const errorOutput = errorSpy.mock.calls
-      .map((c: unknown[]) => c.join(" "))
-      .join(" ");
+    const errorOutput = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(errorOutput).toContain("Unexpected disk failure");
   });
 
-  test("re-throws ExitPromptError", async () => {
+  test("re-throws ExitPromptError", () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
     readSpy.mockRejectedValue(exitPromptError);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "claude-code"])
     ).rejects.toThrow("prompt cancelled");
 
@@ -156,7 +165,7 @@ describe("claude-code action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    readSpy.mockResolvedValue({ ok: true, data: {} });
+    readSpy.mockResolvedValue({ ok: true, data: emptySummary() });
 
     await makeProgram().parseAsync(["node", "session-context", "claude-code"]);
 
@@ -178,16 +187,17 @@ describe("claude-code action handler", () => {
     ]);
 
     expect(listSpy).toHaveBeenCalledWith(tempDir);
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("");
-    expect(JSON.parse(output).sessions[0].id).toBe("abc");
+    const output = logSpy.mock.calls.map((c) => String(c[0])).join("");
+    // Shape matches the fixture printed above; JSON.parse is untyped by nature.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const parsed = JSON.parse(output) as { sessions: Array<{ id: string }> };
+    expect(parsed.sessions[0]?.id).toBe("abc");
   });
 
-  test("list subcommand exits 1 on error result", async () => {
+  test("list subcommand exits 1 on error result", () => {
     listSpy.mockResolvedValue({ ok: false, error: "store missing" });
 
-    await expect(
+    expect(
       makeProgram().parseAsync([
         "node",
         "session-context",
@@ -197,9 +207,7 @@ describe("claude-code action handler", () => {
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const errorOutput = errorSpy.mock.calls
-      .map((c: unknown[]) => c.join(" "))
-      .join(" ");
+    const errorOutput = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(errorOutput).toContain("store missing");
   });
 
@@ -220,13 +228,13 @@ describe("claude-code action handler", () => {
     });
   });
 
-  test("show subcommand exits 1 on error result", async () => {
+  test("show subcommand exits 1 on error result", () => {
     readSpy.mockResolvedValue({
       ok: false,
       error: "Session not found: abc123",
     });
 
-    await expect(
+    expect(
       makeProgram().parseAsync([
         "node",
         "session-context",
@@ -309,6 +317,8 @@ describe("claude-code list/show (CLI subprocess)", () => {
     );
 
     expect(exitCode).toBe(0);
+    // Real CLI stdout under test; shape is asserted below, not schema-validated.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const parsed = JSON.parse(stdout) as {
       sessions: Array<{ id: string; updatedAt: string }>;
     };
@@ -342,6 +352,8 @@ describe("claude-code list/show (CLI subprocess)", () => {
     );
 
     expect(exitCode).toBe(0);
+    // Real CLI stdout under test; shape is asserted below, not schema-validated.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const parsed = JSON.parse(stdout) as {
       sessionFile: string;
       transcript: Array<{ contentPreview: string }>;

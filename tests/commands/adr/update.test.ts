@@ -1,13 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
+import { z } from "zod";
 
 import { registerAdrUpdateCommand } from "../../../src/commands/adr/update";
+
+const UpdateAdrResultSchema = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  filePath: z.string(),
+});
 
 const ADR_CONTENT = `---
 id: ARCH-001
@@ -81,8 +96,8 @@ describe("registerAdrUpdateCommand", () => {
 describe("adr update action handler", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-update-test-"));
@@ -156,7 +171,7 @@ describe("adr update action handler", () => {
     const allOutput = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
-    const parsed = JSON.parse(allOutput);
+    const parsed = UpdateAdrResultSchema.parse(JSON.parse(allOutput));
     expect(parsed.id).toBe("ARCH-001");
     expect(parsed.fileName).toContain("ARCH-001");
     expect(parsed.filePath).toBeTruthy();
@@ -194,7 +209,7 @@ describe("adr update action handler", () => {
     process.chdir(tempDir);
     const parent = makeProgram();
 
-    await expect(
+    expect(
       parent.parseAsync([
         "node",
         "adr",
@@ -213,7 +228,7 @@ describe("adr update action handler", () => {
     process.chdir(tempDir);
     const parent = makeProgram();
 
-    await expect(
+    expect(
       parent.parseAsync([
         "node",
         "adr",

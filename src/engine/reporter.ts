@@ -103,13 +103,14 @@ export function buildSummary(
 
   const results = result.results.map((r) => {
     const hasErrors = r.violations.some((v) => v.severity === "error");
-    const status: "pass" | "fail" | "error" = r.error
-      ? "error"
-      : hasErrors
-        ? "fail"
-        : "pass";
+    const status: "pass" | "fail" | "error" =
+      r.error !== undefined && r.error !== ""
+        ? "error"
+        : hasErrors
+          ? "fail"
+          : "pass";
 
-    if (r.error) ruleErrors++;
+    if (r.error !== undefined && r.error !== "") ruleErrors++;
     else if (hasErrors) failed++;
     else passed++;
 
@@ -208,7 +209,12 @@ export function reportConsole(
     }
 
     for (const v of r.violations) {
-      const loc = v.file ? (v.line ? `${v.file}:${v.line}` : v.file) : "";
+      const loc =
+        v.file !== undefined && v.file !== ""
+          ? v.line !== undefined && v.line !== 0
+            ? `${v.file}:${v.line}`
+            : v.file
+          : "";
       const sevColor =
         v.severity === "error"
           ? ("red" as const)
@@ -227,7 +233,7 @@ export function reportConsole(
         `    ${styleText(sevColor, `[${sevLabel}]`)} ${v.message}${loc ? ` ${styleText("dim", loc)}` : ""}`
       );
 
-      if (v.fix && verbose) {
+      if (v.fix !== undefined && v.fix !== "" && verbose) {
         console.log(styleText("dim", `           fix: ${v.fix}`));
       }
     }
@@ -322,7 +328,7 @@ export function reportCI(
   summary: ReportSummary = buildSummary(result)
 ): void {
   for (const r of summary.results) {
-    if (r.error) {
+    if (r.error !== undefined && r.error !== "") {
       console.log(
         `::error title=${r.adrId}/${r.ruleId}::Rule execution error: ${r.error}`
       );
@@ -335,8 +341,10 @@ export function reportCI(
           : v.severity === "warning"
             ? "warning"
             : "notice";
-      const filePart = v.file ? ` file=${v.file}` : "";
-      const linePart = v.line ? `,line=${v.line}` : "";
+      const filePart =
+        v.file !== undefined && v.file !== "" ? ` file=${v.file}` : "";
+      const linePart =
+        v.line !== undefined && v.line !== 0 ? `,line=${v.line}` : "";
       console.log(
         `::${level}${filePart}${linePart} title=${r.adrId}/${r.ruleId}::${v.message}`
       );
@@ -384,7 +392,9 @@ export function getExitCode(result: CheckResult, summary?: ReportSummary) {
     if (summary.warningsExceeded) return 1 as const;
     return 0 as const;
   }
-  const hasErrors = result.results.some((r) => r.error);
+  const hasErrors = result.results.some(
+    (r) => r.error !== undefined && r.error !== ""
+  );
   if (hasErrors) return 2 as const;
 
   const hasViolations = result.results.some((r) =>

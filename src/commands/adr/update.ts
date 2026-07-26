@@ -33,14 +33,15 @@ export function registerAdrUpdateCommand(adr: Command) {
         const projectRoot = requireProjectRoot();
         const paths = resolvedProjectPaths(projectRoot);
 
-        const files = opts.files
-          ? opts.files
-              .split(",")
-              .map((f) => f.trim())
-              .filter(Boolean)
-          : undefined;
+        const files =
+          opts.files !== undefined && opts.files !== ""
+            ? opts.files
+                .split(",")
+                .map((f) => f.trim())
+                .filter(Boolean)
+            : undefined;
 
-        if (opts.domain) {
+        if (opts.domain !== undefined && opts.domain !== "") {
           // Validate the domain against the merged config now so users get
           // a clear error instead of a stale prefix mismatch later.
           resolveDomainPrefix(projectRoot, opts.domain);
@@ -55,7 +56,7 @@ export function registerAdrUpdateCommand(adr: Command) {
           rules: opts.rules,
         });
 
-        const useJson = opts.json || isAgentContext();
+        const useJson = opts.json ?? isAgentContext();
         if (useJson) {
           console.log(formatJSON(result, opts.json ? true : undefined));
         } else {

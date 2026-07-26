@@ -68,7 +68,7 @@ export function registerCheckCommand(program: Command) {
         const loadResults = await loadRuleAdrs(projectRoot, opts.adr);
         const loadDurationMs = Math.round(performance.now() - loadStart);
 
-        const useJson = opts.json || (!opts.ci && isAgentContext());
+        const useJson = opts.json ?? (!opts.ci && isAgentContext());
 
         if (loadResults.length === 0) {
           if (useJson) {
@@ -100,7 +100,7 @@ export function registerCheckCommand(program: Command) {
         // Only read stdin when it's explicitly piped (e.g., `git diff --name-only | archgate check`).
         // When spawned by editors or in a pipe chain where stdin is /dev/null or absent,
         // attempting to read stdin blocks forever. Use a short timeout to detect this.
-        let filterFiles: string[] = files ?? [];
+        let filterFiles: string[] = files;
         if (!process.stdin.isTTY) {
           try {
             const stdin = await Promise.race([

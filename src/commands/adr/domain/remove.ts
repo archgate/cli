@@ -20,11 +20,16 @@ export function registerDomainRemoveCommand(domain: Command) {
     .action(async (name, options) => {
       try {
         const projectRoot = requireProjectRoot();
-        const existingPrefix = loadProjectConfig(projectRoot).domains[name];
+        // Indexing a plain Record can't reflect missing keys without
+        // noUncheckedIndexedAccess — type the lookup explicitly since the
+        // domain name may not actually be registered.
+        const domains: Record<string, string | undefined> =
+          loadProjectConfig(projectRoot).domains;
+        const existingPrefix = domains[name];
         const { config, removed } = await removeCustomDomain(projectRoot, name);
 
         if (!removed) {
-          const useJson = options.json || isAgentContext();
+          const useJson = options.json ?? isAgentContext();
           if (useJson) {
             console.log(
               formatJSON(
@@ -46,7 +51,7 @@ export function registerDomainRemoveCommand(domain: Command) {
           total_custom_domains: Object.keys(config.domains).length,
         });
 
-        const useJson = options.json || isAgentContext();
+        const useJson = options.json ?? isAgentContext();
         if (useJson) {
           console.log(
             formatJSON(

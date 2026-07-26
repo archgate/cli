@@ -61,7 +61,9 @@ describe("exit helper", () => {
     test("does not throw when called before beginCommand", () => {
       // The Commander postAction hook could race beginCommand if Commander
       // ever changes its lifecycle — finalizeCommand must degrade gracefully.
-      expect(() => finalizeCommand("", 0, "success")).not.toThrow();
+      expect(() => {
+        finalizeCommand("", 0, "success");
+      }).not.toThrow();
     });
   });
 

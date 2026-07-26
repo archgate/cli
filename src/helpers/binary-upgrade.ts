@@ -147,13 +147,23 @@ export async function downloadReleaseBinary(
   if (onProgress && response.body) {
     // Stream the response so we can report progress incrementally.
     const contentLength = response.headers.get("content-length");
-    const totalBytes = contentLength ? Math.trunc(Number(contentLength)) : null;
+    const totalBytes =
+      contentLength !== null && contentLength !== ""
+        ? Math.trunc(Number(contentLength))
+        : null;
 
-    const reader = response.body.getReader();
+    // response.body.getReader() resolves through lib.dom's ReadableStream
+    // typings here, which lack Bun's `readMany` augmentation on
+    // ReadableStreamDefaultReader — a typings gap, not a runtime one (Bun's
+    // actual reader always implements it).
+    type BunReader = ReadableStreamDefaultReader<Uint8Array>;
+    const rawReader = response.body.getReader();
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const reader = rawReader as unknown as BunReader;
     const chunks: Uint8Array[] = [];
     let downloadedBytes = 0;
 
-    while (true) {
+    for (;;) {
       // oxlint-disable-next-line no-await-in-loop -- sequential streaming is intentional; each chunk depends on the previous read
       const { done, value } = await reader.read();
       if (done) break;
@@ -316,12 +326,12 @@ export function replaceBinary(
  * runs. Call once at CLI startup, fire-and-forget — errors are swallowed
  * because cleanup is best-effort and must never affect the user's command.
  */
-export function cleanupStaleBinary(): Promise<void> {
+export async function cleanupStaleBinary(): Promise<void> {
   const artifact = getArtifactInfo();
-  if (!artifact) return Promise.resolve();
+  if (!artifact) return;
 
   const oldPath = internalPath("bin", `${artifact.binaryName}.old`);
-  return unlink(oldPath).catch(() => {
+  await unlink(oldPath).catch(() => {
     // File absent or still locked — nothing to do.
   });
 }

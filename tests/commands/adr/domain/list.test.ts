@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,9 +26,9 @@ function makeProgram(): Command {
 describe("adr domain list", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
+  let errorSpy: Mock<typeof console.error>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-domain-list-"));
@@ -45,9 +53,7 @@ describe("adr domain list", () => {
   test("shows built-in domains even with no config", async () => {
     const program = makeProgram();
     await program.parseAsync(["node", "adr", "domain", "list"]);
-    const out = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
+    const out = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(out).toContain("backend");
     expect(out).toContain("default");
   });

@@ -51,7 +51,7 @@ export function registerAdrImportCommand(adr: Command) {
             console.log(styleText("bold", "Imported ADR packs:\n"));
             for (const entry of manifest.imports) {
               console.log(
-                `  ${entry.source}${entry.version ? ` v${entry.version}` : ""} — ${entry.adrIds.length} ADR(s)`
+                `  ${entry.source}${entry.version !== undefined && entry.version !== "" ? ` v${entry.version}` : ""} — ${entry.adrIds.length} ADR(s)`
               );
               for (const id of entry.adrIds) {
                 console.log(`    ${id}`);
@@ -123,15 +123,16 @@ export function registerAdrImportCommand(adr: Command) {
 
         if (!opts.yes) {
           const { default: inquirer } = await import("inquirer");
-          const { confirm } = await withPromptFix(() =>
-            inquirer.prompt([
-              {
-                type: "confirm",
-                name: "confirm",
-                message: `Import ${adrsToImport.length} ADR(s)?`,
-                default: true,
-              },
-            ])
+          const confirmQuestions = [
+            {
+              type: "confirm" as const,
+              name: "confirm" as const,
+              message: `Import ${adrsToImport.length} ADR(s)?`,
+              default: true,
+            },
+          ];
+          const { confirm } = await withPromptFix<{ confirm: boolean }>(
+            async () => inquirer.prompt(confirmQuestions)
           );
           if (!confirm) {
             console.log("Import cancelled.");

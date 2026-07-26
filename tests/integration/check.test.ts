@@ -12,6 +12,8 @@ import {
   writeAdr,
   writeRules,
   makeAdr,
+  expectKeys,
+  expectArray,
 } from "./cli-harness";
 
 describe("check integration", () => {
@@ -101,7 +103,7 @@ describe("check integration", () => {
     );
     const { exitCode, stdout } = await runCli(["check", "--json"], dir);
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "pass", "total", "results");
     expect(json.pass).toBe(true);
     expect(typeof json.total).toBe("number");
     expect(json.results).toBeInstanceOf(Array);
@@ -142,10 +144,10 @@ describe("check integration", () => {
     );
     const { exitCode, stdout } = await runCli(["check", "--json"], dir);
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "pass", "results");
     expect(json.pass).toBe(false);
-    const allViolations = json.results.flatMap(
-      (r: { violations: unknown[] }) => r.violations
+    const allViolations = expectArray(json.results).flatMap((r: unknown) =>
+      expectArray(expectKeys(r, "violations").violations)
     );
     expect(allViolations.length).toBeGreaterThan(0);
   });
@@ -217,10 +219,12 @@ describe("check integration", () => {
       dir
     );
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "pass", "total", "results");
     expect(json.pass).toBe(true);
     expect(json.total).toBe(1);
-    const adrIds = json.results.map((r: { adrId: string }) => r.adrId);
+    const adrIds = expectArray(json.results).map(
+      (r: unknown) => expectKeys(r, "adrId").adrId
+    );
     expect(adrIds).toContain("ADR-A");
     expect(adrIds).not.toContain("ADR-B");
   });
@@ -239,20 +243,21 @@ describe("check integration", () => {
       "ADR-A.rules.ts",
       `export default { rules: { "rule-a": { description: "Rule A", async check() {} } } };`
     );
-
-    const lean = JSON.parse((await runCli(["check", "--json"], dir)).stdout);
+    const leanOut = (await runCli(["check", "--json"], dir)).stdout;
+    const lean = expectKeys(JSON.parse(leanOut), "total", "passed", "results");
     // The rule ran and passed — the counts say so, but it has nothing to
     // report, so it must not occupy an entry in results.
     expect(lean.total).toBe(1);
     expect(lean.passed).toBe(1);
     expect(lean.results).toEqual([]);
-
-    const full = JSON.parse(
-      (await runCli(["check", "--json", "--verbose"], dir)).stdout
-    );
-    expect(full.results).toHaveLength(1);
-    expect(full.results[0].status).toBe("pass");
-    expect(full.results[0].ruleId).toBe("rule-a");
+    const fullOut = (await runCli(["check", "--json", "--verbose"], dir))
+      .stdout;
+    const full = expectKeys(JSON.parse(fullOut), "results");
+    const fullResults = expectArray(full.results);
+    expect(fullResults).toHaveLength(1);
+    const firstResult = expectKeys(fullResults[0], "status", "ruleId");
+    expect(firstResult.status).toBe("pass");
+    expect(firstResult.ruleId).toBe("rule-a");
   });
 
   test("--verbose flag → output includes timing info", async () => {
@@ -296,16 +301,16 @@ describe("check integration", () => {
 
     const good = await runCli(["check", "--json", "src/good.ts"], dir);
     expect(good.exitCode).toBe(0);
-    expect(JSON.parse(good.stdout).pass).toBe(true);
+    expect(expectKeys(JSON.parse(good.stdout), "pass").pass).toBe(true);
 
     const bad = await runCli(["check", "--json", "src/bad.ts"], dir);
     expect(bad.exitCode).toBe(1);
-    expect(JSON.parse(bad.stdout).pass).toBe(false);
+    expect(expectKeys(JSON.parse(bad.stdout), "pass").pass).toBe(false);
 
     // Out-of-scope file → ADR skipped
     const oos = await runCli(["check", "--json", "docs/readme.md"], dir);
     expect(oos.exitCode).toBe(0);
-    expect(JSON.parse(oos.stdout).pass).toBe(true);
+    expect(expectKeys(JSON.parse(oos.stdout), "pass").pass).toBe(true);
   });
 
   test("exit non-zero when no .archgate project found", async () => {
@@ -386,10 +391,10 @@ describe("check --base integration", () => {
       gitCleanEnv
     );
     expect(result.exitCode).toBe(1);
-    const json = JSON.parse(result.stdout);
+    const json = expectKeys(JSON.parse(result.stdout), "pass", "results");
     expect(json.pass).toBe(false);
-    const violations = json.results.flatMap(
-      (r: { violations: unknown[] }) => r.violations
+    const violations = expectArray(json.results).flatMap((r: unknown) =>
+      expectArray(expectKeys(r, "violations").violations)
     );
     expect(violations.length).toBeGreaterThan(0);
   }, 30_000);
@@ -447,7 +452,7 @@ describe("check --base integration", () => {
       gitCleanEnv
     );
     expect(result.exitCode).toBe(0);
-    const json = JSON.parse(result.stdout);
+    const json = expectKeys(JSON.parse(result.stdout), "pass");
     expect(json.pass).toBe(true);
   }, 30_000);
 
@@ -496,7 +501,7 @@ describe("check --base integration", () => {
       gitCleanEnv
     );
     expect(result.exitCode).toBe(0);
-    const json = JSON.parse(result.stdout);
+    const json = expectKeys(JSON.parse(result.stdout), "pass");
     expect(json.pass).toBe(true);
   }, 30_000);
 });

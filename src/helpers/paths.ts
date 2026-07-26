@@ -132,17 +132,18 @@ export function createPathIfNotExists(path: string) {
  */
 export function findProjectRoot(startDir?: string): string | null {
   const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
-  const ceiling = ceilingEnv ? resolve(ceilingEnv) : null;
+  const ceiling =
+    ceilingEnv !== undefined && ceilingEnv !== "" ? resolve(ceilingEnv) : null;
   let dir = startDir ?? process.cwd();
 
-  while (true) {
+  for (;;) {
     const adrsDir = join(dir, ".archgate", "adrs");
     const lintDir = join(dir, ".archgate", "lint");
     if (existsSync(adrsDir) || existsSync(lintDir)) {
       return dir;
     }
 
-    if (ceiling && resolve(dir) === ceiling) {
+    if (ceiling !== null && resolve(dir) === ceiling) {
       return null;
     }
 
@@ -166,7 +167,7 @@ export function findProjectRoot(startDir?: string): string | null {
  */
 export function requireProjectRoot(startDir?: string): string {
   const projectRoot = findProjectRoot(startDir);
-  if (!projectRoot) {
+  if (projectRoot === null || projectRoot === "") {
     throw new UserError(
       "No .archgate/ directory found.",
       "Run `archgate init` first."

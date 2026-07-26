@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   mock,
+  type Mock,
   spyOn,
   test,
 } from "bun:test";
@@ -14,6 +15,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
+import { z } from "zod";
 
 // Module mocks — declared before imports that depend on them.
 const mockShallowClone =
@@ -27,13 +29,27 @@ const mockResolveSource =
       subpath: string;
     }
   >();
-mock.module("../../../src/helpers/registry", () => ({
+void mock.module("../../../src/helpers/registry", () => ({
   resolveSource: mockResolveSource,
   shallowClone: mockShallowClone,
 }));
 
 import { registerAdrSyncCommand } from "../../../src/commands/adr/sync";
+import { ImportsManifestSchema } from "../../../src/formats/pack";
 import { safeRmSync } from "../../test-utils";
+
+const SyncJsonSchema = z.object({
+  status: z.string(),
+  message: z.string().optional(),
+  checked: z.number().optional(),
+  withChanges: z.number().optional(),
+  errors: z.number().optional(),
+  diffs: z
+    .array(
+      z.object({ adrId: z.string(), source: z.string(), summary: z.string() })
+    )
+    .optional(),
+});
 
 /** Sample ADR markdown with frontmatter. */
 function adr(id: string, body: string): string {
@@ -86,10 +102,10 @@ describe("adr sync command", () => {
   let tempDir: string;
   let upstreamDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let warnSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let warnSpy: Mock<typeof console.warn>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-sync-"));
@@ -123,13 +139,11 @@ describe("adr sync command", () => {
   }
 
   function output(): string {
-    return logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    return logSpy.mock.calls.map((c) => String(c[0])).join("\n");
   }
 
   function warnings(): string {
-    return warnSpy.mock.calls
-      .map((c: unknown[]) => c.map(String).join(" "))
-      .join("\n");
+    return warnSpy.mock.calls.map((c) => c.map(String).join(" ")).join("\n");
   }
 
   /** Point mocks at upstreamDir with given subpath. */
@@ -168,15 +182,10 @@ describe("adr sync command", () => {
     return localPath;
   }
 
-  function run(...args: string[]): Promise<void> {
+  async function run(...args: string[]): Promise<void> {
     const parent = new Command("adr").exitOverride();
     registerAdrSyncCommand(parent);
-    return parent.parseAsync([
-      "node",
-      "adr",
-      "sync",
-      ...args,
-    ]) as unknown as Promise<void>;
+    await parent.parseAsync(["node", "adr", "sync", ...args]);
   }
 
   // Registration
@@ -196,7 +205,7 @@ describe("adr sync command", () => {
   // No project / empty imports
   test("exits with error when .archgate/ is missing", async () => {
     process.chdir(tempDir);
-    await expect(run()).rejects.toThrow("process.exit");
+    expect(run()).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
@@ -211,7 +220,7 @@ describe("adr sync command", () => {
     scaffold();
     process.chdir(tempDir);
     await run("--json");
-    const parsed = JSON.parse(output());
+    const parsed = SyncJsonSchema.parse(JSON.parse(output()));
     expect(parsed.status).toBe("empty");
     expect(parsed.message).toBe("No imported ADRs found.");
   });
@@ -234,7 +243,7 @@ describe("adr sync command", () => {
       { source: "packs/typescript-strict", adrIds: ["ARCH-001"] },
     ]);
     await run("--json", "packs/nonexistent");
-    expect(JSON.parse(output()).status).toBe("no-match");
+    expect(SyncJsonSchema.parse(JSON.parse(output())).status).toBe("no-match");
   });
 
   test("--source limits which imports are checked", async () => {
@@ -265,7 +274,7 @@ describe("adr sync command", () => {
 
   test("--check with upstream changes → exit 1", async () => {
     setupSync("Local.", "Updated upstream.");
-    await expect(run("--check")).rejects.toThrow("process.exit");
+    expect(run("--check")).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(output()).toContain("ARCH-001");
     expect(output()).toContain("upstream updates");
@@ -273,21 +282,22 @@ describe("adr sync command", () => {
 
   test("--check --json with changes → updates-available JSON", async () => {
     setupSync("Local.", "Changed upstream.");
-    await expect(run("--check", "--json")).rejects.toThrow("process.exit");
-    const parsed = JSON.parse(output());
+    expect(run("--check", "--json")).rejects.toThrow("process.exit");
+    const parsed = SyncJsonSchema.parse(JSON.parse(output()));
     expect(parsed.status).toBe("updates-available");
     expect(parsed.checked).toBe(1);
     expect(parsed.withChanges).toBe(1);
     expect(parsed.diffs).toBeArrayOfSize(1);
-    expect(parsed.diffs[0].adrId).toBe("ARCH-001");
-    expect(parsed.diffs[0].source).toBe("packs/typescript-strict");
-    expect(parsed.diffs[0].summary).toBeString();
+    const diff = parsed.diffs![0];
+    expect(diff.adrId).toBe("ARCH-001");
+    expect(diff.source).toBe("packs/typescript-strict");
+    expect(diff.summary).toBeString();
   });
 
   test("--check --json up to date → up-to-date JSON", async () => {
     setupSync("Same.", "Same.");
     await run("--check", "--json");
-    const parsed = JSON.parse(output());
+    const parsed = SyncJsonSchema.parse(JSON.parse(output()));
     expect(parsed.status).toBe("up-to-date");
     expect(parsed.withChanges).toBe(0);
   });
@@ -336,8 +346,10 @@ describe("adr sync command", () => {
     await run("--yes");
     // Bun.write in saveImportsManifest is not awaited — yield to let it flush
     await Bun.sleep(50);
-    const manifest = JSON.parse(
-      readFileSync(join(tempDir, ".archgate", "imports.json"), "utf-8")
+    const manifest = ImportsManifestSchema.parse(
+      JSON.parse(
+        readFileSync(join(tempDir, ".archgate", "imports.json"), "utf-8")
+      )
     );
     expect(manifest.imports[0].importedAt).not.toBe("2025-01-01T00:00:00.000Z");
   });
@@ -359,11 +371,11 @@ describe("adr sync command", () => {
         : "https://github.com/archgate/awesome-adrs.git",
       subpath: input,
     }));
-    mockShallowClone.mockImplementation((repoUrl: string) => {
+    mockShallowClone.mockImplementation(async (repoUrl: string) => {
       if (repoUrl.includes("broken")) {
-        return Promise.reject(new Error("network timeout"));
+        throw new Error("network timeout");
       }
-      return Promise.resolve(upstreamDir);
+      return upstreamDir;
     });
     scaffoldUpstream(upstreamDir, "packs/good-pack", [
       { filename: "ARCH-002-test.md", content: adr("ARCH-002", "Content.") },
@@ -399,7 +411,8 @@ describe("adr sync command", () => {
       { filename: "ARCH-001-test.md", content: adr("ARCH-001", "Upstream.") },
     ]);
     await run("--check", "--json");
-    expect(JSON.parse(output()).errors).toBeGreaterThanOrEqual(1);
+    const parsed = SyncJsonSchema.parse(JSON.parse(output()));
+    expect(parsed.errors).toBeGreaterThanOrEqual(1);
   });
 
   // Diff summary
@@ -416,7 +429,7 @@ describe("adr sync command", () => {
     scaffoldUpstream(upstreamDir, "packs/typescript-strict", [
       { filename: "ARCH-001-test.md", content: upstream },
     ]);
-    await expect(run("--check")).rejects.toThrow("process.exit");
+    expect(run("--check")).rejects.toThrow("process.exit");
     expect(output()).toContain("Decision");
   });
 

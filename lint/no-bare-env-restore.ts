@@ -16,6 +16,10 @@ function asNode(value: unknown): AstNode | undefined {
     typeof value === "object" &&
     typeof (value as { type?: unknown }).type === "string"
   ) {
+    // AstNode's Record<string, unknown> half is an index signature — a
+    // compile-time-only concept no runtime check can verify, so this cast
+    // is the genuine boundary of what typeof narrowing can prove here.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     return value as AstNode;
   }
   return undefined;
@@ -172,7 +176,7 @@ function declarePattern(
         // The property's own key IS the env var name here — unlike
         // `captureIfEnv`, there is no member expression to re-derive it from.
         const binding = declare(scope, value.name);
-        if (binding.envKey === undefined) binding.envKey = key.name;
+        binding.envKey ??= key.name;
         continue;
       }
       declarePattern(scope, value);

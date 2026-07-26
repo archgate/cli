@@ -61,7 +61,7 @@ export function registerReviewContextCommand(program: Command) {
             `Changed-file list truncated to ${context.allChangedFiles.length} files — files beyond that limit are absent from this context.`
           );
         }
-        if (context.checkSummary?.truncated) {
+        if (context.checkSummary?.truncated === true) {
           logWarn(
             "Some rules reported more violations than the per-rule cap — the extra violations are absent from `checkSummary`. Run `archgate check` for the complete list."
           );
