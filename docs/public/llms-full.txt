@@ -4016,6 +4016,8 @@ The command compares local imported ADRs against their upstream source and shows
 | `--json`   | Output as JSON                                                                                                       |
 | `--strict` | Fail (exit 1) when sync encountered errors (unresolved import source, failed clone, missing local/upstream ADR file) |
 
+`--strict` resolves the same way as [`archgate check --strict`](/reference/cli/check/#strict-mode): CLI flag, then a `strict: boolean` key in `.archgate/config.json`, then off. There is no `--no-strict` flag -- the CLI flag can only turn strict mode on, not override a configured `strict: true`.
+
 ### Examples
 
 Check all imported ADRs for upstream updates:
@@ -4121,7 +4123,7 @@ Treat any warning as a failure (useful in CI):
 archgate check --max-warnings 0
 ```
 
-Treat any warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure:
+Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure:
 
 ```bash
 archgate check --strict
@@ -4213,9 +4215,9 @@ By default, warnings (both diagnostics and rule-reported `"severity": "warning"`
 
 ## Strict mode
 
-`--strict` treats every warning-shaped diagnostic as a failure in one flag: it behaves like `--max-warnings 0` for rule-severity warnings (an explicit `--max-warnings` still wins), and it also fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+`--strict` combines two escalations behind one flag: it behaves like `--max-warnings 0` for rule-severity `"warning"` violations (an explicit `--max-warnings` still wins), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
 
-`--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`.
+`--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`. See the [Configuration reference](/reference/configuration/#strict) for the full schema.
 
 To avoid passing `--strict` on every invocation, set a project default in `.archgate/config.json`:
 
@@ -4223,7 +4225,7 @@ To avoid passing `--strict` on every invocation, set a project default in `.arch
 { "strict": true }
 ```
 
-An explicit `--strict` on the command line always overrides the config default.
+There is no `--no-strict` flag: `--strict` on the command line can only turn strict mode _on_ over an absent or `false` config default — it cannot turn off a configured `strict: true`.
 
 ## JSON output format
 
@@ -5065,7 +5067,8 @@ This file is created automatically by `archgate init` (to store the auto-detecte
 {
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
-  "baseBranch": "main"
+  "baseBranch": "main",
+  "strict": true
 }
 ```
 
@@ -5096,6 +5099,20 @@ You can also set it manually:
 ```
 
 See [`archgate check` -- Changed files detection](/reference/cli/check/#changed-files-detection) for the full resolution priority.
+
+### `strict`
+
+Project-wide default for `--strict`, supported by `archgate check`, `archgate review-context`, and `archgate adr sync`. `--strict` escalates otherwise-advisory diagnostics into failures -- see [`archgate check` -- Strict mode](/reference/cli/check/#strict-mode) for exactly what each command fails on.
+
+| Type      | Default | Description                                     |
+| --------- | ------- | ----------------------------------------------- |
+| `boolean` | `false` | Enables strict mode for this project by default |
+
+Resolution order is CLI flag, then this config value, then `false`. There is no `--no-strict` flag, so the CLI flag can only turn strict mode _on_ over an absent or `false` config value -- it cannot turn off a configured `strict: true`.
+
+```json
+{ "strict": true }
+```
 
 ### `paths`
 
