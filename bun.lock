@@ -617,6 +617,8 @@
 
     "micromatch/picomatch": ["picomatch@2.3.2", "", {}, "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA=="],
 
+    "@commitlint/read/@conventional-changelog/git-client/conventional-commits-parser": ["conventional-commits-parser@7.1.0", "", { "dependencies": { "@simple-libs/stream-utils": "^2.0.0", "argue-cli": "^3.1.0" }, "bin": { "conventional-commits-parser": "./dist/cli/index.js" } }, "sha512-DPp6hkUjvwIivxbkrTiLXeRswNv1A/4GFA2X6scXma0AMa9632V3TwxmrlkUIEtUktiM3Ln+RrSH2xlP3/jUTw=="],
+
     "@simple-release/core/conventional-changelog/conventional-changelog-writer": ["conventional-changelog-writer@9.2.0", "", { "dependencies": { "@conventional-changelog/template": "^1.2.1", "@simple-libs/stream-utils": "^2.0.0", "argue-cli": "^3.1.0", "conventional-commits-filter": "^6.0.1", "semver": "^7.5.2" }, "bin": { "conventional-changelog-writer": "./dist/cli/index.js" } }, "sha512-eACD5BaAQCYjeI3RExkCZopNaaIuXzCP4kaAb2lEFXcGa/KOuxJfj8v/SnjhvF6377pYn0A2Gji+6GhwUK8rEA=="],
   }
 }
