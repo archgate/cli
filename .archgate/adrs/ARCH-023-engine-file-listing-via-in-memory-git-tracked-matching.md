@@ -72,7 +72,7 @@ The rules engine (`src/engine/`) MUST list files by matching globs **in memory**
 
 ## Compliance and Enforcement
 
-- **Automated:** The companion rule `scan-confined-to-fallback-modules` (this ADR) blocks `Bun.Glob#scan()` call sites in `src/engine/` outside `glob-utils.ts`/`git-files.ts`. ARCH-020's `glob-scan-dot` rule covers `dot: true` on the remaining fallbacks. `archgate check` runs both in CI and pre-push.
+- **Automated:** The companion rule `scan-confined-to-fallback-modules` (this ADR) parses `src/engine/**/*.ts` via `ctx.ast()` ([ARCH-022](./ARCH-022-ast-aware-rule-context.md)) and walks the ESTree for real `<expr>.scan(...)` call sites, blocking any outside `glob-utils.ts`/`git-files.ts` — structural, not text-based, so a comment or string mentioning `.scan(` cannot be misreported. ARCH-020's `glob-scan-dot` rule covers `dot: true` on the remaining fallbacks. `archgate check` runs both in CI and pre-push.
 - **Manual:** Reviewers of `src/engine/` changes verify new file listings route through `glob-utils.ts` and that sandbox validation precedes the tracked/scan branch.
 - **Exceptions:** A new scan call site outside the two fallback modules requires updating this ADR (and its rule's allowlist) with justification approved by the maintainer.
 
