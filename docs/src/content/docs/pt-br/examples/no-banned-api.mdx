@@ -1,17 +1,17 @@
 ---
 title: no-banned-api
-description: Bane APIs de runtime especificas que causam problemas de compatibilidade entre plataformas ou confiabilidade e impoe alternativas seguras.
+description: Bane APIs de runtime específicas que causam problemas de compatibilidade entre plataformas ou confiabilidade e impõe alternativas seguras.
 ---
 
-Bane APIs de runtime especificas que causam problemas de compatibilidade entre plataformas ou confiabilidade.
+Bane APIs de runtime específicas que causam problemas de compatibilidade entre plataformas ou confiabilidade.
 
 ## Detalhes da regra
 
-Algumas APIs funcionam corretamente em uma plataforma, mas falham em outra. Por exemplo, a API shell do Bun (`Bun.$`) trava no Windows devido a deadlocks de pipe. Esta regra detecta multiplas variantes de uma API banida (a chamada direta, o import e o uso desestruturado), garantindo que nenhuma forma passe despercebida.
+Algumas APIs funcionam corretamente em uma plataforma, mas falham em outra. Por exemplo, a API shell do Bun (`Bun.$`) trava no Windows devido a deadlocks de pipe. Esta regra detecta múltiplas variantes de uma API banida (a chamada direta, o import e o uso desestruturado), garantindo que nenhuma forma passe despercebida.
 
-Este padrao se generaliza para qualquer API que voce queira banir enquanto permite uma alternativa segura.
+Este padrão se generaliza para qualquer API que você queira banir enquanto permite uma alternativa segura.
 
-## Exemplos de codigo **incorreto**
+## Exemplos de código **incorreto**
 
 ```typescript title="src/helpers/git.ts"
 // Direct usage
@@ -24,14 +24,14 @@ import { $ } from "bun";
 const output = await $`ls -la`;
 ```
 
-## Exemplos de codigo **correto**
+## Exemplos de código **correto**
 
 ```typescript title="src/helpers/git.ts"
 const proc = Bun.spawn(["git", "status"], { stdout: "pipe", stderr: "pipe" });
 const output = await new Response(proc.stdout).text();
 ```
 
-## Implementacao da regra
+## Implementação da regra
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -103,8 +103,8 @@ export default {
 
 ## Quando usar
 
-Quando seu projeto precisa rodar em multiplas plataformas e uma API especifica e conhecida por falhar em uma delas. Tambem util para banir APIs depreciadas com problemas conhecidos de confiabilidade.
+Quando seu projeto precisa rodar em múltiplas plataformas e uma API específica é conhecida por falhar em uma delas. Também útil para banir APIs depreciadas com problemas conhecidos de confiabilidade.
 
-## Quando nao usar
+## Quando não usar
 
-Quando seu projeto tem como alvo uma unica plataforma e a API banida funciona confiavelmente nela.
+Quando seu projeto tem como alvo uma única plataforma e a API banida funciona confiavelmente nela.
