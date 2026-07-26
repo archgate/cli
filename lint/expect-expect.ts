@@ -10,20 +10,25 @@
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-/** Narrow an unknown value to an AST node (an object with a string `type`). */
-function asNode(value: unknown): AstNode | undefined {
-  if (
-    value !== null &&
+/**
+ * True narrowing predicate for an AST node (an object with a string `type`).
+ * Uses `in` narrowing rather than a `typeof value === "object"` check alone
+ * plus an `as AstNode` cast — the same pattern the `.rules.ts` type guards
+ * use, so this never claims node-ness for an arbitrary object (e.g. a `.loc`
+ * position record) that merely happens to be non-null.
+ */
+function isAstNode(value: unknown): value is AstNode {
+  return (
     typeof value === "object" &&
-    typeof (value as { type?: unknown }).type === "string"
-  ) {
-    // AstNode's Record<string, unknown> half is an index signature — a
-    // compile-time-only concept no runtime check can verify, so this cast
-    // is the genuine boundary of what typeof narrowing can prove here.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    return value as AstNode;
-  }
-  return undefined;
+    value !== null &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
+}
+
+/** Narrow an unknown value to an AST node, or `undefined` if it isn't one. */
+function asNode(value: unknown): AstNode | undefined {
+  return isAstNode(value) ? value : undefined;
 }
 
 /** True when the node is a function expression that can serve as a test body. */

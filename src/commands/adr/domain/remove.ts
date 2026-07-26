@@ -20,12 +20,13 @@ export function registerDomainRemoveCommand(domain: Command) {
     .action(async (name, options) => {
       try {
         const projectRoot = requireProjectRoot();
-        // Indexing a plain Record can't reflect missing keys without
-        // noUncheckedIndexedAccess — type the lookup explicitly since the
-        // domain name may not actually be registered.
-        const domains: Record<string, string | undefined> =
-          loadProjectConfig(projectRoot).domains;
-        const existingPrefix = domains[name];
+        const domains = loadProjectConfig(projectRoot).domains;
+        // `domains` is typed `Record<string, string>`, so indexing it
+        // directly would type as always-defined even though `name` may not
+        // actually be a registered domain — gate on `in` first so the
+        // ternary's own branches (not a widened index-signature type) are
+        // what give `existingPrefix` its true `string | undefined` type.
+        const existingPrefix = name in domains ? domains[name] : undefined;
         const { config, removed } = await removeCustomDomain(projectRoot, name);
 
         if (!removed) {

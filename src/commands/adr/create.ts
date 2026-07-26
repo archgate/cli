@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
+import { InvalidArgumentError, Option } from "@commander-js/extra-typings";
 
 import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
@@ -14,14 +15,34 @@ import {
 } from "../../helpers/project-config";
 import { withPromptFix } from "../../helpers/prompt";
 
+/**
+ * Rejects a blank/whitespace-only value at parse time, so the action
+ * handler only needs `opts.title !== undefined` / `opts.domain !== undefined`
+ * to know the flag was both passed AND meaningful — no separate `!== ""`
+ * guard needed downstream.
+ */
+function rejectBlank(val: string): string {
+  if (val.trim() === "") {
+    throw new InvalidArgumentError("must not be empty");
+  }
+  return val;
+}
+
 export function registerAdrCreateCommand(adr: Command) {
   adr
     .command("create")
     .description("Create a new ADR")
-    .option("--title <title>", "ADR title (skip interactive prompt)")
-    .option(
-      "--domain <domain>",
-      "ADR domain (built-in or registered via `archgate domain add`)"
+    .addOption(
+      new Option(
+        "--title <title>",
+        "ADR title (skip interactive prompt)"
+      ).argParser(rejectBlank)
+    )
+    .addOption(
+      new Option(
+        "--domain <domain>",
+        "ADR domain (built-in or registered via `archgate domain add`)"
+      ).argParser(rejectBlank)
     )
     .option("--files <patterns>", "File patterns, comma-separated")
     .option("--body <markdown>", "Full ADR body markdown (skip template)")
@@ -37,12 +58,7 @@ export function registerAdrCreateCommand(adr: Command) {
         let files: string[] | undefined;
         let body: string | undefined;
 
-        if (
-          opts.title !== undefined &&
-          opts.title !== "" &&
-          opts.domain !== undefined &&
-          opts.domain !== ""
-        ) {
+        if (opts.title !== undefined && opts.domain !== undefined) {
           domain = opts.domain;
           title = opts.title;
           files =

@@ -50,8 +50,11 @@ export function registerAdrImportCommand(adr: Command) {
           } else {
             console.log(styleText("bold", "Imported ADR packs:\n"));
             for (const entry of manifest.imports) {
+              // Boolean() assigned to a const first, not used as the ternary's
+              // direct condition — see ARCH-014's no-extra-boolean-cast caveat.
+              const hasVersion = Boolean(entry.version);
               console.log(
-                `  ${entry.source}${entry.version !== undefined && entry.version !== "" ? ` v${entry.version}` : ""} — ${entry.adrIds.length} ADR(s)`
+                `  ${entry.source}${hasVersion ? ` v${entry.version}` : ""} — ${entry.adrIds.length} ADR(s)`
               );
               for (const id of entry.adrIds) {
                 console.log(`    ${id}`);
