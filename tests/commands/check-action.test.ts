@@ -50,6 +50,7 @@ const MOCK_SUMMARY: ReportSummary = {
   infos: 0,
   ruleErrors: 0,
   warningsExceeded: false,
+  strictAdvisoryExceeded: false,
   truncated: false,
   suppressed: 0,
   suppressionWarnings: [],

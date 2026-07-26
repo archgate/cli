@@ -17,6 +17,12 @@ export interface ReportSummary {
   ruleErrors: number;
   /** True when a `maxWarnings` threshold was set and the warning count exceeded it. */
   warningsExceeded: boolean;
+  /**
+   * True only when `strict` was set AND at least one advisory finding
+   * (briefingWarnings, suppressionWarnings, or unparsedAdrs) is non-empty.
+   * Advisory findings never affect `pass` outside of strict mode.
+   */
+  strictAdvisoryExceeded: boolean;
   truncated: boolean;
   /** Number of violations suppressed by archgate-ignore comments. */
   suppressed: number;
@@ -82,9 +88,18 @@ interface BuildSummaryOptions {
   /**
    * Maximum number of warnings tolerated before the check is considered failed.
    * When the total warning count exceeds this threshold, `pass` becomes false and
-   * `warningsExceeded` is set. Omit for no limit (warnings never affect `pass`).
+   * `warningsExceeded` is set. Omit for no limit (warnings never affect `pass`),
+   * unless `strict` is set (see below).
    */
   maxWarnings?: number;
+  /**
+   * Blanket strict mode: acts as `maxWarnings: 0` when `maxWarnings` isn't
+   * explicitly set (an explicit `maxWarnings` always wins), and elevates the
+   * advisory categories (`briefingWarnings`, `suppressionWarnings`,
+   * `unparsedAdrs`) — normally never counted toward `pass` — into failures
+   * (`strictAdvisoryExceeded`).
+   */
+  strict?: boolean;
 }
 
 export function buildSummary(
@@ -149,11 +164,30 @@ export function buildSummary(
     };
   });
 
+  const effectiveMaxWarnings =
+    options?.maxWarnings ?? (options?.strict ? 0 : undefined);
   const warningsExceeded =
-    options?.maxWarnings !== undefined && warnings > options.maxWarnings;
+    effectiveMaxWarnings !== undefined && warnings > effectiveMaxWarnings;
+
+  const briefingWarnings = result.briefingWarnings ?? [];
+  const unparsedAdrs = result.unparsedAdrs ?? [];
+  const suppressionWarnings = (result.suppressionWarnings ?? []).map((w) => ({
+    message: w.message,
+    file: w.file,
+    line: w.line,
+  }));
+  const strictAdvisoryExceeded =
+    Boolean(options?.strict) &&
+    (briefingWarnings.length > 0 ||
+      suppressionWarnings.length > 0 ||
+      unparsedAdrs.length > 0);
 
   return {
-    pass: failed === 0 && ruleErrors === 0 && !warningsExceeded,
+    pass:
+      failed === 0 &&
+      ruleErrors === 0 &&
+      !warningsExceeded &&
+      !strictAdvisoryExceeded,
     total: result.results.length,
     passed,
     failed,
@@ -162,15 +196,12 @@ export function buildSummary(
     infos,
     ruleErrors,
     warningsExceeded,
+    strictAdvisoryExceeded,
     truncated: anyTruncated,
     suppressed: result.suppressedCount ?? 0,
-    briefingWarnings: result.briefingWarnings ?? [],
-    unparsedAdrs: result.unparsedAdrs ?? [],
-    suppressionWarnings: (result.suppressionWarnings ?? []).map((w) => ({
-      message: w.message,
-      file: w.file,
-      line: w.line,
-    })),
+    briefingWarnings,
+    unparsedAdrs,
+    suppressionWarnings,
     results,
     durationMs: result.totalDurationMs,
   };
@@ -281,6 +312,15 @@ export function reportConsole(
     );
   }
 
+  if (summary.strictAdvisoryExceeded) {
+    console.log(
+      styleText(
+        "yellow",
+        "  --strict: advisory findings above (briefing budget, suppression, and/or unparsed-ADR warnings) are treated as failures"
+      )
+    );
+  }
+
   if (verbose) {
     const timeDetails = summary.results
       .map((r) => `    ${r.adrId}/${r.ruleId}: ${r.durationMs.toFixed(0)}ms`)
@@ -363,6 +403,12 @@ export function reportCI(
     );
   }
 
+  if (summary.strictAdvisoryExceeded) {
+    console.log(
+      "::error title=strict-mode::--strict is set and advisory findings (briefing/suppression/unparsed-ADR warnings) are non-empty"
+    );
+  }
+
   const status = summary.pass ? "check passed" : "check failed";
   console.log(
     `\n${status}: ${summary.passed} passed, ${summary.failed} failed, ${summary.warnings} warnings`
@@ -382,6 +428,7 @@ export function getExitCode(result: CheckResult, summary?: ReportSummary) {
     if (summary.ruleErrors > 0) return 2 as const;
     if (summary.failed > 0) return 1 as const;
     if (summary.warningsExceeded) return 1 as const;
+    if (summary.strictAdvisoryExceeded) return 1 as const;
     return 0 as const;
   }
   const hasErrors = result.results.some((r) => r.error);

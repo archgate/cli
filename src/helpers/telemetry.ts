@@ -311,6 +311,7 @@ export function trackCheckResult(properties: {
   used_file_filter: boolean;
   used_adr_filter: boolean;
   used_max_warnings: boolean;
+  used_strict: boolean;
   files_scanned?: number;
   load_duration_ms?: number;
   check_duration_ms?: number;

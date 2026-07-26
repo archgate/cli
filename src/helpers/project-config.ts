@@ -116,6 +116,17 @@ export function getConfiguredBaseBranch(projectRoot: string): string | null {
 }
 
 /**
+ * Read the `strict` value from `.archgate/config.json`.
+ *
+ * @param projectRoot - Project root holding the `.archgate/` directory.
+ * @returns The configured strict-mode default, or `null` when unconfigured.
+ */
+export function getConfiguredStrict(projectRoot: string): boolean | null {
+  const config = loadProjectConfig(projectRoot);
+  return config.strict ?? null;
+}
+
+/**
  * Detect the base branch and save it to `.archgate/config.json` when not
  * already configured. Idempotent — skips if `baseBranch` is already set.
  * Non-fatal — silently logs on failure (not a git repo, read-only fs, etc.).

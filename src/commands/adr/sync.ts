@@ -14,7 +14,10 @@ import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logDebug, logWarn } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
-import { resolvedProjectPaths } from "../../helpers/project-config";
+import {
+  getConfiguredStrict,
+  resolvedProjectPaths,
+} from "../../helpers/project-config";
 import { withPromptFix } from "../../helpers/prompt";
 import { resolveSource, shallowClone } from "../../helpers/registry";
 
@@ -135,9 +138,16 @@ export function registerAdrSyncCommand(adr: Command) {
     .option("--check", "Exit 1 if upstream has updates (CI mode)", false)
     .option("--yes", "Skip confirmation prompts", false)
     .option("--json", "Output as JSON", false)
+    // No `false` default (unlike the flags above) — leaving it `undefined`
+    // when omitted is what lets the `.archgate/config.json` fallback apply.
+    .option(
+      "--strict",
+      "Fail (exit 1) when sync encountered errors (unresolved import source, failed clone, missing local/upstream ADR file)"
+    )
     .action(async (sources, opts) => {
       try {
         const projectRoot = requireProjectRoot();
+        const strict = opts.strict ?? getConfiguredStrict(projectRoot) ?? false;
         const paths = resolvedProjectPaths(projectRoot);
         const useJson = opts.json || isAgentContext();
         const manifest = loadImportsManifest(projectRoot);
@@ -331,6 +341,12 @@ export function registerAdrSyncCommand(adr: Command) {
           if (result.withChanges > 0) {
             await exitWith(1);
           }
+          if (strict && result.errors > 0) {
+            logWarn(
+              `--strict: failing because sync encountered ${result.errors} error(s) — see warnings above.`
+            );
+            await exitWith(1);
+          }
           return;
         }
 
@@ -344,6 +360,7 @@ export function registerAdrSyncCommand(adr: Command) {
                   checked: result.checked,
                   withChanges: 0,
                   upToDate: result.upToDate,
+                  errors: result.errors,
                 },
                 opts.json ? true : undefined
               )
@@ -354,6 +371,12 @@ export function registerAdrSyncCommand(adr: Command) {
             );
           }
           cleanup(tempDirs);
+          if (strict && result.errors > 0) {
+            logWarn(
+              `--strict: failing because sync encountered ${result.errors} error(s) — see warnings above.`
+            );
+            await exitWith(1);
+          }
           return;
         }
 
@@ -443,6 +466,7 @@ export function registerAdrSyncCommand(adr: Command) {
                 updated: updatedCount,
                 withChanges: result.withChanges,
                 upToDate: result.upToDate,
+                errors: result.errors,
               },
               opts.json ? true : undefined
             )
@@ -456,6 +480,13 @@ export function registerAdrSyncCommand(adr: Command) {
           } else {
             console.log("No ADRs were updated.");
           }
+        }
+
+        if (strict && result.errors > 0) {
+          logWarn(
+            `--strict: failing because sync encountered ${result.errors} error(s) — see warnings above.`
+          );
+          await exitWith(1);
         }
       } catch (err) {
         await handleCommandError(err);

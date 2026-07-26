@@ -11,19 +11,26 @@ archgate review-context [options]
 
 ## Opções
 
-| Opção               | Descrição                                                                     |
-| ------------------- | ----------------------------------------------------------------------------- |
-| `--staged`          | Incluir apenas arquivos no git stage                                          |
-| `--base [ref]`      | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido) |
-| `--run-checks`      | Incluir resultados de verificação de ADR                                      |
-| `--domain <domain>` | Filtrar por um único domínio                                                  |
-| `--verbose`         | Incluir o texto de Decisão e Do's/Don'ts de cada ADR                          |
+| Opção               | Descrição                                                                                                                                 |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Incluir apenas arquivos no git stage                                                                                                      |
+| `--base [ref]`      | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido)                                                             |
+| `--run-checks`      | Incluir resultados de verificação de ADR                                                                                                  |
+| `--domain <domain>` | Filtrar por um único domínio                                                                                                              |
+| `--verbose`         | Incluir o texto de Decisão e Do's/Don'ts de cada ADR                                                                                      |
+| `--strict`          | Sair com código 1 quando resumos foram truncados, ou (com `--run-checks`) quando `check` encontrou achados relevantes para o modo estrito |
 
 ## Exemplo
 
 ```bash
 archgate review-context --staged
 ```
+
+## Modo estrito
+
+Passe `--strict` para que este comando falhe (código de saída 1) em vez de apenas relatar: ele falha quando `truncatedBriefings` não está vazio (requer `--verbose` para haver algo a truncar), ou, com `--run-checks`, quando o `checkSummary.warningsExceeded` ou `checkSummary.strictAdvisoryExceeded` reaproveitado é `true`. `--strict` **não** falha em violações de regra comuns (`checkSummary.failed`/`ruleErrors`) — este comando permanece um gerador de contexto para agentes, não um segundo portão de conformidade; use [`archgate check`](/reference/cli/check/) para bloquear em violações de regra. Uma falha de `--strict` imprime o payload JSON completo primeiro, depois registra o motivo em stderr antes de sair.
+
+`--strict` é resolvido da mesma forma que `archgate check --strict`: flag de linha de comando, depois uma chave `strict: boolean` em `.archgate/config.json`, depois desligado.
 
 ## Tamanho da saída
 

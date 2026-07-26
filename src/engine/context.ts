@@ -188,6 +188,7 @@ const EMPTY_SUMMARY: ReportSummary = {
   infos: 0,
   ruleErrors: 0,
   warningsExceeded: false,
+  strictAdvisoryExceeded: false,
   truncated: false,
   suppressed: 0,
   suppressionWarnings: [],
@@ -207,6 +208,10 @@ interface BuildReviewContextOptions {
   maxViolationsPerRule?: number;
   /** Include Decision and Do's/Don'ts prose per ADR. Default: false. */
   briefings?: boolean;
+  /** Threaded into the internal `buildSummary` call when `runChecks` is set. */
+  maxWarnings?: number;
+  /** Threaded into the internal `buildSummary` call when `runChecks` is set. */
+  strict?: boolean;
 }
 
 /** Build a complete pre-computed review context with token-safe defaults. */
@@ -249,7 +254,11 @@ export async function buildReviewContext(
         // cannot describe a limit this response did not apply.
         maxSectionChars,
       });
-      const summary = buildSummary(checkResult, { maxViolationsPerRule });
+      const summary = buildSummary(checkResult, {
+        maxViolationsPerRule,
+        maxWarnings: options?.maxWarnings,
+        strict: options?.strict,
+      });
       // Same projection reportJSON applies: a cleanly-passing rule's entry only
       // restates static ADR text (11KB of 43 entries here), and the counts above
       // it already say how many passed. resultsWithFindings keeps warning-only

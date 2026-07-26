@@ -288,11 +288,12 @@ Kommandoen sammenligner lokale importerte ADR-er mot oppstrømskilden og viser h
 
 ### Valg
 
-| Valg      | Beskrivelse                                                    |
-| --------- | -------------------------------------------------------------- |
-| `--check` | Avslutt med kode 1 hvis oppstrøms har oppdateringer (CI-modus) |
-| `--yes`   | Hopp over bekreftelsespromter                                  |
-| `--json`  | Utdata som JSON                                                |
+| Valg       | Beskrivelse                                                                                                                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--check`  | Avslutt med kode 1 hvis oppstrøms har oppdateringer (CI-modus)                                                                   |
+| `--yes`    | Hopp over bekreftelsespromter                                                                                                    |
+| `--json`   | Utdata som JSON                                                                                                                  |
+| `--strict` | Mislykkes (kode 1) når synkroniseringen støtte på feil (uløst importkilde, mislykket kloning, manglende lokal/oppstrøms ADR-fil) |
 
 ### Eksempler
 
@@ -318,4 +319,10 @@ Godta alle oppstrømsoppdateringer ikke-interaktivt:
 
 ```bash
 archgate adr sync --yes
+```
+
+Feil bygget hvis en import ikke kunne løses, klones, eller matches til en lokal ADR:
+
+```bash
+archgate adr sync --check --strict
 ```

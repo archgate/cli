@@ -13,15 +13,16 @@ Laster inn hver ADR med `rules: true` i frontmatteren, kjører den tilhørende `
 
 ## Valg
 
-| Valg                 | Beskrivelse                                                                                              |
-| -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `--staged`           | Sjekk kun git-stagede filer (nyttig for pre-commit-hooks)                                                |
-| `--base [ref]`       | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt)                             |
-| `--json`             | Maskinlesbar JSON-utdata                                                                                 |
-| `--ci`               | GitHub Actions-annotasjonsformat                                                                         |
-| `--adr <id>`         | Sjekk kun regler fra en bestemt ADR                                                                      |
-| `--verbose`          | Vis beståtte regler og tidsinformasjon                                                                   |
-| `--max-warnings <n>` | Mislykkes (kode 1) når antallet advarsler overskrider `n`. Bruk `0` for å mislykkes ved enhver advarsel. |
+| Valg                 | Beskrivelse                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--staged`           | Sjekk kun git-stagede filer (nyttig for pre-commit-hooks)                                                                                        |
+| `--base [ref]`       | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt)                                                                     |
+| `--json`             | Maskinlesbar JSON-utdata                                                                                                                         |
+| `--ci`               | GitHub Actions-annotasjonsformat                                                                                                                 |
+| `--adr <id>`         | Sjekk kun regler fra en bestemt ADR                                                                                                              |
+| `--verbose`          | Vis beståtte regler og tidsinformasjon                                                                                                           |
+| `--max-warnings <n>` | Mislykkes (kode 1) når antallet advarsler overskrider `n`. Bruk `0` for å mislykkes ved enhver advarsel.                                         |
+| `--strict`           | Behandle enhver advarsel, og veiledende funn (sammendragsbudsjett, undertrykkelse, utolkede ADR-er), som feil. Se [Streng modus](#streng-modus). |
 
 ## Argumenter
 
@@ -31,11 +32,11 @@ Laster inn hver ADR med `rules: true` i frontmatteren, kjører den tilhørende `
 
 ## Avslutningskoder
 
-| Kode | Betydning                                                                        |
-| ---- | -------------------------------------------------------------------------------- |
-| 0    | Alle regler bestått. Ingen brudd funnet.                                         |
-| 1    | Ett eller flere brudd oppdaget, eller advarsler overskred `--max-warnings`.      |
-| 2    | Feil ved regelkjøring (f.eks. feilformatert regel, sikkerhetsskannerblokkering). |
+| Kode | Betydning                                                                                                    |
+| ---- | ------------------------------------------------------------------------------------------------------------ |
+| 0    | Alle regler bestått. Ingen brudd funnet.                                                                     |
+| 1    | Ett eller flere brudd oppdaget, advarsler overskred `--max-warnings`, eller `--strict` fant veiledende funn. |
+| 2    | Feil ved regelkjøring (f.eks. feilformatert regel, sikkerhetsskannerblokkering).                             |
 
 ## Eksempler
 
@@ -67,6 +68,12 @@ Behandle enhver advarsel som en feil (nyttig i CI):
 
 ```bash
 archgate check --max-warnings 0
+```
+
+Behandle enhver advarsel og ethvert veiledende funn (sammendragsbudsjett, undertrykkelse, utolkede ADR-er) som en feil:
+
+```bash
+archgate check --strict
 ```
 
 Sjekk bestemte filer (bare matchende ADR-er kjøres):
@@ -145,13 +152,27 @@ En ADR som ikke kan leses eller tolkes, blir målt av ingenting, og rapporteres 
 
 JSON-utdata lister disse filene under `unparsedAdrs`. **En tom `briefingWarnings` betyr «ingenting over grensen» bare når `unparsedAdrs` også er tom** — ellers ble deler av korpuset aldri undersøkt.
 
-Disse er **veiledende og påvirker aldri `pass`**.
+Disse er **veiledende og påvirker aldri `pass`, med mindre `--strict` er satt** — se [Streng modus](#streng-modus).
 
 For å fjerne en overskridelse, bruk først tiltakene som ikke kan koste en regel: flytt begrunnelser til Context eller Consequences, som aldri inngår i sammendraget og derfor aldri har grense; fjern historisk fortellende tekst; og slå sammen punkter som sier samme regel to ganger.
 
 Hvis neste kutt ville fjerne en normativ bestemmelse — en oppregnet liste med identifikatorer, en ordnet sikkerhetssjekk, et unntak — **stopp**. Den seksjonen forventes å overskride grensen og MÅ IKKE kortes ned ytterligere. Dokumenter hvorfor i ADR-ens egen Compliance-seksjon, og ordne seksjonen slik at det mest normative innholdet kommer før kuttet, siden avkorting alltid fjerner slutten.
 
 Som standard endrer advarsler (både diagnostikk og regelrapporterte brudd med `"severity": "warning"`) aldri avslutningskoden. Send `--max-warnings <n>` for å få `archgate check` til å avslutte med kode 1 når det totale antallet advarsler overskrider `n`. `--max-warnings 0` mislykkes ved enhver advarsel. Når terskelen overskrides, er feltet `warningsExceeded` i JSON-utdataene `true` og `pass` er `false`.
+
+## Streng modus
+
+`--strict` behandler enhver advarselslignende diagnostikk som en feil med ett enkelt valg: den oppfører seg som `--max-warnings 0` for regelbaserte advarsler (en eksplisitt `--max-warnings` vinner fortsatt), og den mislykker også bygget når `briefingWarnings`, `suppressionWarnings` eller `unparsedAdrs` ikke er tom — de veiledende diagnostikkene ovenfor som som standard aldri påvirker `pass`. Feltet `strictAdvisoryExceeded` i JSON-utdataene er `true` når sistnevnte tilstand utløste feilen.
+
+`--strict` gjelder også for [`archgate review-context`](/reference/cli/review-context/) og `archgate adr sync`.
+
+For å unngå å sende `--strict` ved hver kjøring, sett en prosjektstandard i `.archgate/config.json`:
+
+```json
+{ "strict": true }
+```
+
+En eksplisitt `--strict` på kommandolinjen overstyrer alltid konfigurasjonsstandarden.
 
 ## JSON-utdataformat
 
@@ -170,6 +191,7 @@ Når `--json` brukes, er utdataene et enkelt JSON-objekt.
   "infos": 0,
   "ruleErrors": 0,
   "warningsExceeded": false,
+  "strictAdvisoryExceeded": false,
   "truncated": false,
   "results": [
     {

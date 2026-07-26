@@ -48,6 +48,7 @@ export const ProjectConfigSchema = z
     domains: z.record(DomainNameSchema, DomainPrefixSchema).default({}),
     paths: PathsConfigSchema.optional(),
     baseBranch: z.string().min(1).optional(),
+    strict: z.boolean().optional(),
   })
   .default({ domains: {} });
 

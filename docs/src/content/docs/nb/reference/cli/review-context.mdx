@@ -11,19 +11,26 @@ archgate review-context [options]
 
 ## Valg
 
-| Valg                | Beskrivelse                                                                  |
-| ------------------- | ---------------------------------------------------------------------------- |
-| `--staged`          | Inkluder kun git-stagede filer                                               |
-| `--base [ref]`      | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt) |
-| `--run-checks`      | Inkluder resultater fra ADR-samsvarskontroller                               |
-| `--domain <domain>` | Filtrer til et enkelt domene                                                 |
-| `--verbose`         | Inkluder teksten for Decision og Do's/Don'ts fra hver ADR                    |
+| Valg                | Beskrivelse                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Inkluder kun git-stagede filer                                                                                                     |
+| `--base [ref]`      | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt)                                                       |
+| `--run-checks`      | Inkluder resultater fra ADR-samsvarskontroller                                                                                     |
+| `--domain <domain>` | Filtrer til et enkelt domene                                                                                                       |
+| `--verbose`         | Inkluder teksten for Decision og Do's/Don'ts fra hver ADR                                                                          |
+| `--strict`          | Avslutt med kode 1 når sammendrag ble avkortet, eller (med `--run-checks`) når `check` fant funn som er relevante for streng modus |
 
 ## Eksempel
 
 ```bash
 archgate review-context --staged
 ```
+
+## Streng modus
+
+Send `--strict` for å få denne kommandoen til å mislykkes (avslutningskode 1) i stedet for bare å rapportere: den mislykkes når `truncatedBriefings` ikke er tom (krever `--verbose` for at det skal være noe å avkorte), eller, med `--run-checks`, når den gjenbrukte `checkSummary.warningsExceeded` eller `checkSummary.strictAdvisoryExceeded` er `true`. `--strict` mislykkes **ikke** ved vanlige regelbrudd (`checkSummary.failed`/`ruleErrors`) — denne kommandoen forblir en kontekstgenerator for agenter, ikke en ny samsvarssperre; bruk [`archgate check`](/reference/cli/check/) for å sperre på regelbrudd. En `--strict`-feil skriver ut hele JSON-svaret først, og logger deretter årsaken til stderr før den avslutter.
+
+`--strict` løses på samme måte som `archgate check --strict`: kommandolinjevalg, deretter en `strict: boolean`-nøkkel i `.archgate/config.json`, deretter av.
 
 ## Størrelse på utdata
 

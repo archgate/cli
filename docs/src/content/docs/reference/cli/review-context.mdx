@@ -11,19 +11,26 @@ archgate review-context [options]
 
 ## Options
 
-| Option              | Description                                                          |
-| ------------------- | -------------------------------------------------------------------- |
-| `--staged`          | Only include git-staged files                                        |
-| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted) |
-| `--run-checks`      | Include ADR compliance check results                                 |
-| `--domain <domain>` | Filter to a single domain                                            |
-| `--verbose`         | Include each ADR's Decision and Do's/Don'ts prose                    |
+| Option              | Description                                                                                                |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Only include git-staged files                                                                              |
+| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted)                                       |
+| `--run-checks`      | Include ADR compliance check results                                                                       |
+| `--domain <domain>` | Filter to a single domain                                                                                  |
+| `--verbose`         | Include each ADR's Decision and Do's/Don'ts prose                                                          |
+| `--strict`          | Exit 1 when briefings were truncated, or (with `--run-checks`) when `check` found strict-relevant findings |
 
 ## Example
 
 ```bash
 archgate review-context --staged
 ```
+
+## Strict mode
+
+Pass `--strict` to make this command fail (exit 1) rather than just report: it fails when `truncatedBriefings` is non-empty (requires `--verbose` to have anything to truncate), or, with `--run-checks`, when the reused `checkSummary.warningsExceeded` or `checkSummary.strictAdvisoryExceeded` is true. `--strict` does **not** fail on ordinary rule violations (`checkSummary.failed`/`ruleErrors`) — this command stays a context generator for agents, not a second compliance gate; use [`archgate check`](/reference/cli/check/) to gate on rule violations. A `--strict` failure prints the full JSON payload first, then logs the reason to stderr before exiting.
+
+`--strict` resolves the same way as `archgate check --strict`: CLI flag, then a `strict: boolean` key in `.archgate/config.json`, then off.
 
 ## Output size
 

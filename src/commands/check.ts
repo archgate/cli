@@ -16,7 +16,10 @@ import { runChecks } from "../engine/runner";
 import { exitWith, handleCommandError } from "../helpers/exit";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { requireProjectRoot } from "../helpers/paths";
-import { getConfiguredBaseBranch } from "../helpers/project-config";
+import {
+  getConfiguredBaseBranch,
+  getConfiguredStrict,
+} from "../helpers/project-config";
 import { detectStack } from "../helpers/stack-detect";
 import { trackCheckResult } from "../helpers/telemetry";
 import { UserError } from "../helpers/user-error";
@@ -39,6 +42,10 @@ export function registerCheckCommand(program: Command) {
     )
     .option("--adr <id>", "Only check rules from a specific ADR")
     .option("--verbose", "Show passing rules and timing info")
+    .option(
+      "--strict",
+      "Treat any rule-severity warning, and advisory findings (briefing-budget, suppression, unparsed-ADR warnings), as failures"
+    )
     .addOption(maxWarningsOption)
     .argument("[files...]", "Only check rules relevant to these files")
     .action(async (files, opts) => {
@@ -55,6 +62,8 @@ export function registerCheckCommand(program: Command) {
         ) {
           throw new UserError("--max-warnings must be a non-negative integer");
         }
+
+        const strict = opts.strict ?? getConfiguredStrict(projectRoot) ?? false;
 
         // Run stack detection in parallel with rule loading — both are fast I/O
         // and independent. Stack info enriches the telemetry event at the end.
@@ -84,6 +93,7 @@ export function registerCheckCommand(program: Command) {
                   infos: 0,
                   ruleErrors: 0,
                   warningsExceeded: false,
+                  strictAdvisoryExceeded: false,
                   results: [],
                   durationMs: 0,
                 },
@@ -133,7 +143,7 @@ export function registerCheckCommand(program: Command) {
         // Build the summary once and share it with the reporters, telemetry,
         // and exit-code resolver — one walk over the result set instead of
         // one per consumer.
-        const summary = buildSummary(result, { maxWarnings });
+        const summary = buildSummary(result, { maxWarnings, strict });
 
         if (opts.ci) {
           reportCI(result, summary);
@@ -166,6 +176,7 @@ export function registerCheckCommand(program: Command) {
           used_file_filter: filterFiles.length > 0,
           used_adr_filter: Boolean(opts.adr),
           used_max_warnings: maxWarnings !== undefined,
+          used_strict: opts.strict !== undefined,
           files_scanned: filterFiles.length,
           load_duration_ms: loadDurationMs,
           check_duration_ms: Math.round(result.totalDurationMs),

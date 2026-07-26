@@ -17,7 +17,8 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 ## Environment facts no rule can check
 
 - **`archgate` is not on PATH here** — this IS the CLI repo. Use `bun run cli <command>`.
-- **`archgate check` emits non-blocking diagnostics** alongside rule failures: `[suppression]`, `[briefing]`, and `[adr]` lines are advisories that never affect `pass`. Check which kind you have before treating a finding as a blocker.
+- **`archgate check` emits non-blocking diagnostics** alongside rule failures: `[suppression]`, `[briefing]`, and `[adr]` lines are advisories that never affect `pass` by default — but `--strict` (or `.archgate/config.json`'s `strict: true`) elevates all three into failures, per ARCH-026. Check which kind you have, and whether strict mode is active, before treating a finding as a blocker.
+- **Splitting a test file for `oxlint`'s 500-line `max-lines` cap: add a sibling `<name>-<suffix>.test.ts`, don't trim coverage.** Precedent already established by `check-max-warnings.test.ts` as a sibling of `check.test.ts`; followed again for `reporter-strict.test.ts`, `sync-strict.test.ts`, and the `*-strict.test.ts` integration files when ARCH-026's tests pushed their parent files over the cap.
 - **Commit with `--signoff`** — the DCO check rejects commits without `Signed-off-by`.
 - **This repo is PUBLIC** — no private sibling-repo internals, no Claude session links in PRs or commits.
 - **Commit before fire-testing a rule or guard.** The loop (mutate → confirm the check fails → restore) restores with `git checkout <file>`, which discards all uncommitted work in that file, including the fix under test.

@@ -8,6 +8,7 @@ import { join } from "node:path";
 import {
   addCustomDomain,
   getAllDomainNames,
+  getConfiguredStrict,
   getMergedDomainPrefixes,
   isDefaultDomain,
   listDomainEntries,
@@ -135,6 +136,27 @@ describe("project-config", () => {
   test("saveProjectConfig + loadProjectConfig roundtrip", async () => {
     await saveProjectConfig(projectRoot, { domains: { infra: "INFRA" } });
     expect(loadProjectConfig(projectRoot).domains.infra).toBe("INFRA");
+  });
+
+  describe("getConfiguredStrict", () => {
+    test("returns null when config file is absent", () => {
+      expect(getConfiguredStrict(projectRoot)).toBeNull();
+    });
+
+    test("returns null when strict key is absent from an otherwise-valid config", async () => {
+      await saveProjectConfig(projectRoot, { domains: { infra: "INFRA" } });
+      expect(getConfiguredStrict(projectRoot)).toBeNull();
+    });
+
+    test("returns true when explicitly configured true", async () => {
+      await saveProjectConfig(projectRoot, { domains: {}, strict: true });
+      expect(getConfiguredStrict(projectRoot)).toBe(true);
+    });
+
+    test("returns false when explicitly configured false", async () => {
+      await saveProjectConfig(projectRoot, { domains: {}, strict: false });
+      expect(getConfiguredStrict(projectRoot)).toBe(false);
+    });
   });
 
   describe("resolvedProjectPaths", () => {

@@ -288,11 +288,12 @@ O comando compara os ADRs importados locais com a fonte upstream e mostra quais 
 
 ### Opções
 
-| Opção     | Descrição                                         |
-| --------- | ------------------------------------------------- |
-| `--check` | Sai com código 1 se houver atualizações (modo CI) |
-| `--yes`   | Pula prompts de confirmação                       |
-| `--json`  | Saída como JSON                                   |
+| Opção      | Descrição                                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--check`  | Sai com código 1 se houver atualizações (modo CI)                                                                                                |
+| `--yes`    | Pula prompts de confirmação                                                                                                                      |
+| `--json`   | Saída como JSON                                                                                                                                  |
+| `--strict` | Falha (código 1) quando a sincronização encontrar erros (fonte de importação não resolvida, clone falhou, arquivo local/upstream do ADR ausente) |
 
 ### Exemplos
 
@@ -318,4 +319,10 @@ Aceitar todas as atualizações upstream de forma não interativa:
 
 ```bash
 archgate adr sync --yes
+```
+
+Falhar o build se alguma importação não puder ser resolvida, clonada ou associada a um ADR local:
+
+```bash
+archgate adr sync --check --strict
 ```
