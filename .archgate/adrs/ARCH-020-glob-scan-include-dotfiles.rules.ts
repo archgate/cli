@@ -6,8 +6,14 @@
  * comment or string literal that merely mentions `.scan()` is not a match.
  */
 
+/** Genuinely narrows to an ESTree node — every real node carries `type`. */
 function isEsTreeNode(value: unknown): value is EsTreeNode {
-  return typeof value === "object" && value !== null;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
 }
 
 /** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */

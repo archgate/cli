@@ -12,8 +12,14 @@ const SCAN_ALLOWED_FILES = new Set([
   "src/engine/git-files.ts",
 ]);
 
+/** Genuinely narrows to an ESTree node — every real node carries `type`. */
 function isEsTreeNode(value: unknown): value is EsTreeNode {
-  return typeof value === "object" && value !== null;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
 }
 
 /** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */

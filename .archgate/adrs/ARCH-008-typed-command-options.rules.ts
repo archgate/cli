@@ -22,13 +22,22 @@ const VALUE_TAKING_FLAG = /^--[\w-]+\s+<\w+>/u;
 const PARSER_IDENTIFIERS = new Set(["parseInt", "parseFloat", "Number"]);
 
 /**
- * Type guard narrowing an unknown AST value to an object node without an
- * unsafe cast — mirrors the previous `typeof x === "object"` check, so the
- * walk still descends into every plain object/array, not just ones that
- * already carry a `type` field.
+ * Loose object check, deliberately weaker than isEsTreeNode below — used
+ * only to decide whether walk() should descend into a value at all. Keeps
+ * descending into every plain object/array, not just ones that carry a
+ * `type` field (e.g. `loc`), matching the walk's original behavior.
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * Genuinely narrows to an ESTree node, without an unsafe cast — every real
+ * node carries a `type` field; a plain object without one (e.g. `loc`) is
+ * not a node and must not be treated as one by callers of asEsTreeNode().
  */
 function isEsTreeNode(value: unknown): value is EsTreeNode {
-  return typeof value === "object" && value !== null;
+  return isPlainObject(value) && typeof value.type === "string";
 }
 
 /** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */
@@ -49,8 +58,8 @@ function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
     for (const item of node) walk(item, visit);
     return;
   }
-  if (!isEsTreeNode(node)) return;
-  if (typeof node.type === "string") visit(node);
+  if (!isPlainObject(node)) return;
+  if (isEsTreeNode(node)) visit(node);
   for (const value of Object.values(node)) {
     if (Boolean(value) && typeof value === "object") walk(value, visit);
   }
