@@ -35,7 +35,7 @@ jobs:
           persist-credentials: false
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -66,7 +66,7 @@ jobs:
           path: coverage/lcov.info
           retention-days: 1
       - name: Save Bun Cache
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
         with:
           path: /home/runner/.bun/install/cache
@@ -139,7 +139,7 @@ jobs:
       # --- Go ---
       - name: Setup Go
         if: matrix.shim == 'go'
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.21"
           cache-dependency-path: shims/go/go.sum
@@ -161,7 +161,7 @@ jobs:
       # --- NuGet ---
       - name: Setup .NET
         if: matrix.shim == 'nuget'
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: "8.0.x"
       - name: Test NuGet shim

@@ -56,7 +56,7 @@ jobs:
           cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -64,7 +64,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Context check
         id: check
-        uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1.1.9
+        uses: TrigenSoftware/simple-release-action@1d376657d9af2a93f280e071b7327d3203719e24 # v2.0.8
         with:
           workflow: check
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -112,7 +112,7 @@ jobs:
           cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -133,7 +133,7 @@ jobs:
           HOOK
           chmod +x .git/hooks/prepare-commit-msg
       - name: Create or update pull request
-        uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1.1.9
+        uses: TrigenSoftware/simple-release-action@1d376657d9af2a93f280e071b7327d3203719e24 # v2.0.8
         with:
           workflow: pull-request
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -174,7 +174,7 @@ jobs:
           cache-version: ${{ env.ImageOS }}
       - name: Restore Bun Package Cache
         id: restore-bun-cache
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
@@ -184,7 +184,7 @@ jobs:
         id: validate
         run: bun run validate
       - name: Release
-        uses: TrigenSoftware/simple-release-action@a796225481a62b5b46b37d4481ef7fb114a6d399 # v1.1.9
+        uses: TrigenSoftware/simple-release-action@1d376657d9af2a93f280e071b7327d3203719e24 # v2.0.8
         with:
           workflow: release
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -220,7 +220,7 @@ jobs:
             }"
           echo "::notice::PostHog annotation created for v${version}"
       - name: Save Bun Cache
-        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.validate.outcome == 'success' && steps.restore-bun-cache.outputs.cache-hit != 'true'
         with:
           path: /home/runner/.bun/install/cache
