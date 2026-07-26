@@ -13,7 +13,7 @@ import {
   isWindows,
 } from "./platform";
 
-/** @internal Exported for testing only. */
+/** Exported for testing only. */
 export const VscodeSettingsSchema = z
   .object({
     "chat.plugins.marketplaces": z.array(z.string()).optional().catch([]),

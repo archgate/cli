@@ -6,20 +6,7 @@
   "ignoreDependencies": [
     "@commitlint/cli",
     "@simple-release/npm",
-    "conventional-changelog",
-    "conventional-changelog-angular",
-    "czg",
-    "oxfmt",
-    "oxlint",
-    "oxlint-tsgolint"
-  ],
-  "ignoreBinaries": [
-    "conventional-changelog",
-    "czg",
-    "knip",
-    "oxfmt",
-    "oxlint",
-    "tsc"
+    "conventional-changelog-angular"
   ],
   "ignoreExportsUsedInFile": true,
   "tags": ["-internal"]
