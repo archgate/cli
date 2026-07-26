@@ -63,7 +63,9 @@ function findLocalAdr(adrsDir: string, adrId: string): string | null {
   const match = files.find(
     (f) => f.endsWith(".md") && f.startsWith(`${adrId}-`)
   );
-  return match !== undefined && match !== "" ? join(adrsDir, match) : null;
+  // A match always carries the ".md" suffix and "<adrId>-" prefix, so it can
+  // never be empty — undefined (no match) is the only other outcome.
+  return match === undefined ? null : join(adrsDir, match);
 }
 
 /**

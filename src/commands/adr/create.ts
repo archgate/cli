@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
-import { InvalidArgumentError, Option } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 
 import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
+import { rejectBlank } from "../../helpers/cli-options";
 import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
@@ -14,19 +15,6 @@ import {
   resolvedProjectPaths,
 } from "../../helpers/project-config";
 import { withPromptFix } from "../../helpers/prompt";
-
-/**
- * Rejects a blank/whitespace-only value at parse time, so the action
- * handler only needs `opts.title !== undefined` / `opts.domain !== undefined`
- * to know the flag was both passed AND meaningful — no separate `!== ""`
- * guard needed downstream.
- */
-function rejectBlank(val: string): string {
-  if (val.trim() === "") {
-    throw new InvalidArgumentError("must not be empty");
-  }
-  return val;
-}
 
 export function registerAdrCreateCommand(adr: Command) {
   adr
@@ -44,7 +32,12 @@ export function registerAdrCreateCommand(adr: Command) {
         "ADR domain (built-in or registered via `archgate domain add`)"
       ).argParser(rejectBlank)
     )
-    .option("--files <patterns>", "File patterns, comma-separated")
+    .addOption(
+      new Option(
+        "--files <patterns>",
+        "File patterns, comma-separated"
+      ).argParser(rejectBlank)
+    )
     .option("--body <markdown>", "Full ADR body markdown (skip template)")
     .option("--rules", "Set rules: true in frontmatter")
     .option("--json", "Output as JSON")
@@ -62,12 +55,12 @@ export function registerAdrCreateCommand(adr: Command) {
           domain = opts.domain;
           title = opts.title;
           files =
-            opts.files !== undefined && opts.files !== ""
-              ? opts.files
+            opts.files === undefined
+              ? undefined
+              : opts.files
                   .split(",")
                   .map((f) => f.trim())
-                  .filter(Boolean)
-              : undefined;
+                  .filter(Boolean);
           body = opts.body;
         } else {
           const choices = getAllDomainNames(projectRoot);

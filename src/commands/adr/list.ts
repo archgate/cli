@@ -4,9 +4,11 @@ import { existsSync } from "node:fs";
 import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 
 import { parseAllAdrs } from "../../engine/loader";
 import type { AdrFrontmatter } from "../../formats/adr";
+import { rejectBlank } from "../../helpers/cli-options";
 import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
@@ -28,7 +30,9 @@ export function registerAdrListCommand(adr: Command) {
     .command("list")
     .description("List all ADRs")
     .option("--json", "Output as JSON")
-    .option("--domain <domain>", "Filter by domain")
+    .addOption(
+      new Option("--domain <domain>", "Filter by domain").argParser(rejectBlank)
+    )
     .action(async (options) => {
       try {
         const projectRoot = requireProjectRoot();
@@ -50,9 +54,9 @@ export function registerAdrListCommand(adr: Command) {
         }
 
         const filtered =
-          options.domain !== undefined && options.domain !== ""
-            ? adrs.filter((a) => a.frontmatter.domain === options.domain)
-            : adrs;
+          options.domain === undefined
+            ? adrs
+            : adrs.filter((a) => a.frontmatter.domain === options.domain);
 
         const useJson = options.json ?? isAgentContext();
         if (useJson) {
