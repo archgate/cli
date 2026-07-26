@@ -112,6 +112,7 @@ Dispatch on `language` MUST be invisible to rule authors.
 - **Comment-governance rules become structural** — length, style, and content policies can be written against structured comment tokens (`type`/`value`/`loc`) with original-source-accurate positions instead of fragile line/regex heuristics.
 - **Failure visibility reuses proven machinery** — no new exit code, reporter branch, or error-boundary design; throw-on-failure rides on `runner.ts`'s per-rule isolation and `reporter.ts`'s exit-code-2 category.
 - **Incremental adoption** — TS/JS support needs no new capability surface beyond what exists internally, and Python/Ruby can follow independently since the guardrail and failure-semantics design is identical for both.
+- **`ctx.findAstNodes(tree, ...types)` retires the hand-rolled `walk(node, visit)` helper each rule file previously had to repeat** — it covers "collect every node of type X" for any language's tree shape by matching the `_type`/`type` discriminant in preorder. A custom walk is still needed when a rule must prune a subtree before collecting (e.g. skip descending into nested function bodies), not merely filter by type.
 
 ### Negative
 
