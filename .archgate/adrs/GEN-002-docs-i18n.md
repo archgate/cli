@@ -117,6 +117,12 @@ The companion rules file (`GEN-002-docs-i18n.rules.ts`) defines five rules:
 
 `i18n-diacritic-density` is a density heuristic, not a spell checker. It reliably catches a page stripped in bulk, but **not** a handful of stripped words inside otherwise-correct prose, and it skips pages under 200 prose letters. Both remain review responsibilities.
 
+Neither rule validates that a diacritic is the _correct_ one -- `i18n-diacritic-density` counts accented characters without judging them, so a confidently wrong accent passes. Portuguese crasis (`à` versus `a`) and `é` versus `e` need a native speaker.
+
+`i18n-encoding-corruption` scans whole files, fenced code included, unlike `i18n-diacritic-density` which strips code first. A page that deliberately _demonstrates_ entity-escaped accents or mojibake in a code sample would therefore be flagged; write such examples as prose or images instead.
+
+Its mojibake check detects **Latin-1** round-trips: a `0xC2`/`0xC3` lead byte followed by a `0x80`-`0xBF` continuation byte. A continuation byte in `0x80`-`0x9F` mangles differently through Windows-1252, which remaps that band (`0x80` becomes U+20AC), so those cases are missed. The upper bound stays at `0xBF` deliberately -- widening it would flag a legitimate `Ã` followed by a non-breaking space or an ordinal indicator. Lowercase Norwegian and Portuguese continuation bytes all sit in `0xA0`-`0xBF`, where the two encodings agree, so the corruption that actually occurs is covered.
+
 ### Manual Enforcement
 
 Code reviewers MUST verify during docs PRs:

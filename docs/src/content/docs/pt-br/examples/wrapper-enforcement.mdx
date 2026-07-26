@@ -7,7 +7,7 @@ Impõe o uso de um wrapper do projeto em vez de uma API de plataforma crua.
 
 ## Detalhes da regra
 
-Quando um projeto fornece um helper que normaliza uma API de baixo nível (ex.: um helper `platform.ts` encapsulando `process.platform`), o uso direto da API crua deve ser banido em todos os lugares exceto no próprio wrapper. Esta regra varre os arquivos no escopo procurando a chamada da API crua enquanto exclui automaticamente o arquivo helper e código de não-produção.
+Quando um projeto fornece um helper que normaliza uma API de baixo nível (ex.: um helper `platform.ts` encapsulando `process.platform`), o uso direto da API crua deve ser banido em todos os lugares exceto no próprio wrapper. Esta regra varre os arquivos no escopo procurando a chamada da API crua enquanto exclui automaticamente o arquivo helper e o código que não é de produção.
 
 ## Exemplos de código **incorreto**
 

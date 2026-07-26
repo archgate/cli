@@ -19,10 +19,12 @@ const LOCALE_LINK_PATTERNS = LOCALES.map(
  * surviving an editor round-trip, and code points stay readable in a diff.
  */
 
-// Named HTML entities for accented letters. Structural entities (&lt; &gt;
-// &amp;) are legitimate in MDX and deliberately absent.
+// Named HTML entities for accented letters, spelled out one branch per entity
+// so each name is independently greppable. Structural entities (&lt; &gt;
+// &amp;) are legitimate in MDX and deliberately absent, as is the standalone
+// &acute; (U+00B4), which is a bare mark rather than an accented letter.
 const ENTITY_PATTERN =
-  /&(?:a|A)(?:ring|elig|circ|cute|grave|tilde);|&(?:o|O)(?:slash|circ|cute|tilde);|&(?:c|C)cedil;|&(?:e|E)(?:circ|cute);|&(?:i|I)acute;|&(?:u|U)(?:acute|uml);/gu;
+  /&(?:[aA]acute|[aA]grave|[aA]circ|[aA]tilde|[aA]ring|aelig|AElig|[eE]acute|[eE]circ|[iI]acute|[oO]acute|[oO]circ|[oO]tilde|[oO]slash|[uU]acute|[uU]uml|[cC]cedil);/gu;
 
 // Numeric entities in the accented Latin-1 range (192-255 / 0xC0-0xFF).
 const NUMERIC_ENTITY_PATTERN =
@@ -35,7 +37,8 @@ const LETTER_PATTERN = /\p{L}/gu;
 const MOJIBAKE_LEADS = new Set([0xc2, 0xc3]);
 // UTF-8 continuation bytes are always 0x80-0xBF, so a lead followed by one of
 // these is double-encoded text. Requiring the pair avoids flagging legitimate
-// uppercase prose, where 0xC3 is followed by an ASCII letter.
+// uppercase prose, where 0xC3 is followed by an ASCII letter. GEN-002 records
+// why the upper bound stays at 0xBF instead of covering Windows-1252.
 const CONTINUATION_MIN = 0x80;
 const CONTINUATION_MAX = 0xbf;
 
