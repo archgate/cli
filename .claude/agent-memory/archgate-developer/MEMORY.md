@@ -39,4 +39,4 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — no pinned versions or drift-prone counts; nothing enforces this
 - [Claude Code hooks config](project_claude_code_hooks_config.md) — the `"shell": "bash"` requirement and the `WorktreeCreate` contract
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST hides resolution state; use the GraphQL `reviewThreads.isResolved` field
-- [Rules engine follow-up](project_rules_engine_internals.md) — pending perf item, and ARCH-023's unfixed sibling of the #513 regex-over-text bug
+- [Rules engine follow-up](project_rules_engine_internals.md) — the one pending perf item no rule tracks
