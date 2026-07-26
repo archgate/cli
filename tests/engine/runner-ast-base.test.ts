@@ -14,17 +14,12 @@ import type { LoadResult } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
 import type { EsTreeNode, RuleSet } from "../../src/formats/rules";
-import { git, safeRmSync } from "../test-utils";
+import { git, isRecord, safeRmSync } from "../test-utils";
 
 const pythonInterpreter = await probeInterpreter(
   interpreterCandidates("python")
 );
 const rubyInterpreter = await probeInterpreter(interpreterCandidates("ruby"));
-
-/** Narrows `unknown` to a plain object without a type assertion. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
 
 /** Reads `node.declaration.id.name` off an ESTree export node, or "". */
 function declarationName(node: EsTreeNode): string {

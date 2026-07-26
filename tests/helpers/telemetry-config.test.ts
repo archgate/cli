@@ -5,15 +5,7 @@ import { mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { restoreEnv } from "../test-utils";
-
-/** Narrows a JSON.parse() result without an unsafe `as` cast. */
-function hasKeys<K extends string>(
-  v: unknown,
-  ...keys: K[]
-): v is Record<K, unknown> {
-  return typeof v === "object" && v !== null && keys.every((k) => k in v);
-}
+import { expectKeys, restoreEnv } from "../test-utils";
 
 describe("telemetry-config", () => {
   let tempDir: string;
@@ -195,11 +187,7 @@ describe("telemetry-config", () => {
       // Read from disk to verify persistence
       const configPath = join(tempDir, ".archgate", "config.json");
       const raw = readFileSync(configPath, "utf-8");
-      const parsed: unknown = JSON.parse(raw);
-      if (!hasKeys(parsed, "telemetry")) {
-        throw new Error("expected telemetry in config");
-      }
-      expect(parsed.telemetry).toBe(false);
+      expect(expectKeys(JSON.parse(raw), "telemetry").telemetry).toBe(false);
     });
 
     test("persists enabled state to disk", async () => {
@@ -214,11 +202,7 @@ describe("telemetry-config", () => {
 
       const configPath = join(tempDir, ".archgate", "config.json");
       const raw = readFileSync(configPath, "utf-8");
-      const parsed: unknown = JSON.parse(raw);
-      if (!hasKeys(parsed, "telemetry")) {
-        throw new Error("expected telemetry in config");
-      }
-      expect(parsed.telemetry).toBe(true);
+      expect(expectKeys(JSON.parse(raw), "telemetry").telemetry).toBe(true);
     });
   });
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { expect } from "bun:test";
 import { rmSync } from "node:fs";
 
 /**
@@ -62,4 +63,28 @@ export function safeRmSync(dir: string, retries = 5): void {
       Bun.sleepSync(200 * (i + 1));
     }
   }
+}
+
+/** Narrows `unknown` to a plain object without a type assertion. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * Asserts (via Bun's `toContainKey` matcher) that a JSON.parse() result has
+ * the given keys, then narrows it without an unsafe `as` cast.
+ */
+export function expectKeys<K extends string>(
+  v: unknown,
+  ...keys: K[]
+): Record<K, unknown> {
+  if (!isRecord(v)) throw new TypeError(`expected an object, got ${typeof v}`);
+  for (const key of keys) expect(v).toContainKey(key);
+  return v;
+}
+
+/** Asserts a JSON.parse() result is an array, narrowed without an unsafe `as` cast. */
+export function expectArray(v: unknown): unknown[] {
+  if (!Array.isArray(v)) throw new TypeError("expected an array");
+  return v;
 }

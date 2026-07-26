@@ -33,9 +33,11 @@ import { ensureRulesShim } from "../helpers/rules-shim";
 import { UserError } from "../helpers/user-error";
 import { scanRuleSource } from "./rule-scanner";
 
+const PlainObjectSchema = z.record(z.string(), z.unknown());
+
 /** Narrow a dynamic-import namespace object before touching its keys. */
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return PlainObjectSchema.safeParse(value).success;
 }
 
 /** Extract a Node.js errno `code` from a caught value, without an unsafe cast. */

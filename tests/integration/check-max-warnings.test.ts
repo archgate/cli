@@ -4,7 +4,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { safeRmSync } from "../test-utils";
+import { expectKeys, safeRmSync } from "../test-utils";
 import {
   runCli,
   createTempProject,
@@ -13,14 +13,6 @@ import {
   writeRules,
   makeAdr,
 } from "./cli-harness";
-
-/** Narrows a JSON.parse() result without an unsafe `as` cast. */
-function hasKeys<K extends string>(
-  v: unknown,
-  ...keys: K[]
-): v is Record<K, unknown> {
-  return typeof v === "object" && v !== null && keys.every((k) => k in v);
-}
 
 const WARNING_RULE = `export default {
   rules: {
@@ -62,10 +54,12 @@ describe("check --max-warnings integration", () => {
     writeWarningAdr("WARN-001");
     const { exitCode, stdout } = await runCli(["check", "--json"], dir);
     expect(exitCode).toBe(0);
-    const json: unknown = JSON.parse(stdout);
-    if (!hasKeys(json, "pass", "warnings", "warningsExceeded")) {
-      throw new Error("expected pass, warnings, warningsExceeded in output");
-    }
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "pass",
+      "warnings",
+      "warningsExceeded"
+    );
     expect(json.pass).toBe(true);
     expect(json.warnings).toBeGreaterThan(0);
     expect(json.warningsExceeded).toBe(false);
@@ -78,10 +72,7 @@ describe("check --max-warnings integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const json: unknown = JSON.parse(stdout);
-    if (!hasKeys(json, "pass", "warningsExceeded")) {
-      throw new Error("expected pass, warningsExceeded in output");
-    }
+    const json = expectKeys(JSON.parse(stdout), "pass", "warningsExceeded");
     expect(json.pass).toBe(false);
     expect(json.warningsExceeded).toBe(true);
   });
@@ -93,10 +84,7 @@ describe("check --max-warnings integration", () => {
       dir
     );
     expect(exitCode).toBe(0);
-    const json: unknown = JSON.parse(stdout);
-    if (!hasKeys(json, "pass", "warningsExceeded")) {
-      throw new Error("expected pass, warningsExceeded in output");
-    }
+    const json = expectKeys(JSON.parse(stdout), "pass", "warningsExceeded");
     expect(json.pass).toBe(true);
     expect(json.warningsExceeded).toBe(false);
   });

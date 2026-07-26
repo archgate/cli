@@ -16,15 +16,7 @@ import { join } from "node:path";
 import { Command } from "@commander-js/extra-typings";
 
 import { registerReviewContextCommand } from "../../src/commands/review-context";
-import { safeRmSync } from "../test-utils";
-
-/** Narrows a JSON.parse() result without an unsafe `as` cast. */
-function hasKeys<K extends string>(
-  v: unknown,
-  ...keys: K[]
-): v is Record<K, unknown> {
-  return typeof v === "object" && v !== null && keys.every((k) => k in v);
-}
+import { expectKeys, safeRmSync } from "../test-utils";
 
 describe("registerReviewContextCommand", () => {
   test("registers 'review-context' as a subcommand", () => {
@@ -172,10 +164,7 @@ Test decision.
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("");
-    const parsed: unknown = JSON.parse(output);
-    if (!hasKeys(parsed, "domains", "allChangedFiles")) {
-      throw new Error("expected domains and allChangedFiles in output");
-    }
+    const parsed = expectKeys(JSON.parse(output), "domains", "allChangedFiles");
     // With no git changes, domains should still be populated but with no changed files
     expect(parsed.domains).toBeInstanceOf(Array);
     expect(parsed.allChangedFiles).toEqual([]);
@@ -223,19 +212,12 @@ Test.
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("");
-    const parsed: unknown = JSON.parse(output);
-    if (!hasKeys(parsed, "domains")) {
-      throw new Error("expected domains in output");
-    }
-    const domains = parsed.domains;
+    const domains = expectKeys(JSON.parse(output), "domains").domains;
     if (!Array.isArray(domains)) {
       throw new TypeError("expected domains to be an array");
     }
     for (const domain of domains) {
-      if (!hasKeys(domain, "domain")) {
-        throw new Error("expected a domain field on each entry");
-      }
-      expect(domain.domain).toBe("architecture");
+      expect(expectKeys(domain, "domain").domain).toBe("architecture");
     }
   });
 });

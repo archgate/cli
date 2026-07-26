@@ -105,21 +105,4 @@ export function makeAdr(opts: {
   return fm.join("\n") + "\n";
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null;
-
-/** Asserts a JSON.parse() result has the given keys, narrowed without an unsafe `as` cast. */
-export function expectKeys<K extends string>(
-  v: unknown,
-  ...keys: K[]
-): Record<K, unknown> {
-  if (!isRecord(v) || !keys.every((k) => k in v))
-    throw new Error(`expected ${keys.join(", ")} in output`);
-  return v;
-}
-
-/** Asserts a JSON.parse() result is an array, narrowed without an unsafe `as` cast. */
-export function expectArray(v: unknown): unknown[] {
-  if (!Array.isArray(v)) throw new TypeError("expected an array");
-  return v;
-}
+export { expectKeys, expectArray } from "../test-utils";

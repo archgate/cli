@@ -13,7 +13,7 @@ import type { LoadResult } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
 import type { RuleSet } from "../../src/formats/rules";
-import { git, safeRmSync } from "../test-utils";
+import { git, isRecord, safeRmSync } from "../test-utils";
 
 // Probe once at load time so interpreter-dependent tests can skipIf cleanly.
 const pythonInterpreter = await probeInterpreter(
@@ -49,11 +49,6 @@ function countAstSpawns(spy: { mock: { calls: unknown[][] } }): number {
     const cmd = args[0];
     return Array.isArray(cmd) && cmd[1] === "-I";
   }).length;
-}
-
-/** Narrows `unknown` to a plain object without a type assertion. */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 /** Reads a parsed tree's `.comments` field (present only when requested). */

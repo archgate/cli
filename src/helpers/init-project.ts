@@ -3,6 +3,8 @@
 import { existsSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
 
+import { z } from "zod";
+
 import { detectBaseRef } from "../engine/git-files";
 import { generateExampleAdr } from "./adr-templates";
 import { configureClaudeSettings } from "./claude-settings";
@@ -222,9 +224,11 @@ const ARCHGATE_RULES_GLOB = ".archgate/adrs/*.rules.ts";
 const TRIPLE_SLASH_RULE_ESLINT = "@typescript-eslint/triple-slash-reference";
 const TRIPLE_SLASH_RULE_OXLINT = "typescript/triple-slash-reference";
 
+const PlainObjectSchema = z.record(z.string(), z.unknown());
+
 /** Narrow a parsed-JSON value to a plain object before touching its keys. */
 function isJsonRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return PlainObjectSchema.safeParse(value).success;
 }
 
 /**
