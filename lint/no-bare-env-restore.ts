@@ -106,15 +106,83 @@ function resolve(scope: Scope, name: string): Binding | undefined {
 }
 
 /**
- * Record `binding` as env-captured from `init`, when `init` is a dotted env
- * access. Never overwrites an already-captured key — this only needs to
- * answer "was this binding ever captured, and from which key."
+ * Record `binding` as env-captured from `init` at DECLARATION time, when
+ * `init` is a dotted env access. Never overwrites an already-captured key,
+ * so a duplicate `var` redeclaration with no initializer keeps its key.
  */
 function captureIfEnv(binding: Binding, init: AstNode | undefined): void {
   const key = envVarName(init);
   if (key !== undefined && binding.envKey === undefined) {
     binding.envKey = key;
   }
+}
+
+/**
+ * Record `binding`'s env key at REASSIGNMENT time — always overwrites,
+ * including clearing it to `undefined` when `init` is not an env access, so
+ * a binding reassigned to an unrelated value stops looking captured.
+ */
+function reassignEnvCapture(binding: Binding, init: AstNode | undefined): void {
+  binding.envKey = envVarName(init);
+}
+
+/** Whether `node` is the bare env object itself — `Bun.env`/`process.env` — as opposed to a property read off it. */
+function isEnvObject(node: AstNode | undefined): boolean {
+  if (node?.type !== "MemberExpression") return false;
+  if (staticPropertyName(node) !== "env") return false;
+  const base = asNode(node.object);
+  return (
+    base?.type === "Identifier" &&
+    (base.name === "Bun" || base.name === "process")
+  );
+}
+
+/**
+ * Declare every name bound by a (possibly destructured) binding pattern in
+ * `scope`. When `envInit` is the bare `Bun.env`/`process.env` object, each
+ * destructured property's own key (not the pattern's variable name) becomes
+ * the captured env key — `const { HOME: originalHome } = Bun.env` captures
+ * `originalHome` from `HOME`, matching a plain `Bun.env.HOME` read.
+ */
+function declarePattern(
+  scope: Scope,
+  pattern: AstNode | undefined,
+  envInit?: AstNode
+): void {
+  if (!pattern) return;
+  if (envInit && isEnvObject(envInit) && pattern.type === "ObjectPattern") {
+    for (const prop of asArray(pattern.properties)) {
+      const p = asNode(prop);
+      if (!p) continue;
+      if (p.type === "RestElement" || p.computed === true) {
+        declarePattern(
+          scope,
+          asNode(p.type === "RestElement" ? p.argument : p.value)
+        );
+        continue;
+      }
+      const key = asNode(p.key);
+      const value = asNode(p.value);
+      if (
+        key?.type === "Identifier" &&
+        typeof key.name === "string" &&
+        value?.type === "Identifier" &&
+        typeof value.name === "string"
+      ) {
+        // The property's own key IS the env var name here — unlike
+        // `captureIfEnv`, there is no member expression to re-derive it from.
+        const binding = declare(scope, value.name);
+        if (binding.envKey === undefined) binding.envKey = key.name;
+        continue;
+      }
+      declarePattern(scope, value);
+    }
+    return;
+  }
+
+  const names: string[] = [];
+  collectPatternNames(pattern, names);
+  for (const name of names) declare(scope, name);
 }
 
 /** Every Identifier name bound by a (possibly destructured) binding pattern. */
@@ -148,12 +216,6 @@ function collectPatternNames(
         collectPatternNames(asNode(element), out);
       }
   }
-}
-
-function declarePattern(scope: Scope, pattern: AstNode | undefined): void {
-  const names: string[] = [];
-  collectPatternNames(pattern, names);
-  for (const name of names) declare(scope, name);
 }
 
 /** A `env.TARGET = <ident>` assignment, awaiting resolution once the whole tree — and every binding's captured key — has been walked. */
@@ -232,7 +294,7 @@ function analyze(root: AstNode): RestoreCandidate[] {
         if (id?.type === "Identifier" && typeof id.name === "string") {
           captureIfEnv(declare(targetScope, id.name), init);
         } else {
-          declarePattern(targetScope, id);
+          declarePattern(targetScope, id, init);
         }
         if (init) visit(init, scope);
       }
@@ -250,11 +312,12 @@ function analyze(root: AstNode): RestoreCandidate[] {
       ) {
         candidates.push({ node, targetKey, rhsName: right.name, scope });
       } else if (left?.type === "Identifier" && typeof left.name === "string") {
-        // A plain `x = Bun.env.Y` reassignment updates whichever binding `x`
+        // A plain `x = ...` reassignment updates whichever binding `x`
         // already resolves to (e.g. an outer `let` captured from inside a
         // nested `beforeEach`), falling back to a root-scope binding for an
-        // unresolved (implicit global) identifier.
-        captureIfEnv(
+        // unresolved (implicit global) identifier. Always overwrites, so a
+        // reassignment away from an env value un-captures the binding.
+        reassignEnvCapture(
           resolve(scope, left.name) ?? declare(rootScope, left.name),
           right
         );
