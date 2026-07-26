@@ -41,3 +41,4 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST hides resolution state; use the GraphQL `reviewThreads.isResolved` field
 - [Rules engine follow-up](project_rules_engine_internals.md) — the one pending perf item no rule tracks
 - [Parallel agents share one git index](feedback_parallel_agents_shared_worktree.md) — a stray stash/rebase from any one agent wipes every other agent's uncommitted work
+- [Validate from a fresh clone before pushing](feedback_validate_from_fresh_clone.md) — a long-lived working dir masks generated-file ordering bugs CI will hit immediately

@@ -48,7 +48,7 @@
     "format:check": "oxfmt --check .",
     "format:file": "oxfmt --write",
     "knip": "knip",
-    "lint": "oxlint --deny-warnings .",
+    "lint": "bun run scripts/ensure-rules-dts.ts && oxlint --deny-warnings .",
     "test": "bun test --timeout 60000",
     "test:coverage": "bun test --timeout 60000 --coverage",
     "test:watch": "bun test --watch --timeout 60000",
