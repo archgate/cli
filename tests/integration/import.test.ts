@@ -30,13 +30,16 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
 }
 
-/** Asserts a JSON.parse() result has the given keys, narrowed without an unsafe `as` cast. */
+/**
+ * Asserts (via Bun's `toContainKey` matcher) that a JSON.parse() result has
+ * the given keys, then narrows it without an unsafe `as` cast.
+ */
 function expectKeys<K extends string>(
   v: unknown,
   ...keys: K[]
 ): Record<K, unknown> {
-  if (!isRecord(v) || !keys.every((k) => k in v))
-    throw new Error(`expected ${keys.join(", ")} in output`);
+  if (!isRecord(v)) throw new TypeError(`expected an object, got ${typeof v}`);
+  for (const key of keys) expect(v).toContainKey(key);
   return v;
 }
 

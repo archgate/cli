@@ -130,13 +130,16 @@ export function createPathIfNotExists(path: string) {
  * root or the `ARCHGATE_PROJECT_CEILING` bound without a match. That ceiling
  * isolates tests the way git's ceiling dirs do, and is itself still checked.
  */
+/** Ancestor directories to walk before giving up — far beyond any real filesystem's nesting depth, just a hard stop against a pathological `dirname` result. */
+const MAX_ANCESTOR_DEPTH = 1000;
+
 export function findProjectRoot(startDir?: string): string | null {
   const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
   const ceiling =
     ceilingEnv !== undefined && ceilingEnv !== "" ? resolve(ceilingEnv) : null;
   let dir = startDir ?? process.cwd();
 
-  for (;;) {
+  for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
     const adrsDir = join(dir, ".archgate", "adrs");
     const lintDir = join(dir, ".archgate", "lint");
     if (existsSync(adrsDir) || existsSync(lintDir)) {
@@ -153,6 +156,7 @@ export function findProjectRoot(startDir?: string): string | null {
     }
     dir = parent;
   }
+  return null;
 }
 
 /**

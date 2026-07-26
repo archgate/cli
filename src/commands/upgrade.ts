@@ -83,15 +83,19 @@ function isLocalInstall(): boolean {
   return process.execPath.includes("node_modules");
 }
 
+/** Ancestor directories to walk before giving up — far beyond any real filesystem's nesting depth, just a hard stop against a pathological `dirname` result. */
+const MAX_ANCESTOR_DEPTH = 1000;
+
 /** Walk up from the binary location to find the nearest package.json (for local installs). */
 function findPackageRoot(): string | null {
   let dir = dirname(process.execPath);
-  for (;;) {
+  for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
     if (existsSync(join(dir, "package.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;
   }
+  return null;
 }
 
 const LOCKFILE_TO_PM: [string, string, string[]][] = [
@@ -183,13 +187,13 @@ async function detectInstallMethod(): Promise<InstallMethod> {
     })
   );
 
-  const match = candidates.find(
-    (c) =>
-      c !== null &&
-      c.binDir !== null &&
-      c.binDir !== "" &&
-      binaryPath.startsWith(c.binDir)
-  );
+  const match = candidates
+    .filter((c): c is NonNullable<typeof c> => c !== null)
+    .filter(
+      (c): c is typeof c & { binDir: string } =>
+        c.binDir !== null && c.binDir !== ""
+    )
+    .find((c) => binaryPath.startsWith(c.binDir));
 
   if (match) {
     logDebug("Install method: package-manager, matched:", match.pm.name);

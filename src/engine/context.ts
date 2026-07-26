@@ -222,9 +222,9 @@ export async function buildReviewContext(
   const base = options?.base;
   const rawChangedFiles = staged
     ? await getStagedFiles(projectRoot)
-    : base !== undefined && base !== ""
-      ? await getFilesChangedSinceRef(projectRoot, base)
-      : await getChangedFiles(projectRoot);
+    : base === undefined
+      ? await getChangedFiles(projectRoot)
+      : await getFilesChangedSinceRef(projectRoot, base);
 
   const truncatedFiles = maxFiles > 0 && rawChangedFiles.length > maxFiles;
   const allChangedFiles = truncatedFiles
@@ -235,7 +235,7 @@ export async function buildReviewContext(
     maxSectionChars,
     briefings: options?.briefings,
   });
-  if (options?.domain !== undefined && options.domain !== "")
+  if (options?.domain !== undefined)
     domains = domains.filter((d) => d.domain === options.domain);
 
   let checkSummary: ReportSummary | null = null;

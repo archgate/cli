@@ -282,11 +282,7 @@ export async function loadRuleAdrs(
 
   const ruleAdrs = parsedAdrs.filter((entry) => {
     if (!entry.adr.frontmatter.rules) return false;
-    if (
-      filterAdrId !== undefined &&
-      filterAdrId !== "" &&
-      entry.adr.frontmatter.id !== filterAdrId
-    )
+    if (filterAdrId !== undefined && entry.adr.frontmatter.id !== filterAdrId)
       return false;
     return true;
   });

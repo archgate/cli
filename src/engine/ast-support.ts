@@ -4,11 +4,19 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import type { AstLanguage, EsTreeNode, PythonAstNode } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
 import { UserError } from "../helpers/user-error";
 import { getFileAtRev } from "./git-files";
+
+/** A plain object (not array, not null) — one shape AST-subprocess output can take. */
+const PlainObjectSchema = z.record(z.string(), z.unknown());
+
+/** A plain object or array — the two shapes AST-subprocess output can take. */
+const AstNodeLikeSchema = z.union([PlainObjectSchema, z.array(z.unknown())]);
 
 /** Guardrail-2 failure: the file's name does not match the requested language. */
 export function implausibleLanguageError(
@@ -302,11 +310,10 @@ export async function runAstSubprocess(
   return { exitCode: result, stdout, stderr };
 }
 
-/** Non-null object or array — the two shapes AST-subprocess output can take. */
 function isAstNodeLike(
   value: unknown
 ): value is Record<string, unknown> | unknown[] {
-  return typeof value === "object" && value !== null;
+  return AstNodeLikeSchema.safeParse(value).success;
 }
 
 /**
@@ -450,7 +457,7 @@ export function finalizeAstResult(
 
 /** Non-array object, for reading a node's own keyed fields. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return isAstNodeLike(value) && !Array.isArray(value);
+  return PlainObjectSchema.safeParse(value).success;
 }
 
 /**
