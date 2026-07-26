@@ -1,38 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-// Module mocks — declared before imports that depend on them.
-const mockShallowClone =
-  mock<(repoUrl: string, ref?: string) => Promise<string>>();
-const mockResolveSource =
-  mock<
-    (input: string) => {
-      kind: "official" | "github-repo" | "git-url";
-      repoUrl: string;
-      ref?: string;
-      subpath: string;
-    }
-  >();
-mock.module("../../../src/helpers/registry", () => ({
-  resolveSource: mockResolveSource,
-  shallowClone: mockShallowClone,
-}));
-
 import { registerAdrSyncCommand } from "../../../src/commands/adr/sync";
+import * as registry from "../../../src/helpers/registry";
 import { safeRmSync } from "../../test-utils";
 
 /** Sample ADR markdown with frontmatter. */
@@ -78,6 +54,8 @@ describe("adr sync --strict", () => {
   let warnSpy: ReturnType<typeof spyOn>;
   let errorSpy: ReturnType<typeof spyOn>;
   let exitSpy: ReturnType<typeof spyOn>;
+  let resolveSourceSpy: ReturnType<typeof spyOn>;
+  let shallowCloneSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-sync-strict-"));
@@ -90,8 +68,8 @@ describe("adr sync --strict", () => {
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
     });
-    mockShallowClone.mockReset();
-    mockResolveSource.mockReset();
+    resolveSourceSpy = spyOn(registry, "resolveSource");
+    shallowCloneSpy = spyOn(registry, "shallowClone");
   });
 
   afterEach(() => {
@@ -103,6 +81,8 @@ describe("adr sync --strict", () => {
     warnSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
+    resolveSourceSpy.mockRestore();
+    shallowCloneSpy.mockRestore();
   });
 
   function scaffold(): void {
@@ -116,12 +96,12 @@ describe("adr sync --strict", () => {
 
   /** Point mocks at upstreamDir with given subpath. */
   function useMocks(subpath: string): void {
-    mockResolveSource.mockReturnValue({
+    resolveSourceSpy.mockReturnValue({
       kind: "official",
       repoUrl: "https://github.com/archgate/awesome-adrs.git",
       subpath,
     });
-    mockShallowClone.mockResolvedValue(upstreamDir);
+    shallowCloneSpy.mockResolvedValue(upstreamDir);
   }
 
   /** Write a local ADR file into the project's adrs dir. */
@@ -222,12 +202,12 @@ describe("adr sync --strict", () => {
       { source: "packs/typescript-strict", adrIds: ["LOCAL-001"] },
       { source: "packs/broken-pack", adrIds: ["ARCH-999"] },
     ]);
-    mockResolveSource.mockImplementation((input: string) => ({
+    resolveSourceSpy.mockImplementation((input: string) => ({
       kind: "official" as const,
       repoUrl: "https://github.com/archgate/awesome-adrs.git",
       subpath: input,
     }));
-    mockShallowClone.mockResolvedValue(upstreamDir);
+    shallowCloneSpy.mockResolvedValue(upstreamDir);
     scaffoldUpstream(upstreamDir, "packs/typescript-strict", [
       { filename: "UP-001-test.md", content: adr("UP-001", "New upstream.") },
     ]);
@@ -252,12 +232,12 @@ describe("adr sync --strict", () => {
       { source: "packs/typescript-strict", adrIds: ["LOCAL-001"] },
       { source: "packs/broken-pack", adrIds: ["ARCH-999"] },
     ]);
-    mockResolveSource.mockImplementation((input: string) => ({
+    resolveSourceSpy.mockImplementation((input: string) => ({
       kind: "official" as const,
       repoUrl: "https://github.com/archgate/awesome-adrs.git",
       subpath: input,
     }));
-    mockShallowClone.mockResolvedValue(upstreamDir);
+    shallowCloneSpy.mockResolvedValue(upstreamDir);
     scaffoldUpstream(upstreamDir, "packs/typescript-strict", [
       { filename: "UP-001-test.md", content: adr("UP-001", "New upstream.") },
     ]);

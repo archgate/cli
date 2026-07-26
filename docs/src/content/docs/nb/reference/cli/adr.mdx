@@ -295,6 +295,8 @@ Kommandoen sammenligner lokale importerte ADR-er mot oppstrømskilden og viser h
 | `--json`   | Utdata som JSON                                                                                                                  |
 | `--strict` | Mislykkes (kode 1) når synkroniseringen støtte på feil (uløst importkilde, mislykket kloning, manglende lokal/oppstrøms ADR-fil) |
 
+`--strict` løses på samme måte som [`archgate check --strict`](/reference/cli/check/#streng-modus): kommandolinjevalg, deretter en `strict: boolean`-nøkkel i `.archgate/config.json`, deretter av. Det finnes ingen `--no-strict`-flagg -- kommandolinjevalget kan bare slå på streng modus, ikke overstyre en konfigurert `strict: true`.
+
 ### Eksempler
 
 Sjekk alle importerte ADR-er for oppstrømsoppdateringer:

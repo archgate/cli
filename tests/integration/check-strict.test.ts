@@ -38,6 +38,19 @@ const WARNING_RULE = `export default {
   },
 };`;
 
+const ERROR_RULE = `export default {
+  rules: {
+    "hard-rule": {
+      description: "Always fails",
+      async check(ctx) {
+        for (const file of ctx.scopedFiles) {
+          ctx.report.violation({ message: "hard failure", file });
+        }
+      },
+    },
+  },
+};`;
+
 describe("check --strict integration", () => {
   let dir: string;
 
@@ -71,6 +84,18 @@ describe("check --strict integration", () => {
       makeAdr({ id, title: "Warns", rules: true, files: ["src/**/*.ts"] })
     );
     writeRules(dir, `${id}.rules.ts`, WARNING_RULE);
+  }
+
+  function writeErrorAdr(id: string): void {
+    scaffoldProject(dir);
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "fail.ts"), "const x = 1;\n");
+    writeAdr(
+      dir,
+      `${id}.md`,
+      makeAdr({ id, title: "Fails", rules: true, files: ["src/**/*.ts"] })
+    );
+    writeRules(dir, `${id}.rules.ts`, ERROR_RULE);
   }
 
   /**
@@ -111,7 +136,7 @@ describe("check --strict integration", () => {
 
   test("--strict treats any rule warning as a failure (implicit maxWarnings 0)", async () => {
     writeWarningAdr("STRICT-002");
-    const { exitCode, stdout } = await runCli(
+    const { exitCode, stdout, stderr } = await runCli(
       ["check", "--strict", "--json"],
       dir
     );
@@ -119,6 +144,8 @@ describe("check --strict integration", () => {
     const json = JSON.parse(stdout);
     expect(json.pass).toBe(false);
     expect(json.warningsExceeded).toBe(true);
+    // ARCH-026: a --strict-driven failure logs a stderr explanation.
+    expect(stderr).toContain("--strict");
   });
 
   test("--strict --max-warnings <n> lets an explicit threshold win over strict's implicit zero", async () => {
@@ -141,7 +168,7 @@ describe("check --strict integration", () => {
     expect(withoutStrictJson.pass).toBe(true);
     expect(withoutStrictJson.briefingWarnings.length).toBeGreaterThan(0);
 
-    const { exitCode, stdout } = await runCli(
+    const { exitCode, stdout, stderr } = await runCli(
       ["check", "--strict", "--json"],
       dir
     );
@@ -151,6 +178,8 @@ describe("check --strict integration", () => {
     expect(json.strictAdvisoryExceeded).toBe(true);
     expect(json.failed).toBe(0);
     expect(json.warningsExceeded).toBe(false);
+    // ARCH-026: a --strict-driven failure logs a stderr explanation.
+    expect(stderr).toContain("--strict");
   });
 
   test("strict: true in .archgate/config.json is honored when the flag is omitted", async () => {
@@ -172,5 +201,21 @@ describe("check --strict integration", () => {
     const json = JSON.parse(stdout);
     expect(json.pass).toBe(true);
     expect(json.strictAdvisoryExceeded).toBe(false);
+  });
+
+  test("--strict does not misattribute an ordinary rule violation to itself", async () => {
+    writeErrorAdr("STRICT-009");
+    const { exitCode, stdout, stderr } = await runCli(
+      ["check", "--strict", "--json"],
+      dir
+    );
+    expect(exitCode).toBe(1);
+    const json = JSON.parse(stdout);
+    expect(json.failed).toBeGreaterThan(0);
+    expect(json.warningsExceeded).toBe(false);
+    expect(json.strictAdvisoryExceeded).toBe(false);
+    // Strict didn't cause this failure — an ordinary error violation did —
+    // so the --strict explanation must not appear.
+    expect(stderr).not.toContain("--strict");
   });
 });

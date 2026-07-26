@@ -70,7 +70,7 @@ Behandle enhver advarsel som en feil (nyttig i CI):
 archgate check --max-warnings 0
 ```
 
-Behandle enhver advarsel og ethvert veiledende funn (sammendragsbudsjett, undertrykkelse, utolkede ADR-er) som en feil:
+Behandle enhver regelbasert advarsel og ethvert veiledende funn (sammendragsbudsjett, undertrykkelse, utolkede ADR-er) som en feil:
 
 ```bash
 archgate check --strict
@@ -162,9 +162,9 @@ Som standard endrer advarsler (både diagnostikk og regelrapporterte brudd med `
 
 ## Streng modus
 
-`--strict` behandler enhver advarselslignende diagnostikk som en feil med ett enkelt valg: den oppfører seg som `--max-warnings 0` for regelbaserte advarsler (en eksplisitt `--max-warnings` vinner fortsatt), og den mislykker også bygget når `briefingWarnings`, `suppressionWarnings` eller `unparsedAdrs` ikke er tom — de veiledende diagnostikkene ovenfor som som standard aldri påvirker `pass`. Feltet `strictAdvisoryExceeded` i JSON-utdataene er `true` når sistnevnte tilstand utløste feilen.
+`--strict` kombinerer to opptrappinger bak ett enkelt valg: den oppfører seg som `--max-warnings 0` for regelbrudd med `"severity": "warning"` (en eksplisitt `--max-warnings` vinner fortsatt), og den mislykker separat bygget når `briefingWarnings`, `suppressionWarnings` eller `unparsedAdrs` ikke er tom — de veiledende diagnostikkene ovenfor som som standard aldri påvirker `pass`. Feltet `strictAdvisoryExceeded` i JSON-utdataene er `true` når sistnevnte tilstand utløste feilen.
 
-`--strict` gjelder også for [`archgate review-context`](/reference/cli/review-context/) og `archgate adr sync`.
+`--strict` gjelder også for [`archgate review-context`](/reference/cli/review-context/) og `archgate adr sync`. Se [konfigurasjonsreferansen](/reference/configuration/#strict) for hele skjemaet.
 
 For å unngå å sende `--strict` ved hver kjøring, sett en prosjektstandard i `.archgate/config.json`:
 
@@ -172,7 +172,7 @@ For å unngå å sende `--strict` ved hver kjøring, sett en prosjektstandard i 
 { "strict": true }
 ```
 
-En eksplisitt `--strict` på kommandolinjen overstyrer alltid konfigurasjonsstandarden.
+Det finnes ingen `--no-strict`-flagg: `--strict` på kommandolinjen kan bare _slå på_ streng modus over et fraværende eller `false` konfigurasjonsstandard — den kan ikke slå av en konfigurert `strict: true`.
 
 ## JSON-utdataformat
 

@@ -295,6 +295,8 @@ O comando compara os ADRs importados locais com a fonte upstream e mostra quais 
 | `--json`   | Saída como JSON                                                                                                                                  |
 | `--strict` | Falha (código 1) quando a sincronização encontrar erros (fonte de importação não resolvida, clone falhou, arquivo local/upstream do ADR ausente) |
 
+`--strict` é resolvido da mesma forma que [`archgate check --strict`](/reference/cli/check/#modo-estrito): flag de linha de comando, depois uma chave `strict: boolean` em `.archgate/config.json`, depois desligado. Não existe uma flag `--no-strict` -- a flag de linha de comando só pode ativar o modo estrito, não sobrepor um `strict: true` já configurado.
+
 ### Exemplos
 
 Verificar todos os ADRs importados por atualizações upstream:

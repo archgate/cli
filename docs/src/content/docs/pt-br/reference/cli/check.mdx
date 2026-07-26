@@ -70,7 +70,7 @@ Tratar qualquer aviso como falha (útil em CI):
 archgate check --max-warnings 0
 ```
 
-Tratar qualquer aviso e qualquer achado consultivo (orçamento do resumo, supressão, ADRs não analisados) como falha:
+Tratar qualquer aviso de severidade de regra e qualquer achado consultivo (orçamento do resumo, supressão, ADRs não analisados) como falha:
 
 ```bash
 archgate check --strict
@@ -162,9 +162,9 @@ Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"sever
 
 ## Modo estrito
 
-`--strict` trata todo diagnóstico em forma de aviso como falha em uma única flag: ele se comporta como `--max-warnings 0` para avisos de severidade de regra (um `--max-warnings` explícito ainda prevalece), e também falha a build quando `briefingWarnings`, `suppressionWarnings` ou `unparsedAdrs` não estiver vazio — os diagnósticos consultivos acima que, por padrão, nunca afetam `pass`. O campo `strictAdvisoryExceeded` da saída JSON é `true` quando essa última condição causou a falha.
+`--strict` combina duas escaladas em uma única flag: comporta-se como `--max-warnings 0` para violações de regra com `"severity": "warning"` (um `--max-warnings` explícito ainda prevalece), e separadamente falha a build quando `briefingWarnings`, `suppressionWarnings` ou `unparsedAdrs` não estiver vazio — os diagnósticos consultivos acima que, por padrão, nunca afetam `pass`. O campo `strictAdvisoryExceeded` da saída JSON é `true` quando essa última condição causou a falha.
 
-`--strict` também se aplica a [`archgate review-context`](/reference/cli/review-context/) e `archgate adr sync`.
+`--strict` também se aplica a [`archgate review-context`](/reference/cli/review-context/) e `archgate adr sync`. Veja a [referência de configuração](/reference/configuration/#strict) para o schema completo.
 
 Para evitar passar `--strict` em toda invocação, defina um padrão do projeto em `.archgate/config.json`:
 
@@ -172,7 +172,7 @@ Para evitar passar `--strict` em toda invocação, defina um padrão do projeto 
 { "strict": true }
 ```
 
-Um `--strict` explícito na linha de comando sempre sobrepõe o padrão do config.
+Não existe uma flag `--no-strict`: `--strict` na linha de comando só pode _ativar_ o modo estrito sobre um padrão de config ausente ou `false` — não pode desativar um `strict: true` já configurado.
 
 ## Formato da saída JSON
 

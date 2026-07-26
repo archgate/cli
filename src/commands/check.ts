@@ -14,6 +14,7 @@ import {
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
 import { exitWith, handleCommandError } from "../helpers/exit";
+import { logWarn } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { requireProjectRoot } from "../helpers/paths";
 import {
@@ -184,6 +185,27 @@ export function registerCheckCommand(program: Command) {
           runtimes: stack?.runtimes,
           frameworks: stack?.frameworks,
         });
+
+        // ARCH-026: a --strict-driven failure gets a stderr explanation,
+        // mirroring review-context.ts and adr/sync.ts. Reported once here
+        // rather than per-caller since it depends on `strict` plus whether an
+        // explicit --max-warnings already accounts for warningsExceeded.
+        if (strict) {
+          const strictReasons: string[] = [];
+          if (maxWarnings === undefined && summary.warningsExceeded) {
+            strictReasons.push(
+              `${summary.warnings} rule-severity warning(s) exceeded --strict's implicit zero-tolerance threshold`
+            );
+          }
+          if (summary.strictAdvisoryExceeded) {
+            strictReasons.push(
+              "advisory findings (briefing budget, suppression, or unparsed ADRs) failed under --strict"
+            );
+          }
+          if (strictReasons.length > 0) {
+            logWarn(`--strict: failing because ${strictReasons.join("; ")}.`);
+          }
+        }
 
         const exitCode = getExitCode(result, summary);
         // Only 0, 1, and 2 are emitted by getExitCode()

@@ -70,7 +70,7 @@ Treat any warning as a failure (useful in CI):
 archgate check --max-warnings 0
 ```
 
-Treat any warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure:
+Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure:
 
 ```bash
 archgate check --strict
@@ -162,9 +162,9 @@ By default, warnings (both diagnostics and rule-reported `"severity": "warning"`
 
 ## Strict mode
 
-`--strict` treats every warning-shaped diagnostic as a failure in one flag: it behaves like `--max-warnings 0` for rule-severity warnings (an explicit `--max-warnings` still wins), and it also fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+`--strict` combines two escalations behind one flag: it behaves like `--max-warnings 0` for rule-severity `"warning"` violations (an explicit `--max-warnings` still wins), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
 
-`--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`.
+`--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`. See the [Configuration reference](/reference/configuration/#strict) for the full schema.
 
 To avoid passing `--strict` on every invocation, set a project default in `.archgate/config.json`:
 
@@ -172,7 +172,7 @@ To avoid passing `--strict` on every invocation, set a project default in `.arch
 { "strict": true }
 ```
 
-An explicit `--strict` on the command line always overrides the config default.
+There is no `--no-strict` flag: `--strict` on the command line can only turn strict mode _on_ over an absent or `false` config default — it cannot turn off a configured `strict: true`.
 
 ## JSON output format
 

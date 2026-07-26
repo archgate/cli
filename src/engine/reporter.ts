@@ -32,7 +32,8 @@ export interface ReportSummary {
    * ADR sections that exceed the briefing cap, so `review-context --verbose`
    * hides part of them from the agents those ADRs govern. Advisory: an ADR
    * whose section cannot shrink without losing a normative clause is expected
-   * to exceed it, so these never affect `pass`.
+   * to exceed it, so these never affect `pass` unless `strict` is set (see
+   * `strictAdvisoryExceeded`).
    */
   briefingWarnings: Array<{
     adrId: string;
