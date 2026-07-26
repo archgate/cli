@@ -63,7 +63,7 @@ The documentation site MUST use Starlight's built-in i18n: `docs/astro.config.mj
 - **DO** update translations in the same PR that modifies the English source
 - **DO** use correct diacritical marks in Portuguese -- ã, ç, é, í, ó, ú, â, ê, ô, à are mandatory (`não` not `nao`, `código` not `codigo`)
 - **DO** use Norwegian Bokmål (not Nynorsk), informal "du" form, and correct characters (æ, ø, å)
-- **DO** update the `LOCALES` constant in the companion rules file when adding a new language
+- **DO** update `LOCALES` and `LOCALE_DIACRITICS` in the companion rules file when adding a new language
 
 ### Don't
 
@@ -105,21 +105,28 @@ The documentation site MUST use Starlight's built-in i18n: `docs/astro.config.mj
 
 ### Automated Enforcement
 
-The companion rules file (`GEN-002-docs-i18n.rules.ts`) defines three rules:
+The companion rules file (`GEN-002-docs-i18n.rules.ts`) defines five rules:
 
 - **`i18n-page-parity`** (severity: `error`) -- Verifies that every root MDX file has a corresponding translation in each configured locale directory, and that no orphan translations exist without a root source file. Runs as part of `archgate check`.
 - **`i18n-translation-drift`** (severity: `error`) -- When running against a changeset (PR, staged files), verifies that a modified English docs file also has its corresponding locale file modified. Catches content drift within existing files that page-parity alone would miss.
 - **`no-locale-prefix-in-links`** (severity: `error`) -- Verifies that locale pages do not use locale-prefixed internal links (e.g., `/pt-br/guides/...`). Starlight resolves locale routes automatically.
+- **`i18n-encoding-corruption`** (severity: `error`) -- Rejects accented characters written as HTML entities (`&aring;`, `&#231;`) or double-encoded UTF-8 (a `0xC2`/`0xC3` lead byte followed by a continuation byte). Requiring the byte pair avoids flagging legitimate uppercase Portuguese, where `Ã` is followed by an ASCII letter.
+- **`i18n-diacritic-density`** (severity: `error`) -- Measures accented characters per 1000 prose letters in each locale tree, ignoring fenced and inline code, and fails a page whose density falls below the locale minimum. Catches wholesale diacritic stripping, the failure that put six pt-br pages and 35 nb pages into `main`.
+
+### Limits of Automated Enforcement
+
+`i18n-diacritic-density` is a density heuristic, not a spell checker. It reliably catches a page stripped in bulk, but **not** a handful of stripped words inside otherwise-correct prose, and it skips pages under 200 prose letters. Both remain review responsibilities.
 
 ### Manual Enforcement
 
 Code reviewers MUST verify during docs PRs:
 
 1. Translated prose is accurate and reads naturally in the target language
-2. Code blocks, CLI commands, and technical identifiers remain in English
-3. Starlight component imports and structural MDX elements are preserved identically
-4. Internal links do not include locale prefixes
-5. New English pages include corresponding translations (or a tracking issue is linked)
+2. Individual words carry their diacritics -- the density rule catches bulk stripping, not isolated words
+3. Code blocks, CLI commands, and technical identifiers remain in English
+4. Starlight component imports and structural MDX elements are preserved identically
+5. Internal links do not include locale prefixes
+6. New English pages include corresponding translations (or a tracking issue is linked)
 
 ## References
 

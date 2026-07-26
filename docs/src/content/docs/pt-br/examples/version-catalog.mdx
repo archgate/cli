@@ -1,25 +1,25 @@
 ---
 title: version-catalog
-description: Impoe gerenciamento centralizado de versoes em monorepos exigindo notacao catalog ou workspace para todas as dependencias.
+description: Impõe gerenciamento centralizado de versões em monorepos exigindo notação catalog ou workspace para todas as dependências.
 ---
 
-Impoe gerenciamento centralizado de versoes em monorepos exigindo notacao `catalog:` ou `workspace:` para todas as dependencias.
+Impõe gerenciamento centralizado de versões em monorepos exigindo notação `catalog:` ou `workspace:` para todas as dependências.
 
 ## Detalhes da regra
 
-Em monorepos com muitos pacotes, duplicar strings de versao entre arquivos `package.json` leva a divergencia de versoes e dificuldades de atualizacao. Esta regra garante que toda referencia de dependencia use `catalog:` (resolvido a partir de um catalogo central no `package.json` raiz) ou `workspace:` (para pacotes internos), nunca uma string semver crua.
+Em monorepos com muitos pacotes, duplicar strings de versão entre arquivos `package.json` leva à divergência de versões e dificuldades de atualização. Esta regra garante que toda referência de dependência use `catalog:` (resolvido a partir de um catálogo central no `package.json` raiz) ou `workspace:` (para pacotes internos), nunca uma string semver crua.
 
-A regra possui duas verificacoes: `catalog-usage` verifica se todas as dependencias usam a notacao correta, e `catalog-completeness` verifica se toda referencia `catalog:` resolve para uma entrada real no catalogo raiz.
+A regra possui duas verificações: `catalog-usage` verifica se todas as dependências usam a notação correta, e `catalog-completeness` verifica se toda referência `catalog:` resolve para uma entrada real no catálogo raiz.
 
-## Exemplos de codigo **incorreto**
+## Exemplos de código **incorreto**
 
 ```json title="packages/api/package.json"
 { "dependencies": { "zod": "^3.23.0", "hono": "^4.0.0" } }
 ```
 
-Strings semver cruas ignoram o catalogo central e vao divergir entre pacotes.
+Strings semver cruas ignoram o catálogo central e vão divergir entre pacotes.
 
-## Exemplos de codigo **correto**
+## Exemplos de código **correto**
 
 ```json title="packages/api/package.json"
 {
@@ -35,9 +35,9 @@ Strings semver cruas ignoram o catalogo central e vao divergir entre pacotes.
 { "catalog": { "zod": "^3.23.0", "hono": "^4.0.0" } }
 ```
 
-Todas as versoes sao gerenciadas centralmente. Atualizar `zod` requer alterar apenas o catalogo raiz.
+Todas as versões são gerenciadas centralmente. Atualizar `zod` requer alterar apenas o catálogo raiz.
 
-## Implementacao da regra
+## Implementação da regra
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -136,8 +136,8 @@ export default {
 
 ## Quando usar
 
-Em monorepos onde multiplos pacotes compartilham dependencias e voce quer uma unica fonte de verdade para versoes (ex.: Bun workspaces com suporte a catalog, ou configuracoes similares).
+Em monorepos onde múltiplos pacotes compartilham dependências e você quer uma única fonte de verdade para versões (ex.: Bun workspaces com suporte a catalog, ou configurações similares).
 
-## Quando nao usar
+## Quando não usar
 
-Em repositorios de pacote unico ou monorepos que usam uma estrategia diferente de gerenciamento de versoes como atualizacoes em grupo do Renovate.
+Em repositórios de pacote único ou monorepos que usam uma estratégia diferente de gerenciamento de versões como atualizações em grupo do Renovate.

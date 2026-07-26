@@ -1,15 +1,15 @@
 ---
 title: kebab-case-filenames
-description: Impoe convencoes consistentes de nomenclatura de arquivos em diretorios de codigo-fonte usando validacao por regex.
+description: Impõe convenções consistentes de nomenclatura de arquivos em diretórios de código-fonte usando validação por regex.
 ---
 
-Impoe convencoes consistentes de nomenclatura de arquivos em diretorios de codigo-fonte.
+Impõe convenções consistentes de nomenclatura de arquivos em diretórios de código-fonte.
 
 ## Detalhes da regra
 
-Nomenclatura inconsistente de arquivos (misturando `camelCase`, `PascalCase`, `snake_case` e `kebab-case`) torna os arquivos mais dificeis de encontrar e causa problemas de sensibilidade a maiusculas e minusculas entre sistemas operacionais. Esta regra valida cada nome de arquivo no escopo contra um padrao regex e sugere correcoes.
+Nomenclatura inconsistente de arquivos (misturando `camelCase`, `PascalCase`, `snake_case` e `kebab-case`) torna os arquivos mais difíceis de encontrar e causa problemas de sensibilidade a maiúsculas e minúsculas entre sistemas operacionais. Esta regra valida cada nome de arquivo no escopo contra um padrão regex e sugere correções.
 
-## Exemplos de codigo **incorreto**
+## Exemplos de código **incorreto**
 
 ```
 src/
@@ -19,7 +19,7 @@ src/
     ADRWriter.ts        ← PascalCase
 ```
 
-## Exemplos de codigo **correto**
+## Exemplos de código **correto**
 
 ```
 src/
@@ -29,7 +29,7 @@ src/
     adr-writer.ts
 ```
 
-## Implementacao da regra
+## Implementação da regra
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -64,7 +64,7 @@ export default {
 
 ## Quando usar
 
-Quando sua equipe padronizou uma convencao de nomenclatura e deseja aplica-la automaticamente. Adapte o regex para sua convencao:
+Quando sua equipe padronizou uma convenção de nomenclatura e deseja aplicá-la automaticamente. Adapte o regex para sua convenção:
 
 ```typescript
 // PascalCase (React components)
@@ -77,6 +77,6 @@ const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*\.(ts|tsx|js|jsx)$/;
 const SNAKE_CASE = /^[a-z][a-z0-9]*(_[a-z0-9]+)*\.(ts|tsx|js|jsx)$/;
 ```
 
-## Quando nao usar
+## Quando não usar
 
-Quando seu projeto intencionalmente mistura convencoes de nomenclatura (ex.: PascalCase para componentes React e kebab-case para utilitarios), ou ao migrar uma base de codigo legada onde renomeacoes em massa nao sao viaveis.
+Quando seu projeto intencionalmente mistura convenções de nomenclatura (ex.: PascalCase para componentes React e kebab-case para utilitários), ou ao migrar uma base de código legada onde renomeações em massa não são viáveis.

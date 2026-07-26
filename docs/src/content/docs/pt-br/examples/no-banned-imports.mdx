@@ -1,15 +1,15 @@
 ---
 title: no-banned-imports
-description: Previne o uso de bibliotecas banidas e impoe alternativas recomendadas usando uma lista de padroes orientada a dados.
+description: Previne o uso de bibliotecas banidas e impõe alternativas recomendadas usando uma lista de padrões orientada a dados.
 ---
 
-Previne o uso de bibliotecas banidas e impoe alternativas recomendadas.
+Previne o uso de bibliotecas banidas e impõe alternativas recomendadas.
 
 ## Detalhes da regra
 
-Equipes frequentemente banem bibliotecas pesadas ou depreciadas em favor de alternativas mais leves, ou nativas. Esta regra usa uma configuracao orientada a dados: um array de objetos especificando o padrao regex, o nome da biblioteca e a alternativa recomendada. Adicionar um novo banimento e uma alteracao de uma linha.
+Equipes frequentemente banem bibliotecas pesadas ou depreciadas em favor de alternativas mais leves, ou nativas. Esta regra usa uma configuração orientada a dados: um array de objetos especificando o padrão regex, o nome da biblioteca e a alternativa recomendada. Adicionar um novo banimento é uma alteração de uma linha.
 
-## Exemplos de codigo **incorreto**
+## Exemplos de código **incorreto**
 
 ```typescript title="src/utils/date.ts"
 import { format } from "moment";
@@ -19,7 +19,7 @@ import { format } from "moment";
 import axios from "axios";
 ```
 
-## Exemplos de codigo **correto**
+## Exemplos de código **correto**
 
 ```typescript title="src/utils/date.ts"
 import { format } from "date-fns";
@@ -29,7 +29,7 @@ import { format } from "date-fns";
 const response = await fetch("/api/data");
 ```
 
-## Implementacao da regra
+## Implementação da regra
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -76,8 +76,8 @@ export default {
 
 ## Quando usar
 
-Quando sua equipe padronizou bibliotecas especificas e deseja evitar a migracao para alternativas. Banimentos comuns incluem lodash (metodos nativos), moment (date-fns ou Temporal) e axios (fetch nativo).
+Quando sua equipe padronizou bibliotecas específicas e deseja evitar a migração para alternativas. Banimentos comuns incluem lodash (métodos nativos), moment (date-fns ou Temporal) e axios (fetch nativo).
 
-## Quando nao usar
+## Quando não usar
 
-Quando seu projeto nao tem preferencia entre bibliotecas, ou quando a biblioteca banida ainda esta em migracao ativa e algum uso e esperado temporariamente.
+Quando seu projeto não tem preferência entre bibliotecas, ou quando a biblioteca banida ainda está em migração ativa e algum uso é esperado temporariamente.
