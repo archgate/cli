@@ -29,6 +29,7 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - **Files written under `/tmp` by this agent's own Bash/Write calls can vanish between tool calls** — observed for several scratch files with no deleting command run. Write anything that must survive several calls to a real Windows path instead (e.g. `C:/Users/<user>/AppData/Local/Temp/<task-name>/`); Bun/Node on Windows don't resolve Git-Bash-style `/c/Users/...` paths.
 - **`archgate review-context`'s `--base` (auto-detect or explicit `origin/main`) diffs against the local `main`/`origin/main` ref, which can be stale-but-tree-identical after a squash merge** — same content, different commit hash, so it inflates `allChangedFiles` with every file from the last merged PR. Before trusting its output, `git fetch origin main:main`; if `git diff origin/main HEAD --stat` is empty the trees already match and `git reset origin/main` (never `--hard`) safely realigns the branch pointer without touching uncommitted work.
 - **The tsconfig `composite: true` project only lists `src/`, `tests/`, `lint/` in `include`** — `.archgate/lint/`, `scripts/`, and `shims/` also hold `.ts` source (per GEN-004's `files` globs) but aren't part of the tsc program. Importing from an unlisted dir (e.g. a test unit-testing an oxlint plugin) fails with TS6307, not silent transitive inclusion. Add the dir to `include` if ever needed, but expect it may surface pre-existing type errors never checked before.
+- **`review-context` omits every ADR's `decision`/`dosAndDonts` prose by default** — the `@reviewer` skill's own instructions describe the briefing as containing "only the Decision and Do's and Don'ts sections," but the CLI's actual default (confirmed via `--help`) leaves both fields off; only `--verbose` includes them. Without it, per-domain sub-agent prompts built from the response carry `id`/`title`/`domain` and nothing to actually check code against. Always run `bun run cli review-context --verbose` (per-domain, via `--domain <name>`, to keep each call small) when gathering context for the reviewer's sub-agent prompts.
 
 ## Topic files
 
@@ -37,7 +38,7 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — declines especially; a summary comment does not close the loop
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not `logError` + `exitWith(1)`
 - [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — no pinned versions or drift-prone counts; nothing enforces this
-- [Claude Code hooks config](project_claude_code_hooks_config.md) — the `"shell": "bash"` requirement and the `WorktreeCreate` contract
+- [Claude Code hooks config](project_claude_code_hooks_config.md) — `"shell": "bash"`, `WorktreeCreate` contract, cloud env `SessionStart` bun-install workaround
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST hides resolution state; use the GraphQL `reviewThreads.isResolved` field
 - [Rules engine follow-up](project_rules_engine_internals.md) — the one pending perf item no rule tracks
 - [Parallel agents share one git index](feedback_parallel_agents_shared_worktree.md) — a stray stash/rebase from any one agent wipes every other agent's uncommitted work
