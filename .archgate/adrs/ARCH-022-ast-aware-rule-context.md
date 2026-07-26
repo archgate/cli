@@ -36,18 +36,18 @@ ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
 // AstOptions  = { rev?: "base"; comments?: boolean }
 ```
 
-Dispatch on `language` is internal and MUST be invisible to rule authors.
+Dispatch on `language` MUST be invisible to rule authors.
 
 1. **TS/JS MUST reuse the in-process `meriyah` parser**, no subprocess. `rule-scanner.ts`'s duplicated `parseModule()` MUST factor into one helper (`parseTsOrJsSource`) shared by scanner and `ctx.ast()`.
-2. **Python/Ruby MUST invoke its own stdlib AST facility as a subprocess** via `Bun.spawn` ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md); Key Definitions: commands). No third-party parser or binding.
-3. **Guardrail ordering.** Rule code MUST NEVER reach `Bun.spawn`, `child_process`, or any subprocess/filesystem primitive; `ctx.ast()` is the only door. All four MUST run inside `createRuleContext()`, before any subprocess, in the order Key Definitions lists.
-4. **Failure semantics.** `ctx.ast()` MUST throw — never `null` — on interpreter-unavailable, parse-failure, no-base-resolved, or absent-at-base (Key Definitions). `fileAtBase()` is the exception, returning `null` for base cases.
-5. **Base-revision access.** `ast(path, language, { rev: "base" })` and `fileAtBase(path)` MUST reach the base git revision (Key Definitions), closing the [ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md) gap.
-6. **Comment access.** `{ comments: true }` MUST attach a `comments` array of `CommentToken` (Key Definitions). Opt-in, all languages, folded into `ast()`.
+2. **Python/Ruby MUST invoke its own stdlib AST facility as a subprocess** via `Bun.spawn` ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)). No third-party parser.
+3. **Guardrail ordering.** Rule code MUST NEVER reach `Bun.spawn`, `child_process`, or any subprocess/filesystem primitive; `ctx.ast()` is the only door. All four MUST run inside `createRuleContext()`, in Key Definitions' order: path/language checks first (no subprocess), then the guarded probe — the first sanctioned subprocess — then the guarded invocation. No unguarded subprocess may occur.
+4. **Failure semantics.** `ctx.ast()` MUST throw — never `null` — on interpreter-unavailable, parse-failure, no-base-resolved, or absent-at-base (Key Definitions). `fileAtBase()` is the exception.
+5. **Base-revision access.** `ast(path, language, { rev: "base" })`/`fileAtBase(path)` MUST reach the base git revision (Key Definitions), closing the [ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md) gap.
+6. **Comment access.** `{ comments: true }` MUST attach a `comments` array of `CommentToken` (Key Definitions), opt-in, folded into `ast()`.
 
-**Non-goal: cross-language shape unification.** `ctx.ast()` unifies the call site and failure contract, not the tree shape — ESTree for TS/JS, Python's `ast` schema, Ruby's s-expression. Authors MUST know the target vocabulary (Context: trade-off).
+**Non-goal: cross-language shape unification.** `ctx.ast()` unifies the call site and failure contract, not the tree shape — ESTree for TS/JS, Python's `ast` schema, Ruby's s-expression. Authors MUST know the vocabulary.
 
-**Scope.** Covers `ast()`'s signature, dispatch, guardrail ordering, failure semantics — not rollout or authoring guidance.
+**Scope.** Covers `ast()`'s signature, dispatch, guardrails, failure semantics — not rollout or authoring guidance.
 
 ## Key Definitions
 

@@ -46,7 +46,7 @@ Comments in all project-authored TypeScript MUST be concise and MUST describe cu
 
 The bound measures **narrative**: a doc comment's untagged summary only. A structural tag opens an exempt section — the tag line and every line under it, up to the next tag.
 
-- **Exempt:** `@param`, `@arg`, `@typeParam`, `@template`, `@returns`, `@throws`, `@example`, `@see`, `@link`, `@defaultValue`, `@deprecated`, `@internal`, `@public`, `@alpha`, `@beta`, `@experimental`, `@module`, `@packageDocumentation`, `@typedef`, `@callback`, `@property`, `@overload`, `@inheritDoc`, `@label`.
+- **Exempt:** `@param`, `@arg`, `@argument`, `@typeParam`, `@template`, `@returns`, `@throws`, `@example`, `@see`, `@link`, `@defaultValue`, `@deprecated`, `@internal`, `@public`, `@alpha`, `@beta`, `@experimental`, `@module`, `@packageDocumentation`, `@typedef`, `@callback`, `@property`, `@prop`, `@overload`, `@inheritDoc`, `@label`, `@satisfies`.
 - **NOT exempt:** `@remarks`, `@description`, `@summary`, `@notes`, `@todo`, `@fixme` — narrative in a tag's clothing, counted like untagged prose.
 
 ### Forward-only content
