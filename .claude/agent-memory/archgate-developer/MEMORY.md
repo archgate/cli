@@ -40,3 +40,4 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [Claude Code hooks config](project_claude_code_hooks_config.md) — the `"shell": "bash"` requirement and the `WorktreeCreate` contract
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST hides resolution state; use the GraphQL `reviewThreads.isResolved` field
 - [Rules engine follow-up](project_rules_engine_internals.md) — the one pending perf item no rule tracks
+- [Parallel agents share one git index](feedback_parallel_agents_shared_worktree.md) — a stray stash/rebase from any one agent wipes every other agent's uncommitted work
