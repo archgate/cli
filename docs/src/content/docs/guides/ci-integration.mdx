@@ -7,7 +7,7 @@ Archgate checks fit into any CI system that respects exit codes. Add a single st
 
 ## GitHub Actions
 
-The fastest way to add Archgate to GitHub Actions is with the official [`archgate/check-action`](https://github.com/archgate/check-action). It installs the CLI, runs `archgate check --ci`, and outputs violations as inline annotations on the pull request's "Files changed" tab:
+The fastest way to add Archgate to GitHub Actions is with the official [`archgate/check-action`](https://github.com/archgate/check-action). It installs the CLI, runs `archgate check --output github`, and outputs violations as inline annotations on the pull request's "Files changed" tab:
 
 ```yaml
 name: Archgate
@@ -42,7 +42,7 @@ If you need to run Archgate commands beyond `check` (e.g. `archgate adr list --j
 steps:
   - uses: actions/checkout@v4
   - uses: archgate/setup-action@v1
-  - run: archgate check --ci
+  - run: archgate check --output github
   - run: archgate adr list --json
 ```
 
@@ -75,24 +75,40 @@ steps:
 
 ## GitHub Actions annotations
 
-Use `--ci` to output violations as GitHub Actions workflow annotations. These appear inline on the pull request's "Files changed" tab, pointing directly to the offending file and line.
+Use `--output github` to output violations as GitHub Actions workflow annotations. These appear inline on the pull request's "Files changed" tab, pointing directly to the offending file and line.
 
 ```yaml
-- run: archgate check --ci
+- run: archgate check --output github
 ```
 
-The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
+The `github` format produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
 
 :::note
-The `archgate/check-action` passes `--ci` automatically. You only need this flag when running `archgate check` manually.
+The `archgate/check-action` passes `--output github` automatically. You only need this flag when running `archgate check` manually.
 :::
+
+## SARIF output for Code Scanning
+
+Use `--output sarif` to emit [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format GitHub's Code Scanning and Code Quality features ingest. Unlike `github` annotations (which only appear on the PR diff), SARIF results also populate the repository's Security tab and persist across runs.
+
+```yaml
+- name: Run archgate check
+  run: archgate check --output sarif > results.sarif
+
+- name: Upload SARIF to GitHub Security tab
+  uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+  with:
+    sarif_file: results.sarif
+```
+
+Every rule violation becomes a SARIF result; advisory findings (briefing-budget, suppression, and unparsed-ADR warnings) are included too, as synthetic results under dedicated rule IDs, always at `warning` level. `--output sarif` is opt-in only -- it is never auto-detected. See [`archgate check` -- SARIF output](/reference/cli/check/#sarif-output) for the full field mapping.
 
 ## Machine-readable output
 
-Use `--json` for structured output that other tools can parse:
+Use `--output json` for structured output that other tools can parse:
 
 ```yaml
-- run: archgate check --json > results.json
+- run: archgate check --output json > results.json
 ```
 
 The JSON output includes:
@@ -186,7 +202,7 @@ steps:
 
   # Add Archgate check
   - run: npm install -g archgate
-  - run: archgate check --ci
+  - run: archgate check --output github
 ```
 
 No additional dependencies or configuration files are needed beyond the `.archgate/` directory already in your repository.
@@ -209,7 +225,7 @@ jobs:
           key: archgate-${{ runner.os }}
 
       - run: npm install -g archgate
-      - run: archgate check --ci
+      - run: archgate check --output github
 ```
 
 ## GitLab CI
@@ -233,7 +249,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: curl -fsSL https://cli.archgate.dev/install-unix | sh
-      - run: ~/.archgate/bin/archgate check --ci
+      - run: ~/.archgate/bin/archgate check --output github
 ```
 
 This works in any environment with `curl` and `tar`, no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
@@ -254,7 +270,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install -g archgate
-      - run: archgate check --ci
+      - run: archgate check --output github
 ```
 
 ## Other CI systems
@@ -265,7 +281,7 @@ Archgate works with any CI system that can run shell commands. The pattern is al
 2. Run: `archgate check`
 3. Check the exit code (0 = pass, 1 = violations, 2 = error)
 
-For systems that support annotations (Azure DevOps, Buildkite, etc.), use `--json` to parse the output and emit annotations in the format your CI expects.
+For systems that support annotations (Azure DevOps, Buildkite, etc.), use `--output json` to parse the output and emit annotations in the format your CI expects.
 
 ## Pre-commit hooks
 

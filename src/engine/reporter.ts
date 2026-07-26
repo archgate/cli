@@ -5,6 +5,7 @@ import { styleText } from "node:util";
 import type { Severity } from "../formats/rules";
 import { formatJSON } from "../helpers/output";
 import type { CheckResult } from "./runner";
+import { buildSarifLog } from "./sarif";
 
 export interface ReportSummary {
   pass: boolean;
@@ -414,6 +415,18 @@ export function reportCI(
   console.log(
     `\n${status}: ${summary.passed} passed, ${summary.failed} failed, ${summary.warnings} warnings`
   );
+}
+
+/**
+ * Output results as SARIF 2.1.0, for GitHub Code Scanning/Code Quality (or
+ * any SARIF consumer). Never auto-detected — only emitted when the caller
+ * explicitly resolves to `sarif` output.
+ */
+export function reportSarif(
+  result: CheckResult,
+  summary: ReportSummary = buildSummary(result)
+): void {
+  console.log(formatJSON(buildSarifLog(summary)));
 }
 
 /**

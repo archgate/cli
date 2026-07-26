@@ -23,23 +23,23 @@ CLI output must be readable for humans and parseable for machines: colored in te
 
 **Key conventions:**
 
-1. **Colors via `styleText` only** — All colored output uses `styleText(format, text)` from `node:util`; no raw ANSI codes or third-party color libraries. `format` takes one style or an array (`["red", "bold"]`).
-2. **`--json` flag for machine-readable output** — Commands producing structured results (check, adr list) support `--json`: JSON to stdout, no colors, no decorative formatting.
-3. **Auto-compact JSON for agent contexts** — When stdout is not a TTY and `CI` is unset the caller is likely an AI agent, so `--json`-capable commands auto-switch to compact (unindented) JSON to minimize tokens. Detection: `src/helpers/output.ts` (`isAgentContext()`, `formatJSON()`). Precedence: `--ci` flag → `--json` flag (pretty) → agent auto-detect (compact) → TTY (human-readable) → CI env (human-readable).
+1. **Colors via `styleText` only** — All colored output uses `styleText(format, text)` from `node:util`; no raw ANSI codes or third-party color libraries.
+2. **Machine-readable output** — Commands with structured results support `--json` (`adr list`/`sync`/`import`) or, for `check`, `--output <format>` (convention 3). Both use `formatJSON()`: JSON to stdout, no colors, no decorative formatting.
+3. **`--output <format>` on `check`** — `console` (default) | `json` | `github` (Actions annotations) | `sarif` (SARIF 2.1.0, for Code Scanning/Code Quality). Breaking change from `--json`/`--ci`; other commands unaffected. `--output` wins when given; omitted defaults to console, auto-upgrading to compact json in agent context. `github`/`sarif` are opt-in only, never auto-detected — the canonical pattern for future `check` formats.
 4. **No emoji** — Use text symbols and colors; emoji rendering is inconsistent across terminals, fonts, and CI log viewers.
 5. **stdout for results, stderr for diagnostics** — Results to stdout; errors, warnings, and debug to stderr (`logError()`, `logWarn()`, `logDebug()`).
 6. **Concise and scannable** — Use whitespace and alignment, not walls of text.
-7. **Progressive disclosure for agent payloads** — Enumeration commands (`adr list`) MUST emit identity fields only: the minimum needed to identify a record and decide whether to fetch it. Single-record commands (`adr show`) emit it in full; agents drill down. Compaction (convention 3) scales a payload by a constant factor; field selection keeps output inline-readable as record count grows — past a size threshold agent harnesses spill tool results to a file, defeating the purpose of emitting JSON. Default: the fields the human table renders are the right JSON field set. Omission MUST be driven by having nothing to report, never by a pass/fail status: a record that reads as passing can still carry warnings the consumer needs.
+7. **Progressive disclosure for agent payloads** — Enumeration commands (`adr list`) MUST emit identity fields only: the minimum needed to identify a record and decide whether to fetch it. Single-record commands (`adr show`) emit it in full; agents drill down. Compaction (`formatJSON()`, convention 2) scales a payload by a constant factor; field selection keeps output inline-readable as record count grows — past a size threshold agent harnesses spill tool results to a file, defeating the purpose of emitting JSON. Default: the fields the human table renders are the right JSON field set. Omission MUST be driven by having nothing to report, never by a pass/fail status: a record that reads as passing can still carry warnings the consumer needs.
 
 ## Do's and Don'ts
 
 ### Do
 
 - **DO** use `styleText` from `node:util` for colors
-- **DO** support a `--json` flag for machine-readable output
+- **DO** support `--output <format>` (or `--json` on simpler commands) for machine-readable output
 - **DO** use `formatJSON()` from `src/helpers/output.ts` for all JSON serialization in commands — it auto-detects agent context
-- **DO** pass `forcePretty: true` to `formatJSON()` when the user explicitly passes `--json` (they expect pretty-printed output)
-- **DO** use `isAgentContext()` from `src/helpers/output.ts` to decide whether auto-JSON applies in commands with both human-readable and JSON modes
+- **DO** pass `forcePretty: true` to `formatJSON()` when the user explicitly requests pretty JSON
+- **DO** use `isAgentContext()` to decide whether auto-JSON applies in commands with both human-readable and JSON modes
 - **DO** use `console.log()` for normal output to stdout and `logError()` for errors to stderr
 - **DO** project records down to identity fields in enumeration commands — pair a lean `list` with a full-detail `show` so agents can drill down
 - **DO** keep output concise and scannable
@@ -48,8 +48,9 @@ CLI output must be readable for humans and parseable for machines: colored in te
 ### Don't
 
 - **DON'T** use emoji in CLI output
-- **DON'T** use raw ANSI escape codes or third-party color libraries (chalk, kleur, picocolors) — `styleText` covers both needs
-- **DON'T** include colors in `--json` output
+- **DON'T** use raw ANSI escape codes or third-party color libraries (chalk, kleur, picocolors)
+- **DON'T** include colors in `json`/`github`/`sarif` output
+- **DON'T** auto-detect `github`/`sarif`; only `json` auto-upgrades
 - **DON'T** output progress spinners without a TTY check
 - **DON'T** use `JSON.stringify()` directly in command files — use `formatJSON()` so agent-context detection stays consistent
 - **DON'T** serialize a parsed record verbatim just because it's in hand (`.map((a) => a.frontmatter)`) — project it to the fields the consumer actually needs
@@ -68,17 +69,26 @@ console.log(styleText(["red", "bold"], "error:")); // combined styles
 ```
 
 ```typescript
-// Agent-aware JSON output — auto-compact for agents, pretty for humans
+// check.ts: --output <format> selector (console/json/github/sarif) —
+// wins outright when given; omitted defaults to console, auto-upgrading
+// to compact json in agent context. github/sarif are opt-in only.
 import { formatJSON, isAgentContext } from "../helpers/output";
 
-const useJson = opts.json || isAgentContext();
-if (opts.ci) {
-  reportCI(results);
-} else if (useJson) {
-  // forcePretty=true when explicit --json, auto-detect otherwise
-  console.log(formatJSON(results, opts.json ? true : undefined));
+const outputFormat = opts.output ?? (isAgentContext() ? "json" : "console");
+if (outputFormat === "sarif") {
+  reportSarif(result, summary);
+} else if (outputFormat === "github") {
+  reportCI(result, summary);
+} else if (outputFormat === "json") {
+  // forcePretty=true only for explicit --output json, auto-detect otherwise
+  reportJSON(result, opts.output === "json" ? true : undefined, summary);
 } else {
-  reportConsole(results);
+  reportConsole(result, verbose, summary);
+}
+
+// Plain --json flag on simpler commands (adr list/sync/import):
+if (opts.json || isAgentContext()) {
+  console.log(formatJSON(results, opts.json ? true : undefined));
 }
 
 // Always-JSON commands (review-context, session-context): just call formatJSON
@@ -134,7 +144,7 @@ console.log(JSON.stringify(results, null, 2));
 - **Bun `styleText` compatibility gaps** — Bun implements `node:util` but may lag Node.js on new `styleText` features or options.
   - **Mitigation:** The CLI uses basic styles (red, green, yellow, bold, dim) that are stable in both runtimes. Avoid experimental or newly added style formats.
 - **TTY detection edge cases** — `styleText` disables colors for non-TTY output, but some CI environments (GitHub Actions) report as TTY and then log raw ANSI codes.
-  - **Mitigation:** `--json` bypasses all color formatting. CI integrations should use `--json` or `--ci` for structured output.
+  - **Mitigation:** `json`/`github`/`sarif` output bypasses all color formatting. CI integrations should use `--output json`/`github`/`sarif` (or `--json` on simpler commands) for structured output.
 
 ## Compliance and Enforcement
 
@@ -147,15 +157,18 @@ console.log(JSON.stringify(results, null, 2));
 
 Code reviewers MUST verify:
 
-1. New commands support `--json` when they output structured data
+1. New commands support `--output <format>` or `--json` when they output structured data
 2. No third-party color libraries are imported
 3. Error messages go to stderr (via `logError()`), results go to stdout
-4. Enumeration commands emit identity fields only, and every emitted field earns its place. Payload size is not statically checkable, so reviewers MUST sanity-check `--json` output against a realistic record count (dozens, not the two-ADR fixture) rather than trusting a small test project
+4. Enumeration commands emit identity fields only, and every emitted field earns its place. Payload size is not statically checkable, so reviewers MUST sanity-check `--json`/`--output json` output against a realistic record count (dozens, not the two-ADR fixture) rather than trusting a small test project
+5. `check`'s `--json`/`--ci` → `--output <format>` migration is the reference precedent for any future flag-to-`--output`-style unification — a new machine-readable format on an existing command should extend `--output`'s choices, not add another boolean flag
 
 ## References
 
 - [Node.js styleText documentation](https://nodejs.org/api/util.html#utilstyletextformat-text-options)
 - [Bun node:util support](https://bun.sh/docs/runtime/nodejs-apis#node-util)
 - [NO_COLOR convention](https://no-color.org/)
+- [SARIF 2.1.0 specification](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) — schema `--output sarif` implements
+- [GitHub Code Scanning SARIF support](https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning) — consumer of `--output sarif`
 - [ARCH-002 — Error Handling](./ARCH-002-error-handling.md) — Defines stderr convention for error output
 - [ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md) — Justifies avoiding chalk/kleur/picocolors

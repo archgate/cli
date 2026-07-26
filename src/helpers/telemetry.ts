@@ -305,7 +305,7 @@ export function trackCheckResult(properties: {
   errors: number;
   rule_errors: number;
   pass: boolean;
-  output_format: "console" | "json" | "ci";
+  output_format: "console" | "json" | "github" | "sarif";
   used_staged: boolean;
   used_base: boolean;
   used_file_filter: boolean;

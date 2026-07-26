@@ -51,4 +51,4 @@ Treat any of these as meaning the ADR's governing text is incomplete: the rules 
 
 Two other limits truncate this payload, each with its own stderr warning. `truncatedFiles` is set when the changed-file list exceeds its cap, so files beyond it are absent from every domain. With `--run-checks`, `checkSummary.truncated` is set when a rule reported more violations than the per-rule cap — run [`archgate check`](/reference/cli/check/) for the complete list.
 
-When `--run-checks` is passed, `checkSummary` follows the same rule as [`archgate check --json`](/reference/cli/check/): its `results` array carries only rules with something to report, while the counts beside it still cover every rule that ran.
+When `--run-checks` is passed, `checkSummary` follows the same rule as [`archgate check --output json`](/reference/cli/check/): its `results` array carries only rules with something to report, while the counts beside it still cover every rule that ran.

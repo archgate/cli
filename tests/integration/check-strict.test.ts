@@ -125,7 +125,7 @@ describe("check --strict integration", () => {
   test("--strict with no violations and no advisory findings → exit 0", async () => {
     writeCleanAdr("STRICT-001");
     const { exitCode, stdout } = await runCli(
-      ["check", "--strict", "--json"],
+      ["check", "--strict", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(0);
@@ -137,7 +137,7 @@ describe("check --strict integration", () => {
   test("--strict treats any rule warning as a failure (implicit maxWarnings 0)", async () => {
     writeWarningAdr("STRICT-002");
     const { exitCode, stdout, stderr } = await runCli(
-      ["check", "--strict", "--json"],
+      ["check", "--strict", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(1);
@@ -151,7 +151,7 @@ describe("check --strict integration", () => {
   test("--strict --max-warnings <n> lets an explicit threshold win over strict's implicit zero", async () => {
     writeWarningAdr("STRICT-003");
     const { exitCode, stdout } = await runCli(
-      ["check", "--strict", "--max-warnings", "5", "--json"],
+      ["check", "--strict", "--max-warnings", "5", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(0);
@@ -162,14 +162,14 @@ describe("check --strict integration", () => {
 
   test("--strict fails on briefing-budget overrun alone, with zero rule violations", async () => {
     writeBriefingOverBudgetFixture("STRICT-004", "STRICT-005");
-    const withoutStrict = await runCli(["check", "--json"], dir);
+    const withoutStrict = await runCli(["check", "--output", "json"], dir);
     expect(withoutStrict.exitCode).toBe(0);
     const withoutStrictJson = JSON.parse(withoutStrict.stdout);
     expect(withoutStrictJson.pass).toBe(true);
     expect(withoutStrictJson.briefingWarnings.length).toBeGreaterThan(0);
 
     const { exitCode, stdout, stderr } = await runCli(
-      ["check", "--strict", "--json"],
+      ["check", "--strict", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(1);
@@ -188,7 +188,10 @@ describe("check --strict integration", () => {
       join(dir, ".archgate", "config.json"),
       JSON.stringify({ domains: {}, strict: true }, null, 2)
     );
-    const { exitCode, stdout } = await runCli(["check", "--json"], dir);
+    const { exitCode, stdout } = await runCli(
+      ["check", "--output", "json"],
+      dir
+    );
     expect(exitCode).toBe(1);
     const json = JSON.parse(stdout);
     expect(json.warningsExceeded).toBe(true);
@@ -196,7 +199,10 @@ describe("check --strict integration", () => {
 
   test("without --strict and without config, advisory findings never fail the build", async () => {
     writeBriefingOverBudgetFixture("STRICT-007", "STRICT-008");
-    const { exitCode, stdout } = await runCli(["check", "--json"], dir);
+    const { exitCode, stdout } = await runCli(
+      ["check", "--output", "json"],
+      dir
+    );
     expect(exitCode).toBe(0);
     const json = JSON.parse(stdout);
     expect(json.pass).toBe(true);
@@ -206,7 +212,7 @@ describe("check --strict integration", () => {
   test("--strict does not misattribute an ordinary rule violation to itself", async () => {
     writeErrorAdr("STRICT-009");
     const { exitCode, stdout, stderr } = await runCli(
-      ["check", "--strict", "--json"],
+      ["check", "--strict", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(1);

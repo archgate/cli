@@ -11,7 +11,7 @@ O Archgate coleta **dados de uso anônimos** para nos ajudar a entender como a C
 
 Quando você executa um comando do Archgate, registramos:
 
-- **Nome do comando** e **quais flags foram usadas** (ex: `check --json`, apenas a presença da flag, nunca valores)
+- **Nome do comando** e **quais flags foram usadas** (ex: `check --output json`, apenas a presença da flag, nunca valores)
 - **Código de saída** (0, 1, 2 ou 130) e **duração da execução** (milissegundos), além de um **tag de desfecho** resumida (`success`, `user_error`, `internal_error`, `cancelled`)
 - **Ambiente**: SO, arquitetura, versão do Bun, versão do Archgate, detecção de CI (incluindo provedor: GitHub Actions / GitLab CI / CircleCI, etc.), detecção de TTY, detecção de WSL, shell (bash, zsh, pwsh...) e locale
 - **Contexto de instalação**: como a CLI foi instalada (binário, proto, dependência local ou gerenciador de pacotes global)
@@ -65,7 +65,7 @@ Quando a CLI falha (código de saída 2), enviamos:
 - **Nenhuma informação pessoal**: nenhum email, senha, segredo ou endereço IP. O evento único `project_initialized` pode incluir `repo_owner` e `repo_name` para repositórios confirmados como públicos pelo host; veja [Identidade do repositório](#identidade-do-repositório). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
 - **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR ou código-fonte. Relatórios de erro (Sentry) podem incluir caminhos relativos em stack traces, mas nunca caminhos absolutos ou conteúdos de arquivo.
 - **Nenhum contexto de IA**: nada de interações com agentes, prompts ou conteúdo gerado por IA
-- **Nenhum valor de flag**: registramos que `--json` foi usado, não o conteúdo da saída JSON
+- **Nenhum valor de flag**: registramos que `--output json` foi usado, não o conteúdo da saída JSON
 - **Nenhuma atividade de rede**: nenhuma URL, chave de API ou token
 
 ## Anonimização de IP

@@ -51,4 +51,4 @@ Tolk alle disse signalene som at ADR-ens styrende tekst er ufullstendig: reglene
 
 To andre grenser avkorter dette svaret, hver med sin egen advarsel til stderr. `truncatedFiles` settes når listen over endrede filer overskrider grensen sin, slik at filer utover den mangler i alle domener. Med `--run-checks` settes `checkSummary.truncated` når en regel rapporterte flere brudd enn grensen per regel — kjør [`archgate check`](/reference/cli/check/) for den fullstendige listen.
 
-Når `--run-checks` brukes, følger `checkSummary` samme regel som [`archgate check --json`](/reference/cli/check/): `results`-listen inneholder bare regler som har noe å rapportere, mens tellerne ved siden av fortsatt dekker alle reglene som ble kjørt.
+Når `--run-checks` brukes, følger `checkSummary` samme regel som [`archgate check --output json`](/reference/cli/check/): `results`-listen inneholder bare regler som har noe å rapportere, mens tellerne ved siden av fortsatt dekker alle reglene som ble kjørt.

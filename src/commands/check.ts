@@ -9,10 +9,13 @@ import {
   reportConsole,
   reportJSON,
   reportCI,
+  reportSarif,
   getExitCode,
   buildSummary,
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
+import type { CheckResult } from "../engine/runner";
+import { buildSarifLog } from "../engine/sarif";
 import { exitWith, handleCommandError } from "../helpers/exit";
 import { logWarn } from "../helpers/log";
 import { formatJSON, isAgentContext } from "../helpers/output";
@@ -30,12 +33,15 @@ const maxWarningsOption = new Option(
   "Fail (exit 1) when the number of warnings exceeds this threshold (0 = fail on any warning)"
 ).argParser((val) => Math.trunc(Number(val)));
 
+const outputOption = new Option(
+  "--output <format>",
+  "Output format: console (default), json, github, or sarif"
+).choices(["console", "json", "github", "sarif"] as const);
+
 export function registerCheckCommand(program: Command) {
   program
     .command("check")
     .description("Run ADR compliance checks")
-    .option("--json", "Output results as JSON")
-    .option("--ci", "Output GitHub Actions annotations")
     .option("--staged", "Only check git-staged files")
     .option(
       "--base [ref]",
@@ -48,6 +54,7 @@ export function registerCheckCommand(program: Command) {
       "Treat any rule-severity warning, and advisory findings (briefing-budget, suppression, unparsed-ADR warnings), as failures"
     )
     .addOption(maxWarningsOption)
+    .addOption(outputOption)
     .argument("[files...]", "Only check rules relevant to these files")
     .action(async (files, opts) => {
       // ARCH-012: full error boundary — any error escaping this body would
@@ -78,10 +85,21 @@ export function registerCheckCommand(program: Command) {
         const loadResults = await loadRuleAdrs(projectRoot, opts.adr);
         const loadDurationMs = Math.round(performance.now() - loadStart);
 
-        const useJson = opts.json || (!opts.ci && isAgentContext());
+        // `--output` wins outright when given. Omitted defaults to console,
+        // except agent context still silently auto-upgrades to compact json
+        // (matches the pre-`--output` --json auto-detection behavior).
+        const outputFormat =
+          opts.output ?? (isAgentContext() ? "json" : "console");
+        const useJson = outputFormat === "json";
 
         if (loadResults.length === 0) {
-          if (useJson) {
+          if (outputFormat === "sarif") {
+            const emptyResult: CheckResult = {
+              results: [],
+              totalDurationMs: 0,
+            };
+            console.log(formatJSON(buildSarifLog(buildSummary(emptyResult))));
+          } else if (useJson) {
             console.log(
               formatJSON(
                 {
@@ -98,7 +116,7 @@ export function registerCheckCommand(program: Command) {
                   results: [],
                   durationMs: 0,
                 },
-                opts.json ? true : undefined
+                opts.output === "json" ? true : undefined
               )
             );
           } else {
@@ -139,19 +157,19 @@ export function registerCheckCommand(program: Command) {
           files: filterFiles.length > 0 ? filterFiles : undefined,
         });
 
-        const outputFormat = opts.ci ? "ci" : useJson ? "json" : "console";
-
         // Build the summary once and share it with the reporters, telemetry,
         // and exit-code resolver — one walk over the result set instead of
         // one per consumer.
         const summary = buildSummary(result, { maxWarnings, strict });
 
-        if (opts.ci) {
+        if (outputFormat === "sarif") {
+          reportSarif(result, summary);
+        } else if (outputFormat === "github") {
           reportCI(result, summary);
         } else if (useJson) {
           reportJSON(
             result,
-            opts.json ? true : undefined,
+            opts.output === "json" ? true : undefined,
             summary,
             opts.verbose ?? false
           );

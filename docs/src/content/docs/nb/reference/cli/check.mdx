@@ -17,8 +17,7 @@ Laster inn hver ADR med `rules: true` i frontmatteren, kjører den tilhørende `
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `--staged`           | Sjekk kun git-stagede filer (nyttig for pre-commit-hooks)                                                                                        |
 | `--base [ref]`       | Sammenlign endrede filer mot en basisreferanse (autodetekteres hvis utelatt)                                                                     |
-| `--json`             | Maskinlesbar JSON-utdata                                                                                                                         |
-| `--ci`               | GitHub Actions-annotasjonsformat                                                                                                                 |
+| `--output <format>`  | Utdataformat: `console` (standard), `json`, `github` eller `sarif`. Se [SARIF-utdata](#sarif-utdata).                                            |
 | `--adr <id>`         | Sjekk kun regler fra en bestemt ADR                                                                                                              |
 | `--verbose`          | Vis beståtte regler og tidsinformasjon                                                                                                           |
 | `--max-warnings <n>` | Mislykkes (kode 1) når antallet advarsler overskrider `n`. Bruk `0` for å mislykkes ved enhver advarsel.                                         |
@@ -85,20 +84,46 @@ archgate check src/foo.ts src/bar.ts
 Pipe fra git (sjekk kun endrede filer):
 
 ```bash
-git diff --name-only | archgate check --json
+git diff --name-only | archgate check --output json
 ```
 
 Hent JSON-utdata for CI-integrasjon:
 
 ```bash
-archgate check --json
+archgate check --output json
 ```
 
 Hent GitHub Actions-annotasjoner:
 
 ```bash
-archgate check --ci
+archgate check --output github
 ```
+
+Hent SARIF-utdata for GitHub Code Scanning:
+
+```bash
+archgate check --output sarif > results.sarif
+```
+
+## SARIF-utdata
+
+`archgate check --output sarif` gir ut [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), standardformatet GitHubs Code Scanning- og Code Quality-funksjoner leser i CI. Hvert regelbrudd blir et SARIF-resultat; alvorlighetsgradene `error`/`warning`/`info` tilordnes SARIF sine `error`/`warning`/`note`. Veiledende funn (sammendragsbudsjett, undertrykkelse og utolkede ADR-er) er også inkludert, som syntetiske resultater under egne regel-ID-er (`archgate/briefing-budget`, `archgate/suppression-warning`, `archgate/unparsed-adr`), alltid på nivået `warning` -- i tråd med at de aldri behandles som blokkerende utenfor `--strict`.
+
+`--output sarif` er kun opt-in: i motsetning til agent-kontekst `json`, blir det aldri autodetektert.
+
+Last opp resultater til GitHubs Security-fane i CI:
+
+```yaml
+- name: Run archgate check
+  run: archgate check --output sarif > results.sarif
+
+- name: Upload SARIF to GitHub Security tab
+  uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+  with:
+    sarif_file: results.sarif
+```
+
+Se [CI-integrasjonsguiden](/guides/ci-integration/) for hele arbeidsflyten.
 
 ## Deteksjon av endrede filer
 
@@ -130,7 +155,7 @@ Under kjøring sender `archgate check` advarsler for vanlige feilkonfigurasjoner
 | **Uscopet gitignore-fravalg**          | `respectGitignore: false` er satt uten et `files`-omfang                                       | Legg til `files`-mønstre for å unngå skanning av alle filer inkludert `node_modules/`, `.git/` osv. |
 | **Alle filer ekskludert av gitignore** | Eksplisitte `files`-mønstre matcher filer, men alle treff er ekskludert av `.gitignore`        | Sett `respectGitignore: false` i ADR-frontmatteren for å inkludere gitignorerte filer               |
 
-Disse advarslene vises i standardutdataene og påvirker ikke avslutningskoden. De vises også i JSON-utdata når `--json` brukes (som brudd med `"severity": "warning"`).
+Disse advarslene vises i standardutdataene og påvirker ikke avslutningskoden. De vises også i JSON-utdata når `--output json` brukes (som brudd med `"severity": "warning"`).
 
 ### Sammendragsbudsjett
 
@@ -176,7 +201,7 @@ Det finnes ingen `--no-strict`-flagg: `--strict` på kommandolinjen kan bare _sl
 
 ## JSON-utdataformat
 
-Når `--json` brukes, er utdataene et enkelt JSON-objekt.
+Når `--output json` brukes, er utdataene et enkelt JSON-objekt.
 
 `results` inneholder bare regler som har noe å rapportere: feil, regelfeil og alle regler med brudd (inkludert regler som bare gir advarsler eller informasjon). Regler som består uten brudd, utelates — oppføringen deres ville bare gjenta statisk ADR-tekst, og i store prosjekter dominerer disse oppføringene utdataene. Tellerne `total` og `passed` rapporterer fortsatt nøyaktig hvor mange regler som ble kjørt og bestått. Bruk `--verbose` for å inkludere alle regler i `results`.
 

@@ -31,20 +31,26 @@ describe("registerCheckCommand", () => {
     expect(sub.description()).toBe("Run ADR compliance checks");
   });
 
-  test("has --json option", () => {
+  test("has --output option with console/json/github/sarif choices", () => {
     const program = new Command();
     registerCheckCommand(program);
     const sub = program.commands.find((c) => c.name() === "check")!;
-    const jsonOpt = sub.options.find((o) => o.long === "--json");
-    expect(jsonOpt).toBeDefined();
+    const outputOpt = sub.options.find((o) => o.long === "--output");
+    expect(outputOpt).toBeDefined();
+    expect(outputOpt!.argChoices).toEqual([
+      "console",
+      "json",
+      "github",
+      "sarif",
+    ]);
   });
 
-  test("has --ci option", () => {
+  test("no longer registers the removed --json/--ci flags", () => {
     const program = new Command();
     registerCheckCommand(program);
     const sub = program.commands.find((c) => c.name() === "check")!;
-    const ciOpt = sub.options.find((o) => o.long === "--ci");
-    expect(ciOpt).toBeDefined();
+    expect(sub.options.find((o) => o.long === "--json")).toBeUndefined();
+    expect(sub.options.find((o) => o.long === "--ci")).toBeUndefined();
   });
 
   test("has --staged option", () => {

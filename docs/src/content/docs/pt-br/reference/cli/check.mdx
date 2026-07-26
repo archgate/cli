@@ -17,8 +17,7 @@ Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts`
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--staged`           | Verificar apenas arquivos no git stage (útil para hooks de pre-commit)                                                                              |
 | `--base [ref]`       | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido)                                                                       |
-| `--json`             | Saída JSON legível por máquina                                                                                                                      |
-| `--ci`               | Formato de anotação do GitHub Actions                                                                                                               |
+| `--output <format>`  | Formato de saída: `console` (padrão), `json`, `github` ou `sarif`. Veja [Saída SARIF](#saída-sarif).                                                |
 | `--adr <id>`         | Verificar apenas regras de um ADR específico                                                                                                        |
 | `--verbose`          | Mostrar regras aprovadas e informações de tempo                                                                                                     |
 | `--max-warnings <n>` | Falhar (código 1) quando a contagem de avisos exceder `n`. Use `0` para falhar com qualquer aviso.                                                  |
@@ -85,20 +84,46 @@ archgate check src/foo.ts src/bar.ts
 Pipe do git (verificar apenas arquivos alterados):
 
 ```bash
-git diff --name-only | archgate check --json
+git diff --name-only | archgate check --output json
 ```
 
 Obter saída JSON para integração com CI:
 
 ```bash
-archgate check --json
+archgate check --output json
 ```
 
 Obter anotações do GitHub Actions:
 
 ```bash
-archgate check --ci
+archgate check --output github
 ```
+
+Obter saída SARIF para o GitHub Code Scanning:
+
+```bash
+archgate check --output sarif > results.sarif
+```
+
+## Saída SARIF
+
+`archgate check --output sarif` emite [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), o formato padrão que os recursos Code Scanning e Code Quality do GitHub consomem em CI. Cada violação de regra vira um resultado SARIF; as severidades `error`/`warning`/`info` mapeiam para `error`/`warning`/`note` do SARIF. Os achados consultivos (orçamento do resumo, supressão e ADRs não analisados) também são incluídos, como resultados sintéticos sob IDs de regra dedicados (`archgate/briefing-budget`, `archgate/suppression-warning`, `archgate/unparsed-adr`), sempre no nível `warning` -- assim como nunca são tratados como bloqueantes fora do `--strict`.
+
+`--output sarif` é somente opt-in: diferente do `json` em contexto de agente, ele nunca é auto-detectado.
+
+Envie os resultados para a aba Security do GitHub em CI:
+
+```yaml
+- name: Run archgate check
+  run: archgate check --output sarif > results.sarif
+
+- name: Upload SARIF to GitHub Security tab
+  uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+  with:
+    sarif_file: results.sarif
+```
+
+Veja o [guia de integração com CI](/guides/ci-integration/) para o fluxo completo.
 
 ## Detecção de arquivos alterados
 
@@ -130,7 +155,7 @@ Durante a execução, `archgate check` emite avisos para configurações incorre
 | **Opt-out de gitignore sem escopo**            | `respectGitignore: false` está definido sem um escopo `files`                                                     | Adicione padrões `files` para evitar a varredura de todos os arquivos incluindo `node_modules/`, `.git/`, etc. |
 | **Todos os arquivos excluídos pelo gitignore** | Padrões `files` explícitos correspondem a arquivos, mas todas as correspondências são excluídas pelo `.gitignore` | Defina `respectGitignore: false` no frontmatter do ADR para incluir arquivos ignorados pelo git                |
 
-Esses avisos aparecem na saída padrão e não afetam o código de saída. Eles também aparecem na saída JSON quando `--json` é usado (como violações com `"severity": "warning"`).
+Esses avisos aparecem na saída padrão e não afetam o código de saída. Eles também aparecem na saída JSON quando `--output json` é usado (como violações com `"severity": "warning"`).
 
 ### Orçamento do resumo
 
@@ -176,7 +201,7 @@ Não existe uma flag `--no-strict`: `--strict` na linha de comando só pode _ati
 
 ## Formato da saída JSON
 
-Quando `--json` é usado, a saída é um único objeto JSON.
+Quando `--output json` é usado, a saída é um único objeto JSON.
 
 `results` contém apenas as regras que têm algo a relatar: falhas, erros de regra e qualquer regra com violações (incluindo regras que geram apenas avisos ou informações). Regras aprovadas sem violações são omitidas — sua entrada apenas repetiria o texto estático do ADR e, em projetos grandes, essas entradas dominam o payload. Os contadores `total` e `passed` continuam informando exatamente quantas regras foram executadas e quantas foram aprovadas. Use `--verbose` para incluir todas as regras em `results`.
 

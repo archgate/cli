@@ -51,4 +51,4 @@ Interprete qualquer um desses sinais como indicação de que o texto normativo d
 
 Outros dois limites truncam este payload, cada um com seu próprio aviso em stderr. `truncatedFiles` é definido quando a lista de arquivos alterados excede seu limite, de modo que os arquivos além dele ficam ausentes de todos os domínios. Com `--run-checks`, `checkSummary.truncated` é definido quando uma regra relatou mais violações do que o limite por regra — execute [`archgate check`](/reference/cli/check/) para a lista completa.
 
-Quando `--run-checks` é usado, `checkSummary` segue a mesma regra de [`archgate check --json`](/reference/cli/check/): seu array `results` contém apenas as regras que têm algo a relatar, enquanto os contadores ao lado continuam cobrindo todas as regras executadas.
+Quando `--run-checks` é usado, `checkSummary` segue a mesma regra de [`archgate check --output json`](/reference/cli/check/): seu array `results` contém apenas as regras que têm algo a relatar, enquanto os contadores ao lado continuam cobrindo todas as regras executadas.

@@ -87,6 +87,7 @@ describe("check action handler", () => {
   let reportConsoleSpy: ReturnType<typeof spyOn>;
   let reportJSONSpy: ReturnType<typeof spyOn>;
   let reportCISpy: ReturnType<typeof spyOn>;
+  let reportSarifSpy: ReturnType<typeof spyOn>;
   let detectStackSpy: ReturnType<typeof spyOn>;
   let trackCheckResultSpy: ReturnType<typeof spyOn>;
   let originalIsTTY: boolean | undefined;
@@ -122,6 +123,9 @@ describe("check action handler", () => {
     reportCISpy = spyOn(reporterModule, "reportCI").mockImplementation(
       () => {}
     );
+    reportSarifSpy = spyOn(reporterModule, "reportSarif").mockImplementation(
+      () => {}
+    );
     detectStackSpy = spyOn(stackDetectModule, "detectStack").mockResolvedValue({
       languages: ["typescript"],
       runtimes: ["bun"],
@@ -152,6 +156,7 @@ describe("check action handler", () => {
     reportConsoleSpy.mockRestore();
     reportJSONSpy.mockRestore();
     reportCISpy.mockRestore();
+    reportSarifSpy.mockRestore();
     detectStackSpy.mockRestore();
     trackCheckResultSpy.mockRestore();
     Object.defineProperty(process.stdout, "isTTY", {
@@ -199,11 +204,11 @@ describe("check action handler", () => {
     expect(output).toContain("No rules to check");
   });
 
-  test("no rules with --json outputs empty JSON result", async () => {
+  test("no rules with --output json outputs empty JSON result", async () => {
     loadRuleAdrsSpy.mockResolvedValue([]);
 
     await expect(
-      makeProgram().parseAsync(["node", "test", "check", "--json"])
+      makeProgram().parseAsync(["node", "test", "check", "--output", "json"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(0);
@@ -255,26 +260,72 @@ describe("check action handler", () => {
     expect(reportConsoleSpy).toHaveBeenCalledTimes(1);
     expect(reportJSONSpy).not.toHaveBeenCalled();
     expect(reportCISpy).not.toHaveBeenCalled();
+    expect(reportSarifSpy).not.toHaveBeenCalled();
   });
 
-  test("--json calls reportJSON", async () => {
+  test("--output json calls reportJSON", async () => {
     await expect(
-      makeProgram().parseAsync(["node", "test", "check", "--json"])
+      makeProgram().parseAsync(["node", "test", "check", "--output", "json"])
     ).rejects.toThrow("process.exit");
 
     expect(reportJSONSpy).toHaveBeenCalledTimes(1);
     expect(reportConsoleSpy).not.toHaveBeenCalled();
     expect(reportCISpy).not.toHaveBeenCalled();
+    expect(reportSarifSpy).not.toHaveBeenCalled();
   });
 
-  test("--ci calls reportCI", async () => {
+  test("--output github calls reportCI", async () => {
     await expect(
-      makeProgram().parseAsync(["node", "test", "check", "--ci"])
+      makeProgram().parseAsync(["node", "test", "check", "--output", "github"])
     ).rejects.toThrow("process.exit");
 
     expect(reportCISpy).toHaveBeenCalledTimes(1);
     expect(reportConsoleSpy).not.toHaveBeenCalled();
     expect(reportJSONSpy).not.toHaveBeenCalled();
+    expect(reportSarifSpy).not.toHaveBeenCalled();
+  });
+
+  test("--output sarif calls reportSarif", async () => {
+    await expect(
+      makeProgram().parseAsync(["node", "test", "check", "--output", "sarif"])
+    ).rejects.toThrow("process.exit");
+
+    expect(reportSarifSpy).toHaveBeenCalledTimes(1);
+    expect(reportConsoleSpy).not.toHaveBeenCalled();
+    expect(reportJSONSpy).not.toHaveBeenCalled();
+    expect(reportCISpy).not.toHaveBeenCalled();
+  });
+
+  test("--output console forces human-readable even under agent auto-detect", async () => {
+    Object.defineProperty(process.stdout, "isTTY", {
+      value: false,
+      configurable: true,
+    });
+    const origCI = Bun.env.CI;
+    Bun.env.CI = "";
+
+    try {
+      await expect(
+        makeProgram().parseAsync([
+          "node",
+          "test",
+          "check",
+          "--output",
+          "console",
+        ])
+      ).rejects.toThrow("process.exit");
+
+      expect(reportConsoleSpy).toHaveBeenCalledTimes(1);
+      expect(reportJSONSpy).not.toHaveBeenCalled();
+    } finally {
+      restoreEnv("CI", origCI);
+    }
+  });
+
+  test("--output rejects an invalid value", async () => {
+    await expect(
+      makeProgram().parseAsync(["node", "test", "check", "--output", "bogus"])
+    ).rejects.toThrow();
   });
 
   test("--verbose is forwarded to reportConsole", async () => {
@@ -384,20 +435,29 @@ describe("check action handler", () => {
 
   test("telemetry records json output format", async () => {
     await expect(
-      makeProgram().parseAsync(["node", "test", "check", "--json"])
+      makeProgram().parseAsync(["node", "test", "check", "--output", "json"])
     ).rejects.toThrow("process.exit");
 
     const data = trackCheckResultSpy.mock.calls[0][0];
     expect(data.output_format).toBe("json");
   });
 
-  test("telemetry records ci output format", async () => {
+  test("telemetry records github output format", async () => {
     await expect(
-      makeProgram().parseAsync(["node", "test", "check", "--ci"])
+      makeProgram().parseAsync(["node", "test", "check", "--output", "github"])
     ).rejects.toThrow("process.exit");
 
     const data = trackCheckResultSpy.mock.calls[0][0];
-    expect(data.output_format).toBe("ci");
+    expect(data.output_format).toBe("github");
+  });
+
+  test("telemetry records sarif output format", async () => {
+    await expect(
+      makeProgram().parseAsync(["node", "test", "check", "--output", "sarif"])
+    ).rejects.toThrow("process.exit");
+
+    const data = trackCheckResultSpy.mock.calls[0][0];
+    expect(data.output_format).toBe("sarif");
   });
 
   test("telemetry records --staged and --adr usage", async () => {

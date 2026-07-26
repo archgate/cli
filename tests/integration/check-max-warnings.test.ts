@@ -52,7 +52,10 @@ describe("check --max-warnings integration", () => {
 
   test("warnings do not affect exit code without the flag", async () => {
     writeWarningAdr("WARN-001");
-    const { exitCode, stdout } = await runCli(["check", "--json"], dir);
+    const { exitCode, stdout } = await runCli(
+      ["check", "--output", "json"],
+      dir
+    );
     expect(exitCode).toBe(0);
     const json = JSON.parse(stdout);
     expect(json.pass).toBe(true);
@@ -63,7 +66,7 @@ describe("check --max-warnings integration", () => {
   test("--max-warnings 0 → exit 1 when a warning is reported", async () => {
     writeWarningAdr("WARN-002");
     const { exitCode, stdout } = await runCli(
-      ["check", "--max-warnings", "0", "--json"],
+      ["check", "--max-warnings", "0", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(1);
@@ -75,7 +78,7 @@ describe("check --max-warnings integration", () => {
   test("--max-warnings tolerates warnings up to the threshold", async () => {
     writeWarningAdr("WARN-003");
     const { exitCode, stdout } = await runCli(
-      ["check", "--max-warnings", "5", "--json"],
+      ["check", "--max-warnings", "5", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(0);
