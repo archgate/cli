@@ -139,6 +139,38 @@ describe("review-context --strict integration", () => {
     expect(exitCode).toBe(0);
   }, 60000);
 
+  test("fails via --run-checks on a briefing overrun when no rule ADR exists (zero-rules path)", async () => {
+    // Prose-only corpus: without --verbose nothing is briefed (so
+    // truncatedBriefings stays empty), but --run-checks must still mirror
+    // check's zero-rules path and surface the corpus-wide advisory.
+    scaffoldProject(dir);
+    writeAdr(
+      dir,
+      "ARCH-001.md",
+      makeAdr({
+        id: "ARCH-001",
+        title: "Prose only",
+        domain: "architecture",
+        rules: false,
+        body: `## Decision\n${"A".repeat(5000)}\n\n## Do's and Don'ts\nDo it.`,
+      })
+    );
+    await initGitRepo(dir);
+    await commitAll(dir, "initial commit");
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "index.ts"), "export const x = 1;\n");
+
+    const lenient = await runCli(["review-context", "--run-checks"], dir);
+    expect(lenient.exitCode).toBe(0);
+
+    const { exitCode, stderr } = await runCli(
+      ["review-context", "--run-checks", "--strict"],
+      dir
+    );
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("--strict");
+  }, 60000);
+
   test("strict: true in .archgate/config.json is honored when the flag is omitted", async () => {
     scaffoldProject(dir);
     writeAdr(

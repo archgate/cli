@@ -4,6 +4,7 @@ import type { AdrDocument, AdrDomain } from "../formats/adr";
 import {
   BRIEFED_SECTIONS,
   DEFAULT_MAX_SECTION_CHARS,
+  collectBriefingDiagnostics,
   extractAdrSections,
   truncateSection,
 } from "./adr-sections";
@@ -178,26 +179,6 @@ async function loadAllAdrs(projectRoot: string): Promise<AdrDocument[]> {
   return parsed.map((e) => e.adr);
 }
 
-const EMPTY_SUMMARY: ReportSummary = {
-  pass: true,
-  total: 0,
-  passed: 0,
-  failed: 0,
-  warnings: 0,
-  errors: 0,
-  infos: 0,
-  ruleErrors: 0,
-  warningsExceeded: false,
-  strictAdvisoryExceeded: false,
-  truncated: false,
-  suppressed: 0,
-  suppressionWarnings: [],
-  unparsedAdrs: [],
-  briefingWarnings: [],
-  results: [],
-  durationMs: 0,
-};
-
 interface BuildReviewContextOptions {
   runChecks?: boolean;
   staged?: boolean;
@@ -265,7 +246,16 @@ export async function buildReviewContext(
         results: resultsWithFindings(summary.results),
       };
     } else {
-      checkSummary = { ...EMPTY_SUMMARY };
+      // Mirror check's zero-rules path (ARCH-026): the ADR-corpus
+      // diagnostics are rule-independent, so a prose-only or unparseable
+      // corpus must surface them here too — under --strict they flip
+      // strictAdvisoryExceeded exactly as a full check run would.
+      const { briefingWarnings, unparsedAdrs } =
+        await collectBriefingDiagnostics(projectRoot, maxSectionChars);
+      checkSummary = buildSummary(
+        { results: [], totalDurationMs: 0, briefingWarnings, unparsedAdrs },
+        { strict: options.strict }
+      );
     }
   }
 
