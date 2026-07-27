@@ -326,12 +326,12 @@ export function trackCheckResult(properties: {
   errors: number;
   rule_errors: number;
   pass: boolean;
-  output_format: "console" | "json" | "ci";
+  output_format: "console" | "json" | "github" | "sarif";
   used_staged: boolean;
   used_base: boolean;
   used_file_filter: boolean;
   used_adr_filter: boolean;
-  used_max_warnings: boolean;
+  used_strict: boolean;
   files_scanned?: number;
   load_duration_ms?: number;
   check_duration_ms?: number;

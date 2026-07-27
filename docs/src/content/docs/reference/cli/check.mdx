@@ -13,15 +13,14 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Options
 
-| Option               | Description                                                                       |
-| -------------------- | --------------------------------------------------------------------------------- |
-| `--staged`           | Only check git-staged files (useful for pre-commit hooks)                         |
-| `--base [ref]`       | Compare changed files against a base ref (auto-detects when omitted)              |
-| `--json`             | Machine-readable JSON output                                                      |
-| `--ci`               | GitHub Actions annotation format                                                  |
-| `--adr <id>`         | Only check rules from a specific ADR                                              |
-| `--verbose`          | Show passing rules and timing info                                                |
-| `--max-warnings <n>` | Fail (exit 1) when the warning count exceeds `n`. Use `0` to fail on any warning. |
+| Option              | Description                                                                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Only check git-staged files (useful for pre-commit hooks)                                                                                           |
+| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted)                                                                                |
+| `--output <format>` | Output format: `console` (default), `json`, `github`, or `sarif`. See [SARIF output](#sarif-output).                                                |
+| `--adr <id>`        | Only check rules from a specific ADR                                                                                                                |
+| `--verbose`         | Show passing rules and timing info                                                                                                                  |
+| `--strict`          | Treat any rule-severity warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
 
 ## Arguments
 
@@ -31,11 +30,11 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Exit codes
 
-| Code | Meaning                                                                 |
-| ---- | ----------------------------------------------------------------------- |
-| 0    | All rules pass. No violations found.                                    |
-| 1    | One or more violations detected, or warnings exceeded `--max-warnings`. |
-| 2    | Rule execution error (e.g., malformed rule, security scanner block).    |
+| Code | Meaning                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| 0    | All rules pass. No violations found.                                                                  |
+| 1    | One or more violations detected, or `--strict` escalated warnings or advisory findings into failures. |
+| 2    | Rule execution error (e.g., malformed rule, security scanner block).                                  |
 
 ## Examples
 
@@ -63,10 +62,10 @@ Check a single ADR:
 archgate check --adr ARCH-001
 ```
 
-Treat any warning as a failure (useful in CI):
+Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure (useful in CI):
 
 ```bash
-archgate check --max-warnings 0
+archgate check --strict
 ```
 
 Check specific files (only matching ADRs run):
@@ -78,20 +77,49 @@ archgate check src/foo.ts src/bar.ts
 Pipe from git (check only changed files):
 
 ```bash
-git diff --name-only | archgate check --json
+git diff --name-only | archgate check --output json
 ```
 
 Get JSON output for CI integration:
 
 ```bash
-archgate check --json
+archgate check --output json
 ```
 
 Get GitHub Actions annotations:
 
 ```bash
-archgate check --ci
+archgate check --output github
 ```
+
+Get SARIF output for GitHub Code Scanning:
+
+```bash
+archgate check --output sarif > results.sarif
+```
+
+## SARIF output
+
+`archgate check --output sarif` emits [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the standard format GitHub's Code Scanning and Code Quality features ingest in CI. Every rule violation becomes a SARIF result; `error`/`warning`/`info` severities map to SARIF `error`/`warning`/`note`. Advisory findings (briefing-budget, suppression, and unparsed-ADR warnings) are included too, as synthetic results under dedicated rule IDs (`archgate/briefing-budget`, `archgate/suppression-warning`, `archgate/unparsed-adr`), always at `warning` level -- matching how they're never treated as blocking outside `--strict`.
+
+`--output sarif` is opt-in only: unlike agent-context `json`, it is never auto-detected.
+
+Upload results to GitHub's Security tab in CI:
+
+```yaml
+- name: Run archgate check
+  run: archgate check --output sarif > results.sarif
+
+- name: Upload SARIF to GitHub Security tab
+  if: success() || failure()
+  uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+  with:
+    sarif_file: results.sarif
+```
+
+The `if: success() || failure()` condition is required: `archgate check` exits 1 when it finds violations, which would otherwise skip the upload step exactly when there are findings to report. Prefer it over `always()`, which would also run the upload for cancelled jobs. The job also needs the `security-events: write` permission for the upload to succeed.
+
+See the [CI integration guide](/guides/ci-integration/) for the full workflow.
 
 ## Changed files detection
 
@@ -123,7 +151,7 @@ During execution, `archgate check` emits warnings for common misconfigurations t
 | **Unscoped gitignore opt-out**      | `respectGitignore: false` is set without a `files` scope                                         | Add `files` patterns to avoid scanning all files including `node_modules/`, `.git/`, etc.         |
 | **All files excluded by gitignore** | Explicit `files` patterns match files, but every match is excluded by `.gitignore`               | Set `respectGitignore: false` in the ADR frontmatter to include gitignored files                  |
 
-These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--json` is used (as violations with `"severity": "warning"`).
+These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--output json` is used (as violations with `"severity": "warning"`).
 
 ### Briefing budget
 
@@ -145,17 +173,33 @@ An ADR that cannot be read or parsed is measured by nothing, so it is reported s
 
 JSON output lists those files under `unparsedAdrs`. **An empty `briefingWarnings` means "nothing over budget" only when `unparsedAdrs` is empty too** — otherwise part of the corpus was never inspected.
 
-These are **advisory and never affect `pass`**.
+These are **advisory and never affect `pass`, unless `--strict` is set** — see [Strict mode](#strict-mode).
 
 To clear an overflow, apply the remedies that cannot cost a rule: move rationale into Context or Consequences, which are never briefed and therefore never capped; drop historical narration; and merge bullets stating the same rule twice.
 
 If the next cut would remove a normative clause — an enumerated identifier list, an ordered guardrail, an exemption — **stop**. That section is expected to exceed the cap and MUST NOT be shortened further. Record why in the ADR's own Compliance section, and order the section so its most normative content precedes the cut, since truncation always removes the tail.
 
-By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--max-warnings <n>` to make `archgate check` exit 1 when the total warning count exceeds `n`. `--max-warnings 0` fails on any warning. When the threshold is exceeded the JSON output's `warningsExceeded` field is `true` and `pass` is `false`.
+By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--strict` to escalate them into failures — see [Strict mode](#strict-mode).
+
+## Strict mode
+
+`--strict` combines two escalations behind one flag: any rule-severity `"warning"` violation fails the build (the JSON output's `warningsExceeded` field is `true` and `pass` is `false`), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+
+The briefing-budget and unparsed-ADR diagnostics are corpus-wide, not rule-scoped: they are collected and enforced even when no `rules: true` ADR exists, so a prose-only ADR corpus still fails `--strict` on a briefing overrun or an unparseable ADR file. Suppression warnings, by contrast, derive from rule violations and only arise when rules run.
+
+`--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`. See the [Configuration reference](/reference/configuration/#strict) for the full schema.
+
+To avoid passing `--strict` on every invocation, set a project default in `.archgate/config.json`:
+
+```json
+{ "strict": true }
+```
+
+There is no `--no-strict` flag: `--strict` on the command line can only turn strict mode _on_ over an absent or `false` config default — it cannot turn off a configured `strict: true`.
 
 ## JSON output format
 
-When `--json` is used, the output is a single JSON object.
+When `--output json` is used, the output is a single JSON object.
 
 `results` contains only rules that have something to report: failures, rule errors, and any rule with violations (including warning- and info-only rules). Rules that pass cleanly are omitted — their entry would only restate static ADR text, and on a large project those entries dominate the payload. The `total` and `passed` counts still report exactly how many rules ran and passed. Pass `--verbose` to include every rule in `results`.
 
@@ -170,6 +214,7 @@ When `--json` is used, the output is a single JSON object.
   "infos": 0,
   "ruleErrors": 0,
   "warningsExceeded": false,
+  "strictAdvisoryExceeded": false,
   "truncated": false,
   "results": [
     {

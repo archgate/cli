@@ -166,7 +166,7 @@ describe("telemetry", () => {
           used_base: false,
           used_file_filter: false,
           used_adr_filter: false,
-          used_max_warnings: false,
+          used_strict: false,
         });
       }).not.toThrow();
       // Payload including optional fields (files_scanned, durations, stack)
@@ -184,7 +184,7 @@ describe("telemetry", () => {
           used_base: true,
           used_file_filter: true,
           used_adr_filter: true,
-          used_max_warnings: true,
+          used_strict: true,
           files_scanned: 42,
           load_duration_ms: 15,
           check_duration_ms: 200,

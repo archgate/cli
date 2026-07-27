@@ -288,11 +288,14 @@ The command compares local imported ADRs against their upstream source and shows
 
 ### Options
 
-| Option    | Description                              |
-| --------- | ---------------------------------------- |
-| `--check` | Exit 1 if upstream has updates (CI mode) |
-| `--yes`   | Skip confirmation prompts                |
-| `--json`  | Output as JSON                           |
+| Option     | Description                                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `--check`  | Exit 1 if upstream has updates (CI mode)                                                                             |
+| `--yes`    | Skip confirmation prompts                                                                                            |
+| `--json`   | Output as JSON                                                                                                       |
+| `--strict` | Fail (exit 1) when sync encountered errors (unresolved import source, failed clone, missing local/upstream ADR file) |
+
+`--strict` resolves the same way as [`archgate check --strict`](/reference/cli/check/#strict-mode): CLI flag, then a `strict: boolean` key in `.archgate/config.json`, then off. There is no `--no-strict` flag -- the CLI flag can only turn strict mode on, not override a configured `strict: true`.
 
 ### Examples
 
@@ -318,4 +321,10 @@ Accept all upstream updates non-interactively:
 
 ```bash
 archgate adr sync --yes
+```
+
+Fail the build if any import couldn't be resolved, cloned, or matched to a local ADR:
+
+```bash
+archgate adr sync --check --strict
 ```

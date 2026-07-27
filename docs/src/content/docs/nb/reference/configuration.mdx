@@ -13,7 +13,8 @@ Denne filen opprettes automatisk av `archgate init` (for å lagre den autodetekt
 {
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
-  "baseBranch": "main"
+  "baseBranch": "main",
+  "strict": true
 }
 ```
 
@@ -44,6 +45,20 @@ Du kan også sette den manuelt:
 ```
 
 Se [`archgate check` -- Deteksjon av endrede filer](/reference/cli/check/#changed-files-detection) for den fullstendige prioritetsrekkefølgen.
+
+### `strict`
+
+Prosjektstandard for `--strict`, støttet av `archgate check`, `archgate review-context` og `archgate adr sync`. `--strict` gjør ellers veiledende diagnostikk om til feil -- se [`archgate check` -- Streng modus](/reference/cli/check/#streng-modus) for nøyaktig hva hver kommando mislykkes på.
+
+| Type      | Standard | Beskrivelse                                              |
+| --------- | -------- | -------------------------------------------------------- |
+| `boolean` | `false`  | Aktiverer streng modus for dette prosjektet som standard |
+
+Løsningsrekkefølgen er kommandolinjevalg, deretter denne konfigurasjonsverdien, deretter `false`. Det finnes ingen `--no-strict`-flagg, så kommandolinjevalget kan bare _slå på_ streng modus over en fraværende eller `false` konfigurasjonsverdi -- det kan ikke slå av en konfigurert `strict: true`.
+
+```json
+{ "strict": true }
+```
 
 ### `paths`
 

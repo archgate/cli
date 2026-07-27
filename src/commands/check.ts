@@ -3,36 +3,40 @@
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
 
+import { collectBriefingDiagnostics } from "../engine/adr-sections";
 import { resolveBaseRef } from "../engine/git-files";
 import { loadRuleAdrs } from "../engine/loader";
 import {
   reportConsole,
   reportJSON,
   reportCI,
+  reportSarif,
   getExitCode,
   buildSummary,
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
+import type { CheckResult } from "../engine/runner";
 import { rejectBlank } from "../helpers/cli-options";
 import { exitWith, handleCommandError } from "../helpers/exit";
-import { formatJSON, isAgentContext } from "../helpers/output";
+import { logWarn } from "../helpers/log";
+import { isAgentContext } from "../helpers/output";
 import { requireProjectRoot } from "../helpers/paths";
-import { getConfiguredBaseBranch } from "../helpers/project-config";
+import {
+  getConfiguredBaseBranch,
+  getConfiguredStrict,
+} from "../helpers/project-config";
 import { detectStack } from "../helpers/stack-detect";
 import { trackCheckResult } from "../helpers/telemetry";
-import { UserError } from "../helpers/user-error";
 
-const maxWarningsOption = new Option(
-  "--max-warnings <n>",
-  "Fail (exit 1) when the number of warnings exceeds this threshold (0 = fail on any warning)"
-).argParser((val) => Math.trunc(Number(val)));
+const outputOption = new Option(
+  "--output <format>",
+  "Output format: console (default), json, github, or sarif"
+).choices(["console", "json", "github", "sarif"] as const);
 
 export function registerCheckCommand(program: Command) {
   program
     .command("check")
     .description("Run ADR compliance checks")
-    .option("--json", "Output results as JSON")
-    .option("--ci", "Output GitHub Actions annotations")
     .option("--staged", "Only check git-staged files")
     .addOption(
       new Option(
@@ -47,7 +51,11 @@ export function registerCheckCommand(program: Command) {
       ).argParser(rejectBlank)
     )
     .option("--verbose", "Show passing rules and timing info")
-    .addOption(maxWarningsOption)
+    .option(
+      "--strict",
+      "Treat any rule-severity warning, and advisory findings (briefing-budget, suppression, unparsed-ADR warnings), as failures"
+    )
+    .addOption(outputOption)
     .argument("[files...]", "Only check rules relevant to these files")
     .action(async (files, opts) => {
       // ARCH-012: full error boundary — any error escaping this body would
@@ -56,13 +64,7 @@ export function registerCheckCommand(program: Command) {
       try {
         const projectRoot = requireProjectRoot();
 
-        const maxWarnings = opts.maxWarnings;
-        if (
-          maxWarnings !== undefined &&
-          (Number.isNaN(maxWarnings) || maxWarnings < 0)
-        ) {
-          throw new UserError("--max-warnings must be a non-negative integer");
-        }
+        const strict = opts.strict ?? getConfiguredStrict(projectRoot) ?? false;
 
         // Run stack detection in parallel with rule loading — both are fast I/O
         // and independent. Stack info enriches the telemetry event at the end.
@@ -76,32 +78,51 @@ export function registerCheckCommand(program: Command) {
         const loadResults = await loadRuleAdrs(projectRoot, opts.adr);
         const loadDurationMs = Math.round(performance.now() - loadStart);
 
-        const useJson = opts.json ?? (!opts.ci && isAgentContext());
+        // `--output` wins outright when given. Omitted defaults to console,
+        // except agent context still silently auto-upgrades to compact json
+        // (matches the pre-`--output` --json auto-detection behavior).
+        const outputFormat =
+          opts.output ?? (isAgentContext() ? "json" : "console");
+        const useJson = outputFormat === "json";
 
         if (loadResults.length === 0) {
-          if (useJson) {
-            console.log(
-              formatJSON(
-                {
-                  pass: true,
-                  total: 0,
-                  passed: 0,
-                  failed: 0,
-                  warnings: 0,
-                  errors: 0,
-                  infos: 0,
-                  ruleErrors: 0,
-                  warningsExceeded: false,
-                  results: [],
-                  durationMs: 0,
-                },
-                opts.json ? true : undefined
-              )
+          // Advisory diagnostics are corpus-wide, not rule-scoped: collect
+          // them even when no rule ADR loaded, so --strict still sees
+          // briefing overruns and unparseable ADRs in a prose-only (or
+          // fully-unparseable) corpus. Parse results are cached per process,
+          // so this costs no extra I/O.
+          const { briefingWarnings, unparsedAdrs } =
+            await collectBriefingDiagnostics(projectRoot);
+          const emptyResult: CheckResult = {
+            results: [],
+            totalDurationMs: 0,
+            briefingWarnings,
+            unparsedAdrs,
+          };
+          const summary = buildSummary(emptyResult, { strict });
+          if (outputFormat === "sarif") {
+            reportSarif(emptyResult, summary);
+          } else if (outputFormat === "github") {
+            reportCI(emptyResult, summary);
+          } else if (useJson) {
+            reportJSON(
+              emptyResult,
+              opts.output === "json" ? true : undefined,
+              summary,
+              opts.verbose ?? false
             );
           } else {
             console.log("  No rules to check.");
+            if (briefingWarnings.length > 0 || unparsedAdrs.length > 0) {
+              reportConsole(emptyResult, opts.verbose ?? false, summary);
+            }
           }
-          await exitWith(0);
+          if (strict && summary.strictAdvisoryExceeded) {
+            logWarn(
+              "--strict: failing because advisory findings (briefing budget or unparsed ADRs) exist even though no rules ran."
+            );
+          }
+          await exitWith(getExitCode(emptyResult, summary));
         }
 
         // Collect file paths from arguments and/or stdin pipe.
@@ -136,19 +157,19 @@ export function registerCheckCommand(program: Command) {
           files: filterFiles.length > 0 ? filterFiles : undefined,
         });
 
-        const outputFormat = opts.ci ? "ci" : useJson ? "json" : "console";
-
         // Build the summary once and share it with the reporters, telemetry,
         // and exit-code resolver — one walk over the result set instead of
         // one per consumer.
-        const summary = buildSummary(result, { maxWarnings });
+        const summary = buildSummary(result, { strict });
 
-        if (opts.ci) {
+        if (outputFormat === "sarif") {
+          reportSarif(result, summary);
+        } else if (outputFormat === "github") {
           reportCI(result, summary);
         } else if (useJson) {
           reportJSON(
             result,
-            opts.json ? true : undefined,
+            opts.output === "json" ? true : undefined,
             summary,
             opts.verbose ?? false
           );
@@ -173,7 +194,7 @@ export function registerCheckCommand(program: Command) {
           used_base: Boolean(resolvedBase),
           used_file_filter: filterFiles.length > 0,
           used_adr_filter: Boolean(opts.adr),
-          used_max_warnings: maxWarnings !== undefined,
+          used_strict: opts.strict !== undefined,
           files_scanned: filterFiles.length,
           load_duration_ms: loadDurationMs,
           check_duration_ms: Math.round(result.totalDurationMs),
@@ -181,6 +202,25 @@ export function registerCheckCommand(program: Command) {
           runtimes: stack?.runtimes,
           frameworks: stack?.frameworks,
         });
+
+        // ARCH-026: a --strict-driven failure gets a stderr explanation,
+        // mirroring review-context.ts and adr/sync.ts.
+        if (strict) {
+          const strictReasons: string[] = [];
+          if (summary.warningsExceeded) {
+            strictReasons.push(
+              `${summary.warnings} rule-severity warning(s) are treated as failures under --strict`
+            );
+          }
+          if (summary.strictAdvisoryExceeded) {
+            strictReasons.push(
+              "advisory findings (briefing budget, suppression, or unparsed ADRs) failed under --strict"
+            );
+          }
+          if (strictReasons.length > 0) {
+            logWarn(`--strict: failing because ${strictReasons.join("; ")}.`);
+          }
+        }
 
         const exitCode = getExitCode(result, summary);
         // Only 0, 1, and 2 are emitted by getExitCode()

@@ -4,6 +4,7 @@ import type { AdrDocument, AdrDomain } from "../formats/adr";
 import {
   BRIEFED_SECTIONS,
   DEFAULT_MAX_SECTION_CHARS,
+  collectBriefingDiagnostics,
   extractAdrSections,
   truncateSection,
 } from "./adr-sections";
@@ -178,25 +179,6 @@ async function loadAllAdrs(projectRoot: string): Promise<AdrDocument[]> {
   return parsed.map((e) => e.adr);
 }
 
-const EMPTY_SUMMARY: ReportSummary = {
-  pass: true,
-  total: 0,
-  passed: 0,
-  failed: 0,
-  warnings: 0,
-  errors: 0,
-  infos: 0,
-  ruleErrors: 0,
-  warningsExceeded: false,
-  truncated: false,
-  suppressed: 0,
-  suppressionWarnings: [],
-  unparsedAdrs: [],
-  briefingWarnings: [],
-  results: [],
-  durationMs: 0,
-};
-
 interface BuildReviewContextOptions {
   runChecks?: boolean;
   staged?: boolean;
@@ -207,6 +189,8 @@ interface BuildReviewContextOptions {
   maxViolationsPerRule?: number;
   /** Include Decision and Do's/Don'ts prose per ADR. Default: false. */
   briefings?: boolean;
+  /** Threaded into the internal `buildSummary` call when `runChecks` is set. */
+  strict?: boolean;
 }
 
 /** Build a complete pre-computed review context with token-safe defaults. */
@@ -249,7 +233,10 @@ export async function buildReviewContext(
         // cannot describe a limit this response did not apply.
         maxSectionChars,
       });
-      const summary = buildSummary(checkResult, { maxViolationsPerRule });
+      const summary = buildSummary(checkResult, {
+        maxViolationsPerRule,
+        strict: options.strict,
+      });
       // Same projection reportJSON applies: a cleanly-passing rule's entry only
       // restates static ADR text (11KB of 43 entries here), and the counts above
       // it already say how many passed. resultsWithFindings keeps warning-only
@@ -259,7 +246,16 @@ export async function buildReviewContext(
         results: resultsWithFindings(summary.results),
       };
     } else {
-      checkSummary = { ...EMPTY_SUMMARY };
+      // Mirror check's zero-rules path (ARCH-026): the ADR-corpus
+      // diagnostics are rule-independent, so a prose-only or unparseable
+      // corpus must surface them here too — under --strict they flip
+      // strictAdvisoryExceeded exactly as a full check run would.
+      const { briefingWarnings, unparsedAdrs } =
+        await collectBriefingDiagnostics(projectRoot, maxSectionChars);
+      checkSummary = buildSummary(
+        { results: [], totalDurationMs: 0, briefingWarnings, unparsedAdrs },
+        { strict: options.strict }
+      );
     }
   }
 

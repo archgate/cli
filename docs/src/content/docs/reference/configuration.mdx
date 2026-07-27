@@ -13,7 +13,8 @@ This file is created automatically by `archgate init` (to store the auto-detecte
 {
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
-  "baseBranch": "main"
+  "baseBranch": "main",
+  "strict": true
 }
 ```
 
@@ -44,6 +45,20 @@ You can also set it manually:
 ```
 
 See [`archgate check` -- Changed files detection](/reference/cli/check/#changed-files-detection) for the full resolution priority.
+
+### `strict`
+
+Project-wide default for `--strict`, supported by `archgate check`, `archgate review-context`, and `archgate adr sync`. `--strict` escalates otherwise-advisory diagnostics into failures -- see [`archgate check` -- Strict mode](/reference/cli/check/#strict-mode) for exactly what each command fails on.
+
+| Type      | Default | Description                                     |
+| --------- | ------- | ----------------------------------------------- |
+| `boolean` | `false` | Enables strict mode for this project by default |
+
+Resolution order is CLI flag, then this config value, then `false`. There is no `--no-strict` flag, so the CLI flag can only turn strict mode _on_ over an absent or `false` config value -- it cannot turn off a configured `strict: true`.
+
+```json
+{ "strict": true }
+```
 
 ### `paths`
 

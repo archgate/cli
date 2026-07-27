@@ -6,11 +6,14 @@ import { Option } from "@commander-js/extra-typings";
 import { buildReviewContext } from "../engine/context";
 import { resolveBaseRef } from "../engine/git-files";
 import { rejectBlank } from "../helpers/cli-options";
-import { handleCommandError } from "../helpers/exit";
+import { exitWith, handleCommandError } from "../helpers/exit";
 import { logWarn } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
 import { requireProjectRoot } from "../helpers/paths";
-import { getConfiguredBaseBranch } from "../helpers/project-config";
+import {
+  getConfiguredBaseBranch,
+  getConfiguredStrict,
+} from "../helpers/project-config";
 
 export function registerReviewContextCommand(program: Command) {
   program
@@ -35,9 +38,14 @@ export function registerReviewContextCommand(program: Command) {
       "--verbose",
       "Include each ADR's Decision and Do's/Don'ts prose (large; omitted by default — use `archgate adr show <id>` to drill down)"
     )
+    .option(
+      "--strict",
+      "Exit 1 when ADR briefings were truncated or, with --run-checks, when check found strict-relevant findings"
+    )
     .action(async (opts) => {
       try {
         const projectRoot = requireProjectRoot();
+        const strict = opts.strict ?? getConfiguredStrict(projectRoot) ?? false;
         // Resolve base ref: --staged skips base detection
         const resolvedBase = await resolveBaseRef(projectRoot, {
           staged: opts.staged,
@@ -54,6 +62,7 @@ export function registerReviewContextCommand(program: Command) {
           // as the user-facing name; the engine option stays `briefings`
           // because that names what is actually included.
           briefings: opts.verbose,
+          strict,
         });
 
         // Truncation hides governing text, so it is announced on stderr as
@@ -76,6 +85,32 @@ export function registerReviewContextCommand(program: Command) {
         }
 
         console.log(formatJSON(context));
+
+        // Full context is already printed (above), so a piped consumer still
+        // gets it on a strict failure. Deliberately not gated on
+        // checkSummary.failed/ruleErrors — `check` remains the gate for
+        // ordinary rule violations; this only fails on findings this command
+        // itself surfaces.
+        if (strict) {
+          const strictReasons: string[] = [];
+          if (context.truncatedBriefings.length > 0) {
+            strictReasons.push("ADR briefing prose was truncated");
+          }
+          if (context.checkSummary?.warningsExceeded === true) {
+            strictReasons.push(
+              `${context.checkSummary.warnings} check warning(s) are treated as failures under --strict`
+            );
+          }
+          if (context.checkSummary?.strictAdvisoryExceeded === true) {
+            strictReasons.push(
+              "check found advisory findings (briefing budget, suppression, or unparsed ADRs)"
+            );
+          }
+          if (strictReasons.length > 0) {
+            logWarn(`--strict: failing because ${strictReasons.join("; ")}.`);
+            await exitWith(1);
+          }
+        }
       } catch (err) {
         await handleCommandError(err);
       }

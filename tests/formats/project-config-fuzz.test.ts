@@ -219,6 +219,23 @@ describe("ProjectConfigSchema fuzz", () => {
   ])("rejects '..' path segments in %j", (c) => {
     expect(ProjectConfigSchema.safeParse(c).success).toBe(false);
   });
+
+  test.each([
+    { domains: {}, strict: true },
+    { domains: {}, strict: false },
+    { domains: {} },
+  ])("accepts strict %j", (c) => {
+    expect(ProjectConfigSchema.safeParse(c).success).toBe(true);
+  });
+
+  test.each([
+    { domains: {}, strict: "yes" },
+    { domains: {}, strict: 1 },
+    { domains: {}, strict: null },
+    { domains: {}, strict: "true" },
+  ])("rejects non-boolean strict %j", (c) => {
+    expect(ProjectConfigSchema.safeParse(c).success).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

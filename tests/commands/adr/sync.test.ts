@@ -200,6 +200,7 @@ describe("adr sync command", () => {
     expect(opts).toContain("--check");
     expect(opts).toContain("--yes");
     expect(opts).toContain("--json");
+    expect(opts).toContain("--strict");
   });
 
   // No project / empty imports

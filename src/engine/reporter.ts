@@ -5,6 +5,7 @@ import { styleText } from "node:util";
 import type { Severity } from "../formats/rules";
 import { formatJSON } from "../helpers/output";
 import type { CheckResult } from "./runner";
+import { buildSarifLog } from "./sarif";
 
 export interface ReportSummary {
   pass: boolean;
@@ -15,8 +16,14 @@ export interface ReportSummary {
   errors: number;
   infos: number;
   ruleErrors: number;
-  /** True when a `maxWarnings` threshold was set and the warning count exceeded it. */
+  /** True when `strict` was set and at least one rule-severity warning was reported. */
   warningsExceeded: boolean;
+  /**
+   * True only when `strict` was set AND at least one advisory finding
+   * (briefingWarnings, suppressionWarnings, or unparsedAdrs) is non-empty.
+   * Advisory findings never affect `pass` outside of strict mode.
+   */
+  strictAdvisoryExceeded: boolean;
   truncated: boolean;
   /** Number of violations suppressed by archgate-ignore comments. */
   suppressed: number;
@@ -26,7 +33,8 @@ export interface ReportSummary {
    * ADR sections that exceed the briefing cap, so `review-context --verbose`
    * hides part of them from the agents those ADRs govern. Advisory: an ADR
    * whose section cannot shrink without losing a normative clause is expected
-   * to exceed it, so these never affect `pass`.
+   * to exceed it, so these never affect `pass` unless `strict` is set (see
+   * `strictAdvisoryExceeded`).
    */
   briefingWarnings: Array<{
     adrId: string;
@@ -80,11 +88,13 @@ interface BuildSummaryOptions {
   /** Maximum violations per rule. When exceeded, only the first N are kept. Omit or 0 for unlimited. */
   maxViolationsPerRule?: number;
   /**
-   * Maximum number of warnings tolerated before the check is considered failed.
-   * When the total warning count exceeds this threshold, `pass` becomes false and
-   * `warningsExceeded` is set. Omit for no limit (warnings never affect `pass`).
+   * Blanket strict mode: any rule-severity warning fails the run
+   * (`warningsExceeded`), and the advisory categories (`briefingWarnings`,
+   * `suppressionWarnings`, `unparsedAdrs`) — normally never counted toward
+   * `pass` — elevate into failures (`strictAdvisoryExceeded`). Omit for the
+   * default lenient behavior where neither affects `pass`.
    */
-  maxWarnings?: number;
+  strict?: boolean;
 }
 
 export function buildSummary(
@@ -150,11 +160,27 @@ export function buildSummary(
     };
   });
 
-  const warningsExceeded =
-    options?.maxWarnings !== undefined && warnings > options.maxWarnings;
+  const warningsExceeded = Boolean(options?.strict) && warnings > 0;
+
+  const briefingWarnings = result.briefingWarnings ?? [];
+  const unparsedAdrs = result.unparsedAdrs ?? [];
+  const suppressionWarnings = (result.suppressionWarnings ?? []).map((w) => ({
+    message: w.message,
+    file: w.file,
+    line: w.line,
+  }));
+  const strictAdvisoryExceeded =
+    Boolean(options?.strict) &&
+    (briefingWarnings.length > 0 ||
+      suppressionWarnings.length > 0 ||
+      unparsedAdrs.length > 0);
 
   return {
-    pass: failed === 0 && ruleErrors === 0 && !warningsExceeded,
+    pass:
+      failed === 0 &&
+      ruleErrors === 0 &&
+      !warningsExceeded &&
+      !strictAdvisoryExceeded,
     total: result.results.length,
     passed,
     failed,
@@ -163,15 +189,12 @@ export function buildSummary(
     infos,
     ruleErrors,
     warningsExceeded,
+    strictAdvisoryExceeded,
     truncated: anyTruncated,
     suppressed: result.suppressedCount ?? 0,
-    briefingWarnings: result.briefingWarnings ?? [],
-    unparsedAdrs: result.unparsedAdrs ?? [],
-    suppressionWarnings: (result.suppressionWarnings ?? []).map((w) => ({
-      message: w.message,
-      file: w.file,
-      line: w.line,
-    })),
+    briefingWarnings,
+    unparsedAdrs,
+    suppressionWarnings,
     results,
     durationMs: result.totalDurationMs,
   };
@@ -282,7 +305,16 @@ export function reportConsole(
     console.log(
       styleText(
         "yellow",
-        `  ${summary.warnings} warning(s) exceeded the configured --max-warnings threshold`
+        `  --strict: ${summary.warnings} warning(s) are treated as failures`
+      )
+    );
+  }
+
+  if (summary.strictAdvisoryExceeded) {
+    console.log(
+      styleText(
+        "yellow",
+        "  --strict: advisory findings above (briefing budget, suppression, and/or unparsed-ADR warnings) are treated as failures"
       )
     );
   }
@@ -371,10 +403,28 @@ export function reportCI(
     );
   }
 
+  if (summary.strictAdvisoryExceeded) {
+    console.log(
+      "::error title=strict-mode::--strict is set and advisory findings (briefing/suppression/unparsed-ADR warnings) are non-empty"
+    );
+  }
+
   const status = summary.pass ? "check passed" : "check failed";
   console.log(
     `\n${status}: ${summary.passed} passed, ${summary.failed} failed, ${summary.warnings} warnings`
   );
+}
+
+/**
+ * Output results as SARIF 2.1.0, for GitHub Code Scanning/Code Quality (or
+ * any SARIF consumer). Never auto-detected — only emitted when the caller
+ * explicitly resolves to `sarif` output.
+ */
+export function reportSarif(
+  result: CheckResult,
+  summary: ReportSummary = buildSummary(result)
+): void {
+  console.log(formatJSON(buildSarifLog(summary)));
 }
 
 /**
@@ -390,6 +440,7 @@ export function getExitCode(result: CheckResult, summary?: ReportSummary) {
     if (summary.ruleErrors > 0) return 2 as const;
     if (summary.failed > 0) return 1 as const;
     if (summary.warningsExceeded) return 1 as const;
+    if (summary.strictAdvisoryExceeded) return 1 as const;
     return 0 as const;
   }
   const hasErrors = result.results.some(

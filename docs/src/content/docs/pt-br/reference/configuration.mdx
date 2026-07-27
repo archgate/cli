@@ -13,7 +13,8 @@ Este arquivo é criado automaticamente pelo `archgate init` (para armazenar o br
 {
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
-  "baseBranch": "main"
+  "baseBranch": "main",
+  "strict": true
 }
 ```
 
@@ -44,6 +45,20 @@ Você também pode defini-lo manualmente:
 ```
 
 Veja [`archgate check` -- Detecção de arquivos alterados](/reference/cli/check/#changed-files-detection) para a prioridade completa de resolução.
+
+### `strict`
+
+Padrão do projeto para `--strict`, suportado por `archgate check`, `archgate review-context` e `archgate adr sync`. `--strict` transforma diagnósticos consultivos em falhas -- veja [`archgate check` -- Modo estrito](/reference/cli/check/#modo-estrito) para o que exatamente cada comando reprova.
+
+| Tipo      | Padrão  | Descrição                                            |
+| --------- | ------- | ---------------------------------------------------- |
+| `boolean` | `false` | Habilita o modo estrito para este projeto por padrão |
+
+A ordem de resolução é: flag de linha de comando, depois este valor de config, depois `false`. Não existe uma flag `--no-strict`, então a flag de linha de comando só pode _ativar_ o modo estrito sobre um valor de config ausente ou `false` -- ela não pode desativar um `strict: true` já configurado.
+
+```json
+{ "strict": true }
+```
 
 ### `paths`
 
