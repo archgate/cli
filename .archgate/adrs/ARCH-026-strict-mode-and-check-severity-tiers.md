@@ -35,15 +35,15 @@ This is the same class of problem linters solve with a "warnings as errors" mode
 
 ## Decision
 
-`archgate check`, `archgate review-context`, and `archgate adr sync` MUST support a blanket `--strict` boolean flag that escalates otherwise-advisory diagnostics into command failures (exit 1), on top of each command's existing severity model. `--strict` MUST resolve CLI flag first, else a `strict: boolean` key in `.archgate/config.json` (via `getConfiguredStrict()`, mirroring `baseBranch`), else `false`.
+`archgate check`, `archgate review-context`, and `archgate adr sync` MUST support a blanket `--strict` boolean flag that escalates otherwise-advisory diagnostics into command failures (exit 1). `--strict` MUST resolve CLI flag first, else a `strict: boolean` key in `.archgate/config.json` (via `getConfiguredStrict()`, mirroring `baseBranch`), else `false`.
 
-**Scope:** the four `ReportSummary` categories (rule-severity `warning`, `briefingWarnings`, `suppressionWarnings`, `unparsedAdrs`) and `adr sync`'s `result.errors`. NOT the ad-hoc `logWarn()` sites in `init.ts`, `plugin/install.ts`, `credential-store.ts` — those describe local-machine state, not ADR-corpus quality.
+**Scope:** the four `ReportSummary` categories (rule-severity `warning`, `briefingWarnings`, `suppressionWarnings`, `unparsedAdrs`) and `adr sync`'s `result.errors`. NOT the ad-hoc `logWarn()` sites in `init.ts`, `plugin/install.ts`, `credential-store.ts` — those are local-machine state, not ADR-corpus quality.
 
 `check`'s former `--max-warnings <n>` flag is REMOVED (breaking): `--strict` is the single escalation switch; no tolerate-up-to-N budget is offered.
 
-**Per-command semantics:**
+**Per-command semantics, applying only under `--strict` (otherwise advisory):**
 
-- **`check`** (`buildSummary()`): any rule-severity `warning` sets `warningsExceeded`. Sets `strictAdvisoryExceeded` when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty; either flips `pass` to `false`. The ADR-corpus diagnostics (`briefingWarnings`, `unparsedAdrs`) MUST be collected on every exit path, including the zero-rules early return, so a prose-only or unparseable corpus still fails under `--strict`; `suppressionWarnings` are violation-scoped and exist only when rules run.
+- **`check`** (`buildSummary()`): any rule-severity `warning` sets `warningsExceeded`. Sets `strictAdvisoryExceeded` when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty; either flips `pass` to `false`. The ADR-corpus diagnostics (`briefingWarnings`, `unparsedAdrs`) MUST be collected on every exit path, including the zero-rules early return, so a prose-only or unparseable corpus still fails; `suppressionWarnings` are violation-scoped and exist only when rules run.
 - **`review-context`**: fails when `truncatedBriefings` is non-empty, or, with `--run-checks`, when `checkSummary.warningsExceeded`/`strictAdvisoryExceeded` is true. Does NOT gate on `checkSummary.failed`/`ruleErrors` — it stays a context generator; `check` alone gates rule violations.
 - **`adr sync`**: fails when `result.errors > 0`, composable with `--check`'s own exit-1 condition (`withChanges > 0`).
 
