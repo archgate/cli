@@ -85,8 +85,12 @@ export async function initSentry(): Promise<void> {
       release: cliVersion,
       environment: Bun.env.NODE_ENV ?? "production",
       enabled: Bun.env.NODE_ENV !== "test",
-      // No `dataCollection` override — SDK default already excludes PII
-      // (hostnames, IPs, etc.), same as the deprecated `sendDefaultPii: false`.
+      // No `dataCollection` override — SDK default (no `sendDefaultPii`) already
+      // excludes IP addresses (`dataCollection.userInfo` gates that, default
+      // false). Hostname is a separate knob: `includeServerName` defaults to
+      // `true` even with PII collection off, so it must be disabled explicitly
+      // — the SDK's own docs call this out as the CLI-app PII case.
+      includeServerName: false,
       // Drop user-initiated prompt cancellations (Ctrl+C)
       beforeSend(event) {
         const values = event.exception?.values;
