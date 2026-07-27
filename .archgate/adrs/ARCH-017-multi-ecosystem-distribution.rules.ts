@@ -9,10 +9,7 @@ export default {
       async check(ctx) {
         let pkgJson: Record<string, unknown>;
         try {
-          pkgJson = (await ctx.readJSON("package.json")) as Record<
-            string,
-            unknown
-          >;
+          pkgJson = await ctx.readJSON("package.json");
         } catch {
           return;
         }

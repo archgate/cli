@@ -120,7 +120,7 @@ const oversizedCommentBlocks = {
         let run: CommentToken[] = [];
         const flush = () => {
           const prose = run.reduce((n, c) => n + proseLines(c).length, 0);
-          if (prose > OVERSIZED_BLOCK_THRESHOLD && run[0]) {
+          if (prose > OVERSIZED_BLOCK_THRESHOLD && run.length > 0) {
             context.report({
               loc: run[0].loc,
               message: `Comment block carries ${prose} lines of prose; GEN-004 allows ${OVERSIZED_BLOCK_THRESHOLD} (roughly 1-3 sentences). Trim to current-behavior essentials or point to an ADR/memory file.`,

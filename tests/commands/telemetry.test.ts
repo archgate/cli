@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   mock,
+  type Mock,
   spyOn,
   test,
 } from "bun:test";
@@ -28,7 +29,7 @@ function makeProgram(): Command {
   return program;
 }
 
-function collectOutput(spy: ReturnType<typeof spyOn>): string {
+function collectOutput(spy: Mock<typeof console.log>): string {
   return spy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
 }
 
@@ -81,9 +82,13 @@ describe("registerTelemetryCommand", () => {
 // ---------------------------------------------------------------------------
 
 describe("telemetry status", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let isTelemetryEnabledSpy: ReturnType<typeof spyOn>;
-  let isEnvTelemetryDisabledSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let isTelemetryEnabledSpy: Mock<
+    typeof telemetryConfigModule.isTelemetryEnabled
+  >;
+  let isEnvTelemetryDisabledSpy: Mock<
+    typeof telemetryConfigModule.isEnvTelemetryDisabled
+  >;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});
@@ -141,14 +146,20 @@ describe("telemetry status", () => {
 // ---------------------------------------------------------------------------
 
 describe("telemetry enable", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let setTelemetryEnabledSpy: ReturnType<typeof spyOn>;
-  let initTelemetrySpy: ReturnType<typeof spyOn>;
-  let trackPreferenceChangeSpy: ReturnType<typeof spyOn>;
-  let flushTelemetrySpy: ReturnType<typeof spyOn>;
-  let isEnvTelemetryDisabledSpy: ReturnType<typeof spyOn>;
-  let logErrorSpy: ReturnType<typeof spyOn>;
-  let exitWithSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let setTelemetryEnabledSpy: Mock<
+    typeof telemetryConfigModule.setTelemetryEnabled
+  >;
+  let initTelemetrySpy: Mock<typeof telemetryModule.initTelemetry>;
+  let trackPreferenceChangeSpy: Mock<
+    typeof telemetryModule.trackTelemetryPreferenceChange
+  >;
+  let flushTelemetrySpy: Mock<typeof telemetryModule.flushTelemetry>;
+  let isEnvTelemetryDisabledSpy: Mock<
+    typeof telemetryConfigModule.isEnvTelemetryDisabled
+  >;
+  let logErrorSpy: Mock<typeof logModule.logError>;
+  let exitWithSpy: Mock<typeof exitModule.exitWith>;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});
@@ -173,7 +184,7 @@ describe("telemetry enable", () => {
     ).mockReturnValue(false);
     logErrorSpy = spyOn(logModule, "logError").mockImplementation(() => {});
     exitWithSpy = spyOn(exitModule, "exitWith").mockImplementation(
-      (): Promise<never> => {
+      async (): Promise<never> => {
         throw new Error("process.exit");
       }
     );
@@ -212,7 +223,7 @@ describe("telemetry enable", () => {
     setTelemetryEnabledSpy.mockRejectedValue(new Error("disk full"));
 
     const program = makeProgram();
-    await expect(
+    expect(
       program.parseAsync(["node", "test", "telemetry", "enable"])
     ).rejects.toThrow("process.exit");
 
@@ -226,7 +237,7 @@ describe("telemetry enable", () => {
     setTelemetryEnabledSpy.mockRejectedValue(exitPromptError);
 
     const program = makeProgram();
-    await expect(
+    expect(
       program.parseAsync(["node", "test", "telemetry", "enable"])
     ).rejects.toThrow("prompt cancelled");
 
@@ -239,12 +250,16 @@ describe("telemetry enable", () => {
 // ---------------------------------------------------------------------------
 
 describe("telemetry disable", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let setTelemetryEnabledSpy: ReturnType<typeof spyOn>;
-  let trackPreferenceChangeSpy: ReturnType<typeof spyOn>;
-  let flushTelemetrySpy: ReturnType<typeof spyOn>;
-  let logErrorSpy: ReturnType<typeof spyOn>;
-  let exitWithSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let setTelemetryEnabledSpy: Mock<
+    typeof telemetryConfigModule.setTelemetryEnabled
+  >;
+  let trackPreferenceChangeSpy: Mock<
+    typeof telemetryModule.trackTelemetryPreferenceChange
+  >;
+  let flushTelemetrySpy: Mock<typeof telemetryModule.flushTelemetry>;
+  let logErrorSpy: Mock<typeof logModule.logError>;
+  let exitWithSpy: Mock<typeof exitModule.exitWith>;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});
@@ -262,7 +277,7 @@ describe("telemetry disable", () => {
     ).mockReturnValue(Promise.resolve());
     logErrorSpy = spyOn(logModule, "logError").mockImplementation(() => {});
     exitWithSpy = spyOn(exitModule, "exitWith").mockImplementation(
-      (): Promise<never> => {
+      async (): Promise<never> => {
         throw new Error("process.exit");
       }
     );
@@ -289,13 +304,11 @@ describe("telemetry disable", () => {
     trackPreferenceChangeSpy.mockImplementation(() => {
       callOrder.push("track");
     });
-    flushTelemetrySpy.mockImplementation(() => {
+    flushTelemetrySpy.mockImplementation(async () => {
       callOrder.push("flush");
-      return Promise.resolve();
     });
-    setTelemetryEnabledSpy.mockImplementation(() => {
+    setTelemetryEnabledSpy.mockImplementation(async () => {
       callOrder.push("disable");
-      return Promise.resolve();
     });
 
     const program = makeProgram();
@@ -308,7 +321,7 @@ describe("telemetry disable", () => {
     setTelemetryEnabledSpy.mockRejectedValue(new Error("permission denied"));
 
     const program = makeProgram();
-    await expect(
+    expect(
       program.parseAsync(["node", "test", "telemetry", "disable"])
     ).rejects.toThrow("process.exit");
 
@@ -322,7 +335,7 @@ describe("telemetry disable", () => {
     setTelemetryEnabledSpy.mockRejectedValue(exitPromptError);
 
     const program = makeProgram();
-    await expect(
+    expect(
       program.parseAsync(["node", "test", "telemetry", "disable"])
     ).rejects.toThrow("prompt cancelled");
 

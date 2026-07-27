@@ -6,14 +6,36 @@
  * comment or string literal that merely mentions `.scan()` is not a match.
  */
 
+/** Genuinely narrows to an ESTree node — every real node carries `type`. */
+function isEsTreeNode(value: unknown): value is EsTreeNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
+}
+
+/** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */
+function asEsTreeNode(value: unknown): EsTreeNode | undefined {
+  return isEsTreeNode(value) ? value : undefined;
+}
+
+/** Narrow an unknown value to an array of EsTreeNodes, dropping non-nodes. */
+function asEsTreeNodeArray(value: unknown): EsTreeNode[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is EsTreeNode => isEsTreeNode(item))
+    : [];
+}
+
 /** True for `<expr>.scan(...)` -- a non-computed `.scan` member call. */
 function isScanCall(node: EsTreeNode): boolean {
   if (node.type !== "CallExpression") return false;
-  const callee = node.callee as EsTreeNode | undefined;
+  const callee = asEsTreeNode(node.callee);
   if (callee?.type !== "MemberExpression" || callee.computed === true) {
     return false;
   }
-  const property = callee.property as EsTreeNode | undefined;
+  const property = asEsTreeNode(callee.property);
   return property?.type === "Identifier" && property.name === "scan";
 }
 
@@ -24,23 +46,19 @@ function isScanCall(node: EsTreeNode): boolean {
  * be `true` -- `dot: false` reproduces the exact bug this ADR prevents.
  */
 function hasDotOption(call: EsTreeNode): boolean {
-  const args = (call.arguments as EsTreeNode[] | undefined) ?? [];
+  const args = asEsTreeNodeArray(call.arguments);
   return args.some((arg) => {
     if (arg.type !== "ObjectExpression") return false;
-    const properties = (arg.properties as EsTreeNode[] | undefined) ?? [];
+    const properties = asEsTreeNodeArray(arg.properties);
     return properties.some((prop) => {
       if (prop.type !== "Property" || prop.computed === true) return false;
-      const key = prop.key as
-        | (EsTreeNode & { name?: unknown; value?: unknown })
-        | undefined;
+      const key = asEsTreeNode(prop.key);
       const isDotKey =
         key?.type === "Identifier"
           ? key.name === "dot"
           : key?.type === "Literal" && key.value === "dot";
       if (!isDotKey) return false;
-      const value = prop.value as
-        | (EsTreeNode & { value?: unknown })
-        | undefined;
+      const value = asEsTreeNode(prop.value);
       return value?.type !== "Literal" || value.value === true;
     });
   });

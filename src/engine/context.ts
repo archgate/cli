@@ -80,11 +80,11 @@ export function briefAdr(
     rules: adr.frontmatter.rules,
   };
 
-  if (!options?.briefings) return briefing;
+  if (options?.briefings !== true) return briefing;
 
-  const maxChars = options?.maxSectionChars ?? DEFAULT_MAX_SECTION_CHARS;
+  const maxChars = options.maxSectionChars ?? DEFAULT_MAX_SECTION_CHARS;
   const sections = extractAdrSections(adr.body, BRIEFED_SECTIONS);
-  const decision = truncateSection(sections["Decision"], id, maxChars);
+  const decision = truncateSection(sections.Decision, id, maxChars);
   const dosAndDonts = truncateSection(
     sections["Do's and Don'ts"],
     id,
@@ -222,9 +222,9 @@ export async function buildReviewContext(
   const base = options?.base;
   const rawChangedFiles = staged
     ? await getStagedFiles(projectRoot)
-    : base
-      ? await getFilesChangedSinceRef(projectRoot, base)
-      : await getChangedFiles(projectRoot);
+    : base === undefined
+      ? await getChangedFiles(projectRoot)
+      : await getFilesChangedSinceRef(projectRoot, base);
 
   const truncatedFiles = maxFiles > 0 && rawChangedFiles.length > maxFiles;
   const allChangedFiles = truncatedFiles
@@ -235,11 +235,11 @@ export async function buildReviewContext(
     maxSectionChars,
     briefings: options?.briefings,
   });
-  if (options?.domain)
+  if (options?.domain !== undefined)
     domains = domains.filter((d) => d.domain === options.domain);
 
   let checkSummary: ReportSummary | null = null;
-  if (options?.runChecks) {
+  if (options?.runChecks === true) {
     const loadResults = await loadRuleAdrs(projectRoot);
     if (loadResults.length > 0) {
       const checkResult = await runChecks(projectRoot, loadResults, {

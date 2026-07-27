@@ -18,7 +18,7 @@ export const VscodeSettingsSchema = z
   .object({
     "chat.plugins.marketplaces": z.array(z.string()).optional().catch([]),
   })
-  .passthrough();
+  .loose();
 
 type VscodeUserSettings = z.infer<typeof VscodeSettingsSchema>;
 
@@ -92,7 +92,7 @@ export async function getVscodeUserSettingsPath(): Promise<string> {
   // WSL: VS Code runs on the Windows side, so resolve Windows AppData path
   if (isWSL()) {
     const winHome = await getWindowsHomeDirFromWSL();
-    if (winHome) {
+    if (winHome !== null && winHome !== "") {
       return join(
         winHome,
         "AppData",
@@ -122,12 +122,16 @@ export async function configureVscodeSettings(
 ): Promise<string> {
   const vscodeDir = join(projectRoot, ".vscode");
 
-  if (marketplaceUrl) {
+  if (marketplaceUrl !== undefined && marketplaceUrl !== "") {
     await addMarketplaceToUserSettings(marketplaceUrl);
   }
 
   // Only create .vscode/ dir when there's a reason to (marketplace URL present)
-  if (marketplaceUrl && !existsSync(vscodeDir)) {
+  if (
+    marketplaceUrl !== undefined &&
+    marketplaceUrl !== "" &&
+    !existsSync(vscodeDir)
+  ) {
     mkdirSync(vscodeDir, { recursive: true });
   }
 

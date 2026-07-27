@@ -22,7 +22,7 @@ const ALLOWED_LICENSES = new Set([
 ]);
 
 function isAllowed(license: string | undefined): boolean {
-  if (!license) return false;
+  if (license === undefined || license === "") return false;
   if (ALLOWED_LICENSES.has(license)) return true;
 
   const normalized = license.trim().replace(/^\(/u, "").replace(/\)$/u, "");
@@ -69,10 +69,14 @@ export default {
             try {
               const depPkg = await ctx.readJSON(pkgPath);
               const name = extractPackageName(pkgPath);
-              return {
-                dep: name,
-                license: depPkg.license as string | undefined,
-              };
+              const license =
+                typeof depPkg === "object" &&
+                depPkg !== null &&
+                "license" in depPkg &&
+                typeof depPkg.license === "string"
+                  ? depPkg.license
+                  : undefined;
+              return { dep: name, license };
             } catch {
               return null;
             }

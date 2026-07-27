@@ -64,26 +64,47 @@ let repoContextSnapshot: RepoContext | null = null;
  * a self-hosted runner is load-bearing context for understanding usage.
  */
 function detectCiProvider(): string | null {
-  if (Bun.env.GITHUB_ACTIONS) return "github-actions";
-  if (Bun.env.GITLAB_CI) return "gitlab-ci";
-  if (Bun.env.CIRCLECI) return "circleci";
-  if (Bun.env.TRAVIS) return "travis";
-  if (Bun.env.BUILDKITE) return "buildkite";
-  if (Bun.env.JENKINS_URL || Bun.env.JENKINS_HOME) return "jenkins";
-  if (Bun.env.BITBUCKET_BUILD_NUMBER) return "bitbucket-pipelines";
-  if (Bun.env.TF_BUILD) return "azure-pipelines";
-  if (Bun.env.TEAMCITY_VERSION) return "teamcity";
-  if (Bun.env.CODEBUILD_BUILD_ID) return "aws-codebuild";
-  if (Bun.env.CI) return "other";
+  if (Bun.env.GITHUB_ACTIONS !== undefined && Bun.env.GITHUB_ACTIONS !== "")
+    return "github-actions";
+  if (Bun.env.GITLAB_CI !== undefined && Bun.env.GITLAB_CI !== "")
+    return "gitlab-ci";
+  if (Bun.env.CIRCLECI !== undefined && Bun.env.CIRCLECI !== "")
+    return "circleci";
+  if (Bun.env.TRAVIS !== undefined && Bun.env.TRAVIS !== "") return "travis";
+  if (Bun.env.BUILDKITE !== undefined && Bun.env.BUILDKITE !== "")
+    return "buildkite";
+  if (
+    (Bun.env.JENKINS_URL !== undefined && Bun.env.JENKINS_URL !== "") ||
+    (Bun.env.JENKINS_HOME !== undefined && Bun.env.JENKINS_HOME !== "")
+  )
+    return "jenkins";
+  if (
+    Bun.env.BITBUCKET_BUILD_NUMBER !== undefined &&
+    Bun.env.BITBUCKET_BUILD_NUMBER !== ""
+  )
+    return "bitbucket-pipelines";
+  if (Bun.env.TF_BUILD !== undefined && Bun.env.TF_BUILD !== "")
+    return "azure-pipelines";
+  if (Bun.env.TEAMCITY_VERSION !== undefined && Bun.env.TEAMCITY_VERSION !== "")
+    return "teamcity";
+  if (
+    Bun.env.CODEBUILD_BUILD_ID !== undefined &&
+    Bun.env.CODEBUILD_BUILD_ID !== ""
+  )
+    return "aws-codebuild";
+  if (Bun.env.CI !== undefined && Bun.env.CI !== "") return "other";
   return null;
 }
 
 function detectShell(): string | null {
   const shell = Bun.env.SHELL;
-  if (shell) return basename(shell);
+  if (shell !== undefined && shell !== "") return basename(shell);
   // PowerShell / cmd.exe don't expose SHELL — fall back to PSModulePath / ComSpec
-  if (Bun.env.PSModulePath) return "powershell";
-  if (Bun.env.ComSpec) return basename(Bun.env.ComSpec).toLowerCase();
+  if (Bun.env.PSModulePath !== undefined && Bun.env.PSModulePath !== "")
+    return "powershell";
+  const comSpec = Bun.env.ComSpec;
+  if (comSpec !== undefined && comSpec !== "")
+    return basename(comSpec).toLowerCase();
   return null;
 }
 
@@ -122,7 +143,7 @@ function getStaticProperties(): Record<string, unknown> {
     // --- Environment ---
     is_ci: Boolean(Bun.env.CI),
     ci_provider: detectCiProvider(),
-    is_tty: Boolean(process.stdout.isTTY),
+    is_tty: process.stdout.isTTY,
     is_wsl: isWSL,
     shell: detectShell(),
     locale: detectLocale(),
@@ -178,7 +199,7 @@ export async function initTelemetry(): Promise<void> {
     .then((ctx) => {
       repoContextSnapshot = ctx;
     })
-    .catch((err) => {
+    .catch((err: unknown) => {
       logDebug("Repo context resolution failed (ignored):", String(err));
     });
 
@@ -207,13 +228,13 @@ export async function initTelemetry(): Promise<void> {
           logDebug("Telemetry fetch failed (silently ignored):", String(err));
           // Report to Sentry so we can track how often users hit TLS /
           // proxy / network issues — but never surface it to the user.
-          captureException(err, { source: "posthog-fetch", url: String(url) });
+          captureException(err, { source: "posthog-fetch", url });
           // Return a synthetic success so the SDK removes events from its
           // queue instead of retrying into the same broken network path.
           return {
             status: 200,
-            text: () => Promise.resolve("ok"),
-            json: () => Promise.resolve({}),
+            text: async () => "ok",
+            json: async () => ({}),
           };
         }
       },

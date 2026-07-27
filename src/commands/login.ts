@@ -114,7 +114,8 @@ export function registerLoginCommand(program: Command) {
 }
 
 function printNextStep(): void {
-  if (findProjectRoot()) {
+  const projectRoot = findProjectRoot();
+  if (projectRoot !== null && projectRoot !== "") {
     console.log(
       "Run `archgate check` to validate your project against its ADRs."
     );

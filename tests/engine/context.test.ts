@@ -22,7 +22,7 @@ function makeAdr(
     frontmatter: {
       id: "TEST-001",
       title: "Test ADR",
-      domain: "architecture" as AdrDomain,
+      domain: "architecture",
       rules: false,
       ...overrides,
     },
@@ -36,7 +36,7 @@ describe("extractAdrSections", () => {
     const body =
       "## Context\nSome context.\n\n## Decision\nWe decided X.\nIt applies to all.\n\n## Consequences\nWorks great.";
     const result = extractAdrSections(body, ["Decision"]);
-    expect(result["Decision"]).toBe("We decided X.\nIt applies to all.");
+    expect(result.Decision).toBe("We decided X.\nIt applies to all.");
   });
 
   test("extracts Do's and Don'ts section including subsections", () => {
@@ -55,21 +55,21 @@ describe("extractAdrSections", () => {
       "Decision",
       "Do's and Don'ts",
     ]);
-    expect(result["Decision"]).toBe("");
+    expect(result.Decision).toBe("");
     expect(result["Do's and Don'ts"]).toBe("");
   });
 
   test("handles section at end of file (no trailing heading)", () => {
     const body = "## Context\nText.\n\n## Decision\nFinal text.\nMore detail.";
     const result = extractAdrSections(body, ["Decision"]);
-    expect(result["Decision"]).toBe("Final text.\nMore detail.");
+    expect(result.Decision).toBe("Final text.\nMore detail.");
   });
 
   test("matches section names case-insensitively", () => {
     const result = extractAdrSections("## decision\nLowercase content.", [
       "Decision",
     ]);
-    expect(result["Decision"]).toBe("Lowercase content.");
+    expect(result.Decision).toBe("Lowercase content.");
   });
 });
 

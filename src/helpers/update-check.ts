@@ -52,7 +52,7 @@ export async function checkForUpdatesIfNeeded(
     // slow network never extends exit time. The full 15s default is
     // reserved for the explicit `archgate upgrade` path.
     const tag = await fetchLatestGitHubVersion(5_000);
-    if (!tag) {
+    if (tag === null || tag === "") {
       logDebug("Update check failed — could not fetch latest GitHub release");
       return null;
     }
@@ -63,8 +63,8 @@ export async function checkForUpdatesIfNeeded(
     await Bun.write(cacheFile, String(Date.now()));
 
     const order = semver.order(currentVersion, latestVersion);
-    if (order === null || order >= 0) {
-      // current >= latest or unparseable
+    if (order >= 0) {
+      // current >= latest
       logDebug("Already up-to-date:", currentVersion, ">=", latestVersion);
       return null;
     }
@@ -81,15 +81,13 @@ export async function checkForUpdatesIfNeeded(
  * shouldPerformUpdateCheck(). Resolves to a notice string, or null if the
  * check didn't run or found nothing.
  */
-export function maybeCheckForUpdates(
+export async function maybeCheckForUpdates(
   currentVersion: string
 ): Promise<string | null> {
   const shouldCheck = shouldPerformUpdateCheck({
     argv: process.argv,
-    isTTY: process.stdout.isTTY === true,
+    isTTY: process.stdout.isTTY,
     ci: Boolean(Bun.env.CI),
   });
-  return shouldCheck
-    ? checkForUpdatesIfNeeded(currentVersion)
-    : Promise.resolve(null);
+  return shouldCheck ? checkForUpdatesIfNeeded(currentVersion) : null;
 }

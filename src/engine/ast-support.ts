@@ -4,11 +4,19 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import type { AstLanguage, EsTreeNode, PythonAstNode } from "../formats/rules";
 import { logDebug } from "../helpers/log";
 import { isWindows } from "../helpers/platform";
 import { UserError } from "../helpers/user-error";
 import { getFileAtRev } from "./git-files";
+
+/** A plain object (not array, not null) — one shape AST-subprocess output can take. */
+const PlainObjectSchema = z.record(z.string(), z.unknown());
+
+/** A plain object or array — the two shapes AST-subprocess output can take. */
+const AstNodeLikeSchema = z.union([PlainObjectSchema, z.array(z.unknown())]);
 
 /** Guardrail-2 failure: the file's name does not match the requested language. */
 export function implausibleLanguageError(
@@ -233,7 +241,9 @@ export async function probeInterpreter(
       });
       let probeTimer: ReturnType<typeof setTimeout> | undefined;
       const probeTimeout = new Promise<"timeout">((resolve) => {
-        probeTimer = setTimeout(() => resolve("timeout"), PROBE_TIMEOUT_MS);
+        probeTimer = setTimeout(() => {
+          resolve("timeout");
+        }, PROBE_TIMEOUT_MS);
       });
       // oxlint-disable-next-line no-await-in-loop -- candidates probed in priority order
       const raceResult = await Promise.race([
@@ -283,7 +293,9 @@ export async function runAstSubprocess(
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<"timeout">((resolve) => {
-    timer = setTimeout(() => resolve("timeout"), timeoutMs);
+    timer = setTimeout(() => {
+      resolve("timeout");
+    }, timeoutMs);
   });
   const result = await Promise.race([proc.exited, timeout]).finally(() => {
     if (timer) clearTimeout(timer);
@@ -298,6 +310,12 @@ export async function runAstSubprocess(
   return { exitCode: result, stdout, stderr };
 }
 
+function isAstNodeLike(
+  value: unknown
+): value is Record<string, unknown> | unknown[] {
+  return AstNodeLikeSchema.safeParse(value).success;
+}
+
 /**
  * Parse an AST subprocess's stdout as JSON, mapping malformed output to the
  * same throw contract as any other `ctx.ast()` failure. Subprocess stdout is
@@ -310,13 +328,18 @@ export function parseAstJson(
   path: string,
   language: string
 ): Record<string, unknown> | unknown[] {
-  try {
-    return JSON.parse(stdout);
-  } catch {
-    throw new Error(
+  const invalidOutput = () =>
+    new Error(
       `Failed to parse "${path}" as ${language}: interpreter produced invalid JSON output`
     );
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    throw invalidOutput();
   }
+  if (!isAstNodeLike(parsed)) throw invalidOutput();
+  return parsed;
 }
 
 /**
@@ -334,7 +357,7 @@ export async function readBaseSourceOrThrow(
   relPath: string,
   displayPath: string
 ): Promise<string> {
-  if (!baseRev) {
+  if (baseRev === null || baseRev === "") {
     throw new Error(
       `ctx.ast("${displayPath}", …, { rev: "base" }) needs a base revision, but none is resolved — run \`archgate check --base <ref>\``
     );
@@ -426,10 +449,15 @@ export function finalizeAstResult(
   if (!hasEnvelope || !wantComments || Array.isArray(parsed)) {
     return parsed;
   }
-  const tree = parsed._tree as Record<string, unknown> | unknown[] | undefined;
-  if (!tree) return parsed;
-  (tree as { comments?: unknown }).comments = parsed.comments;
+  const tree = parsed._tree;
+  if (!isAstNodeLike(tree)) return parsed;
+  Object.assign(tree, { comments: parsed.comments });
   return tree;
+}
+
+/** Non-array object, for reading a node's own keyed fields. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return PlainObjectSchema.safeParse(value).success;
 }
 
 /**
@@ -465,13 +493,15 @@ export function findAstNodes(
   const pending: unknown[] = [tree];
   while (pending.length > 0) {
     const node = pending.pop();
-    if (!node || typeof node !== "object" || visited.has(node)) continue;
+    if (typeof node !== "object" || node === null || visited.has(node))
+      continue;
     visited.add(node);
     if (Array.isArray(node)) {
       for (let i = node.length - 1; i >= 0; i--) pending.push(node[i]);
       continue;
     }
-    const record = node as Record<string, unknown>;
+    if (!isPlainObject(node)) continue;
+    const record = node;
     // Prefer `_type` (Python) — a Python node may also carry an unrelated
     // `type` FIELD (e.g. ExceptHandler's exception type), never vice versa.
     const discriminant =
@@ -481,6 +511,10 @@ export function findAstNodes(
           ? record.type
           : undefined;
     if (discriminant !== undefined && wanted.has(discriminant)) {
+      // Matching `_type`/`type` against the caller's wanted list is the only
+      // verification a generic AST record can get short of a full per-node
+      // schema for every ESTree/PythonAst variant — genuinely unverifiable further.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       matches.push(record as EsTreeNode | PythonAstNode);
     }
     const values = Object.values(record);

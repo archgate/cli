@@ -13,6 +13,7 @@ import {
   buildSummary,
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
+import { rejectBlank } from "../helpers/cli-options";
 import { exitWith, handleCommandError } from "../helpers/exit";
 import { formatJSON, isAgentContext } from "../helpers/output";
 import { requireProjectRoot } from "../helpers/paths";
@@ -33,11 +34,18 @@ export function registerCheckCommand(program: Command) {
     .option("--json", "Output results as JSON")
     .option("--ci", "Output GitHub Actions annotations")
     .option("--staged", "Only check git-staged files")
-    .option(
-      "--base [ref]",
-      "Compare changed files against a base ref (auto-detects when omitted)"
+    .addOption(
+      new Option(
+        "--base [ref]",
+        "Compare changed files against a base ref (auto-detects when omitted)"
+      ).argParser(rejectBlank)
     )
-    .option("--adr <id>", "Only check rules from a specific ADR")
+    .addOption(
+      new Option(
+        "--adr <id>",
+        "Only check rules from a specific ADR"
+      ).argParser(rejectBlank)
+    )
     .option("--verbose", "Show passing rules and timing info")
     .addOption(maxWarningsOption)
     .argument("[files...]", "Only check rules relevant to these files")
@@ -68,7 +76,7 @@ export function registerCheckCommand(program: Command) {
         const loadResults = await loadRuleAdrs(projectRoot, opts.adr);
         const loadDurationMs = Math.round(performance.now() - loadStart);
 
-        const useJson = opts.json || (!opts.ci && isAgentContext());
+        const useJson = opts.json ?? (!opts.ci && isAgentContext());
 
         if (loadResults.length === 0) {
           if (useJson) {
@@ -100,7 +108,7 @@ export function registerCheckCommand(program: Command) {
         // Only read stdin when it's explicitly piped (e.g., `git diff --name-only | archgate check`).
         // When spawned by editors or in a pipe chain where stdin is /dev/null or absent,
         // attempting to read stdin blocks forever. Use a short timeout to detect this.
-        let filterFiles: string[] = files ?? [];
+        let filterFiles: string[] = files;
         if (!process.stdin.isTTY) {
           try {
             const stdin = await Promise.race([

@@ -11,7 +11,6 @@ import {
 } from "../../src/engine/ast-support";
 import type { LoadResult } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
-import type { AdrDocument } from "../../src/formats/adr";
 import type {
   CommentToken,
   EsTreeProgram,
@@ -39,7 +38,7 @@ function makeLoadedAdr(ruleSet: RuleSet): LoadResult {
         },
         body: "",
         filePath: "/test.md",
-      } as AdrDocument,
+      },
       ruleSet,
     },
   };
@@ -53,7 +52,9 @@ describe("ctx.ast({ comments: true })", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
   });
 
-  afterEach(() => safeRmSync(dir));
+  afterEach(() => {
+    safeRmSync(dir);
+  });
 
   test("typescript: extracts line and block comments with stripped values and original-source loc", async () => {
     writeFileSync(
@@ -195,7 +196,7 @@ describe("ctx.ast({ comments: true })", () => {
     expect(captured.hasComments).toBe(false);
   });
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "ruby: collects # line comments and =begin/=end block comments with value and loc",
     async () => {
       await Bun.write(
@@ -245,7 +246,7 @@ describe("ctx.ast({ comments: true })", () => {
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "ruby: no comments property is attached without the flag",
     async () => {
       await Bun.write(join(dir, "src/f.rb"), "# a comment\nx = 1\n");
@@ -268,7 +269,7 @@ describe("ctx.ast({ comments: true })", () => {
     }
   );
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: collects # comments via tokenize with stripped value and position",
     async () => {
       writeFileSync(
@@ -309,7 +310,7 @@ describe("ctx.ast({ comments: true })", () => {
     }
   );
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: base-revision parse can also collect comments",
     async () => {
       await git(["init", "--initial-branch=main"], dir);

@@ -49,15 +49,18 @@ function ensureNewlinePatches(): void {
 // ---------------------------------------------------------------------------
 
 function patchStreamWrite(stream: NodeJS.WriteStream): void {
-  const original = stream.write;
+  // Bound so Reflect.apply's generic can resolve a concrete `boolean` return
+  // instead of falling back to `any` for the overloaded, unbound method.
+  const original = stream.write.bind(stream);
   stream.write = new Proxy(original, {
-    apply(target, thisArg, args: unknown[]) {
+    apply(target, thisArg, args: unknown[]): boolean {
       if (typeof args[0] === "string") {
         args[0] = toCrlf(args[0]);
       }
-      return Reflect.apply(target, thisArg, args);
+      const result: unknown = Reflect.apply(target, thisArg, args);
+      return typeof result === "boolean" ? result : Boolean(result);
     },
-    get(target, prop, receiver) {
+    get(target, prop, receiver): unknown {
       if (prop === "name") return "patchedWrite";
       return Reflect.get(target, prop, receiver);
     },
@@ -75,14 +78,12 @@ function patchStreamWrite(stream: NodeJS.WriteStream): void {
  */
 function patchConsoleMethods(): void {
   for (const method of ["log", "info"] as const) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    console[method] = (...args: any[]) => {
+    console[method] = (...args: unknown[]) => {
       process.stdout.write(format(...args) + "\n");
     };
   }
   for (const method of ["error", "warn", "debug"] as const) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    console[method] = (...args: any[]) => {
+    console[method] = (...args: unknown[]) => {
       process.stderr.write(format(...args) + "\n");
     };
   }

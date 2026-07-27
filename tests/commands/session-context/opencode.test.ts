@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { Database } from "bun:sqlite";
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -50,11 +58,11 @@ describe("registerOpencodeSessionContextCommand", () => {
 describe("opencode action handler", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let readSpy: ReturnType<typeof spyOn>;
-  let listSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof process.exit>;
+  let readSpy: Mock<typeof opencodeHelpers.readOpencodeSession>;
+  let listSpy: Mock<typeof opencodeHelpers.listOpencodeSessions>;
 
   /** Minimal complete summary for the default happy-path spy. */
   function emptySummary() {
@@ -105,59 +113,58 @@ describe("opencode action handler", () => {
   }
 
   test("prints JSON on successful result", async () => {
+    // The handler only JSON-serializes `data` verbatim, so a fake shape
+    // (not the real OpencodeSessionSummary) is enough to exercise passthrough.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     readSpy.mockReturnValue({
       ok: true,
       data: { entries: [{ role: "assistant", content: "done" }], total: 1 },
-    });
+    } as unknown as ReturnType<typeof opencodeHelpers.readOpencodeSession>);
 
     await makeProgram().parseAsync(["node", "session-context", "opencode"]);
 
     expect(logSpy).toHaveBeenCalled();
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("");
-    const parsed = JSON.parse(output);
-    expect(parsed.total).toBe(1);
+    const output = logSpy.mock.calls.map((c) => String(c[0])).join("");
+    const parsed: unknown = JSON.parse(output);
+    // Shape matches the fixture printed above; JSON.parse is untyped by nature.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    expect((parsed as { total: number }).total).toBe(1);
   });
 
-  test("exits 1 when reader returns error result", async () => {
+  test("exits 1 when reader returns error result", () => {
     readSpy.mockReturnValue({ ok: false, error: "No opencode session found" });
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "opencode"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const errorOutput = errorSpy.mock.calls
-      .map((c: unknown[]) => c.join(" "))
-      .join(" ");
+    const errorOutput = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(errorOutput).toContain("No opencode session found");
   });
 
-  test("exits 2 when unexpected error is thrown", async () => {
+  test("exits 2 when unexpected error is thrown", () => {
     readSpy.mockImplementation(() => {
       throw new Error("ENOENT: no such file");
     });
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "opencode"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(2);
-    const errorOutput = errorSpy.mock.calls
-      .map((c: unknown[]) => c.join(" "))
-      .join(" ");
+    const errorOutput = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(errorOutput).toContain("ENOENT: no such file");
   });
 
-  test("re-throws ExitPromptError", async () => {
+  test("re-throws ExitPromptError", () => {
     const exitPromptError = new Error("prompt cancelled");
     exitPromptError.name = "ExitPromptError";
     readSpy.mockImplementation(() => {
       throw exitPromptError;
     });
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "opencode"])
     ).rejects.toThrow("prompt cancelled");
 
@@ -165,7 +172,7 @@ describe("opencode action handler", () => {
   });
 
   test("passes findProjectRoot result to reader", async () => {
-    readSpy.mockReturnValue({ ok: true, data: {} });
+    readSpy.mockReturnValue({ ok: true, data: emptySummary() });
 
     await makeProgram().parseAsync(["node", "session-context", "opencode"]);
 
@@ -186,23 +193,22 @@ describe("opencode action handler", () => {
     ]);
 
     expect(listSpy).toHaveBeenCalledWith(tempDir);
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("");
-    expect(JSON.parse(output).sessions[0].id).toBe("abc");
+    const output = logSpy.mock.calls.map((c) => String(c[0])).join("");
+    // Shape matches the fixture printed above; JSON.parse is untyped by nature.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const parsed = JSON.parse(output) as { sessions: Array<{ id: string }> };
+    expect(parsed.sessions[0]?.id).toBe("abc");
   });
 
-  test("list subcommand exits 1 on error result", async () => {
+  test("list subcommand exits 1 on error result", () => {
     listSpy.mockReturnValue({ ok: false, error: "store missing" });
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "session-context", "opencode", "list"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const errorOutput = errorSpy.mock.calls
-      .map((c: unknown[]) => c.join(" "))
-      .join(" ");
+    const errorOutput = errorSpy.mock.calls.map((c) => c.join(" ")).join(" ");
     expect(errorOutput).toContain("store missing");
   });
 
@@ -224,10 +230,10 @@ describe("opencode action handler", () => {
     });
   });
 
-  test("show subcommand exits 1 on error result", async () => {
+  test("show subcommand exits 1 on error result", () => {
     readSpy.mockReturnValue({ ok: false, error: "Session not found: abc123" });
 
-    await expect(
+    expect(
       makeProgram().parseAsync([
         "node",
         "session-context",
@@ -311,8 +317,8 @@ describe("opencode list/show (CLI subprocess)", () => {
   function seedOpencode(): void {
     mkdirSync(join(tempHome, "xdg", "opencode"), { recursive: true });
     const db = new Database(join(tempHome, "xdg", "opencode", "opencode.db"));
-    db.exec("PRAGMA journal_mode = DELETE");
-    db.exec(`
+    db.run("PRAGMA journal_mode = DELETE");
+    db.run(`
       CREATE TABLE session (
         id TEXT PRIMARY KEY, parent_id TEXT,
         directory TEXT NOT NULL DEFAULT '', title TEXT NOT NULL DEFAULT '',
@@ -371,6 +377,8 @@ describe("opencode list/show (CLI subprocess)", () => {
     );
 
     expect(exitCode).toBe(0);
+    // Real CLI stdout under test; shape is asserted below, not schema-validated.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const parsed = JSON.parse(stdout) as {
       sessions: Array<{ id: string; title: string; updatedAt: string }>;
     };
@@ -387,9 +395,10 @@ describe("opencode list/show (CLI subprocess)", () => {
       env
     );
     expect(shown.exitCode).toBe(0);
-    expect((JSON.parse(shown.stdout) as { sessionId: string }).sessionId).toBe(
-      "ses_child"
-    );
+    // Real CLI stdout under test; shape is asserted below, not schema-validated.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const shownParsed = JSON.parse(shown.stdout) as { sessionId: string };
+    expect(shownParsed.sessionId).toBe("ses_child");
 
     const rooted = await runCli(
       ["session-context", "opencode", "show", "ses_child", "--root"],
@@ -397,9 +406,9 @@ describe("opencode list/show (CLI subprocess)", () => {
       env
     );
     expect(rooted.exitCode).toBe(0);
-    expect((JSON.parse(rooted.stdout) as { sessionId: string }).sessionId).toBe(
-      "ses_parent"
-    );
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const rootedParsed = JSON.parse(rooted.stdout) as { sessionId: string };
+    expect(rootedParsed.sessionId).toBe("ses_parent");
   });
 
   test("show with an unknown id exits 1", async () => {

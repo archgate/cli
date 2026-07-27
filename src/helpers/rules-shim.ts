@@ -412,7 +412,7 @@ export async function ensureRulesShim(
   // When ADRs live in a custom directory, the `.rules.ts` files use
   // `/// <reference path="../rules.d.ts" />` which resolves relative to
   // their own directory. Write a shim to the parent of the custom ADR dir.
-  if (customAdrsDir) {
+  if (customAdrsDir !== undefined && customAdrsDir !== "") {
     const defaultAdrsDir = join(projectRoot, ".archgate", "adrs");
     if (customAdrsDir !== defaultAdrsDir) {
       const customDtsPath = join(dirname(customAdrsDir), "rules.d.ts");

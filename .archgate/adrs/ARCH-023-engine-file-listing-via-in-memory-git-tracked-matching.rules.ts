@@ -12,14 +12,29 @@ const SCAN_ALLOWED_FILES = new Set([
   "src/engine/git-files.ts",
 ]);
 
+/** Genuinely narrows to an ESTree node — every real node carries `type`. */
+function isEsTreeNode(value: unknown): value is EsTreeNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
+}
+
+/** Safely narrow a value to EsTreeNode, or undefined if it isn't one. */
+function asEsTreeNode(value: unknown): EsTreeNode | undefined {
+  return isEsTreeNode(value) ? value : undefined;
+}
+
 /** True for `<expr>.scan(...)` -- a non-computed `.scan` member call. */
 function isScanCall(node: EsTreeNode): boolean {
   if (node.type !== "CallExpression") return false;
-  const callee = node.callee as EsTreeNode | undefined;
+  const callee = asEsTreeNode(node.callee);
   if (callee?.type !== "MemberExpression" || callee.computed === true) {
     return false;
   }
-  const property = callee.property as EsTreeNode | undefined;
+  const property = asEsTreeNode(callee.property);
   return property?.type === "Identifier" && property.name === "scan";
 }
 

@@ -108,7 +108,7 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   // Cursor plugin is embedded in the VSIX — no project file to detect.
   // Use cursor CLI availability as a proxy (prerequisite for install).
-  integrations.cursorPlugin = Boolean(editorMap.cursor);
+  integrations.cursorPlugin = editorMap.cursor;
 
   return {
     system: {
@@ -135,10 +135,10 @@ export async function runDoctor(): Promise<DoctorReport> {
       domains: projectCtx.domains,
     },
     editors: {
-      claude_cli: Boolean(editorMap.claude),
-      cursor_cli: Boolean(editorMap.cursor),
-      vscode_cli: Boolean(editorMap.vscode),
-      copilot_cli: Boolean(editorMap.copilot),
+      claude_cli: editorMap.claude,
+      cursor_cli: editorMap.cursor,
+      vscode_cli: editorMap.vscode,
+      copilot_cli: editorMap.copilot,
       git: gitCmd,
     },
     integrations: {

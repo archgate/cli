@@ -26,6 +26,9 @@ import {
 import { restoreEnv } from "../test-utils";
 
 function mockFetch(handler: () => Promise<Response>) {
+  // Deliberately incomplete fake: mock() can't reproduce fetch's full type
+  // (preconnect etc.), and only the callable shape is ever exercised.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
 }
 
@@ -92,34 +95,35 @@ describe("fetchLatestGitHubVersion", () => {
   });
 
   test("returns tag_name on success", async () => {
-    mockFetch(() =>
-      Promise.resolve({
+    mockFetch(async () => {
+      // Deliberately incomplete fake Response: only the fields
+      // fetchLatestGitHubVersion actually reads are given real values.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
         ok: true,
-        json: () => Promise.resolve({ tag_name: "v1.2.3" }),
-      } as Response)
-    );
+        json: async () => ({ tag_name: "v1.2.3" }),
+      } as Response;
+    });
 
     const result = await fetchLatestGitHubVersion();
     expect(result).toBe("v1.2.3");
   });
 
   test("returns null on non-ok response", async () => {
-    mockFetch(() =>
-      Promise.resolve({
-        ok: false,
-        status: 403,
-        json: () => Promise.resolve({}),
-      } as Response)
-    );
+    mockFetch(async () => {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return { ok: false, status: 403, json: async () => ({}) } as Response;
+    });
 
     const result = await fetchLatestGitHubVersion();
     expect(result).toBeNull();
   });
 
   test("returns null when tag_name is missing", async () => {
-    mockFetch(() =>
-      Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as Response)
-    );
+    mockFetch(async () => {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return { ok: true, json: async () => ({}) } as Response;
+    });
 
     const result = await fetchLatestGitHubVersion();
     expect(result).toBeNull();
@@ -132,7 +136,10 @@ describe("downloadReleaseBinary", () => {
   });
 
   test("throws on HTTP error response", async () => {
-    mockFetch(() => Promise.resolve({ ok: false, status: 404 } as Response));
+    mockFetch(async () => {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return { ok: false, status: 404 } as Response;
+    });
 
     const artifact = {
       name: "archgate-linux-x64",
@@ -140,7 +147,7 @@ describe("downloadReleaseBinary", () => {
       binaryName: "archgate",
     };
 
-    await expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
+    expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
       "Download failed (HTTP 404)"
     );
   });
@@ -161,16 +168,21 @@ describe("downloadReleaseBinary", () => {
     // First call: archive download (with streaming body)
     // Second call: checksum fetch (returns 404 — skipped)
     let callCount = 0;
-    globalThis.fetch = mock(() => {
+    // Deliberately incomplete fake Response/fetch: only the fields
+    // downloadReleaseBinary actually reads are given real values.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = mock(async () => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve({
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return {
           ok: true,
           headers: new Headers({ "content-length": String(totalSize) }),
           body: stream,
-        } as Response);
+        } as Response;
       }
-      return Promise.resolve({ ok: false, status: 404 } as Response);
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return { ok: false, status: 404 } as Response;
     }) as unknown as typeof fetch;
 
     const progressCalls: Array<{
@@ -214,16 +226,19 @@ describe("downloadReleaseBinary", () => {
     });
 
     let callCount = 0;
-    globalThis.fetch = mock(() => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = mock(async () => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve({
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return {
           ok: true,
           headers: new Headers(), // no content-length
           body: stream,
-        } as Response);
+        } as Response;
       }
-      return Promise.resolve({ ok: false, status: 404 } as Response);
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return { ok: false, status: 404 } as Response;
     }) as unknown as typeof fetch;
 
     const progressCalls: Array<{
@@ -254,20 +269,23 @@ describe("downloadReleaseBinary", () => {
     const archiveData = new Uint8Array([10, 20, 30, 40, 50]);
     const wrongHash = "0".repeat(64);
     let callCount = 0;
-    globalThis.fetch = mock(() => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = mock(async () => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve({
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return {
           ok: true,
-          arrayBuffer: () => Promise.resolve(archiveData.buffer as ArrayBuffer),
+          arrayBuffer: async () => archiveData.buffer,
           headers: new Headers(),
           body: null,
-        } as Response);
+        } as Response;
       }
-      return Promise.resolve({
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
         ok: true,
-        text: () => Promise.resolve(`${wrongHash}  archgate-linux-x64.tar.gz`),
-      } as Response);
+        text: async () => `${wrongHash}  archgate-linux-x64.tar.gz`,
+      } as Response;
     }) as unknown as typeof fetch;
 
     const artifact = {
@@ -275,7 +293,7 @@ describe("downloadReleaseBinary", () => {
       ext: ".tar.gz" as const,
       binaryName: "archgate",
     };
-    await expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
+    expect(downloadReleaseBinary("v1.0.0", artifact)).rejects.toThrow(
       "Checksum mismatch"
     );
   });
@@ -284,21 +302,23 @@ describe("downloadReleaseBinary", () => {
     const archiveData = new Uint8Array([10, 20, 30, 40, 50]);
     const correctHash = createHash("sha256").update(archiveData).digest("hex");
     let callCount = 0;
-    globalThis.fetch = mock(() => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = mock(async () => {
       callCount++;
       if (callCount === 1) {
-        return Promise.resolve({
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return {
           ok: true,
-          arrayBuffer: () => Promise.resolve(archiveData.buffer as ArrayBuffer),
+          arrayBuffer: async () => archiveData.buffer,
           headers: new Headers(),
           body: null,
-        } as Response);
+        } as Response;
       }
-      return Promise.resolve({
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
         ok: true,
-        text: () =>
-          Promise.resolve(`${correctHash}  archgate-linux-x64.tar.gz`),
-      } as Response);
+        text: async () => `${correctHash}  archgate-linux-x64.tar.gz`,
+      } as Response;
     }) as unknown as typeof fetch;
 
     const artifact = {
@@ -333,24 +353,27 @@ describe("downloadReleaseBinary", () => {
       const zipBuffer = readFileSync(zipPath);
       const correctHash = createHash("sha256").update(zipBuffer).digest("hex");
       let callCount = 0;
-      globalThis.fetch = mock(() => {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      globalThis.fetch = mock(async () => {
         callCount++;
         if (callCount === 1) {
           const ab = zipBuffer.buffer.slice(
             zipBuffer.byteOffset,
             zipBuffer.byteOffset + zipBuffer.byteLength
-          ) as ArrayBuffer;
-          return Promise.resolve({
+          );
+          // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+          return {
             ok: true,
-            arrayBuffer: () => Promise.resolve(ab),
+            arrayBuffer: async () => ab,
             headers: new Headers(),
             body: null,
-          } as Response);
+          } as Response;
         }
-        return Promise.resolve({
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return {
           ok: true,
-          text: () => Promise.resolve(`${correctHash}  archgate-win32-x64.zip`),
-        } as Response);
+          text: async () => `${correctHash}  archgate-win32-x64.zip`,
+        } as Response;
       }) as unknown as typeof fetch;
       const artifact = {
         name: "archgate-win32-x64",
@@ -492,7 +515,7 @@ describe("cleanupStaleBinary", () => {
       const tmpDir = mkdtempSync(join(tmpdir(), "archgate-cleanup-test-"));
       Bun.env.HOME = tmpDir;
 
-      await expect(cleanupStaleBinary()).resolves.toBeUndefined();
+      expect(cleanupStaleBinary()).resolves.toBeUndefined();
     }
   );
 });

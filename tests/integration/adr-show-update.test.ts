@@ -3,6 +3,8 @@
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { safeRmSync } from "../test-utils";
 import {
   runCli,
@@ -11,6 +13,8 @@ import {
   writeAdr,
   makeAdr,
 } from "./cli-harness";
+
+const UpdatedAdrJsonSchema = z.object({ id: z.string(), filePath: z.string() });
 
 let tempDir: string;
 
@@ -86,7 +90,7 @@ describe("adr update integration", () => {
       tempDir
     );
     expect(result.exitCode).toBe(0);
-    const parsed = JSON.parse(result.stdout);
+    const parsed = UpdatedAdrJsonSchema.parse(JSON.parse(result.stdout));
     expect(parsed.id).toBe("GEN-001");
     expect(parsed.filePath).toBeTruthy();
   });

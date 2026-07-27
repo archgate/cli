@@ -27,7 +27,8 @@ let cachedInstallMethod: string | null = null;
  * @returns One of `"binary"`, `"proto"`, `"local"`, or `"global-pm"`.
  */
 export function detectInstallMethod(): string {
-  if (cachedInstallMethod) return cachedInstallMethod;
+  if (cachedInstallMethod !== null && cachedInstallMethod !== "")
+    return cachedInstallMethod;
 
   // Compiled binary: process.execPath IS archgate (doesn't contain "bun")
   // Dev mode: process.execPath is the bun runtime, Bun.main is the script
@@ -104,7 +105,7 @@ export function getProjectContext(): ProjectContext {
 
     const domainSet = new Set<string>();
     for (const f of mdFiles) {
-      const match = f.match(/^([A-Z]+)-\d+/u);
+      const match = /^([A-Z]+)-\d+/u.exec(f);
       if (match) domainSet.add(match[1]);
     }
 

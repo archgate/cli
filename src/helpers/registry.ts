@@ -79,9 +79,10 @@ export function resolveSource(input: string): ResolvedSource {
   // 2. Full URL
   if (/^https?:\/\//u.test(base) || base.startsWith("git@")) {
     // Try to parse GitHub /tree/<ref>/<path> form
-    const ghMatch = base.match(
-      /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)$/u
-    );
+    const ghMatch =
+      /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)$/u.exec(
+        base
+      );
     if (ghMatch) {
       const [, org, repo, treeRef, path] = ghMatch;
       return {
@@ -148,7 +149,7 @@ export async function shallowClone(
   const tempDir = mkdtempSync(join(tmpdir(), "archgate-import-"));
 
   const args = ["git", "clone", "--depth", "1"];
-  if (ref) args.push("--branch", ref);
+  if (ref !== undefined && ref !== "") args.push("--branch", ref);
   args.push(repoUrl, tempDir);
 
   logDebug("Cloning:", args.join(" "));
@@ -162,8 +163,9 @@ export async function shallowClone(
 
   if (result.exitCode !== 0) {
     rmSync(tempDir, { recursive: true, force: true });
+    const refSuffix = ref !== undefined && ref !== "" ? ` (ref: ${ref})` : "";
     throw new UserError(
-      `Failed to clone ${repoUrl}${ref ? ` (ref: ${ref})` : ""}:\n${result.stderr.trim()}`
+      `Failed to clone ${repoUrl}${refSuffix}:\n${result.stderr.trim()}`
     );
   }
 

@@ -85,8 +85,12 @@ export async function initSentry(): Promise<void> {
       release: cliVersion,
       environment: Bun.env.NODE_ENV ?? "production",
       enabled: Bun.env.NODE_ENV !== "test",
-      // Do not send default PII (hostnames, IPs, etc.)
-      sendDefaultPii: false,
+      // No `dataCollection` override — SDK default (no `sendDefaultPii`) already
+      // excludes IP addresses (`dataCollection.userInfo` gates that, default
+      // false). Hostname is a separate knob: `includeServerName` defaults to
+      // `true` even with PII collection off, so it must be disabled explicitly
+      // — the SDK's own docs call this out as the CLI-app PII case.
+      includeServerName: false,
       // Drop user-initiated prompt cancellations (Ctrl+C)
       beforeSend(event) {
         const values = event.exception?.values;
@@ -94,8 +98,9 @@ export async function initSentry(): Promise<void> {
           values?.some(
             (v) =>
               v.type === "ExitPromptError" ||
-              v.value?.includes("force closed the prompt with SIGINT")
-          )
+              (v.value?.includes("force closed the prompt with SIGINT") ??
+                false)
+          ) === true
         ) {
           return null;
         }
@@ -109,7 +114,7 @@ export async function initSentry(): Promise<void> {
           os: runtime,
           arch: process.arch,
           is_ci: String(Boolean(Bun.env.CI)),
-          is_tty: String(Boolean(process.stdout.isTTY)),
+          is_tty: String(process.stdout.isTTY),
           install_method: detectInstallMethod(),
           install_path: getArchgatePath(),
         },
@@ -225,7 +230,9 @@ export async function flushSentry(timeoutMs = 2000): Promise<void> {
 /** Reset Sentry state. For testing only. */
 export function _resetSentry(): void {
   if (initialized && Sentry) {
-    Sentry.close();
+    // Fire-and-forget: this is a synchronous test-reset helper, not worth
+    // making async just to await SDK teardown.
+    void Sentry.close();
   }
   initialized = false;
   Sentry = null;

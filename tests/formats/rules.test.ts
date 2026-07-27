@@ -223,7 +223,7 @@ describe("PackageJson interface", () => {
 
   test("supports index signature for unknown fields", () => {
     const pkg: PackageJson = { customField: "value" };
-    expect(pkg["customField"]).toBe("value");
+    expect(pkg.customField).toBe("value");
   });
 });
 
@@ -231,12 +231,15 @@ describe("RuleReport interface", () => {
   test("has violation, warning, and info methods", () => {
     const violations: Array<{ message: string; severity: string }> = [];
     const report: RuleReport = {
-      violation: (detail) =>
-        violations.push({ message: detail.message, severity: "error" }),
-      warning: (detail) =>
-        violations.push({ message: detail.message, severity: "warning" }),
-      info: (detail) =>
-        violations.push({ message: detail.message, severity: "info" }),
+      violation: (detail) => {
+        violations.push({ message: detail.message, severity: "error" });
+      },
+      warning: (detail) => {
+        violations.push({ message: detail.message, severity: "warning" });
+      },
+      info: (detail) => {
+        violations.push({ message: detail.message, severity: "info" });
+      },
     };
 
     report.violation({ message: "Error found" });

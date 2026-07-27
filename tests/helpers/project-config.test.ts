@@ -48,34 +48,34 @@ describe("project-config", () => {
   });
 
   test("addCustomDomain rejects built-in domain names", async () => {
-    await expect(
-      addCustomDomain(projectRoot, "backend", "BE2")
-    ).rejects.toThrow(/built-in/u);
+    expect(addCustomDomain(projectRoot, "backend", "BE2")).rejects.toThrow(
+      /built-in/u
+    );
   });
 
   test("addCustomDomain rejects invalid name format", async () => {
-    await expect(
-      addCustomDomain(projectRoot, "Bad Name", "BAD")
-    ).rejects.toThrow(/kebab-case/u);
+    expect(addCustomDomain(projectRoot, "Bad Name", "BAD")).rejects.toThrow(
+      /kebab-case/u
+    );
   });
 
   test("addCustomDomain rejects invalid prefix format", async () => {
-    await expect(
-      addCustomDomain(projectRoot, "infra", "lower")
-    ).rejects.toThrow(/uppercase/u);
+    expect(addCustomDomain(projectRoot, "infra", "lower")).rejects.toThrow(
+      /uppercase/u
+    );
   });
 
   test("addCustomDomain rejects prefix already used by a default", async () => {
-    await expect(
-      addCustomDomain(projectRoot, "backend2", "BE")
-    ).rejects.toThrow(/built-in domain/u);
+    expect(addCustomDomain(projectRoot, "backend2", "BE")).rejects.toThrow(
+      /built-in domain/u
+    );
   });
 
   test("addCustomDomain rejects prefix already used by another custom domain", async () => {
     await addCustomDomain(projectRoot, "security", "SEC");
-    await expect(
-      addCustomDomain(projectRoot, "secrets", "SEC")
-    ).rejects.toThrow(/already used/u);
+    expect(addCustomDomain(projectRoot, "secrets", "SEC")).rejects.toThrow(
+      /already used/u
+    );
   });
 
   test("removeCustomDomain deletes the entry", async () => {
@@ -91,7 +91,7 @@ describe("project-config", () => {
   });
 
   test("removeCustomDomain rejects built-in domains", async () => {
-    await expect(removeCustomDomain(projectRoot, "backend")).rejects.toThrow(
+    expect(removeCustomDomain(projectRoot, "backend")).rejects.toThrow(
       /built-in/u
     );
   });

@@ -1,13 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
+import { z } from "zod";
 
 import { registerAdrCreateCommand } from "../../../src/commands/adr/create";
+
+const CreateAdrResultSchema = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  filePath: z.string(),
+});
 
 describe("registerAdrCreateCommand", () => {
   test("registers 'create' as a subcommand", () => {
@@ -45,8 +60,8 @@ describe("adr create action handler", () => {
   let tempDir: string;
   let adrsDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-create-test-"));
@@ -92,9 +107,7 @@ describe("adr create action handler", () => {
         "backend",
       ]);
 
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => String(c[0]))
-        .join("\n");
+      const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
       expect(allOutput).toContain("Created ADR:");
       expect(allOutput).toContain("BE-001");
     });
@@ -128,10 +141,8 @@ describe("adr create action handler", () => {
         "--json",
       ]);
 
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => String(c[0]))
-        .join("\n");
-      const parsed = JSON.parse(allOutput);
+      const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+      const parsed = CreateAdrResultSchema.parse(JSON.parse(allOutput));
       expect(parsed.id).toBe("DATA-001");
       expect(parsed.fileName).toContain("DATA-001");
       expect(parsed.filePath).toBeTruthy();
@@ -269,7 +280,7 @@ describe("adr create action handler", () => {
   test("exits with error when .archgate/ directory is missing", async () => {
     const parent = makeProgram();
 
-    await expect(
+    expect(
       parent.parseAsync([
         "node",
         "adr",

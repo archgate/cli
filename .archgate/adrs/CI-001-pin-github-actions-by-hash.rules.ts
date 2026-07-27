@@ -42,8 +42,8 @@ export default {
         );
 
         for (const m of matches) {
-          const usesMatch = m.content.match(
-            /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/u
+          const usesMatch = /uses:\s+(?!\.\/|docker:\/\/)(\S+@\S+)/u.exec(
+            m.content
           );
           if (!usesMatch) continue;
 

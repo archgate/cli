@@ -67,7 +67,7 @@ function safeGlob(pattern: string): void {
  * is unaffected.
  */
 export function expandBracePattern(pattern: string): string[] {
-  const match = pattern.match(/^(.*?)\{([^{}]+)\}(.*)$/u);
+  const match = /^(.*?)\{([^{}]+)\}(.*)$/u.exec(pattern);
   if (!match) return [pattern];
 
   const [, prefix, alternatives, suffix] = match;

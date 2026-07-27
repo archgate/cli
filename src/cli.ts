@@ -75,7 +75,7 @@ createPathIfNotExists(paths.cacheFolder);
 
 // Fire-and-forget: remove leftover .old binary from a previous Windows upgrade.
 // No await — this must never block startup or affect the user's command.
-cleanupStaleBinary();
+void cleanupStaleBinary();
 
 async function main() {
   await installGit();
@@ -153,7 +153,7 @@ async function main() {
   const updateCheckPromise = maybeCheckForUpdates(packageJson.version);
   await program.parseAsync(process.argv);
   const notice = await updateCheckPromise;
-  if (notice) console.log(notice);
+  if (notice !== null && notice !== "") console.log(notice);
 
   await Promise.all([flushTelemetry(), flushSentry()]);
 

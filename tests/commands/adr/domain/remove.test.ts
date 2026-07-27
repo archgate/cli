@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -18,9 +26,9 @@ function makeProgram(): Command {
 describe("adr domain remove", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
+  let errorSpy: Mock<typeof console.error>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-domain-remove-"));
@@ -49,15 +57,13 @@ describe("adr domain remove", () => {
     logSpy.mockClear();
     const p2 = makeProgram();
     await p2.parseAsync(["node", "adr", "domain", "remove", "security"]);
-    const out = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
+    const out = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(out).toContain("Removed custom domain");
   });
 
   test("refuses built-in domains", async () => {
     const program = makeProgram();
-    await expect(
+    expect(
       program.parseAsync(["node", "adr", "domain", "remove", "backend"])
     ).rejects.toThrow("process.exit");
   });
@@ -65,9 +71,7 @@ describe("adr domain remove", () => {
   test("missing entry reports not-registered", async () => {
     const program = makeProgram();
     await program.parseAsync(["node", "adr", "domain", "remove", "ghost"]);
-    const out = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
+    const out = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(out).toContain("not registered");
   });
 });

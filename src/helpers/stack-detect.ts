@@ -154,7 +154,7 @@ async function readCache(projectRoot: string): Promise<StackCache | null> {
   const cachePath = getCachePath(projectRoot);
   if (!existsSync(cachePath)) return null;
   try {
-    const raw = await Bun.file(cachePath).json();
+    const raw: unknown = await Bun.file(cachePath).json();
     const result = StackCacheSchema.safeParse(raw);
     return result.success ? result.data : null;
   } catch {
@@ -192,7 +192,7 @@ export async function detectStack(projectRoot: string): Promise<DetectedStack> {
   const fingerprint = buildFingerprint(projectRoot);
 
   const cached = await readCache(projectRoot);
-  if (cached && cached.fingerprint === fingerprint) {
+  if (cached?.fingerprint === fingerprint) {
     logDebug("Stack cache hit for", projectRoot);
     return cached.stack;
   }
@@ -469,7 +469,7 @@ async function readPythonDeps(projectRoot: string): Promise<Set<string>> {
         if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("-"))
           continue;
         const name = extractPyPackageName(trimmed);
-        if (name) deps.add(name);
+        if (name !== null && name !== "") deps.add(name);
       }
     } catch {
       logDebug("Failed to read requirements.txt");
@@ -485,7 +485,7 @@ async function readPythonDeps(projectRoot: string): Promise<Set<string>> {
       if (result.success) {
         for (const spec of result.data.project?.dependencies ?? []) {
           const name = extractPyPackageName(spec);
-          if (name) deps.add(name);
+          if (name !== null && name !== "") deps.add(name);
         }
       }
     } catch {

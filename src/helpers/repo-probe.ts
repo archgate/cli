@@ -39,7 +39,7 @@ let cachedPublicProbe: Promise<boolean | null> | null = null;
  * Bounded by a 3s timeout with errors swallowed — telemetry must not slow
  * the CLI down; probes once per process.
  */
-export function isPublicRepo(
+export async function isPublicRepo(
   repo: Pick<RepoContext, "host" | "owner" | "name">
 ): Promise<boolean | null> {
   if (cachedPublicProbe) return cachedPublicProbe;
@@ -59,7 +59,14 @@ export function _resetPublicProbeCache(): void {
 async function probePublic(
   repo: Pick<RepoContext, "host" | "owner" | "name">
 ): Promise<boolean | null> {
-  if (!repo.host || !repo.owner || !repo.name) return null;
+  if (
+    !repo.host ||
+    repo.owner === null ||
+    repo.owner === "" ||
+    repo.name === null ||
+    repo.name === ""
+  )
+    return null;
   const { host, owner, name } = repo;
   if (host === "other") return null;
 
@@ -73,6 +80,8 @@ async function probePublic(
         return await probeBitbucket(owner, name);
       case "azure-devops":
         return await probeAzureDevOps(owner, name);
+      default:
+        return null;
     }
   } catch (err) {
     logDebug("public-repo probe failed (ignored):", String(err));

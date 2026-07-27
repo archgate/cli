@@ -266,7 +266,7 @@ describe("detectTarget", () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
     mkdirSync(join(tempDir, "empty-dir"));
 
-    await expect(detectTarget(tempDir, "empty-dir")).rejects.toThrow(
+    expect(detectTarget(tempDir, "empty-dir")).rejects.toThrow(
       /exists but is not a valid import target/u
     );
   });
@@ -274,7 +274,7 @@ describe("detectTarget", () => {
   test("throws descriptive error when subpath does not exist", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
 
-    await expect(detectTarget(tempDir, "nonexistent")).rejects.toThrow(
+    expect(detectTarget(tempDir, "nonexistent")).rejects.toThrow(
       /does not exist in the repository/u
     );
   });
@@ -301,9 +301,10 @@ describe("detectTarget", () => {
       expect.unreachable("Should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(Error);
-      const message = (err as Error).message;
-      expect(message).toContain("not found in the official registry");
-      expect(message).toContain("packs/typescript-strict");
+      if (err instanceof Error) {
+        expect(err.message).toContain("not found in the official registry");
+        expect(err.message).toContain("packs/typescript-strict");
+      }
     }
   });
 });

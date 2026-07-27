@@ -13,7 +13,7 @@ export default {
 
         // Pattern 1: single-expression JSON.parse(await Bun.file(...).text())
         const inlineMatches = await Promise.all(
-          files.map((file) =>
+          files.map(async (file) =>
             ctx.grep(file, /JSON\.parse\(\s*await\s+Bun\.file/u)
           )
         );

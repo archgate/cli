@@ -111,9 +111,11 @@ describe("configureClaudeSettings", () => {
     expect(existsSync(join(tempDir, ".claude"))).toBe(true);
     expect(existsSync(settingsPath)).toBe(true);
 
-    const content = JSON.parse(await Bun.file(settingsPath).text());
+    const content = ClaudeSettingsSchema.parse(
+      JSON.parse(await Bun.file(settingsPath).text())
+    );
     expect(content.agent).toBe("archgate:developer");
-    expect(content.permissions.allow).toContain("Skill(archgate:architect)");
+    expect(content.permissions?.allow).toContain("Skill(archgate:architect)");
   });
 
   test("merges into existing file without overwriting user entries", async () => {
@@ -132,14 +134,14 @@ describe("configureClaudeSettings", () => {
 
     await configureClaudeSettings(tempDir);
 
-    const content = JSON.parse(
-      await Bun.file(join(claudeDir, "settings.local.json")).text()
+    const content = ClaudeSettingsSchema.parse(
+      JSON.parse(await Bun.file(join(claudeDir, "settings.local.json")).text())
     );
     expect(content.agent).toBe("my-custom-agent");
     expect(content.myCustomKey).toBe(true);
-    expect(content.permissions.deny).toEqual(["Bash(rm *)"]);
-    expect(content.permissions.allow).toContain("Bash(git *)");
-    expect(content.permissions.allow).toContain("Skill(archgate:architect)");
+    expect(content.permissions?.deny).toEqual(["Bash(rm *)"]);
+    expect(content.permissions?.allow).toContain("Bash(git *)");
+    expect(content.permissions?.allow).toContain("Skill(archgate:architect)");
   });
 
   test("returns correct absolute path", async () => {

@@ -113,29 +113,33 @@ describe("detectStack — frameworks", () => {
     },
     {
       name: "FastAPI from requirements.txt",
-      setup: (dir) =>
-        writeFileSync(join(dir, "requirements.txt"), "fastapi>=0.100\n"),
+      setup: (dir) => {
+        writeFileSync(join(dir, "requirements.txt"), "fastapi>=0.100\n");
+      },
       framework: "fastapi",
     },
     {
       name: "Streamlit from requirements.txt",
-      setup: (dir) =>
-        writeFileSync(join(dir, "requirements.txt"), "streamlit==1.30.0\n"),
+      setup: (dir) => {
+        writeFileSync(join(dir, "requirements.txt"), "streamlit==1.30.0\n");
+      },
       framework: "streamlit",
     },
     {
       name: "FastAPI from pyproject.toml",
-      setup: (dir) =>
+      setup: (dir) => {
         writeFileSync(
           join(dir, "pyproject.toml"),
           '[project]\nname = "api"\ndependencies = ["fastapi>=0.100"]\n'
-        ),
+        );
+      },
       framework: "fastapi",
     },
     {
       name: "Flask from requirements.txt",
-      setup: (dir) =>
-        writeFileSync(join(dir, "requirements.txt"), "flask==3.0.0\n"),
+      setup: (dir) => {
+        writeFileSync(join(dir, "requirements.txt"), "flask==3.0.0\n");
+      },
       framework: "flask",
     },
     {
@@ -250,9 +254,12 @@ describe("detectStack — frameworks", () => {
     async ({ setup, language, framework, notFramework }) => {
       setup(tempDir);
       const s = await detectStack(tempDir);
-      if (language) expect(s.languages).toContain(language);
-      if (framework) expect(s.frameworks).toContain(framework);
-      if (notFramework) expect(s.frameworks).not.toContain(notFramework);
+      if (language !== undefined && language !== "")
+        expect(s.languages).toContain(language);
+      if (framework !== undefined && framework !== "")
+        expect(s.frameworks).toContain(framework);
+      if (notFramework !== undefined && notFramework !== "")
+        expect(s.frameworks).not.toContain(notFramework);
     }
   );
 });

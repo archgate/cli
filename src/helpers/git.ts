@@ -13,14 +13,16 @@ import { UserError } from "./user-error";
  * ceremony (and its WSL fallback subprocess on Windows) from the startup path.
  */
 export async function installGit() {
-  if (Bun.which("git")) {
+  const gitPath = Bun.which("git");
+  if (gitPath !== null && gitPath !== "") {
     logDebug("Git is already installed");
     return;
   }
 
   // Slow path: git wasn't found synchronously. Fall back to the full cross-env
   // resolver (handles WSL `.exe` lookups and WSL-from-Windows availability).
-  if (await resolveCommand("git")) {
+  const resolvedGit = await resolveCommand("git");
+  if (resolvedGit !== null && resolvedGit !== "") {
     logDebug("Git is already installed (cross-env)");
     return;
   }

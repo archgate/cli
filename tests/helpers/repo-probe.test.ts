@@ -28,11 +28,13 @@ describe("isPublicRepo", () => {
    * that matters for the assertion.
    */
   function mockFetch(status: number, body: unknown = {}): void {
-    globalThis.fetch = (() =>
-      Promise.resolve({
-        status,
-        json: () => Promise.resolve(body),
-      })) as unknown as typeof fetch;
+    // Deliberately incomplete fake Response: isPublicRepo only reads
+    // status and json(), so the rest of the Response shape is irrelevant.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => ({
+      status,
+      json: async () => body,
+    })) as unknown as typeof fetch;
   }
 
   test("returns null for repos with missing host/owner/name", async () => {
@@ -76,10 +78,10 @@ describe("isPublicRepo", () => {
   });
 
   test("returns null on network error", async () => {
-    globalThis.fetch = (() =>
-      Promise.reject(
-        new Error("connect ECONNREFUSED")
-      )) as unknown as typeof fetch;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => {
+      throw new Error("connect ECONNREFUSED");
+    }) as unknown as typeof fetch;
     _resetPublicProbeCache();
     expect(
       await isPublicRepo({ host: "github", owner: "foo", name: "bar" })
@@ -129,6 +131,7 @@ describe("isPublicRepo", () => {
   test("Azure DevOps probe returns null when owner isn't org/project", async () => {
     // Even if somehow classified, a single-segment owner can't resolve
     // to an organization + project pair — refuse to guess.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = (() => {
       throw new Error("should not be called");
     }) as unknown as typeof fetch;
@@ -144,12 +147,10 @@ describe("isPublicRepo", () => {
 
   test("caches the result per process (single fetch call)", async () => {
     let calls = 0;
-    globalThis.fetch = (() => {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => {
       calls++;
-      return Promise.resolve({
-        status: 200,
-        json: () => Promise.resolve({ private: false }),
-      });
+      return { status: 200, json: async () => ({ private: false }) };
     }) as unknown as typeof fetch;
     _resetPublicProbeCache();
 

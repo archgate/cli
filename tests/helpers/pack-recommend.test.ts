@@ -219,9 +219,7 @@ describe("recommendPacks", () => {
   let realRegistry: Record<string, unknown> | undefined;
 
   async function getRealRegistry(): Promise<Record<string, unknown>> {
-    if (!realRegistry) {
-      realRegistry = await import("../../src/helpers/registry");
-    }
+    realRegistry ??= await import("../../src/helpers/registry");
     return realRegistry;
   }
 
@@ -276,7 +274,7 @@ describe("recommendPacks", () => {
     impl: (...args: unknown[]) => Promise<string>
   ): Promise<void> {
     const real = await getRealRegistry();
-    mock.module("../../src/helpers/registry", () => ({
+    await mock.module("../../src/helpers/registry", () => ({
       ...real,
       shallowClone: impl,
     }));
@@ -288,7 +286,7 @@ describe("recommendPacks", () => {
       adrCount: 2,
     });
 
-    await mockShallowClone(() => Promise.resolve(fakeCloneDir));
+    await mockShallowClone(async () => fakeCloneDir);
 
     const stack: DetectedStack = {
       languages: ["typescript"],
@@ -308,7 +306,9 @@ describe("recommendPacks", () => {
   });
 
   test("propagates error when shallowClone rejects", async () => {
-    await mockShallowClone(() => Promise.reject(new Error("git clone failed")));
+    await mockShallowClone(async () => {
+      throw new Error("git clone failed");
+    });
 
     const stack: DetectedStack = {
       languages: ["typescript"],
@@ -316,7 +316,7 @@ describe("recommendPacks", () => {
       frameworks: [],
     };
 
-    await expect(recommendPacks(stack)).rejects.toThrow("git clone failed");
+    expect(recommendPacks(stack)).rejects.toThrow("git clone failed");
   });
 
   test("cleans up cloned dir with no valid packs", async () => {
@@ -326,7 +326,7 @@ describe("recommendPacks", () => {
     mkdirSync(packDir, { recursive: true });
     // No archgate-pack.yaml — recommendPacksFromDir skips the pack
 
-    await mockShallowClone(() => Promise.resolve(fakeCloneDir));
+    await mockShallowClone(async () => fakeCloneDir);
 
     const stack: DetectedStack = {
       languages: ["typescript"],
@@ -346,7 +346,7 @@ describe("recommendPacks", () => {
       packName: "rust-only",
     });
 
-    await mockShallowClone(() => Promise.resolve(fakeCloneDir));
+    await mockShallowClone(async () => fakeCloneDir);
 
     const stack: DetectedStack = {
       languages: ["typescript"],

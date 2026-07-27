@@ -52,7 +52,7 @@ function saveImportsManifest(
 ): void {
   const importsPath = join(projectRoot, ".archgate", "imports.json");
   const content = JSON.stringify(manifest, null, 2) + "\n";
-  Bun.write(importsPath, content);
+  void Bun.write(importsPath, content);
 }
 
 // ---------- Diff helpers ----------
@@ -63,7 +63,9 @@ function findLocalAdr(adrsDir: string, adrId: string): string | null {
   const match = files.find(
     (f) => f.endsWith(".md") && f.startsWith(`${adrId}-`)
   );
-  return match ? join(adrsDir, match) : null;
+  // A match always carries the ".md" suffix and "<adrId>-" prefix, so it can
+  // never be empty — undefined (no match) is the only other outcome.
+  return match === undefined ? null : join(adrsDir, match);
 }
 
 /**
@@ -87,7 +89,7 @@ function diffSummary(localContent: string, upstreamContent: string): string {
   ] as const) {
     let section = "header";
     for (const line of lines) {
-      const headingMatch = line.match(/^#{1,3}\s+(.+)/u);
+      const headingMatch = /^#{1,3}\s+(.+)/u.exec(line);
       if (headingMatch) {
         section = headingMatch[1].trim();
       }
@@ -205,7 +207,7 @@ export function registerAdrSyncCommand(adr: Command) {
           const cacheKey = `${resolved.repoUrl}#${resolved.ref ?? ""}`;
           let cloneDir = cloneCache.get(cacheKey);
 
-          if (!cloneDir) {
+          if (cloneDir === undefined) {
             try {
               cloneDir = await shallowClone(resolved.repoUrl, resolved.ref); // oxlint-disable-line no-await-in-loop -- sequential by design (dedup cache)
               cloneCache.set(cacheKey, cloneDir);
@@ -223,7 +225,7 @@ export function registerAdrSyncCommand(adr: Command) {
             result.checked++;
 
             const localPath = findLocalAdr(paths.adrsDir, adrId);
-            if (!localPath) {
+            if (localPath === null) {
               logWarn(`Local ADR ${adrId} not found in ${paths.adrsDir}`);
               result.errors++;
               continue;
@@ -252,7 +254,7 @@ export function registerAdrSyncCommand(adr: Command) {
                 ? join(upstreamAdrsDir, upstreamFiles.sort()[adrIndex])
                 : null;
 
-            if (!upstreamFile || !existsSync(upstreamFile)) {
+            if (upstreamFile === null || !existsSync(upstreamFile)) {
               logDebug(`Upstream ADR file not found for ${adrId}`);
               result.errors++;
               continue;
@@ -384,8 +386,8 @@ export function registerAdrSyncCommand(adr: Command) {
             // oxlint-disable-next-line no-await-in-loop -- sequential interactive prompts
             const { default: inquirer } = await import("inquirer");
             // oxlint-disable-next-line no-await-in-loop -- sequential interactive prompts
-            const { choice } = await withPromptFix(() =>
-              inquirer.prompt([
+            const { choice } = await withPromptFix(async () =>
+              inquirer.prompt<{ choice: "keep" | "take" | "skip" }>([
                 {
                   type: "select",
                   name: "choice",

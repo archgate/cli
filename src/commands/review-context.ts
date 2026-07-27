@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 
 import { buildReviewContext } from "../engine/context";
 import { resolveBaseRef } from "../engine/git-files";
+import { rejectBlank } from "../helpers/cli-options";
 import { handleCommandError } from "../helpers/exit";
 import { logWarn } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
@@ -17,12 +19,18 @@ export function registerReviewContextCommand(program: Command) {
       "Pre-compute review context with ADR briefings for changed files"
     )
     .option("--staged", "Only include git-staged files")
-    .option(
-      "--base [ref]",
-      "Compare changed files against a base ref (auto-detects when omitted)"
+    .addOption(
+      new Option(
+        "--base [ref]",
+        "Compare changed files against a base ref (auto-detects when omitted)"
+      ).argParser(rejectBlank)
     )
     .option("--run-checks", "Include ADR compliance check results")
-    .option("--domain <domain>", "Filter to a single domain")
+    .addOption(
+      new Option("--domain <domain>", "Filter to a single domain").argParser(
+        rejectBlank
+      )
+    )
     .option(
       "--verbose",
       "Include each ADR's Decision and Do's/Don'ts prose (large; omitted by default — use `archgate adr show <id>` to drill down)"
@@ -61,7 +69,7 @@ export function registerReviewContextCommand(program: Command) {
             `Changed-file list truncated to ${context.allChangedFiles.length} files — files beyond that limit are absent from this context.`
           );
         }
-        if (context.checkSummary?.truncated) {
+        if (context.checkSummary?.truncated === true) {
           logWarn(
             "Some rules reported more violations than the per-rule cap — the extra violations are absent from `checkSummary`. Run `archgate check` for the complete list."
           );

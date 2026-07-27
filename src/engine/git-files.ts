@@ -41,7 +41,7 @@ async function runGit(args: string[], cwd: string): Promise<string> {
 const trackedFilesCache = new Map<string, Promise<Set<string> | null>>();
 
 /** Get all git-tracked (non-ignored) files in the project. */
-export function getGitTrackedFiles(
+export async function getGitTrackedFiles(
   projectRoot: string
 ): Promise<Set<string> | null> {
   const cached = trackedFilesCache.get(projectRoot);
@@ -87,10 +87,16 @@ export async function resolveScopedFiles(
     fileWarnThreshold?: number;
   }
 ): Promise<string[]> {
-  const patterns = adrFileGlobs?.length ? adrFileGlobs : ["**/*"];
+  const patterns =
+    adrFileGlobs !== undefined && adrFileGlobs.length > 0
+      ? adrFileGlobs
+      : ["**/*"];
   const hasExplicitFiles = Boolean(adrFileGlobs?.length);
   const respectGitignore = options?.respectGitignore !== false;
-  const label = options?.adrId ? `ADR ${options.adrId}` : "resolveScopedFiles";
+  const label =
+    options?.adrId !== undefined && options.adrId !== ""
+      ? `ADR ${options.adrId}`
+      : "resolveScopedFiles";
   const fileWarnThreshold =
     options?.fileWarnThreshold ?? SCOPE_FILE_WARN_THRESHOLD;
 
@@ -262,14 +268,18 @@ export async function resolveBaseRef(
     configBase?: string | null;
   }
 ): Promise<string | undefined> {
-  if (options.staged) return undefined;
+  if (options.staged === true) return undefined;
 
   if (typeof options.base === "string") {
     logDebug("Using explicit base ref:", options.base);
     return options.base;
   }
 
-  if (options.configBase) {
+  if (
+    options.configBase !== undefined &&
+    options.configBase !== null &&
+    options.configBase !== ""
+  ) {
     logDebug("Using configured base branch:", options.configBase);
     return options.configBase;
   }
@@ -349,7 +359,7 @@ export async function getMergeBase(
 ): Promise<string | null> {
   const out = await runGitOrNull(["merge-base", ref, "HEAD"], projectRoot);
   const sha = out?.trim();
-  return sha ? sha : null;
+  return sha ?? null;
 }
 
 /**
@@ -364,7 +374,7 @@ export async function getMergeBase(
  * revision (an added file) or the revision is unresolvable. A present but
  * empty file returns `""`, which callers must distinguish from null.
  */
-export function getFileAtRev(
+export async function getFileAtRev(
   projectRoot: string,
   rev: string,
   path: string

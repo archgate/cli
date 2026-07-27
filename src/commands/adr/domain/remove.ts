@@ -20,11 +20,17 @@ export function registerDomainRemoveCommand(domain: Command) {
     .action(async (name, options) => {
       try {
         const projectRoot = requireProjectRoot();
-        const existingPrefix = loadProjectConfig(projectRoot).domains[name];
+        const domains = loadProjectConfig(projectRoot).domains;
+        // `domains` is typed `Record<string, string>`, so indexing it
+        // directly would type as always-defined even though `name` may not
+        // actually be a registered domain — gate on `in` first so the
+        // ternary's own branches (not a widened index-signature type) are
+        // what give `existingPrefix` its true `string | undefined` type.
+        const existingPrefix = name in domains ? domains[name] : undefined;
         const { config, removed } = await removeCustomDomain(projectRoot, name);
 
         if (!removed) {
-          const useJson = options.json || isAgentContext();
+          const useJson = options.json ?? isAgentContext();
           if (useJson) {
             console.log(
               formatJSON(
@@ -46,7 +52,7 @@ export function registerDomainRemoveCommand(domain: Command) {
           total_custom_domains: Object.keys(config.domains).length,
         });
 
-        const useJson = options.json || isAgentContext();
+        const useJson = options.json ?? isAgentContext();
         if (useJson) {
           console.log(
             formatJSON(

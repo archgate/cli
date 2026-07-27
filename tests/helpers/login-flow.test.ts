@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   mock,
+  type Mock,
   spyOn,
   test,
 } from "bun:test";
@@ -15,26 +16,27 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Mock cursorTo from node:readline (used by prompt.ts withPromptFix). */
-mock.module("node:readline", () => ({ cursorTo: mock(() => true) }));
+void mock.module("node:readline", () => ({ cursorTo: mock(() => true) }));
 
 // Auth + credential-store stubs are installed per-test via spyOn (see
 // beforeEach), NOT mock.module. spyOn is auto-restored and scoped to this
 // file; mock.module is process-global and would leak mocked implementations
 // into auth.test.ts and credential-store.test.ts.
-let mockRequestDeviceCode: ReturnType<typeof spyOn>;
-let mockPollForAccessToken: ReturnType<typeof spyOn>;
-let mockGetGitHubUser: ReturnType<typeof spyOn>;
-let mockClaimArchgateToken: ReturnType<typeof spyOn>;
-let mockSaveCredentials: ReturnType<typeof spyOn>;
+let mockRequestDeviceCode: Mock<typeof authMod.requestDeviceCode>;
+let mockPollForAccessToken: Mock<typeof authMod.pollForAccessToken>;
+let mockGetGitHubUser: Mock<typeof authMod.getGitHubUser>;
+let mockClaimArchgateToken: Mock<typeof authMod.claimArchgateToken>;
+let mockSaveCredentials: Mock<typeof credMod.saveCredentials>;
 
 // Mock inquirer for the signup flow prompts (lazy-loaded via dynamic import).
 // Use Record<string, unknown> as return type so mockImplementation can return
 // different shapes for different prompts (email, editor, useCase, confirmed).
 const mockInquirerPrompt = mock(
-  (): Promise<Record<string, unknown>> =>
-    Promise.resolve({ email: "test@example.com" })
+  async (): Promise<Record<string, unknown>> => ({ email: "test@example.com" })
 );
-mock.module("inquirer", () => ({ default: { prompt: mockInquirerPrompt } }));
+void mock.module("inquirer", () => ({
+  default: { prompt: mockInquirerPrompt },
+}));
 
 // ---------------------------------------------------------------------------
 // Import SignupRequiredError BEFORE mocking — we need the real class so
@@ -96,13 +98,13 @@ describe("login-flow", () => {
       "claimArchgateToken"
     ).mockResolvedValue("archgate-token-789");
     mockSaveCredentials = spyOn(credMod, "saveCredentials").mockImplementation(
-      () => Promise.resolve()
+      async () => {}
     );
 
     mockInquirerPrompt.mockClear();
-    mockInquirerPrompt.mockImplementation(() =>
-      Promise.resolve({ email: "test@example.com" })
-    );
+    mockInquirerPrompt.mockImplementation(async () => ({
+      email: "test@example.com",
+    }));
   });
 
   afterEach(() => {
@@ -156,33 +158,31 @@ describe("login-flow", () => {
   });
 
   test("requestDeviceCode throws -> propagates error", async () => {
-    mockRequestDeviceCode.mockImplementation(() =>
-      Promise.reject(new Error("GitHub device code request failed (HTTP 500)"))
-    );
+    mockRequestDeviceCode.mockImplementation(async () => {
+      throw new Error("GitHub device code request failed (HTTP 500)");
+    });
 
-    await expect(runLoginFlow()).rejects.toThrow(
-      "GitHub device code request failed"
-    );
+    expect(runLoginFlow()).rejects.toThrow("GitHub device code request failed");
     expect(mockPollForAccessToken).not.toHaveBeenCalled();
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
 
   test("pollForAccessToken throws -> propagates error", async () => {
-    mockPollForAccessToken.mockImplementation(() =>
-      Promise.reject(new Error("Device code expired"))
-    );
+    mockPollForAccessToken.mockImplementation(async () => {
+      throw new Error("Device code expired");
+    });
 
-    await expect(runLoginFlow()).rejects.toThrow("Device code expired");
+    expect(runLoginFlow()).rejects.toThrow("Device code expired");
     expect(mockClaimArchgateToken).not.toHaveBeenCalled();
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
 
   test("getGitHubUser throws -> propagates error", async () => {
-    mockGetGitHubUser.mockImplementation(() =>
-      Promise.reject(new Error("Failed to fetch GitHub user (HTTP 401)"))
-    );
+    mockGetGitHubUser.mockImplementation(async () => {
+      throw new Error("Failed to fetch GitHub user (HTTP 401)");
+    });
 
-    await expect(runLoginFlow()).rejects.toThrow("Failed to fetch GitHub user");
+    expect(runLoginFlow()).rejects.toThrow("Failed to fetch GitHub user");
     expect(mockClaimArchgateToken).not.toHaveBeenCalled();
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
@@ -193,12 +193,15 @@ describe("login-flow", () => {
 
   test("signup required: auto-approved token returned from signup", async () => {
     // First call to claimArchgateToken throws SignupRequiredError
-    mockClaimArchgateToken.mockImplementation(() =>
-      Promise.reject(new SignupRequiredError())
-    );
+    mockClaimArchgateToken.mockImplementation(async () => {
+      throw new SignupRequiredError();
+    });
 
     // Mock fetch for the signup endpoint — requestSignup uses globalThis.fetch
-    globalThis.fetch = ((url: string | URL | Request) => {
+    // Deliberately incomplete fake: only the call signature fetch invokes
+    // matters for this test.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async (url: string | URL | Request) => {
       const urlStr =
         typeof url === "string"
           ? url
@@ -206,9 +209,7 @@ describe("login-flow", () => {
             ? url.toString()
             : url.url;
       if (urlStr.includes("/api/signup")) {
-        return Promise.resolve(
-          Response.json({ token: "auto-approved-token" }, { status: 201 })
-        );
+        return Response.json({ token: "auto-approved-token" }, { status: 201 });
       }
       return originalFetch(url);
     }) as unknown as typeof fetch;
@@ -216,19 +217,19 @@ describe("login-flow", () => {
     // Mock the sequence of inquirer prompts:
     // 1. email -> 2. editor -> 3. useCase -> 4. confirmed
     let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(() => {
+    mockInquirerPrompt.mockImplementation(async () => {
       promptCallCount++;
       switch (promptCallCount) {
         case 1:
-          return Promise.resolve({ email: "test@example.com" });
+          return { email: "test@example.com" };
         case 2:
-          return Promise.resolve({ editor: "vscode" });
+          return { editor: "vscode" };
         case 3:
-          return Promise.resolve({ useCase: "governance" });
+          return { useCase: "governance" };
         case 4:
-          return Promise.resolve({ confirmed: true });
+          return { confirmed: true };
         default:
-          return Promise.resolve({});
+          return {};
       }
     });
 
@@ -245,16 +246,19 @@ describe("login-flow", () => {
   test("signup without auto-token falls back to second claim call", async () => {
     // First claimArchgateToken call throws, second succeeds
     let claimCallCount = 0;
-    mockClaimArchgateToken.mockImplementation(() => {
+    mockClaimArchgateToken.mockImplementation(async () => {
       claimCallCount++;
       if (claimCallCount === 1) {
-        return Promise.reject(new SignupRequiredError());
+        throw new SignupRequiredError();
       }
-      return Promise.resolve("fallback-token-xyz");
+      return "fallback-token-xyz";
     });
 
     // Mock fetch for the signup endpoint — no token returned
-    globalThis.fetch = ((url: string | URL | Request) => {
+    // Deliberately incomplete fake: only the call signature fetch invokes
+    // matters for this test.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async (url: string | URL | Request) => {
       const urlStr =
         typeof url === "string"
           ? url
@@ -262,25 +266,25 @@ describe("login-flow", () => {
             ? url.toString()
             : url.url;
       if (urlStr.includes("/api/signup")) {
-        return Promise.resolve(Response.json({}, { status: 201 }));
+        return Response.json({}, { status: 201 });
       }
       return originalFetch(url);
     }) as unknown as typeof fetch;
 
     let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(() => {
+    mockInquirerPrompt.mockImplementation(async () => {
       promptCallCount++;
       switch (promptCallCount) {
         case 1:
-          return Promise.resolve({ email: "test@example.com" });
+          return { email: "test@example.com" };
         case 2:
-          return Promise.resolve({ editor: "cursor" });
+          return { editor: "cursor" };
         case 3:
-          return Promise.resolve({ useCase: "testing" });
+          return { useCase: "testing" };
         case 4:
-          return Promise.resolve({ confirmed: true });
+          return { confirmed: true };
         default:
-          return Promise.resolve({});
+          return {};
       }
     });
 
@@ -295,24 +299,24 @@ describe("login-flow", () => {
   });
 
   test("signup cancelled (confirmed=false) -> returns ok:false", async () => {
-    mockClaimArchgateToken.mockImplementation(() =>
-      Promise.reject(new SignupRequiredError())
-    );
+    mockClaimArchgateToken.mockImplementation(async () => {
+      throw new SignupRequiredError();
+    });
 
     let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(() => {
+    mockInquirerPrompt.mockImplementation(async () => {
       promptCallCount++;
       switch (promptCallCount) {
         case 1:
-          return Promise.resolve({ email: "test@example.com" });
+          return { email: "test@example.com" };
         case 2:
-          return Promise.resolve({ editor: "vscode" });
+          return { editor: "vscode" };
         case 3:
-          return Promise.resolve({ useCase: "testing" });
+          return { useCase: "testing" };
         case 4:
-          return Promise.resolve({ confirmed: false });
+          return { confirmed: false };
         default:
-          return Promise.resolve({});
+          return {};
       }
     });
 
@@ -324,12 +328,15 @@ describe("login-flow", () => {
   });
 
   test("signup request fails -> returns ok:false", async () => {
-    mockClaimArchgateToken.mockImplementation(() =>
-      Promise.reject(new SignupRequiredError())
-    );
+    mockClaimArchgateToken.mockImplementation(async () => {
+      throw new SignupRequiredError();
+    });
 
     // Mock fetch for the signup endpoint — returns failure
-    globalThis.fetch = ((url: string | URL | Request) => {
+    // Deliberately incomplete fake: only the call signature fetch invokes
+    // matters for this test.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async (url: string | URL | Request) => {
       const urlStr =
         typeof url === "string"
           ? url
@@ -337,25 +344,25 @@ describe("login-flow", () => {
             ? url.toString()
             : url.url;
       if (urlStr.includes("/api/signup")) {
-        return Promise.resolve(new Response("Conflict", { status: 409 }));
+        return new Response("Conflict", { status: 409 });
       }
       return originalFetch(url);
     }) as unknown as typeof fetch;
 
     let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(() => {
+    mockInquirerPrompt.mockImplementation(async () => {
       promptCallCount++;
       switch (promptCallCount) {
         case 1:
-          return Promise.resolve({ email: "test@example.com" });
+          return { email: "test@example.com" };
         case 2:
-          return Promise.resolve({ editor: "vscode" });
+          return { editor: "vscode" };
         case 3:
-          return Promise.resolve({ useCase: "testing" });
+          return { useCase: "testing" };
         case 4:
-          return Promise.resolve({ confirmed: true });
+          return { confirmed: true };
         default:
-          return Promise.resolve({});
+          return {};
       }
     });
 
@@ -366,31 +373,38 @@ describe("login-flow", () => {
   });
 
   test("pre-selected editor skips editor prompt in signup flow", async () => {
-    mockClaimArchgateToken.mockImplementation(() =>
-      Promise.reject(new SignupRequiredError())
-    );
+    mockClaimArchgateToken.mockImplementation(async () => {
+      throw new SignupRequiredError();
+    });
 
     let signupBody: Record<string, string> | null = null;
-    globalThis.fetch = ((_url: string | URL | Request, init?: RequestInit) => {
-      signupBody = JSON.parse(init?.body as string);
-      return Promise.resolve(
-        Response.json({ token: "editor-preset-token" }, { status: 201 })
-      );
+    // Deliberately incomplete fake: only the call signature fetch invokes
+    // matters for this test.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async (
+      _url: string | URL | Request,
+      init?: RequestInit
+    ) => {
+      const rawBody = typeof init?.body === "string" ? init.body : "{}";
+      // Test-only signup request body; no schema exists for it.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      signupBody = JSON.parse(rawBody) as Record<string, string>;
+      return Response.json({ token: "editor-preset-token" }, { status: 201 });
     }) as unknown as typeof fetch;
 
     // With preselected editor, only 3 prompts: email, useCase, confirmed
     let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(() => {
+    mockInquirerPrompt.mockImplementation(async () => {
       promptCallCount++;
       switch (promptCallCount) {
         case 1:
-          return Promise.resolve({ email: "test@example.com" });
+          return { email: "test@example.com" };
         case 2:
-          return Promise.resolve({ useCase: "governance" });
+          return { useCase: "governance" };
         case 3:
-          return Promise.resolve({ confirmed: true });
+          return { confirmed: true };
         default:
-          return Promise.resolve({});
+          return {};
       }
     });
 
@@ -405,11 +419,11 @@ describe("login-flow", () => {
   });
 
   test("claimArchgateToken throws non-signup error -> propagates", async () => {
-    mockClaimArchgateToken.mockImplementation(() =>
-      Promise.reject(new Error("Token claim failed (HTTP 500)"))
-    );
+    mockClaimArchgateToken.mockImplementation(async () => {
+      throw new Error("Token claim failed (HTTP 500)");
+    });
 
-    await expect(runLoginFlow()).rejects.toThrow("Token claim failed");
+    expect(runLoginFlow()).rejects.toThrow("Token claim failed");
     expect(mockSaveCredentials).not.toHaveBeenCalled();
   });
 });

@@ -57,9 +57,14 @@ const PT_BR_LETTERS = new Set([
  * corpus minimums are nb 5.9 and pt-br 15.2; fully stripped pages score
  * 0.0-1.1. The thresholds sit between those bands with room to spare.
  */
-const LOCALE_DIACRITICS: Record<
-  string,
-  { letters: Set<number>; minPerThousand: number; label: string }
+
+// Partial, not Record: a lookup miss for a locale without a density spec is
+// a real (typed) possibility, not dead code.
+const LOCALE_DIACRITICS: Partial<
+  Record<
+    string,
+    { letters: Set<number>; minPerThousand: number; label: string }
+  >
 > = {
   nb: { letters: NB_LETTERS, minPerThousand: 2, label: "Norwegian" },
   "pt-br": { letters: PT_BR_LETTERS, minPerThousand: 5, label: "Portuguese" },
@@ -111,7 +116,7 @@ export default {
             const pattern = LOCALE_LINK_PATTERNS[i];
 
             const matches = await Promise.all(
-              localeFiles.map((file) => ctx.grep(file, pattern))
+              localeFiles.map(async (file) => ctx.grep(file, pattern))
             );
             for (const fileMatches of matches) {
               for (const m of fileMatches) {
@@ -145,10 +150,10 @@ export default {
           const matchedLocale = LOCALES.find((l) =>
             file.startsWith(`${CONTENT_ROOT}/${l}/`)
           );
-          if (matchedLocale) {
-            localeFiles.get(matchedLocale)!.push(file);
-          } else {
+          if (matchedLocale === undefined) {
             rootFiles.push(file);
+          } else {
+            localeFiles.get(matchedLocale)!.push(file);
           }
         }
 
@@ -209,7 +214,7 @@ export default {
         if (changedRootFiles.length === 0) return;
 
         const localeFileArrays = await Promise.all(
-          LOCALES.map((locale) =>
+          LOCALES.map(async (locale) =>
             ctx.glob(`${CONTENT_ROOT}/${locale}/**/*.mdx`)
           )
         );

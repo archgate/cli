@@ -147,12 +147,14 @@ function saveTelemetryConfigAsync(config: TelemetryConfig): void {
  */
 export function showFirstRunNoticeIfNeeded(): void {
   if (!process.stdout.isTTY) return;
-  if (Bun.env.CI) return;
+  const ciEnvFlag = Boolean(Bun.env.CI);
+  if (ciEnvFlag) return;
   if (isEnvTelemetryDisabled()) return;
 
   const config = loadTelemetryConfig();
   if (!config.telemetry) return;
-  if (config.noticeShown) return;
+  const noticeAlreadyShown = config.noticeShown ?? false;
+  if (noticeAlreadyShown) return;
 
   logDebug("Showing first-run privacy notice");
   process.stdout.write(

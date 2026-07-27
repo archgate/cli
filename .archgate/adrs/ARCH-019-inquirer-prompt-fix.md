@@ -35,12 +35,55 @@ Note: `inquirer` itself is loaded lazily (see ARCH-018). The `withPromptFix` wra
 - **DO** wrap every prompt: `const answer = await withPromptFix(() => inquirer.prompt([...]))`
 - **DO** import `withPromptFix` from `src/helpers/prompt.ts` (or load it dynamically alongside `inquirer`)
 - **DO** keep `withPromptFix` idempotent and the single source of the stdout patch
+- **DO** extract a multi-question prompt's definition array to a local `const` when it's too long to inline — the companion rule's adjacency check needs `withPromptFix`/`inquirer.prompt(` on the same line or immediately-preceding line, and oxfmt breaks a long inline `async () => inquirer.prompt([...])` body onto its own line, separating them. See Implementation Pattern.
 
 ### Don't
 
 - **DON'T** call `inquirer.prompt(...)` directly without the wrapper
 - **DON'T** reimplement the cursor/newline fix at individual call sites — funnel everything through `withPromptFix`
 - **DON'T** assume "it works on my machine" — the bug is Windows-only and does not reproduce on macOS/Linux
+
+## Implementation Pattern
+
+### Good Example — long prompt definition kept adjacent to the wrapper
+
+```typescript
+// The question array is long enough that oxfmt would break
+// `withPromptFix(async () => inquirer.prompt([...]))` across three lines,
+// separating `withPromptFix(` from `inquirer.prompt(` — extract the
+// questions to a const first so the wrapper call itself stays short.
+const questions = [
+  {
+    type: "checkbox" as const,
+    name: "selected" as const,
+    message: "Select editors to configure:",
+    choices: detected.map((e) => ({ name: e.label, value: e.id })),
+  },
+];
+const { selected } = await withPromptFix<{ selected: EditorTarget[] }>(
+  async () => inquirer.prompt(questions)
+);
+```
+
+### Bad Example
+
+```typescript
+// BAD: oxfmt formats this as withPromptFix(\n  async () =>\n
+// inquirer.prompt([\n ...\n]) — the companion rule's line-adjacency check
+// (Compliance and Enforcement below) no longer sees "withPromptFix" on the
+// line immediately before "inquirer.prompt(" and flags a false violation.
+const { selected } = await withPromptFix<{ selected: EditorTarget[] }>(
+  async () =>
+    inquirer.prompt([
+      {
+        type: "checkbox",
+        name: "selected",
+        message: "Select editors to configure:",
+        choices: detected.map((e) => ({ name: e.label, value: e.id })),
+      },
+    ])
+);
+```
 
 ## Consequences
 

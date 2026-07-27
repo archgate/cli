@@ -10,7 +10,7 @@ export default {
           (f) => !f.endsWith("helpers/log.ts") && !f.includes("tests/")
         );
         const matches = await Promise.all(
-          files.map((file) => ctx.grep(file, /console\.error\(/u))
+          files.map(async (file) => ctx.grep(file, /console\.error\(/u))
         );
         for (const fileMatches of matches) {
           for (const m of fileMatches) {
@@ -38,7 +38,9 @@ export default {
             !f.includes("tests/")
         );
         const matches = await Promise.all(
-          files.map((file) => ctx.grep(file, /console\.(log|warn|info)\s*\(/u))
+          files.map(async (file) =>
+            ctx.grep(file, /console\.(log|warn|info)\s*\(/u)
+          )
         );
         for (const fileMatches of matches) {
           for (const m of fileMatches) {
@@ -58,13 +60,13 @@ export default {
       async check(ctx) {
         const allowedCodes = new Set([0, 1, 2, 130]);
         const matches = await Promise.all(
-          ctx.scopedFiles.map((file) =>
+          ctx.scopedFiles.map(async (file) =>
             ctx.grep(file, /process\.exit\((\d+)\)/u)
           )
         );
         for (const fileMatches of matches) {
           for (const m of fileMatches) {
-            const codeMatch = m.content.match(/process\.exit\((\d+)\)/u);
+            const codeMatch = /process\.exit\((\d+)\)/u.exec(m.content);
             if (codeMatch) {
               const code = Number(codeMatch[1]);
               if (!allowedCodes.has(code)) {

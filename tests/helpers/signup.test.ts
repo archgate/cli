@@ -10,6 +10,9 @@ import {
 
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
+  // Deliberately incomplete fake: mock() can't reproduce fetch's full type
+  // (preconnect etc.), and only the callable shape is ever exercised.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
 }
 
@@ -52,10 +55,8 @@ describe("requestSignup", () => {
   });
 
   test("returns ok=true and token on 201 with token", async () => {
-    mockFetch(() =>
-      Promise.resolve(
-        Response.json({ token: "ag_beta_auto_approved" }, { status: 201 })
-      )
+    mockFetch(async () =>
+      Response.json({ token: "ag_beta_auto_approved" }, { status: 201 })
     );
 
     const result = await requestSignup(
@@ -68,7 +69,7 @@ describe("requestSignup", () => {
   });
 
   test("returns ok=true and token=null on 201 without token (manual approval)", async () => {
-    mockFetch(() => Promise.resolve(Response.json({}, { status: 201 })));
+    mockFetch(async () => Response.json({}, { status: 201 }));
 
     const result = await requestSignup(
       "octocat",
@@ -80,7 +81,7 @@ describe("requestSignup", () => {
   });
 
   test("returns ok=false and token=null on non-201 status", async () => {
-    mockFetch(() => Promise.resolve(new Response("Conflict", { status: 409 })));
+    mockFetch(async () => new Response("Conflict", { status: 409 }));
 
     const result = await requestSignup(
       "octocat",
@@ -92,7 +93,7 @@ describe("requestSignup", () => {
   });
 
   test("returns ok=true and token=null when response.json() throws", async () => {
-    mockFetch(() => Promise.resolve(new Response("not-json", { status: 201 })));
+    mockFetch(async () => new Response("not-json", { status: 201 }));
 
     const result = await requestSignup(
       "octocat",
@@ -104,9 +105,11 @@ describe("requestSignup", () => {
   });
 
   test("propagates rejection when fetch fails (e.g. network error or timeout)", async () => {
-    mockFetch(() => Promise.reject(new Error("network down")));
+    mockFetch(async () => {
+      throw new Error("network down");
+    });
 
-    await expect(
+    expect(
       requestSignup("octocat", "octo@example.com", "testing")
     ).rejects.toThrow("network down");
   });
@@ -114,18 +117,25 @@ describe("requestSignup", () => {
   test("sends default editor=claude-code when editor not provided", async () => {
     let capturedBody: string | null = null;
 
+    // Deliberately incomplete fake: only the callable shape is exercised.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mock(
-      (_input: string | URL | Request, init?: RequestInit) => {
-        capturedBody = init?.body as string;
-        return Promise.resolve(
-          Response.json({ token: "ag_beta_tok" }, { status: 201 })
-        );
+      async (_input: string | URL | Request, init?: RequestInit) => {
+        capturedBody = typeof init?.body === "string" ? init.body : null;
+        return Response.json({ token: "ag_beta_tok" }, { status: 201 });
       }
     ) as unknown as typeof fetch;
 
     await requestSignup("octocat", "octo@example.com", "testing");
     expect(capturedBody).not.toBeNull();
-    const parsed = JSON.parse(capturedBody!);
+    const parsed: unknown = JSON.parse(capturedBody!);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      !("editor" in parsed)
+    ) {
+      throw new Error("expected a parsed request body with an editor field");
+    }
     expect(parsed.editor).toBe("claude-code");
   });
 });

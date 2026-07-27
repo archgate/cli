@@ -103,20 +103,20 @@ describe("listMatchingFiles", () => {
   // `..` alternatives hidden inside a brace group.
   test("fast path rejects absolute paths hidden in brace alternatives", async () => {
     const tracked = new Set(["src/a.ts"]);
-    await expect(
+    expect(
       listMatchingFiles(tempDir, "{/etc/passwd,src/a.ts}", tracked)
     ).rejects.toThrow("access denied");
   });
 
   test("fast path rejects .. traversal hidden in brace alternatives", async () => {
     const tracked = new Set(["src/a.ts"]);
-    await expect(
+    expect(
       listMatchingFiles(tempDir, "{../escape,src/a.ts}", tracked)
     ).rejects.toThrow("access denied");
   });
 
   test("fallback path rejects absolute paths hidden in brace alternatives", async () => {
-    await expect(
+    expect(
       listMatchingFiles(tempDir, "{/etc/passwd,src/a.ts}", null)
     ).rejects.toThrow("access denied");
   });

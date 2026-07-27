@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 
 import type { AdrDomain } from "../../formats/adr";
 import { createAdrFile } from "../../helpers/adr-writer";
+import { rejectBlank } from "../../helpers/cli-options";
 import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
@@ -18,12 +20,24 @@ export function registerAdrCreateCommand(adr: Command) {
   adr
     .command("create")
     .description("Create a new ADR")
-    .option("--title <title>", "ADR title (skip interactive prompt)")
-    .option(
-      "--domain <domain>",
-      "ADR domain (built-in or registered via `archgate domain add`)"
+    .addOption(
+      new Option(
+        "--title <title>",
+        "ADR title (skip interactive prompt)"
+      ).argParser(rejectBlank)
     )
-    .option("--files <patterns>", "File patterns, comma-separated")
+    .addOption(
+      new Option(
+        "--domain <domain>",
+        "ADR domain (built-in or registered via `archgate domain add`)"
+      ).argParser(rejectBlank)
+    )
+    .addOption(
+      new Option(
+        "--files <patterns>",
+        "File patterns, comma-separated"
+      ).argParser(rejectBlank)
+    )
     .option("--body <markdown>", "Full ADR body markdown (skip template)")
     .option("--rules", "Set rules: true in frontmatter")
     .option("--json", "Output as JSON")
@@ -37,15 +51,16 @@ export function registerAdrCreateCommand(adr: Command) {
         let files: string[] | undefined;
         let body: string | undefined;
 
-        if (opts.title && opts.domain) {
+        if (opts.title !== undefined && opts.domain !== undefined) {
           domain = opts.domain;
           title = opts.title;
-          files = opts.files
-            ? opts.files
-                .split(",")
-                .map((f) => f.trim())
-                .filter(Boolean)
-            : undefined;
+          files =
+            opts.files === undefined
+              ? undefined
+              : opts.files
+                  .split(",")
+                  .map((f) => f.trim())
+                  .filter(Boolean);
           body = opts.body;
         } else {
           const choices = getAllDomainNames(projectRoot);
@@ -53,8 +68,12 @@ export function registerAdrCreateCommand(adr: Command) {
           // needed for interactive prompts, not for scripted --title/--domain
           // invocations or --help/--version.
           const { default: inquirer } = await import("inquirer");
-          const answers = await withPromptFix(() =>
-            inquirer.prompt([
+          const answers = await withPromptFix(async () =>
+            inquirer.prompt<{
+              domain: AdrDomain;
+              title: string;
+              files: string;
+            }>([
               {
                 type: "select",
                 name: "domain",
@@ -97,7 +116,7 @@ export function registerAdrCreateCommand(adr: Command) {
           rules: opts.rules,
         });
 
-        const useJson = opts.json || isAgentContext();
+        const useJson = opts.json ?? isAgentContext();
         if (useJson) {
           console.log(formatJSON(result, opts.json ? true : undefined));
         } else {

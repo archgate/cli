@@ -23,7 +23,7 @@ export async function encodeProjectPath(
   let raw = projectRoot;
   if (isWSL()) {
     const winPath = await toWindowsPath(projectRoot);
-    if (winPath) {
+    if (winPath !== null && winPath !== "") {
       raw = winPath;
     }
   }
@@ -48,7 +48,7 @@ const ToolResultBlockSchema = z.object({
   tool_use_id: z.string(),
 });
 // Catch-all for block types we don't inspect (thinking, image, etc.)
-const UnknownBlockSchema = z.object({ type: z.string() }).passthrough();
+const UnknownBlockSchema = z.object({ type: z.string() }).loose();
 
 const ContentBlockSchema = z.union([
   TextBlockSchema,
@@ -135,7 +135,7 @@ export function getContentPreview(entry: TranscriptEntry): string {
     const parts: string[] = [];
     for (const block of content) {
       const parsed = parseContentBlock(block);
-      if (parsed) parts.push(parsed);
+      if (parsed !== null && parsed !== "") parts.push(parsed);
     }
     return parts.join(" | ");
   }
@@ -230,11 +230,13 @@ export async function readClaudeCodeSession(
     };
   }
 
-  const targetName = options?.sessionId
-    ? files.find((f) => f === `${options.sessionId}.jsonl`)
-    : files[0];
+  const sessionIdFilter = options?.sessionId;
+  const targetName =
+    sessionIdFilter !== undefined && sessionIdFilter !== ""
+      ? files.find((f) => f === `${sessionIdFilter}.jsonl`)
+      : files[0];
 
-  if (!targetName) {
+  if (targetName === undefined || targetName === "") {
     return {
       ok: false,
       error: `Session not found: ${options?.sessionId ?? ""}`,
@@ -377,9 +379,11 @@ export async function readCursorSession(
     };
   }
 
-  const targetDir = options?.sessionId
-    ? sessionDirs.find((d) => d.name === options.sessionId)
-    : sessionDirs[0];
+  const sessionIdFilter = options?.sessionId;
+  const targetDir =
+    sessionIdFilter !== undefined && sessionIdFilter !== ""
+      ? sessionDirs.find((d) => d.name === sessionIdFilter)
+      : sessionDirs[0];
 
   if (!targetDir) {
     return {

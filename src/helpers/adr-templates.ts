@@ -68,9 +68,10 @@ interface AdrTemplateOptions {
 }
 
 export function generateAdrTemplate(options: AdrTemplateOptions): string {
-  const filesLine = options.files?.length
-    ? `files: [${options.files.map((f) => `"${f}"`).join(", ")}]`
-    : "";
+  const filesLine =
+    options.files !== undefined && options.files.length > 0
+      ? `files: [${options.files.map((f) => `"${f}"`).join(", ")}]`
+      : "";
 
   return `---
 id: ${options.id}

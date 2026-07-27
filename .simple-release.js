@@ -14,12 +14,16 @@ class ArchgateProject extends NpmProject {
     const next = await super.getNextVersion(options);
 
     // Respect explicit overrides and no-op results.
-    if (!next || options?.version || options?.as) {
+    if (
+      next === null ||
+      (options?.version !== undefined && options.version !== "") ||
+      (options?.as !== undefined && options.as !== "")
+    ) {
       return next;
     }
 
     const current = await this.manifest.getVersion();
-    const isPreMajor = current?.startsWith("0.");
+    const isPreMajor = current.startsWith("0.");
     const bumpsToMajor = !next.startsWith("0.");
 
     if (isPreMajor && bumpsToMajor) {

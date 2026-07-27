@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   mock,
+  type Mock,
   spyOn,
   test,
 } from "bun:test";
@@ -33,11 +34,15 @@ import { restoreEnv } from "../test-utils";
 
 let originalFetch: typeof globalThis.fetch;
 
+// Deliberately incomplete fake Subprocess: only the fields plugin-install
+// actually reads (stdout/stderr/exited) need real values; the rest are inert
+// filler required to satisfy the type.
 function fakeSpawnResult(
   exitCode: number,
   stdout = "",
   stderr = ""
 ): ReturnType<typeof Bun.spawn> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return {
     stdout: new Response(stdout).body!,
     stderr: new Response(stderr).body!,
@@ -46,29 +51,32 @@ function fakeSpawnResult(
     exitCode: null,
     signalCode: null,
     killed: false,
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     stdin: null as never,
     ref: () => {},
     unref: () => {},
     kill: () => {},
     readable: new ReadableStream(),
-    [Symbol.asyncDispose]: () => Promise.resolve(),
+    [Symbol.asyncDispose]: async () => {},
   } as unknown as ReturnType<typeof Bun.spawn>;
 }
 
 function mockFetch(status: number, body: ArrayBuffer | null = null): void {
-  globalThis.fetch = (() =>
-    Promise.resolve({
-      status,
-      ok: status >= 200 && status < 300,
-      arrayBuffer: () => Promise.resolve(body ?? new ArrayBuffer(0)),
-    })) as unknown as typeof fetch;
+  // Deliberately incomplete fake fetch: only the fields callers read
+  // (status/ok/arrayBuffer) need real values.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  globalThis.fetch = (async () => ({
+    status,
+    ok: status >= 200 && status < 300,
+    arrayBuffer: async () => body ?? new ArrayBuffer(0),
+  })) as unknown as typeof fetch;
 }
 
 // ---------------------------------------------------------------------------
 // Setup / Teardown
 // ---------------------------------------------------------------------------
 
-let spawnSpy: ReturnType<typeof spyOn>;
+let spawnSpy: Mock<typeof Bun.spawn>;
 let tempDir: string;
 let savedHome: string | undefined;
 let savedXdg: string | undefined;
@@ -79,12 +87,12 @@ let savedXdg: string | undefined;
  * process-global, replaces the WHOLE module for every other test file, and is
  * not undone by mock.restore() (ARCH-005).
  */
-let mockResolveCommand: ReturnType<typeof spyOn>;
+let mockResolveCommand: Mock<typeof platform.resolveCommand>;
 
 beforeEach(() => {
   originalFetch = globalThis.fetch;
   mockResolveCommand = spyOn(platform, "resolveCommand").mockImplementation(
-    () => Promise.resolve(null)
+    async () => null
   );
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
 
@@ -179,7 +187,7 @@ describe("plugin install — stale file cleanup", () => {
 
       await installOpencodePlugin("test-token");
 
-      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      const callArgs = spawnSpy.mock.calls[0][0];
       const targetIdx = callArgs.indexOf("-C");
       expect(targetIdx).toBeGreaterThanOrEqual(0);
       const targetDir = callArgs[targetIdx + 1];
@@ -214,7 +222,7 @@ describe("plugin install — stale file cleanup", () => {
 
       await installCursorPlugin("test-token");
 
-      const callArgs = spawnSpy.mock.calls[0][0] as string[];
+      const callArgs = spawnSpy.mock.calls[0][0];
       const targetIdx = callArgs.indexOf("-C");
       expect(targetIdx).toBeGreaterThanOrEqual(0);
       const targetDir = callArgs[targetIdx + 1];

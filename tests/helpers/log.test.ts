@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 
 import { logDebug, logInfo, logError, logWarn } from "../../src/helpers/log";
 
 describe("log helpers", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let warnSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let traceSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let warnSpy: Mock<typeof console.warn>;
+  let errorSpy: Mock<typeof console.error>;
+  let traceSpy: Mock<typeof console.trace>;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});

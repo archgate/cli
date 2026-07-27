@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import type { Command } from "@commander-js/extra-typings";
+import { Option } from "@commander-js/extra-typings";
 
 import { updateAdrFile } from "../../helpers/adr-writer";
+import { rejectBlank } from "../../helpers/cli-options";
 import { handleCommandError } from "../../helpers/exit";
 import { formatJSON, isAgentContext } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
@@ -17,14 +19,23 @@ export function registerAdrUpdateCommand(adr: Command) {
     .description("Update an existing ADR by ID")
     .requiredOption("--id <id>", "ADR ID to update (e.g., ARCH-001)")
     .requiredOption("--body <markdown>", "Full replacement ADR body markdown")
-    .option("--title <title>", "New ADR title (preserves existing if omitted)")
-    .option(
-      "--domain <domain>",
-      "New ADR domain (built-in or registered via `archgate domain add`)"
+    .addOption(
+      new Option(
+        "--title <title>",
+        "New ADR title (preserves existing if omitted)"
+      ).argParser(rejectBlank)
     )
-    .option(
-      "--files <patterns>",
-      "New file patterns, comma-separated (preserves existing if omitted)"
+    .addOption(
+      new Option(
+        "--domain <domain>",
+        "New ADR domain (built-in or registered via `archgate domain add`)"
+      ).argParser(rejectBlank)
+    )
+    .addOption(
+      new Option(
+        "--files <patterns>",
+        "New file patterns, comma-separated (preserves existing if omitted)"
+      ).argParser(rejectBlank)
     )
     .option("--rules", "Set rules: true in frontmatter")
     .option("--json", "Output as JSON")
@@ -33,14 +44,15 @@ export function registerAdrUpdateCommand(adr: Command) {
         const projectRoot = requireProjectRoot();
         const paths = resolvedProjectPaths(projectRoot);
 
-        const files = opts.files
-          ? opts.files
-              .split(",")
-              .map((f) => f.trim())
-              .filter(Boolean)
-          : undefined;
+        const files =
+          opts.files === undefined
+            ? undefined
+            : opts.files
+                .split(",")
+                .map((f) => f.trim())
+                .filter(Boolean);
 
-        if (opts.domain) {
+        if (opts.domain !== undefined) {
           // Validate the domain against the merged config now so users get
           // a clear error instead of a stale prefix mismatch later.
           resolveDomainPrefix(projectRoot, opts.domain);
@@ -55,7 +67,7 @@ export function registerAdrUpdateCommand(adr: Command) {
           rules: opts.rules,
         });
 
-        const useJson = opts.json || isAgentContext();
+        const useJson = opts.json ?? isAgentContext();
         if (useJson) {
           console.log(formatJSON(result, opts.json ? true : undefined));
         } else {

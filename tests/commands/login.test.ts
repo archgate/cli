@@ -7,7 +7,15 @@
 // that import the real credential-store, telemetry, or sentry modules.
 // ---------------------------------------------------------------------------
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";
 
@@ -66,13 +74,13 @@ describe("registerLoginCommand", () => {
 // ---------------------------------------------------------------------------
 
 describe("login action handlers", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let loadCredentialsSpy: ReturnType<typeof spyOn>;
-  let clearCredentialsSpy: ReturnType<typeof spyOn>;
-  let runLoginFlowSpy: ReturnType<typeof spyOn>;
-  let exitWithSpy: ReturnType<typeof spyOn>;
-  let trackLoginSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let loadCredentialsSpy: Mock<typeof credentialStore.loadCredentials>;
+  let clearCredentialsSpy: Mock<typeof credentialStore.clearCredentials>;
+  let runLoginFlowSpy: Mock<typeof loginFlow.runLoginFlow>;
+  let exitWithSpy: Mock<typeof exitMod.exitWith>;
+  let trackLoginSpy: Mock<typeof telemetry.trackLoginResult>;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});
@@ -147,7 +155,7 @@ describe("login action handlers", () => {
       );
 
       const program = makeProgram();
-      await expect(
+      expect(
         program.parseAsync(["node", "test", "login", "status"])
       ).rejects.toThrow("exitWith(2)");
 
@@ -181,7 +189,7 @@ describe("login action handlers", () => {
       clearCredentialsSpy.mockRejectedValueOnce(new Error("clear failed"));
 
       const program = makeProgram();
-      await expect(
+      expect(
         program.parseAsync(["node", "test", "login", "logout"])
       ).rejects.toThrow("exitWith(2)");
 
@@ -221,9 +229,9 @@ describe("login action handlers", () => {
       runLoginFlowSpy.mockResolvedValueOnce({ ok: false });
 
       const program = makeProgram();
-      await expect(
-        program.parseAsync(["node", "test", "login"])
-      ).rejects.toThrow(/exitWith/u);
+      expect(program.parseAsync(["node", "test", "login"])).rejects.toThrow(
+        /exitWith/u
+      );
 
       // First exitWith call is the direct exitWith(1) from the command
       expect(exitWithSpy.mock.calls[0]?.[0]).toBe(1);
@@ -253,9 +261,9 @@ describe("login action handlers", () => {
       );
 
       const program = makeProgram();
-      await expect(
-        program.parseAsync(["node", "test", "login"])
-      ).rejects.toThrow("exitWith(1)");
+      expect(program.parseAsync(["node", "test", "login"])).rejects.toThrow(
+        "exitWith(1)"
+      );
 
       expect(exitWithSpy).toHaveBeenCalledWith(1);
       const allErrors = errorSpy.mock.calls
@@ -269,9 +277,9 @@ describe("login action handlers", () => {
       runLoginFlowSpy.mockRejectedValueOnce(new Error("network timeout"));
 
       const program = makeProgram();
-      await expect(
-        program.parseAsync(["node", "test", "login"])
-      ).rejects.toThrow("exitWith(2)");
+      expect(program.parseAsync(["node", "test", "login"])).rejects.toThrow(
+        "exitWith(2)"
+      );
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
       const allErrors = errorSpy.mock.calls
@@ -305,7 +313,7 @@ describe("login action handlers", () => {
       runLoginFlowSpy.mockResolvedValueOnce({ ok: false });
 
       const program = makeProgram();
-      await expect(
+      expect(
         program.parseAsync(["node", "test", "login", "refresh"])
       ).rejects.toThrow(/exitWith/u);
 
@@ -320,7 +328,7 @@ describe("login action handlers", () => {
       );
 
       const program = makeProgram();
-      await expect(
+      expect(
         program.parseAsync(["node", "test", "login", "refresh"])
       ).rejects.toThrow("exitWith(1)");
 
@@ -336,7 +344,7 @@ describe("login action handlers", () => {
       runLoginFlowSpy.mockRejectedValueOnce(new Error("server unreachable"));
 
       const program = makeProgram();
-      await expect(
+      expect(
         program.parseAsync(["node", "test", "login", "refresh"])
       ).rejects.toThrow("exitWith(2)");
 

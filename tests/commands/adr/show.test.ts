@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -48,8 +56,8 @@ describe("registerAdrShowCommand", () => {
 describe("adr show action handler", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-show-test-"));
@@ -82,9 +90,7 @@ describe("adr show action handler", () => {
     const parent = makeProgram();
     await parent.parseAsync(["node", "adr", "show", "ARCH-001"]);
 
-    const allOutput = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
+    const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(allOutput).toContain("ARCH-001");
     expect(allOutput).toContain("Use TypeScript");
     expect(allOutput).toContain("We need a type-safe language.");
@@ -98,7 +104,7 @@ describe("adr show action handler", () => {
     process.chdir(tempDir);
     const parent = makeProgram();
 
-    await expect(
+    expect(
       parent.parseAsync(["node", "adr", "show", "ARCH-999"])
     ).rejects.toThrow("process.exit");
 
@@ -109,7 +115,7 @@ describe("adr show action handler", () => {
     process.chdir(tempDir);
     const parent = makeProgram();
 
-    await expect(
+    expect(
       parent.parseAsync(["node", "adr", "show", "ARCH-001"])
     ).rejects.toThrow("process.exit");
 

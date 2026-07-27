@@ -58,7 +58,9 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+                ctx.scopedFiles.map(async (file) =>
+                  ctx.grep(file, /console\.log/u)
+                )
               );
               for (const matches of results) {
                 for (const m of matches) {
@@ -129,7 +131,9 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+                ctx.scopedFiles.map(async (file) =>
+                  ctx.grep(file, /console\.log/u)
+                )
               );
               for (const matches of results) {
                 for (const m of matches) {
@@ -179,10 +183,9 @@ describe("runChecks", () => {
           "check-todos": {
             description: "Check TODOs",
             severity: "warning",
-            check(ctx) {
+            async check(ctx) {
               ctx.report.warning({ message: "Found a TODO" });
               ctx.report.info({ message: "Info message" });
-              return Promise.resolve();
             },
           },
         },
@@ -385,7 +388,9 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+                ctx.scopedFiles.map(async (file) =>
+                  ctx.grep(file, /console\.log/u)
+                )
               );
               for (const matches of results) {
                 for (const m of matches) {
@@ -426,7 +431,9 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+                ctx.scopedFiles.map(async (file) =>
+                  ctx.grep(file, /console\.log/u)
+                )
               );
               for (const matches of results) {
                 for (const m of matches) {
@@ -466,7 +473,9 @@ describe("runChecks", () => {
             description: "No console.log",
             async check(ctx) {
               const results = await Promise.all(
-                ctx.scopedFiles.map((file) => ctx.grep(file, /console\.log/u))
+                ctx.scopedFiles.map(async (file) =>
+                  ctx.grep(file, /console\.log/u)
+                )
               );
               for (const matches of results) {
                 for (const m of matches) {

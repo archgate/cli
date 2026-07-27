@@ -83,15 +83,19 @@ function isLocalInstall(): boolean {
   return process.execPath.includes("node_modules");
 }
 
+/** Ancestor directories to walk before giving up — far beyond any real filesystem's nesting depth, just a hard stop against a pathological `dirname` result. */
+const MAX_ANCESTOR_DEPTH = 1000;
+
 /** Walk up from the binary location to find the nearest package.json (for local installs). */
 function findPackageRoot(): string | null {
   let dir = dirname(process.execPath);
-  while (true) {
+  for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
     if (existsSync(join(dir, "package.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;
   }
+  return null;
 }
 
 const LOCKFILE_TO_PM: [string, string, string[]][] = [
@@ -108,7 +112,7 @@ async function detectLocalPm(): Promise<{
   manualHint: string;
 } | null> {
   const root = findPackageRoot();
-  if (!root) return null;
+  if (root === null) return null;
 
   const match = LOCKFILE_TO_PM.find(([lockfile]) =>
     existsSync(join(root, lockfile))
@@ -168,7 +172,7 @@ async function detectInstallMethod(): Promise<InstallMethod> {
   const candidates = await Promise.all(
     PACKAGE_MANAGERS.map(async (pm) => {
       const resolved = await resolveCommand(pm.name);
-      if (!resolved) return null;
+      if (resolved === null || resolved === "") return null;
       const globalBinCmd = [resolved, ...pm.globalBinCmd.slice(1)];
       const binDir = await getGlobalBinDir(globalBinCmd);
       logDebug(
@@ -183,9 +187,13 @@ async function detectInstallMethod(): Promise<InstallMethod> {
     })
   );
 
-  const match = candidates.find(
-    (c) => c?.binDir && binaryPath.startsWith(c.binDir)
-  );
+  const match = candidates
+    .filter((c): c is NonNullable<typeof c> => c !== null)
+    .filter(
+      (c): c is typeof c & { binDir: string } =>
+        c.binDir !== null && c.binDir !== ""
+    )
+    .find((c) => binaryPath.startsWith(c.binDir));
 
   if (match) {
     logDebug("Install method: package-manager, matched:", match.pm.name);
@@ -233,7 +241,7 @@ function createDownloadProgress(): DownloadProgressCallback | undefined {
     clearLine(process.stderr, 0);
     cursorTo(process.stderr, 0);
     const downloaded = formatBytes(downloadedBytes);
-    if (totalBytes) {
+    if (totalBytes !== null && totalBytes !== 0) {
       const total = formatBytes(totalBytes);
       const percent = Math.round((downloadedBytes / totalBytes) * 100);
       process.stderr.write(
@@ -318,13 +326,13 @@ async function runExternalUpgrade(
  * Plugin update failures are reported but do NOT change the exit code.
  */
 async function maybeUpdatePlugins(pluginsFlag: boolean): Promise<void> {
-  const isTTY = process.stdin.isTTY === true;
+  const isTTY = process.stdin.isTTY;
 
   if (!pluginsFlag && isTTY) {
     const { default: inquirer } = await import("inquirer");
     const { withPromptFix } = await import("../helpers/prompt");
-    const { updatePlugins } = await withPromptFix(() =>
-      inquirer.prompt([
+    const { updatePlugins } = await withPromptFix(async () =>
+      inquirer.prompt<{ updatePlugins: boolean }>([
         {
           type: "confirm",
           name: "updatePlugins",
@@ -383,7 +391,7 @@ export function registerUpgradeCommand(program: Command) {
 
         const tag = await fetchLatestGitHubVersion();
         logDebug("GitHub latest tag:", tag ?? "(null)");
-        if (!tag) {
+        if (tag === null || tag === "") {
           logError(
             "Failed to fetch release info from GitHub.",
             "Check your network connection."
@@ -397,14 +405,6 @@ export function registerUpgradeCommand(program: Command) {
         const latestVersion = tag.replace(/^v/u, "");
         logDebug("Version comparison:", currentVersion, "vs", latestVersion);
         const order = semver.order(currentVersion, latestVersion);
-
-        if (order === null) {
-          logError(
-            `Could not compare versions: ${currentVersion} vs ${latestVersion}`
-          );
-          await exitWith(2);
-          return;
-        }
 
         if (order >= 0) {
           console.log(`Archgate is already up-to-date (${currentVersion}).`);

@@ -8,7 +8,7 @@ import { join } from "node:path";
 import type { LoadResult } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
-import type { GrepMatch } from "../../src/formats/rules";
+import type { GrepMatch, RuleContext } from "../../src/formats/rules";
 import { git, safeRmSync } from "../test-utils";
 
 describe("runChecks gitignore filtering", () => {
@@ -40,7 +40,7 @@ describe("runChecks gitignore filtering", () => {
     ruleSet: {
       rules: Record<
         string,
-        { description: string; check: (ctx: any) => Promise<void> }
+        { description: string; check: (ctx: RuleContext) => Promise<void> }
       >;
     }
   ): LoadResult {

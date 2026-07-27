@@ -77,13 +77,17 @@ export function parseSuppressions(
     }
     if (insideCodeBlock) continue;
 
-    const match = lines[i].match(SUPPRESSION_RE);
+    const match = SUPPRESSION_RE.exec(lines[i]);
     if (!match) continue;
 
     results.push({
       type: match[1] === "-file" ? "file" : "next-line",
       adrId: match[2],
       ruleId: match[3],
+      // Group 4 (reason) is genuinely optional in SUPPRESSION_RE — TS's
+      // RegExpExecArray typing doesn't model per-group optionality, so the
+      // `?.` here is required at runtime despite the lint claiming it isn't.
+      // oxlint-disable-next-line typescript/no-unnecessary-condition
       reason: match[4]?.trim() ?? null,
       line: i + 1,
       file: filePath,
@@ -122,7 +126,7 @@ export async function applySuppressions(
   const filePathsNeeded = new Set<string>();
   for (const r of results) {
     for (const v of r.violations) {
-      if (v.file) filePathsNeeded.add(v.file);
+      if (v.file !== undefined && v.file !== "") filePathsNeeded.add(v.file);
     }
   }
 
@@ -201,7 +205,7 @@ function checkSuppression(
   fileSuppressions: Map<string, SuppressionComment[]>,
   warnings: SuppressionWarning[]
 ): boolean {
-  if (!violation.file) return false;
+  if (violation.file === undefined || violation.file === "") return false;
 
   const suppressions = fileSuppressions.get(violation.file);
   if (!suppressions) return false;
@@ -214,9 +218,7 @@ function checkSuppression(
     // Check scope match — targetLine accounts for stacked suppression blocks
     const scopeMatches =
       s.type === "file" ||
-      (s.type === "next-line" &&
-        violation.line !== undefined &&
-        s.targetLine === violation.line);
+      (violation.line !== undefined && s.targetLine === violation.line);
 
     if (!scopeMatches) continue;
 

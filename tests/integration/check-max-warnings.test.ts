@@ -4,7 +4,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { safeRmSync } from "../test-utils";
+import { expectKeys, safeRmSync } from "../test-utils";
 import {
   runCli,
   createTempProject,
@@ -54,7 +54,12 @@ describe("check --max-warnings integration", () => {
     writeWarningAdr("WARN-001");
     const { exitCode, stdout } = await runCli(["check", "--json"], dir);
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "pass",
+      "warnings",
+      "warningsExceeded"
+    );
     expect(json.pass).toBe(true);
     expect(json.warnings).toBeGreaterThan(0);
     expect(json.warningsExceeded).toBe(false);
@@ -67,7 +72,7 @@ describe("check --max-warnings integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "pass", "warningsExceeded");
     expect(json.pass).toBe(false);
     expect(json.warningsExceeded).toBe(true);
   });
@@ -79,7 +84,7 @@ describe("check --max-warnings integration", () => {
       dir
     );
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "pass", "warningsExceeded");
     expect(json.pass).toBe(true);
     expect(json.warningsExceeded).toBe(false);
   });

@@ -95,7 +95,7 @@ export function listOpencodeSessions(
     const topLevel = queryAllSessions(db).filter(
       (s) =>
         s.parent_id === null &&
-        s.directory &&
+        s.directory !== "" &&
         normalizePath(s.directory) === normalizedProjectRoot
     );
     return {
@@ -158,7 +158,9 @@ export function readOpencodeSession(
     }
 
     const matching = allSessions.filter(
-      (s) => s.directory && normalizePath(s.directory) === normalizedProjectRoot
+      (s) =>
+        s.directory !== "" &&
+        normalizePath(s.directory) === normalizedProjectRoot
     );
 
     if (matching.length === 0) {
@@ -174,15 +176,17 @@ export function readOpencodeSession(
     // are child sessions (parent_id set) sharing the parent's directory,
     // and would otherwise shadow the main session.
     // An explicit --session-id can read any session, including children.
-    const target = options?.sessionId
-      ? matching.find((s) => s.id === options.sessionId)
-      : matching.find((s) => s.parent_id === null);
+    const sessionIdFilter = options?.sessionId;
+    const target =
+      sessionIdFilter !== undefined && sessionIdFilter !== ""
+        ? matching.find((s) => s.id === sessionIdFilter)
+        : matching.find((s) => s.parent_id === null);
 
     if (!target) {
-      if (options?.sessionId) {
+      if (sessionIdFilter !== undefined && sessionIdFilter !== "") {
         return {
           ok: false,
-          error: `Session not found: ${options.sessionId}`,
+          error: `Session not found: ${sessionIdFilter}`,
           available: matching.map((s) => s.id),
         };
       }
@@ -242,9 +246,13 @@ export function readOpencodeSession(
 
       const contentParts: string[] = [];
       for (const part of parts) {
-        if (part.type === "text" && part.text) {
+        if (part.type === "text" && part.text !== null && part.text !== "") {
           contentParts.push(part.text);
-        } else if (part.type === "tool" && part.tool) {
+        } else if (
+          part.type === "tool" &&
+          part.tool !== null &&
+          part.tool !== ""
+        ) {
           contentParts.push(`[tool: ${part.tool}]`);
         }
       }
