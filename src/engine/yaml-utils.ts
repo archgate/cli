@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { z } from "zod";
+
 import type { ReadYamlResult, YamlValue } from "../formats/rules";
 
 /**
@@ -18,23 +20,28 @@ const FRONTMATTER_REGEX =
 const YAML_EXTENSIONS = [".yml", ".yaml"];
 
 /**
- * Structural check that a `Bun.YAML.parse()` result (typed `unknown`) is
- * expressible as `YamlValue` — true by construction for any successfully
- * parsed YAML/JSON document, but not provable to the type checker without
- * walking it.
+ * Mirrors {@link YamlValue}'s recursive shape so a `Bun.YAML.parse()` result
+ * (typed `unknown`) can be validated in one call instead of a hand-walked
+ * recursive type guard.
+ */
+const yamlValueSchema: z.ZodType<YamlValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(yamlValueSchema),
+    z.record(z.string(), yamlValueSchema),
+  ])
+);
+
+/**
+ * Structural check that a `Bun.YAML.parse()` result is expressible as
+ * `YamlValue` — true by construction for any successfully parsed YAML/JSON
+ * document, but not provable to the type checker without validating it.
  */
 function isYamlValue(value: unknown): value is YamlValue {
-  if (value === null) return true;
-  if (
-    typeof value === "string" ||
-    typeof value === "number" ||
-    typeof value === "boolean"
-  )
-    return true;
-  if (Array.isArray(value)) return value.every((item) => isYamlValue(item));
-  if (typeof value === "object")
-    return Object.values(value).every((item) => isYamlValue(item));
-  return false;
+  return yamlValueSchema.safeParse(value).success;
 }
 
 /** Strip a leading UTF-8 BOM, which would otherwise defeat the `^---` anchor. */

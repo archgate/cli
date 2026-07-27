@@ -5,6 +5,8 @@
 import { existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { cursorUserDir, internalPath, opencodeConfigDir } from "./paths";
 import { resolveCommand } from "./platform";
@@ -150,25 +152,18 @@ export async function installCursorPlugin(token: string): Promise<void> {
   await mergeCursorHooks(cursorDir);
 }
 
-/**
- * Narrow an untyped JSON value to a hooks.json entry array without
- * reconstructing entries — unrecognized per-entry fields (e.g. `type`) must
- * survive the round-trip through {@link mergeCursorHooks}.
- */
+/** Shape-check only; validated values are used as-is, so extra per-entry
+ * fields (e.g. `type`) survive the round-trip through {@link mergeCursorHooks}
+ * unchanged. */
+const cursorHookArraySchema = z.array(
+  z.object({ event: z.string(), command: z.string().optional() })
+);
+
+/** Narrow an untyped JSON value to a hooks.json entry array. */
 function isCursorHookArray(
   value: unknown
 ): value is { event: string; command?: string }[] {
-  // Array.isArray narrows to any[], not unknown[] — reassign through an
-  // explicitly unknown[]-typed binding so element access below stays checked.
-  if (!Array.isArray(value)) return false;
-  const entries: unknown[] = value;
-  return entries.every(
-    (entry) =>
-      typeof entry === "object" &&
-      entry !== null &&
-      "event" in entry &&
-      typeof entry.event === "string"
-  );
+  return cursorHookArraySchema.safeParse(value).success;
 }
 
 /**

@@ -5,6 +5,7 @@ import { chmodSync, mkdtempSync, renameSync, unlinkSync } from "node:fs";
 import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { ReadableStreamDefaultReader } from "node:stream/web";
 
 import { z } from "zod";
 
@@ -152,14 +153,13 @@ export async function downloadReleaseBinary(
         ? Math.trunc(Number(contentLength))
         : null;
 
-    // response.body.getReader() resolves through lib.dom's ReadableStream
-    // typings here, which lack Bun's `readMany` augmentation on
-    // ReadableStreamDefaultReader — a typings gap, not a runtime one (Bun's
-    // actual reader always implements it).
-    type BunReader = ReadableStreamDefaultReader<Uint8Array>;
+    // undici-types declares `Response.body` as the bare `node:stream/web`
+    // `ReadableStream` with no type parameter, so `.getReader()` infers
+    // `ReadableStreamDefaultReader<any>` — narrow to the same module's
+    // reader type, parameterized with the type actually read from it.
     const rawReader = response.body.getReader();
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const reader = rawReader as unknown as BunReader;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- source is `any` at this untyped-generic library boundary; this is what it actually returns
+    const reader = rawReader as ReadableStreamDefaultReader<Uint8Array>;
     const chunks: Uint8Array[] = [];
     let downloadedBytes = 0;
 
