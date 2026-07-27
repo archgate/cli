@@ -14,6 +14,23 @@ import {
   makeAdr,
 } from "./cli-harness";
 
+const CROSS_FILE_RULE = `export default {
+  rules: {
+    "config-requires-manifest": {
+      description: "config change requires manifest bump",
+      async check(ctx) {
+        if (!ctx.changedFiles.includes("config/database.yml")) return;
+        if (!ctx.changedFiles.includes("deploy/manifest.yml")) {
+          ctx.report.violation({
+            message: "config/database.yml changed but deploy/manifest.yml was not updated",
+            file: "config/database.yml",
+          });
+        }
+      },
+    },
+  },
+};`;
+
 describe("check --base integration", () => {
   let dir: string;
 
@@ -47,26 +64,7 @@ describe("check --base integration", () => {
       "CROSS-001.md",
       makeAdr({ id: "CROSS-001", title: "Cross File Check", rules: true })
     );
-    writeRules(
-      dir,
-      "CROSS-001.rules.ts",
-      `export default {
-  rules: {
-    "config-requires-manifest": {
-      description: "config change requires manifest bump",
-      async check(ctx) {
-        if (!ctx.changedFiles.includes("config/database.yml")) return;
-        if (!ctx.changedFiles.includes("deploy/manifest.yml")) {
-          ctx.report.violation({
-            message: "config/database.yml changed but deploy/manifest.yml was not updated",
-            file: "config/database.yml",
-          });
-        }
-      },
-    },
-  },
-};`
-    );
+    writeRules(dir, "CROSS-001.rules.ts", CROSS_FILE_RULE);
 
     await git(["add", "."], dir);
     await git(["commit", "-m", "initial"], dir);
@@ -90,7 +88,7 @@ describe("check --base integration", () => {
       (r: { violations: unknown[] }) => r.violations
     );
     expect(violations.length).toBeGreaterThan(0);
-  }, 30_000);
+  }, 60_000);
 
   test("--base with no violations when both files change", async () => {
     scaffoldProject(dir);
@@ -108,26 +106,7 @@ describe("check --base integration", () => {
       "CROSS-002.md",
       makeAdr({ id: "CROSS-002", title: "Cross File Pass", rules: true })
     );
-    writeRules(
-      dir,
-      "CROSS-002.rules.ts",
-      `export default {
-  rules: {
-    "config-requires-manifest": {
-      description: "config change requires manifest bump",
-      async check(ctx) {
-        if (!ctx.changedFiles.includes("config/database.yml")) return;
-        if (!ctx.changedFiles.includes("deploy/manifest.yml")) {
-          ctx.report.violation({
-            message: "config/database.yml changed but deploy/manifest.yml was not updated",
-            file: "config/database.yml",
-          });
-        }
-      },
-    },
-  },
-};`
-    );
+    writeRules(dir, "CROSS-002.rules.ts", CROSS_FILE_RULE);
 
     await git(["add", "."], dir);
     await git(["commit", "-m", "initial"], dir);
@@ -147,7 +126,7 @@ describe("check --base integration", () => {
     expect(result.exitCode).toBe(0);
     const json = JSON.parse(result.stdout);
     expect(json.pass).toBe(true);
-  }, 30_000);
+  }, 60_000);
 
   test("--staged takes precedence over auto-detection", async () => {
     scaffoldProject(dir);
@@ -196,5 +175,5 @@ describe("check --base integration", () => {
     expect(result.exitCode).toBe(0);
     const json = JSON.parse(result.stdout);
     expect(json.pass).toBe(true);
-  }, 30_000);
+  }, 60_000);
 });

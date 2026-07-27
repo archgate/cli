@@ -39,22 +39,22 @@ This is the same class of problem linters solve with a "warnings as errors" mode
 
 **Scope:** the four `ReportSummary` categories (rule-severity `warning`, `briefingWarnings`, `suppressionWarnings`, `unparsedAdrs`) and `adr sync`'s `result.errors`. NOT the ad-hoc `logWarn()` sites in `init.ts`, `plugin/install.ts`, `credential-store.ts` — those describe local-machine state, not ADR-corpus quality.
 
-`check`'s former `--max-warnings <n>` flag is REMOVED (breaking): `--strict` is the single escalation switch; a tolerate-up-to-N warning budget is deliberately not offered.
+`check`'s former `--max-warnings <n>` flag is REMOVED (breaking): `--strict` is the single escalation switch; no tolerate-up-to-N budget is offered.
 
 **Per-command semantics:**
 
-- **`check`** (`buildSummary()`): any rule-severity `warning` sets `warningsExceeded`. Sets `strictAdvisoryExceeded` when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty; either flips `pass` to `false`. Advisory diagnostics are corpus-scoped and MUST be collected on every exit path, including the zero-rules early return, so a prose-only or fully-unparseable corpus still fails under `--strict`.
-- **`review-context`**: fails when `truncatedBriefings` is non-empty, or, with `--run-checks`, when `checkSummary.warningsExceeded`/`strictAdvisoryExceeded` is true. Does NOT gate on `checkSummary.failed`/`ruleErrors` — stays a context generator, not a second gate; `check` alone is authoritative for rule violations.
+- **`check`** (`buildSummary()`): any rule-severity `warning` sets `warningsExceeded`. Sets `strictAdvisoryExceeded` when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty; either flips `pass` to `false`. The ADR-corpus diagnostics (`briefingWarnings`, `unparsedAdrs`) MUST be collected on every exit path, including the zero-rules early return, so a prose-only or unparseable corpus still fails under `--strict`; `suppressionWarnings` are violation-scoped and exist only when rules run.
+- **`review-context`**: fails when `truncatedBriefings` is non-empty, or, with `--run-checks`, when `checkSummary.warningsExceeded`/`strictAdvisoryExceeded` is true. Does NOT gate on `checkSummary.failed`/`ruleErrors` — it stays a context generator; `check` alone gates rule violations.
 - **`adr sync`**: fails when `result.errors > 0`, composable with `--check`'s own exit-1 condition (`withChanges > 0`).
 
-**Capabilities:** one flag and precedence across all three commands; composes with existing per-command controls; config-persistable so CI need not pass the flag every invocation.
+**Capabilities:** one flag and precedence across all three commands; composes with existing per-command controls; config-persistable so CI need not pass the flag each run.
 
 ## Do's and Don'ts
 
 ### Do
 
 - **DO** resolve `strict` as `opts.strict ?? getConfiguredStrict(projectRoot) ?? false` in every command that supports it.
-- **DO** collect advisory diagnostics on every `check` exit path, including the zero-rules early return (`collectBriefingDiagnostics()`) — advisories are corpus-scoped, not rule-scoped.
+- **DO** collect the ADR-corpus diagnostics (briefing budget, unparsed ADRs) on every `check` exit path, including the zero-rules early return (`collectBriefingDiagnostics()`).
 - **DO** compute `strict`-driven pass/fail logic once, inside `reporter.ts`'s `buildSummary()`/`getExitCode()`, and have every caller consume `strictAdvisoryExceeded` rather than re-deriving the condition.
 - **DO** print the full result payload before exiting non-zero under `--strict` — a piped consumer must still see what was found, not just the failure.
 - **DO** extend `--strict` to a new advisory-style diagnostic via the `strictAdvisoryExceeded` computation in `buildSummary()`, not a parallel condition elsewhere.
@@ -109,7 +109,7 @@ Code reviewers MUST verify:
 2. A new command supporting `--strict` resolves it via the `opts.strict ?? getConfiguredStrict(projectRoot) ?? false` precedence, not a bespoke resolution.
 3. `review-context --strict` changes do not begin gating on ordinary rule violations (`checkSummary.failed`/`ruleErrors`) without a new ADR decision reversing that scope boundary.
 4. A `--strict`-driven failure logs an explanatory message before exiting non-zero.
-5. Any new `check` exit path that returns before `runChecks()` still collects the corpus-wide advisory diagnostics (`collectBriefingDiagnostics()`), so `--strict` cannot be blinded by an early return.
+5. Any new `check` exit path that returns before `runChecks()` still collects the ADR-corpus diagnostics (`collectBriefingDiagnostics()`), so `--strict` cannot be blinded by an early return.
 
 ### Exceptions
 

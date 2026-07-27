@@ -13,14 +13,14 @@ Carrega cada ADR com `rules: true` no frontmatter, executa o arquivo `.rules.ts`
 
 ## Opções
 
-| Opção               | Descrição                                                                                                                                           |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`          | Verificar apenas arquivos no git stage (útil para hooks de pre-commit)                                                                              |
-| `--base [ref]`      | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido)                                                                       |
-| `--output <format>` | Formato de saída: `console` (padrão), `json`, `github` ou `sarif`. Veja [Saída SARIF](#saída-sarif).                                                |
-| `--adr <id>`        | Verificar apenas regras de um ADR específico                                                                                                        |
-| `--verbose`         | Mostrar regras aprovadas e informações de tempo                                                                                                     |
-| `--strict`          | Trata qualquer aviso, e achados consultivos (orçamento do resumo, supressão, ADRs não analisados), como falhas. Veja [Modo estrito](#modo-estrito). |
+| Opção               | Descrição                                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Verificar apenas arquivos no git stage (útil para hooks de pre-commit)                                                                                                     |
+| `--base [ref]`      | Comparar arquivos alterados contra uma ref base (auto-detecta quando omitido)                                                                                              |
+| `--output <format>` | Formato de saída: `console` (padrão), `json`, `github` ou `sarif`. Veja [Saída SARIF](#saída-sarif).                                                                       |
+| `--adr <id>`        | Verificar apenas regras de um ADR específico                                                                                                                               |
+| `--verbose`         | Mostrar regras aprovadas e informações de tempo                                                                                                                            |
+| `--strict`          | Trata qualquer aviso de severidade de regra, e achados consultivos (orçamento do resumo, supressão, ADRs não analisados), como falhas. Veja [Modo estrito](#modo-estrito). |
 
 ## Argumentos
 
@@ -185,7 +185,7 @@ Por padrão, avisos (tanto diagnósticos quanto violações de regra com `"sever
 
 `--strict` combina duas escaladas em uma única flag: qualquer violação de regra com `"severity": "warning"` falha a build (o campo `warningsExceeded` da saída JSON é `true` e `pass` é `false`), e separadamente falha a build quando `briefingWarnings`, `suppressionWarnings` ou `unparsedAdrs` não estiver vazio — os diagnósticos consultivos acima que, por padrão, nunca afetam `pass`. O campo `strictAdvisoryExceeded` da saída JSON é `true` quando essa última condição causou a falha.
 
-Os diagnósticos consultivos abrangem todo o corpus, não apenas as regras: eles são coletados e aplicados mesmo quando nenhum ADR com `rules: true` existe, então um corpus de ADRs só de prosa ainda falha com `--strict` diante de um estouro de orçamento do resumo ou de um arquivo de ADR não analisável.
+Os diagnósticos de orçamento do resumo e de ADRs não analisados abrangem todo o corpus, não apenas as regras: eles são coletados e aplicados mesmo quando nenhum ADR com `rules: true` existe, então um corpus de ADRs só de prosa ainda falha com `--strict` diante de um estouro de orçamento do resumo ou de um arquivo de ADR não analisável. Já os avisos de supressão derivam de violações de regras e só surgem quando regras são executadas.
 
 `--strict` também se aplica a [`archgate review-context`](/reference/cli/review-context/) e `archgate adr sync`. Veja a [referência de configuração](/reference/configuration/#strict) para o schema completo.
 

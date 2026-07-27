@@ -13,14 +13,14 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Options
 
-| Option              | Description                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`          | Only check git-staged files (useful for pre-commit hooks)                                                                             |
-| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted)                                                                  |
-| `--output <format>` | Output format: `console` (default), `json`, `github`, or `sarif`. See [SARIF output](#sarif-output).                                  |
-| `--adr <id>`        | Only check rules from a specific ADR                                                                                                  |
-| `--verbose`         | Show passing rules and timing info                                                                                                    |
-| `--strict`          | Treat any warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
+| Option              | Description                                                                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Only check git-staged files (useful for pre-commit hooks)                                                                                           |
+| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted)                                                                                |
+| `--output <format>` | Output format: `console` (default), `json`, `github`, or `sarif`. See [SARIF output](#sarif-output).                                                |
+| `--adr <id>`        | Only check rules from a specific ADR                                                                                                                |
+| `--verbose`         | Show passing rules and timing info                                                                                                                  |
+| `--strict`          | Treat any rule-severity warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
 
 ## Arguments
 
@@ -185,7 +185,7 @@ By default, warnings (both diagnostics and rule-reported `"severity": "warning"`
 
 `--strict` combines two escalations behind one flag: any rule-severity `"warning"` violation fails the build (the JSON output's `warningsExceeded` field is `true` and `pass` is `false`), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
 
-Advisory diagnostics are corpus-wide, not rule-scoped: they are collected and enforced even when no `rules: true` ADR exists, so a prose-only ADR corpus still fails `--strict` on a briefing overrun or an unparseable ADR file.
+The briefing-budget and unparsed-ADR diagnostics are corpus-wide, not rule-scoped: they are collected and enforced even when no `rules: true` ADR exists, so a prose-only ADR corpus still fails `--strict` on a briefing overrun or an unparseable ADR file. Suppression warnings, by contrast, derive from rule violations and only arise when rules run.
 
 `--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`. See the [Configuration reference](/reference/configuration/#strict) for the full schema.
 

@@ -11,7 +11,7 @@ Archgate collects **anonymous usage data** to help us understand how the CLI is 
 
 When you run an Archgate command, we record:
 
-- **Command name** and **which flags were used** (e.g., `check --output json`; only flag presence, never flag values)
+- **Command name** and **which flags were used** (e.g., `check --output json`; flag presence plus the selected `--output` format — a fixed choice of `console`/`json`/`github`/`sarif` — never free-form flag values)
 - **Exit code** (0, 1, 2, or 130) and **execution duration** (milliseconds), plus a short **outcome** tag (`success`, `user_error`, `internal_error`, `cancelled`)
 - **Environment**: OS, architecture, Bun version, Archgate version, CI detection (including provider: GitHub Actions / GitLab CI / CircleCI / etc.), TTY detection, WSL detection, shell (bash, zsh, pwsh...), and locale
 - **Install context**: how the CLI was installed (binary, proto, local dev dependency, or global package manager)
@@ -65,7 +65,7 @@ When the CLI crashes (exit code 2), we send:
 - **No personal information**: no emails, passwords, secrets, or IP addresses. The one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **No file content**: no ADR content or source code. Crash reports (Sentry) may include relative file paths in stack traces, but never absolute paths or file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
-- **No flag values**: we record that `--output json` was used, not what the JSON output contained
+- **No free-form flag values**: the one exception is `--output`'s selected format (a fixed enum: `console`/`json`/`github`/`sarif`); we never record user-provided values or what the output contained
 - **No network activity**: no URLs, API keys, or tokens
 
 ## IP anonymization
