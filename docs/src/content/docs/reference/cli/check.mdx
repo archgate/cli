@@ -111,13 +111,13 @@ Upload results to GitHub's Security tab in CI:
   run: archgate check --output sarif > results.sarif
 
 - name: Upload SARIF to GitHub Security tab
-  if: always()
+  if: success() || failure()
   uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
   with:
     sarif_file: results.sarif
 ```
 
-The `if: always()` is required: `archgate check` exits 1 when it finds violations, which would otherwise skip the upload step exactly when there are findings to report. The job also needs the `security-events: write` permission for the upload to succeed.
+The `if: success() || failure()` condition is required: `archgate check` exits 1 when it finds violations, which would otherwise skip the upload step exactly when there are findings to report. Prefer it over `always()`, which would also run the upload for cancelled jobs. The job also needs the `security-events: write` permission for the upload to succeed.
 
 See the [CI integration guide](/guides/ci-integration/) for the full workflow.
 

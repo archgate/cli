@@ -100,13 +100,13 @@ steps:
     run: archgate check --output sarif > results.sarif
 
   - name: Upload SARIF to GitHub Security tab
-    if: always()
+    if: success() || failure()
     uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
     with:
       sarif_file: results.sarif
 ```
 
-Dois detalhes importam aqui: a etapa de upload precisa de `if: always()`, porque `archgate check` sai com código 1 quando há violações e os achados ainda precisam chegar à aba Security justamente quando existem achados; e o job precisa da permissão `security-events: write`, ou o upload é rejeitado.
+Dois detalhes importam aqui: a etapa de upload precisa de `if: success() || failure()`, porque `archgate check` sai com código 1 quando há violações e os achados ainda precisam chegar à aba Security justamente quando existem achados (prefira isso a `always()`, que executaria até em jobs cancelados); e o job precisa da permissão `security-events: write`, ou o upload é rejeitado.
 
 Cada violação de regra vira um resultado SARIF; os achados consultivos (orçamento do resumo, supressão e ADRs não analisados) também são incluídos, como resultados sintéticos sob IDs de regra dedicados, sempre no nível `warning`. `--output sarif` é somente opt-in -- nunca é auto-detectado. Veja [`archgate check` -- Saída SARIF](/reference/cli/check/#saída-sarif) para o mapeamento completo de campos.
 

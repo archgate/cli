@@ -111,13 +111,13 @@ Last opp resultater til GitHubs Security-fane i CI:
   run: archgate check --output sarif > results.sarif
 
 - name: Upload SARIF to GitHub Security tab
-  if: always()
+  if: success() || failure()
   uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
   with:
     sarif_file: results.sarif
 ```
 
-`if: always()` er påkrevd: `archgate check` avslutter med kode 1 når den finner brudd, noe som ellers ville hoppet over opplastingssteget akkurat når det finnes funn å rapportere. Jobben trenger også tillatelsen `security-events: write` for at opplastingen skal lykkes.
+Betingelsen `if: success() || failure()` er påkrevd: `archgate check` avslutter med kode 1 når den finner brudd, noe som ellers ville hoppet over opplastingssteget akkurat når det finnes funn å rapportere. Foretrekk den fremfor `always()`, som også ville kjørt opplastingen for kansellerte jobber. Jobben trenger også tillatelsen `security-events: write` for at opplastingen skal lykkes.
 
 Se [CI-integrasjonsguiden](/guides/ci-integration/) for hele arbeidsflyten.
 
