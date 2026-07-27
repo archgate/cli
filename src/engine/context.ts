@@ -209,8 +209,6 @@ interface BuildReviewContextOptions {
   /** Include Decision and Do's/Don'ts prose per ADR. Default: false. */
   briefings?: boolean;
   /** Threaded into the internal `buildSummary` call when `runChecks` is set. */
-  maxWarnings?: number;
-  /** Threaded into the internal `buildSummary` call when `runChecks` is set. */
   strict?: boolean;
 }
 
@@ -256,7 +254,6 @@ export async function buildReviewContext(
       });
       const summary = buildSummary(checkResult, {
         maxViolationsPerRule,
-        maxWarnings: options?.maxWarnings,
         strict: options?.strict,
       });
       // Same projection reportJSON applies: a cleanly-passing rule's entry only

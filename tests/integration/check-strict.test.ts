@@ -134,7 +134,7 @@ describe("check --strict integration", () => {
     expect(json.strictAdvisoryExceeded).toBe(false);
   });
 
-  test("--strict treats any rule warning as a failure (implicit maxWarnings 0)", async () => {
+  test("--strict treats any rule warning as a failure", async () => {
     writeWarningAdr("STRICT-002");
     const { exitCode, stdout, stderr } = await runCli(
       ["check", "--strict", "--output", "json"],
@@ -148,16 +148,48 @@ describe("check --strict integration", () => {
     expect(stderr).toContain("--strict");
   });
 
-  test("--strict --max-warnings <n> lets an explicit threshold win over strict's implicit zero", async () => {
+  test("the removed --max-warnings flag is rejected", async () => {
     writeWarningAdr("STRICT-003");
-    const { exitCode, stdout } = await runCli(
-      ["check", "--strict", "--max-warnings", "5", "--output", "json"],
+    const { exitCode, stderr } = await runCli(
+      ["check", "--max-warnings", "5"],
       dir
     );
-    expect(exitCode).toBe(0);
+    expect(exitCode).not.toBe(0);
+    expect(stderr).toContain("unknown option");
+  });
+
+  test("--strict fails on a briefing overrun even when no rule ADR exists (zero-rules path)", async () => {
+    // Prose-only corpus: one rules:false ADR with an over-budget section.
+    // loadRuleAdrs() returns nothing, so this exercises the early-return
+    // branch that must still collect corpus-wide advisory diagnostics.
+    scaffoldProject(dir);
+    const longSection = "x".repeat(2100);
+    writeAdr(
+      dir,
+      "STRICT-100.md",
+      makeAdr({
+        id: "STRICT-100",
+        title: "Prose only",
+        rules: false,
+        body: `## Do's and Don'ts\n\n${longSection}\n`,
+      })
+    );
+
+    const withoutStrict = await runCli(["check", "--output", "json"], dir);
+    expect(withoutStrict.exitCode).toBe(0);
+    const lenientJson = JSON.parse(withoutStrict.stdout);
+    expect(lenientJson.pass).toBe(true);
+    expect(lenientJson.briefingWarnings.length).toBeGreaterThan(0);
+
+    const { exitCode, stdout, stderr } = await runCli(
+      ["check", "--strict", "--output", "json"],
+      dir
+    );
+    expect(exitCode).toBe(1);
     const json = JSON.parse(stdout);
-    expect(json.pass).toBe(true);
-    expect(json.warningsExceeded).toBe(false);
+    expect(json.pass).toBe(false);
+    expect(json.strictAdvisoryExceeded).toBe(true);
+    expect(stderr).toContain("--strict");
   });
 
   test("--strict fails on briefing-budget overrun alone, with zero rule violations", async () => {

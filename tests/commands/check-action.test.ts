@@ -204,7 +204,7 @@ describe("check action handler", () => {
     expect(output).toContain("No rules to check");
   });
 
-  test("no rules with --output json outputs empty JSON result", async () => {
+  test("no rules with --output json reports an empty result through reportJSON", async () => {
     loadRuleAdrsSpy.mockResolvedValue([]);
 
     await expect(
@@ -212,13 +212,14 @@ describe("check action handler", () => {
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(0);
-    const output = logSpy.mock.calls
-      .map((c: unknown[]) => String(c[0]))
-      .join("\n");
-    const parsed = JSON.parse(output);
-    expect(parsed.pass).toBe(true);
-    expect(parsed.total).toBe(0);
-    expect(parsed.results).toEqual([]);
+    // The zero-rules path goes through the standard reporter with an empty
+    // CheckResult (plus corpus-wide advisory diagnostics), not a hand-built
+    // payload — keeping the JSON schema identical to the normal path.
+    expect(reportJSONSpy).toHaveBeenCalledTimes(1);
+    const emptyResult = reportJSONSpy.mock.calls[0][0] as {
+      results: unknown[];
+    };
+    expect(emptyResult.results).toEqual([]);
   });
 
   // -- Load errors --

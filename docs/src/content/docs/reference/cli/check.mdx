@@ -13,15 +13,14 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Options
 
-| Option               | Description                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`           | Only check git-staged files (useful for pre-commit hooks)                                                                             |
-| `--base [ref]`       | Compare changed files against a base ref (auto-detects when omitted)                                                                  |
-| `--output <format>`  | Output format: `console` (default), `json`, `github`, or `sarif`. See [SARIF output](#sarif-output).                                  |
-| `--adr <id>`         | Only check rules from a specific ADR                                                                                                  |
-| `--verbose`          | Show passing rules and timing info                                                                                                    |
-| `--max-warnings <n>` | Fail (exit 1) when the warning count exceeds `n`. Use `0` to fail on any warning.                                                     |
-| `--strict`           | Treat any warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
+| Option              | Description                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Only check git-staged files (useful for pre-commit hooks)                                                                             |
+| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted)                                                                  |
+| `--output <format>` | Output format: `console` (default), `json`, `github`, or `sarif`. See [SARIF output](#sarif-output).                                  |
+| `--adr <id>`        | Only check rules from a specific ADR                                                                                                  |
+| `--verbose`         | Show passing rules and timing info                                                                                                    |
+| `--strict`          | Treat any warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
 
 ## Arguments
 
@@ -31,11 +30,11 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Exit codes
 
-| Code | Meaning                                                                                                     |
-| ---- | ----------------------------------------------------------------------------------------------------------- |
-| 0    | All rules pass. No violations found.                                                                        |
-| 1    | One or more violations detected, warnings exceeded `--max-warnings`, or `--strict` found advisory findings. |
-| 2    | Rule execution error (e.g., malformed rule, security scanner block).                                        |
+| Code | Meaning                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| 0    | All rules pass. No violations found.                                                                  |
+| 1    | One or more violations detected, or `--strict` escalated warnings or advisory findings into failures. |
+| 2    | Rule execution error (e.g., malformed rule, security scanner block).                                  |
 
 ## Examples
 
@@ -63,13 +62,7 @@ Check a single ADR:
 archgate check --adr ARCH-001
 ```
 
-Treat any warning as a failure (useful in CI):
-
-```bash
-archgate check --max-warnings 0
-```
-
-Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure:
+Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure (useful in CI):
 
 ```bash
 archgate check --strict
@@ -118,10 +111,13 @@ Upload results to GitHub's Security tab in CI:
   run: archgate check --output sarif > results.sarif
 
 - name: Upload SARIF to GitHub Security tab
+  if: always()
   uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
   with:
     sarif_file: results.sarif
 ```
+
+The `if: always()` is required: `archgate check` exits 1 when it finds violations, which would otherwise skip the upload step exactly when there are findings to report. The job also needs the `security-events: write` permission for the upload to succeed.
 
 See the [CI integration guide](/guides/ci-integration/) for the full workflow.
 
@@ -183,11 +179,13 @@ To clear an overflow, apply the remedies that cannot cost a rule: move rationale
 
 If the next cut would remove a normative clause — an enumerated identifier list, an ordered guardrail, an exemption — **stop**. That section is expected to exceed the cap and MUST NOT be shortened further. Record why in the ADR's own Compliance section, and order the section so its most normative content precedes the cut, since truncation always removes the tail.
 
-By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--max-warnings <n>` to make `archgate check` exit 1 when the total warning count exceeds `n`. `--max-warnings 0` fails on any warning. When the threshold is exceeded the JSON output's `warningsExceeded` field is `true` and `pass` is `false`.
+By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--strict` to escalate them into failures — see [Strict mode](#strict-mode).
 
 ## Strict mode
 
-`--strict` combines two escalations behind one flag: it behaves like `--max-warnings 0` for rule-severity `"warning"` violations (an explicit `--max-warnings` still wins), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+`--strict` combines two escalations behind one flag: any rule-severity `"warning"` violation fails the build (the JSON output's `warningsExceeded` field is `true` and `pass` is `false`), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+
+Advisory diagnostics are corpus-wide, not rule-scoped: they are collected and enforced even when no `rules: true` ADR exists, so a prose-only ADR corpus still fails `--strict` on a briefing overrun or an unparseable ADR file.
 
 `--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`. See the [Configuration reference](/reference/configuration/#strict) for the full schema.
 

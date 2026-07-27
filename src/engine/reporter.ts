@@ -16,7 +16,7 @@ export interface ReportSummary {
   errors: number;
   infos: number;
   ruleErrors: number;
-  /** True when a `maxWarnings` threshold was set and the warning count exceeded it. */
+  /** True when `strict` was set and at least one rule-severity warning was reported. */
   warningsExceeded: boolean;
   /**
    * True only when `strict` was set AND at least one advisory finding
@@ -88,18 +88,11 @@ interface BuildSummaryOptions {
   /** Maximum violations per rule. When exceeded, only the first N are kept. Omit or 0 for unlimited. */
   maxViolationsPerRule?: number;
   /**
-   * Maximum number of warnings tolerated before the check is considered failed.
-   * When the total warning count exceeds this threshold, `pass` becomes false and
-   * `warningsExceeded` is set. Omit for no limit (warnings never affect `pass`),
-   * unless `strict` is set (see below).
-   */
-  maxWarnings?: number;
-  /**
-   * Blanket strict mode: acts as `maxWarnings: 0` when `maxWarnings` isn't
-   * explicitly set (an explicit `maxWarnings` always wins), and elevates the
-   * advisory categories (`briefingWarnings`, `suppressionWarnings`,
-   * `unparsedAdrs`) — normally never counted toward `pass` — into failures
-   * (`strictAdvisoryExceeded`).
+   * Blanket strict mode: any rule-severity warning fails the run
+   * (`warningsExceeded`), and the advisory categories (`briefingWarnings`,
+   * `suppressionWarnings`, `unparsedAdrs`) — normally never counted toward
+   * `pass` — elevate into failures (`strictAdvisoryExceeded`). Omit for the
+   * default lenient behavior where neither affects `pass`.
    */
   strict?: boolean;
 }
@@ -166,10 +159,7 @@ export function buildSummary(
     };
   });
 
-  const effectiveMaxWarnings =
-    options?.maxWarnings ?? (options?.strict ? 0 : undefined);
-  const warningsExceeded =
-    effectiveMaxWarnings !== undefined && warnings > effectiveMaxWarnings;
+  const warningsExceeded = Boolean(options?.strict) && warnings > 0;
 
   const briefingWarnings = result.briefingWarnings ?? [];
   const unparsedAdrs = result.unparsedAdrs ?? [];
@@ -309,7 +299,7 @@ export function reportConsole(
     console.log(
       styleText(
         "yellow",
-        `  ${summary.warnings} warning(s) exceeded the configured --max-warnings threshold`
+        `  --strict: ${summary.warnings} warning(s) are treated as failures`
       )
     );
   }

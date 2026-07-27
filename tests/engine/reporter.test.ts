@@ -74,34 +74,34 @@ describe("reporter", () => {
       expect(getExitCode(result)).toBe(2);
     });
 
-    test("returns 1 when warnings exceed maxWarnings threshold", () => {
+    test("returns 1 when strict is set and a warning is reported", () => {
       const result = makeResult({
         violations: [
           { ruleId: "r", adrId: "a", message: "meh", severity: "warning" },
         ],
       });
-      const summary = buildSummary(result, { maxWarnings: 0 });
+      const summary = buildSummary(result, { strict: true });
       expect(getExitCode(result, summary)).toBe(1);
     });
 
-    test("returns 0 when warnings are within maxWarnings threshold", () => {
+    test("returns 0 for warnings without strict", () => {
       const result = makeResult({
         violations: [
           { ruleId: "r", adrId: "a", message: "meh", severity: "warning" },
         ],
       });
-      const summary = buildSummary(result, { maxWarnings: 1 });
+      const summary = buildSummary(result);
       expect(getExitCode(result, summary)).toBe(0);
     });
 
-    test("rule errors still take precedence over warning threshold", () => {
+    test("rule errors still take precedence over strict warnings", () => {
       const result = makeResult({
         error: "kaboom",
         violations: [
           { ruleId: "r", adrId: "a", message: "meh", severity: "warning" },
         ],
       });
-      const summary = buildSummary(result, { maxWarnings: 0 });
+      const summary = buildSummary(result, { strict: true });
       expect(getExitCode(result, summary)).toBe(2);
     });
   });
@@ -343,7 +343,7 @@ describe("reporter", () => {
       expect(summary.truncated).toBe(false);
     });
 
-    test("warningsExceeded is false and pass stays true without maxWarnings", () => {
+    test("warningsExceeded is false and pass stays true without strict", () => {
       const violations = [
         { ruleId: "r", adrId: "a", message: "w", severity: "warning" as const },
       ];
@@ -353,12 +353,12 @@ describe("reporter", () => {
       expect(summary.pass).toBe(true);
     });
 
-    test("warningsExceeded flips pass to false when warnings exceed maxWarnings", () => {
+    test("warningsExceeded flips pass to false when strict is set", () => {
       const violations = [
         { ruleId: "r", adrId: "a", message: "w", severity: "warning" as const },
       ];
       const summary = buildSummary(makeResult({ violations }), {
-        maxWarnings: 0,
+        strict: true,
       });
       expect(summary.warningsExceeded).toBe(true);
       expect(summary.pass).toBe(false);
@@ -366,13 +366,8 @@ describe("reporter", () => {
       expect(summary.failed).toBe(0);
     });
 
-    test("warnings at exactly maxWarnings do not exceed the threshold", () => {
-      const violations = [
-        { ruleId: "r", adrId: "a", message: "w", severity: "warning" as const },
-      ];
-      const summary = buildSummary(makeResult({ violations }), {
-        maxWarnings: 1,
-      });
+    test("strict with zero warnings does not set warningsExceeded", () => {
+      const summary = buildSummary(makeResult(), { strict: true });
       expect(summary.warningsExceeded).toBe(false);
       expect(summary.pass).toBe(true);
     });

@@ -90,7 +90,7 @@ export function registerReviewContextCommand(program: Command) {
           }
           if (context.checkSummary?.warningsExceeded) {
             strictReasons.push(
-              `${context.checkSummary.warnings} check warning(s) exceeded the warning threshold`
+              `${context.checkSummary.warnings} check warning(s) are treated as failures under --strict`
             );
           }
           if (context.checkSummary?.strictAdvisoryExceeded) {

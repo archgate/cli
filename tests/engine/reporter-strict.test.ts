@@ -46,7 +46,7 @@ describe("reporter strict mode", () => {
   }
 
   describe("buildSummary", () => {
-    test("acts as maxWarnings 0 when maxWarnings is not explicitly set", () => {
+    test("any rule-severity warning sets warningsExceeded under strict", () => {
       const violations = [
         { ruleId: "r", adrId: "a", message: "w", severity: "warning" as const },
       ];
@@ -55,18 +55,6 @@ describe("reporter strict mode", () => {
       });
       expect(summary.warningsExceeded).toBe(true);
       expect(summary.pass).toBe(false);
-    });
-
-    test("an explicit maxWarnings wins over strict's implicit zero", () => {
-      const violations = [
-        { ruleId: "r", adrId: "a", message: "w", severity: "warning" as const },
-      ];
-      const summary = buildSummary(makeResult({ violations }), {
-        strict: true,
-        maxWarnings: 5,
-      });
-      expect(summary.warningsExceeded).toBe(false);
-      expect(summary.pass).toBe(true);
     });
 
     test("briefingWarnings alone triggers strictAdvisoryExceeded", () => {
