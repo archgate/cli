@@ -4,6 +4,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import type { SarifLog } from "../../src/engine/sarif";
 import { safeRmSync } from "../test-utils";
 import {
   runCli,
@@ -91,7 +92,9 @@ describe("check --output sarif integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const sarif = JSON.parse(stdout);
+    // Trusted CLI SARIF output shape; no zod schema backs SarifLog.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const sarif = JSON.parse(stdout) as SarifLog;
     expect(sarif.version).toBe("2.1.0");
     expect(sarif.runs[0].tool.driver.name).toBe("archgate");
     expect(sarif.runs[0].results.length).toBeGreaterThan(0);
@@ -118,10 +121,10 @@ describe("check --output sarif integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const sarif = JSON.parse(stdout);
-    const ruleIds = sarif.runs[0].results.map(
-      (r: { ruleId: string }) => r.ruleId
-    );
+    // Trusted CLI SARIF output shape; no zod schema backs SarifLog.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const sarif = JSON.parse(stdout) as SarifLog;
+    const ruleIds = sarif.runs[0].results.map((r) => r.ruleId);
     expect(ruleIds).toContain("archgate/briefing-budget");
   });
 
@@ -132,7 +135,9 @@ describe("check --output sarif integration", () => {
       dir
     );
     expect(exitCode).toBe(0);
-    const sarif = JSON.parse(stdout);
+    // Trusted CLI SARIF output shape; no zod schema backs SarifLog.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const sarif = JSON.parse(stdout) as SarifLog;
     expect(sarif.version).toBe("2.1.0");
     expect(sarif.runs[0].results).toEqual([]);
     expect(sarif.runs[0].tool.driver.rules).toEqual([]);

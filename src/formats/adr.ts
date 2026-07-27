@@ -77,7 +77,7 @@ export function formatZodErrors(error: z.ZodError): string[] {
  */
 export function parseAdr(content: string, filePath: string): AdrDocument {
   const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---/u;
-  const match = content.match(frontmatterRegex);
+  const match = frontmatterRegex.exec(content);
 
   if (!match) {
     throw new UserError(`No frontmatter found in ${filePath}`);

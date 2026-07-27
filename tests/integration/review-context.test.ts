@@ -66,6 +66,9 @@ describe("review-context integration", () => {
       throw new Error(`stdout is not valid JSON: ${stdout}\nstderr: ${stderr}`);
     }
 
+    // ReviewContext's shape isn't exported from src/engine/context.ts; assert
+    // only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = parsed as Record<string, unknown>;
     expect(ctx.allChangedFiles).toBeInstanceOf(Array);
     expect(ctx.domains).toBeInstanceOf(Array);
@@ -104,6 +107,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as { domains: Array<{ domain: string }> };
     const domainNames = ctx.domains.map((d) => d.domain);
     // Assert non-empty first: `.every()` is vacuously true on an empty array, so
@@ -141,6 +146,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as Record<string, unknown>;
     expect(ctx.checkSummary).not.toBeNull();
     expect(typeof ctx.checkSummary).toBe("object");
@@ -176,6 +183,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as {
       checkSummary: { total: number; passed: number; results: unknown[] };
     };
@@ -207,12 +216,15 @@ describe("review-context integration", () => {
       domains: Array<{ adrs: Array<{ id: string; decision?: string }> }>;
     };
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const lean = JSON.parse(
       (await runCli(["review-context"], dir)).stdout
     ) as Ctx;
     expect(lean.domains[0].adrs[0].id).toBe("ARCH-010");
     expect(lean.domains[0].adrs[0].decision).toBeUndefined();
 
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const full = JSON.parse(
       (await runCli(["review-context", "--verbose"], dir)).stdout
     ) as Ctx;
@@ -257,6 +269,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as {
       allChangedFiles: string[];
       domains: Array<{ domain: string; changedFiles: string[] }>;
@@ -306,6 +320,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as { allChangedFiles: string[] };
     expect(ctx.allChangedFiles).toContain("src/committed.ts");
     expect(ctx.allChangedFiles).toContain("src/base.ts");
@@ -347,6 +363,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as { allChangedFiles: string[] };
     expect(ctx.allChangedFiles).toContain("src/staged.ts");
     expect(ctx.allChangedFiles).not.toContain("src/committed.ts");
@@ -377,6 +395,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as {
       truncatedBriefings: string[];
       domains: { adrs: { id: string; truncatedSections?: string[] }[] }[];
@@ -429,6 +449,8 @@ describe("review-context integration", () => {
     );
     expect(exitCode).toBe(0);
 
+    // ReviewContext's shape isn't exported; assert only the fields this test reads.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const ctx = JSON.parse(stdout) as { truncatedBriefings: string[] };
     expect(ctx.truncatedBriefings).toEqual(["GEN-001"]);
   });

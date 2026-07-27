@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  type Mock,
+  spyOn,
+} from "bun:test";
 import { mkdtempSync, rmSync, existsSync, mkdirSync } from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
@@ -93,7 +101,7 @@ describe("mergeMarketplaceUrl", () => {
 describe("configureVscodeSettings", () => {
   let tempDir: string;
   let savedEnv: Record<string, string | undefined>;
-  let homedirSpy: ReturnType<typeof spyOn>;
+  let homedirSpy: Mock<typeof os.homedir>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(os.tmpdir(), "archgate-vscode-settings-test-"));
@@ -157,7 +165,7 @@ describe("configureVscodeSettings", () => {
 describe("addMarketplaceToUserSettings", () => {
   let tempDir: string;
   let savedEnv: Record<string, string | undefined>;
-  let homedirSpy: ReturnType<typeof spyOn>;
+  let homedirSpy: Mock<typeof os.homedir>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(os.tmpdir(), "archgate-user-settings-test-"));
@@ -178,14 +186,16 @@ describe("addMarketplaceToUserSettings", () => {
 
   /** Use the real path resolver so the test matches addMarketplaceToUserSettings */
   async function settingsPath() {
-    return await getVscodeUserSettingsPath();
+    return getVscodeUserSettingsPath();
   }
 
   test("creates settings file with defaults when none exists", async () => {
     await addMarketplaceToUserSettings(URL);
 
     const path = await settingsPath();
-    const content = JSON.parse(await Bun.file(path).text());
+    const content = VscodeSettingsSchema.parse(
+      JSON.parse(await Bun.file(path).text())
+    );
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "github/copilot-plugins",
       "github/awesome-copilot",
@@ -203,7 +213,9 @@ describe("addMarketplaceToUserSettings", () => {
 
     await addMarketplaceToUserSettings(URL);
 
-    const content = JSON.parse(await Bun.file(path).text());
+    const content = VscodeSettingsSchema.parse(
+      JSON.parse(await Bun.file(path).text())
+    );
     expect(content["git.autofetch"]).toBe(true);
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "github/copilot-plugins",
@@ -224,7 +236,9 @@ describe("addMarketplaceToUserSettings", () => {
 
     await addMarketplaceToUserSettings(URL);
 
-    const content = JSON.parse(await Bun.file(path).text());
+    const content = VscodeSettingsSchema.parse(
+      JSON.parse(await Bun.file(path).text())
+    );
     expect(content["chat.plugins.marketplaces"]).toEqual([
       "https://other.git",
       URL,
@@ -241,7 +255,9 @@ describe("addMarketplaceToUserSettings", () => {
 
     const path = await settingsPath();
     expect(existsSync(path)).toBe(true);
-    const content = JSON.parse(await Bun.file(path).text());
+    const content = VscodeSettingsSchema.parse(
+      JSON.parse(await Bun.file(path).text())
+    );
     expect(content["chat.plugins.marketplaces"]).toContain(URL);
   });
 
@@ -259,7 +275,9 @@ describe("addMarketplaceToUserSettings", () => {
 
     await addMarketplaceToUserSettings(URL);
 
-    const content = JSON.parse(await Bun.file(path).text());
+    const content = VscodeSettingsSchema.parse(
+      JSON.parse(await Bun.file(path).text())
+    );
     expect(content["editor.fontSize"]).toBe(14);
     expect(content["editor.tabSize"]).toBe(2);
     expect(content["workbench.colorTheme"]).toBe("One Dark Pro");
@@ -310,7 +328,11 @@ describe("getVscodeUserSettingsPath", () => {
     }
   });
 
-  test.skipIf(process.platform !== "linux" || !!process.env.WSL_DISTRO_NAME)(
+  test.skipIf(
+    process.platform !== "linux" ||
+      (process.env.WSL_DISTRO_NAME !== undefined &&
+        process.env.WSL_DISTRO_NAME !== "")
+  )(
     "WSL branch falls back to Linux path when cmd.exe unavailable",
     async () => {
       const savedDistro = process.env.WSL_DISTRO_NAME;

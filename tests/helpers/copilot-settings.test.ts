@@ -18,14 +18,14 @@ describe("configureCopilotSettings", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  test("creates .github/copilot/ dir when nothing exists", async () => {
-    await configureCopilotSettings(tempDir);
+  test("creates .github/copilot/ dir when nothing exists", () => {
+    configureCopilotSettings(tempDir);
 
     expect(existsSync(join(tempDir, ".github", "copilot"))).toBe(true);
   });
 
-  test("returns path to .github/copilot/ directory", async () => {
-    const result = await configureCopilotSettings(tempDir);
+  test("returns path to .github/copilot/ directory", () => {
+    const result = configureCopilotSettings(tempDir);
 
     expect(result).toBe(join(tempDir, ".github", "copilot"));
   });

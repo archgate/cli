@@ -24,7 +24,7 @@ export default {
       async check(ctx) {
         const files = ctx.scopedFiles.filter((f) => !f.endsWith("index.ts"));
         const matches = await Promise.all(
-          files.map((file) =>
+          files.map(async (file) =>
             ctx.grep(
               file,
               /\.(parse|match|replace|split)\(.*\).*\.(parse|match|replace|split)\(/u

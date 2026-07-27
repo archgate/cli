@@ -5,6 +5,8 @@
 import { existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { logDebug } from "./log";
 import { cursorUserDir, internalPath, opencodeConfigDir } from "./paths";
 import { resolveCommand } from "./platform";
@@ -150,6 +152,20 @@ export async function installCursorPlugin(token: string): Promise<void> {
   await mergeCursorHooks(cursorDir);
 }
 
+/** Shape-check only; validated values are used as-is, so extra per-entry
+ * fields (e.g. `type`) survive the round-trip through {@link mergeCursorHooks}
+ * unchanged. */
+const cursorHookArraySchema = z.array(
+  z.object({ event: z.string(), command: z.string().optional() })
+);
+
+/** Narrow an untyped JSON value to a hooks.json entry array. */
+function isCursorHookArray(
+  value: unknown
+): value is { event: string; command?: string }[] {
+  return cursorHookArraySchema.safeParse(value).success;
+}
+
 /**
  * Merge archgate hooks into `~/.cursor/hooks.json`.
  *
@@ -162,11 +178,14 @@ async function mergeCursorHooks(cursorDir: string): Promise<void> {
   if (!existsSync(hooksPath)) return;
 
   try {
-    const existing: { event: string; command?: string }[] =
-      await Bun.file(hooksPath).json();
+    const parsed: unknown = await Bun.file(hooksPath).json();
+    if (!isCursorHookArray(parsed)) {
+      throw new Error("hooks.json has an unexpected shape");
+    }
+    const existing = parsed;
 
     const filtered = existing.filter(
-      (h) => !h.command?.includes("archgate check")
+      (h) => h.command === undefined || !h.command.includes("archgate check")
     );
 
     const archgateHooks = [

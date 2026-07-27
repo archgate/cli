@@ -101,7 +101,7 @@ export async function runLoginFlow(
       githubEmail,
       options?.editor
     );
-    if (!result) return { ok: false };
+    if (result === null || result === "") return { ok: false };
     archgateToken = result;
   }
 
@@ -132,8 +132,8 @@ async function runSignupPrompt(
   // Lazy-load inquirer — it costs ~200ms to parse and is only needed for
   // interactive signup prompts, not on every CLI startup.
   const { default: inquirer } = await import("inquirer");
-  const { email } = await withPromptFix(() =>
-    inquirer.prompt({
+  const { email } = await withPromptFix(async () =>
+    inquirer.prompt<{ email: string }>({
       type: "input",
       name: "email",
       message: "Email address:",
@@ -151,8 +151,8 @@ async function runSignupPrompt(
       name: EDITOR_LABELS[key],
       value: SIGNUP_EDITORS[key],
     }));
-    const ans = await withPromptFix(() =>
-      inquirer.prompt({
+    const ans = await withPromptFix(async () =>
+      inquirer.prompt<{ editor: SignupEditor }>({
         type: "select",
         name: "editor",
         message: "Which editor will you use with archgate?",
@@ -162,8 +162,8 @@ async function runSignupPrompt(
     editor = ans.editor;
   }
 
-  const { useCase } = await withPromptFix(() =>
-    inquirer.prompt({
+  const { useCase } = await withPromptFix(async () =>
+    inquirer.prompt<{ useCase: string }>({
       type: "input",
       name: "useCase",
       message: "How do you plan to use archgate?",
@@ -172,8 +172,8 @@ async function runSignupPrompt(
     })
   );
 
-  const { confirmed } = await withPromptFix(() =>
-    inquirer.prompt({
+  const { confirmed } = await withPromptFix(async () =>
+    inquirer.prompt<{ confirmed: boolean }>({
       type: "confirm",
       name: "confirmed",
       message:
@@ -195,7 +195,7 @@ async function runSignupPrompt(
     return null;
   }
 
-  if (result.token) return result.token;
+  if (result.token !== null && result.token !== "") return result.token;
 
   logInfo("Claiming archgate plugin token...");
   return claimArchgateToken(githubToken);

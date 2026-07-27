@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 import {
   existsSync,
   mkdirSync,
@@ -16,7 +24,7 @@ import { Command } from "@commander-js/extra-typings";
 
 import { registerAdrImportCommand } from "../../src/commands/adr/import";
 import { detectTarget } from "../../src/helpers/registry";
-import { safeRmSync } from "../test-utils";
+import { expectKeys, safeRmSync } from "../test-utils";
 
 const FIXTURE_REGISTRY = resolve(
   import.meta.dir,
@@ -28,8 +36,8 @@ const FIXTURE_REGISTRY = resolve(
 describe("import integration (local fixtures)", () => {
   let tempDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-import-integ-"));
@@ -117,7 +125,7 @@ describe("import integration (local fixtures)", () => {
     // Simulate the ID rewriting that import.ts does
     const content = readFileSync(target.adrFiles[0], "utf-8");
     const fmRegex = /^(---\r?\n)([\s\S]*?\r?\n)(---)/mu;
-    const fmMatch = content.match(fmRegex)!;
+    const fmMatch = fmRegex.exec(content)!;
     const updatedFm = fmMatch[2].replace(/^(id:\s*).*$/mu, "$1ARCH-001");
     const rewritten = content.replace(
       fmMatch[0],
@@ -151,9 +159,19 @@ describe("import integration (local fixtures)", () => {
     writeFileSync(importsPath, JSON.stringify(manifest, null, 2) + "\n");
 
     expect(existsSync(importsPath)).toBe(true);
-    const loaded = JSON.parse(readFileSync(importsPath, "utf-8"));
-    expect(loaded.imports).toHaveLength(1);
-    expect(loaded.imports[0].adrIds).toEqual(["ARCH-001", "ARCH-002"]);
+    const loaded = expectKeys(
+      JSON.parse(readFileSync(importsPath, "utf-8")),
+      "imports"
+    );
+    const loadedImports = loaded.imports;
+    if (!Array.isArray(loadedImports)) {
+      throw new TypeError("expected imports to be an array");
+    }
+    expect(loadedImports).toHaveLength(1);
+    expect(expectKeys(loadedImports[0], "adrIds").adrIds).toEqual([
+      "ARCH-001",
+      "ARCH-002",
+    ]);
   });
 
   test("--dry-run writes nothing", async () => {
@@ -282,9 +300,15 @@ describe("import integration (local fixtures)", () => {
     const allOutput = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
-    const parsed = JSON.parse(allOutput);
-    expect(parsed.imports).toHaveLength(1);
-    expect(parsed.imports[0].source).toBe("packs/test-pack");
+    const parsed = expectKeys(JSON.parse(allOutput), "imports");
+    const parsedImports = parsed.imports;
+    if (!Array.isArray(parsedImports)) {
+      throw new TypeError("expected imports to be an array");
+    }
+    expect(parsedImports).toHaveLength(1);
+    expect(expectKeys(parsedImports[0], "source").source).toBe(
+      "packs/test-pack"
+    );
   });
 
   test("exits with error when .archgate/ directory is missing", async () => {
@@ -293,7 +317,7 @@ describe("import integration (local fixtures)", () => {
     const parent = new Command("adr").exitOverride();
     registerAdrImportCommand(parent);
 
-    await expect(
+    expect(
       parent.parseAsync(["node", "adr", "import", "packs/test"])
     ).rejects.toThrow("process.exit");
 

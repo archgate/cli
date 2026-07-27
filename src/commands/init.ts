@@ -88,8 +88,8 @@ export function registerInitCommand(program: Command) {
           // Lazy-load inquirer — it costs ~200ms to parse and is only needed
           // for interactive prompts, not for scripted or --help invocations.
           const { default: inquirer } = await import("inquirer");
-          const { wantPlugin } = await withPromptFix(() =>
-            inquirer.prompt([
+          const { wantPlugin } = await withPromptFix(async () =>
+            inquirer.prompt<{ wantPlugin: boolean }>([
               {
                 type: "confirm",
                 name: "wantPlugin",
@@ -130,11 +130,14 @@ export function registerInitCommand(program: Command) {
           }
           console.log(`  ${dir.padEnd(13)}- ${label} settings configured`);
 
-          if (result.plugin?.installed) {
+          if (result.plugin?.installed === true) {
             console.log("");
-            if (result.plugin.autoInstalled) {
+            if (result.plugin.autoInstalled === true) {
               logInfo(`Archgate plugin installed for ${label}.`);
-              if (result.plugin.detail) {
+              if (
+                result.plugin.detail !== undefined &&
+                result.plugin.detail !== ""
+              ) {
                 console.log(`  ${result.plugin.detail}`);
               }
             } else {
@@ -205,8 +208,8 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
   trackGreenfieldWizardShown();
 
   console.log("");
-  const { wantPacks } = await withPromptFix(() =>
-    inquirer.prompt([
+  const { wantPacks } = await withPromptFix(async () =>
+    inquirer.prompt<{ wantPacks: boolean }>([
       {
         type: "select",
         name: "wantPacks",
@@ -251,8 +254,8 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
     return;
   }
 
-  const { selectedPacks } = await withPromptFix(() =>
-    inquirer.prompt([
+  const { selectedPacks } = await withPromptFix(async () =>
+    inquirer.prompt<{ selectedPacks: string[] }>([
       {
         type: "checkbox",
         name: "selectedPacks",
@@ -350,7 +353,7 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
         `  If the token has expired: ${styleText("bold", "archgate login refresh")}`
       );
       break;
-    default:
+    case "vscode":
       // vscode auto-install — should not reach here
       break;
   }

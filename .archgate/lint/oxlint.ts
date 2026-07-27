@@ -12,15 +12,23 @@ import { conciseCommentRules } from "./concise-comments.ts";
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
 
-function asNode(value: unknown): AstNode | undefined {
-  if (
-    value !== null &&
+/**
+ * True narrowing predicate for an AST node (an object with a string `type`).
+ * Uses `in` narrowing rather than a `typeof value === "object"` check alone
+ * plus an `as` cast, so it never claims node-ness for an arbitrary non-null
+ * object.
+ */
+function isAstNode(value: unknown): value is AstNode {
+  return (
     typeof value === "object" &&
-    typeof (value as { type?: unknown }).type === "string"
-  ) {
-    return value as AstNode;
-  }
-  return undefined;
+    value !== null &&
+    "type" in value &&
+    typeof value.type === "string"
+  );
+}
+
+function asNode(value: unknown): AstNode | undefined {
+  return isAstNode(value) ? value : undefined;
 }
 
 /**

@@ -28,6 +28,13 @@
     "emitDeclarationOnly": true,
     "noErrorTruncation": true
   },
-  "include": ["src/", "tests/", "lint/", "package.json"],
+  "include": [
+    "src/",
+    "tests/",
+    "lint/",
+    ".archgate/",
+    "scripts/",
+    "package.json"
+  ],
   "exclude": ["node_modules", "dist", "tsbuild"]
 }

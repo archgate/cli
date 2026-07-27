@@ -41,13 +41,30 @@ function collectPyNodes(
     for (const item of node) collectPyNodes(item, predicate, hits);
     return;
   }
-  if (node && typeof node === "object") {
+  if (typeof node === "object" && node !== null) {
+    // Mirrors ast-support.ts's own untyped tree walk: a Python AST node's
+    // shape can't be proven statically, only asserted against the grammar.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     const n = node as PythonAstNode;
     if (predicate(n)) hits.push(n);
     for (const value of Object.values(n)) {
       collectPyNodes(value, predicate, hits);
     }
   }
+}
+
+// Narrows an ESTree node's `.id` field (typed `unknown` via EsTreeNode's
+// index signature) without a type assertion.
+function nameOf(node: unknown): string | undefined {
+  if (
+    typeof node === "object" &&
+    node !== null &&
+    "name" in node &&
+    typeof node.name === "string"
+  ) {
+    return node.name;
+  }
+  return undefined;
 }
 
 /** Recursively search a Ripper sexp for an @ident token with a given name. */
@@ -124,13 +141,10 @@ describe("runChecks ctx.ast()", () => {
               expect(program.sourceType).toBe("module");
               bodyTypes = program.body.map((node) => node.type);
               for (const node of program.body) {
-                const id = node.id as { name?: string } | undefined;
-                if (
-                  node.type === "FunctionDeclaration" &&
-                  id?.name === "hello"
-                ) {
+                const id = nameOf(node.id);
+                if (node.type === "FunctionDeclaration" && id === "hello") {
                   ctx.report.violation({
-                    message: `Function "${id.name}" is banned`,
+                    message: `Function "${id}" is banned`,
                     file: "src/app.ts",
                   });
                 }
@@ -211,7 +225,7 @@ describe("runChecks ctx.ast()", () => {
     expect(getExitCode(result)).toBe(2);
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: rule detects a bare except clause through runChecks",
     async () => {
       writeFileSync(
@@ -254,7 +268,7 @@ describe("runChecks ctx.ast()", () => {
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "ruby: rule detects a method named hello in the sexp through runChecks",
     async () => {
       writeFileSync(
@@ -290,7 +304,7 @@ describe("runChecks ctx.ast()", () => {
     }
   );
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "ruby: extensionless Rakefile and Gemfile basenames are accepted",
     async () => {
       // "Rakefile"/"Gemfile" carry no extension — plausibility relies on the
@@ -416,7 +430,7 @@ describe("runChecks ctx.ast()", () => {
     expect(mjs?.error).toContain("Failed to parse");
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: -I isolation prevents a project-local ast.py from shadowing the stdlib",
     async () => {
       // Security regression guard: without `-I`, `python -c` prepends the

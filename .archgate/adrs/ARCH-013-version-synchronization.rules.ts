@@ -8,7 +8,7 @@ export default {
       severity: "error",
       async check(ctx) {
         const pkgJson = await ctx.readJSON("package.json");
-        if (!pkgJson.version) return;
+        if (pkgJson.version === undefined || pkgJson.version === "") return;
 
         let astroConfig: string;
         try {
@@ -18,7 +18,7 @@ export default {
           return;
         }
 
-        const match = astroConfig.match(/softwareVersion:\s*"([^"]+)"/u);
+        const match = /softwareVersion:\s*"([^"]+)"/u.exec(astroConfig);
         if (!match) return;
 
         const docsVersion = match[1];
@@ -36,8 +36,8 @@ export default {
       severity: "error",
       async check(ctx) {
         const pkgJson = await ctx.readJSON("package.json");
-        if (!pkgJson.version) return;
-        const expected = pkgJson.version as string;
+        if (pkgJson.version === undefined || pkgJson.version === "") return;
+        const expected = pkgJson.version;
 
         const shimFiles: Array<{
           file: string;

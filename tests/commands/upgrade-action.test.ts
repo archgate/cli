@@ -7,7 +7,15 @@
 // tracking, and error paths.
 // ---------------------------------------------------------------------------
 
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
@@ -24,15 +32,15 @@ import * as telemetryModule from "../../src/helpers/telemetry";
 // ---------------------------------------------------------------------------
 
 describe("upgrade action handler (upgrade flow)", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let fetchVersionSpy: ReturnType<typeof spyOn>;
-  let getArtifactSpy: ReturnType<typeof spyOn>;
-  let downloadSpy: ReturnType<typeof spyOn>;
-  let replaceSpy: ReturnType<typeof spyOn>;
-  let trackSpy: ReturnType<typeof spyOn>;
-  let credsSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof exitModule.exitWith>;
+  let fetchVersionSpy: Mock<typeof binaryUpgrade.fetchLatestGitHubVersion>;
+  let getArtifactSpy: Mock<typeof binaryUpgrade.getArtifactInfo>;
+  let downloadSpy: Mock<typeof binaryUpgrade.downloadReleaseBinary>;
+  let replaceSpy: Mock<typeof binaryUpgrade.replaceBinary>;
+  let trackSpy: Mock<typeof telemetryModule.trackUpgradeResult>;
+  let credsSpy: Mock<typeof credentialStore.loadCredentials>;
   let originalExecPath: string;
   let originalIsTTY: boolean | undefined;
 
@@ -140,14 +148,12 @@ describe("upgrade action handler (upgrade flow)", () => {
   test("tracks failed upgrade on download error", async () => {
     downloadSpy.mockRejectedValue(new Error("download failed"));
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "upgrade"])
     ).rejects.toThrow("process.exit");
 
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const failCall = trackSpy.mock.calls.find(
-      (c: unknown[]) => (c[0] as { success: boolean }).success === false
-    );
+    const failCall = trackSpy.mock.calls.find((c) => !c[0].success);
     expect(failCall).toBeDefined();
   });
 
@@ -157,7 +163,7 @@ describe("upgrade action handler (upgrade flow)", () => {
     const pkg = await import("../../package.json");
     fetchVersionSpy.mockResolvedValue(`v${pkg.default.version}`);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "upgrade"])
     ).rejects.toThrow("process.exit");
 
@@ -172,7 +178,7 @@ describe("upgrade action handler (upgrade flow)", () => {
   test("null version from GitHub exits 1", async () => {
     fetchVersionSpy.mockResolvedValue(null);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "upgrade"])
     ).rejects.toThrow("process.exit");
 
@@ -188,7 +194,7 @@ describe("upgrade action handler (upgrade flow)", () => {
   test("unsupported platform exits 1", async () => {
     getArtifactSpy.mockReturnValue(null);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "upgrade"])
     ).rejects.toThrow("process.exit");
 
@@ -202,7 +208,7 @@ describe("upgrade action handler (upgrade flow)", () => {
   test("download failure logs error with manual hint", async () => {
     downloadSpy.mockRejectedValue(new Error("connection reset"));
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "upgrade"])
     ).rejects.toThrow("process.exit");
 
@@ -220,7 +226,7 @@ describe("upgrade action handler (upgrade flow)", () => {
     exitPromptError.name = "ExitPromptError";
     downloadSpy.mockRejectedValue(exitPromptError);
 
-    await expect(
+    expect(
       makeProgram().parseAsync(["node", "test", "upgrade"])
     ).rejects.toThrow("user cancelled");
 

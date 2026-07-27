@@ -8,11 +8,11 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 /** Tracks calls to cursorTo from node:readline. */
 const mockCursorTo = mock(() => true);
-mock.module("node:readline", () => ({ cursorTo: mockCursorTo }));
+void mock.module("node:readline", () => ({ cursorTo: mockCursorTo }));
 
 /** Mock inquirer so prompts resolve immediately without user interaction. */
-mock.module("inquirer", () => ({
-  default: { prompt: mock(() => Promise.resolve({ selected: ["claude"] })) },
+void mock.module("inquirer", () => ({
+  default: { prompt: mock(async () => ({ selected: ["claude"] })) },
 }));
 
 // ---------------------------------------------------------------------------

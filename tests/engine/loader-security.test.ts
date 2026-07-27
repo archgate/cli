@@ -5,7 +5,14 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { LoadResult } from "../../src/engine/loader";
 import { loadRuleAdrs } from "../../src/engine/loader";
+
+function assertBlocked(
+  result: LoadResult
+): asserts result is Extract<LoadResult, { type: "blocked" }> {
+  if (result.type !== "blocked") throw new Error("expected a blocked ADR");
+}
 
 describe("loadRuleAdrs security scanning", () => {
   let tempDir: string;
@@ -61,9 +68,9 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    expect((results[0] as { value: { error: string } }).value.error).toContain(
-      "blocked by security scanner"
-    );
+    const blocked = results[0];
+    assertBlocked(blocked);
+    expect(blocked.value.error).toContain("blocked by security scanner");
   });
 
   test("blocks rule that uses Bun.spawn", async () => {
@@ -88,9 +95,9 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    expect((results[0] as { value: { error: string } }).value.error).toContain(
-      "blocked by security scanner"
-    );
+    const blocked = results[0];
+    assertBlocked(blocked);
+    expect(blocked.value.error).toContain("blocked by security scanner");
   });
 
   test("blocks rule that uses fetch", async () => {
@@ -115,9 +122,9 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    expect((results[0] as { value: { error: string } }).value.error).toContain(
-      "blocked by security scanner"
-    );
+    const blocked = results[0];
+    assertBlocked(blocked);
+    expect(blocked.value.error).toContain("blocked by security scanner");
   });
 
   test("blocks rule that uses eval", async () => {
@@ -142,9 +149,9 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    expect((results[0] as { value: { error: string } }).value.error).toContain(
-      "blocked by security scanner"
-    );
+    const blocked = results[0];
+    assertBlocked(blocked);
+    expect(blocked.value.error).toContain("blocked by security scanner");
   });
 
   test("allows clean rule using only RuleContext", async () => {

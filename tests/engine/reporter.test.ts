@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 
 import {
   buildSummary,
@@ -9,11 +17,23 @@ import {
   reportCI,
   getExitCode,
 } from "../../src/engine/reporter";
+import type { ReportSummary } from "../../src/engine/reporter";
 import type { CheckResult } from "../../src/engine/runner";
+
+/**
+ * `JSON.parse` returns `any`; every call site here parses this file's own
+ * `reportJSON` output, whose shape is exactly `ReportSummary` (a verbatim
+ * `JSON.stringify` of the payload) — a single well-justified assertion at
+ * the JSON boundary.
+ */
+function parseReport(output: string): ReportSummary {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return JSON.parse(output) as ReportSummary;
+}
 
 describe("reporter", () => {
   let logs: string[];
-  let consoleSpy: ReturnType<typeof spyOn>;
+  let consoleSpy: Mock<typeof console.log>;
 
   beforeEach(() => {
     logs = [];
@@ -110,7 +130,7 @@ describe("reporter", () => {
     test("outputs valid JSON", () => {
       reportJSON(makeResult());
       const output = logs.join("\n");
-      const parsed = JSON.parse(output);
+      const parsed = parseReport(output);
       expect(parsed.pass).toBe(true);
       expect(parsed.total).toBe(1);
       expect(parsed.passed).toBe(1);
@@ -131,7 +151,7 @@ describe("reporter", () => {
           ],
         })
       );
-      const parsed = JSON.parse(logs.join("\n"));
+      const parsed = parseReport(logs.join("\n"));
       expect(parsed.pass).toBe(false);
       expect(parsed.results[0].violations[0].message).toBe("problem");
     });
@@ -142,7 +162,7 @@ describe("reporter", () => {
     // still report how many passed, so nothing is lost.
     test("omits passing rules from results by default, keeping counts exact", () => {
       reportJSON(makeResult());
-      const parsed = JSON.parse(logs.join("\n"));
+      const parsed = parseReport(logs.join("\n"));
       expect(parsed.results).toEqual([]);
       expect(parsed.total).toBe(1);
       expect(parsed.passed).toBe(1);
@@ -150,7 +170,7 @@ describe("reporter", () => {
 
     test("--verbose restores passing rules in results", () => {
       reportJSON(makeResult(), undefined, undefined, true);
-      const parsed = JSON.parse(logs.join("\n"));
+      const parsed = parseReport(logs.join("\n"));
       expect(parsed.results).toHaveLength(1);
       expect(parsed.results[0].status).toBe("pass");
       expect(parsed.results[0].ruleId).toBe("test-rule");
@@ -158,7 +178,7 @@ describe("reporter", () => {
 
     test("retains errored rules in results by default", () => {
       reportJSON(makeResult({ error: "kaboom" }));
-      const parsed = JSON.parse(logs.join("\n"));
+      const parsed = parseReport(logs.join("\n"));
       expect(parsed.results).toHaveLength(1);
       expect(parsed.results[0].status).toBe("error");
       expect(parsed.results[0].error).toBe("kaboom");
@@ -174,7 +194,7 @@ describe("reporter", () => {
           ],
         })
       );
-      const parsed = JSON.parse(logs.join("\n"));
+      const parsed = parseReport(logs.join("\n"));
       expect(parsed.warnings).toBe(1);
       expect(parsed.results[0]?.violations[0].message).toBe("meh");
     });

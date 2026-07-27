@@ -5,12 +5,21 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import {
   configureOpencodeSettings,
   mergeOpencodeSettings,
   opencodeConfigPath,
 } from "../../src/helpers/opencode-settings";
 import { restoreEnv } from "../test-utils";
+
+// Minimal shape for asserting on written config JSON — validated at runtime
+// so the parsed value is safely typed rather than `any`.
+const WrittenConfigSchema = z.looseObject({
+  default_agent: z.string().optional(),
+  model: z.string().optional(),
+});
 
 describe("mergeOpencodeSettings", () => {
   test("sets default_agent when existing config is empty", () => {
@@ -94,7 +103,9 @@ describe("configureOpencodeSettings", () => {
     const configPath = await configureOpencodeSettings();
 
     expect(existsSync(configPath)).toBe(true);
-    const content = await Bun.file(configPath).json();
+    const content = WrittenConfigSchema.parse(
+      await Bun.file(configPath).json()
+    );
     expect(content.default_agent).toBe("archgate-developer");
   });
 
@@ -113,7 +124,9 @@ describe("configureOpencodeSettings", () => {
 
     await configureOpencodeSettings();
 
-    const content = await Bun.file(join(configDir, "opencode.json")).json();
+    const content = WrittenConfigSchema.parse(
+      await Bun.file(join(configDir, "opencode.json")).json()
+    );
     expect(content.default_agent).toBe("my-custom-agent");
     expect(content.model).toBe("anthropic/claude-sonnet-4-5");
   });

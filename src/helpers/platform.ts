@@ -38,12 +38,12 @@ export function getPlatformInfo(): PlatformInfo {
 
   // Check WSL2 env vars first (fastest)
   const distroName = Bun.env.WSL_DISTRO_NAME;
-  if (distroName) {
+  if (distroName !== undefined && distroName !== "") {
     cachedPlatformInfo = { runtime, isWSL: true, wslDistro: distroName };
     return cachedPlatformInfo;
   }
 
-  if (Bun.env.WSL_INTEROP) {
+  if (Bun.env.WSL_INTEROP !== undefined && Bun.env.WSL_INTEROP !== "") {
     cachedPlatformInfo = { runtime, isWSL: true, wslDistro: null };
     return cachedPlatformInfo;
   }
@@ -204,14 +204,14 @@ export async function getWindowsHomeDirFromWSL(): Promise<string | null> {
  */
 export async function resolveCommand(name: string): Promise<string | null> {
   // 1. Native lookup
-  if (Bun.which(name)) return name;
+  if (Bun.which(name) !== null) return name;
 
   const info = getPlatformInfo();
 
   // 2. WSL: try Windows .exe variant
   if (info.isWSL) {
     const exeName = name + ".exe";
-    if (Bun.which(exeName)) return exeName;
+    if (Bun.which(exeName) !== null) return exeName;
   }
 
   // 3. Native Windows: try WSL (with timeout to avoid hanging when WSL is slow)
@@ -225,7 +225,9 @@ export async function resolveCommand(name: string): Promise<string | null> {
       // `setTimeout` keeps the event loop alive for its full duration.
       let timer: ReturnType<typeof setTimeout> | undefined;
       const timeout = new Promise<"timeout">((resolve) => {
-        timer = setTimeout(() => resolve("timeout"), 3000);
+        timer = setTimeout(() => {
+          resolve("timeout");
+        }, 3000);
       });
       const result = await Promise.race([proc.exited, timeout]).finally(() => {
         if (timer) clearTimeout(timer);

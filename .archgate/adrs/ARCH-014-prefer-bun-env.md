@@ -48,7 +48,7 @@ All environment variable access in `src/` MUST use `Bun.env` instead of `process
 - **DO** use `Bun.env.FOO` to read environment variables in all source files under `src/`
 - **DO** use `Bun.env.FOO = "value"` to set environment variables when needed
 - **DO** use nullish coalescing for defaults: `Bun.env.NODE_ENV ?? "production"`
-- **DO** use `Boolean(Bun.env.CI)` for truthy checks on environment flags
+- **DO** use `Boolean(Bun.env.CI)` for truthy checks on environment flags — but only inline, as one operand of a larger `&&`/`||` expression, or assigned to a `const` first. `Boolean(x)` used as the _sole, direct_ condition of `if (...)`/`cond ? a : b`/`!x` trips `eslint(no-extra-boolean-cast)` ("redundant Boolean call"), since that position is already boolean-coerced — assign to a `const` first (see Implementation Pattern) or use an explicit `!== undefined && !== ""` comparison instead
 - **DO** keep `process.env` in test files (`tests/`) where test harness compatibility is needed
 
 ### Don't
@@ -68,6 +68,14 @@ const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? homedir();
 // src/helpers/output.ts — truthy check on a flag
 export function isAgentContext(): boolean {
   return !process.stdout.isTTY && !Bun.env.CI;
+}
+
+// src/helpers/log.ts — Boolean() as the SOLE if-condition needs a const
+// first, or it trips eslint(no-extra-boolean-cast) (the position is
+// already boolean-coerced)
+const debugEnvFlag = Boolean(Bun.env.DEBUG);
+if (debugEnvFlag) {
+  console.warn("debug mode");
 }
 ```
 

@@ -12,6 +12,8 @@ import {
   writeAdr,
   writeRules,
   makeAdr,
+  expectKeys,
+  expectArray,
 } from "./cli-harness";
 
 const PASSING_RULE = `export default {
@@ -129,7 +131,11 @@ describe("check --strict integration", () => {
       dir
     );
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "pass",
+      "strictAdvisoryExceeded"
+    );
     expect(json.pass).toBe(true);
     expect(json.strictAdvisoryExceeded).toBe(false);
   });
@@ -141,7 +147,7 @@ describe("check --strict integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "pass", "warningsExceeded");
     expect(json.pass).toBe(false);
     expect(json.warningsExceeded).toBe(true);
     // ARCH-026: a --strict-driven failure logs a stderr explanation.
@@ -177,16 +183,24 @@ describe("check --strict integration", () => {
 
     const withoutStrict = await runCli(["check", "--output", "json"], dir);
     expect(withoutStrict.exitCode).toBe(0);
-    const lenientJson = JSON.parse(withoutStrict.stdout);
+    const lenientJson = expectKeys(
+      JSON.parse(withoutStrict.stdout),
+      "pass",
+      "briefingWarnings"
+    );
     expect(lenientJson.pass).toBe(true);
-    expect(lenientJson.briefingWarnings.length).toBeGreaterThan(0);
+    expect(expectArray(lenientJson.briefingWarnings).length).toBeGreaterThan(0);
 
     const { exitCode, stdout, stderr } = await runCli(
       ["check", "--strict", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "pass",
+      "strictAdvisoryExceeded"
+    );
     expect(json.pass).toBe(false);
     expect(json.strictAdvisoryExceeded).toBe(true);
     expect(stderr).toContain("--strict");
@@ -196,16 +210,28 @@ describe("check --strict integration", () => {
     writeBriefingOverBudgetFixture("STRICT-004", "STRICT-005");
     const withoutStrict = await runCli(["check", "--output", "json"], dir);
     expect(withoutStrict.exitCode).toBe(0);
-    const withoutStrictJson = JSON.parse(withoutStrict.stdout);
+    const withoutStrictJson = expectKeys(
+      JSON.parse(withoutStrict.stdout),
+      "pass",
+      "briefingWarnings"
+    );
     expect(withoutStrictJson.pass).toBe(true);
-    expect(withoutStrictJson.briefingWarnings.length).toBeGreaterThan(0);
+    expect(
+      expectArray(withoutStrictJson.briefingWarnings).length
+    ).toBeGreaterThan(0);
 
     const { exitCode, stdout, stderr } = await runCli(
       ["check", "--strict", "--output", "json"],
       dir
     );
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "pass",
+      "strictAdvisoryExceeded",
+      "failed",
+      "warningsExceeded"
+    );
     expect(json.pass).toBe(false);
     expect(json.strictAdvisoryExceeded).toBe(true);
     expect(json.failed).toBe(0);
@@ -225,7 +251,7 @@ describe("check --strict integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(JSON.parse(stdout), "warningsExceeded");
     expect(json.warningsExceeded).toBe(true);
   });
 
@@ -236,7 +262,11 @@ describe("check --strict integration", () => {
       dir
     );
     expect(exitCode).toBe(0);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "pass",
+      "strictAdvisoryExceeded"
+    );
     expect(json.pass).toBe(true);
     expect(json.strictAdvisoryExceeded).toBe(false);
   });
@@ -248,7 +278,12 @@ describe("check --strict integration", () => {
       dir
     );
     expect(exitCode).toBe(1);
-    const json = JSON.parse(stdout);
+    const json = expectKeys(
+      JSON.parse(stdout),
+      "failed",
+      "warningsExceeded",
+      "strictAdvisoryExceeded"
+    );
     expect(json.failed).toBeGreaterThan(0);
     expect(json.warningsExceeded).toBe(false);
     expect(json.strictAdvisoryExceeded).toBe(false);

@@ -15,7 +15,8 @@
  * @returns `true` when stdout is not a TTY and no CI environment is detected.
  */
 export function isAgentContext(): boolean {
-  return !process.stdout.isTTY && !Bun.env.CI;
+  const ciEnvFlag = Boolean(Bun.env.CI);
+  return !process.stdout.isTTY && !ciEnvFlag;
 }
 
 /**

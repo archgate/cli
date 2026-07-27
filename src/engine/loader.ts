@@ -33,6 +33,22 @@ import { ensureRulesShim } from "../helpers/rules-shim";
 import { UserError } from "../helpers/user-error";
 import { scanRuleSource } from "./rule-scanner";
 
+const PlainObjectSchema = z.record(z.string(), z.unknown());
+
+/** Narrow a dynamic-import namespace object before touching its keys. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return PlainObjectSchema.safeParse(value).success;
+}
+
+/** Extract a Node.js errno `code` from a caught value, without an unsafe cast. */
+function getErrnoCode(err: unknown): string | undefined {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const { code } = err;
+    return typeof code === "string" ? code : undefined;
+  }
+  return undefined;
+}
+
 interface LoadedAdr {
   adr: AdrDocument;
   ruleSet: RuleSet;
@@ -111,8 +127,7 @@ function checkRuleSyntax(source: string): SyntaxViolation[] {
       line: 1,
       column: 0,
       endLine: 1,
-      endColumn:
-        source.indexOf("\n") === -1 ? source.length : source.indexOf("\n"),
+      endColumn: source.includes("\n") ? source.indexOf("\n") : source.length,
     });
   }
 
@@ -170,7 +185,9 @@ export function getSkippedAdrs(projectRoot: string): string[] {
  * @returns Entries in directory order. Unparseable files are silently
  * skipped, logged at debug level.
  */
-export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
+export async function parseAllAdrs(
+  projectRoot: string
+): Promise<ParsedAdrEntry[]> {
   const cached = parsedAdrsCache.get(projectRoot);
   if (cached) return cached;
 
@@ -186,7 +203,7 @@ export function parseAllAdrs(projectRoot: string): Promise<ParsedAdrEntry[]> {
       // A missing directory means "no ADRs", which is a clean state. Any other
       // failure (EACCES, ENOTDIR) means the corpus was never inspected, and
       // returning silently would report that as clean.
-      const code = (err as NodeJS.ErrnoException).code;
+      const code = getErrnoCode(err);
       if (code !== "ENOENT") {
         skippedAdrsCache.set(projectRoot, [
           `${adrsDir} (unreadable: ${code ?? String(err)})`,
@@ -267,7 +284,8 @@ export async function loadRuleAdrs(
 
   const ruleAdrs = parsedAdrs.filter((entry) => {
     if (!entry.adr.frontmatter.rules) return false;
-    if (filterAdrId && entry.adr.frontmatter.id !== filterAdrId) return false;
+    if (filterAdrId !== undefined && entry.adr.frontmatter.id !== filterAdrId)
+      return false;
     return true;
   });
 
@@ -286,7 +304,7 @@ export async function loadRuleAdrs(
         let rulesLine = 1;
         let rulesEndCol = 0;
         for (let i = 0; i < adrLines.length; i++) {
-          const match = adrLines[i].match(/^rules:\s*true/u);
+          const match = /^rules:\s*true/u.exec(adrLines[i]);
           if (match) {
             rulesLine = i + 1;
             rulesEndCol = adrLines[i].length;
@@ -361,7 +379,10 @@ export async function loadRuleAdrs(
       // Use file:// URL to handle Windows backslash paths in import().
       let mod: Record<string, unknown>;
       try {
-        mod = await import(pathToFileURL(rulesFile).href);
+        const importedModule: unknown = await import(
+          pathToFileURL(rulesFile).href
+        );
+        mod = isRecord(importedModule) ? importedModule : {};
       } catch (err) {
         // Bun throws AggregateError with "Parse error" for files with syntax
         // errors that pass the transpiler-based scanner but fail the full

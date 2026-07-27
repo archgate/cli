@@ -4,6 +4,21 @@
     "./lint/no-bare-env-restore.ts",
     "./.archgate/lint/oxlint.ts"
   ],
+  "options": { "typeAware": true },
+  // docs/ is a separate sub-project (own package.json/bun.lock, own
+  // tsconfig.json extending "astro/tsconfigs/strict") whose dependencies
+  // are never installed by the root `bun install`. Its tsconfig.json can't
+  // resolve here, which produces an unfixable-from-this-repo
+  // typescript(tsconfig-error) once type-aware linting is on — and it was
+  // already lint-clean under the pre-migration config, so this drops no
+  // enforced coverage today.
+  // .simple-release.js is a plain-JS release-tooling config (no tsconfig
+  // coverage, not part of the shipped CLI or its tests) extending a
+  // third-party class whose own JSDoc types don't resolve cleanly through
+  // type-aware analysis in this context — attempted JSDoc annotations
+  // cascaded into unrelated "error"-typed inference across the whole file
+  // rather than fixing anything.
+  "ignorePatterns": ["docs/**", ".simple-release.js"],
   "categories": {
     "correctness": "error",
     "pedantic": "error",
@@ -20,7 +35,86 @@
     "no-await-in-loop": "warn",
     "no-inline-comments": "off",
     "prefer-top-level-await": "off",
-    "typescript/no-deprecated": "error"
+    // require-await (both forms) directly contradicts
+    // typescript/promise-function-async below for the extremely common
+    // "async function that trivially resolves a known value, no real async
+    // work needed" shape (mock/stub implementations matching an async
+    // interface) — promise-function-async demands `async`, require-await
+    // then demands it be removed since there's no internal `await`. Keep
+    // promise-function-async (real type-safety signal); drop require-await
+    // (marks correct code as wrong, no genuine bug it catches that
+    // promise-function-async doesn't already cover from the other side).
+    "require-await": "off",
+
+    // Type-aware rules (require "options.typeAware": true above, TS 7+).
+    // typescript/prefer-readonly-parameter-types is intentionally excluded —
+    // typescript-eslint itself keeps it out of both "recommended" and
+    // "strict", only offering it as an opt-in "strict-type-checked extra"
+    // with an explicit noise warning; it accounted for ~930 of ~3546
+    // findings when trialed here, dwarfing every other rule combined.
+    // Explicit "off" (not just omitted) — the "pedantic" category above
+    // would otherwise sweep it back in regardless of its own default.
+    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/await-thenable": "error",
+    "typescript/consistent-return": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/dot-notation": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/no-confusing-void-expression": "error",
+    "typescript/no-deprecated": "error",
+    "typescript/no-duplicate-type-constituents": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-for-in-array": "error",
+    "typescript/no-implied-eval": "error",
+    "typescript/no-meaningless-void-operator": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-misused-spread": "error",
+    "typescript/no-mixed-enums": "error",
+    "typescript/no-redundant-type-constituents": "error",
+    "typescript/no-unnecessary-boolean-literal-compare": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unnecessary-qualifier": "error",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-unnecessary-type-arguments": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unnecessary-type-conversion": "error",
+    "typescript/no-unnecessary-type-parameters": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-enum-comparison": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/no-unsafe-unary-minus": "error",
+    "typescript/no-useless-default-assignment": "error",
+    "typescript/non-nullable-type-assertion-style": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-nullish-coalescing": "error",
+    "typescript/prefer-optional-chain": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/prefer-regexp-exec": "error",
+    "typescript/prefer-return-this-type": "error",
+    "typescript/prefer-string-starts-ends-with": "error",
+    "typescript/promise-function-async": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/require-array-sort-compare": "error",
+    // Same conflict with promise-function-async as the base require-await
+    // above — see that entry's comment.
+    "typescript/require-await": "off",
+    "typescript/restrict-plus-operands": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/return-await": "error",
+    "typescript/strict-boolean-expressions": "error",
+    "typescript/strict-void-return": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/unbound-method": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error"
   },
   "overrides": [
     {
@@ -39,6 +133,73 @@
       "rules": {
         "typescript/triple-slash-reference": "off",
         "no-unused-vars": "off"
+      }
+    },
+    {
+      // shims/ ships deliberately untyped, hand-written Node.js CJS
+      // (ARCH-017) — never part of the tsc project (not in tsconfig.json's
+      // `include`) and never meant to be. Base (non-type-aware) categories
+      // still apply. (docs/ is handled separately via ignorePatterns above.)
+      "files": ["shims/**"],
+      "rules": {
+        "typescript/await-thenable": "off",
+        "typescript/consistent-return": "off",
+        "typescript/consistent-type-exports": "off",
+        "typescript/dot-notation": "off",
+        "typescript/no-array-delete": "off",
+        "typescript/no-base-to-string": "off",
+        "typescript/no-confusing-void-expression": "off",
+        "typescript/no-deprecated": "off",
+        "typescript/no-duplicate-type-constituents": "off",
+        "typescript/no-floating-promises": "off",
+        "typescript/no-for-in-array": "off",
+        "typescript/no-implied-eval": "off",
+        "typescript/no-meaningless-void-operator": "off",
+        "typescript/no-misused-promises": "off",
+        "typescript/no-misused-spread": "off",
+        "typescript/no-mixed-enums": "off",
+        "typescript/no-redundant-type-constituents": "off",
+        "typescript/no-unnecessary-boolean-literal-compare": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/no-unnecessary-qualifier": "off",
+        "typescript/no-unnecessary-template-expression": "off",
+        "typescript/no-unnecessary-type-arguments": "off",
+        "typescript/no-unnecessary-type-assertion": "off",
+        "typescript/no-unnecessary-type-conversion": "off",
+        "typescript/no-unnecessary-type-parameters": "off",
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-enum-comparison": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/no-unsafe-unary-minus": "off",
+        "typescript/no-useless-default-assignment": "off",
+        "typescript/non-nullable-type-assertion-style": "off",
+        "typescript/only-throw-error": "off",
+        "typescript/prefer-find": "off",
+        "typescript/prefer-includes": "off",
+        "typescript/prefer-nullish-coalescing": "off",
+        "typescript/prefer-optional-chain": "off",
+        "typescript/prefer-promise-reject-errors": "off",
+        "typescript/prefer-readonly": "off",
+        "typescript/prefer-reduce-type-parameter": "off",
+        "typescript/prefer-regexp-exec": "off",
+        "typescript/prefer-return-this-type": "off",
+        "typescript/prefer-string-starts-ends-with": "off",
+        "typescript/promise-function-async": "off",
+        "typescript/related-getter-setter-pairs": "off",
+        "typescript/require-array-sort-compare": "off",
+        "typescript/require-await": "off",
+        "typescript/restrict-plus-operands": "off",
+        "typescript/restrict-template-expressions": "off",
+        "typescript/return-await": "off",
+        "typescript/strict-boolean-expressions": "off",
+        "typescript/strict-void-return": "off",
+        "typescript/switch-exhaustiveness-check": "off",
+        "typescript/unbound-method": "off",
+        "typescript/use-unknown-in-catch-callback-variable": "off"
       }
     }
   ]

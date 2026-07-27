@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   mock,
+  type Mock,
   spyOn,
   test,
 } from "bun:test";
@@ -22,11 +23,26 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
+import { z } from "zod";
 
 import { registerAdrImportCommand } from "../../../src/commands/adr/import";
-import { parsePackMetadata } from "../../../src/formats/pack";
+import {
+  ImportsManifestSchema,
+  parsePackMetadata,
+} from "../../../src/formats/pack";
 import * as registryMod from "../../../src/helpers/registry";
 import { safeRmSync } from "../../test-utils";
+
+const DryRunJsonSchema = z.object({
+  dryRun: z.boolean(),
+  adrs: z.array(z.object({ original: z.string(), newId: z.string() })),
+});
+
+const ImportedJsonSchema = z.object({
+  imported: z.array(
+    z.object({ originalId: z.string(), newId: z.string(), title: z.string() })
+  ),
+});
 
 // Per-test clone target; the shallowClone spy reads it at call time.
 let fakeCloneDir = "";
@@ -119,13 +135,24 @@ describe("registerAdrImportCommand", () => {
   };
   const hasOpt = (long: string) => sub().options.find((o) => o.long === long);
 
-  test("registers 'import' as a subcommand", () => expect(sub()).toBeDefined());
-  test("has a description", () => expect(sub().description()).toBeTruthy());
-  test("accepts --yes option", () => expect(hasOpt("--yes")).toBeDefined());
-  test("accepts --json option", () => expect(hasOpt("--json")).toBeDefined());
-  test("accepts --dry-run option", () =>
-    expect(hasOpt("--dry-run")).toBeDefined());
-  test("accepts --list option", () => expect(hasOpt("--list")).toBeDefined());
+  test("registers 'import' as a subcommand", () => {
+    expect(sub()).toBeDefined();
+  });
+  test("has a description", () => {
+    expect(sub().description()).toBeTruthy();
+  });
+  test("accepts --yes option", () => {
+    expect(hasOpt("--yes")).toBeDefined();
+  });
+  test("accepts --json option", () => {
+    expect(hasOpt("--json")).toBeDefined();
+  });
+  test("accepts --dry-run option", () => {
+    expect(hasOpt("--dry-run")).toBeDefined();
+  });
+  test("accepts --list option", () => {
+    expect(hasOpt("--list")).toBeDefined();
+  });
   test("requires <source...> argument", () => {
     const s = sub();
     expect(s.registeredArguments.length).toBeGreaterThanOrEqual(1);
@@ -137,8 +164,8 @@ describe("import action handler", () => {
   let tempDir: string;
   let upstreamDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
 
   beforeEach(() => {
     // realpathSync normalizes macOS /var → /private/var symlink so paths
@@ -158,8 +185,8 @@ describe("import action handler", () => {
     fakeCloneDir = upstreamDir;
     spyOn(registryMod, "resolveSource").mockImplementation(fakeResolveSource);
     spyOn(registryMod, "detectTarget").mockImplementation(fakeDetectTarget);
-    spyOn(registryMod, "shallowClone").mockImplementation(() =>
-      Promise.resolve(fakeCloneDir)
+    spyOn(registryMod, "shallowClone").mockImplementation(
+      async () => fakeCloneDir
     );
   });
 
@@ -201,7 +228,7 @@ describe("import action handler", () => {
   }
 
   function allOutput(): string {
-    return logSpy.mock.calls.map((c: unknown[]) => String(c[0])).join("\n");
+    return logSpy.mock.calls.map((c) => String(c[0])).join("\n");
   }
 
   function writeManifest(imports: unknown[]): void {
@@ -211,10 +238,12 @@ describe("import action handler", () => {
     );
   }
 
+  const BASE_ARGS = ["node", "adr", "import"];
+
   test("exits with error when .archgate/ directory is missing", async () => {
     process.chdir(tempDir);
-    await expect(
-      makeProgram().parseAsync(["node", "adr", "import", "packs/test-pack"])
+    expect(
+      makeProgram().parseAsync([...BASE_ARGS, "packs/test-pack"])
     ).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
@@ -222,13 +251,7 @@ describe("import action handler", () => {
   test("--list prints empty message when no imports exist", async () => {
     scaffoldProject();
     process.chdir(tempDir);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--list",
-      "dummy",
-    ]);
+    await makeProgram().parseAsync([...BASE_ARGS, "--list", "dummy"]);
     expect(allOutput()).toContain("No ADRs have been imported yet.");
   });
 
@@ -243,13 +266,7 @@ describe("import action handler", () => {
         adrIds: ["ARCH-001", "ARCH-002"],
       },
     ]);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--list",
-      "dummy",
-    ]);
+    await makeProgram().parseAsync([...BASE_ARGS, "--list", "dummy"]);
     const output = allOutput();
     expect(output).toContain("packs/test-pack");
     expect(output).toContain("v0.1.0");
@@ -269,15 +286,8 @@ describe("import action handler", () => {
         adrIds: ["ARCH-001"],
       },
     ]);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--list",
-      "--json",
-      "dummy",
-    ]);
-    const parsed = JSON.parse(allOutput());
+    await makeProgram().parseAsync([...BASE_ARGS, "--list", "--json", "dummy"]);
+    const parsed = ImportsManifestSchema.parse(JSON.parse(allOutput()));
     expect(parsed.imports).toHaveLength(1);
     expect(parsed.imports[0].source).toBe("packs/test-pack");
     expect(parsed.imports[0].adrIds).toEqual(["ARCH-001"]);
@@ -288,9 +298,7 @@ describe("import action handler", () => {
     scaffoldUpstreamPack();
     process.chdir(tempDir);
     await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
+      ...BASE_ARGS,
       "--dry-run",
       "packs/test-pack",
     ]);
@@ -308,20 +316,17 @@ describe("import action handler", () => {
     scaffoldUpstreamPack();
     process.chdir(tempDir);
     await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
+      ...BASE_ARGS,
       "--dry-run",
       "--json",
       "packs/test-pack",
     ]);
-    const parsed = JSON.parse(allOutput());
+    const parsed = DryRunJsonSchema.parse(JSON.parse(allOutput()));
     expect(parsed.dryRun).toBe(true);
     expect(parsed.adrs).toHaveLength(2);
     // Sort by original ID to avoid filesystem ordering differences across platforms
-    const sortedAdrs = [...parsed.adrs].sort(
-      (a: { original: string }, b: { original: string }) =>
-        a.original.localeCompare(b.original)
+    const sortedAdrs = [...parsed.adrs].sort((a, b) =>
+      a.original.localeCompare(b.original)
     );
     expect(sortedAdrs[0].original).toBe("TP-001");
     expect(sortedAdrs[1].original).toBe("TP-002");
@@ -333,13 +338,7 @@ describe("import action handler", () => {
     scaffoldProject();
     scaffoldUpstreamPack();
     process.chdir(tempDir);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--yes",
-      "packs/test-pack",
-    ]);
+    await makeProgram().parseAsync([...BASE_ARGS, "--yes", "packs/test-pack"]);
     const adrsDir = join(tempDir, ".archgate", "adrs");
     const mdFiles = readdirSync(adrsDir)
       .filter((f) => f.endsWith(".md"))
@@ -352,7 +351,7 @@ describe("import action handler", () => {
     for (const file of mdFiles) {
       const content = readFileSync(join(adrsDir, file), "utf-8");
       expect(content).not.toContain("id: TP-");
-      const prefix = file.match(/^(ARCH-\d{3})/u)![1];
+      const prefix = /^(ARCH-\d{3})/u.exec(file)![1];
       expect(content).toContain(`id: ${prefix}`);
     }
 
@@ -363,13 +362,7 @@ describe("import action handler", () => {
     scaffoldProject();
     scaffoldUpstreamPack();
     process.chdir(tempDir);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--yes",
-      "packs/test-pack",
-    ]);
+    await makeProgram().parseAsync([...BASE_ARGS, "--yes", "packs/test-pack"]);
     const adrsDir = join(tempDir, ".archgate", "adrs");
     const rulesFiles = readdirSync(adrsDir).filter((f) =>
       f.endsWith(".rules.ts")
@@ -384,16 +377,12 @@ describe("import action handler", () => {
     scaffoldProject();
     scaffoldUpstreamPack();
     process.chdir(tempDir);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--yes",
-      "packs/test-pack",
-    ]);
+    await makeProgram().parseAsync([...BASE_ARGS, "--yes", "packs/test-pack"]);
     const importsPath = join(tempDir, ".archgate", "imports.json");
     expect(existsSync(importsPath)).toBe(true);
-    const manifest = JSON.parse(readFileSync(importsPath, "utf-8"));
+    const manifest = ImportsManifestSchema.parse(
+      JSON.parse(readFileSync(importsPath, "utf-8"))
+    );
     expect(manifest.imports).toHaveLength(1);
     expect(manifest.imports[0].source).toBe("packs/test-pack");
     expect(manifest.imports[0].version).toBe("0.1.0");
@@ -416,15 +405,11 @@ describe("import action handler", () => {
         adrIds: ["GEN-001"],
       },
     ]);
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--yes",
-      "packs/test-pack",
-    ]);
-    const manifest = JSON.parse(
-      readFileSync(join(tempDir, ".archgate", "imports.json"), "utf-8")
+    await makeProgram().parseAsync([...BASE_ARGS, "--yes", "packs/test-pack"]);
+    const manifest = ImportsManifestSchema.parse(
+      JSON.parse(
+        readFileSync(join(tempDir, ".archgate", "imports.json"), "utf-8")
+      )
     );
     expect(manifest.imports).toHaveLength(2);
     expect(manifest.imports[0].source).toBe("packs/other-pack");
@@ -440,13 +425,7 @@ describe("import action handler", () => {
       join(adrsDir, "ARCH-001-existing.md"),
       "---\nid: ARCH-001\ntitle: Existing\ndomain: architecture\nrules: false\n---\n\n## Context\nExisting.\n"
     );
-    await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
-      "--yes",
-      "packs/test-pack",
-    ]);
+    await makeProgram().parseAsync([...BASE_ARGS, "--yes", "packs/test-pack"]);
     const mdFiles = readdirSync(adrsDir)
       .filter((f) => f.endsWith(".md"))
       .sort();
@@ -461,19 +440,16 @@ describe("import action handler", () => {
     scaffoldUpstreamPack();
     process.chdir(tempDir);
     await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
+      ...BASE_ARGS,
       "--yes",
       "--json",
       "packs/test-pack",
     ]);
-    const parsed = JSON.parse(allOutput());
+    const parsed = ImportedJsonSchema.parse(JSON.parse(allOutput()));
     expect(parsed.imported).toHaveLength(2);
     // Sort by originalId to avoid filesystem ordering differences across platforms
-    const sorted = [...parsed.imported].sort(
-      (a: { originalId: string }, b: { originalId: string }) =>
-        a.originalId.localeCompare(b.originalId)
+    const sorted = [...parsed.imported].sort((a, b) =>
+      a.originalId.localeCompare(b.originalId)
     );
     expect(sorted[0].originalId).toBe("TP-001");
     expect(sorted[1].originalId).toBe("TP-002");
@@ -487,9 +463,7 @@ describe("import action handler", () => {
     scaffoldUpstreamSingleAdr();
     process.chdir(tempDir);
     await makeProgram().parseAsync([
-      "node",
-      "adr",
-      "import",
+      ...BASE_ARGS,
       "--yes",
       "org/repo/adrs/TP-001-test-rule",
     ]);

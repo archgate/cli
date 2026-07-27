@@ -45,8 +45,10 @@ export interface StoredCredentials {
 
 function credentialInput(username?: string, password?: string): string {
   const lines = ["protocol=https", `host=${CREDENTIAL_HOST}`];
-  if (username) lines.push(`username=${username}`);
-  if (password) lines.push(`password=${password}`);
+  if (username !== undefined && username !== "")
+    lines.push(`username=${username}`);
+  if (password !== undefined && password !== "")
+    lines.push(`password=${password}`);
   lines.push("", "");
   return lines.join("\n");
 }
@@ -97,7 +99,7 @@ async function gitCredentialFill(): Promise<{
       if (timer) clearTimeout(timer);
     });
 
-    if (!result || result.exitCode !== 0) return null;
+    if (result?.exitCode !== 0) return null;
 
     let username = "";
     let password = "";

@@ -50,6 +50,9 @@ describe("doctor", () => {
     test("report is JSON-serializable", async () => {
       const report = await runDoctor();
       const json = JSON.stringify(report);
+      // DoctorReport is entirely strings/booleans/numbers/arrays/null, so a
+      // JSON round-trip preserves its shape exactly.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
       const parsed = JSON.parse(json) as DoctorReport;
       expect(parsed.system.os).toBe(report.system.os);
       expect(parsed.archgate.version).toBe(report.archgate.version);

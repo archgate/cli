@@ -54,7 +54,11 @@ export function finalizeCommand(
   if (completionTracked) return;
   completionTracked = true;
 
-  const name = fullCommand || currentCommand || "unknown";
+  const resolvedCurrentCommand =
+    currentCommand !== null && currentCommand !== ""
+      ? currentCommand
+      : "unknown";
+  const name = fullCommand === "" ? resolvedCurrentCommand : fullCommand;
   const durationMs =
     commandStartTime === null
       ? 0
@@ -110,7 +114,7 @@ export async function exitWith(
  * Sentry and exits 2 for an unexpected bug.
  * @see {@link exitWith}
  */
-export function handleCommandError(err: unknown): Promise<never> {
+export async function handleCommandError(err: unknown): Promise<never> {
   if (err instanceof Error && err.name === "ExitPromptError") throw err;
 
   const errorKind = classifyErrorKind(err);

@@ -13,13 +13,22 @@ import { getFileAtRev, getMergeBase } from "../../src/engine/git-files";
 import type { LoadResult } from "../../src/engine/loader";
 import { runChecks } from "../../src/engine/runner";
 import type { AdrDocument } from "../../src/formats/adr";
-import type { PythonAstNode, RuleSet } from "../../src/formats/rules";
-import { git, safeRmSync } from "../test-utils";
+import type { EsTreeNode, RuleSet } from "../../src/formats/rules";
+import { git, isRecord, safeRmSync } from "../test-utils";
 
 const pythonInterpreter = await probeInterpreter(
   interpreterCandidates("python")
 );
 const rubyInterpreter = await probeInterpreter(interpreterCandidates("ruby"));
+
+/** Reads `node.declaration.id.name` off an ESTree export node, or "". */
+function declarationName(node: EsTreeNode): string {
+  const declaration = node.declaration;
+  if (!isRecord(declaration)) return "";
+  const id = declaration.id;
+  if (!isRecord(id)) return "";
+  return typeof id.name === "string" ? id.name : "";
+}
 
 /**
  * Structural signature of a Python AST that ignores position attributes, so two
@@ -28,9 +37,9 @@ const rubyInterpreter = await probeInterpreter(interpreterCandidates("ruby"));
  */
 function pyStructure(node: unknown): unknown {
   if (Array.isArray(node)) return node.map((n) => pyStructure(n));
-  if (node && typeof node === "object") {
+  if (isRecord(node)) {
     const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(node as PythonAstNode)) {
+    for (const [key, value] of Object.entries(node)) {
       if (
         key === "lineno" ||
         key === "col_offset" ||
@@ -55,7 +64,7 @@ function pyStructure(node: unknown): unknown {
  */
 function esStructure(node: unknown): unknown {
   if (Array.isArray(node)) return node.map((n) => esStructure(n));
-  if (node && typeof node === "object") {
+  if (isRecord(node)) {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(node)) {
       if (
@@ -106,7 +115,9 @@ describe("base-revision git reads", () => {
     await git(["config", "user.name", "T"], dir);
   });
 
-  afterEach(() => safeRmSync(dir));
+  afterEach(() => {
+    safeRmSync(dir);
+  });
 
   test("getFileAtRev returns committed content; null for an absent path", async () => {
     await Bun.write(join(dir, "a.py"), "x = 1  # v1\n");
@@ -146,7 +157,9 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
     await git(["config", "user.name", "T"], dir);
   });
 
-  afterEach(() => safeRmSync(dir));
+  afterEach(() => {
+    safeRmSync(dir);
+  });
 
   /** Commit `content` at path, then overwrite the working tree with `next`. */
   async function commitThenEdit(path: string, content: string, next: string) {
@@ -237,16 +250,8 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
               rev: "base",
             });
             const headTree = await ctx.ast("src/a.ts", "typescript");
-            baseNames = baseTree.body.map(
-              (n) =>
-                (n as { declaration?: { id?: { name?: string } } }).declaration
-                  ?.id?.name ?? ""
-            );
-            headNames = headTree.body.map(
-              (n) =>
-                (n as { declaration?: { id?: { name?: string } } }).declaration
-                  ?.id?.name ?? ""
-            );
+            baseNames = baseTree.body.map((n) => declarationName(n));
+            headNames = headTree.body.map((n) => declarationName(n));
           },
         },
       },
@@ -328,7 +333,7 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
     expect(baseStructure).toEqual(headStructure);
   });
 
-  test.skipIf(!rubyInterpreter)(
+  test.skipIf(rubyInterpreter === null)(
     "ruby: ast({rev:'base'}) parses the base via the interpreter; working-tree ast parses the edit",
     async () => {
       await commitThenEdit("src/a.rb", "def foo\nend\n", "def bar\nend\n");
@@ -399,7 +404,7 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
     expect(result.results[0].error).toContain("did not exist at the base");
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: comment/docstring-only edit is executable-equivalent; real edit is not",
     async () => {
       const baseSrc =
@@ -453,21 +458,20 @@ describe("runChecks ctx.fileAtBase() / ctx.ast({ rev: 'base' })", () => {
  * function/class/module body, mirroring what a real documentation-only rule
  * does before comparing executable structure.
  */
-function stripDocstrings<T>(node: T): T {
-  if (Array.isArray(node))
-    return node.map((n) => stripDocstrings(n)) as unknown as T;
-  if (node && typeof node === "object") {
-    const n = node as unknown as PythonAstNode;
+function stripDocstrings(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map((n) => stripDocstrings(n));
+  if (isRecord(node)) {
     const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(n)) {
+    for (const [key, value] of Object.entries(node)) {
       if (key === "body" && Array.isArray(value)) {
-        const body = value as PythonAstNode[];
-        const first = body[0];
+        const body = value;
+        const first: unknown = body[0];
         const isDoc =
-          first?._type === "Expr" &&
-          (first.value as PythonAstNode | undefined)?._type === "Constant" &&
-          typeof (first.value as { value?: unknown } | undefined)?.value ===
-            "string";
+          isRecord(first) &&
+          first._type === "Expr" &&
+          isRecord(first.value) &&
+          first.value._type === "Constant" &&
+          typeof first.value.value === "string";
         out[key] = (isDoc ? body.slice(1) : body).map((n) =>
           stripDocstrings(n)
         );
@@ -475,7 +479,7 @@ function stripDocstrings<T>(node: T): T {
         out[key] = stripDocstrings(value);
       }
     }
-    return out as unknown as T;
+    return out;
   }
   return node;
 }

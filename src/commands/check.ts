@@ -16,6 +16,7 @@ import {
 } from "../engine/reporter";
 import { runChecks } from "../engine/runner";
 import type { CheckResult } from "../engine/runner";
+import { rejectBlank } from "../helpers/cli-options";
 import { exitWith, handleCommandError } from "../helpers/exit";
 import { logWarn } from "../helpers/log";
 import { isAgentContext } from "../helpers/output";
@@ -37,11 +38,18 @@ export function registerCheckCommand(program: Command) {
     .command("check")
     .description("Run ADR compliance checks")
     .option("--staged", "Only check git-staged files")
-    .option(
-      "--base [ref]",
-      "Compare changed files against a base ref (auto-detects when omitted)"
+    .addOption(
+      new Option(
+        "--base [ref]",
+        "Compare changed files against a base ref (auto-detects when omitted)"
+      ).argParser(rejectBlank)
     )
-    .option("--adr <id>", "Only check rules from a specific ADR")
+    .addOption(
+      new Option(
+        "--adr <id>",
+        "Only check rules from a specific ADR"
+      ).argParser(rejectBlank)
+    )
     .option("--verbose", "Show passing rules and timing info")
     .option(
       "--strict",
@@ -121,7 +129,7 @@ export function registerCheckCommand(program: Command) {
         // Only read stdin when it's explicitly piped (e.g., `git diff --name-only | archgate check`).
         // When spawned by editors or in a pipe chain where stdin is /dev/null or absent,
         // attempting to read stdin blocks forever. Use a short timeout to detect this.
-        let filterFiles: string[] = files ?? [];
+        let filterFiles: string[] = files;
         if (!process.stdin.isTTY) {
           try {
             const stdin = await Promise.race([

@@ -46,11 +46,11 @@ export function parsePackMetadata(raw: string): PackMetadata {
 
 export const CommunityLinkSchema = z.object({
   title: z.string().min(1),
-  url: z.string().url(),
+  url: z.url(),
   tags: z.array(z.string()),
   description: z.string().min(1),
   submittedBy: z.string().min(1),
-  submittedAt: z.string().date(),
+  submittedAt: z.iso.date(),
 });
 
 export const CommunityLinksFileSchema = z.object({
@@ -65,7 +65,7 @@ export type CommunityLink = z.infer<typeof CommunityLinkSchema>;
 export const ImportEntrySchema = z.object({
   source: z.string().min(1),
   version: z.string().optional(),
-  importedAt: z.string().datetime(),
+  importedAt: z.iso.datetime(),
   adrIds: z.array(z.string()),
 });
 

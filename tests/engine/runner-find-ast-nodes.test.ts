@@ -30,6 +30,20 @@ describe("runChecks ctx.findAstNodes()", () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
+  // Narrows an AST node's `.id` field (typed `unknown` via EsTreeNode's index
+  // signature) without a type assertion.
+  function nameOf(node: unknown): string | undefined {
+    if (
+      typeof node === "object" &&
+      node !== null &&
+      "name" in node &&
+      typeof node.name === "string"
+    ) {
+      return node.name;
+    }
+    return undefined;
+  }
+
   function makeLoadedAdr(ruleSet: RuleSet): LoadResult {
     return {
       type: "loaded",
@@ -72,9 +86,7 @@ describe("runChecks ctx.findAstNodes()", () => {
           async check(ctx) {
             const program = await ctx.ast("src/calls.ts", "typescript");
             const fns = ctx.findAstNodes(program, "FunctionDeclaration");
-            fnNames = fns.map(
-              (n) => (n.id as { name?: string } | undefined)?.name
-            );
+            fnNames = fns.map((n) => nameOf(n.id));
             callCount = ctx.findAstNodes(program, "CallExpression").length;
           },
         },
@@ -89,7 +101,7 @@ describe("runChecks ctx.findAstNodes()", () => {
     expect(callCount).toBe(1);
   });
 
-  test.skipIf(!pythonInterpreter)(
+  test.skipIf(pythonInterpreter === null)(
     "python: multi-type match over real ast output",
     async () => {
       await Bun.write(

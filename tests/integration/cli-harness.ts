@@ -101,6 +101,8 @@ export function makeAdr(opts: {
     fm.push(`files: ${JSON.stringify(opts.files)}`);
   }
   fm.push("---");
-  if (opts.body) fm.push("", opts.body);
+  if (opts.body !== undefined && opts.body !== "") fm.push("", opts.body);
   return fm.join("\n") + "\n";
 }
+
+export { expectKeys, expectArray } from "../test-utils";

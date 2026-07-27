@@ -12,6 +12,8 @@ import {
   writeAdr,
   writeRules,
   makeAdr,
+  expectKeys,
+  expectArray,
 } from "./cli-harness";
 
 const CROSS_FILE_RULE = `export default {
@@ -82,10 +84,10 @@ describe("check --base integration", () => {
       gitCleanEnv
     );
     expect(result.exitCode).toBe(1);
-    const json = JSON.parse(result.stdout);
+    const json = expectKeys(JSON.parse(result.stdout), "pass", "results");
     expect(json.pass).toBe(false);
-    const violations = json.results.flatMap(
-      (r: { violations: unknown[] }) => r.violations
+    const violations = expectArray(json.results).flatMap((r: unknown) =>
+      expectArray(expectKeys(r, "violations").violations)
     );
     expect(violations.length).toBeGreaterThan(0);
   }, 60_000);
@@ -124,7 +126,7 @@ describe("check --base integration", () => {
       gitCleanEnv
     );
     expect(result.exitCode).toBe(0);
-    const json = JSON.parse(result.stdout);
+    const json = expectKeys(JSON.parse(result.stdout), "pass");
     expect(json.pass).toBe(true);
   }, 60_000);
 
@@ -173,7 +175,7 @@ describe("check --base integration", () => {
       gitCleanEnv
     );
     expect(result.exitCode).toBe(0);
-    const json = JSON.parse(result.stdout);
+    const json = expectKeys(JSON.parse(result.stdout), "pass");
     expect(json.pass).toBe(true);
   }, 60_000);
 });

@@ -7,7 +7,15 @@
  * that breaks plugin/install.test.ts when both files run in the same Bun
  * process.
  */
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 
 import * as pluginInstall from "../../../src/commands/plugin/install";
 import { _maybeUpdatePlugins } from "../../../src/commands/upgrade";
@@ -18,16 +26,16 @@ import * as editorDetect from "../../../src/helpers/editor-detect";
 // Setup / Teardown
 // ---------------------------------------------------------------------------
 
-let logSpy: ReturnType<typeof spyOn>;
-let warnSpy: ReturnType<typeof spyOn>;
-let errorSpy: ReturnType<typeof spyOn>;
+let logSpy: Mock<typeof console.log>;
+let warnSpy: Mock<typeof console.warn>;
+let errorSpy: Mock<typeof console.error>;
 let originalIsTTY: boolean | undefined;
 
-let credSpy: ReturnType<typeof spyOn>;
-let detectSpy: ReturnType<typeof spyOn>;
-let promptSpy: ReturnType<typeof spyOn>;
-let installSpy: ReturnType<typeof spyOn>;
-let manualSpy: ReturnType<typeof spyOn>;
+let credSpy: Mock<typeof credentialStore.loadCredentials>;
+let detectSpy: Mock<typeof editorDetect.detectEditors>;
+let promptSpy: Mock<typeof editorDetect.promptEditorSelection>;
+let installSpy: Mock<typeof pluginInstall.installForEditor>;
+let manualSpy: Mock<typeof pluginInstall.printManualInstructions>;
 
 beforeEach(() => {
   logSpy = spyOn(console, "log").mockImplementation(() => {});

@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -239,8 +247,8 @@ describe("_createDownloadProgress", () => {
 // ---------------------------------------------------------------------------
 
 describe("upgrade action handler", () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let exitSpy: Mock<typeof process.exit>;
   let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
@@ -264,12 +272,15 @@ describe("upgrade action handler", () => {
   }
 
   function mockGitHubRelease(tag: string | null) {
-    globalThis.fetch = (() =>
-      Promise.resolve({
-        ok: tag !== null,
-        status: tag === null ? 500 : 200,
-        json: () => Promise.resolve(tag ? { tag_name: tag } : {}),
-      })) as unknown as typeof fetch;
+    // Deliberately incomplete fake Response: only the fields
+    // fetchLatestGitHubVersion actually reads (ok/status/json) need real
+    // values; the rest of the real Response shape is inert filler here.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => ({
+      ok: tag !== null,
+      status: tag === null ? 500 : 200,
+      json: async () => (tag !== null && tag !== "" ? { tag_name: tag } : {}),
+    })) as unknown as typeof fetch;
   }
 
   test("prints already up-to-date when current version >= latest", async () => {
@@ -277,9 +288,9 @@ describe("upgrade action handler", () => {
     mockGitHubRelease("v0.36.3");
     const program = makeProgram();
     // exitWith(0) → process.exit(0) → throws "process.exit"
-    await expect(
-      program.parseAsync(["node", "test", "upgrade"])
-    ).rejects.toThrow("process.exit");
+    expect(program.parseAsync(["node", "test", "upgrade"])).rejects.toThrow(
+      "process.exit"
+    );
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
@@ -290,9 +301,9 @@ describe("upgrade action handler", () => {
     mockGitHubRelease(null);
     const program = makeProgram();
     // exitWith(1) → process.exit(1) → throws "process.exit"
-    await expect(
-      program.parseAsync(["node", "test", "upgrade"])
-    ).rejects.toThrow("process.exit");
+    expect(program.parseAsync(["node", "test", "upgrade"])).rejects.toThrow(
+      "process.exit"
+    );
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
@@ -300,9 +311,9 @@ describe("upgrade action handler", () => {
     mockGitHubRelease("v0.1.0");
     const program = makeProgram();
     // exitWith(0) → process.exit(0) → throws "process.exit"
-    await expect(
-      program.parseAsync(["node", "test", "upgrade"])
-    ).rejects.toThrow("process.exit");
+    expect(program.parseAsync(["node", "test", "upgrade"])).rejects.toThrow(
+      "process.exit"
+    );
     expect(exitSpy).toHaveBeenCalledWith(0);
     const out = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
@@ -311,13 +322,17 @@ describe("upgrade action handler", () => {
   });
 
   test("exits 2 when fetch throws a network error (unexpected)", async () => {
-    globalThis.fetch = (() =>
-      Promise.reject(new Error("network error"))) as unknown as typeof fetch;
+    // Deliberately incomplete fake fetch: only needs to reject; the rest of
+    // the real fetch shape is unused.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => {
+      throw new Error("network error");
+    }) as unknown as typeof fetch;
     const program = makeProgram();
     // exitWith(2) → process.exit(2) → throws "process.exit"
-    await expect(
-      program.parseAsync(["node", "test", "upgrade"])
-    ).rejects.toThrow("process.exit");
+    expect(program.parseAsync(["node", "test", "upgrade"])).rejects.toThrow(
+      "process.exit"
+    );
     expect(exitSpy).toHaveBeenCalledWith(2);
   });
 });

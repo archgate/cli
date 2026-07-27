@@ -116,7 +116,11 @@ async function findMatchingCopilotSessions(
       const metaResult = WorkspaceMetaSchema.safeParse(Bun.YAML.parse(raw));
       if (!metaResult.success) continue;
       const cwd = metaResult.data.cwd;
-      if (cwd && normalizePath(cwd) === normalizedProjectRoot) {
+      if (
+        cwd !== null &&
+        cwd !== "" &&
+        normalizePath(cwd) === normalizedProjectRoot
+      ) {
         matching.push({ name: dir.name, mtime: dir.mtime });
       }
     } catch {
@@ -178,9 +182,11 @@ export async function readCopilotSession(
   const { matching, stateDir } = found;
 
   // 3. Select session by ID or most recent
-  const target = options?.sessionId
-    ? matching.find((s) => s.name === options.sessionId)
-    : matching[0];
+  const requestedSessionId = options?.sessionId;
+  const target =
+    requestedSessionId !== undefined && requestedSessionId !== ""
+      ? matching.find((s) => s.name === requestedSessionId)
+      : matching[0];
 
   if (!target) {
     return {

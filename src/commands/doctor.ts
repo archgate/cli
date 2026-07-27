@@ -90,7 +90,7 @@ export function registerDoctorCommand(program: Command) {
     .action(async (opts) => {
       try {
         const report = await runDoctor();
-        const useJson = opts.json || isAgentContext();
+        const useJson = opts.json ?? isAgentContext();
 
         if (useJson) {
           console.log(formatJSON(report, opts.json ? true : undefined));

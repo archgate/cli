@@ -47,7 +47,7 @@ export async function loadImportsManifest(
 ): Promise<ImportsManifest> {
   const importsPath = join(projectRoot, ".archgate", "imports.json");
   if (!existsSync(importsPath)) return { imports: [] };
-  const raw = await Bun.file(importsPath).json();
+  const raw: unknown = await Bun.file(importsPath).json();
   const result = ImportsManifestSchema.safeParse(raw);
   if (!result.success) {
     throw new UserError(
@@ -74,7 +74,7 @@ export function rewriteAdrId(
 ): string {
   // Replace id in frontmatter YAML only (between --- delimiters).
   const fmRegex = /^(---\r?\n)([\s\S]*?\r?\n)(---)/mu;
-  const match = content.match(fmRegex);
+  const match = fmRegex.exec(content);
   if (!match) return content;
 
   const [fullMatch, openDelim, fmBody, closeDelim] = match;
@@ -103,7 +103,7 @@ export async function resolveAndCloneSources(
       const cacheKey = `${res.repoUrl}#${res.ref ?? ""}`;
       let cloneDir = cloneCache.get(cacheKey);
 
-      if (!cloneDir) {
+      if (cloneDir === undefined) {
         cloneDir = await shallowClone(res.repoUrl, res.ref); // eslint-disable-line no-await-in-loop -- sequential by design (dedup)
         cloneCache.set(cacheKey, cloneDir);
         tempDirs.push(cloneDir);
@@ -130,7 +130,7 @@ export async function collectAdrsToImport(
       const items: AdrToImport[] = [];
       if (target.kind === "pack") {
         const contents = await Promise.all(
-          target.adrFiles.map((f) => Bun.file(f).text())
+          target.adrFiles.map(async (f) => Bun.file(f).text())
         );
         for (let i = 0; i < target.adrFiles.length; i++) {
           const adrFile = target.adrFiles[i];
@@ -181,7 +181,11 @@ export function buildIdMap(
   const idMap: IdMapping[] = [];
 
   for (const adr of adrsToImport) {
-    const prefix = (adr.domain && domainPrefixes[adr.domain]) || "ARCH";
+    const domainPrefix =
+      adr.domain !== undefined && adr.domain !== ""
+        ? domainPrefixes[adr.domain]
+        : undefined;
+    const prefix = domainPrefix ?? "ARCH";
 
     if (!nextIdByPrefix.has(prefix)) {
       nextIdByPrefix.set(prefix, getNextId(adrsDir, prefix));
@@ -216,9 +220,13 @@ export async function writeImportedAdrs(
 ): Promise<string[]> {
   const writtenFiles: string[] = [];
 
-  const readTasks = adrsToImport.map((adr) => Bun.file(adr.sourcePath).text());
-  const ruleTasks = adrsToImport.map((adr) =>
-    adr.rulesPath ? Bun.file(adr.rulesPath).text() : Promise.resolve(null)
+  const readTasks = adrsToImport.map(async (adr) =>
+    Bun.file(adr.sourcePath).text()
+  );
+  const ruleTasks = adrsToImport.map(async (adr) =>
+    adr.rulesPath !== null && adr.rulesPath !== ""
+      ? Bun.file(adr.rulesPath).text()
+      : null
   );
   const [contents, rulesContents] = await Promise.all([
     Promise.all(readTasks),

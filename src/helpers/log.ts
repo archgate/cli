@@ -20,7 +20,8 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
  * and debug is suppressed. Set via `setLogLevel()` from the global `--log-level`
  * option, or via the `DEBUG` environment variable (which forces "debug").
  */
-let currentLevel: LogLevel = Bun.env.DEBUG ? "debug" : "info";
+const debugEnvFlag = Boolean(Bun.env.DEBUG);
+let currentLevel: LogLevel = debugEnvFlag ? "debug" : "info";
 
 /**
  * Set the active log level. Called once from CLI initialization when
@@ -61,28 +62,29 @@ export function registerBreadcrumbHook(fn: BreadcrumbFn): void {
 // Log functions
 // ---------------------------------------------------------------------------
 
-export function logDebug(...args: Parameters<typeof console.debug>) {
-  if (isEnabled("debug") || Bun.env.DEBUG) {
+export function logDebug(...args: unknown[]) {
+  if (isEnabled("debug") || Boolean(Bun.env.DEBUG)) {
     const header = styleText("bgWhite", "DEBUG:");
     console.warn(header, ...args);
     breadcrumbHook?.("log", args.map(String).join(" "), "debug");
   }
-  if (Bun.env.TRACE) console.trace();
+  const traceEnvFlag = Boolean(Bun.env.TRACE);
+  if (traceEnvFlag) console.trace();
 }
 
-export function logInfo(...args: Parameters<typeof console.info>) {
+export function logInfo(...args: unknown[]) {
   if (isEnabled("info")) {
     console.log(styleText("bold", "info:"), ...args);
   }
 }
 
-export function logError(...args: Parameters<typeof console.error>) {
+export function logError(...args: unknown[]) {
   // Errors are always shown regardless of log level
   console.error(styleText(["red", "bold"], "error:"), ...args);
   breadcrumbHook?.("log", args.map(String).join(" "), "error");
 }
 
-export function logWarn(...args: Parameters<typeof console.warn>) {
+export function logWarn(...args: unknown[]) {
   if (isEnabled("warn")) {
     console.warn(styleText(["yellow", "bold"], "warn:"), ...args);
     breadcrumbHook?.("log", args.map(String).join(" "), "warning");

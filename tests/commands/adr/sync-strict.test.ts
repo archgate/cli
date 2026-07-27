@@ -1,13 +1,29 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
+import { z } from "zod";
 
 import { registerAdrSyncCommand } from "../../../src/commands/adr/sync";
+
+/** Mirrors sync.test.ts's schema: the trusted CLI JSON output shape. */
+const SyncStrictJsonSchema = z.object({
+  status: z.string(),
+  errors: z.number().optional(),
+  updated: z.number().optional(),
+});
 import * as registry from "../../../src/helpers/registry";
 import { safeRmSync } from "../../test-utils";
 
@@ -50,12 +66,12 @@ describe("adr sync --strict", () => {
   let tempDir: string;
   let upstreamDir: string;
   let originalCwd: string;
-  let logSpy: ReturnType<typeof spyOn>;
-  let warnSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
-  let exitSpy: ReturnType<typeof spyOn>;
-  let resolveSourceSpy: ReturnType<typeof spyOn>;
-  let shallowCloneSpy: ReturnType<typeof spyOn>;
+  let logSpy: Mock<typeof console.log>;
+  let warnSpy: Mock<typeof console.warn>;
+  let errorSpy: Mock<typeof console.error>;
+  let exitSpy: Mock<typeof process.exit>;
+  let resolveSourceSpy: Mock<typeof registry.resolveSource>;
+  let shallowCloneSpy: Mock<typeof registry.shallowClone>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-sync-strict-"));
@@ -130,15 +146,10 @@ describe("adr sync --strict", () => {
     return localPath;
   }
 
-  function run(...args: string[]): Promise<void> {
+  async function run(...args: string[]): Promise<void> {
     const parent = new Command("adr").exitOverride();
     registerAdrSyncCommand(parent);
-    return parent.parseAsync([
-      "node",
-      "adr",
-      "sync",
-      ...args,
-    ]) as unknown as Promise<void>;
+    await parent.parseAsync(["node", "adr", "sync", ...args]);
   }
 
   /** Manifest referencing an ADR ID with no matching local file — the
@@ -159,7 +170,7 @@ describe("adr sync --strict", () => {
   // --check branch
   test("--check --strict fails when errors > 0 even with withChanges === 0", async () => {
     setupMissingLocalAdr();
-    await expect(run("--check", "--strict")).rejects.toThrow("process.exit");
+    expect(run("--check", "--strict")).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
@@ -178,9 +189,9 @@ describe("adr sync --strict", () => {
   // "already up to date" early-return path (no --check)
   test("--strict fails in the up-to-date path when errors > 0, and JSON includes errors", async () => {
     setupMissingLocalAdr();
-    await expect(run("--strict", "--json")).rejects.toThrow("process.exit");
+    expect(run("--strict", "--json")).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const parsed = JSON.parse(output());
+    const parsed = SyncStrictJsonSchema.parse(JSON.parse(output()));
     expect(parsed.status).toBe("up-to-date");
     expect(parsed.errors).toBeGreaterThanOrEqual(1);
   });
@@ -189,7 +200,7 @@ describe("adr sync --strict", () => {
     setupMissingLocalAdr();
     await run("--json");
     expect(exitSpy).not.toHaveBeenCalled();
-    const parsed = JSON.parse(output());
+    const parsed = SyncStrictJsonSchema.parse(JSON.parse(output()));
     expect(parsed.errors).toBeGreaterThanOrEqual(1);
   });
 
@@ -214,11 +225,9 @@ describe("adr sync --strict", () => {
     // packs/broken-pack has no upstream ADRs dir at all — findLocalAdr for
     // ARCH-999 also fails since it's never written locally, incrementing
     // result.errors.
-    await expect(run("--yes", "--strict", "--json")).rejects.toThrow(
-      "process.exit"
-    );
+    expect(run("--yes", "--strict", "--json")).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
-    const parsed = JSON.parse(output());
+    const parsed = SyncStrictJsonSchema.parse(JSON.parse(output()));
     expect(parsed.status).toBe("synced");
     expect(parsed.errors).toBeGreaterThanOrEqual(1);
     expect(parsed.updated).toBeGreaterThanOrEqual(1);
@@ -243,7 +252,7 @@ describe("adr sync --strict", () => {
     ]);
     await run("--yes", "--json");
     expect(exitSpy).not.toHaveBeenCalled();
-    const parsed = JSON.parse(output());
+    const parsed = SyncStrictJsonSchema.parse(JSON.parse(output()));
     expect(parsed.errors).toBeGreaterThanOrEqual(1);
   });
 
@@ -254,7 +263,7 @@ describe("adr sync --strict", () => {
       join(tempDir, ".archgate", "config.json"),
       JSON.stringify({ domains: {}, strict: true }, null, 2)
     );
-    await expect(run("--check")).rejects.toThrow("process.exit");
+    expect(run("--check")).rejects.toThrow("process.exit");
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

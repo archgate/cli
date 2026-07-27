@@ -26,7 +26,7 @@ export function registerDomainAddCommand(domain: Command) {
           total_custom_domains: totalCustom,
         });
 
-        const useJson = options.json || isAgentContext();
+        const useJson = options.json ?? isAgentContext();
         if (useJson) {
           console.log(
             formatJSON(

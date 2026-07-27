@@ -10,7 +10,7 @@ const ClaudePermissionsSchema = z
     allow: z.array(z.string()).default([]).catch([]),
     deny: z.array(z.string()).default([]).catch([]),
   })
-  .passthrough();
+  .loose();
 
 /** Exported for testing only. */
 export const ClaudeSettingsSchema = z
@@ -22,7 +22,7 @@ export const ClaudeSettingsSchema = z
       deny: [],
     }),
   })
-  .passthrough();
+  .loose();
 
 type ClaudeSettings = z.infer<typeof ClaudeSettingsSchema>;
 
@@ -59,8 +59,10 @@ export function mergeClaudeSettings(
   existing: ClaudeSettings,
   archgate: typeof ARCHGATE_CLAUDE_SETTINGS
 ): ClaudeSettings {
-  // Scalar: set only if absent or invalid (caught to undefined by schema)
-  if (!existing.agent) {
+  // Scalar: set only if absent or invalid (caught to undefined by schema).
+  // Empty string counts as "unset" too, so plain `??=` (nullish-only) can't
+  // be used here without changing that behavior.
+  if (existing.agent === undefined || existing.agent === "") {
     existing.agent = archgate.agent;
   }
 

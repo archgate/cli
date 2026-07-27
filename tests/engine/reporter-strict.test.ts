@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 
 import {
   buildSummary,
@@ -12,7 +20,7 @@ import type { CheckResult } from "../../src/engine/runner";
 
 describe("reporter strict mode", () => {
   let logs: string[];
-  let consoleSpy: ReturnType<typeof spyOn>;
+  let consoleSpy: Mock<typeof console.log>;
 
   beforeEach(() => {
     logs = [];

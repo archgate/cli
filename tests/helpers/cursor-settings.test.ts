@@ -5,7 +5,13 @@ import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { z } from "zod";
+
 import { configureCursorSettings } from "../../src/helpers/cursor-settings";
+
+const HooksFileSchema = z.array(
+  z.object({ event: z.string(), command: z.string() }).loose()
+);
 
 describe("configureCursorSettings", () => {
   let tempDir: string;
@@ -28,7 +34,9 @@ describe("configureCursorSettings", () => {
     expect(existsSync(join(tempDir, ".cursor"))).toBe(true);
     const hooksPath = join(tempDir, ".cursor", "hooks.json");
     expect(existsSync(hooksPath)).toBe(true);
-    const hooks = JSON.parse(readFileSync(hooksPath, "utf-8"));
+    const hooks = HooksFileSchema.parse(
+      JSON.parse(readFileSync(hooksPath, "utf-8"))
+    );
     expect(hooks).toBeArrayOfSize(1);
     expect(hooks[0].event).toBe("afterFileEdit");
     expect(hooks[0].command).toContain("archgate check");

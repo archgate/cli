@@ -6,6 +6,7 @@ import {
   describe,
   expect,
   mock,
+  type Mock,
   spyOn,
   test,
 } from "bun:test";
@@ -17,18 +18,18 @@ import {
 // loadCredentials is stubbed per-test via spyOn (see beforeEach), NOT
 // mock.module — mock.module is process-global and would leak the stub into
 // credential-store.test.ts and other consumers.
-let mockLoadCredentials: ReturnType<typeof spyOn>;
+let mockLoadCredentials: Mock<typeof credentialStore.loadCredentials>;
 
-const mockInstallClaudePlugin = mock(() => Promise.resolve());
-const mockInstallCopilotPlugin = mock(() => Promise.resolve());
-const mockInstallVscodeExtension = mock((_token: string) => Promise.resolve());
-const mockInstallOpencodePlugin = mock((_token: string) => Promise.resolve());
-const mockInstallCursorPlugin = mock((_token: string) => Promise.resolve());
-const mockIsClaudeCliAvailable = mock(() => Promise.resolve(false));
-const mockIsCopilotCliAvailable = mock(() => Promise.resolve(false));
-const mockIsVscodeCliAvailable = mock(() => Promise.resolve(false));
-const mockIsOpencodeAvailable = mock(() => Promise.resolve(false));
-mock.module("../../../src/helpers/plugin-install", () => ({
+const mockInstallClaudePlugin = mock(async () => {});
+const mockInstallCopilotPlugin = mock(async () => {});
+const mockInstallVscodeExtension = mock(async (_token: string) => {});
+const mockInstallOpencodePlugin = mock(async (_token: string) => {});
+const mockInstallCursorPlugin = mock(async (_token: string) => {});
+const mockIsClaudeCliAvailable = mock(async () => false);
+const mockIsCopilotCliAvailable = mock(async () => false);
+const mockIsVscodeCliAvailable = mock(async () => false);
+const mockIsOpencodeAvailable = mock(async () => false);
+void mock.module("../../../src/helpers/plugin-install", () => ({
   buildMarketplaceUrl: () => "https://plugins.archgate.dev/archgate.git",
   buildVscodeMarketplaceUrl: () =>
     "https://plugins.archgate.dev/archgate/vscode.git",
@@ -43,22 +44,20 @@ mock.module("../../../src/helpers/plugin-install", () => ({
   isCopilotCliAvailable: mockIsCopilotCliAvailable,
   isVscodeCliAvailable: mockIsVscodeCliAvailable,
   isOpencodeAvailable: mockIsOpencodeAvailable,
-  isCursorCliAvailable: mock(() => Promise.resolve(false)),
+  isCursorCliAvailable: mock(async () => false),
 }));
 
-const mockDetectEditors = mock(() => Promise.resolve([]));
-const mockPromptEditorSelection = mock(() =>
-  Promise.resolve(["claude" as const])
-);
-mock.module("../../../src/helpers/editor-detect", () => ({
+const mockDetectEditors = mock(async () => []);
+const mockPromptEditorSelection = mock(async () => ["claude" as const]);
+void mock.module("../../../src/helpers/editor-detect", () => ({
   detectEditors: mockDetectEditors,
   promptEditorSelection: mockPromptEditorSelection,
 }));
 
-const mockConfigureVscodeSettings = mock((_root: string, _url: string) =>
-  Promise.resolve()
+const mockConfigureVscodeSettings = mock(
+  async (_root: string, _url: string) => {}
 );
-mock.module("../../../src/helpers/vscode-settings", () => ({
+void mock.module("../../../src/helpers/vscode-settings", () => ({
   configureVscodeSettings: mockConfigureVscodeSettings,
 }));
 
@@ -81,10 +80,10 @@ import * as pathsMod from "../../../src/helpers/paths";
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-let logSpy: ReturnType<typeof spyOn>;
-let warnSpy: ReturnType<typeof spyOn>;
-let errorSpy: ReturnType<typeof spyOn>;
-let exitSpy: ReturnType<typeof spyOn>;
+let logSpy: Mock<typeof console.log>;
+let warnSpy: Mock<typeof console.warn>;
+let errorSpy: Mock<typeof console.error>;
+let exitSpy: Mock<typeof process.exit>;
 
 function buildProgram(): Command {
   const program = new Command();
@@ -130,19 +129,15 @@ beforeEach(() => {
   mockConfigureVscodeSettings.mockReset();
 
   // Default implementations
-  mockInstallClaudePlugin.mockImplementation(() => Promise.resolve());
-  mockInstallCopilotPlugin.mockImplementation(() => Promise.resolve());
-  mockInstallVscodeExtension.mockImplementation((_token: string) =>
-    Promise.resolve()
-  );
-  mockInstallOpencodePlugin.mockImplementation((_token: string) =>
-    Promise.resolve()
-  );
-  mockIsClaudeCliAvailable.mockImplementation(() => Promise.resolve(false));
-  mockIsCopilotCliAvailable.mockImplementation(() => Promise.resolve(false));
-  mockIsVscodeCliAvailable.mockImplementation(() => Promise.resolve(false));
-  mockIsOpencodeAvailable.mockImplementation(() => Promise.resolve(false));
-  mockConfigureVscodeSettings.mockImplementation(() => Promise.resolve());
+  mockInstallClaudePlugin.mockImplementation(async () => {});
+  mockInstallCopilotPlugin.mockImplementation(async () => {});
+  mockInstallVscodeExtension.mockImplementation(async (_token: string) => {});
+  mockInstallOpencodePlugin.mockImplementation(async (_token: string) => {});
+  mockIsClaudeCliAvailable.mockImplementation(async () => false);
+  mockIsCopilotCliAvailable.mockImplementation(async () => false);
+  mockIsVscodeCliAvailable.mockImplementation(async () => false);
+  mockIsOpencodeAvailable.mockImplementation(async () => false);
+  mockConfigureVscodeSettings.mockImplementation(async () => {});
 });
 
 afterEach(() => {
@@ -198,19 +193,20 @@ describe("registerPluginInstallCommand", () => {
 
 describe("plugin install action", () => {
   test("exits with error when not logged in", async () => {
-    mockLoadCredentials.mockImplementation(() => Promise.resolve(null));
+    mockLoadCredentials.mockImplementation(async () => null);
 
-    await expect(runInstall(["--editor", "claude"])).rejects.toThrow(
+    expect(runInstall(["--editor", "claude"])).rejects.toThrow(
       "process.exit called"
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   test("installs claude plugin when CLI is available", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsClaudeCliAvailable.mockImplementation(() => Promise.resolve(true));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsClaudeCliAvailable.mockImplementation(async () => true);
 
     await runInstall(["--editor", "claude"]);
 
@@ -218,10 +214,11 @@ describe("plugin install action", () => {
   });
 
   test("prints manual instructions when claude CLI not found", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsClaudeCliAvailable.mockImplementation(() => Promise.resolve(false));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsClaudeCliAvailable.mockImplementation(async () => false);
 
     await runInstall(["--editor", "claude"]);
 
@@ -232,9 +229,10 @@ describe("plugin install action", () => {
   });
 
   test("installs cursor plugin for --editor cursor", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
 
     await runInstall(["--editor", "cursor"]);
 
@@ -243,10 +241,11 @@ describe("plugin install action", () => {
   });
 
   test("installs copilot plugin when CLI is available", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsCopilotCliAvailable.mockImplementation(() => Promise.resolve(true));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsCopilotCliAvailable.mockImplementation(async () => true);
 
     await runInstall(["--editor", "copilot"]);
 
@@ -254,10 +253,11 @@ describe("plugin install action", () => {
   });
 
   test("installs vscode extension when code CLI is available", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsVscodeCliAvailable.mockImplementation(() => Promise.resolve(true));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsVscodeCliAvailable.mockImplementation(async () => true);
 
     await runInstall(["--editor", "vscode"]);
 
@@ -266,10 +266,11 @@ describe("plugin install action", () => {
   });
 
   test("prints manual instructions when vscode CLI not found", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsVscodeCliAvailable.mockImplementation(() => Promise.resolve(false));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsVscodeCliAvailable.mockImplementation(async () => false);
 
     await runInstall(["--editor", "vscode"]);
 
@@ -282,10 +283,11 @@ describe("plugin install action", () => {
   });
 
   test("installs opencode plugin when opencode is available", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsOpencodeAvailable.mockImplementation(() => Promise.resolve(true));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsOpencodeAvailable.mockImplementation(async () => true);
 
     await runInstall(["--editor", "opencode"]);
 
@@ -293,10 +295,11 @@ describe("plugin install action", () => {
   });
 
   test("skips opencode install when opencode not available", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsOpencodeAvailable.mockImplementation(() => Promise.resolve(false));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsOpencodeAvailable.mockImplementation(async () => false);
 
     await runInstall(["--editor", "opencode"]);
 
@@ -305,25 +308,27 @@ describe("plugin install action", () => {
   });
 
   test("prints manual instructions and exits 1 on install failure", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsClaudeCliAvailable.mockImplementation(() => Promise.resolve(true));
-    mockInstallClaudePlugin.mockImplementation(() =>
-      Promise.reject(new Error("marketplace add failed (exit 1)"))
-    );
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsClaudeCliAvailable.mockImplementation(async () => true);
+    mockInstallClaudePlugin.mockImplementation(async () => {
+      throw new Error("marketplace add failed (exit 1)");
+    });
 
-    await expect(runInstall(["--editor", "claude"])).rejects.toThrow(
+    expect(runInstall(["--editor", "claude"])).rejects.toThrow(
       "process.exit called"
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   test("defaults to claude editor in non-TTY context without --editor", async () => {
-    mockLoadCredentials.mockImplementation(() =>
-      Promise.resolve({ token: "tok", github_user: "user" })
-    );
-    mockIsClaudeCliAvailable.mockImplementation(() => Promise.resolve(true));
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsClaudeCliAvailable.mockImplementation(async () => true);
 
     // process.stdin.isTTY is undefined in test context (non-TTY)
     await runInstall([]);

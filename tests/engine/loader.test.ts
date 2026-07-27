@@ -11,8 +11,21 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { LoadResult } from "../../src/engine/loader";
 import { loadRuleAdrs, parseAllAdrs } from "../../src/engine/loader";
 import { saveProjectConfig } from "../../src/helpers/project-config";
+
+function assertLoaded(
+  result: LoadResult
+): asserts result is Extract<LoadResult, { type: "loaded" }> {
+  if (result.type !== "loaded") throw new Error("expected a loaded ADR");
+}
+
+function assertBlocked(
+  result: LoadResult
+): asserts result is Extract<LoadResult, { type: "blocked" }> {
+  if (result.type !== "blocked") throw new Error("expected a blocked ADR");
+}
 
 describe("loadRuleAdrs", () => {
   let tempDir: string;
@@ -56,7 +69,8 @@ export default {
     const loaded = await loadRuleAdrs(tempDir);
     expect(loaded).toHaveLength(1);
     expect(loaded[0].type).toBe("loaded");
-    const first = loaded[0] as Extract<(typeof loaded)[0], { type: "loaded" }>;
+    const first = loaded[0];
+    assertLoaded(first);
     expect(first.value.adr.frontmatter.id).toBe("TEST-001");
     expect(Object.keys(first.value.ruleSet.rules)).toEqual(["sample-rule"]);
   });
@@ -80,10 +94,8 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    const blocked = results[0] as Extract<
-      (typeof results)[0],
-      { type: "blocked" }
-    >;
+    const blocked = results[0];
+    assertBlocked(blocked);
     expect(blocked.value.error).toContain("no companion file found");
     expect(blocked.value.violations).toHaveLength(1);
   });
@@ -131,10 +143,8 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    const blocked = results[0] as Extract<
-      (typeof results)[0],
-      { type: "blocked" }
-    >;
+    const blocked = results[0];
+    assertBlocked(blocked);
     expect(blocked.value.error).toContain("syntax convention");
     expect(blocked.value.violations).toHaveLength(1);
     expect(blocked.value.violations[0].message).toContain(
@@ -166,10 +176,8 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    const blocked = results[0] as Extract<
-      (typeof results)[0],
-      { type: "blocked" }
-    >;
+    const blocked = results[0];
+    assertBlocked(blocked);
     expect(blocked.value.error).toContain("syntax convention");
     expect(blocked.value.violations).toHaveLength(1);
     expect(blocked.value.violations[0].message).toContain("satisfies RuleSet");
@@ -197,10 +205,8 @@ export default {
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    const blocked = results[0] as Extract<
-      (typeof results)[0],
-      { type: "blocked" }
-    >;
+    const blocked = results[0];
+    assertBlocked(blocked);
     expect(blocked.value.error).toContain("2 violations");
     expect(blocked.value.violations).toHaveLength(2);
   });
@@ -222,10 +228,8 @@ export default { invalid syntax here !!! } satisfies RuleSet;
     const results = await loadRuleAdrs(tempDir);
     expect(results).toHaveLength(1);
     expect(results[0].type).toBe("blocked");
-    const blocked = results[0] as Extract<
-      (typeof results)[0],
-      { type: "blocked" }
-    >;
+    const blocked = results[0];
+    assertBlocked(blocked);
     expect(blocked.value.error).toContain("security scanner");
     expect(blocked.value.violations.length).toBeGreaterThanOrEqual(1);
     expect(blocked.value.violations[0].message).toContain("Parse error");
@@ -249,7 +253,8 @@ export default { invalid syntax here !!! } satisfies RuleSet;
     const loaded = await loadRuleAdrs(tempDir);
     expect(loaded).toHaveLength(1);
     expect(loaded[0].type).toBe("loaded");
-    const first = loaded[0] as Extract<(typeof loaded)[0], { type: "loaded" }>;
+    const first = loaded[0];
+    assertLoaded(first);
     expect(first.value.adr.frontmatter.id).toBe("TEST-001");
   });
 
@@ -266,10 +271,10 @@ export default { invalid syntax here !!! } satisfies RuleSet;
       `---\nid: GEN-099\ntitle: Topic B\ndomain: general\nrules: false\n---\n# Topic B\n`
     );
 
-    await expect(parseAllAdrs(tempDir)).rejects.toThrow("Duplicate ADR ID");
-    await expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099");
-    await expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099-topic-a.md");
-    await expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099-topic-b.md");
+    expect(parseAllAdrs(tempDir)).rejects.toThrow("Duplicate ADR ID");
+    expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099");
+    expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099-topic-a.md");
+    expect(parseAllAdrs(tempDir)).rejects.toThrow("GEN-099-topic-b.md");
   });
 
   test("parseAllAdrs reads from custom directory", async () => {

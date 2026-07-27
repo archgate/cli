@@ -132,7 +132,7 @@ function findCodeOccurrences(
 ): SourcePos[] {
   const results: SourcePos[] = [];
   let idx = 0;
-  while (true) {
+  for (;;) {
     const found = source.indexOf(needle, idx);
     if (found === -1) break;
 
@@ -186,7 +186,7 @@ export function remapViolations(
       occurrenceCache.set(rv.searchText, positions);
     }
 
-    const pos = positions[rv.occurrence];
+    const pos = positions.at(rv.occurrence);
     if (pos) {
       return { message: rv.message, ...pos };
     }

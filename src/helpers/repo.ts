@@ -105,7 +105,7 @@ export async function getRepoContext(): Promise<RepoContext> {
 
   const defaultBranch = pickDefaultBranch(symRef, currentBranch);
 
-  if (!remoteUrl) {
+  if (remoteUrl === null || remoteUrl === "") {
     cached = {
       isGit: true,
       host: null,
@@ -124,7 +124,10 @@ export async function getRepoContext(): Promise<RepoContext> {
     host: parsed.host,
     owner: parsed.owner,
     name: parsed.name,
-    repoId: parsed.normalized ? hashRepoId(parsed.normalized) : null,
+    repoId:
+      parsed.normalized !== null && parsed.normalized !== ""
+        ? hashRepoId(parsed.normalized)
+        : null,
     remoteUrl,
     defaultBranch,
   };
@@ -140,7 +143,7 @@ function pickDefaultBranch(
   symRef: string | null,
   currentBranch: string | null
 ): string | null {
-  if (symRef) {
+  if (symRef !== null && symRef !== "") {
     const slash = symRef.indexOf("/");
     return slash >= 0 ? symRef.slice(slash + 1) : symRef;
   }
@@ -185,7 +188,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
   let path: string | null = null;
 
   // SCP-like: git@github.com:foo/bar.git
-  const scpMatch = trimmed.match(/^[^@\s]+@([^:]+):(.+)$/u);
+  const scpMatch = /^[^@\s]+@([^:]+):(.+)$/u.exec(trimmed);
   if (scpMatch) {
     host = scpMatch[1];
     path = scpMatch[2];
@@ -217,7 +220,7 @@ export function parseRemoteUrl(raw: string): ParsedRemote {
   if (classified === "azure-devops") {
     segments = segments.filter((s) => s !== "_git" && s !== "v3");
 
-    const vsHostMatch = lowerHost.match(/^([^.]+)\.visualstudio\.com$/u);
+    const vsHostMatch = /^([^.]+)\.visualstudio\.com$/u.exec(lowerHost);
     if (vsHostMatch && !segments.some((s) => s === vsHostMatch[1])) {
       segments.unshift(vsHostMatch[1]);
     }

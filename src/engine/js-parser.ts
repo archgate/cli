@@ -144,8 +144,12 @@ export function parseTsOrJsSource(
     });
   }
   if (collectComments) {
-    (tree as { comments?: CommentToken[] }).comments =
-      extractJsComments(source);
+    // Meriyah's return type doesn't declare `comments`, but ctx.ast()
+    // consumers read it when present — widen structurally instead of
+    // asserting a narrower type over the parsed tree.
+    const treeWithComments: MeriyahProgram & { comments?: CommentToken[] } =
+      tree;
+    treeWithComments.comments = extractJsComments(source);
   }
   return tree;
 }

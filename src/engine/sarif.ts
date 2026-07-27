@@ -106,7 +106,10 @@ export function buildSarifLog(summary: ReportSummary): SarifLog {
         ruleId,
         level: mapSeverity(v.severity),
         message: { text: v.message },
-        locations: v.file ? [buildLocation(v.file, v.line, v.endLine)] : [],
+        locations:
+          v.file !== undefined && v.file !== ""
+            ? [buildLocation(v.file, v.line, v.endLine)]
+            : [],
       });
     }
   }
