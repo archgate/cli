@@ -971,7 +971,7 @@ Archgate checks fit into any CI system that respects exit codes. Add a single st
 
 ## GitHub Actions
 
-The fastest way to add Archgate to GitHub Actions is with the official [`archgate/check-action`](https://github.com/archgate/check-action). It installs the CLI, runs `archgate check --ci`, and outputs violations as inline annotations on the pull request's "Files changed" tab:
+The fastest way to add Archgate to GitHub Actions is with the official [`archgate/check-action`](https://github.com/archgate/check-action). It installs the CLI, runs `archgate check --output github`, and outputs violations as inline annotations on the pull request's "Files changed" tab:
 
 ```yaml
 name: Archgate
@@ -1006,7 +1006,7 @@ If you need to run Archgate commands beyond `check` (e.g. `archgate adr list --j
 steps:
   - uses: actions/checkout@v4
   - uses: archgate/setup-action@v1
-  - run: archgate check --ci
+  - run: archgate check --output github
   - run: archgate adr list --json
 ```
 
@@ -1039,23 +1039,47 @@ steps:
 
 ## GitHub Actions annotations
 
-Use `--ci` to output violations as GitHub Actions workflow annotations. These appear inline on the pull request's "Files changed" tab, pointing directly to the offending file and line.
+Use `--output github` to output violations as GitHub Actions workflow annotations. These appear inline on the pull request's "Files changed" tab, pointing directly to the offending file and line.
 
 ```yaml
-- run: archgate check --ci
+- run: archgate check --output github
 ```
 
-The `--ci` flag produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
+The `github` format produces `::error` and `::warning` annotations in the format GitHub Actions expects. Each annotation includes the ADR ID, rule ID, file path, and line number.
 
 :::note
-The `archgate/check-action` passes `--ci` automatically. You only need this flag when running `archgate check` manually.
+The `archgate/check-action` passes `--output github` automatically. You only need this flag when running `archgate check` manually.
+
+## SARIF output for Code Scanning
+
+Use `--output sarif` to emit [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the format GitHub's Code Scanning and Code Quality features ingest. Unlike `github` annotations (which only appear on the PR diff), SARIF results also populate the repository's Security tab and persist across runs.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+
+steps:
+  - name: Run archgate check
+    run: archgate check --output sarif > results.sarif
+
+  - name: Upload SARIF to GitHub Security tab
+    if: success() || failure()
+    uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+    with:
+      sarif_file: results.sarif
+```
+
+Two details matter here: the upload step needs `if: success() || failure()`, because `archgate check` exits 1 on violations and the findings must still reach the Security tab when there are findings (prefer this over `always()`, which would also run for cancelled jobs); and the job needs the `security-events: write` permission, or the upload is rejected.
+
+Every rule violation becomes a SARIF result; advisory findings (briefing-budget, suppression, and unparsed-ADR warnings) are included too, as synthetic results under dedicated rule IDs, always at `warning` level. `--output sarif` is opt-in only -- it is never auto-detected. See [`archgate check` -- SARIF output](/reference/cli/check/#sarif-output) for the full field mapping.
 
 ## Machine-readable output
 
-Use `--json` for structured output that other tools can parse:
+Use `--output json` for structured output that other tools can parse:
 
 ```yaml
-- run: archgate check --json > results.json
+- run: archgate check --output json > results.json
 ```
 
 The JSON output includes:
@@ -1149,7 +1173,7 @@ steps:
 
   # Add Archgate check
   - run: npm install -g archgate
-  - run: archgate check --ci
+  - run: archgate check --output github
 ```
 
 No additional dependencies or configuration files are needed beyond the `.archgate/` directory already in your repository.
@@ -1172,7 +1196,7 @@ jobs:
           key: archgate-${{ runner.os }}
 
       - run: npm install -g archgate
-      - run: archgate check --ci
+      - run: archgate check --output github
 ```
 
 ## GitLab CI
@@ -1196,7 +1220,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: curl -fsSL https://cli.archgate.dev/install-unix | sh
-      - run: ~/.archgate/bin/archgate check --ci
+      - run: ~/.archgate/bin/archgate check --output github
 ```
 
 This works in any environment with `curl` and `tar`, no runtime dependencies needed. You can pin a version with the `ARCHGATE_VERSION` environment variable:
@@ -1217,7 +1241,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install -g archgate
-      - run: archgate check --ci
+      - run: archgate check --output github
 ```
 
 ## Other CI systems
@@ -1228,7 +1252,7 @@ Archgate works with any CI system that can run shell commands. The pattern is al
 2. Run: `archgate check`
 3. Check the exit code (0 = pass, 1 = violations, 2 = error)
 
-For systems that support annotations (Azure DevOps, Buildkite, etc.), use `--json` to parse the output and emit annotations in the format your CI expects.
+For systems that support annotations (Azure DevOps, Buildkite, etc.), use `--output json` to parse the output and emit annotations in the format your CI expects.
 
 ## Pre-commit hooks
 
@@ -4066,16 +4090,14 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Options
 
-| Option               | Description                                                                                                                           |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`           | Only check git-staged files (useful for pre-commit hooks)                                                                             |
-| `--base [ref]`       | Compare changed files against a base ref (auto-detects when omitted)                                                                  |
-| `--json`             | Machine-readable JSON output                                                                                                          |
-| `--ci`               | GitHub Actions annotation format                                                                                                      |
-| `--adr <id>`         | Only check rules from a specific ADR                                                                                                  |
-| `--verbose`          | Show passing rules and timing info                                                                                                    |
-| `--max-warnings <n>` | Fail (exit 1) when the warning count exceeds `n`. Use `0` to fail on any warning.                                                     |
-| `--strict`           | Treat any warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
+| Option              | Description                                                                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`          | Only check git-staged files (useful for pre-commit hooks)                                                                                           |
+| `--base [ref]`      | Compare changed files against a base ref (auto-detects when omitted)                                                                                |
+| `--output <format>` | Output format: `console` (default), `json`, `github`, or `sarif`. See [SARIF output](#sarif-output).                                                |
+| `--adr <id>`        | Only check rules from a specific ADR                                                                                                                |
+| `--verbose`         | Show passing rules and timing info                                                                                                                  |
+| `--strict`          | Treat any rule-severity warning, and advisory findings (briefing budget, suppression, unparsed ADRs), as failures. See [Strict mode](#strict-mode). |
 
 ## Arguments
 
@@ -4085,11 +4107,11 @@ Loads every ADR with `rules: true` in its frontmatter, executes the companion `.
 
 ## Exit codes
 
-| Code | Meaning                                                                                                     |
-| ---- | ----------------------------------------------------------------------------------------------------------- |
-| 0    | All rules pass. No violations found.                                                                        |
-| 1    | One or more violations detected, warnings exceeded `--max-warnings`, or `--strict` found advisory findings. |
-| 2    | Rule execution error (e.g., malformed rule, security scanner block).                                        |
+| Code | Meaning                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------- |
+| 0    | All rules pass. No violations found.                                                                  |
+| 1    | One or more violations detected, or `--strict` escalated warnings or advisory findings into failures. |
+| 2    | Rule execution error (e.g., malformed rule, security scanner block).                                  |
 
 ## Examples
 
@@ -4117,13 +4139,7 @@ Check a single ADR:
 archgate check --adr ARCH-001
 ```
 
-Treat any warning as a failure (useful in CI):
-
-```bash
-archgate check --max-warnings 0
-```
-
-Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure:
+Treat any rule-severity warning and any advisory finding (briefing budget, suppression, unparsed ADRs) as a failure (useful in CI):
 
 ```bash
 archgate check --strict
@@ -4138,20 +4154,49 @@ archgate check src/foo.ts src/bar.ts
 Pipe from git (check only changed files):
 
 ```bash
-git diff --name-only | archgate check --json
+git diff --name-only | archgate check --output json
 ```
 
 Get JSON output for CI integration:
 
 ```bash
-archgate check --json
+archgate check --output json
 ```
 
 Get GitHub Actions annotations:
 
 ```bash
-archgate check --ci
+archgate check --output github
 ```
+
+Get SARIF output for GitHub Code Scanning:
+
+```bash
+archgate check --output sarif > results.sarif
+```
+
+## SARIF output
+
+`archgate check --output sarif` emits [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html), the standard format GitHub's Code Scanning and Code Quality features ingest in CI. Every rule violation becomes a SARIF result; `error`/`warning`/`info` severities map to SARIF `error`/`warning`/`note`. Advisory findings (briefing-budget, suppression, and unparsed-ADR warnings) are included too, as synthetic results under dedicated rule IDs (`archgate/briefing-budget`, `archgate/suppression-warning`, `archgate/unparsed-adr`), always at `warning` level -- matching how they're never treated as blocking outside `--strict`.
+
+`--output sarif` is opt-in only: unlike agent-context `json`, it is never auto-detected.
+
+Upload results to GitHub's Security tab in CI:
+
+```yaml
+- name: Run archgate check
+  run: archgate check --output sarif > results.sarif
+
+- name: Upload SARIF to GitHub Security tab
+  if: success() || failure()
+  uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+  with:
+    sarif_file: results.sarif
+```
+
+The `if: success() || failure()` condition is required: `archgate check` exits 1 when it finds violations, which would otherwise skip the upload step exactly when there are findings to report. Prefer it over `always()`, which would also run the upload for cancelled jobs. The job also needs the `security-events: write` permission for the upload to succeed.
+
+See the [CI integration guide](/guides/ci-integration/) for the full workflow.
 
 ## Changed files detection
 
@@ -4183,7 +4228,7 @@ During execution, `archgate check` emits warnings for common misconfigurations t
 | **Unscoped gitignore opt-out**      | `respectGitignore: false` is set without a `files` scope                                         | Add `files` patterns to avoid scanning all files including `node_modules/`, `.git/`, etc.         |
 | **All files excluded by gitignore** | Explicit `files` patterns match files, but every match is excluded by `.gitignore`               | Set `respectGitignore: false` in the ADR frontmatter to include gitignored files                  |
 
-These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--json` is used (as violations with `"severity": "warning"`).
+These warnings appear in the standard output and do not affect the exit code. They also appear in JSON output when `--output json` is used (as violations with `"severity": "warning"`).
 
 ### Briefing budget
 
@@ -4211,11 +4256,13 @@ To clear an overflow, apply the remedies that cannot cost a rule: move rationale
 
 If the next cut would remove a normative clause — an enumerated identifier list, an ordered guardrail, an exemption — **stop**. That section is expected to exceed the cap and MUST NOT be shortened further. Record why in the ADR's own Compliance section, and order the section so its most normative content precedes the cut, since truncation always removes the tail.
 
-By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--max-warnings <n>` to make `archgate check` exit 1 when the total warning count exceeds `n`. `--max-warnings 0` fails on any warning. When the threshold is exceeded the JSON output's `warningsExceeded` field is `true` and `pass` is `false`.
+By default, warnings (both diagnostics and rule-reported `"severity": "warning"` violations) never change the exit code. Pass `--strict` to escalate them into failures — see [Strict mode](#strict-mode).
 
 ## Strict mode
 
-`--strict` combines two escalations behind one flag: it behaves like `--max-warnings 0` for rule-severity `"warning"` violations (an explicit `--max-warnings` still wins), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+`--strict` combines two escalations behind one flag: any rule-severity `"warning"` violation fails the build (the JSON output's `warningsExceeded` field is `true` and `pass` is `false`), and it separately fails the build when `briefingWarnings`, `suppressionWarnings`, or `unparsedAdrs` is non-empty — the advisory diagnostics above that never affect `pass` by default. The JSON output's `strictAdvisoryExceeded` field is `true` when the latter condition triggered the failure.
+
+The briefing-budget and unparsed-ADR diagnostics are corpus-wide, not rule-scoped: they are collected and enforced even when no `rules: true` ADR exists, so a prose-only ADR corpus still fails `--strict` on a briefing overrun or an unparseable ADR file. Suppression warnings, by contrast, derive from rule violations and only arise when rules run.
 
 `--strict` also applies to [`archgate review-context`](/reference/cli/review-context/) and `archgate adr sync`. See the [Configuration reference](/reference/configuration/#strict) for the full schema.
 
@@ -4229,7 +4276,7 @@ There is no `--no-strict` flag: `--strict` on the command line can only turn str
 
 ## JSON output format
 
-When `--json` is used, the output is a single JSON object.
+When `--output json` is used, the output is a single JSON object.
 
 `results` contains only rules that have something to report: failures, rule errors, and any rule with violations (including warning- and info-only rules). Rules that pass cleanly are omitted — their entry would only restate static ADR text, and on a large project those entries dominate the payload. The `total` and `passed` counts still report exactly how many rules ran and passed. Pass `--verbose` to include every rule in `results`.
 
@@ -4738,7 +4785,7 @@ Treat any of these as meaning the ADR's governing text is incomplete: the rules 
 
 Two other limits truncate this payload, each with its own stderr warning. `truncatedFiles` is set when the changed-file list exceeds its cap, so files beyond it are absent from every domain. With `--run-checks`, `checkSummary.truncated` is set when a rule reported more violations than the per-rule cap — run [`archgate check`](/reference/cli/check/) for the complete list.
 
-When `--run-checks` is passed, `checkSummary` follows the same rule as [`archgate check --json`](/reference/cli/check/): its `results` array carries only rules with something to report, while the counts beside it still cover every rule that ran.
+When `--run-checks` is passed, `checkSummary` follows the same rule as [`archgate check --output json`](/reference/cli/check/): its `results` array carries only rules with something to report, while the counts beside it still cover every rule that ran.
 
 ---
 
@@ -5851,7 +5898,7 @@ Archgate collects **anonymous usage data** to help us understand how the CLI is 
 
 When you run an Archgate command, we record:
 
-- **Command name** and **which flags were used** (e.g., `check --json`; only flag presence, never flag values)
+- **Command name** and **which flags were used** (e.g., `check --output json`; flag presence plus the selected `--output` format — a fixed choice of `console`/`json`/`github`/`sarif` — never free-form flag values)
 - **Exit code** (0, 1, 2, or 130) and **execution duration** (milliseconds), plus a short **outcome** tag (`success`, `user_error`, `internal_error`, `cancelled`)
 - **Environment**: OS, architecture, Bun version, Archgate version, CI detection (including provider: GitHub Actions / GitLab CI / CircleCI / etc.), TTY detection, WSL detection, shell (bash, zsh, pwsh...), and locale
 - **Install context**: how the CLI was installed (binary, proto, local dev dependency, or global package manager)
@@ -5905,7 +5952,7 @@ When the CLI crashes (exit code 2), we send:
 - **No personal information**: no emails, passwords, secrets, or IP addresses. The one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **No file content**: no ADR content or source code. Crash reports (Sentry) may include relative file paths in stack traces, but never absolute paths or file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
-- **No flag values**: we record that `--json` was used, not what the JSON output contained
+- **No free-form flag values**: the one exception is `--output`'s selected format (a fixed enum: `console`/`json`/`github`/`sarif`); we never record user-provided values or what the output contained
 - **No network activity**: no URLs, API keys, or tokens
 
 ## IP anonymization
