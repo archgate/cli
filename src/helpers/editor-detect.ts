@@ -12,7 +12,7 @@ import type { EditorTarget } from "./init-project";
 import { logDebug } from "./log";
 import {
   isClaudeCliAvailable,
-  isCopilotCliAvailable,
+  isCopilotAvailable,
   isCursorCliAvailable,
   isOpencodeAvailable,
   isVscodeCliAvailable,
@@ -31,7 +31,7 @@ export async function detectEditors(): Promise<DetectedEditor[]> {
     isClaudeCliAvailable(),
     isCursorCliAvailable(),
     isVscodeCliAvailable(),
-    isCopilotCliAvailable(),
+    isCopilotAvailable(),
     isOpencodeAvailable(),
   ]);
 

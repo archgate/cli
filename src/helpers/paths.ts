@@ -59,16 +59,26 @@ export function opencodeAgentsDir(): string {
 }
 
 /**
- * Resolve the Copilot CLI session-state directory.
+ * Resolve the GitHub Copilot user-scope config directory, shared by the
+ * `copilot` CLI and the desktop app (which ships no CLI binary). Honors
+ * Copilot's `COPILOT_HOME` override, defaulting to `~/.copilot/`. Resolved
+ * at call time so tests can override COPILOT_HOME / HOME.
+ */
+export function copilotConfigDir(): string {
+  const override = usableEnv(Bun.env.COPILOT_HOME);
+  if (override !== null) return override;
+  return join(archgateHomeDir(), ".copilot");
+}
+
+/**
+ * Resolve the Copilot session-state directory.
  *
- * Copilot CLI stores session data (workspace.yaml + events.jsonl) under
+ * Copilot stores session data (workspace.yaml + events.jsonl) under
  * `~/.copilot/session-state/<session-uuid>/`. Each session directory
  * contains a `workspace.yaml` with a `cwd` field for project matching.
- *
- * Resolved at call time (not cached) so tests can override HOME.
  */
 export function copilotSessionStateDir(): string {
-  return join(archgateHomeDir(), ".copilot", "session-state");
+  return join(copilotConfigDir(), "session-state");
 }
 
 /**

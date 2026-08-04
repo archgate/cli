@@ -21,7 +21,6 @@ import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
-  installCopilotPlugin,
   installCursorPlugin,
   installOpencodePlugin,
   installVscodeExtension,
@@ -340,61 +339,6 @@ describe("plugin-install", () => {
 
       const firstCall = spawnSpy.mock.calls[0][0];
       expect(firstCall[0]).toBe("claude");
-    });
-  });
-
-  // -----------------------------------------------------------------------
-  // installCopilotPlugin
-  // -----------------------------------------------------------------------
-
-  describe("installCopilotPlugin", () => {
-    test("runs marketplace add and plugin install on success", async () => {
-      mockResolveCommand.mockImplementation(async () => "copilot");
-      spawnSpy.mockImplementation(() => fakeSpawnResult(0));
-
-      await installCopilotPlugin();
-
-      expect(spawnSpy).toHaveBeenCalledTimes(2);
-      const firstCall = spawnSpy.mock.calls[0][0];
-      expect(firstCall).toContain("marketplace");
-      expect(firstCall).toContain("add");
-      const secondCall = spawnSpy.mock.calls[1][0];
-      expect(secondCall).toContain("install");
-      expect(secondCall).toContain("archgate@archgate");
-    });
-
-    test("throws when marketplace add fails with non-already-registered error", async () => {
-      mockResolveCommand.mockImplementation(async () => "copilot");
-      spawnSpy.mockImplementation(() => fakeSpawnResult(1, "", "some error"));
-
-      expect(installCopilotPlugin()).rejects.toThrow("marketplace add failed");
-    });
-
-    test("skips marketplace add error when 'already registered'", async () => {
-      mockResolveCommand.mockImplementation(async () => "copilot");
-      let callCount = 0;
-      spawnSpy.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return fakeSpawnResult(1, "already registered", "");
-        }
-        return fakeSpawnResult(0);
-      });
-
-      // Should not throw — "already registered" is tolerated
-      await installCopilotPlugin();
-      expect(spawnSpy).toHaveBeenCalledTimes(2);
-    });
-
-    test("throws when plugin install fails", async () => {
-      mockResolveCommand.mockImplementation(async () => "copilot");
-      let callCount = 0;
-      spawnSpy.mockImplementation(() => {
-        callCount++;
-        return fakeSpawnResult(callCount === 1 ? 0 : 1);
-      });
-
-      expect(installCopilotPlugin()).rejects.toThrow("plugin install failed");
     });
   });
 

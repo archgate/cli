@@ -53,7 +53,7 @@ archgate plugin install [options]
 Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
-- **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
+- **GitHub Copilot:** Declares the Archgate marketplace and plugin in Copilot's `settings.json` (`~/.copilot/` by default, honoring `COPILOT_HOME`), which both the Copilot CLI and the Copilot desktop app read. When the `copilot` CLI is on PATH the plugin is also installed immediately; otherwise Copilot installs it automatically on next launch. Prints manual commands when no `copilot` CLI or Copilot settings directory is detected.
 - **Cursor:** Downloads an authenticated tarball and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection needed. Files are written directly to the Cursor user directory.
 - **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
 - **opencode:** Requires the `opencode` CLI to be on PATH, and skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" because opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.

@@ -21,12 +21,14 @@ import {
 let mockLoadCredentials: Mock<typeof credentialStore.loadCredentials>;
 
 const mockInstallClaudePlugin = mock(async () => {});
-const mockInstallCopilotPlugin = mock(async () => {});
+const mockInstallCopilotPlugin = mock(
+  async (): Promise<{ mode: "cli" | "declarative" }> => ({ mode: "cli" })
+);
 const mockInstallVscodeExtension = mock(async (_token: string) => {});
 const mockInstallOpencodePlugin = mock(async (_token: string) => {});
 const mockInstallCursorPlugin = mock(async (_token: string) => {});
 const mockIsClaudeCliAvailable = mock(async () => false);
-const mockIsCopilotCliAvailable = mock(async () => false);
+const mockIsCopilotAvailable = mock(async () => false);
 const mockIsVscodeCliAvailable = mock(async () => false);
 const mockIsOpencodeAvailable = mock(async () => false);
 void mock.module("../../../src/helpers/plugin-install", () => ({
@@ -41,7 +43,7 @@ void mock.module("../../../src/helpers/plugin-install", () => ({
   installOpencodePlugin: mockInstallOpencodePlugin,
   installCursorPlugin: mockInstallCursorPlugin,
   isClaudeCliAvailable: mockIsClaudeCliAvailable,
-  isCopilotCliAvailable: mockIsCopilotCliAvailable,
+  isCopilotAvailable: mockIsCopilotAvailable,
   isVscodeCliAvailable: mockIsVscodeCliAvailable,
   isOpencodeAvailable: mockIsOpencodeAvailable,
   isCursorCliAvailable: mock(async () => false),
@@ -121,7 +123,7 @@ beforeEach(() => {
   mockInstallVscodeExtension.mockReset();
   mockInstallOpencodePlugin.mockReset();
   mockIsClaudeCliAvailable.mockReset();
-  mockIsCopilotCliAvailable.mockReset();
+  mockIsCopilotAvailable.mockReset();
   mockIsVscodeCliAvailable.mockReset();
   mockIsOpencodeAvailable.mockReset();
   mockDetectEditors.mockReset();
@@ -130,11 +132,11 @@ beforeEach(() => {
 
   // Default implementations
   mockInstallClaudePlugin.mockImplementation(async () => {});
-  mockInstallCopilotPlugin.mockImplementation(async () => {});
+  mockInstallCopilotPlugin.mockImplementation(async () => ({ mode: "cli" }));
   mockInstallVscodeExtension.mockImplementation(async (_token: string) => {});
   mockInstallOpencodePlugin.mockImplementation(async (_token: string) => {});
   mockIsClaudeCliAvailable.mockImplementation(async () => false);
-  mockIsCopilotCliAvailable.mockImplementation(async () => false);
+  mockIsCopilotAvailable.mockImplementation(async () => false);
   mockIsVscodeCliAvailable.mockImplementation(async () => false);
   mockIsOpencodeAvailable.mockImplementation(async () => false);
   mockConfigureVscodeSettings.mockImplementation(async () => {});
@@ -240,16 +242,46 @@ describe("plugin install action", () => {
     expect(mockInstallCursorPlugin).toHaveBeenCalledWith("tok");
   });
 
-  test("installs copilot plugin when CLI is available", async () => {
+  test("installs copilot plugin when Copilot is available", async () => {
     mockLoadCredentials.mockImplementation(async () => ({
       token: "tok",
       github_user: "user",
     }));
-    mockIsCopilotCliAvailable.mockImplementation(async () => true);
+    mockIsCopilotAvailable.mockImplementation(async () => true);
 
     await runInstall(["--editor", "copilot"]);
 
     expect(mockInstallCopilotPlugin).toHaveBeenCalledTimes(1);
+  });
+
+  test("prints a restart note for a declarative (desktop-only) copilot install", async () => {
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsCopilotAvailable.mockImplementation(async () => true);
+    mockInstallCopilotPlugin.mockImplementation(async () => ({
+      mode: "declarative" as const,
+    }));
+
+    await runInstall(["--editor", "copilot"]);
+
+    expect(mockInstallCopilotPlugin).toHaveBeenCalledTimes(1);
+    const logged = logSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain("Restart the GitHub Copilot app");
+  });
+
+  test("prints manual instructions when Copilot is not installed", async () => {
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsCopilotAvailable.mockImplementation(async () => false);
+
+    await runInstall(["--editor", "copilot"]);
+
+    expect(mockInstallCopilotPlugin).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
   });
 
   test("installs vscode extension when code CLI is available", async () => {

@@ -47,10 +47,12 @@ export function registerPluginUrlCommand(plugin: Command) {
           return;
         }
 
+        // Copilot shares the VS Code marketplace — both are served from the
+        // same `.github/plugin/`-format content.
         const url =
           editor === "cursor"
             ? buildCursorMarketplaceUrl()
-            : editor === "vscode"
+            : editor === "vscode" || editor === "copilot"
               ? buildVscodeMarketplaceUrl()
               : buildMarketplaceUrl();
 

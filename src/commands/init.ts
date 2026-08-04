@@ -133,7 +133,13 @@ export function registerInitCommand(program: Command) {
           if (result.plugin?.installed === true) {
             console.log("");
             if (result.plugin.autoInstalled === true) {
-              logInfo(`Archgate plugin installed for ${label}.`);
+              // A deferred install is configured but only takes effect on the
+              // editor's next launch — say "configured", not "installed".
+              logInfo(
+                result.plugin.deferred === true
+                  ? `Archgate plugin configured for ${label}.`
+                  : `Archgate plugin installed for ${label}.`
+              );
               if (
                 result.plugin.detail !== undefined &&
                 result.plugin.detail !== ""
@@ -312,8 +318,29 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
       );
       break;
     case "copilot":
-      logWarn("Copilot CLI not found. To install the plugin manually, run:");
-      console.log(`  ${styleText("bold", "copilot plugin install")} ${detail}`);
+      // `not-found` is the sentinel set by `tryInstallPlugin` in
+      // init-project.ts when neither the `copilot` CLI nor the desktop app
+      // (detected via the shared ~/.copilot directory) is present. All
+      // other values are marketplace URLs from a failed CLI install.
+      if (detail === "not-found") {
+        logWarn(
+          "GitHub Copilot not found on this machine — skipping plugin install.",
+          "Install the Copilot CLI or desktop app, then run:"
+        );
+        console.log(
+          `  ${styleText("bold", "archgate plugin install --editor copilot")}`
+        );
+      } else {
+        logWarn(
+          "Failed to install the plugin via the copilot CLI. To install manually, run:"
+        );
+        console.log(
+          `  ${styleText("bold", "copilot plugin marketplace add")} ${detail}`
+        );
+        console.log(
+          `  ${styleText("bold", "copilot plugin install")} archgate@archgate`
+        );
+      }
       break;
     case "opencode":
       // `not-found` is the sentinel set by `tryInstallPlugin` in

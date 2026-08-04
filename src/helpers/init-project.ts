@@ -34,7 +34,7 @@ export const EDITOR_LABELS: Record<EditorTarget, string> = {
   claude: "Claude Code",
   cursor: "Cursor",
   vscode: "VS Code",
-  copilot: "Copilot CLI",
+  copilot: "GitHub Copilot",
   opencode: "opencode",
 };
 
@@ -66,6 +66,8 @@ interface PluginResult {
   detail?: string;
   /** When true, plugin was auto-installed via editor CLI (no manual steps needed). */
   autoInstalled?: boolean;
+  /** When true, the plugin is configured but takes effect on the editor's next launch. */
+  deferred?: boolean;
 }
 
 interface InitResult {
@@ -356,23 +358,40 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
 
   if (editor === "copilot") {
     const {
-      isCopilotCliAvailable,
+      isCopilotAvailable,
       installCopilotPlugin,
       buildVscodeMarketplaceUrl,
     } = await import("./plugin-install");
 
-    if (await isCopilotCliAvailable()) {
-      try {
-        await installCopilotPlugin();
-        return { installed: true, autoInstalled: true };
-      } catch (error) {
-        // Fall through to manual instructions
-        logDebug("Failed to auto-install Copilot plugin:", error);
-      }
+    // Install only when Copilot exists — the settings write would otherwise
+    // target a directory nothing reads.
+    if (!(await isCopilotAvailable())) {
+      return {
+        installed: true,
+        // `not-found` is a marker recognized by `printManualInstructions`
+        // in `commands/init.ts`; the user-facing message lives there.
+        detail: "not-found",
+      };
     }
 
-    const url = buildVscodeMarketplaceUrl();
-    return { installed: true, detail: url };
+    try {
+      const { mode } = await installCopilotPlugin();
+      return mode === "cli"
+        ? { installed: true, autoInstalled: true }
+        : {
+            installed: true,
+            autoInstalled: true,
+            deferred: true,
+            // Printed verbatim under the success line by `commands/init.ts`.
+            detail:
+              "Restart the GitHub Copilot app — the plugin installs automatically on next launch.",
+          };
+    } catch (error) {
+      // Surface as a non-auto install so init routes through
+      // `printManualInstructions("copilot", url)` with the marketplace URL.
+      logDebug("Failed to auto-install Copilot plugin:", error);
+      return { installed: true, detail: buildVscodeMarketplaceUrl() };
+    }
   }
 
   // Claude Code — try auto-install via `claude` CLI, fall back to manual URL
