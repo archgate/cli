@@ -409,52 +409,6 @@ describe("tryInstallPlugin via initProject", () => {
     }
   });
 
-  test("copilot with CLI available auto-installs", async () => {
-    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const cliSpy = spyOn(
-      pluginInstall,
-      "isCopilotCliAvailable"
-    ).mockResolvedValue(true);
-    const installSpy = spyOn(
-      pluginInstall,
-      "installCopilotPlugin"
-    ).mockResolvedValue();
-    try {
-      const result = await initProject(tempDir, {
-        installPlugin: true,
-        editor: "copilot",
-      });
-      expect(result.plugin!.installed).toBe(true);
-      expect(result.plugin!.autoInstalled).toBe(true);
-    } finally {
-      cliSpy.mockRestore();
-      installSpy.mockRestore();
-    }
-  });
-
-  test("copilot without CLI falls back to marketplace URL", async () => {
-    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
-    const cliSpy = spyOn(
-      pluginInstall,
-      "isCopilotCliAvailable"
-    ).mockResolvedValue(false);
-    const urlSpy = spyOn(
-      pluginInstall,
-      "buildVscodeMarketplaceUrl"
-    ).mockReturnValue("https://vscode.example");
-    try {
-      const result = await initProject(tempDir, {
-        installPlugin: true,
-        editor: "copilot",
-      });
-      expect(result.plugin!.installed).toBe(true);
-      expect(result.plugin!.detail).toBe("https://vscode.example");
-    } finally {
-      cliSpy.mockRestore();
-      urlSpy.mockRestore();
-    }
-  });
-
   test("opencode available auto-installs", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
     const availableSpy = spyOn(

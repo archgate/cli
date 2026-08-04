@@ -1,18 +1,22 @@
 ---
-title: Plugin para Copilot CLI
-description: Configure o plugin Archgate para GitHub Copilot CLI. Adicione guardrails arquiteturais ao Copilot com conformidade ADR automatizada e aplicação de regras.
+title: Plugin para GitHub Copilot
+description: Configure o plugin Archgate para GitHub Copilot. Adicione guardrails arquiteturais ao Copilot CLI e ao aplicativo desktop com conformidade ADR automatizada e aplicação de regras.
 ---
 
-O plugin Archgate para Copilot CLI oferece aos agentes de IA que trabalham no [GitHub Copilot CLI](https://github.com/features/copilot) guardrails integrados. Os agentes leem seus ADRs antes de escrever código, validam depois e capturam novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
+O plugin Archgate para GitHub Copilot oferece aos agentes de IA que trabalham no [GitHub Copilot](https://github.com/features/copilot) guardrails integrados. Os agentes leem seus ADRs antes de escrever código, validam depois e capturam novos padrões para a equipe -- o mesmo fluxo disponível no [plugin para Claude Code](/guides/claude-code-plugin/).
+
+Ambas as distribuições do Copilot são suportadas: o **Copilot CLI** (`copilot` no seu PATH) e o **aplicativo desktop do Copilot**. Elas compartilham o mesmo diretório de configuração `~/.copilot/`, então uma única instalação cobre as duas.
 
 ## Como funciona
 
-O Copilot CLI suporta instalação de plugins a partir de repositórios git usando `copilot plugin install`. O plugin Archgate é servido a partir de um repositório git em `plugins.archgate.dev/archgate.git`, que o Copilot CLI reconhece nativamente -- o mesmo formato de manifesto `.claude-plugin/plugin.json` funciona tanto para o Claude Code quanto para o Copilot CLI.
+O Copilot suporta marketplaces de plugins baseados em repositórios git. O plugin Archgate é servido a partir de `plugins.archgate.dev/archgate/vscode.git` -- o mesmo marketplace usado pela extensão do VS Code, no formato de manifesto `.github/plugin/` que o Copilot reconhece nativamente.
+
+A instalação é declarativa: o CLI escreve a declaração do marketplace e do plugin em `~/.copilot/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`). O Copilot lê esse arquivo na inicialização e instala automaticamente qualquer plugin declarado. Quando o CLI `copilot` está no seu PATH, o CLI também executa `copilot plugin install` para que o plugin fique disponível imediatamente, sem reiniciar.
 
 ## Instalação
 
 :::note[Acesso beta necessário]
-O plugin para Copilot CLI está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar antes de seguir os passos abaixo.
+O plugin para GitHub Copilot está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar antes de seguir os passos abaixo.
 :::
 
 ### 1. Faça login com o GitHub
@@ -33,13 +37,10 @@ Execute `archgate init` com a flag `--editor copilot`:
 archgate init --editor copilot
 ```
 
-Se você já estiver logado e o CLI `copilot` estiver no seu PATH, o plugin é instalado automaticamente via:
+Se você estiver logado e o Copilot estiver instalado (CLI ou aplicativo desktop), o plugin é instalado automaticamente:
 
-```bash
-copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
-```
-
-Se o CLI `copilot` não for encontrado, o comando exibe o comando manual para você executar.
+- **Copilot CLI no PATH:** o plugin é instalado imediatamente via `copilot plugin install`.
+- **Apenas o aplicativo desktop:** o plugin é declarado em `~/.copilot/settings.json`; reinicie o aplicativo Copilot e ele instala automaticamente ao iniciar.
 
 Para solicitar explicitamente a instalação do plugin:
 
@@ -55,75 +56,79 @@ archgate plugin install --editor copilot
 
 ### Arquivos gerados
 
-O comando cria o diretório `.github/copilot/` para configuração do plugin. A instalação do plugin é feita separadamente via o comando `copilot plugin install`.
+O comando cria o diretório `.github/copilot/` para configuração no nível do projeto e atualiza o `~/.copilot/settings.json` no nível do usuário com a declaração do marketplace e do plugin Archgate. Uma entrada apontando para uma URL de marketplace desatualizada é corrigida no próprio arquivo.
 
 ### Instalação manual
 
-Se o CLI `copilot` não for encontrado durante `archgate init`, você pode instalar o plugin manualmente:
+Para instalar o plugin manualmente com o CLI `copilot`:
 
 ```bash
-copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
+copilot plugin marketplace add "$(archgate plugin url --editor copilot)"
+copilot plugin install archgate@archgate
 ```
 
-Você pode encontrar sua URL autenticada executando `archgate plugin url copilot`.
+As credenciais são fornecidas automaticamente pelo seu gerenciador de credenciais git (armazenadas durante `archgate login`).
 
 ## O que o plugin oferece
 
-O plugin adiciona um agente e skills baseadas em papéis ao Copilot CLI. O agente orquestra o fluxo de guardrails, invocando skills conforme necessário.
+O plugin adiciona agentes e skills baseadas em papéis ao Copilot. O agente orquestra o fluxo de guardrails, invocando skills conforme necessário.
 
-### Agente
+### Agentes
 
-| Agente               | Propósito                                                                      |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+| Agente               | Propósito                                                                          |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois     |
+| `archgate:planner`   | Agente de planejamento somente leitura que projeta planos em conformidade com ADRs |
 
-O agente `archgate:developer` é definido como agente padrão via as configurações do plugin. Ele orquestra as skills abaixo automaticamente como parte do seu fluxo.
+O agente `archgate:developer` é definido como agente padrão via configurações do plugin. Ele orquestra as skills abaixo automaticamente como parte do seu fluxo de trabalho.
 
 ### Skills
 
-| Skill                      | Propósito                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| `archgate:architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
-| `archgate:quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
-| `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
-| `archgate:onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+| Skill                      | Propósito                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `archgate:reviewer`        | Valida mudanças de código contra todos os ADRs do projeto para conformidade estrutural          |
+| `archgate:lessons-learned` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                         |
+| `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                             |
+| `archgate:cli-reference`   | Fornece aos agentes a referência de comandos do CLI e o guia de autoria de regras               |
+| `archgate:onboard`         | Configuração única: explora a base de código, entrevista o desenvolvedor, cria os ADRs iniciais |
 
 ## Configuração inicial com onboard
 
 Após a instalação, execute a skill `archgate:onboard` no seu projeto uma vez. Essa skill:
 
-1. Explora a estrutura do seu codebase (diretórios, arquivos-chave, configuração de pacotes)
+1. Explora a estrutura da sua base de código (diretórios, arquivos principais, configuração de pacotes)
 2. Entrevista você sobre as convenções, restrições e decisões arquiteturais da sua equipe
 3. Cria um conjunto inicial de ADRs com base nas suas respostas
 4. Configura o diretório `.archgate/` com suas primeiras regras
 
-A skill de onboard foi projetada para ser executada uma vez por projeto. Após o onboarding, as outras skills cuidam do desenvolvimento no dia a dia.
+A skill onboard foi projetada para ser executada uma vez por projeto. Após o onboarding, as outras skills cuidam do desenvolvimento no dia a dia.
 
 ## Como funciona na prática
 
-O plugin segue um fluxo estruturado para cada tarefa de codificação:
+O plugin segue um fluxo de trabalho estruturado para cada tarefa de codificação:
 
 ### 1. Ler os ADRs aplicáveis
 
-Quando o desenvolvedor atribui uma tarefa de codificação, o agente executa `archgate review-context` para ler todos os ADRs que se aplicam aos arquivos sendo alterados. Isso fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
+Quando o desenvolvedor passa uma tarefa de codificação, o agente executa `archgate review-context` para ler todos os ADRs que se aplicam aos arquivos sendo alterados. Isso fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
 
 ### 2. Escrever código seguindo as restrições dos ADRs
 
-O agente escreve código que cumpre as restrições dos ADRs. As seções Do's and Don'ts servem como guardrails concretos.
+O agente escreve código em conformidade com as restrições dos ADRs. As seções Do's and Don'ts servem como guardrails concretos.
 
-### 3. Validar as alterações
+### 3. Validar as mudanças
 
-Após escrever o código, o agente executa `archgate check` para rodar as regras automatizadas contra as alterações. Qualquer violação é corrigida antes de prosseguir.
+Após escrever o código, o agente executa `archgate check` para rodar as regras automatizadas contra as mudanças. Quaisquer violações são corrigidas antes de prosseguir.
 
-### 4. Revisão do arquiteto
+### 4. Validação do reviewer
 
-O agente invoca `archgate:architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
+O agente invoca `archgate:reviewer` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
 
 ### 5. Capturar aprendizados
 
-O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs.
+O agente invoca `archgate:lessons-learned` para revisar o trabalho e identificar padrões que valem a pena capturar como novos ADRs.
 
 ## Dicas
 
-- **Execute o onboard uma vez por projeto** para gerar seus ADRs iniciais a partir do seu codebase real.
+- **Execute onboard uma vez por projeto** para gerar seus ADRs iniciais a partir da sua base de código real.
 - **Mantenha os arquivos de regras dos ADRs atualizados** -- o agente aplica o que as regras verificam.
+- **Usuários do aplicativo desktop:** após a primeira instalação, reinicie o aplicativo Copilot para que ele carregue o plugin declarado.

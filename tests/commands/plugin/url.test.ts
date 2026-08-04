@@ -125,14 +125,14 @@ describe("plugin url action handler", () => {
     expect(output).toBe(buildVscodeMarketplaceUrl());
   });
 
-  test("--editor copilot prints the Claude marketplace URL (default)", async () => {
+  test("--editor copilot prints the shared VS Code marketplace URL", async () => {
     const program = makeProgram();
     await program.parseAsync(["node", "test", "url", "--editor", "copilot"]);
 
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
-    expect(output).toBe(buildMarketplaceUrl());
+    expect(output).toBe(buildVscodeMarketplaceUrl());
   });
 
   test("--editor opencode prints authenticated install message", async () => {

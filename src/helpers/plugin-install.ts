@@ -7,8 +7,14 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import { configureCopilotUserSettings } from "./copilot-user-settings";
 import { logDebug } from "./log";
-import { cursorUserDir, internalPath, opencodeConfigDir } from "./paths";
+import {
+  copilotConfigDir,
+  cursorUserDir,
+  internalPath,
+  opencodeConfigDir,
+} from "./paths";
 import { resolveCommand } from "./platform";
 import { UserError } from "./user-error";
 
@@ -52,7 +58,7 @@ async function run(
 // ---------------------------------------------------------------------------
 
 /**
- * Get the marketplace URL for Claude Code & Copilot CLI plugin installation.
+ * Get the marketplace URL for Claude Code plugin installation.
  * Credentials are provided by the git credential manager (no tokens in URLs).
  */
 export function buildMarketplaceUrl(): string {
@@ -349,7 +355,7 @@ export async function installOpencodePlugin(token: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Copilot CLI — CLI auto-install + manual fallback
+// GitHub Copilot — declarative settings install + CLI install when available
 // ---------------------------------------------------------------------------
 
 /**
@@ -362,34 +368,45 @@ export async function isCopilotCliAvailable(): Promise<boolean> {
 }
 
 /**
- * Install the archgate plugin via the `copilot` CLI.
- *
- * Runs:
- *   copilot plugin marketplace add <vscode-marketplace-url>
- *   copilot plugin install archgate@archgate
- *
- * Throws on failure so the caller can fall back to manual instructions.
+ * Check whether GitHub Copilot is installed in any form — the `copilot` CLI
+ * on PATH, or the desktop app (no CLI binary). Both distributions share
+ * `copilotConfigDir()` (`~/.copilot/`), so that directory existing is
+ * reliable install evidence even when the CLI probe finds nothing.
  */
-export async function installCopilotPlugin(): Promise<void> {
-  const url = buildVscodeMarketplaceUrl();
-  const cmd = (await resolveCommand("copilot")) ?? "copilot";
+export async function isCopilotAvailable(): Promise<boolean> {
+  if (await isCopilotCliAvailable()) return true;
+  return existsSync(copilotConfigDir());
+}
 
-  logDebug("Adding archgate marketplace to copilot CLI");
-  const addResult = await run([cmd, "plugin", "marketplace", "add", url]);
-  if (addResult.exitCode !== 0) {
-    // "already registered" is not an error — the marketplace was added in a
-    // previous run. Skip and proceed to install.
-    const combined = addResult.stdout + addResult.stderr;
-    if (!combined.includes("already registered")) {
-      const detail = combined.trim();
-      throw new UserError(
-        `copilot plugin marketplace add failed (exit ${addResult.exitCode})` +
-          (detail ? `\n${detail}` : "")
-      );
-    }
-    logDebug("Marketplace already registered, skipping add");
+/** How the Copilot plugin install took effect. */
+export interface CopilotInstallResult {
+  /**
+   * `cli` — installed immediately via `copilot plugin install`.
+   * `declarative` — declared in `~/.copilot/settings.json`; Copilot
+   * auto-installs it on next launch (CLI not on PATH, e.g. desktop app).
+   */
+  mode: "cli" | "declarative";
+}
+
+/**
+ * Install the archgate plugin for GitHub Copilot (CLI or desktop app).
+ * Always declares the marketplace + plugin in `~/.copilot/settings.json`
+ * first (also correcting stale URLs); with the `copilot` CLI on PATH it
+ * additionally runs `copilot plugin install` for immediate effect. Throws
+ * on CLI install failure so callers can fall back to manual instructions.
+ */
+export async function installCopilotPlugin(): Promise<CopilotInstallResult> {
+  const url = buildVscodeMarketplaceUrl();
+
+  logDebug("Declaring archgate marketplace and plugin in Copilot settings");
+  await configureCopilotUserSettings(url);
+
+  if (!(await isCopilotCliAvailable())) {
+    // Desktop app only — Copilot installs the declared plugin on next launch.
+    return { mode: "declarative" };
   }
 
+  const cmd = (await resolveCommand("copilot")) ?? "copilot";
   logDebug("Installing archgate plugin via copilot CLI");
   const installResult = await run([
     cmd,
@@ -398,10 +415,13 @@ export async function installCopilotPlugin(): Promise<void> {
     "archgate@archgate",
   ]);
   if (installResult.exitCode !== 0) {
+    const detail = (installResult.stdout + installResult.stderr).trim();
     throw new UserError(
-      `copilot plugin install failed (exit ${installResult.exitCode})`
+      `copilot plugin install failed (exit ${installResult.exitCode})` +
+        (detail ? `\n${detail}` : "")
     );
   }
+  return { mode: "cli" };
 }
 
 // ---------------------------------------------------------------------------

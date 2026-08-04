@@ -23,7 +23,7 @@ import {
   installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
-  isCopilotCliAvailable,
+  isCopilotAvailable,
   isOpencodeAvailable,
   isVscodeCliAvailable,
 } from "../../helpers/plugin-install";
@@ -68,12 +68,27 @@ export async function installForEditor(
       break;
     }
     case "copilot": {
-      if (await isCopilotCliAvailable()) {
-        await installCopilotPlugin();
-        logInfo(`Archgate plugin installed for ${label}.`);
+      // `isCopilotAvailable()` recognizes both the `copilot` CLI (on PATH)
+      // and the desktop app (no CLI binary, but shares `~/.copilot/`).
+      // The install writes the marketplace + plugin declaration into
+      // `~/.copilot/settings.json` either way; with the CLI present it also
+      // installs immediately.
+      if (await isCopilotAvailable()) {
+        const { mode } = await installCopilotPlugin();
+        if (mode === "cli") {
+          logInfo(`Archgate plugin installed for ${label}.`);
+        } else {
+          logInfo(
+            `Archgate plugin configured for ${label}.`,
+            "Restart the GitHub Copilot app — the plugin installs automatically on next launch."
+          );
+        }
       } else {
         const url = buildVscodeMarketplaceUrl();
-        logWarn("Copilot CLI not found. To install the plugin manually, run:");
+        logWarn(
+          "GitHub Copilot not found (no `copilot` CLI on PATH and no ~/.copilot directory).",
+          "Install the Copilot CLI or desktop app, then re-run this command — or install manually:"
+        );
         console.log(
           `  ${styleText("bold", "copilot plugin marketplace add")} ${url}`
         );
