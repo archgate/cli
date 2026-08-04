@@ -31,7 +31,7 @@ The documentation site MUST use Starlight's built-in i18n: `docs/astro.config.mj
 
 **Root locale pattern:** English content stays at `docs/src/content/docs/` (no subdirectory) and serves URLs with no language prefix (`/getting-started/installation/`), preserving all existing English URLs. Each additional locale gets a subdirectory (`docs/src/content/docs/<locale>/`, e.g. `pt-br/`) and a URL prefix (`/pt-br/getting-started/installation/`).
 
-**1:1 page parity:** Every MDX file in the root content directory MUST have a translation in each configured locale directory at the same relative path and filename, and every locale file MUST correspond to an existing root file -- orphan translations are violations.
+**1:1 page parity:** The English source set is every MDX file under `docs/src/content/docs/` outside the configured locale directories. Each MUST have a translation in every locale directory at the same relative path and filename, and every locale file MUST map to a source file -- orphans are violations.
 
 **Same-PR updates:** Adding or modifying English content MUST update the corresponding locale files in the same pull request, preventing drift at the source.
 
@@ -47,7 +47,7 @@ The documentation site MUST use Starlight's built-in i18n: `docs/astro.config.mj
 | Locale key | Label              | BCP 47 tag | URL prefix |
 | ---------- | ------------------ | ---------- | ---------- |
 | `root`     | English            | `en`       | _(none)_   |
-| `pt-br`    | Portugues (Brasil) | `pt-BR`    | `/pt-br/`  |
+| `pt-br`    | Português (Brasil) | `pt-BR`    | `/pt-br/`  |
 | `nb`       | Norsk (Bokmål)     | `nb`       | `/nb/`     |
 
 ## Do's and Don'ts
@@ -68,7 +68,6 @@ The documentation site MUST use Starlight's built-in i18n: `docs/astro.config.mj
 ### Don't
 
 - **DON'T** write Portuguese without diacritical marks -- unaccented Portuguese is grammatically incorrect and unprofessional (`execução` not `execucao`)
-- **DON'T** leave pages untranslated without a tracking issue for the pending translation
 - **DON'T** use machine translation without human review for technical accuracy
 - **DON'T** translate code examples, TypeScript identifiers, CLI command names, or file paths
 - **DON'T** create locale-specific sidebar configurations -- Starlight resolves the sidebar per locale
@@ -132,7 +131,7 @@ Code reviewers MUST verify during docs PRs:
 3. Code blocks, CLI commands, and technical identifiers remain in English
 4. Starlight component imports and structural MDX elements are preserved identically
 5. Internal links do not include locale prefixes
-6. New English pages include corresponding translations (or a tracking issue is linked)
+6. New English pages include corresponding translations in the same PR
 
 ## References
 

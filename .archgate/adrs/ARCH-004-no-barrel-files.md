@@ -10,18 +10,17 @@ files: ["src/**/*.ts"]
 
 ## Context
 
-Barrel files are `index.ts` files whose sole purpose is re-exporting symbols from sibling modules. They introduce five concrete problems:
+Barrel files are `index.ts` files whose sole purpose is re-exporting symbols from sibling modules. They introduce four concrete problems:
 
 1. **Circular dependency risk** — A barrel pulls all siblings into one module surface, so cycles (module A imports the barrel that re-exports module B, which imports A) hide behind the indirection layer.
-2. **Tree-shaking degradation** — Bun's module cache treats the barrel as a single unit, pulling in all symbols even when only one is needed, increasing memory footprint and startup time.
-3. **Hidden coupling** — Consumers cannot tell which concrete module provides a symbol. This obscures the real dependency graph and masks architectural drift: moving a function between source modules requires no import change when the barrel re-exports both.
-4. **IDE confusion** — The same symbol is reachable from both the barrel (`../formats`) and the source module (`../formats/adr`), producing inconsistent import paths across the codebase.
-5. **Grep-unfriendly navigation** — Symbol searches land on the barrel first, costing an extra hop to reach the real implementation.
+2. **Hidden coupling** — Consumers cannot tell which concrete module provides a symbol. This obscures the real dependency graph and masks architectural drift: moving a function between source modules requires no import change when the barrel re-exports both.
+3. **IDE confusion** — The same symbol is reachable from both the barrel (`../formats`) and the source module (`../formats/adr`), producing inconsistent import paths across the codebase.
+4. **Grep-unfriendly navigation** — Symbol searches land on the barrel first, costing an extra hop to reach the real implementation.
 
 **Alternatives considered:**
 
 - **Barrels as "public API" facades** — Appropriate for npm packages with external consumers; Archgate CLI has none, so the facade adds indirection without value.
-- **Barrels only at package boundaries** (e.g., `src/engine/index.ts`) — Still carries the circular dependency and tree-shaking costs, plus the overhead of deciding which directories "deserve" one.
+- **Barrels only at package boundaries** (e.g., `src/engine/index.ts`) — Still carries the circular dependency cost, plus the overhead of deciding which directories "deserve" one.
 - **Path aliases** (e.g., `@engine/loader`) — Archgate uses Bun's native module resolution without `paths` ([ARCH-006 — Dependency Policy](./ARCH-006-dependency-policy.md)), and `paths` configuration carries its own maintenance burden.
 
 Every module here is internal and consumed only within this repository, so direct imports keep the dependency graph explicit and auditable; the extra path verbosity is a worthwhile trade. This refines [ARCH-001 — Command Structure](./ARCH-001-command-structure.md), which permits `index.ts` for command groups containing real logic: `index.ts` with logic is permitted, `index.ts` that only re-exports is forbidden.
@@ -111,7 +110,6 @@ export function registerAdrCommand(program: Command) {
 - **Faster IDE navigation** — Go-to-definition jumps straight to the source module
 - **Simpler grep results** — Symbol searches find the real implementation without hops through barrels
 - **Consistent import style** — One direct pattern everywhere; no ambiguity between barrel and source
-- **Better tree-shaking** — Bun resolves only the module needed, not unrelated siblings behind a shared barrel
 
 ### Negative
 

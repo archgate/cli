@@ -53,7 +53,7 @@ uses: owner/action@<40-char-sha> # <version>
 
 **Version comment format:** the comment MUST contain the **exact tag** the SHA was resolved from (e.g. `# v2.4.3`, `# v5.5.0`). Floating major-version comments (`# v5`, `# v7`) are prohibited — major tags are re-pointed on every minor/patch release, so the comment silently stops matching the pinned SHA and zizmor reports `ref-version-mismatch`. Starting from a floating tag, look up the exact release tag pointing at the same commit and record that. The comment lets Renovate/Dependabot propose SHA bumps, reviewers assess currency, and `git blame` explain version changes.
 
-**Updating pinned actions:** resolve the target tag's commit SHA (`gh api repos/owner/action/git/ref/tags/<tag> --jq '.object.sha'`) and update SHA and version comment in a single commit.
+**Updating pinned actions:** resolve the target tag to its **commit** SHA — annotated tags need a dereferencing step (see Do's) — and update SHA and version comment in a single commit.
 
 ## Do's and Don'ts
 
@@ -61,7 +61,7 @@ uses: owner/action@<40-char-sha> # <version>
 
 - **DO** pin every third-party `uses:` reference by full 40-character commit SHA
 - **DO** include a `# <version>` comment after the SHA on the same line, using the exact tag the SHA resolves to (e.g. `# v2.1.0`, `# v5.5.0`), never a floating major tag
-- **DO** use `gh api repos/<owner>/<repo>/git/ref/tags/<tag> --jq '.object.sha'` to resolve a tag to its commit SHA before adding a new action
+- **DO** resolve a tag to a **commit** SHA before adding a new action: `gh api repos/<owner>/<repo>/git/ref/tags/<tag>`; when `.object.type` is `"tag"` (annotated tag), the SHA is a tag object — dereference it via `gh api repos/<owner>/<repo>/git/tags/<sha> --jq '.object.sha'`
 - **DO** verify the SHA matches the expected tag before committing — cross-reference the action's releases page
 - **DO** enable Renovate or Dependabot for automated SHA update PRs — pinning without automated updates leads to stale dependencies
 - **DO** audit an action's permissions requirements before adding it to any workflow
@@ -98,7 +98,7 @@ uses: owner/action@<40-char-sha> # <version>
 - **Stale action versions**: pinned SHAs do not auto-update, so if the automated dependency update tooling is disabled or misconfigured, actions fall behind on security patches.
   - **Mitigation**: Renovate is configured in the repository, understands SHA-pinned GitHub Action references, and `renovate.json` includes GitHub Actions as an update target; regular Renovate PRs keep pins current.
 - **Incorrect SHA resolution**: a contributor may resolve the SHA for the wrong tag, or use an annotated tag whose object SHA differs from the commit SHA.
-  - **Mitigation**: The automated rule checks that all third-party `uses:` references match the `@<40-char-hex>` pattern. Code review MUST verify the SHA matches the intended version by cross-referencing the action's releases page. For annotated tags, resolve via `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` and follow the `object` if `type` is `"tag"`.
+  - **Mitigation**: The automated rule checks shape only — a tag-object SHA is also 40 hex characters and passes it. Code review MUST verify the SHA matches the intended version by cross-referencing the action's releases page, and that annotated tags were dereferenced per the Do's (e.g. `pypa/gh-action-pypi-publish`, used in this repo, publishes annotated release tags whose ref SHA is a tag object, not the commit).
 - **Reusable workflow compatibility**: some reusable workflow providers cannot be referenced by SHA. The SLSA GitHub Generator is the known case — its bootstrap script reads the workflow ref to fetch the prebuilt builder and rejects non-tag refs (upstream [#150](https://github.com/slsa-framework/slsa-github-generator/issues/150)); SHA pinning it broke the `v0.31.0` release pipeline (run [25107195589](https://github.com/archgate/cli/actions/runs/25107195589)).
   - **Mitigation**: The SLSA reusable workflow is a documented carve-out referenced by tag (`@v2.1.0`), and the `no-unpinned-actions` rule allowlists that specific path so the exception is enforced rather than a silent gap. Any other provider claiming SHA pinning is unsupported MUST be evaluated case by case and added to the allowlist with an explicit justification before merging.
 
@@ -106,7 +106,7 @@ uses: owner/action@<40-char-sha> # <version>
 
 ### Automated Enforcement
 
-- **Archgate rule** `CI-001/no-unpinned-actions`: scans all `.github/workflows/*.yml` files for `uses:` lines referencing third-party actions or reusable workflows, and flags any reference using a tag, branch, or abbreviated SHA instead of a full 40-character commit SHA. Severity: `error` (hard blocker).
+- **Archgate rule** `CI-001/no-unpinned-actions`: scans all `.github/workflows/*.yml` files for `uses:` lines referencing third-party actions or reusable workflows, and flags any reference using a tag, branch, or abbreviated SHA instead of a full 40-character commit SHA. Severity: `error` (hard blocker). **Known limitation:** the rule verifies the 40-hex shape only — it cannot verify offline that the SHA names a commit rather than an annotated tag object, so the dereferencing requirement in the Do's is enforced by code review, not by the rule.
 
 ### Manual Enforcement
 
