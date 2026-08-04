@@ -158,29 +158,15 @@ Bruk denne kommandoen når en beslutning ikke passer inn under noe innebygd dome
 archgate adr domain <subcommand> [options]
 ```
 
-### Underkommandoer
-
-| Underkommando                             | Beskrivelse                                                                 |
-| ----------------------------------------- | --------------------------------------------------------------------------- |
-| `archgate adr domain list`                | Vis alle sammenslåtte (innebygde + egendefinerte) domener og prefikser      |
-| `archgate adr domain add <name> <prefix>` | Registrer et egendefinert domene                                            |
-| `archgate adr domain remove <name>`       | Fjern registreringen av et egendefinert domene (innebygde kan ikke fjernes) |
-
-### Navneregler
-
-- `<name>` -- kebab-case med små bokstaver, 2-32 tegn (f.eks. `security`, `ml-ops`)
-- `<prefix>` -- store bokstaver, sifre eller understrek, 2-10 tegn (f.eks. `SEC`, `MLOPS`)
-- Egendefinerte navn og prefikser kan ikke kollidere med innebygde eller med andre egendefinerte oppføringer.
-
 ### Valg
 
 | Valg     | Gjelder for          | Beskrivelse     |
 | -------- | -------------------- | --------------- |
 | `--json` | alle underkommandoer | Utdata som JSON |
 
-### Eksempler
+### archgate adr domain list
 
-List innebygde og egendefinerte domener:
+Vis alle sammenslåtte (innebygde + egendefinerte) domener og prefikser:
 
 ```bash
 archgate adr domain list
@@ -197,16 +183,32 @@ general         GEN       default
 security        SEC       custom
 ```
 
+### archgate adr domain add
+
 Registrer et egendefinert domene:
+
+```bash
+archgate adr domain add <name> <prefix>
+```
+
+Navneregler:
+
+- `<name>` -- kebab-case med små bokstaver, 2-32 tegn (f.eks. `security`, `ml-ops`)
+- `<prefix>` -- store bokstaver, sifre eller understrek, 2-10 tegn (f.eks. `SEC`, `MLOPS`)
+- Egendefinerte navn og prefikser kan ikke kollidere med innebygde eller med andre egendefinerte oppføringer.
+
+Eksempel:
 
 ```bash
 archgate adr domain add security SEC
 ```
 
-Fjern et egendefinert domene:
+### archgate adr domain remove
+
+Fjern registreringen av et egendefinert domene (innebygde kan ikke fjernes):
 
 ```bash
-archgate adr domain remove security
+archgate adr domain remove <name>
 ```
 
 ---

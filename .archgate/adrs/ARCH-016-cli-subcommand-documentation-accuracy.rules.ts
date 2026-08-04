@@ -3,129 +3,131 @@
 const COMMANDS_DIR = "src/commands";
 const DOCS_DIR = "docs/src/content/docs/reference/cli";
 
+/**
+ * A command word is a plain kebab-case token. Parsing a heading's command
+ * path stops at the first non-word token (`<arg>`, `[opt]`, `--flag`).
+ */
+const COMMAND_WORD = /^[a-z][a-z0-9-]*$/u;
+
 export default {
   rules: {
     "subcommand-has-docs-heading": {
       description:
-        "Every subcommand file (src/commands/<parent>/<sub>.ts) must have a corresponding heading in the parent's .mdx reference page, and vice versa",
+        "Every subcommand module (src/commands/<parent>/**) must have a corresponding heading in the top-level parent's .mdx reference page, at every nesting depth, and vice versa",
       severity: "error",
       async check(ctx) {
-        // ── 1. Discover subcommand names from src/commands/ ──────────────
-        // Direct subcommands of a group (src/commands/<parent>/index.ts) are
-        // <parent>/<sub>.ts or <parent>/<sub>/index.ts. Only one level deep
-        // is checked: deeper files like adr/domain/add.ts are sub-subcommands
-        // documented as a table in the parent's section, not as headings.
-
-        const groupIndexFiles = await ctx.glob(`${COMMANDS_DIR}/*/index.ts`);
-
-        const parentNames = groupIndexFiles.map((indexFile) => {
-          const rel = indexFile.slice(COMMANDS_DIR.length + 1);
-          return rel.split("/")[0];
-        });
-
-        const subResults = await Promise.all(
-          parentNames.map(async (parentName) => {
-            const [subFiles, nestedGroupFiles] = await Promise.all([
-              ctx.glob(`${COMMANDS_DIR}/${parentName}/*.ts`),
-              ctx.glob(`${COMMANDS_DIR}/${parentName}/*/index.ts`),
-            ]);
-
-            const subs = new Set<string>();
-
-            for (const sf of subFiles) {
-              const fileName = sf.slice(
-                `${COMMANDS_DIR}/${parentName}/`.length
-              );
-              if (fileName === "index.ts") continue;
-              subs.add(fileName.slice(0, -".ts".length));
-            }
-
-            for (const ngf of nestedGroupFiles) {
-              const nestedRel = ngf.slice(
-                `${COMMANDS_DIR}/${parentName}/`.length
-              );
-              subs.add(nestedRel.split("/")[0]);
-            }
-
-            return { parentName, subs };
-          })
+        // ── 1. Discover full command paths from src/commands/ ────────────
+        // A group is any directory with an index.ts; its subcommands are
+        // sibling <sub>.ts modules and child groups, at any depth
+        // (adr/domain/add.ts = "adr domain add"). Subcommands registered
+        // inside a leaf module are invisible here — handled in step 2.
+        const groupIndexFiles = await ctx.glob(`${COMMANDS_DIR}/**/index.ts`);
+        const groupDirs = new Set(
+          groupIndexFiles.map((f) =>
+            f.slice(COMMANDS_DIR.length + 1, -"/index.ts".length)
+          )
         );
 
-        const subcommandsByParent = new Map<string, Set<string>>();
-        for (const { parentName, subs } of subResults) {
-          subcommandsByParent.set(parentName, subs);
+        const allFiles = await ctx.glob(`${COMMANDS_DIR}/**/*.ts`);
+        /** Full command paths (segment arrays), keyed by top-level parent. */
+        const pathsByParent = new Map<string, Set<string>>();
+        const fileByPath = new Map<string, string>();
+
+        for (const file of allFiles) {
+          const rel = file.slice(COMMANDS_DIR.length + 1, -".ts".length);
+          const segments = rel.split("/");
+          const cmdSegments =
+            segments[segments.length - 1] === "index"
+              ? segments.slice(0, -1)
+              : segments;
+          // Top-level commands (single segment) are ARCH-015's concern.
+          if (cmdSegments.length < 2) continue;
+          // Every ancestor must be a group directory — a stray nested file
+          // under a non-group directory is not a subcommand.
+          const ancestorsAreGroups = cmdSegments
+            .slice(0, -1)
+            .every((_, i) =>
+              groupDirs.has(cmdSegments.slice(0, i + 1).join("/"))
+            );
+          if (!ancestorsAreGroups) continue;
+
+          const parent = cmdSegments[0];
+          const cmdPath = cmdSegments.join(" ");
+          if (!pathsByParent.has(parent)) pathsByParent.set(parent, new Set());
+          pathsByParent.get(parent)!.add(cmdPath);
+          fileByPath.set(cmdPath, file);
         }
 
-        // ── 2. Check docs for each subcommand (parallel reads) ──────────
-
-        // Heading pattern: any markdown heading containing "archgate <parent> <sub>"
-        // We look for lines like:  ## archgate adr create
-        //                          ### archgate adr domain
-        const headingPattern = /^#{1,4}\s+.*archgate\s+(\S+)\s+(\S+)/giu;
-
+        // ── 2. Compare against each parent page's headings ───────────────
         const docsResults = await Promise.all(
-          [...subcommandsByParent.entries()].map(
-            async ([parentName, subNames]) => {
-              const docsFile = `${DOCS_DIR}/${parentName}.mdx`;
-              let docsContent: string | null;
-              try {
-                docsContent = await ctx.readFile(docsFile);
-              } catch {
-                // ARCH-015 will report the missing page; skip subcommand checks
-                docsContent = null;
-              }
-              return { parentName, subNames, docsFile, docsContent };
+          [...pathsByParent.entries()].map(async ([parentName, cmdPaths]) => {
+            const docsFile = `${DOCS_DIR}/${parentName}.mdx`;
+            let docsContent: string | null;
+            try {
+              docsContent = await ctx.readFile(docsFile);
+            } catch {
+              // ARCH-015 reports the missing page; skip subcommand checks
+              docsContent = null;
             }
-          )
+            return { parentName, cmdPaths, docsFile, docsContent };
+          })
         );
 
         for (const {
           parentName,
-          subNames,
+          cmdPaths,
           docsFile,
           docsContent,
         } of docsResults) {
           if (docsContent === null) continue;
 
-          const documentedSubs = new Set<string>();
-          let match;
-          headingPattern.lastIndex = 0;
+          // Heading lines like "#### archgate adr domain add <name>" —
+          // capture the command-word sequence after "archgate".
+          const documented = new Set<string>();
           for (const line of docsContent.split("\n")) {
-            headingPattern.lastIndex = 0;
-            match = headingPattern.exec(line);
-            if (match) {
-              const docParent = match[1].toLowerCase();
-              const docSub = match[2].toLowerCase();
-              if (docParent === parentName.toLowerCase()) {
-                documentedSubs.add(docSub);
-              }
+            const heading = /^#{1,4}\s+.*?\barchgate\s+(.+)$/u.exec(line);
+            if (heading === null) continue;
+            const words: string[] = [];
+            for (const token of heading[1].trim().split(/\s+/u)) {
+              const word = token.replace(/`+$/u, "").toLowerCase();
+              if (!COMMAND_WORD.test(word)) break;
+              words.push(word);
+            }
+            if (words.length >= 2 && words[0] === parentName.toLowerCase()) {
+              documented.add(words.join(" "));
             }
           }
 
-          // Subcommand -> docs: missing headings.
-          for (const sub of [...subNames].sort()) {
-            if (!documentedSubs.has(sub.toLowerCase())) {
+          // Subcommand -> docs: every module-backed path needs a heading.
+          for (const cmdPath of [...cmdPaths].sort()) {
+            if (!documented.has(cmdPath.toLowerCase())) {
               ctx.report.violation({
-                message: `Subcommand "archgate ${parentName} ${sub}" has no heading in ${docsFile}`,
-                file: `${COMMANDS_DIR}/${parentName}/${sub}.ts`,
-                fix: `Add a "## archgate ${parentName} ${sub}" heading to ${docsFile} documenting the subcommand`,
+                message: `Subcommand "archgate ${cmdPath}" has no heading in ${docsFile}`,
+                file: fileByPath.get(cmdPath),
+                fix: `Add an "archgate ${cmdPath}" heading (level per nesting depth) to ${docsFile} documenting the subcommand`,
               });
             }
           }
 
-          // Docs -> subcommand: orphan headings.
-          for (const docSub of [...documentedSubs].sort()) {
-            if (
-              ![...subNames].some(
-                (s) => s.toLowerCase() === docSub.toLowerCase()
-              )
-            ) {
-              ctx.report.violation({
-                message: `Heading "archgate ${parentName} ${docSub}" in ${docsFile} has no corresponding subcommand file`,
-                file: docsFile,
-                fix: `Either create ${COMMANDS_DIR}/${parentName}/${docSub}.ts to match, or remove the orphan heading`,
-              });
-            }
+          // Docs -> subcommand: a heading is an orphan only when its parent
+          // chain consists of group directories — a heading under a leaf
+          // module (e.g. "session-context claude-code list") documents an
+          // in-module subcommand the file layout cannot verify.
+          const lowerPaths = new Set([...cmdPaths].map((p) => p.toLowerCase()));
+          for (const docPath of [...documented].sort()) {
+            if (lowerPaths.has(docPath)) continue;
+            const segments = docPath.split(" ");
+            const parentChainIsGroups = segments
+              .slice(0, -1)
+              .every((_, i) =>
+                groupDirs.has(segments.slice(0, i + 1).join("/"))
+              );
+            if (!parentChainIsGroups) continue;
+            ctx.report.violation({
+              message: `Heading "archgate ${docPath}" in ${docsFile} has no corresponding subcommand module`,
+              file: docsFile,
+              fix: `Either create ${COMMANDS_DIR}/${segments.join("/")}.ts to match, or remove the orphan heading`,
+            });
           }
         }
       },

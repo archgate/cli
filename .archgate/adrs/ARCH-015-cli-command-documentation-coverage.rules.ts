@@ -13,7 +13,7 @@ export default {
   rules: {
     "cli-command-has-docs-page": {
       description:
-        "Every top-level CLI command (src/commands/<name>.ts or src/commands/<name>/index.ts) must have a corresponding reference page at docs/src/content/docs/reference/cli/<name>.mdx, and vice versa",
+        "Every top-level CLI command (src/commands/<name>.ts or src/commands/<name>/index.ts) must be registered in src/cli.ts and have a corresponding reference page at docs/src/content/docs/reference/cli/<name>.mdx, and vice versa",
       severity: "error",
       async check(ctx) {
         // Discover top-level command names from src/commands/. Per ARCH-001
@@ -21,11 +21,13 @@ export default {
         // src/commands/<name>/index.ts (command group); nested files are
         // subcommands, not independent top-level commands.
         const commandNames = new Set<string>();
+        const moduleByName = new Map<string, string>();
 
         const topLevelFiles = await ctx.glob(`${COMMANDS_DIR}/*.ts`);
         for (const file of topLevelFiles) {
           const name = file.slice(COMMANDS_DIR.length + 1, -".ts".length);
           commandNames.add(name);
+          moduleByName.set(name, file);
         }
 
         const groupIndexFiles = await ctx.glob(`${COMMANDS_DIR}/*/index.ts`);
@@ -33,6 +35,46 @@ export default {
           const rel = file.slice(COMMANDS_DIR.length + 1);
           const [name] = rel.split("/");
           commandNames.add(name);
+          moduleByName.set(name, file);
+        }
+
+        // Cross-check src/cli.ts registration against the module layout: per
+        // ARCH-001, register<Name>Command(program) kebab-cases to the module
+        // name (registerReviewContextCommand -> review-context). A module
+        // without a register call is dead; a register call without a
+        // conventional module path is invisible to docs coverage (ARCH-016).
+        const cliSource = await ctx.readFile("src/cli.ts");
+        const registered = new Set<string>();
+        for (const m of cliSource.matchAll(
+          /\bregister(\w+)Command\(program\)/gu
+        )) {
+          registered.add(
+            m[1].replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
+          );
+        }
+
+        for (const name of [...commandNames].sort()) {
+          if (!registered.has(name)) {
+            const pascal = name
+              .split("-")
+              .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+              .join("");
+            ctx.report.violation({
+              message: `Command module "${name}" is never registered in src/cli.ts`,
+              file: moduleByName.get(name),
+              fix: `Call register${pascal}Command(program) in src/cli.ts, or remove the module`,
+            });
+          }
+        }
+
+        for (const name of [...registered].sort()) {
+          if (!commandNames.has(name)) {
+            ctx.report.violation({
+              message: `register call for "${name}" in src/cli.ts has no command module at ${COMMANDS_DIR}/${name}.ts or ${COMMANDS_DIR}/${name}/index.ts`,
+              file: "src/cli.ts",
+              fix: `Create the module at a conventional path, or remove the register call`,
+            });
+          }
         }
 
         const docFiles = await ctx.glob(`${DOCS_DIR}/*.mdx`);

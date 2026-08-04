@@ -158,29 +158,15 @@ Use este comando quando uma decisão não se encaixar claramente em nenhum domí
 archgate adr domain <subcommand> [options]
 ```
 
-### Subcomandos
-
-| Subcomando                                | Descrição                                                                       |
-| ----------------------------------------- | ------------------------------------------------------------------------------- |
-| `archgate adr domain list`                | Exibe todos os domínios mesclados (integrados + personalizados) e seus prefixos |
-| `archgate adr domain add <name> <prefix>` | Registra um domínio personalizado                                               |
-| `archgate adr domain remove <name>`       | Remove um domínio personalizado (integrados não podem ser removidos)            |
-
-### Regras de nomenclatura
-
-- `<name>`: kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`)
-- `<prefix>`: letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`)
-- Nomes e prefixos personalizados não podem colidir com integrados ou com qualquer outra entrada personalizada.
-
 ### Opções
 
 | Opção    | Aplica-se a          | Descrição       |
 | -------- | -------------------- | --------------- |
 | `--json` | todos os subcomandos | Saída como JSON |
 
-### Exemplos
+### archgate adr domain list
 
-Listar domínios integrados e personalizados:
+Exibe todos os domínios mesclados (integrados + personalizados) e seus prefixos:
 
 ```bash
 archgate adr domain list
@@ -197,16 +183,32 @@ general         GEN       default
 security        SEC       custom
 ```
 
-Registrar um domínio personalizado:
+### archgate adr domain add
+
+Registra um domínio personalizado:
+
+```bash
+archgate adr domain add <name> <prefix>
+```
+
+Regras de nomenclatura:
+
+- `<name>`: kebab-case em minúsculas, 2–32 caracteres (ex.: `security`, `ml-ops`)
+- `<prefix>`: letras maiúsculas, dígitos ou underscores, 2–10 caracteres (ex.: `SEC`, `MLOPS`)
+- Nomes e prefixos personalizados não podem colidir com integrados ou com qualquer outra entrada personalizada.
+
+Exemplo:
 
 ```bash
 archgate adr domain add security SEC
 ```
 
-Remover um domínio personalizado:
+### archgate adr domain remove
+
+Remove um domínio personalizado (integrados não podem ser removidos):
 
 ```bash
-archgate adr domain remove security
+archgate adr domain remove <name>
 ```
 
 ---

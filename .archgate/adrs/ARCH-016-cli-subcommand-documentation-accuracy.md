@@ -31,14 +31,14 @@ files:
 
 ## Decision
 
-Every subcommand file at `src/commands/<parent>/<sub>.ts` (excluding `index.ts` files and nested command groups) MUST have a corresponding heading in the parent command's reference page at `docs/src/content/docs/reference/cli/<parent>.mdx`. The heading MUST contain the text `archgate <parent> <sub>` (case-insensitive).
+Every subcommand module under `src/commands/<parent>/` — at any nesting depth — MUST have a corresponding heading in the top-level parent's reference page at `docs/src/content/docs/reference/cli/<parent>.mdx`. The heading MUST contain the full command path (e.g. `archgate adr domain add`), case-insensitive.
 
-Conversely, every heading in a `.mdx` file that matches the pattern `archgate <parent> <sub>` MUST correspond to an actual subcommand file.
+Conversely, every heading whose command path's parent chain consists of command-group directories MUST correspond to an actual subcommand module.
 
 **Scope:**
 
-- **Direct subcommands only.** Files at `src/commands/<parent>/<sub>.ts` where `<sub>` is not `index.ts`. Nested command groups (`src/commands/<parent>/<sub>/index.ts`) are treated as subcommands of `<parent>` with the name `<sub>`.
-- **Deeply nested subcommands are excluded.** Files like `src/commands/adr/domain/add.ts` are subcommands of `adr domain`, not `adr`. The rule checks one level of nesting only: `<parent>/<sub>.ts` and `<parent>/<sub>/index.ts`.
+- **Module-backed subcommands, at every depth.** A group is any directory with an `index.ts`; its subcommands are sibling `<sub>.ts` modules and child groups. `src/commands/adr/domain/add.ts` is the command `adr domain add` and needs that heading in `adr.mdx`.
+- **In-module subcommands are manual territory.** Subcommands registered inside a single module (e.g. `session-context/claude-code.ts` registering `list`/`show`) are invisible to file-layout discovery: their headings are permitted, not orphan-flagged, and their coverage rests on code review.
 - **EN docs only.** The pt-br mirror is enforced by GEN-002.
 - **Website docs only.** The skill reference (`commands.md` in plugin directories) is in a separate repository and cannot be checked from this project. Its sync is a manual responsibility documented in the Do's section below.
 
@@ -49,7 +49,7 @@ Conversely, every heading in a `.mdx` file that matches the pattern `archgate <p
 - **DO** add a `## archgate <parent> <sub>` heading to `<parent>.mdx` in the same PR that adds a new subcommand
 - **DO** remove the heading from `<parent>.mdx` in the same PR that removes a subcommand
 - **DO** update the skill reference `commands.md` (in the `archgate/plugins` repository) whenever you update the website docs -- the four copies across plugin directories must stay identical and in sync with the website
-- **DO** document nested command groups (e.g. `adr domain`) as a heading within the parent page, with their sub-subcommands listed in a table underneath
+- **DO** document nested command groups (e.g. `adr domain`) as a heading within the parent page, with each module-backed sub-subcommand under its own deeper heading (e.g. `### archgate adr domain add`)
 
 ### Don't
 
@@ -69,18 +69,19 @@ Conversely, every heading in a `.mdx` file that matches the pattern `archgate <p
 ### Negative
 
 - **Does not check option accuracy.** The rule verifies subcommand headings exist but not that documented options/flags match the actual Commander definition. Option-level accuracy requires code review.
+- **Does not see in-module subcommands.** Discovery is file-layout-based, so subcommands a module registers internally (the `session-context` editor commands' `list`/`show`) are outside the guarantee and rest on code review.
 - **Does not enforce skill reference sync.** The `commands.md` files in the plugins repo are outside the rule's reach. Drift between the website docs and skill reference must be caught through review.
 
 ### Risks
 
 - **Non-standard heading format bypasses the rule.** A heading like `## Import ADRs` instead of `## archgate adr import` goes undetected. **Mitigation:** The Do's section specifies the required format, and the rule's fix suggestion includes the expected heading text.
-- **Nested group misdetection.** `src/commands/adr/domain/` contains both `index.ts` (the group) and its sub-subcommand files. The rule treats `domain` as a subcommand of `adr` (correctly) but does not recurse into `domain/`'s children. **Mitigation:** Deeply nested subcommands are rare and are covered by the parent group's documentation pattern (table inside the heading section).
+- **Orphan detection is depth-limited by design.** A heading whose parent chain ends in a leaf module (e.g. `#### archgate session-context claude-code list`) cannot be verified against the file layout and is never orphan-flagged, so a stale in-module subcommand heading survives the rule. **Mitigation:** reviewers check in-module subcommand docs when the registering module changes.
 
 ## Compliance and Enforcement
 
 ### Automated Enforcement
 
-- **Archgate rule** `ARCH-016/subcommand-has-docs-heading`: For each subcommand file under `src/commands/`, verifies a matching heading exists in the parent's `.mdx` page, and the reverse — headings that look like subcommand references must correspond to actual files. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
+- **Archgate rule** `ARCH-016/subcommand-has-docs-heading`: For each subcommand module under `src/commands/`, at any nesting depth, verifies a matching full-command-path heading exists in the top-level parent's `.mdx` page, and the reverse — headings whose parent chain is made of group directories must correspond to actual modules. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
 
 ### Manual Enforcement
 
