@@ -77,6 +77,7 @@ describe("tryInstallPlugin via initProject — copilot", () => {
       });
       expect(result.plugin!.installed).toBe(true);
       expect(result.plugin!.autoInstalled).toBe(true);
+      expect(result.plugin!.deferred).toBe(true);
       expect(result.plugin!.detail).toContain("Restart the GitHub Copilot app");
     } finally {
       availableSpy.mockRestore();

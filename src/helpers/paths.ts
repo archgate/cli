@@ -59,13 +59,14 @@ export function opencodeAgentsDir(): string {
 }
 
 /**
- * Resolve the GitHub Copilot user-scope config directory (`~/.copilot/`),
- * shared by both distributions: the `copilot` CLI and the desktop app (which
- * ships no CLI binary). Holds `settings.json`, `config.json`, and the
- * `installed-plugins/` cache. Resolved at call time so tests can override
- * HOME.
+ * Resolve the GitHub Copilot user-scope config directory, shared by the
+ * `copilot` CLI and the desktop app (which ships no CLI binary). Honors
+ * Copilot's `COPILOT_HOME` override, defaulting to `~/.copilot/`. Resolved
+ * at call time so tests can override COPILOT_HOME / HOME.
  */
 export function copilotConfigDir(): string {
+  const override = usableEnv(Bun.env.COPILOT_HOME);
+  if (override !== null) return override;
   return join(archgateHomeDir(), ".copilot");
 }
 

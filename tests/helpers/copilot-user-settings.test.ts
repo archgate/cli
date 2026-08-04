@@ -138,6 +138,29 @@ describe("configureCopilotUserSettings", () => {
     });
   });
 
+  test("preserves other keys when a managed field has an invalid shape", async () => {
+    // `enabledPlugins` is not a record here — the field-level `.catch({})`
+    // resets only that field, and `.loose()` keeps every other key intact.
+    await Bun.write(
+      join(copilotConfigDir(), "settings.json"),
+      JSON.stringify({
+        enabledPlugins: "not-a-record",
+        extraKnownMarketplaces: { other: { source: { source: "git" } } },
+        theme: "dark",
+      })
+    );
+
+    await configureCopilotUserSettings(URL);
+
+    const settings = await readSettings();
+    expect(settings.theme).toBe("dark");
+    expect(settings.enabledPlugins).toEqual({ "archgate@archgate": true });
+    expect(settings.extraKnownMarketplaces).toEqual({
+      other: { source: { source: "git" } },
+      archgate: ARCHGATE_ENTRY,
+    });
+  });
+
   test("replaces a malformed settings file instead of aborting", async () => {
     await Bun.write(join(copilotConfigDir(), "settings.json"), "{ not json !");
 

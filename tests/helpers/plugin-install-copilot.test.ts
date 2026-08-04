@@ -62,6 +62,7 @@ function fakeSpawnResult(
 let spawnSpy: Mock<typeof Bun.spawn>;
 let tempHome: string;
 let savedHome: string | undefined;
+let savedCopilotHome: string | undefined;
 let mockResolveCommand: Mock<typeof platform.resolveCommand>;
 
 beforeEach(() => {
@@ -71,11 +72,13 @@ beforeEach(() => {
   spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeSpawnResult(0));
 
   // Redirect ~/.copilot into a temp dir so tests never touch the
-  // developer's real Copilot settings. copilotConfigDir() reads HOME at
-  // call time.
+  // developer's real Copilot settings. copilotConfigDir() reads
+  // COPILOT_HOME / HOME at call time.
   tempHome = mkdtempSync(join(tmpdir(), "archgate-copilot-install-"));
   savedHome = Bun.env.HOME;
+  savedCopilotHome = Bun.env.COPILOT_HOME;
   Bun.env.HOME = tempHome;
+  delete Bun.env.COPILOT_HOME;
 });
 
 afterEach(() => {
@@ -84,6 +87,7 @@ afterEach(() => {
   mock.restore();
 
   restoreEnv("HOME", savedHome);
+  restoreEnv("COPILOT_HOME", savedCopilotHome);
   rmSync(tempHome, { recursive: true, force: true });
 });
 
@@ -125,7 +129,8 @@ describe("isCopilotAvailable", () => {
 describe("installCopilotPlugin", () => {
   test("cli mode: declares settings then runs plugin install (no marketplace add)", async () => {
     mockResolveCommand.mockImplementation(async () => "copilot");
-    mkdirSync(copilotConfigDir(), { recursive: true });
+    // No pre-existing ~/.copilot — CLI-on-PATH availability alone is enough;
+    // the settings write creates the directory.
 
     const result = await installCopilotPlugin();
 
@@ -187,11 +192,30 @@ describe("installCopilotPlugin", () => {
     expect(settings.theme).toBe("dark");
   });
 
-  test("throws when the CLI install fails", async () => {
+  test("throws with exit code and captured output when the CLI install fails", async () => {
     mockResolveCommand.mockImplementation(async () => "copilot");
     mkdirSync(copilotConfigDir(), { recursive: true });
     spawnSpy.mockImplementation(() => fakeSpawnResult(1, "", "boom"));
 
-    expect(installCopilotPlugin()).rejects.toThrow("plugin install failed");
+    expect(installCopilotPlugin()).rejects.toThrow(
+      /plugin install failed \(exit 1\)[\s\S]*boom/u
+    );
+  });
+
+  test("resolves the settings path via COPILOT_HOME when set", async () => {
+    const copilotHome = join(tempHome, "custom-copilot-home");
+    Bun.env.COPILOT_HOME = copilotHome;
+    mkdirSync(copilotHome, { recursive: true });
+    mockResolveCommand.mockImplementation(async () => null);
+
+    // Availability detection follows the override...
+    const available = await isCopilotAvailable();
+    expect(available).toBe(true);
+
+    // ...and the declarative install writes into it.
+    const result = await installCopilotPlugin();
+    expect(result).toEqual({ mode: "declarative" });
+    expect(existsSync(join(copilotHome, "settings.json"))).toBe(true);
+    expect(existsSync(join(tempHome, ".copilot", "settings.json"))).toBe(false);
   });
 });

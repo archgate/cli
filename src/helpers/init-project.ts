@@ -66,6 +66,8 @@ interface PluginResult {
   detail?: string;
   /** When true, plugin was auto-installed via editor CLI (no manual steps needed). */
   autoInstalled?: boolean;
+  /** When true, the plugin is configured but takes effect on the editor's next launch. */
+  deferred?: boolean;
 }
 
 interface InitResult {
@@ -379,6 +381,7 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
         : {
             installed: true,
             autoInstalled: true,
+            deferred: true,
             // Printed verbatim under the success line by `commands/init.ts`.
             detail:
               "Restart the GitHub Copilot app — the plugin installs automatically on next launch.",

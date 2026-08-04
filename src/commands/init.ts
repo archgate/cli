@@ -133,7 +133,13 @@ export function registerInitCommand(program: Command) {
           if (result.plugin?.installed === true) {
             console.log("");
             if (result.plugin.autoInstalled === true) {
-              logInfo(`Archgate plugin installed for ${label}.`);
+              // A deferred install is configured but only takes effect on the
+              // editor's next launch — say "configured", not "installed".
+              logInfo(
+                result.plugin.deferred === true
+                  ? `Archgate plugin configured for ${label}.`
+                  : `Archgate plugin installed for ${label}.`
+              );
               if (
                 result.plugin.detail !== undefined &&
                 result.plugin.detail !== ""
