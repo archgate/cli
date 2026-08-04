@@ -49,7 +49,7 @@ export default {
           /\bregister(\w+)Command\(program\)/gu
         )) {
           registered.add(
-            m[1].replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
+            m[1].replaceAll(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
           );
         }
 

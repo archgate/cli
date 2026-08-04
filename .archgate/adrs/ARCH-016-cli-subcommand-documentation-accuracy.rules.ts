@@ -37,9 +37,7 @@ export default {
           const rel = file.slice(COMMANDS_DIR.length + 1, -".ts".length);
           const segments = rel.split("/");
           const cmdSegments =
-            segments[segments.length - 1] === "index"
-              ? segments.slice(0, -1)
-              : segments;
+            segments.at(-1) === "index" ? segments.slice(0, -1) : segments;
           // Top-level commands (single segment) are ARCH-015's concern.
           if (cmdSegments.length < 2) continue;
           // Every ancestor must be a group directory — a stray nested file
