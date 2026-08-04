@@ -7,7 +7,6 @@
  * writing both installs the plugin without the CLI on PATH. Project-scope
  * config (`.github/copilot/`) lives in `copilot-settings.ts`.
  */
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { z } from "zod";
@@ -69,16 +68,16 @@ export async function configureCopilotUserSettings(
   const settingsPath = join(copilotConfigDir(), "settings.json");
 
   let existing: CopilotUserSettings = {};
-  if (existsSync(settingsPath)) {
-    try {
-      const content = await Bun.file(settingsPath).text();
+  try {
+    const file = Bun.file(settingsPath);
+    if (await file.exists()) {
       const result = CopilotUserSettingsSchema.safeParse(
-        Bun.JSONC.parse(content)
+        Bun.JSONC.parse(await file.text())
       );
       if (result.success) existing = result.data;
-    } catch {
-      // Malformed settings file — start fresh
     }
+  } catch {
+    // Malformed settings file — start fresh
   }
 
   const merged = mergeCopilotPluginSettings(existing, marketplaceUrl);
