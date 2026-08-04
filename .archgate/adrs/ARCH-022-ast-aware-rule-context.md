@@ -38,7 +38,7 @@ ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
 
 Dispatch on `language` MUST be invisible to rule authors.
 
-1. **TS/JS MUST reuse the in-process `meriyah` parser**, no subprocess. `rule-scanner.ts`'s duplicated `parseModule()` MUST factor into one helper (`parseTsOrJsSource`) shared by scanner and `ctx.ast()`.
+1. **TS/JS MUST reuse the in-process `meriyah` parser**, no subprocess. One primitive (`parseJsModule`, `js-parser.ts`) serves the scanner — `scanImportedRuleSource()` delegates to `scanRuleSource()` — and `ctx.ast()` via `parseTsOrJsSource`.
 2. **Python/Ruby MUST invoke its own stdlib AST facility as a subprocess** via `Bun.spawn` ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)). No third-party parser.
 3. **Guardrail ordering.** Rule code MUST NEVER reach `Bun.spawn`, `child_process`, or any subprocess/filesystem primitive; `ctx.ast()` is the only door. All four MUST run inside `createRuleContext()`, in Key Definitions' order: path/language checks first (no subprocess), then the guarded probe — the first sanctioned subprocess — then the guarded invocation. No unguarded subprocess may occur.
 4. **Failure semantics.** `ctx.ast()` MUST throw — never `null` — on interpreter-unavailable, parse-failure, no-base-resolved, or absent-at-base (Key Definitions). `fileAtBase()` is the exception.
@@ -47,7 +47,7 @@ Dispatch on `language` MUST be invisible to rule authors.
 
 **Non-goal: cross-language shape unification.** `ctx.ast()` unifies the call site and failure contract, not the tree shape — ESTree for TS/JS, Python's `ast` schema, Ruby's s-expression. Authors MUST know the vocabulary.
 
-**Scope.** Covers `ast()`'s signature, dispatch, guardrails, failure semantics — not rollout or authoring guidance.
+**Scope.** `ast()`'s signature, dispatch, guardrails, failure semantics.
 
 ## Key Definitions
 
@@ -81,7 +81,7 @@ Dispatch on `language` MUST be invisible to rule authors.
 ### Do
 
 - **DO** implement `ast()` as one method, one catch-all signature, dispatch internal to `createRuleContext()`; `single-ast-method` enforces this
-- **DO** reuse the `meriyah` parser for TS/JS via one shared `parseTsOrJsSource` helper (Decision clause 1)
+- **DO** parse TS/JS through the shared `parseJsModule` primitive (Decision clause 1)
 - **DO** run the four guardrails in Key Definitions' order, array-based `Bun.spawn` args ([ARCH-007](./ARCH-007-cross-platform-subprocess-execution.md)), probe cached once per `check`
 - **DO** run the Python AST subprocess isolated (Key Definitions) — Ruby needs no equivalent flag
 - **DO** throw from `ctx.ast()` on missing interpreter or parse failure, propagating to `runner.ts`'s per-rule `try/catch`
