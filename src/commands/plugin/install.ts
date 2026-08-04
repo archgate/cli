@@ -68,11 +68,6 @@ export async function installForEditor(
       break;
     }
     case "copilot": {
-      // `isCopilotAvailable()` recognizes both the `copilot` CLI (on PATH)
-      // and the desktop app (no CLI binary, but shares `~/.copilot/`).
-      // The install writes the marketplace + plugin declaration into
-      // `~/.copilot/settings.json` either way; with the CLI present it also
-      // installs immediately.
       if (await isCopilotAvailable()) {
         const { mode } = await installCopilotPlugin();
         if (mode === "cli") {

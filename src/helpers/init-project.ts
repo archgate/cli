@@ -361,10 +361,8 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       buildVscodeMarketplaceUrl,
     } = await import("./plugin-install");
 
-    // Install only when Copilot exists in some form — `isCopilotAvailable()`
-    // recognizes both the CLI (on PATH) and the desktop app (no CLI, same
-    // user-scope config dir). Writing settings into `~/.copilot/` that
-    // nothing reads would be pointless otherwise.
+    // Install only when Copilot exists — the settings write would otherwise
+    // target a directory nothing reads.
     if (!(await isCopilotAvailable())) {
       return {
         installed: true,
