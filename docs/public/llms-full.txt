@@ -1430,19 +1430,23 @@ The `archgate:developer` agent orchestrates the skills automatically -- it invok
 
 ---
 
-## Guides: Copilot CLI Plugin
+## Guides: GitHub Copilot Plugin
 
 Source: https://cli.archgate.dev/guides/copilot-cli-plugin/
 
-The Archgate Copilot CLI plugin gives AI agents working in [GitHub Copilot CLI](https://github.com/features/copilot) built-in guardrails. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+The Archgate GitHub Copilot plugin gives AI agents working in [GitHub Copilot](https://github.com/features/copilot) built-in guardrails. Agents read your ADRs before writing code, validate after, and capture new patterns for the team -- the same workflow available in the [Claude Code plugin](/guides/claude-code-plugin/).
+
+Both Copilot distributions are supported: the **Copilot CLI** (`copilot` on your PATH) and the **Copilot desktop app**. They share the same `~/.copilot/` configuration directory, so one install covers both.
 
 ## How it works
 
-Copilot CLI supports plugin installation from git repositories using `copilot plugin install`. The Archgate plugin is served from a git repository at `plugins.archgate.dev/archgate.git`, which Copilot CLI recognizes natively -- the same `.claude-plugin/plugin.json` manifest format works for both Claude Code and Copilot CLI.
+Copilot supports plugin marketplaces backed by git repositories. The Archgate plugin is served from `plugins.archgate.dev/archgate/vscode.git` -- the same marketplace used by the VS Code extension, in the `.github/plugin/` manifest format Copilot recognizes natively.
+
+Installation is declarative: the CLI writes the marketplace and plugin declaration into `~/.copilot/settings.json` (`extraKnownMarketplaces` + `enabledPlugins`). Copilot reads this file on startup and installs any declared plugin automatically. When the `copilot` CLI is on your PATH, the CLI also runs `copilot plugin install` so the plugin is available immediately without a restart.
 
 ## Installation
 
-The Copilot CLI plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
+The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
 
 ### 1. Log in with GitHub
 
@@ -1462,13 +1466,10 @@ Run `archgate init` with the `--editor copilot` flag:
 archgate init --editor copilot
 ```
 
-If you are already logged in and the `copilot` CLI is on your PATH, the plugin is installed automatically via:
+If you are logged in and Copilot is installed (CLI or desktop app), the plugin is installed automatically:
 
-```bash
-copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
-```
-
-If the `copilot` CLI is not found, the command prints the manual command for you to run.
+- **Copilot CLI on PATH:** the plugin is installed immediately via `copilot plugin install`.
+- **Desktop app only:** the plugin is declared in `~/.copilot/settings.json`; restart the Copilot app and it installs automatically on launch.
 
 To explicitly request plugin installation:
 
@@ -1484,27 +1485,29 @@ archgate plugin install --editor copilot
 
 ### Generated files
 
-The command creates the `.github/copilot/` directory for plugin configuration. Plugin installation is handled separately via the `copilot plugin install` command.
+The command creates the `.github/copilot/` directory for project-level configuration and updates the user-level `~/.copilot/settings.json` with the Archgate marketplace and plugin declaration. An entry pointing at an outdated marketplace URL is corrected in place.
 
 ### Manual installation
 
-If the `copilot` CLI is not found during `archgate init`, you can install the plugin manually:
+To install the plugin manually with the `copilot` CLI:
 
 ```bash
-copilot plugin install https://<github-user>:<token>@plugins.archgate.dev/archgate.git
+copilot plugin marketplace add "$(archgate plugin url --editor copilot)"
+copilot plugin install archgate@archgate
 ```
 
-You can find your authenticated URL by running `archgate plugin url copilot`.
+Credentials are provided automatically by your git credential manager (stored during `archgate login`).
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Copilot CLI. The agent orchestrates the guardrails workflow, invoking skills as needed.
+The plugin adds agents and role-based skills to Copilot. The agent orchestrates the guardrails workflow, invoking skills as needed.
 
-### Agent
+### Agents
 
 | Agent                | Purpose                                                                     |
 | -------------------- | --------------------------------------------------------------------------- |
 | `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+| `archgate:planner`   | Read-only planning agent that designs ADR-compliant implementation plans    |
 
 The `archgate:developer` agent is set as the default agent via the plugin settings. It orchestrates the skills below automatically as part of its workflow.
 
@@ -1512,9 +1515,10 @@ The `archgate:developer` agent is set as the default agent via the plugin settin
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
-| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:reviewer`        | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:lessons-learned` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `archgate:cli-reference`   | Provides the CLI command reference and rules authoring guide to agents                |
 | `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
 
 ## Initial setup with onboard
@@ -1544,18 +1548,19 @@ The agent writes code that complies with the constraints from the ADRs. The Do's
 
 After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
 
-### 4. Architect review
+### 4. Reviewer validation
 
-The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch.
+The agent invokes `archgate:reviewer` to validate structural ADR compliance beyond what automated rules catch.
 
 ### 5. Capture learnings
 
-The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing as new ADRs.
+The agent invokes `archgate:lessons-learned` to review the work and identify patterns worth capturing as new ADRs.
 
 ## Tips
 
 - **Run onboard once per project** to generate your initial ADRs from your actual codebase.
 - **Keep ADR rule files up to date** -- the agent enforces what the rules check for.
+- **Desktop app users:** after the first install, restart the Copilot app so it picks up the declared plugin.
 
 ---
 
@@ -4526,7 +4531,7 @@ Re-running `archgate init` does **not** overwrite a manually configured `baseBra
 
 Source: https://cli.archgate.dev/reference/cli/login/
 
-Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, VS Code, Copilot CLI, or Cursor), and use case, then registers you before completing the login.
+Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, VS Code, GitHub Copilot, or Cursor), and use case, then registers you before completing the login.
 
 ```bash
 archgate login
@@ -4700,7 +4705,7 @@ archgate plugin install [options]
 Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
-- **Copilot CLI:** Auto-installs via `copilot` CLI if available; prints manual commands otherwise.
+- **GitHub Copilot:** Declares the Archgate marketplace and plugin in `~/.copilot/settings.json`, which both the Copilot CLI and the Copilot desktop app read. When the `copilot` CLI is on PATH the plugin is also installed immediately; otherwise Copilot installs it automatically on next launch. Prints manual commands when Copilot is not installed at all.
 - **Cursor:** Downloads an authenticated tarball and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection needed. Files are written directly to the Cursor user directory.
 - **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
 - **opencode:** Requires the `opencode` CLI to be on PATH, and skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" because opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
@@ -5067,7 +5072,7 @@ Archgate upgraded to 0.35.0 successfully.
 ? Would you like to update your editor plugins too? (Y/n)
 ```
 
-The CLI auto-detects installed editors (Claude Code, Cursor, VS Code, Copilot CLI, opencode) and runs the plugin install for each selected editor. Plugin update failures are reported but do not affect the exit code -- the CLI upgrade itself is already complete.
+The CLI auto-detects installed editors (Claude Code, Cursor, VS Code, GitHub Copilot, opencode) and runs the plugin install for each selected editor. Plugin update failures are reported but do not affect the exit code -- the CLI upgrade itself is already complete.
 
 Use `--plugins` to skip the prompt and update all detected editors automatically:
 
