@@ -46,18 +46,33 @@ function findClosingRun(line: string, from: number, length: number): number {
   return -1;
 }
 
+interface LineScan {
+  /** 1-based column of the first offending backslash, or null when clean. */
+  column: number | null;
+  /** Length of the backtick run still open at end of line; 0 when none. */
+  openRun: number;
+}
+
 /**
- * The 1-based column of the first backslash that precedes a backtick in this
- * line's text — the character to delete — or null when there is none. Walking
- * whole spans and inspecting only the text between them separates a mistaken
- * escape from a span whose content legitimately ends in a backslash, such as a
- * Windows path. ARCH-021 covers why CommonMark ignores the escape.
+ * Scan one line for a backslash that precedes a backtick in text content,
+ * carrying `openRun` in from the previous line because a code span may cross a
+ * line break. Walking whole spans and inspecting only the text between them
+ * separates a mistaken escape from a span whose content legitimately ends in a
+ * backslash, such as a Windows path. ARCH-021 covers why the escape is ignored.
  */
-function firstEscapeColumn(line: string): number | null {
+function scanLine(line: string, openRun: number): LineScan {
   let i = 0;
+
+  // Close a span carried in from an earlier line before reading any text.
+  if (openRun > 0) {
+    const close = findClosingRun(line, 0, openRun);
+    if (close === -1) return { column: null, openRun };
+    i = close + openRun;
+  }
+
   while (i < line.length) {
     if (line[i] === "\\") {
-      if (line[i + 1] === "`") return i + 1;
+      if (line[i + 1] === "`") return { column: i + 1, openRun: 0 };
       // A backslash consumes the next character, `\\` included, so a literal
       // backslash before a span opener is not mistaken for an escaped tick.
       i += 2;
@@ -70,10 +85,13 @@ function firstEscapeColumn(line: string): number | null {
     let run = 0;
     while (line[i + run] === "`") run++;
     const close = findClosingRun(line, i + run, run);
-    // An unclosed run renders as literal text; resume scanning just past it.
-    i = close === -1 ? i + run : close + run;
+    // Unmatched here means the span may close on a later line of the same
+    // block. Carrying it treats the remainder as content, so the failure
+    // direction stays suppression rather than a report against literal text.
+    if (close === -1) return { column: null, openRun: run };
+    i = close + run;
   }
-  return null;
+  return { column: null, openRun: 0 };
 }
 
 interface Finding {
@@ -87,11 +105,18 @@ function scanDocument(content: string): Finding[] {
   const lines = content.split("\n");
   let inFrontmatter = lines[0]?.trim() === "---";
   let openFence: FenceDelimiter | null = null;
+  let openRun = 0;
 
   for (const [index, line] of lines.entries()) {
     if (inFrontmatter) {
       // The opening delimiter is line 0; the next bare `---` closes the block.
       if (index > 0 && line.trim() === "---") inFrontmatter = false;
+      continue;
+    }
+
+    // A blank line ends the block, and a code span cannot outlive its block.
+    if (line.trim() === "") {
+      openRun = 0;
       continue;
     }
 
@@ -109,11 +134,14 @@ function scanDocument(content: string): Finding[] {
     }
     if (delimiter) {
       openFence = delimiter;
+      openRun = 0;
       continue;
     }
 
-    const column = firstEscapeColumn(line);
-    if (column !== null) findings.push({ line: index + 1, column });
+    const scan = scanLine(line, openRun);
+    openRun = scan.openRun;
+    if (scan.column !== null)
+      findings.push({ line: index + 1, column: scan.column });
   }
 
   return findings;

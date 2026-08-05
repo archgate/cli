@@ -86,7 +86,7 @@ $errs
 
 - **No typographic niceties** in PowerShell scripts (acceptable — these are install scripts, not prose)
 - **Generated changelog content is unguarded**: a commit message carrying an escaped backtick reaches `CHANGELOG.md` unchecked and renders wrongly on GitHub and npm
-- **The markdown check is line-scoped**: a code span opened on one line and closed on the next is treated as unclosed, which can only cost a report, never invent one
+- **Code-span state is carried within a block, not beyond it**: a span crossing a line break is tracked to its close, and a blank line clears it because a span cannot outlive its block. A backtick run left unmatched at the end of a paragraph is therefore read as an open span through to the next blank line, costing reports in that remainder rather than reporting against what may be literal content
 - **One markdown report per line**: a line with several escaped backticks surfaces the rest on the next run
 
 ### Risks
