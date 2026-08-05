@@ -18,6 +18,7 @@ import {
   writeRulesShim,
   ensureRulesShim,
 } from "../../src/helpers/rules-shim";
+import { UserError } from "../../src/helpers/user-error";
 
 /** The single source of truth `generateRulesDts()` derives the shim from. */
 const rulesTypesSource = readFileSync(
@@ -77,6 +78,14 @@ describe("rules-shim derivation", () => {
     expect(() =>
       toAmbientDeclarations('export const DEFAULT_SEVERITY = "error";\n')
     ).toThrow(/must declare only types/u);
+  });
+
+  // Only an edited checkout can reach the throw, so it is the editor's to fix:
+  // UserError keeps it at exit 1 and out of Sentry (ARCH-002).
+  test("reports a value export as user-fixable, not an internal bug", () => {
+    expect(() =>
+      toAmbientDeclarations('export const DEFAULT_SEVERITY = "error";\n')
+    ).toThrow(UserError);
   });
 });
 
