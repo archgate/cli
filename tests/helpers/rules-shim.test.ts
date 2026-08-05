@@ -1,16 +1,77 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  existsSync,
+  readFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
   generateRulesDts,
   generateRulesTemplate,
+  toAmbientDeclarations,
   writeRulesShim,
   ensureRulesShim,
 } from "../../src/helpers/rules-shim";
+
+/** The single source of truth `generateRulesDts()` derives the shim from. */
+const rulesTypesSource = readFileSync(
+  join(import.meta.dir, "..", "..", "src", "formats", "rules.ts"),
+  "utf8"
+);
+
+/** Every type name `src/formats/rules.ts` exports, paired with its keyword. */
+const exportedDeclarations = [
+  ...rulesTypesSource.matchAll(/^export (type|interface) (\w+)/gmu),
+].map(([, keyword, name]) => [keyword, name] as const);
+
+describe("rules-shim derivation", () => {
+  test("exports at least the documented RuleContext surface", () => {
+    expect(exportedDeclarations.length).toBeGreaterThan(10);
+  });
+
+  test.each(exportedDeclarations)(
+    "declares %s %s ambiently",
+    (keyword, name) => {
+      expect(generateRulesDts()).toContain(`declare ${keyword} ${name}`);
+    }
+  );
+
+  test("carries a member's signature and JSDoc verbatim", () => {
+    // readYAML is the member whose JSDoc drifted from the interface while the
+    // shim was transcribed by hand (issue #511).
+    const start = rulesTypesSource.indexOf("  /**\n   * Read a YAML file");
+    const signature = "readYAML(path: string): Promise<ReadYamlResult>;";
+    const end = rulesTypesSource.indexOf(signature) + signature.length;
+    expect(start).toBeGreaterThan(0);
+
+    expect(generateRulesDts()).toContain(rulesTypesSource.slice(start, end));
+  });
+
+  test("drops line comments and makes exports ambient", () => {
+    const ambient = toAmbientDeclarations(
+      "// SPDX-License-Identifier: Apache-2.0\n" +
+        "\n" +
+        "// --- Section ---\n" +
+        "\n" +
+        "/** Kept. */\n" +
+        "export type Answer = 42;\n"
+    );
+
+    expect(ambient).toBe("/** Kept. */\ndeclare type Answer = 42;\n");
+  });
+
+  test("refuses a value export, which has no ambient form", () => {
+    expect(() =>
+      toAmbientDeclarations('export const DEFAULT_SEVERITY = "error";\n')
+    ).toThrow(/must declare only types/u);
+  });
+});
 
 describe("rules-shim", () => {
   let tempDir: string;

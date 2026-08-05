@@ -20,24 +20,11 @@ const SANCTIONED_SPAWN_FILES = new Set([
   "src/engine/git-files.ts", // git subprocess helper, predates ARCH-022
 ]);
 
-/**
- * Member names declared inside an `interface RuleContext { … }` block. Regex
- * over raw text, NOT ctx.ast(): Bun.Transpiler erases type-only declarations
- * before parsing. Overloads repeat a name, hence the Set. Works on both the
- * real interface and the shim's template literal, whose member lines match.
- */
-function ruleContextMembers(content: string): Set<string> {
-  const members = new Set<string>();
-  const start = content.indexOf("interface RuleContext {");
-  if (start === -1) return members;
-  const block = content.slice(start);
-  const end = block.indexOf("\n}");
-  const body = end === -1 ? block : block.slice(0, end);
-  for (const match of body.matchAll(/^ {2}([A-Za-z_$][\w$]*)\??\s*[(:]/gmu)) {
-    members.add(match[1]);
-  }
-  return members;
-}
+/** The single source of truth the `rules.d.ts` shim derives from. */
+const RULE_TYPES_FILE = "src/formats/rules.ts";
+
+/** Generator of the ambient `rules.d.ts` shim handed to rule authors. */
+const SHIM_FILE = "src/helpers/rules-shim.ts";
 
 /**
  * Loose object check, deliberately weaker than isEsTreeNode below — used
@@ -246,46 +233,45 @@ export default {
         }
       },
     },
-    "rulecontext-shim-parity": {
+    "rulecontext-shim-derived": {
       description:
-        "RuleContext members in src/formats/rules.ts and the generated shim in src/helpers/rules-shim.ts must stay in sync — a drifted shim silently hands rule authors wrong types",
+        "The ambient rules.d.ts shim must be derived from src/formats/rules.ts, never transcribed — a hand-copied shim silently hands rule authors wrong types",
       severity: "error",
       async check(ctx) {
-        const sourceFile = "src/formats/rules.ts";
-        const shimFile = "src/helpers/rules-shim.ts";
-        const [sourceMembers, shimMembers] = await Promise.all([
-          ctx.readFile(sourceFile).then((c) => ruleContextMembers(c)),
-          ctx.readFile(shimFile).then((c) => ruleContextMembers(c)),
+        const [valueExports, macroImport, transcribed] = await Promise.all([
+          // Ambient output has no equivalent for a value, so the source the
+          // shim derives from must declare only types.
+          ctx.grep(RULE_TYPES_FILE, /^export (?!type |interface )/u),
+          ctx.grep(
+            SHIM_FILE,
+            /from "\.\/rules-source" with \{ type: "macro" \}/u
+          ),
+          ctx.grep(SHIM_FILE, /^\s*declare (?:interface|type) /u),
         ]);
 
-        const surfaces: [string, Set<string>][] = [
-          [sourceFile, sourceMembers],
-          [shimFile, shimMembers],
-        ];
-        for (const [file, members] of surfaces) {
-          if (members.size > 0) continue;
+        for (const m of valueExports) {
           ctx.report.violation({
-            message: `Could not locate any members in the \`interface RuleContext\` block of ${file} — parity cannot be verified`,
-            file,
-            fix: "Restore the interface RuleContext { … } declaration (2-space-indented members)",
+            message: `Value export in ${RULE_TYPES_FILE} — the rules.d.ts shim derives its ambient declarations from this file, and a value has no ambient form`,
+            file: RULE_TYPES_FILE,
+            line: m.line,
+            fix: `Move the value to another module; keep ${RULE_TYPES_FILE} type-only`,
           });
         }
-        if (sourceMembers.size === 0 || shimMembers.size === 0) return;
 
-        for (const member of sourceMembers) {
-          if (shimMembers.has(member)) continue;
+        if (macroImport.length === 0) {
           ctx.report.violation({
-            message: `RuleContext member "${member}" is declared in ${sourceFile} but missing from the generated shim ${shimFile}`,
-            file: shimFile,
-            fix: `Mirror the "${member}" declaration (and any ambient types it references) into the RuleContext block of generateRulesDts() in ${shimFile}`,
+            message: `${SHIM_FILE} does not read ${RULE_TYPES_FILE} through the rules-source macro — without it the shim is a hand-maintained copy that nothing verifies`,
+            file: SHIM_FILE,
+            fix: 'Import the source text via `import { rulesSourceText } from "./rules-source" with { type: "macro" }` and pass it through toAmbientDeclarations()',
           });
         }
-        for (const member of shimMembers) {
-          if (sourceMembers.has(member)) continue;
+
+        for (const m of transcribed) {
           ctx.report.violation({
-            message: `RuleContext member "${member}" is declared in the shim ${shimFile} but missing from ${sourceFile}`,
-            file: sourceFile,
-            fix: `Add "${member}" to the RuleContext interface in ${sourceFile}, or remove it from the shim`,
+            message: `Transcribed ambient declaration in ${SHIM_FILE} — the shim must derive every declaration from ${RULE_TYPES_FILE}, not restate it`,
+            file: SHIM_FILE,
+            line: m.line,
+            fix: `Declare the type in ${RULE_TYPES_FILE}; toAmbientDeclarations() turns its exports into ambient declarations`,
           });
         }
       },
@@ -295,32 +281,31 @@ export default {
         "RuleContext exposes exactly one ast(path, language) method — no per-language variants like pythonAst()/rubyAst()",
       severity: "error",
       async check(ctx) {
-        const surfaces = ["src/formats/rules.ts", "src/helpers/rules-shim.ts"];
-        const checks = surfaces.map(async (file) => {
-          const content = await ctx.readFile(file);
-          const variantMatch =
-            /\b(?:python|ruby|typescript|javascript|ts|js|py|rb)Ast\s*\(/iu.exec(
-              content
-            );
-          if (variantMatch) {
-            ctx.report.violation({
-              message: `Per-language AST method "${variantMatch[0].trim()}" found in ${file} — ARCH-022 mandates a single ast(path, language) method`,
-              file,
-              fix: "Fold the per-language variant into the single ast(path, language) dispatch",
-            });
-          }
-          const astSignatures = content.match(
-            /^\s*ast\(path: string, language: AstLanguage, opts\?: AstOptions\): Promise<AstNode>;/gmu
+        // One surface: rulecontext-shim-derived keeps the shim a derivation of
+        // this file, so its ast() declarations follow by construction.
+        const file = RULE_TYPES_FILE;
+        const content = await ctx.readFile(file);
+        const variantMatch =
+          /\b(?:python|ruby|typescript|javascript|ts|js|py|rb)Ast\s*\(/iu.exec(
+            content
           );
-          if (astSignatures?.length !== 1) {
-            ctx.report.violation({
-              message: `${file} must declare exactly one \`ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>\` signature on RuleContext (found ${astSignatures?.length ?? 0})`,
-              file,
-              fix: "Declare the single ast() catch-all signature — including opts?: AstOptions — on RuleContext",
-            });
-          }
-        });
-        await Promise.all(checks);
+        if (variantMatch) {
+          ctx.report.violation({
+            message: `Per-language AST method "${variantMatch[0].trim()}" found in ${file} — ARCH-022 mandates a single ast(path, language) method`,
+            file,
+            fix: "Fold the per-language variant into the single ast(path, language) dispatch",
+          });
+        }
+        const astSignatures = content.match(
+          /^\s*ast\(path: string, language: AstLanguage, opts\?: AstOptions\): Promise<AstNode>;/gmu
+        );
+        if (astSignatures?.length !== 1) {
+          ctx.report.violation({
+            message: `${file} must declare exactly one \`ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>\` signature on RuleContext (found ${astSignatures?.length ?? 0})`,
+            file,
+            fix: "Declare the single ast() catch-all signature — including opts?: AstOptions — on RuleContext",
+          });
+        }
       },
     },
   },
