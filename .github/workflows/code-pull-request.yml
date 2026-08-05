@@ -209,7 +209,9 @@ jobs:
             find dist/winget -name '*.yaml'
             exit 1
           fi
-          UNSUBSTITUTED=$(find dist/winget -name '*.yaml' -exec grep -l '{{' {} +)
+          # `grep -l` exits non-zero when nothing matches, which is the passing
+          # case here, so the step's `set -e` needs an explicit fallback.
+          UNSUBSTITUTED=$(find dist/winget -name '*.yaml' -exec grep -l '{{' {} + || true)
           if [ -n "$UNSUBSTITUTED" ]; then
             echo "::error::Rendered manifest still contains an unsubstituted placeholder: $UNSUBSTITUTED"
             exit 1

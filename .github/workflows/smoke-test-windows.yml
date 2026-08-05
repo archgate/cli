@@ -87,7 +87,9 @@ jobs:
             Write-Error "Binary exited with code $LASTEXITCODE"
             exit 1
           }
-          Remove-Item -Path (Join-Path $env:USERPROFILE ".proto") -Recurse -Force -ErrorAction SilentlyContinue
+          # Remove only the fixture this step created. The wider ~/.proto tree
+          # holds the moonrepo-installed toolchain that later steps run on.
+          Remove-Item -Path (Join-Path $env:USERPROFILE ".proto" "tools" "archgate") -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Smoke test binary from node_modules
         shell: pwsh
