@@ -88,3 +88,22 @@ export function expectArray(v: unknown): unknown[] {
   if (!Array.isArray(v)) throw new TypeError("expected an array");
   return v;
 }
+
+/**
+ * Await a rejection and hand back its message for assertions. Awaiting the
+ * settled promise here keeps later assertions (e.g. on spies the rejected
+ * call touched) ordered after it, which the un-awaited
+ * `expect(p).rejects.toThrow()` form does not guarantee.
+ *
+ * @throws When the promise resolves instead of rejecting.
+ */
+export async function rejectionMessage(
+  promise: Promise<unknown>
+): Promise<string> {
+  try {
+    await promise;
+  } catch (err: unknown) {
+    return err instanceof Error ? err.message : String(err);
+  }
+  throw new Error("expected the promise to reject");
+}

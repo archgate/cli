@@ -11,72 +11,36 @@ import {
   test,
 } from "bun:test";
 
-// ---------------------------------------------------------------------------
-// Module mocks — declared before imports that use them.
-// ---------------------------------------------------------------------------
-
-// loadCredentials is stubbed per-test via spyOn (see beforeEach), NOT
-// mock.module — mock.module is process-global and would leak the stub into
-// credential-store.test.ts and other consumers.
-let mockLoadCredentials: Mock<typeof credentialStore.loadCredentials>;
-
-const mockInstallClaudePlugin = mock(async () => {});
-const mockInstallCopilotPlugin = mock(
-  async (): Promise<{ mode: "cli" | "declarative" }> => ({ mode: "cli" })
-);
-const mockInstallVscodeExtension = mock(async (_token: string) => {});
-const mockInstallOpencodePlugin = mock(async (_token: string) => {});
-const mockInstallCursorPlugin = mock(async (_token: string) => {});
-const mockIsClaudeCliAvailable = mock(async () => false);
-const mockIsCopilotAvailable = mock(async () => false);
-const mockIsVscodeCliAvailable = mock(async () => false);
-const mockIsOpencodeAvailable = mock(async () => false);
-void mock.module("../../../src/helpers/plugin-install", () => ({
-  buildMarketplaceUrl: () => "https://plugins.archgate.dev/archgate.git",
-  buildVscodeMarketplaceUrl: () =>
-    "https://plugins.archgate.dev/archgate/vscode.git",
-  buildCursorMarketplaceUrl: () =>
-    "https://plugins.archgate.dev/archgate/cursor.git",
-  installClaudePlugin: mockInstallClaudePlugin,
-  installCopilotPlugin: mockInstallCopilotPlugin,
-  installVscodeExtension: mockInstallVscodeExtension,
-  installOpencodePlugin: mockInstallOpencodePlugin,
-  installCursorPlugin: mockInstallCursorPlugin,
-  isClaudeCliAvailable: mockIsClaudeCliAvailable,
-  isCopilotAvailable: mockIsCopilotAvailable,
-  isVscodeCliAvailable: mockIsVscodeCliAvailable,
-  isOpencodeAvailable: mockIsOpencodeAvailable,
-  isCursorCliAvailable: mock(async () => false),
-}));
-
-const mockDetectEditors = mock(async () => []);
-const mockPromptEditorSelection = mock(async () => ["claude" as const]);
-void mock.module("../../../src/helpers/editor-detect", () => ({
-  detectEditors: mockDetectEditors,
-  promptEditorSelection: mockPromptEditorSelection,
-}));
-
-const mockConfigureVscodeSettings = mock(
-  async (_root: string, _url: string) => {}
-);
-void mock.module("../../../src/helpers/vscode-settings", () => ({
-  configureVscodeSettings: mockConfigureVscodeSettings,
-}));
-
-// NOTE: Do NOT mock.module paths or credential-store here — mock.module is
-// process-global and leaks into other test files (e.g. session-context and
-// credential-store tests). For first-party modules we use spyOn in beforeEach
-// (findProjectRoot, loadCredentials), which is per-test and auto-restored.
-
-// ---------------------------------------------------------------------------
-// Imports under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-
 import { Command } from "@commander-js/extra-typings";
 
 import { registerPluginInstallCommand } from "../../../src/commands/plugin/install";
 import * as credentialStore from "../../../src/helpers/credential-store";
+import * as editorDetect from "../../../src/helpers/editor-detect";
 import * as pathsMod from "../../../src/helpers/paths";
+import * as pluginInstall from "../../../src/helpers/plugin-install";
+import * as vscodeSettings from "../../../src/helpers/vscode-settings";
+
+// ---------------------------------------------------------------------------
+// Stubs — every first-party module is spied over its namespace, never
+// replaced with mock.module, which is process-global and would leak into
+// unrelated test files (ARCH-005). mock.restore() in afterEach undoes them.
+// ---------------------------------------------------------------------------
+
+let mockLoadCredentials: Mock<typeof credentialStore.loadCredentials>;
+let mockInstallClaudePlugin: Mock<typeof pluginInstall.installClaudePlugin>;
+let mockInstallCopilotPlugin: Mock<typeof pluginInstall.installCopilotPlugin>;
+let mockInstallVscodeExtension: Mock<
+  typeof pluginInstall.installVscodeExtension
+>;
+let mockInstallOpencodePlugin: Mock<typeof pluginInstall.installOpencodePlugin>;
+let mockInstallCursorPlugin: Mock<typeof pluginInstall.installCursorPlugin>;
+let mockIsClaudeCliAvailable: Mock<typeof pluginInstall.isClaudeCliAvailable>;
+let mockIsCopilotAvailable: Mock<typeof pluginInstall.isCopilotAvailable>;
+let mockIsVscodeCliAvailable: Mock<typeof pluginInstall.isVscodeCliAvailable>;
+let mockIsOpencodeAvailable: Mock<typeof pluginInstall.isOpencodeAvailable>;
+let mockConfigureVscodeSettings: Mock<
+  typeof vscodeSettings.configureVscodeSettings
+>;
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -117,29 +81,63 @@ beforeEach(() => {
     "loadCredentials"
   ).mockResolvedValue(null);
 
-  // Reset all mocks
-  mockInstallClaudePlugin.mockReset();
-  mockInstallCopilotPlugin.mockReset();
-  mockInstallVscodeExtension.mockReset();
-  mockInstallOpencodePlugin.mockReset();
-  mockIsClaudeCliAvailable.mockReset();
-  mockIsCopilotAvailable.mockReset();
-  mockIsVscodeCliAvailable.mockReset();
-  mockIsOpencodeAvailable.mockReset();
-  mockDetectEditors.mockReset();
-  mockPromptEditorSelection.mockReset();
-  mockConfigureVscodeSettings.mockReset();
+  // Marketplace URLs are pure string builders; stubbing them keeps the
+  // manual-instruction output stable regardless of repo config.
+  spyOn(pluginInstall, "buildMarketplaceUrl").mockReturnValue(
+    "https://plugins.archgate.dev/archgate.git"
+  );
+  spyOn(pluginInstall, "buildVscodeMarketplaceUrl").mockReturnValue(
+    "https://plugins.archgate.dev/archgate/vscode.git"
+  );
+  spyOn(pluginInstall, "buildCursorMarketplaceUrl").mockReturnValue(
+    "https://plugins.archgate.dev/archgate/cursor.git"
+  );
+  spyOn(pluginInstall, "isCursorCliAvailable").mockResolvedValue(false);
 
-  // Default implementations
-  mockInstallClaudePlugin.mockImplementation(async () => {});
-  mockInstallCopilotPlugin.mockImplementation(async () => ({ mode: "cli" }));
-  mockInstallVscodeExtension.mockImplementation(async (_token: string) => {});
-  mockInstallOpencodePlugin.mockImplementation(async (_token: string) => {});
-  mockIsClaudeCliAvailable.mockImplementation(async () => false);
-  mockIsCopilotAvailable.mockImplementation(async () => false);
-  mockIsVscodeCliAvailable.mockImplementation(async () => false);
-  mockIsOpencodeAvailable.mockImplementation(async () => false);
-  mockConfigureVscodeSettings.mockImplementation(async () => {});
+  mockInstallClaudePlugin = spyOn(
+    pluginInstall,
+    "installClaudePlugin"
+  ).mockResolvedValue();
+  mockInstallCopilotPlugin = spyOn(
+    pluginInstall,
+    "installCopilotPlugin"
+  ).mockResolvedValue({ mode: "cli" });
+  mockInstallVscodeExtension = spyOn(
+    pluginInstall,
+    "installVscodeExtension"
+  ).mockResolvedValue();
+  mockInstallOpencodePlugin = spyOn(
+    pluginInstall,
+    "installOpencodePlugin"
+  ).mockResolvedValue();
+  mockInstallCursorPlugin = spyOn(
+    pluginInstall,
+    "installCursorPlugin"
+  ).mockResolvedValue();
+  mockIsClaudeCliAvailable = spyOn(
+    pluginInstall,
+    "isClaudeCliAvailable"
+  ).mockResolvedValue(false);
+  mockIsCopilotAvailable = spyOn(
+    pluginInstall,
+    "isCopilotAvailable"
+  ).mockResolvedValue(false);
+  mockIsVscodeCliAvailable = spyOn(
+    pluginInstall,
+    "isVscodeCliAvailable"
+  ).mockResolvedValue(false);
+  mockIsOpencodeAvailable = spyOn(
+    pluginInstall,
+    "isOpencodeAvailable"
+  ).mockResolvedValue(false);
+
+  spyOn(editorDetect, "detectEditors").mockResolvedValue([]);
+  spyOn(editorDetect, "promptEditorSelection").mockResolvedValue(["claude"]);
+
+  mockConfigureVscodeSettings = spyOn(
+    vscodeSettings,
+    "configureVscodeSettings"
+  ).mockResolvedValue("/fake/project/.vscode/settings.json");
 });
 
 afterEach(() => {

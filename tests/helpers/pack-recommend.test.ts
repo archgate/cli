@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +17,7 @@ import {
   recommendPacks,
   recommendPacksFromDir,
 } from "../../src/helpers/pack-recommend";
+import * as registry from "../../src/helpers/registry";
 import type { DetectedStack } from "../../src/helpers/stack-detect";
 import { safeRmSync } from "../test-utils";
 
@@ -211,18 +220,6 @@ describe("recommendPacks", () => {
   /** Temp dirs that tests create — cleaned in afterEach as a safety net. */
   const tempDirs: string[] = [];
 
-  /**
-   * Hold a reference to the real registry module so mock.module can
-   * re-export every symbol except `shallowClone`. The real module is
-   * loaded once (lazy, first test) and cached.
-   */
-  let realRegistry: Record<string, unknown> | undefined;
-
-  async function getRealRegistry(): Promise<Record<string, unknown>> {
-    realRegistry ??= await import("../../src/helpers/registry");
-    return realRegistry;
-  }
-
   afterEach(() => {
     mock.restore();
     for (const d of tempDirs) {
@@ -266,18 +263,11 @@ describe("recommendPacks", () => {
   }
 
   /**
-   * Mock `shallowClone` while preserving every other export from
-   * `src/helpers/registry`. This prevents `mock.module` from stripping
-   * exports that other test files depend on.
+   * Stub `shallowClone` for one test. `spyOn` over the module namespace keeps
+   * the stub scoped to this file; `mock.restore()` in `afterEach` undoes it.
    */
-  async function mockShallowClone(
-    impl: (...args: unknown[]) => Promise<string>
-  ): Promise<void> {
-    const real = await getRealRegistry();
-    await mock.module("../../src/helpers/registry", () => ({
-      ...real,
-      shallowClone: impl,
-    }));
+  function mockShallowClone(impl: () => Promise<string>): void {
+    spyOn(registry, "shallowClone").mockImplementation(impl);
   }
 
   test("returns recommendations and cleans up cloned dir", async () => {
@@ -286,7 +276,7 @@ describe("recommendPacks", () => {
       adrCount: 2,
     });
 
-    await mockShallowClone(async () => fakeCloneDir);
+    mockShallowClone(async () => fakeCloneDir);
 
     const stack: DetectedStack = {
       languages: ["typescript"],
@@ -306,7 +296,7 @@ describe("recommendPacks", () => {
   });
 
   test("propagates error when shallowClone rejects", async () => {
-    await mockShallowClone(async () => {
+    mockShallowClone(async () => {
       throw new Error("git clone failed");
     });
 
@@ -326,7 +316,7 @@ describe("recommendPacks", () => {
     mkdirSync(packDir, { recursive: true });
     // No archgate-pack.yaml — recommendPacksFromDir skips the pack
 
-    await mockShallowClone(async () => fakeCloneDir);
+    mockShallowClone(async () => fakeCloneDir);
 
     const stack: DetectedStack = {
       languages: ["typescript"],
@@ -346,7 +336,7 @@ describe("recommendPacks", () => {
       packName: "rust-only",
     });
 
-    await mockShallowClone(async () => fakeCloneDir);
+    mockShallowClone(async () => fakeCloneDir);
 
     const stack: DetectedStack = {
       languages: ["typescript"],

@@ -145,6 +145,88 @@ describe("isPublicRepo", () => {
     ).toBeNull();
   });
 
+  // Every host parses its 200 body through a Zod schema and swallows a parse
+  // failure as "undetermined" rather than guessing at visibility.
+  const schemaInvalidCases = [
+    {
+      host: "github" as const,
+      owner: "foo",
+      name: "bar",
+      body: { private: 1 },
+    },
+    {
+      host: "gitlab" as const,
+      owner: "foo",
+      name: "bar",
+      body: { visibility: 42 },
+    },
+    {
+      host: "bitbucket" as const,
+      owner: "foo",
+      name: "bar",
+      body: { is_private: "no" },
+    },
+    {
+      host: "azure-devops" as const,
+      owner: "myorg/myproject",
+      name: "myrepo",
+      body: { visibility: true },
+    },
+  ];
+
+  test.each(schemaInvalidCases)(
+    "returns null when the $host 200 body fails schema validation",
+    async ({ host, owner, name, body }) => {
+      mockFetch(200, body);
+      _resetPublicProbeCache();
+      expect(await isPublicRepo({ host, owner, name })).toBeNull();
+    }
+  );
+
+  // A status no probe recognises (not 200/401/403/404) falls through to the
+  // undetermined default — a 5xx says nothing about visibility.
+  const serverErrorCases = [
+    { host: "github" as const, owner: "foo", name: "bar" },
+    { host: "gitlab" as const, owner: "foo", name: "bar" },
+    { host: "bitbucket" as const, owner: "foo", name: "bar" },
+    { host: "azure-devops" as const, owner: "myorg/myproject", name: "myrepo" },
+  ];
+
+  test.each(serverErrorCases)(
+    "returns null when the $host API responds 500",
+    async ({ host, owner, name }) => {
+      mockFetch(500);
+      _resetPublicProbeCache();
+      expect(await isPublicRepo({ host, owner, name })).toBeNull();
+    }
+  );
+
+  test("returns null for a host outside the known switch cases", async () => {
+    // Reaches the switch's defensive `default` branch, unreachable through
+    // the RepoHost union alone.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const host = "forgejo" as "github";
+    mockFetch(200, { private: false });
+    _resetPublicProbeCache();
+    expect(await isPublicRepo({ host, owner: "foo", name: "bar" })).toBeNull();
+  });
+
+  test("swallows an unexpected probe error and reports undetermined", async () => {
+    // A Response whose `status` read throws escapes the per-host try/catch
+    // (which only wraps body parsing) and lands in probePublic's boundary.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => ({
+      get status(): number {
+        throw new Error("response torn down");
+      },
+      json: async () => ({}),
+    })) as unknown as typeof fetch;
+    _resetPublicProbeCache();
+    expect(
+      await isPublicRepo({ host: "github", owner: "foo", name: "bar" })
+    ).toBeNull();
+  });
+
   test("caches the result per process (single fetch call)", async () => {
     let calls = 0;
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion

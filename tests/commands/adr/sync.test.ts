@@ -5,7 +5,6 @@ import {
   beforeEach,
   describe,
   expect,
-  mock,
   type Mock,
   spyOn,
   test,
@@ -17,25 +16,9 @@ import { join } from "node:path";
 import { Command } from "@commander-js/extra-typings";
 import { z } from "zod";
 
-// Module mocks — declared before imports that depend on them.
-const mockShallowClone =
-  mock<(repoUrl: string, ref?: string) => Promise<string>>();
-const mockResolveSource =
-  mock<
-    (input: string) => {
-      kind: "official" | "github-repo" | "git-url";
-      repoUrl: string;
-      ref?: string;
-      subpath: string;
-    }
-  >();
-void mock.module("../../../src/helpers/registry", () => ({
-  resolveSource: mockResolveSource,
-  shallowClone: mockShallowClone,
-}));
-
 import { registerAdrSyncCommand } from "../../../src/commands/adr/sync";
 import { ImportsManifestSchema } from "../../../src/formats/pack";
+import * as registry from "../../../src/helpers/registry";
 import { safeRmSync } from "../../test-utils";
 
 const SyncJsonSchema = z.object({
@@ -106,6 +89,8 @@ describe("adr sync command", () => {
   let warnSpy: Mock<typeof console.warn>;
   let errorSpy: Mock<typeof console.error>;
   let exitSpy: Mock<typeof process.exit>;
+  let mockResolveSource: Mock<typeof registry.resolveSource>;
+  let mockShallowClone: Mock<typeof registry.shallowClone>;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-sync-"));
@@ -118,8 +103,8 @@ describe("adr sync command", () => {
     exitSpy = spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit");
     });
-    mockShallowClone.mockReset();
-    mockResolveSource.mockReset();
+    mockResolveSource = spyOn(registry, "resolveSource");
+    mockShallowClone = spyOn(registry, "shallowClone");
   });
 
   afterEach(() => {
@@ -131,6 +116,8 @@ describe("adr sync command", () => {
     warnSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
+    mockResolveSource.mockRestore();
+    mockShallowClone.mockRestore();
   });
 
   function scaffold(): void {

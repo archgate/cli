@@ -8,27 +8,12 @@ import {
   afterEach,
   type Mock,
   spyOn,
-  mock,
 } from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";
 
-// ---------------------------------------------------------------------------
-// Module mocks — declared before imports that use them (ARCH-005).
-// ---------------------------------------------------------------------------
-
-// Mock editor-detect so non-TTY auto-detect paths don't require real editor
-// binaries on disk.
-void mock.module("../../src/helpers/editor-detect", () => ({
-  detectEditors: mock(async () => []),
-  promptSingleEditorSelection: mock(async () => "claude"),
-}));
-
-// ---------------------------------------------------------------------------
-// Imports under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-
 import { registerPluginUrlCommand } from "../../../src/commands/plugin/url";
+import * as editorDetect from "../../../src/helpers/editor-detect";
 import {
   buildCursorMarketplaceUrl,
   buildMarketplaceUrl,
@@ -168,6 +153,40 @@ describe("plugin url action handler", () => {
         value: originalIsTTY,
         configurable: true,
       });
+    }
+  });
+
+  test("TTY without --editor detects editors and prints the selected one", async () => {
+    const originalIsTTY = process.stdin.isTTY;
+    const detectSpy = spyOn(editorDetect, "detectEditors").mockResolvedValue(
+      []
+    );
+    const promptSpy = spyOn(
+      editorDetect,
+      "promptSingleEditorSelection"
+    ).mockResolvedValue("cursor");
+    try {
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+
+      const program = makeProgram();
+      await program.parseAsync(["node", "test", "url"]);
+
+      expect(detectSpy).toHaveBeenCalledTimes(1);
+      expect(promptSpy).toHaveBeenCalledTimes(1);
+      const output = logSpy.mock.calls
+        .map((c: unknown[]) => String(c[0]))
+        .join("\n");
+      expect(output).toBe(buildCursorMarketplaceUrl());
+    } finally {
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
+      detectSpy.mockRestore();
+      promptSpy.mockRestore();
     }
   });
 });
