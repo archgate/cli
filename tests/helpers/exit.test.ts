@@ -211,8 +211,7 @@ describe("exit helper", () => {
 
     test("falls back to the 'root' command name when none was begun", async () => {
       expect(await rejectionMessage(exitWith(0))).toBe("process.exit");
-      // beginCommand was never called, so exitWith names the invocation
-      // "root" and finalizeCommand resolves it to "unknown".
+      // beginCommand was never called, so exitWith names the invocation "root".
       expect(trackSpy.mock.calls[0][0]).toBe("root");
     });
   });

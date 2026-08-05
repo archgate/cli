@@ -126,9 +126,13 @@ describe("editor-detect", () => {
     });
 
     test("defaults to the first detected editor", async () => {
-      await promptSingleEditorSelection(MOCK_DETECTED);
+      // vscode is neither first in the list nor the no-detection fallback, so
+      // only "first available wins" produces it.
+      await promptSingleEditorSelection(
+        MOCK_DETECTED.map((e) => ({ ...e, available: e.id === "vscode" }))
+      );
 
-      expect(questionFrom(mockPrompt.mock.calls[0]).default).toBe("claude");
+      expect(questionFrom(mockPrompt.mock.calls[0]).default).toBe("vscode");
     });
 
     test("defaults to claude when nothing is detected", async () => {

@@ -157,9 +157,10 @@ contributes to neither and covers nothing. Parametrize over the matrix
 
 ```typescript
 // tests/helpers/vscode-settings.test.ts
-import { describe, expect, afterEach } from "bun:test";
+import { describe, it, expect, afterEach } from "bun:test";
 
 import { _resetAllCaches } from "../../src/helpers/platform";
+import { getVscodeUserSettingsPath } from "../../src/helpers/vscode-settings";
 
 const original = Object.getOwnPropertyDescriptor(process, "platform");
 

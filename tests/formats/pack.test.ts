@@ -156,6 +156,9 @@ maintainers: []
     expect(() => parsePackMetadata(yaml)).toThrow(/Invalid pack metadata:/u);
     expect(() => parsePackMetadata(yaml)).toThrow(/lowercase kebab-case/u);
     expect(() => parsePackMetadata(yaml)).toThrow(/version must be semver/u);
+    expect(() => parsePackMetadata(yaml)).toThrow(
+      /maintainers: Too small: expected array to have >=1 items/u
+    );
   });
 
   test("throws when the document is not a mapping at all", () => {

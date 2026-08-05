@@ -68,26 +68,37 @@ describe("resolveAndCloneSources — abort partway through", () => {
   });
 
   test("removes every clone already made when a later source fails", async () => {
-    const cloneDir = mkdtempSync(join(tmpdir(), "archgate-clone-"));
-    cloneDirs.push(cloneDir);
+    // Two sources resolving to different repos, so each gets its own clone
+    // rather than a cache hit. The first completes; the second aborts, which
+    // is what puts an already-successful clone in the cleanup's path.
+    const firstClone = mkdtempSync(join(tmpdir(), "archgate-clone-a-"));
+    const secondClone = mkdtempSync(join(tmpdir(), "archgate-clone-b-"));
+    cloneDirs.push(firstClone, secondClone);
 
-    const cloneSpy = spyOn(registry, "shallowClone").mockResolvedValue(
-      cloneDir
-    );
-    const targetSpy = spyOn(registry, "detectTarget").mockRejectedValue(
-      new Error("no ADRs found at subpath")
-    );
+    const cloneSpy = spyOn(registry, "shallowClone")
+      .mockResolvedValueOnce(firstClone)
+      .mockResolvedValueOnce(secondClone);
+    const targetSpy = spyOn(registry, "detectTarget")
+      .mockResolvedValueOnce({
+        kind: "single-adr",
+        adrFile: join(firstClone, "ADR-001.md"),
+        rulesFile: null,
+        baseDir: firstClone,
+      })
+      .mockRejectedValueOnce(new Error("no ADRs found at subpath"));
 
     try {
       const message = await rejectionMessage(
-        resolveAndCloneSources(["packs/example"])
+        resolveAndCloneSources(["packs/example", "acme/adrs/backend"])
       );
       expect(message).toBe("no ADRs found at subpath");
 
-      // The clone is transient scratch space — a failed run must not leave it
-      // behind, since nobody downstream still holds a handle to it.
-      expect(existsSync(cloneDir)).toBe(false);
-      expect(cloneSpy).toHaveBeenCalledTimes(1);
+      // Clones are transient scratch space — a failed run must not leave any
+      // behind, including the ones made before the failing source.
+      expect(existsSync(firstClone)).toBe(false);
+      expect(existsSync(secondClone)).toBe(false);
+      expect(cloneSpy).toHaveBeenCalledTimes(2);
+      expect(targetSpy).toHaveBeenCalledTimes(2);
     } finally {
       targetSpy.mockRestore();
       cloneSpy.mockRestore();

@@ -55,6 +55,8 @@ describe("review-context --strict output ordering", () => {
   let logSpy: Mock<typeof console.log>;
   let warnSpy: Mock<typeof logModule.logWarn>;
   let exitSpy: Mock<typeof exitModule.exitWith>;
+  /** How many stdout writes had happened when the exit was requested. */
+  let logCallsAtExit: number;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-review-strict-test-"));
@@ -64,14 +66,19 @@ describe("review-context --strict output ordering", () => {
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     warnSpy = spyOn(logModule, "logWarn").mockImplementation(() => {});
+    logCallsAtExit = -1;
     exitSpy = spyOn(exitModule, "exitWith").mockImplementation(
-      async (): Promise<never> =>
+      async (): Promise<never> => {
+        // Sampling the stdout spy here is what makes the ordering observable:
+        // the count is taken at the moment of the exit request, not after
+        // parseAsync has unwound.
+        logCallsAtExit = logSpy.mock.calls.length;
         // exitWith is `Promise<never>` because it terminates the process. A
         // resolving stub hands control back to the action instead, which is
-        // what lets the assertions below check that stdout is complete and
-        // final at the moment the exit is requested.
+        // what lets the assertions below run at all.
         // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-        undefined as unknown as never
+        return undefined as unknown as never;
+      }
     );
   });
 
@@ -106,8 +113,9 @@ describe("review-context --strict output ordering", () => {
       "--strict: failing because"
     );
 
-    // Exactly one stdout write, and it is the complete JSON context — the
-    // strict failure adds nothing to stdout and truncates nothing from it.
+    // The payload is already on stdout when the exit is requested, and it is
+    // the only write — the strict failure adds nothing to stdout afterwards.
+    expect(logCallsAtExit).toBe(1);
     expect(logSpy).toHaveBeenCalledTimes(1);
     const payload = expectKeys(
       JSON.parse(String(logSpy.mock.calls[0][0])),

@@ -58,14 +58,49 @@ describe("probeInterpreter timeout", () => {
     };
   }
 
+  /**
+   * Wrap `Bun.spawn` so the probe still spawns its real subprocess while every
+   * `kill()` made against that subprocess is counted. Counting is the only way
+   * to observe the cleanup — the timed-out candidate is otherwise indistinguishable
+   * from one that simply exited non-zero.
+   */
+  function countProbeKills(): { kills: () => number; restore: () => void } {
+    const realSpawn = Bun.spawn;
+    let killCount = 0;
+    const spy = spyOn(Bun, "spawn");
+    // The wrapper forwards to the real spawn; Bun.spawn's overload set is not
+    // expressible in a single mock implementation signature.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    spy.mockImplementation(((...args: Parameters<typeof Bun.spawn>) => {
+      const proc = realSpawn(...args);
+      const realKill = proc.kill.bind(proc);
+      proc.kill = (...killArgs: Parameters<typeof proc.kill>): void => {
+        killCount++;
+        realKill(...killArgs);
+      };
+      return proc;
+    }) as unknown as typeof Bun.spawn);
+    return {
+      kills: () => killCount,
+      restore: () => {
+        spy.mockRestore();
+      },
+    };
+  }
+
   test("kills a candidate that outlives the probe timeout and moves on", async () => {
     // process.execPath is the running bun binary — it exists and would
     // normally answer `--version`, so only the timeout can reject it.
     const restoreTimer = installImmediateProbeTimer();
+    const spawns = countProbeKills();
 
     try {
       expect(await probeInterpreter([process.execPath])).toBeNull();
+      // The subprocess is terminated rather than left running for the rest of
+      // the check.
+      expect(spawns.kills()).toBe(1);
     } finally {
+      spawns.restore();
       restoreTimer();
     }
   });

@@ -386,9 +386,9 @@ describe("readCopilotSession", () => {
   });
 
   test("ignores an entry whose stat fails (dangling link)", async () => {
-    // A link left behind by a deleted session: readdir still lists it, but
-    // stat follows the link and raises ENOENT. "junction" so the link can be
-    // created unprivileged on Windows; the type is ignored on POSIX.
+    // A dangling link: readdir lists the entry, while stat follows it and
+    // raises ENOENT. "junction" so the link can be created unprivileged on
+    // Windows; the type is ignored on POSIX.
     const danglingTarget = mkdtempSync(join(tmpdir(), "archgate-dangling-"));
     symlinkSync(
       danglingTarget,

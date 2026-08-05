@@ -179,8 +179,7 @@ describe("createAdrFile", () => {
   });
 
   test("rejects a prefix that resolves to nothing", async () => {
-    // `resolveDomainPrefix` hands the caller a prefix for custom domains; an
-    // empty one means the domain was never registered, so no ID can be built.
+    // An empty explicit prefix carries no ID stem, so no ADR ID can be built.
     expect(
       await rejectionMessage(
         createAdrFile(tempDir, {

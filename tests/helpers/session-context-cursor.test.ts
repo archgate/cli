@@ -320,8 +320,8 @@ describe("readCursorSession", () => {
   });
 
   test("ignores an entry whose stat fails (dangling link)", async () => {
-    // A link left behind by a deleted session directory: readdir still lists
-    // it, but stat follows the link and raises ENOENT.
+    // A dangling link: readdir lists the entry, while stat follows it and
+    // raises ENOENT.
     const danglingTarget = mkdtempSync(join(os.tmpdir(), "archgate-dangling-"));
     // "junction" so the link can be created unprivileged on Windows too;
     // the type argument is ignored on POSIX.

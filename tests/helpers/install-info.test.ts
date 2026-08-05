@@ -67,10 +67,34 @@ describe("install-info", () => {
         rmSync(tempHome, { recursive: true, force: true });
       });
 
-      test("an executable under ~/.archgate/bin is a binary install", () => {
-        process.execPath = join(tempHome, ".archgate", "bin", "archgate");
-        expect(detectInstallMethod()).toBe("binary");
-      });
+      test.each([
+        {
+          label: "~/.archgate/bin",
+          segments: [".archgate", "bin", "archgate"],
+          method: "binary",
+        },
+        {
+          label: "the ~/.proto fallback when PROTO_HOME is unset",
+          segments: [".proto", "tools", "archgate", "1.2.3", "archgate"],
+          method: "proto",
+        },
+        {
+          label: "node_modules/.bin",
+          segments: ["project", "node_modules", ".bin", "archgate"],
+          method: "local",
+        },
+        {
+          label: "an unrecognized prefix",
+          segments: ["usr", "local", "archgate"],
+          method: "global-pm",
+        },
+      ] as const)(
+        "classifies an executable under $label as $method",
+        ({ segments, method }) => {
+          process.execPath = join(tempHome, ...segments);
+          expect(detectInstallMethod()).toBe(method);
+        }
+      );
 
       test("an executable under PROTO_HOME/tools/archgate is a proto install", () => {
         const protoHome = join(tempHome, "custom-proto");
@@ -83,34 +107,6 @@ describe("install-info", () => {
           "archgate"
         );
         expect(detectInstallMethod()).toBe("proto");
-      });
-
-      test("proto detection falls back to ~/.proto when PROTO_HOME is unset", () => {
-        process.execPath = join(
-          tempHome,
-          ".proto",
-          "tools",
-          "archgate",
-          "1.2.3",
-          "archgate"
-        );
-        expect(detectInstallMethod()).toBe("proto");
-      });
-
-      test("an executable inside node_modules is a local install", () => {
-        process.execPath = join(
-          tempHome,
-          "project",
-          "node_modules",
-          ".bin",
-          "archgate"
-        );
-        expect(detectInstallMethod()).toBe("local");
-      });
-
-      test("anything else is a global package-manager install", () => {
-        process.execPath = join(tempHome, "usr", "local", "archgate");
-        expect(detectInstallMethod()).toBe("global-pm");
       });
 
       test("the first classification is cached, later path changes ignored", () => {
