@@ -13,7 +13,7 @@ The Archgate CLI runs on macOS, Linux, and Windows. Several operations spawn sub
 
 Bun provides two subprocess APIs:
 
-- **`Bun.$` (shell template literals)** — Convenient syntax (`await Bun.$\`git ls-files\`.text()`) that pipes commands through a platform-specific subprocess shell. **It hangs on Windows:** the shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that block the calling thread indefinitely.
+- **`Bun.$` (shell template literals)** — Convenient syntax (``await Bun.$`git ls-files`.text()``) that pipes commands through a platform-specific subprocess shell. **It hangs on Windows:** the shell subprocess does not properly close stdin/stdout pipes, causing deadlocks that block the calling thread indefinitely.
 - **`Bun.spawn` (array-based)** — Executes a command directly with no intermediate shell. Takes an argument array and explicit pipe configuration, and returns a process handle with `stdout`, `stderr`, and `exited`.
 
 **Alternatives considered:**
@@ -60,7 +60,7 @@ This decision does NOT cover:
 
 ### Don't
 
-- **DON'T** use `Bun.$` template literals (`Bun.$\`command\``) — they hang on Windows due to pipe deadlocks
+- **DON'T** use `Bun.$` template literals (`` Bun.$`command` ``) — they hang on Windows due to pipe deadlocks
 - **DON'T** import `$` from `"bun"` — this is the Bun shell API that causes Windows deadlocks
 - **DON'T** use shell features (pipes `|`, redirects `>`, globbing `*`) in subprocess arguments — `Bun.spawn` executes commands directly without a shell
 - **DON'T** forget to `await proc.exited` — reading stdout alone does not guarantee termination
