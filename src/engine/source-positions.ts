@@ -131,15 +131,21 @@ function findCodeOccurrences(
   newlineOffsets: number[]
 ): SourcePos[] {
   const results: SourcePos[] = [];
-  let idx = 0;
-  for (;;) {
-    const found = source.indexOf(needle, idx);
-    if (found === -1) break;
+  // An empty needle is the one input that would not terminate: `indexOf("", n)`
+  // clamps to `source.length` instead of returning -1, so the scan position
+  // stops advancing. Callers anchor on a non-empty token, and no anchor means
+  // no position — the caller's line-0 fallback.
+  if (needle === "") return results;
 
-    if (isInNonCode(found, nonCodeRanges)) {
-      idx = found + 1;
-      continue;
-    }
+  // The advance lives in the increment slot, so no path through the body can
+  // skip it. `indexOf` from `found + 1` returns either -1 or a strictly greater
+  // index, bounding the scan to `source.length` iterations.
+  for (
+    let found = source.indexOf(needle);
+    found !== -1;
+    found = source.indexOf(needle, found + 1)
+  ) {
+    if (isInNonCode(found, nonCodeRanges)) continue;
 
     const start = offsetToPos(found, newlineOffsets);
     const end = offsetToPos(found + needle.length, newlineOffsets);
@@ -150,7 +156,6 @@ function findCodeOccurrences(
       endLine: end.line,
       endColumn: end.column,
     });
-    idx = found + 1;
   }
   return results;
 }

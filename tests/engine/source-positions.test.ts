@@ -65,4 +65,25 @@ describe("remapViolations", () => {
     const result = remapViolations(original, raw);
     expect(result[0].line).toBe(0);
   });
+
+  test("terminates on an empty search text", () => {
+    const original = "const x = 1;\nBun.spawn([]);";
+    const raw: RawViolation[] = [
+      { message: "anchorless", searchText: "", occurrence: 0 },
+    ];
+    const result = remapViolations(original, raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].line).toBe(0);
+    expect(result[0].column).toBe(0);
+  });
+
+  test("scans a needle repeated at every offset without stalling", () => {
+    const original = "aaaaaaaaaa";
+    const raw: RawViolation[] = [
+      { message: "overlap", searchText: "aa", occurrence: 8 },
+    ];
+    const result = remapViolations(original, raw);
+    expect(result[0].line).toBe(1);
+    expect(result[0].column).toBe(8);
+  });
 });
