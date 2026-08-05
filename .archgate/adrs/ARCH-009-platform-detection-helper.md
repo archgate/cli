@@ -16,7 +16,7 @@ The `src/helpers/platform.ts` module already provides a centralized, cached API 
 The problem is that nothing prevents code from bypassing this module and reading `process.platform` directly. Direct reads:
 
 - **Scatter platform logic** — Platform checks end up duplicated across modules with inconsistent patterns (`process.platform === "win32"` vs `process.platform !== "linux"`).
-- **Cannot be tested** — `process.platform` is read-only in Bun. Code that reads it directly cannot be tested under a different platform without modifying global state. The platform helper's `_resetPlatformCache()` makes cross-platform testing straightforward.
+- **Multiply the test surface** — `process.platform` is a writable, configurable data property in Bun, so simulating a platform means overriding it AND clearing whatever the reading module cached from it. Routed through the helper, a single seam (`_resetPlatformCache()`) covers every consumer at once; read directly, each call site needs its own override and its own cache reset, and a site that captures the value at module load cannot be re-simulated at all.
 - **Miss WSL** — `process.platform` returns `"linux"` inside WSL. Code that checks for `"win32"` to decide Windows-specific behavior will miss WSL scenarios where Windows paths or tools are relevant. The platform helper accounts for WSL.
 
 ## Decision

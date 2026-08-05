@@ -144,6 +144,49 @@ afterEach(() => {
 });
 ```
 
+### Simulating the platform instead of adding a seam
+
+`process.platform` and `process.execPath` are writable, configurable data
+properties in Bun. Overriding them covers platform-gated branches without
+adding a testability seam to production code.
+
+This is the only approach that moves the coverage aggregate: CI merges Linux
+and Windows runs only, so a `test.skipIf(platform !== "darwin")` test
+contributes to neither and covers nothing. Parametrize over the matrix
+(ARCH-025) so every case runs on every runner.
+
+```typescript
+// tests/helpers/vscode-settings.test.ts
+import { describe, expect, afterEach } from "bun:test";
+
+import { _resetAllCaches } from "../../src/helpers/platform";
+
+const original = Object.getOwnPropertyDescriptor(process, "platform");
+
+afterEach(() => {
+  // GOOD: restore the captured descriptor — an override left in place leaks
+  // into every later file, since Bun runs the whole suite in one process.
+  if (original) Object.defineProperty(process, "platform", original);
+  _resetAllCaches();
+});
+
+describe.each([
+  ["win32", "AppData"],
+  ["darwin", "Library"],
+  ["linux", ".config"],
+])("on %s", (platform, expected) => {
+  it("resolves the user settings path", async () => {
+    Object.defineProperty(process, "platform", {
+      ...original,
+      value: platform,
+    });
+    // Clear whatever the module cached from the previous value.
+    _resetAllCaches();
+    expect(await getVscodeUserSettingsPath()).toContain(expected);
+  });
+});
+```
+
 ## Consequences
 
 ### Positive
