@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shim: [npm, pypi, go, maven, nuget, rubygem]
+        shim: [npm, pypi, go, maven, nuget, rubygem, winget]
     steps:
       - name: Checkout code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -178,6 +178,43 @@ jobs:
         if: matrix.shim == 'rubygem'
         working-directory: shims/rubygem
         run: bundle install --jobs 4 && bundle exec ruby test/test_shim.rb
+      # --- winget (cross-compiles the Go shim; the build script runs on Bun) ---
+      - name: Setup Go
+        if: matrix.shim == 'winget'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.21"
+          cache: false
+      - uses: ./.github/actions/setup-bun-project
+        if: matrix.shim == 'winget'
+      - name: Generate winget artifacts
+        if: matrix.shim == 'winget'
+        run: bun run build:winget --out-dir dist/winget
+      - name: Verify winget artifacts
+        if: matrix.shim == 'winget'
+        run: |
+          EXE=dist/winget/archgate-shim-win32-x64.exe
+          if [ ! -f "$EXE" ]; then
+            echo "::error::Shim executable was not produced at $EXE"
+            exit 1
+          fi
+          if ! file "$EXE" | grep -q "PE32+"; then
+            echo "::error::$EXE is not a Windows PE executable"
+            file "$EXE"
+            exit 1
+          fi
+          MANIFESTS=$(find dist/winget -name '*.yaml' | sort)
+          if [ "$(echo "$MANIFESTS" | wc -l)" -ne 3 ]; then
+            echo "::error::Expected 3 rendered manifests, got:"
+            echo "$MANIFESTS"
+            exit 1
+          fi
+          if grep -l '{{' $MANIFESTS; then
+            echo "::error::Rendered manifest still contains an unsubstituted placeholder"
+            exit 1
+          fi
+          echo "Generated winget artifacts:"
+          ls -la dist/winget
 
   smoke-windows:
     name: Smoke Test (Windows)

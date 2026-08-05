@@ -1,6 +1,6 @@
 ---
 title: Instalação
-description: Instale o Archgate CLI no macOS, Linux ou Windows via instalador, npm, pip, dotnet, go, gem ou binário standalone. Comece a aplicar ADRs como regras de código executáveis em minutos.
+description: Instale o Archgate CLI no macOS, Linux ou Windows via instalador, winget, npm, pip, dotnet, go, gem ou binário standalone. Comece a aplicar ADRs como regras de código executáveis em minutos.
 ---
 
 ## Instalação standalone (recomendado)
@@ -30,6 +30,18 @@ Você pode personalizar a instalação com variáveis de ambiente:
 | `ARCHGATE_INSTALL_DIR` | Diretório de instalação personalizado          | `~/.archgate/bin` |
 
 Você também pode baixar os binários diretamente das [GitHub Releases](https://github.com/archgate/cli/releases).
+
+## Instalar via winget (Windows)
+
+No Windows, instale o Archgate com o [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/):
+
+```powershell
+winget install Archgate.Archgate
+```
+
+Isso instala um pequeno wrapper portátil e adiciona `archgate` ao seu PATH. Na primeira execução, ele baixa o binário da plataforma, verifica o checksum e o armazena em `~/.archgate/bin/` — o mesmo cache usado por todos os outros métodos de instalação, então alternar entre eles não baixa nada novamente.
+
+Atualize com `winget upgrade Archgate.Archgate`.
 
 ## Instalar via npm
 

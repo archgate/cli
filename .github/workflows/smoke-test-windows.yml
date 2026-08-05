@@ -106,6 +106,64 @@ jobs:
           }
           Remove-Item -Path $projectDir -Recurse -Force -ErrorAction SilentlyContinue
 
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.21"
+          cache: false
+
+      - name: Build winget shim
+        run: bun run build:winget --out-dir dist/winget
+
+      - name: Smoke test winget shim
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $exe = "dist/winget/archgate-shim-win32-x64.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "Shim executable not found at $exe"
+            exit 1
+          }
+
+          # The shim pins the version in package.json, so it can only be executed
+          # end-to-end once that release has its Windows binary uploaded.
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $assets = gh release view "v$version" --json assets --jq '.assets[].name' 2>$null
+          $found = $false
+          if ($LASTEXITCODE -eq 0) {
+            $found = [bool]($assets -match [regex]::Escape("archgate-win32-x64.zip"))
+          }
+          if (-not $found) {
+            Write-Host "::warning::Release v$version has no Windows binary yet, skipping shim execution"
+            exit 0
+          }
+
+          # Point the shim at an empty home so it performs a real download
+          # instead of reusing a cached binary.
+          $shimHome = Join-Path $env:TEMP "archgate-winget-smoke-$(Get-Random)"
+          New-Item -Path $shimHome -ItemType Directory -Force | Out-Null
+          $env:USERPROFILE = $shimHome
+
+          $output = & $exe --version 2>&1
+          Write-Host "winget shim output: $output"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Shim exited with code $LASTEXITCODE"
+            exit 1
+          }
+          if ("$output" -notmatch [regex]::Escape($version)) {
+            Write-Error "Expected version $version in shim output"
+            exit 1
+          }
+
+          $cached = Join-Path $shimHome ".archgate" "bin" "archgate.exe"
+          if (-not (Test-Path $cached)) {
+            Write-Error "Shim did not cache the binary at $cached"
+            exit 1
+          }
+
+          Remove-Item -Path $shimHome -Recurse -Force -ErrorAction SilentlyContinue
+
       - name: Smoke test install.ps1
         shell: pwsh
         env:
