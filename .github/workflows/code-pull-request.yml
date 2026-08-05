@@ -203,14 +203,15 @@ jobs:
             file "$EXE"
             exit 1
           fi
-          MANIFESTS=$(find dist/winget -name '*.yaml' | sort)
-          if [ "$(echo "$MANIFESTS" | wc -l)" -ne 3 ]; then
-            echo "::error::Expected 3 rendered manifests, got:"
-            echo "$MANIFESTS"
+          MANIFEST_COUNT=$(find dist/winget -name '*.yaml' | wc -l)
+          if [ "$MANIFEST_COUNT" -ne 3 ]; then
+            echo "::error::Expected 3 rendered manifests, found $MANIFEST_COUNT:"
+            find dist/winget -name '*.yaml'
             exit 1
           fi
-          if grep -l '{{' $MANIFESTS; then
-            echo "::error::Rendered manifest still contains an unsubstituted placeholder"
+          UNSUBSTITUTED=$(find dist/winget -name '*.yaml' -exec grep -l '{{' {} +)
+          if [ -n "$UNSUBSTITUTED" ]; then
+            echo "::error::Rendered manifest still contains an unsubstituted placeholder: $UNSUBSTITUTED"
             exit 1
           fi
           echo "Generated winget artifacts:"
