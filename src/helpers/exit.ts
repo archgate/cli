@@ -122,16 +122,12 @@ export async function exitForBrokenPipe(): Promise<never> {
  * @param err - The caught error, of any shape.
  * @throws The original error when it is an `ExitPromptError`, so
  * `main().catch()` handles Ctrl+C as exit 130.
- * @returns Never returns: exits 0 for a broken output pipe, 1 for a
- * {@link UserError}, or captures to Sentry and exits 2 for an unexpected bug.
+ * @returns Never returns: exits 1 for a {@link UserError}, or captures to
+ * Sentry and exits 2 for an unexpected bug.
  * @see {@link exitWith}
  */
 export async function handleCommandError(err: unknown): Promise<never> {
   if (err instanceof Error && err.name === "ExitPromptError") throw err;
-
-  // A synchronously-thrown EPIPE that surfaced through a command's promise
-  // chain — same policy as the stream guards: quiet exit 0, no Sentry.
-  if (isEpipeError(err)) return exitForBrokenPipe();
 
   const errorKind = classifyErrorKind(err);
   const isExpected = err instanceof UserError;

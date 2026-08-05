@@ -24,10 +24,8 @@ import { cleanupStaleBinary } from "./helpers/binary-upgrade";
 import {
   beginCommand,
   classifyErrorKind,
-  exitForBrokenPipe,
   exitWith,
   finalizeCommand,
-  isEpipeError,
 } from "./helpers/exit";
 import { installGit } from "./helpers/git";
 import { logError, setLogLevel } from "./helpers/log";
@@ -193,12 +191,6 @@ main().catch(async (err: unknown) => {
   // User pressed Ctrl+C during an Inquirer prompt — exit silently
   if (err instanceof Error && err.name === "ExitPromptError") {
     await exitWith(130, { outcome: "cancelled" });
-  }
-
-  // Output pipe closed by its consumer — quiet exit 0, mirroring the
-  // stream guards for an EPIPE thrown synchronously through the chain.
-  if (isEpipeError(err)) {
-    await exitForBrokenPipe();
   }
 
   // Expected user-facing error that escaped a command boundary — same

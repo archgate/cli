@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -34,7 +34,7 @@ async function runScript(body: string): Promise<number> {
     // sentinel code no assertion accepts.
     "setTimeout(() => process.exit(99), 3000);",
   ].join("\n");
-  writeFileSync(file, script);
+  await Bun.write(file, script);
 
   try {
     const proc = Bun.spawn(["bun", file], {
