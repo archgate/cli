@@ -31,6 +31,15 @@ const exportedDeclarations = [
 ].map(([, keyword, name]) => [keyword, name] as const);
 
 describe("rules-shim derivation", () => {
+  // The snapshot is the whole `.archgate/rules.d.ts` a governed project
+  // receives, so a diff here shows reviewers exactly what rule authors will
+  // see in their editor. Regenerate deliberately with
+  // `bun run test --update-snapshots`, then read the diff — an unexpected
+  // hunk means the derivation changed, not just the interface.
+  test("emits the rules.d.ts a governed project receives", () => {
+    expect(generateRulesDts()).toMatchSnapshot();
+  });
+
   test("exports at least the documented RuleContext surface", () => {
     expect(exportedDeclarations.length).toBeGreaterThan(10);
   });
