@@ -55,9 +55,13 @@ describe("rules-shim derivation", () => {
     // strongest single witness that prose travels with the signature.
     const start = rulesTypesSource.indexOf("  /**\n   * Read a YAML file");
     const signature = "readYAML(path: string): Promise<ReadYamlResult>;";
-    const end = rulesTypesSource.indexOf(signature) + signature.length;
+    const signatureStart = rulesTypesSource.indexOf(signature);
+    // Both anchors must resolve: a missing one yields a backwards slice, and
+    // `toContain("")` would pass against anything.
     expect(start).toBeGreaterThan(0);
+    expect(signatureStart).toBeGreaterThan(start);
 
+    const end = signatureStart + signature.length;
     expect(generateRulesDts()).toContain(rulesTypesSource.slice(start, end));
   });
 
@@ -72,6 +76,14 @@ describe("rules-shim derivation", () => {
     );
 
     expect(ambient).toBe("/** Kept. */\ndeclare type Answer = 42;\n");
+  });
+
+  test("refuses a top-level import, which would make the shim a module", () => {
+    const derive = () =>
+      toAmbientDeclarations('import type { Severity } from "./adr";\n');
+
+    expect(derive).toThrow(UserError);
+    expect(derive).toThrow(/must not import/u);
   });
 
   test("refuses a value export, which has no ambient form", () => {
