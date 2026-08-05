@@ -45,7 +45,7 @@ Use four exit codes with clear semantics:
 
 - **DO** use `logError()` from `src/helpers/log.ts` for user-facing errors — it writes to stderr, never stdout
 - **DO** exit with code 1 for expected failures (missing config, invalid input, violations found)
-- **DO** let unexpected errors crash naturally (exit code 2)
+- **DO** let unexpected errors propagate to the command boundary (exit 2)
 - **DO** provide actionable suggestions in error messages
 - **DO** fall back to `process.cwd()` when `findProjectRoot()` returns null in commands that don't require `.archgate/` — e.g., `session-context` reads `~/.claude/projects/` and uses `process.cwd()` as its path key
 - **DO** handle Inquirer's `ExitPromptError` as user cancellation — catch it in the top-level error boundary and exit with code 130 (SIGINT convention) without logging an error or sending to Sentry

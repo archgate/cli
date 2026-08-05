@@ -31,7 +31,7 @@ The plugins and CLI repositories are developed in parallel, often in the same se
 
 All linting, formatting, and validation MUST be invoked through `package.json` scripts, never by running tools directly. The canonical commands are `bun run lint`, `bun run format`, `bun run format:check`, and `bun run validate`. Direct invocation of formatting or linting binaries (`bunx prettier`, `bunx oxfmt`, `npx eslint`, `oxlint .`) is prohibited in agent workflows and discouraged for manual use.
 
-**Scope**: This ADR governs how linting and formatting tools are invoked — not which tools are used. It applies to all repositories in the Archgate ecosystem, not just this one.
+**Scope**: This ADR governs how linting and formatting tools are invoked — not which tools are used. It applies to all repositories in the Archgate ecosystem, not just this one. It covers each project's own JS/TS toolchain; external non-npm binaries invoked only in CI (e.g. `actionlint`, see [CI-002](./CI-002-validate-workflow-syntax-with-actionlint.md)) are outside its scope and get no `package.json` wrapper.
 
 **Required scripts**: Every `package.json` that contains lintable or formattable source code MUST define at minimum:
 
@@ -59,7 +59,7 @@ All linting, formatting, and validation MUST be invoked through `package.json` s
 - **DON'T** assume which formatter a repository uses — the `package.json` scripts abstract this; rely on the abstraction
 - **DON'T** run individual validation steps when `bun run validate` is available — it ensures the correct order and complete coverage
 - **DON'T** pass custom flags to linters or formatters outside of `package.json` — project-specific flags (e.g., `--deny-warnings`, target directories) are encoded in the scripts and MUST NOT be overridden ad hoc
-- **DON'T** add new linting or formatting tools without defining corresponding `package.json` scripts for them
+- **DON'T** add new JS/TS linting or formatting tools without defining corresponding `package.json` scripts for them — CI-only external binaries are the exception (see Scope)
 
 ## Consequences
 
@@ -92,9 +92,10 @@ The Archgate developer agent definition also mandates `bun run format`, `bun run
 
 **Manual enforcement**: Code reviewers MUST reject PRs that introduce direct tool invocations (e.g., `bunx prettier --write`, `npx oxlint`) in scripts, CI workflows, or documentation. The only acceptable place for direct tool invocation is inside the `package.json` scripts themselves.
 
-**Exceptions**: No exceptions. If a tool must be invoked with non-standard flags for a one-off debugging session, that invocation MUST NOT be committed, pushed, or documented as a recommended workflow.
+**Exceptions**: External non-npm binaries invoked only in CI are outside this ADR's scope — `actionlint` is the standing case, and [CI-002](./CI-002-validate-workflow-syntax-with-actionlint.md) explicitly forbids wrapping it in a `package.json` script. Within scope there are no exceptions: if a tool must be invoked with non-standard flags for a one-off debugging session, that invocation MUST NOT be committed, pushed, or documented as a recommended workflow.
 
 ## References
 
 - [ARCH-006: Dependency Policy](./ARCH-006-dependency-policy.md) — governs which dependencies are permitted; tools referenced by scripts must comply
 - [GEN-001: Documentation Site](./GEN-001-documentation-site.md) — related general governance ADR
+- [CI-002: Validate Workflow Syntax with actionlint](./CI-002-validate-workflow-syntax-with-actionlint.md) — the CI-only external-binary carve-out to this ADR's script mandate

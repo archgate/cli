@@ -98,7 +98,7 @@ A `node:`-prefixed specifier resists the same shadowing problem: Node's module r
 - **DON'T** allowlist a bare specifier or `node:module` — `createRequire()` reconstitutes what the allowlist removes
 - **DON'T** add a module-evaluating AST node type without wiring it to the allowlist
 - **DON'T** assume a specifier is safe for naming no Node builtin (Context's escape table)
-- **DON'T** import an unscanned rule file, or scan after `import()` — `scanImportedRuleSource()` is additive to, not a replacement for, `scanRuleSource()`
+- **DON'T** import an unscanned rule file, or scan after `import()` — `scanImportedRuleSource()` is a pure pass-through to `scanRuleSource()`
 - **DON'T** text-search for dangerous names — misses `import("\x6eode:child_process")`-style obfuscation (Manual Enforcement item 7)
 - **DON'T** read a green `archgate check` as proof the sandbox holds — a successful escape produces one too
 - **DON'T** tighten `AstNodeSchema`, or block all computed access to close the `.constructor` route (Consequences: the residual, and why)
@@ -159,7 +159,7 @@ Code reviewers MUST verify, for any PR touching `src/engine/rule-scanner.ts`, `s
 6. `scanRuleSource()` still runs before `import()` in `loader.ts`, and `scanImportedRuleSource()` still runs before the first `writeFileSync()` in `writeImportedAdrs()`.
 7. The raw-text pass has not grown a search for dangerous names, and blocked code points are still spelled numerically rather than as literals or escapes. A text search for `child_process`/`Bun.spawn`/etc. would miss an obfuscated specifier like `import("\x6eode:child_process")` and false-positive on this repo's own `ARCH-007-cross-platform-subprocess-execution.rules.ts`, `ARCH-014-prefer-bun-env.rules.ts`, and `ARCH-022-ast-aware-rule-context.rules.ts`, which name these identifiers legitimately.
 8. Dangerous globals are blocked by **naming** (the banned-identifier set), not by per-shape member/call checks. A newly added blocked global or `.constructor`-style property check arrives with a matching case in the reflective-globals block of the escape suite, and covers the `o.name`/`o["name"]` member spellings and the `{ name: v }` destructuring spelling via `staticPropName()`.
-9. The first-party and imported scans are still converged (`scanImportedRuleSource()` delegates), so a new global block cannot be closed for one entry point and left open for the other.
+9. The first-party and imported scans are still converged (`scanImportedRuleSource()` delegates), so a new global block cannot be closed for one entry point and left open for the other. `tests/engine/rule-scanner-escapes-convergence.test.ts` proves it by running every escape payload through both entry points.
 10. Any narrowing of `AstNodeSchema` — a tighter union, a newly required or non-nullable field — is treated as security-relevant per clause 7: a node that fails `safeParse` is dropped with its subtree, so the change is justified against whether any valid ESTree node can now fail validation, and arrives with a coverage case in the escape suite.
 
 ### Exceptions

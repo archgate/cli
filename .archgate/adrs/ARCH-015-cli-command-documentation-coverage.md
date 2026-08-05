@@ -48,6 +48,8 @@ Command names are derived from the [src/commands/](../../src/commands/) director
 
 Nested subcommand files (`src/commands/adr/create.ts`, `src/commands/adr/domain/index.ts`, etc.) are NOT treated as top-level commands and contribute nothing to the expected docs set.
 
+The module layout and `src/cli.ts` registration MUST agree in both directions: every command module has a `register*Command(program)` call in `src/cli.ts` (derived by kebab-casing the register name: `registerReviewContextCommand` → `review-context`), and every register call has a module at a conventional path.
+
 ## Do's and Don'ts
 
 ### Do
@@ -71,14 +73,14 @@ Nested subcommand files (`src/commands/adr/create.ts`, `src/commands/adr/domain/
 
 - **Discoverability guaranteed.** Every command shipped in the CLI has a dedicated, linkable reference page.
 - **Orphan detection.** Docs pages that outlive their command are flagged automatically, keeping the reference section truthful.
-- **Cheap to enforce.** The rule reads directory listings only — no AST parsing of `src/cli.ts`, no `--help` invocation, no cross-process work.
+- **Cheap to enforce.** The rule reads directory listings and walks `src/cli.ts`'s AST for executable register calls (via the in-process parser, ARCH-022) — no `--help` invocation, no cross-process work.
 - **Aligns with existing conventions.** Piggybacks on the `src/commands/<name>.ts` / `src/commands/<name>/index.ts` pattern from ARCH-001 without introducing new metadata.
 - **Composes with GEN-002.** This rule handles command↔EN-doc parity; GEN-002 handles EN↔pt-br parity. Together they guarantee every command has docs in every supported locale.
 
 ### Negative
 
 - **Prose overhead on new commands.** Adding a top-level command requires writing a reference page, not just code + tests. Mitigated by the short, templated structure of existing `.mdx` files.
-- **False negative for exotic layouts.** A command-registration pattern that bypasses both `src/commands/<name>.ts` and `src/commands/<name>/index.ts` is invisible to the rule. ARCH-001 forbids this, so the drift is caught there first.
+- **Naming-convention dependency.** The registration cross-check maps `register<Name>Command` to a module path by kebab-casing, so a register function whose name diverges from its module stem is reported as a mismatch even if it works at runtime. That is deliberate: ARCH-001's convention is what makes docs coverage derivable from the layout.
 
 ### Risks
 
@@ -89,7 +91,7 @@ Nested subcommand files (`src/commands/adr/create.ts`, `src/commands/adr/domain/
 
 ### Automated Enforcement
 
-- **Archgate rule** `ARCH-015/cli-command-has-docs-page`: Enumerates top-level commands under `src/commands/` and `.mdx` pages under `docs/src/content/docs/reference/cli/`, then reports any mismatch in either direction (missing docs, orphan docs). Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
+- **Archgate rule** `ARCH-015/cli-command-has-docs-page`: Enumerates top-level commands under `src/commands/` and `.mdx` pages under `docs/src/content/docs/reference/cli/`, then reports any mismatch in either direction (missing docs, orphan docs). Also cross-checks the module layout against executable `register*Command(program)` call expressions in `src/cli.ts`'s AST, reporting unregistered modules and register calls without a conventional module path. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
 
 ### Manual Enforcement
 

@@ -57,9 +57,12 @@ Options that require type narrowing beyond plain strings MUST use `new Option()`
 ```typescript
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+import { EDITOR_TARGETS } from "../helpers/init-project";
 
+// EDITOR_TARGETS is the shared editor list — reference it instead of
+// re-hardcoding a literal that drifts when an editor is added.
 const editorOption = new Option("--editor <editor>", "target editor")
-  .choices(["claude", "cursor", "vscode", "copilot"] as const)
+  .choices(EDITOR_TARGETS) // ["claude", "cursor", "vscode", "copilot", "opencode"] as const
   .default("claude" as const);
 
 export function registerExampleCommand(program: Command) {
@@ -67,11 +70,21 @@ export function registerExampleCommand(program: Command) {
     .command("example")
     .addOption(editorOption)
     .action(async (opts) => {
-      // opts.editor is typed as "claude" | "cursor" | "vscode" | "copilot"
-      // TypeScript enforces exhaustive matching
+      // opts.editor is typed as the EDITOR_TARGETS union. The never-typed
+      // default is what makes the switch compile-time exhaustive: adding an
+      // editor to EDITOR_TARGETS without a case fails to compile here.
       switch (opts.editor) {
         case "claude":
           break;
+        case "cursor":
+        case "vscode":
+        case "copilot":
+        case "opencode":
+          break;
+        default: {
+          const _exhaustive: never = opts.editor;
+          throw new Error(`Unhandled editor: ${String(_exhaustive)}`);
+        }
       }
     });
 }
@@ -123,7 +136,7 @@ program
 - **Compile-time safety** — Invalid option values are caught by TypeScript, not just at runtime
 - **Consistent error messages** — Commander produces standard error output for invalid choices
 - **No boilerplate validation** — Eliminates repeated `if (!VALID.includes(...))` patterns
-- **Exhaustive switch/case** — TypeScript ensures all choices are handled when switching on the option value
+- **Exhaustive switch/case** — With a `never`-typed `default` branch, TypeScript flags any unhandled choice when switching on the option value
 
 ### Negative
 

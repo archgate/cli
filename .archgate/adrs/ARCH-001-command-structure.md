@@ -39,7 +39,7 @@ Commands live in src/commands/ and export a register\*Command(program) function.
 - **DO** use src/commands/<name>.ts for top-level commands
 - **DO** use src/commands/<name>/index.ts for command groups with subcommands
 - **DO** import the register function explicitly in src/cli.ts
-- **DO** wrap all async logic in src/cli.ts in an async function main() and call it as main().catch((err) => { logError(String(err)); process.exit(2); }) — this is required for bun build --compile --bytecode compatibility
+- **DO** wrap all async logic in src/cli.ts in an async function main() called as main().catch(...) — required for bun build --compile --bytecode compatibility. The catch handler branches per ARCH-002: ExitPromptError exits 130 silently, UserError logs and exits 1 without Sentry, anything else is captured to Sentry and exits 2 — always via exitWith(), never bare process.exit()
 
 ### Don't
 
@@ -59,6 +59,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { loadRuleAdrs } from "../engine/loader";
 import { runChecks } from "../engine/runner";
 import { reportConsole, reportJSON, getExitCode } from "../engine/reporter";
+import { exitWith, handleCommandError } from "../helpers/exit";
 
 export function registerCheckCommand(program: Command) {
   program
@@ -66,11 +67,17 @@ export function registerCheckCommand(program: Command) {
     .description("Run automated ADR compliance checks")
     .option("--json", "Output results as JSON")
     .action(async (opts) => {
-      const adrs = await loadRuleAdrs();
-      const results = await runChecks(adrs);
-      if (opts.json) reportJSON(results);
-      else reportConsole(results);
-      process.exit(getExitCode(results));
+      try {
+        const adrs = await loadRuleAdrs();
+        const results = await runChecks(adrs);
+        if (opts.json) reportJSON(results);
+        else reportConsole(results);
+        await exitWith(getExitCode(results));
+      } catch (err) {
+        // Re-throws ExitPromptError (Ctrl+C → exit 130 in main().catch());
+        // UserError exits 1, anything else exits 2 + Sentry (ARCH-012).
+        await handleCommandError(err);
+      }
     });
 }
 ```
@@ -107,6 +114,9 @@ bun build --compile --bytecode — the command used to produce standalone binari
 ```typescript
 // src/cli.ts — GOOD: all async logic wrapped in main()
 import { logError } from "./helpers/log";
+import { exitWith } from "./helpers/exit";
+import { captureException } from "./helpers/sentry";
+import { UserError } from "./helpers/user-error";
 
 // Synchronous bootstrap checks can remain at top level
 createPathIfNotExists(paths.cacheFolder);
@@ -121,9 +131,22 @@ async function main() {
   await program.parseAsync(process.argv);
 }
 
-main().catch((err) => {
+main().catch(async (err: unknown) => {
+  // Ctrl+C during an interactive prompt — exit silently (ARCH-002)
+  if (err instanceof Error && err.name === "ExitPromptError") {
+    await exitWith(130, { outcome: "cancelled" });
+  }
+
+  // Expected failure that escaped a command boundary — log, exit 1, no Sentry
+  if (err instanceof UserError) {
+    logError(err.message);
+    await exitWith(1, { outcome: "user_error" });
+  }
+
+  // Internal bug — capture to Sentry, then exit 2
+  captureException(err, { command: "main" });
   logError(String(err));
-  process.exit(2);
+  await exitWith(2, { outcome: "internal_error" });
 });
 ```
 

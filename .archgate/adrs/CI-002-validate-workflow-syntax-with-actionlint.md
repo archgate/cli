@@ -33,7 +33,7 @@ The release pipeline (`publish-shims.yml`, `release-binaries.yml`) is exercised 
 
 `.github/workflows/code-pull-request.yml` MUST run `actionlint` as a dedicated job required by the `status` gate (the single required status check for branch protection) — a hard blocker, not advisory-only.
 
-**Installation** MUST be: download the prebuilt `rhysd/actionlint` release tarball at an explicit pinned version (not `latest`), verify it against the SHA-256 checksum from that release's `checksums.txt`, then extract:
+**Installation** MUST be: download the prebuilt `rhysd/actionlint` release tarball at an explicit pinned version (not `latest`), verify it against the SHA-256 checksum from that release's `actionlint_<version>_checksums.txt` asset (sourced at authoring time), then extract:
 
 ```yaml
 - name: Install actionlint
@@ -60,7 +60,7 @@ It is a raw download, not a `uses:` reference, so [CI-001](./CI-001-pin-github-a
 
 - **DO** run `actionlint` as its own job in `.github/workflows/code-pull-request.yml`, listed in the `status` gate's `needs:` array and result check
 - **DO** pin the actionlint version explicitly — never `latest`
-- **DO** pin the tarball's SHA-256 checksum from that release's `checksums.txt` asset, and verify with `sha256sum -c` before extracting
+- **DO** pin the tarball's SHA-256 checksum from that release's `actionlint_<version>_checksums.txt` asset, and verify with `sha256sum -c` before extracting
 - **DO** set `persist-credentials: false` on the job's `actions/checkout` step, as in the `zizmor` job
 - **DO** treat `actionlint` findings as hard blockers — unlike `zizmor`'s advisory carve-outs for fork PRs and its findings backlog, `actionlint` starts from a clean slate and should stay that way
 - **DO** re-resolve version and SHA-256 checksum together when upgrading, as CI-001 requires for `uses:` references — fetch the checksum from `https://github.com/rhysd/actionlint/releases/download/v<version>/actionlint_<version>_checksums.txt`
@@ -107,7 +107,7 @@ It is a raw download, not a `uses:` reference, so [CI-001](./CI-001-pin-github-a
 Code reviewers MUST verify, for any change to the `actionlint` job:
 
 1. The download remains pinned to an explicit actionlint version, not `latest`, and the SHA-256 checksum is verified with `sha256sum -c` before the binary is extracted
-2. On any version bump, the new checksum was sourced from the release's own `checksums.txt` asset — not computed from a locally downloaded file without cross-referencing
+2. On any version bump, the new checksum was sourced from the release's own `actionlint_<version>_checksums.txt` asset — not computed from a locally downloaded file without cross-referencing
 3. `actionlint` remains listed in the `status` gate job's `needs:` array and result check — removing it silently downgrades this from a hard blocker to a no-op
 4. The job's invocation still scans the entire `.github/workflows/` directory, not a restricted subset
 

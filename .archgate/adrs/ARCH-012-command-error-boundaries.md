@@ -12,7 +12,7 @@ files: ["src/commands/**/*.ts"]
 
 Async command actions that lack try-catch error boundaries produce poor user experiences when they fail. Without explicit error handling:
 
-1. Errors propagate to the top-level `main().catch()` in `cli.ts`, which exits with code 2 (internal error) and shows only the raw error message
+1. Errors propagate to the top-level `main().catch()` in `cli.ts`, which shows only the raw error message and exits with code 2 (internal error) for anything that is not a `UserError` (exit 1) or `ExitPromptError` (exit 130)
 2. Users cannot distinguish between a command failure (code 1) and a CLI bug (code 2)
 3. Error messages lack context about what the command was trying to do
 
@@ -27,10 +27,9 @@ ARCH-002 defines the exit code convention and logging patterns, but does not req
 Every async command action MUST wrap its body in a try-catch block that:
 
 1. Catches errors from async operations
-2. Formats them with `logError()` from `src/helpers/log.ts`
-3. Exits with code 1 (expected failure) for user-facing errors
+2. Routes them through `handleCommandError()` from `src/helpers/exit.ts`, which re-throws `ExitPromptError` (so Ctrl+C reaches `main().catch()` for exit 130), logs with `logError()`, and exits 1 for `UserError` (expected failure) or 2 plus Sentry capture for anything else
 
-The top-level `main().catch()` in `cli.ts` remains as a safety net for truly unexpected errors (code 2), but it should never be the primary error handler for commands.
+The top-level `main().catch()` in `cli.ts` remains as a safety net for errors that escape a boundary, but it should never be the primary error handler for commands.
 
 **Pattern:**
 
@@ -39,10 +38,9 @@ The top-level `main().catch()` in `cli.ts` remains as a safety net for truly une
   try {
     // command logic
   } catch (err) {
-    // Re-throw ExitPromptError so main().catch() handles Ctrl+C (exit 130)
-    if (err instanceof Error && err.name === "ExitPromptError") throw err;
-    logError(err instanceof Error ? err.message : String(err));
-    process.exit(1);
+    // Re-throws ExitPromptError (Ctrl+C → exit 130 in main().catch());
+    // UserError exits 1, anything else exits 2 + Sentry.
+    await handleCommandError(err);
   }
 });
 ```
@@ -58,16 +56,16 @@ The top-level `main().catch()` in `cli.ts` remains as a safety net for truly une
 
 - Wrap every async command action body in a try-catch
 - **Cover the ENTIRE action body** — the try block MUST start at the first statement of the action and end at the last. A boundary that wraps only part of the body (e.g., a single risky call) still lets errors from the uncovered statements escape to `main().catch()`, converting expected failures (exit 1) into internal crashes (exit 2 + Sentry). Incident: `check.ts` once wrapped only `loadRuleAdrs()` — a `UserError` thrown later by `runChecks()` escaped and was reported to Sentry (issue CLI-5)
-- Use `logError()` for error messages in the catch block
-- Exit with code 1 for expected failures
-- **Re-throw `ExitPromptError` in command error boundaries** — Commands that use Inquirer prompts (directly or via helpers like `promptEditorSelection`) MUST re-throw `ExitPromptError` from the catch block so `main().catch()` handles Ctrl+C with exit code 130. Pattern: `if (err instanceof Error && err.name === "ExitPromptError") throw err;`
+- Route the catch block through `handleCommandError()` — it logs with `logError()` and selects the exit code
+- Throw `UserError` for expected failures so the boundary exits with code 1
+- **Re-throw `ExitPromptError` in command error boundaries** — Commands that use Inquirer prompts (directly or via helpers like `promptEditorSelection`) MUST re-throw `ExitPromptError` from the catch block so `main().catch()` handles Ctrl+C with exit code 130. `handleCommandError()` does this automatically; a hand-written catch needs `if (err instanceof Error && err.name === "ExitPromptError") throw err;`
 
 ### Don't
 
 - Don't rely on `main().catch()` as the only error handler for commands
 - Don't scope the try-catch to a subset of the action body — partial boundaries pass the automated presence check while still leaking errors from uncovered statements
 - Don't catch and silently swallow errors — always log them
-- Don't exit with code 2 in command catch blocks — that code is reserved for unexpected crashes
+- Don't hardcode exit code 2 in command catch blocks — `handleCommandError()` decides between 1 (expected) and 2 (unexpected crash)
 - Don't catch `ExitPromptError` as a command failure — it represents user cancellation (Ctrl+C), not an error. Let it propagate to `main().catch()` for exit code 130 handling (see [ARCH-002](./ARCH-002-error-handling.md))
 
 ## Consequences
