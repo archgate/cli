@@ -48,7 +48,7 @@ Markdown and MDX files MUST NOT contain a backslash-escaped backtick in text con
 - **DO** pad with one space on each side when the span's content starts or ends with a backtick, so the delimiter stays unambiguous and the space is stripped on render.
 - **DO** split a sentence instead, when a longer delimiter would be hard to read: give the inner command its own span and write the surrounding message as prose.
 - **DO** treat a `GEN-006/no-escaped-backtick-in-markdown` violation as a rendering defect on the line it names — the reported column is the backslash to delete, and the mispairing it causes continues to end of line.
-- **DO** put illustrative examples of the broken form inside a fenced code block when documenting this decision, which is where the rule intentionally does not look.
+- **DO** put illustrative examples of the broken form inside a fenced code block, which is where the rule intentionally does not look — and open that fence with a longer run than any fence nested inside it.
 
 ### Don't
 
@@ -75,7 +75,7 @@ Markdown and MDX files MUST NOT contain a backslash-escaped backtick in text con
 ### Risks
 
 - **MDX expression syntax.** A template literal inside an MDX `{...}` expression is JavaScript, not markdown, and its backticks are not code-span delimiters. No page in this repository uses one, so the residual is theoretical. **Mitigation**: should such a page appear, the fix is to teach the scanner about MDX expressions, not to weaken the text-content check.
-- **Fence tracking is toggle-based.** A file whose fences are themselves unbalanced desynchronises the in-fence flag for the remainder of the document. **Mitigation**: an unbalanced fence is itself a rendering defect that is visible on the docs site, and it can only suppress reports, never invent them.
+- **An unclosed fence hides the rest of its document.** Fences are paired as CommonMark defines them: a block closes only on its own marker, run at least as long as the opener, with nothing but whitespace after it — so a shorter run, the other marker, or a trailing info string stays content. An opener that is never closed therefore suppresses the check from that line to the end of the file. **Mitigation**: the failure direction is suppression, never invention, and an unclosed fence is itself a rendering defect visible on the docs site.
 
 ## Compliance and Enforcement
 

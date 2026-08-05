@@ -1,11 +1,27 @@
 /// <reference path="../rules.d.ts" />
 
 /**
- * A fenced code block delimiter: three or more backticks or tildes, indented
- * at most three spaces. Everything between a matching pair is literal content,
- * where a backslash before a backtick is exactly what the author meant.
+ * A fenced code block delimiter: three or more backticks or tildes, indented at
+ * most three spaces, capturing the run and whatever trails it. Everything
+ * between a matching pair is literal content, where a backslash before a
+ * backtick is exactly what the author meant.
  */
-const FENCE = /^ {0,3}(?:`{3,}|~{3,})/u;
+const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/u;
+
+interface FenceDelimiter {
+  marker: string;
+  length: number;
+  /** An info string on an opener; a closer permits only whitespace here. */
+  rest: string;
+}
+
+/** The fence delimiter this line carries, or null when it carries none. */
+function fenceDelimiter(line: string): FenceDelimiter | null {
+  const match = FENCE.exec(line);
+  if (!match) return null;
+  const run = match[1];
+  return { marker: run[0], length: run.length, rest: match[2] };
+}
 
 /** Rewritten from commit messages on every release, so it is not hand-editable. */
 const GENERATED_FILES = new Set(["CHANGELOG.md"]);
@@ -66,7 +82,7 @@ function scanDocument(content: string): Finding[] {
   const findings: Finding[] = [];
   const lines = content.split("\n");
   let inFrontmatter = lines[0]?.trim() === "---";
-  let inFence = false;
+  let openFence: FenceDelimiter | null = null;
 
   for (const [index, line] of lines.entries()) {
     if (inFrontmatter) {
@@ -74,11 +90,23 @@ function scanDocument(content: string): Finding[] {
       if (index > 0 && line.trim() === "---") inFrontmatter = false;
       continue;
     }
-    if (FENCE.test(line)) {
-      inFence = !inFence;
+
+    const delimiter = fenceDelimiter(line);
+    if (openFence) {
+      // A shorter run, the other marker, or a trailing info string is content:
+      // a fence closes only on its own marker, at least as long, nothing after.
+      const closes =
+        delimiter !== null &&
+        delimiter.marker === openFence.marker &&
+        delimiter.length >= openFence.length &&
+        delimiter.rest.trim() === "";
+      if (closes) openFence = null;
       continue;
     }
-    if (inFence) continue;
+    if (delimiter) {
+      openFence = delimiter;
+      continue;
+    }
 
     const column = firstEscapeColumn(line);
     if (column !== null) findings.push({ line: index + 1, column });
