@@ -7,11 +7,12 @@ files:
   - "src/engine/**"
   - "src/formats/rules.ts"
   - "src/helpers/rules-shim.ts"
+  - "src/helpers/rules-source.ts"
 ---
 
 ## Context
 
-`RuleContext` (`src/formats/rules.ts`, mirrored in `src/helpers/rules-shim.ts` for `.rules.ts` authors) is a rule's only interface for inspecting a target project, and its primitives are text-only: `glob`, `grep`, `grepFiles`, `readFile`, `readJSON`, `report`.
+`RuleContext` (`src/formats/rules.ts`, which `src/helpers/rules-shim.ts` derives the ambient `rules.d.ts` from for `.rules.ts` authors) is a rule's only interface for inspecting a target project, and its primitives are text-only: `glob`, `grep`, `grepFiles`, `readFile`, `readJSON`, `report`.
 
 Without syntax-aware inspection, structural checks degrade into regex heuristics — `ARCH-004/no-barrel-files` strips comments and pattern-matches lines to guess "only re-exports" instead of asking whether the top-level statements are `ExportNamedDeclaration`/`ExportAllDeclaration` nodes, and `ARCH-008`'s `use-add-option-for-choices` / `use-add-option-for-arg-parser` regex-match `.option(...)` text instead of asking whether that `CallExpression` has an `ArrowFunctionExpression` third argument. Multi-line calls, incidental whitespace, and string escaping all break these; a parsed AST answers them directly.
 
@@ -88,10 +89,11 @@ Dispatch on `language` MUST be invisible to rule authors.
 - **DO** document, in the signature or JSDoc, that the returned node shape differs per language
 - **DO** use `ast(path, language, { rev: "base" })`/`fileAtBase()` for base comparison — never shell out ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md))
 - **DO** use `ast(path, language, { comments: true })` for comment-governance rules (Key Definitions: shape)
-- **DO** mirror every `RuleContext` change into the shim in the same change; `rulecontext-shim-parity` fails on drift
+- **DO** keep `src/formats/rules.ts` type-only — the generator throws
 
 ### Don't
 
+- **DON'T** transcribe types into the shim (`rulecontext-shim-derived`)
 - **DON'T** expose `Bun.spawn`/`child_process` on `RuleContext` ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md))
 - **DON'T** return `null`/any sentinel from `ctx.ast()` (Decision clause 4) — only `fileAtBase()` returns `null`
 - **DON'T** invoke Python/Ruby before the plausibility check, or re-probe per file
@@ -141,11 +143,11 @@ Five companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
 
 - **`ast-guardrail-ordering`** — parses `src/engine/runner.ts` via `ctx.ast()` itself (dogfooding this capability) and verifies the `ast()` method inside `createRuleContext()` invokes the four guardrail markers — `safePath`, `AST_LANGUAGE_EXTENSIONS`, `probeInterpreter`, `runAstSubprocess` — each present and in exactly that order.
 - **`no-unsanctioned-engine-subprocess`** — flags any `Bun.spawn`/`Bun.spawnSync` in `src/engine/` outside the sanctioned helpers (`ast-support.ts` for `ctx.ast()`, `git-files.ts` for git) and bans `child_process` imports in the engine entirely, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns.
-- **`single-ast-method`** — verifies `RuleContext` (in `src/formats/rules.ts` and the generated shim in `src/helpers/rules-shim.ts`) declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.).
+- **`single-ast-method`** — verifies `RuleContext` in `src/formats/rules.ts` declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.). One surface suffices because `rulecontext-shim-derived` keeps the shim a derivation of that file.
 - **`python-subprocess-isolated`** — asserts the Python branch of the guarded invocation in `src/engine/runner.ts` includes the `-I` isolation flag, so a refactor cannot silently reintroduce the cwd stdlib-shadowing code-execution vector.
-- **`rulecontext-shim-parity`** — extracts `interface RuleContext` member names from `src/formats/rules.ts` and from the generated shim template in `src/helpers/rules-shim.ts` (regex over raw text: `Bun.Transpiler` erases type-only declarations, so `ctx.ast()` cannot see them), and fails on any member present in one surface but missing from the other, in both directions. Member-name parity only — full signature and JSDoc parity remains a manual review item.
+- **`rulecontext-shim-derived`** — fails when `src/helpers/rules-shim.ts` stops reading `src/formats/rules.ts` through the `rules-source` macro, or transcribes an ambient declaration by hand. It does not check that `src/formats/rules.ts` stays type-only: `generateRulesDts()` throws on a value export and `check` regenerates the shim before rules run, so a violation aborts the run (exit 2) before this rule executes. Signature and JSDoc parity need no check either — the generator copies both verbatim, pinned by `tests/helpers/rules-shim.test.ts`.
 
-The base-revision and comment surfaces are covered unchanged by the four AST rules above (`rulecontext-shim-parity` governs the type mirror, not these surfaces) — neither adds a subprocess site or a guardrail — plus behavioural coverage in `tests/engine/runner-ast-base.test.ts` (base parsing per language, comment-only structural equivalence, throw-vs-null semantics of `ast({ rev: "base" })` versus `fileAtBase()`) and `tests/engine/runner-ast-comments.test.ts` (TS line/block extraction with delimiter-stripped values and original-source `loc`, string-literal awareness, JavaScript, the opt-in-only absence of `comments`, Ruby `Ripper.lex` line/block tokens, and Python `tokenize` extraction including the `#`-inside-a-string exclusion and composition with `{ rev: "base" }`). Ruby's character-offset columns (versus Ripper's byte offsets) and LF-normalized block values are pinned at the serializer level in `tests/engine/ast-support.test.ts`.
+The base-revision and comment surfaces are covered unchanged by the four AST rules above (`rulecontext-shim-derived` governs how the shim is produced, not these surfaces) — neither adds a subprocess site or a guardrail — plus behavioural coverage in `tests/engine/runner-ast-base.test.ts` (base parsing per language, comment-only structural equivalence, throw-vs-null semantics of `ast({ rev: "base" })` versus `fileAtBase()`) and `tests/engine/runner-ast-comments.test.ts` (TS line/block extraction with delimiter-stripped values and original-source `loc`, string-literal awareness, JavaScript, the opt-in-only absence of `comments`, Ruby `Ripper.lex` line/block tokens, and Python `tokenize` extraction including the `#`-inside-a-string exclusion and composition with `{ rev: "base" }`). Ruby's character-offset columns (versus Ripper's byte offsets) and LF-normalized block values are pinned at the serializer level in `tests/engine/ast-support.test.ts`.
 
 ### Manual Enforcement
 

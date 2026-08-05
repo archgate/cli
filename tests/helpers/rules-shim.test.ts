@@ -1,16 +1,105 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  existsSync,
+  readFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
   generateRulesDts,
   generateRulesTemplate,
+  toAmbientDeclarations,
   writeRulesShim,
   ensureRulesShim,
 } from "../../src/helpers/rules-shim";
+import { UserError } from "../../src/helpers/user-error";
+
+/** The single source of truth `generateRulesDts()` derives the shim from. */
+const rulesTypesSource = readFileSync(
+  join(import.meta.dir, "..", "..", "src", "formats", "rules.ts"),
+  "utf8"
+);
+
+/** Every type name `src/formats/rules.ts` exports, paired with its keyword. */
+const exportedDeclarations = [
+  ...rulesTypesSource.matchAll(/^export (type|interface) (\w+)/gmu),
+].map(([, keyword, name]) => [keyword, name] as const);
+
+describe("rules-shim derivation", () => {
+  // The snapshot is the whole `.archgate/rules.d.ts` a governed project
+  // receives, so its diff shows what rule authors will see. Read every hunk
+  // before regenerating with `bun run test --update-snapshots`.
+  test("emits the rules.d.ts a governed project receives", () => {
+    expect(generateRulesDts()).toMatchSnapshot();
+  });
+
+  test("exports at least the documented RuleContext surface", () => {
+    expect(exportedDeclarations.length).toBeGreaterThan(10);
+  });
+
+  test.each(exportedDeclarations)(
+    "declares %s %s ambiently",
+    (keyword, name) => {
+      expect(generateRulesDts()).toContain(`declare ${keyword} ${name}`);
+    }
+  );
+
+  test("carries a member's signature and JSDoc verbatim", () => {
+    // readYAML carries the densest JSDoc on RuleContext, so it is the
+    // strongest single witness that prose travels with the signature.
+    const start = rulesTypesSource.indexOf("  /**\n   * Read a YAML file");
+    const signature = "readYAML(path: string): Promise<ReadYamlResult>;";
+    const signatureStart = rulesTypesSource.indexOf(signature);
+    // Both anchors must resolve: a missing one yields a backwards slice, and
+    // `toContain("")` would pass against anything.
+    expect(start).toBeGreaterThan(0);
+    expect(signatureStart).toBeGreaterThan(start);
+
+    const end = signatureStart + signature.length;
+    expect(generateRulesDts()).toContain(rulesTypesSource.slice(start, end));
+  });
+
+  test("drops line comments and makes exports ambient", () => {
+    const ambient = toAmbientDeclarations(
+      "// SPDX-License-Identifier: Apache-2.0\n" +
+        "\n" +
+        "// --- Section ---\n" +
+        "\n" +
+        "/** Kept. */\n" +
+        "export type Answer = 42;\n"
+    );
+
+    expect(ambient).toBe("/** Kept. */\ndeclare type Answer = 42;\n");
+  });
+
+  test("refuses a top-level import, which would make the shim a module", () => {
+    const derive = () =>
+      toAmbientDeclarations('import type { Severity } from "./adr";\n');
+
+    expect(derive).toThrow(UserError);
+    expect(derive).toThrow(/must not import/u);
+  });
+
+  test("refuses a value export, which has no ambient form", () => {
+    expect(() =>
+      toAmbientDeclarations('export const DEFAULT_SEVERITY = "error";\n')
+    ).toThrow(/must declare only types/u);
+  });
+
+  // Only an edited checkout can reach the throw, so it is the editor's to fix:
+  // UserError keeps it at exit 1 and out of Sentry (ARCH-002).
+  test("reports a value export as user-fixable, not an internal bug", () => {
+    expect(() =>
+      toAmbientDeclarations('export const DEFAULT_SEVERITY = "error";\n')
+    ).toThrow(UserError);
+  });
+});
 
 describe("rules-shim", () => {
   let tempDir: string;

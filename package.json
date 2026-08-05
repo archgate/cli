@@ -52,7 +52,7 @@
     "test": "bun test --timeout 60000",
     "test:coverage": "bun test --timeout 60000 --coverage",
     "test:watch": "bun test --watch --timeout 60000",
-    "typecheck": "tsc --build",
+    "typecheck": "bun run scripts/ensure-rules-dts.ts && tsc --build",
     "validate": "bun run lint && bun run typecheck && bun run format:check && bun run test && bun run check && bun run knip && bun run build:check",
     "validate:coverage": "bun run lint && bun run typecheck && bun run format:check && bun run test:coverage && bun run check && bun run knip && bun run build:check"
   },
