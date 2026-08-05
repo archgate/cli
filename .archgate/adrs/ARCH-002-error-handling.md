@@ -39,6 +39,8 @@ Use four exit codes with clear semantics:
 - Unexpected errors (exit code 2) may include stack traces when `DEBUG` or `TRACE` environment variables are set
 - All error output goes to stderr, never stdout (stdout is reserved for command output and `--json` results)
 
+**Broken output pipe (EPIPE):** a piped consumer closing early (`archgate adr list | head`) is success, not an error. The stream guards installed at CLI startup (`src/helpers/stream-guards.ts`) MUST exit 0 quietly on stdout EPIPE — no logging, no Sentry capture — swallow stderr EPIPE without exiting, and rethrow every other stream error so real bugs still crash loudly.
+
 ## Do's and Don'ts
 
 ### Do
@@ -142,6 +144,7 @@ Code reviewers MUST verify:
 1. Error messages include actionable suggestions where possible
 2. Expected failures exit with code 1, not code 2
 3. No try-catch blocks that swallow errors without logging or re-throwing
+4. `installStreamErrorGuards()` remains the first pre-main guard in `src/cli.ts` after the Bun check — stream `error` listeners must attach before any output is written
 
 ## References
 

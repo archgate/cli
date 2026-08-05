@@ -103,6 +103,18 @@ export async function exitWith(
 }
 
 /**
+ * Quiet exit after the consumer of our output pipe went away (EPIPE). By
+ * pipeline convention (`archgate adr list | head`) a closed reader means
+ * "I have all I need" — success, not an error. Nothing is logged: the
+ * output channel is gone, and stderr may be too.
+ *
+ * @returns Typed `Promise<never>` — control never returns to the caller.
+ */
+export async function exitForBrokenPipe(): Promise<never> {
+  return exitWith(0, { outcome: "cancelled", errorKind: "broken_pipe" });
+}
+
+/**
  * Centralized error handler for command catch blocks (ARCH-012). Helpers
  * throw {@link UserError} for expected failures: those are logged and never
  * sent to Sentry.
@@ -132,6 +144,16 @@ export async function handleCommandError(err: unknown): Promise<never> {
 // ---------------------------------------------------------------------------
 // Error classification
 // ---------------------------------------------------------------------------
+
+/**
+ * Whether an error is a broken-pipe (`EPIPE`) write failure — the reader
+ * side of stdout/stderr closed while the CLI was still writing.
+ *
+ * @param err - The error to inspect, of any shape.
+ */
+export function isEpipeError(err: unknown): boolean {
+  return err instanceof Error && "code" in err && err.code === "EPIPE";
+}
 
 /**
  * Classify an error into a high-level bucket for telemetry.

@@ -37,6 +37,7 @@ import {
   flushSentry,
   initSentry,
 } from "./helpers/sentry";
+import { installStreamErrorGuards } from "./helpers/stream-guards";
 import {
   flushTelemetry,
   initTelemetry,
@@ -53,6 +54,12 @@ if (typeof Bun === "undefined")
   throw new Error(
     "You need to run `archgate` with Bun. Do `bunx archgate [command]`"
   );
+
+// A piped consumer closing early (`archgate ... | head`, an agent harness
+// tearing down) makes stream writes emit EPIPE `error` events; without
+// listeners those escalate to fatal uncaught exceptions. Install before any
+// output happens.
+installStreamErrorGuards();
 
 if (!semver.satisfies(Bun.version, ">=1.2.21")) {
   logError(
