@@ -103,6 +103,18 @@ export async function exitWith(
 }
 
 /**
+ * Quiet exit after the consumer of our output pipe went away (EPIPE). By
+ * pipeline convention (`archgate adr list | head`) a closed reader means
+ * "I have all I need" — success, not an error. Nothing is logged: the
+ * output channel is gone, and stderr may be too.
+ *
+ * @returns Typed `Promise<never>` — control never returns to the caller.
+ */
+export async function exitForBrokenPipe(): Promise<never> {
+  return exitWith(0, { outcome: "cancelled", errorKind: "broken_pipe" });
+}
+
+/**
  * Centralized error handler for command catch blocks (ARCH-012). Helpers
  * throw {@link UserError} for expected failures: those are logged and never
  * sent to Sentry.
@@ -110,12 +122,16 @@ export async function exitWith(
  * @param err - The caught error, of any shape.
  * @throws The original error when it is an `ExitPromptError`, so
  * `main().catch()` handles Ctrl+C as exit 130.
- * @returns Never returns: exits 1 for a {@link UserError}, or captures to
- * Sentry and exits 2 for an unexpected bug.
+ * @returns Never returns: exits 0 for a broken output pipe, 1 for a
+ * {@link UserError}, or captures to Sentry and exits 2 for an unexpected bug.
  * @see {@link exitWith}
  */
 export async function handleCommandError(err: unknown): Promise<never> {
   if (err instanceof Error && err.name === "ExitPromptError") throw err;
+
+  // A synchronously-thrown EPIPE that surfaced through a command's promise
+  // chain — same policy as the stream guards: quiet exit 0, no Sentry.
+  if (isEpipeError(err)) return exitForBrokenPipe();
 
   const errorKind = classifyErrorKind(err);
   const isExpected = err instanceof UserError;
@@ -132,6 +148,16 @@ export async function handleCommandError(err: unknown): Promise<never> {
 // ---------------------------------------------------------------------------
 // Error classification
 // ---------------------------------------------------------------------------
+
+/**
+ * Whether an error is a broken-pipe (`EPIPE`) write failure — the reader
+ * side of stdout/stderr closed while the CLI was still writing.
+ *
+ * @param err - The error to inspect, of any shape.
+ */
+export function isEpipeError(err: unknown): boolean {
+  return err instanceof Error && "code" in err && err.code === "EPIPE";
+}
 
 /**
  * Classify an error into a high-level bucket for telemetry.

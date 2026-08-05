@@ -6,6 +6,7 @@ import {
   beginCommand,
   classifyErrorKind,
   finalizeCommand,
+  isEpipeError,
   _getExitState,
   _resetExitState,
 } from "../../src/helpers/exit";
@@ -64,6 +65,30 @@ describe("exit helper", () => {
       expect(() => {
         finalizeCommand("", 0, "success");
       }).not.toThrow();
+    });
+  });
+
+  describe("isEpipeError", () => {
+    test("matches an errno-style EPIPE write error", () => {
+      const err = Object.assign(new Error("EPIPE: broken pipe, write"), {
+        code: "EPIPE",
+        errno: -32,
+        syscall: "write",
+      });
+      expect(isEpipeError(err)).toBe(true);
+    });
+
+    test("rejects errors with other codes", () => {
+      const err = Object.assign(new Error("EACCES: permission denied"), {
+        code: "EACCES",
+      });
+      expect(isEpipeError(err)).toBe(false);
+    });
+
+    test("rejects errors without a code and non-Error values", () => {
+      expect(isEpipeError(new Error("EPIPE: broken pipe, write"))).toBe(false);
+      expect(isEpipeError("EPIPE")).toBe(false);
+      expect(isEpipeError(null)).toBe(false);
     });
   });
 
