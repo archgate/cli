@@ -32,9 +32,9 @@
     "src/",
     "tests/",
     "lint/",
-    ".archgate/",
+    ".archgate/adrs/*.rules.ts",
     "scripts/",
     "package.json"
   ],
-  "exclude": ["node_modules", "dist", "tsbuild"]
+  "exclude": ["node_modules", "dist", "tsbuild", "tests/fixtures"]
 }
