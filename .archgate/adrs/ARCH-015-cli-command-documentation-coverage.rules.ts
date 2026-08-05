@@ -11,12 +11,12 @@ const EXEMPT_DOC_STEMS = new Set(["index"]);
 
 type EsTreeNode = { type: string } & Record<string, unknown>;
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function isEsTreeNode(value: unknown): value is EsTreeNode {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>).type === "string"
-  );
+  return isPlainObject(value) && typeof value.type === "string";
 }
 
 /** Depth-first walk over an ESTree-shaped tree. */
@@ -66,7 +66,7 @@ export default {
         // name (registerReviewContextCommand -> review-context). Only
         // executable call expressions in the AST count — a call spelled in a
         // comment or string is not a registration.
-        const cliAst = await ctx.ast("src/cli.ts", "typescript");
+        const cliAst: unknown = await ctx.ast("src/cli.ts", "typescript");
         const registered = new Set<string>();
         walk(cliAst, (node) => {
           if (node.type !== "CallExpression") return;
@@ -75,8 +75,10 @@ export default {
           if (typeof callee.name !== "string") return;
           const m = /^register(\w+)Command$/u.exec(callee.name);
           if (m === null) return;
-          const args = Array.isArray(node.arguments) ? node.arguments : [];
-          const arg = args.at(0);
+          const args: unknown[] = Array.isArray(node.arguments)
+            ? node.arguments
+            : [];
+          const arg: unknown = args.at(0);
           if (args.length !== 1 || !isEsTreeNode(arg)) return;
           if (arg.type !== "Identifier" || arg.name !== "program") return;
           registered.add(
