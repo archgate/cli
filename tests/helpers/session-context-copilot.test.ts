@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -343,6 +349,61 @@ describe("readCopilotSession", () => {
 
     const preview = result.data.transcript[0]?.contentPreview ?? "";
     expect(preview).toHaveLength(503); // 500 chars + "..."
-    expect(preview.endsWith("...")).toBe(true);
+    expect(preview).toEndWith("...");
+  });
+
+  test("returns error when the state directory holds no sessions", async () => {
+    const result = await readCopilotSession(projectRoot);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("No session directories found");
+      expect(result.path).toBe(stateDir);
+    }
+  });
+
+  test("list surfaces the discovery error for an empty state directory", async () => {
+    const result = await listCopilotSessions(projectRoot);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("No session directories found");
+      expect(result.path).toBe(stateDir);
+    }
+  });
+
+  test("skips a session directory with no workspace.yaml", async () => {
+    mkdirSync(join(stateDir, `copilot-${uniqueId}-no-meta`), {
+      recursive: true,
+    });
+    const sessionId = `copilot-${uniqueId}-with-meta`;
+    makeSession(sessionId, projectRoot, [
+      JSON.stringify({ type: "user.message", data: { content: "kept" } }),
+    ]);
+
+    const result = await listCopilotSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.sessions.map((s) => s.id)).toEqual([sessionId]);
+  });
+
+  test("ignores an entry whose stat fails (dangling link)", async () => {
+    // A link left behind by a deleted session: readdir still lists it, but
+    // stat follows the link and raises ENOENT. "junction" so the link can be
+    // created unprivileged on Windows; the type is ignored on POSIX.
+    const danglingTarget = mkdtempSync(join(tmpdir(), "archgate-dangling-"));
+    symlinkSync(
+      danglingTarget,
+      join(stateDir, `copilot-${uniqueId}-gone`),
+      "junction"
+    );
+    rmSync(danglingTarget, { recursive: true, force: true });
+    const sessionId = `copilot-${uniqueId}-live`;
+    makeSession(sessionId, projectRoot, [
+      JSON.stringify({ type: "user.message", data: { content: "still here" } }),
+    ]);
+
+    const result = await listCopilotSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.sessions.map((s) => s.id)).toEqual([sessionId]);
   });
 });

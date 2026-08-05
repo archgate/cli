@@ -247,6 +247,21 @@ describe("adr list action handler", () => {
     });
   });
 
+  test("prints 'No ADRs found.' when only .archgate/lint/ marks the project root", async () => {
+    // `.archgate/lint/` alone identifies a project root, so the command runs
+    // with an adrs directory that was never created.
+    mkdirSync(join(tempDir, ".archgate", "lint"), { recursive: true });
+
+    const parent = makeProgram();
+    await parent.parseAsync(["node", "adr", "list"]);
+
+    const allOutput = logSpy.mock.calls
+      .map((c: unknown[]) => String(c[0]))
+      .join("\n");
+    expect(allOutput).toContain("No ADRs found.");
+    expect(exitSpy).not.toHaveBeenCalled();
+  });
+
   test("exits with error when .archgate/ directory is missing", async () => {
     const parent = makeProgram();
 

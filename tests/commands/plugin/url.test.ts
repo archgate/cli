@@ -156,6 +156,42 @@ describe("plugin url action handler", () => {
     }
   });
 
+  test("routes a detection failure through the command error boundary", async () => {
+    const originalIsTTY = process.stdin.isTTY;
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const exitSpy = spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("process.exit");
+    });
+    const detectSpy = spyOn(editorDetect, "detectEditors").mockRejectedValue(
+      new Error("editor probe failed")
+    );
+    try {
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+
+      expect(makeProgram().parseAsync(["node", "test", "url"])).rejects.toThrow(
+        "process.exit"
+      );
+
+      // An unexpected probe failure is a bug, not user error → exit 2.
+      expect(exitSpy.mock.calls.at(-1)?.[0]).toBe(2);
+      const errOut = errorSpy.mock.calls
+        .map((c: unknown[]) => c.map(String).join(" "))
+        .join("\n");
+      expect(errOut).toContain("editor probe failed");
+    } finally {
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: originalIsTTY,
+        configurable: true,
+      });
+      detectSpy.mockRestore();
+      exitSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   test("TTY without --editor detects editors and prints the selected one", async () => {
     const originalIsTTY = process.stdin.isTTY;
     const detectSpy = spyOn(editorDetect, "detectEditors").mockResolvedValue(

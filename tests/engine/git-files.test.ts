@@ -107,6 +107,27 @@ describe("git-files", () => {
         });
       }
     );
+
+    test("prefers the remote HEAD symref over local branches", async () => {
+      await git(["init", "--initial-branch=main"], tempDir);
+      await git(["config", "user.email", "test@test.com"], tempDir);
+      await git(["config", "user.name", "Test"], tempDir);
+      writeFileSync(join(tempDir, "file.ts"), "export const x = 1;");
+      await git(["add", "file.ts"], tempDir);
+      await git(["commit", "-m", "init"], tempDir);
+      // What `git remote set-head origin` writes; no network needed.
+      await git(
+        [
+          "symbolic-ref",
+          "refs/remotes/origin/HEAD",
+          "refs/remotes/origin/trunk",
+        ],
+        tempDir
+      );
+
+      const ref = await detectBaseRef(tempDir);
+      expect(ref).toBe("origin/trunk");
+    });
   });
 
   describe("resolveBaseRef", () => {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import { parseYamlDocument } from "../../src/engine/yaml-utils";
 
@@ -41,6 +41,24 @@ describe("parseYamlDocument — YAML files (.yml/.yaml)", () => {
     expect(() => parseYamlDocument("key: [unclosed", "conf/bad.yml")).toThrow(
       /Failed to parse "conf\/bad\.yml" as YAML/u
     );
+  });
+
+  test("throws when the parse result is not expressible as YAML data", () => {
+    // Bun.YAML.parse is typed `unknown` and the shape guard is what lets the
+    // return type be YamlValue without an assertion. No YAML document
+    // produces such a value today, so the parser is stubbed to prove the
+    // guard reports rather than leaking the value to the caller.
+    const parseSpy = spyOn(Bun.YAML, "parse").mockReturnValue(
+      Symbol("not-yaml-data")
+    );
+
+    try {
+      expect(() => parseYamlDocument("a: 1\n", "conf/x.yml")).toThrow(
+        /Failed to parse "conf\/x\.yml" as YAML: Parsed YAML value has an unsupported shape/u
+      );
+    } finally {
+      parseSpy.mockRestore();
+    }
   });
 });
 

@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 import {
   addCustomDomain,
+  ensureBaseBranch,
   getAllDomainNames,
   getConfiguredStrict,
   getMergedDomainPrefixes,
@@ -136,6 +137,60 @@ describe("project-config", () => {
   test("saveProjectConfig + loadProjectConfig roundtrip", async () => {
     await saveProjectConfig(projectRoot, { domains: { infra: "INFRA" } });
     expect(loadProjectConfig(projectRoot).domains.infra).toBe("INFRA");
+  });
+
+  test("loadProjectConfig returns empty when valid JSON fails the schema", async () => {
+    // Parses fine, so the JSON.parse guard never fires — the schema check is
+    // the only thing standing between a hand-edited config and a bad shape.
+    await Bun.write(
+      join(projectRoot, ".archgate", "config.json"),
+      JSON.stringify({ domains: { infra: 42 } })
+    );
+    expect(loadProjectConfig(projectRoot)).toEqual({ domains: {} });
+  });
+
+  describe("ensureBaseBranch", () => {
+    test("returns the configured branch without invoking the detector", async () => {
+      await saveProjectConfig(projectRoot, {
+        domains: {},
+        baseBranch: "develop",
+      });
+      let detectorCalls = 0;
+      const detect = async (): Promise<string | null> => {
+        detectorCalls++;
+        return "main";
+      };
+
+      expect(await ensureBaseBranch(projectRoot, detect)).toBe("develop");
+      expect(detectorCalls).toBe(0);
+    });
+
+    test("persists the detected branch when unconfigured", async () => {
+      const result = await ensureBaseBranch(projectRoot, async () => "trunk");
+
+      expect(result).toBe("trunk");
+      expect(loadProjectConfig(projectRoot).baseBranch).toBe("trunk");
+    });
+
+    test("saves nothing when detection yields no branch", async () => {
+      const result = await ensureBaseBranch(projectRoot, async () => null);
+
+      expect(result).toBeNull();
+      expect(existsSync(join(projectRoot, ".archgate", "config.json"))).toBe(
+        false
+      );
+    });
+
+    test("returns null when the detector throws (not a git repo)", async () => {
+      const result = await ensureBaseBranch(projectRoot, async () => {
+        throw new Error("not a git repository");
+      });
+
+      expect(result).toBeNull();
+      expect(existsSync(join(projectRoot, ".archgate", "config.json"))).toBe(
+        false
+      );
+    });
   });
 
   describe("getConfiguredStrict", () => {

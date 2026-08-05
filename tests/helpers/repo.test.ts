@@ -240,6 +240,47 @@ describe("repo helper", () => {
       }
     });
 
+    test("prefers the remote HEAD symref over the checked-out branch", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "archgate-repo-symref-"));
+      try {
+        await git(["init", "--initial-branch=feature"], tempDir);
+        await git(["config", "user.email", "test@test.com"], tempDir);
+        await git(["config", "user.name", "Test"], tempDir);
+        await git(["config", "commit.gpgsign", "false"], tempDir);
+        await git(["commit", "--allow-empty", "-m", "init"], tempDir);
+        await git(
+          ["remote", "add", "origin", "https://github.com/foo/bar.git"],
+          tempDir
+        );
+        // Stand in for a `git clone`, which is what normally leaves both the
+        // remote-tracking ref and origin/HEAD behind.
+        await git(["update-ref", "refs/remotes/origin/main", "HEAD"], tempDir);
+        await git(
+          [
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "refs/remotes/origin/main",
+          ],
+          tempDir
+        );
+
+        process.chdir(tempDir);
+        _resetRepoContextCache();
+        const ctx = await getRepoContext();
+
+        // "origin/main" → "main", winning over the checked-out "feature".
+        expect(ctx.defaultBranch).toBe("main");
+        expect(ctx.host).toBe("github");
+        expect(ctx.owner).toBe("foo");
+        expect(ctx.name).toBe("bar");
+        expect(ctx.remoteUrl).toBe("https://github.com/foo/bar.git");
+        expect(ctx.repoId).toBe(hashRepoId("github.com/foo/bar"));
+      } finally {
+        process.chdir(originalCwd);
+        safeRmSync(tempDir);
+      }
+    });
+
     test("returns an empty context when git cannot be spawned", async () => {
       const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
         throw new Error("spawn unavailable");

@@ -10,6 +10,7 @@ import {
   getProjectContext,
   _resetInstallInfoCaches,
 } from "../../src/helpers/install-info";
+import { restoreEnv } from "../test-utils";
 
 describe("install-info", () => {
   afterEach(() => {
@@ -37,6 +38,88 @@ describe("install-info", () => {
       // Both should be valid — the method might differ after reset only if
       // the process paths changed (they don't), so they should be equal.
       expect(first).toBe(second);
+    });
+
+    describe("with a synthetic executable path", () => {
+      // `process.execPath` is the only input to the classification when it
+      // does not name the bun runtime, so pointing it at a fabricated
+      // location exercises each branch without installing anything.
+      let tempHome: string;
+      let originalExecPath: string;
+      let originalHome: string | undefined;
+      let originalProtoHome: string | undefined;
+
+      beforeEach(() => {
+        tempHome = mkdtempSync(join(tmpdir(), "archgate-installmethod-"));
+        originalExecPath = process.execPath;
+        originalHome = Bun.env.HOME;
+        originalProtoHome = Bun.env.PROTO_HOME;
+        Bun.env.HOME = tempHome;
+        delete Bun.env.PROTO_HOME;
+        _resetInstallInfoCaches();
+      });
+
+      afterEach(() => {
+        process.execPath = originalExecPath;
+        restoreEnv("HOME", originalHome);
+        restoreEnv("PROTO_HOME", originalProtoHome);
+        _resetInstallInfoCaches();
+        rmSync(tempHome, { recursive: true, force: true });
+      });
+
+      test("an executable under ~/.archgate/bin is a binary install", () => {
+        process.execPath = join(tempHome, ".archgate", "bin", "archgate");
+        expect(detectInstallMethod()).toBe("binary");
+      });
+
+      test("an executable under PROTO_HOME/tools/archgate is a proto install", () => {
+        const protoHome = join(tempHome, "custom-proto");
+        Bun.env.PROTO_HOME = protoHome;
+        process.execPath = join(
+          protoHome,
+          "tools",
+          "archgate",
+          "1.2.3",
+          "archgate"
+        );
+        expect(detectInstallMethod()).toBe("proto");
+      });
+
+      test("proto detection falls back to ~/.proto when PROTO_HOME is unset", () => {
+        process.execPath = join(
+          tempHome,
+          ".proto",
+          "tools",
+          "archgate",
+          "1.2.3",
+          "archgate"
+        );
+        expect(detectInstallMethod()).toBe("proto");
+      });
+
+      test("an executable inside node_modules is a local install", () => {
+        process.execPath = join(
+          tempHome,
+          "project",
+          "node_modules",
+          ".bin",
+          "archgate"
+        );
+        expect(detectInstallMethod()).toBe("local");
+      });
+
+      test("anything else is a global package-manager install", () => {
+        process.execPath = join(tempHome, "usr", "local", "archgate");
+        expect(detectInstallMethod()).toBe("global-pm");
+      });
+
+      test("the first classification is cached, later path changes ignored", () => {
+        process.execPath = join(tempHome, ".archgate", "bin", "archgate");
+        expect(detectInstallMethod()).toBe("binary");
+
+        process.execPath = join(tempHome, "usr", "local", "archgate");
+        expect(detectInstallMethod()).toBe("binary");
+      });
     });
   });
 
