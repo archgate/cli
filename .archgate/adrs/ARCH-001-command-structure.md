@@ -115,6 +115,7 @@ bun build --compile --bytecode — the command used to produce standalone binari
 // src/cli.ts — GOOD: all async logic wrapped in main()
 import { logError } from "./helpers/log";
 import { exitWith } from "./helpers/exit";
+import { captureException } from "./helpers/sentry";
 import { UserError } from "./helpers/user-error";
 
 // Synchronous bootstrap checks can remain at top level

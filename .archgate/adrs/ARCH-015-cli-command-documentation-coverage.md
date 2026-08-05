@@ -73,7 +73,7 @@ The module layout and `src/cli.ts` registration MUST agree in both directions: e
 
 - **Discoverability guaranteed.** Every command shipped in the CLI has a dedicated, linkable reference page.
 - **Orphan detection.** Docs pages that outlive their command are flagged automatically, keeping the reference section truthful.
-- **Cheap to enforce.** The rule reads directory listings plus one regex pass over `src/cli.ts` — no AST parsing, no `--help` invocation, no cross-process work.
+- **Cheap to enforce.** The rule reads directory listings and walks `src/cli.ts`'s AST for executable register calls (via the in-process parser, ARCH-022) — no `--help` invocation, no cross-process work.
 - **Aligns with existing conventions.** Piggybacks on the `src/commands/<name>.ts` / `src/commands/<name>/index.ts` pattern from ARCH-001 without introducing new metadata.
 - **Composes with GEN-002.** This rule handles command↔EN-doc parity; GEN-002 handles EN↔pt-br parity. Together they guarantee every command has docs in every supported locale.
 
@@ -91,7 +91,7 @@ The module layout and `src/cli.ts` registration MUST agree in both directions: e
 
 ### Automated Enforcement
 
-- **Archgate rule** `ARCH-015/cli-command-has-docs-page`: Enumerates top-level commands under `src/commands/` and `.mdx` pages under `docs/src/content/docs/reference/cli/`, then reports any mismatch in either direction (missing docs, orphan docs). Also cross-checks the module layout against `register*Command(program)` calls in `src/cli.ts`, reporting unregistered modules and register calls without a conventional module path. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
+- **Archgate rule** `ARCH-015/cli-command-has-docs-page`: Enumerates top-level commands under `src/commands/` and `.mdx` pages under `docs/src/content/docs/reference/cli/`, then reports any mismatch in either direction (missing docs, orphan docs). Also cross-checks the module layout against executable `register*Command(program)` call expressions in `src/cli.ts`'s AST, reporting unregistered modules and register calls without a conventional module path. Severity: `error`. Runs as part of `bun run validate` via `archgate check`.
 
 ### Manual Enforcement
 

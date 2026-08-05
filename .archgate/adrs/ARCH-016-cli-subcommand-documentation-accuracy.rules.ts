@@ -83,7 +83,7 @@ export default {
           // capture the command-word sequence after "archgate".
           const documented = new Set<string>();
           for (const line of docsContent.split("\n")) {
-            const heading = /^#{1,4}\s+.*?\barchgate\s+(.+)$/u.exec(line);
+            const heading = /^#{1,6}\s+.*?\barchgate\s+(.+)$/u.exec(line);
             if (heading === null) continue;
             const words: string[] = [];
             for (const token of heading[1].trim().split(/\s+/u)) {

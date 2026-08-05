@@ -57,10 +57,10 @@ Options that require type narrowing beyond plain strings MUST use `new Option()`
 ```typescript
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+import { EDITOR_TARGETS } from "../helpers/init-project";
 
-// The real list is the shared EDITOR_TARGETS constant in
-// src/helpers/init-project.ts — reference it instead of re-hardcoding
-// a literal that drifts when an editor is added.
+// EDITOR_TARGETS is the shared editor list — reference it instead of
+// re-hardcoding a literal that drifts when an editor is added.
 const editorOption = new Option("--editor <editor>", "target editor")
   .choices(EDITOR_TARGETS) // ["claude", "cursor", "vscode", "copilot", "opencode"] as const
   .default("claude" as const);

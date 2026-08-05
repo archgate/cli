@@ -12,7 +12,7 @@ files: ["src/commands/**/*.ts"]
 
 Async command actions that lack try-catch error boundaries produce poor user experiences when they fail. Without explicit error handling:
 
-1. Errors propagate to the top-level `main().catch()` in `cli.ts`, which exits with code 2 (internal error) and shows only the raw error message
+1. Errors propagate to the top-level `main().catch()` in `cli.ts`, which shows only the raw error message and exits with code 2 (internal error) for anything that is not a `UserError` (exit 1) or `ExitPromptError` (exit 130)
 2. Users cannot distinguish between a command failure (code 1) and a CLI bug (code 2)
 3. Error messages lack context about what the command was trying to do
 

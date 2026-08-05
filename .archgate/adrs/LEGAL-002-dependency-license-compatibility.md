@@ -68,7 +68,7 @@ SPDX OR expressions (e.g., `MIT OR Apache-2.0`) are allowed if at least one alte
 
 ### Negative
 
-- **May reject useful packages** — Some high-quality libraries use copyleft licenses (e.g., readline-sync is GPL). These are not accepted regardless of utility.
+- **May reject useful packages** — Some high-quality libraries use copyleft licenses (e.g., the `mariadb` connector is LGPL-2.1-or-later). These are not accepted regardless of utility.
 - **Allowlist maintenance** — Rare or exotic permissive licenses require manual addition to the allowlist
 
 ### Risks

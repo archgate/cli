@@ -9,6 +9,29 @@ const DOCS_DIR = "docs/src/content/docs/reference/cli";
  */
 const EXEMPT_DOC_STEMS = new Set(["index"]);
 
+type EsTreeNode = { type: string } & Record<string, unknown>;
+
+function isEsTreeNode(value: unknown): value is EsTreeNode {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).type === "string"
+  );
+}
+
+/** Depth-first walk over an ESTree-shaped tree. */
+function walk(node: unknown, visit: (n: EsTreeNode) => void): void {
+  if (Array.isArray(node)) {
+    for (const item of node) walk(item, visit);
+    return;
+  }
+  if (typeof node !== "object" || node === null) return;
+  if (isEsTreeNode(node)) visit(node);
+  for (const value of Object.values(node)) {
+    if (Boolean(value) && typeof value === "object") walk(value, visit);
+  }
+}
+
 export default {
   rules: {
     "cli-command-has-docs-page": {
@@ -40,18 +63,26 @@ export default {
 
         // Cross-check src/cli.ts registration against the module layout: per
         // ARCH-001, register<Name>Command(program) kebab-cases to the module
-        // name (registerReviewContextCommand -> review-context). A module
-        // without a register call is dead; a register call without a
-        // conventional module path is invisible to docs coverage (ARCH-016).
-        const cliSource = await ctx.readFile("src/cli.ts");
+        // name (registerReviewContextCommand -> review-context). Only
+        // executable call expressions in the AST count — a call spelled in a
+        // comment or string is not a registration.
+        const cliAst = await ctx.ast("src/cli.ts", "typescript");
         const registered = new Set<string>();
-        for (const m of cliSource.matchAll(
-          /\bregister(\w+)Command\(program\)/gu
-        )) {
+        walk(cliAst, (node) => {
+          if (node.type !== "CallExpression") return;
+          const callee = node.callee;
+          if (!isEsTreeNode(callee) || callee.type !== "Identifier") return;
+          if (typeof callee.name !== "string") return;
+          const m = /^register(\w+)Command$/u.exec(callee.name);
+          if (m === null) return;
+          const args = Array.isArray(node.arguments) ? node.arguments : [];
+          const arg = args.at(0);
+          if (args.length !== 1 || !isEsTreeNode(arg)) return;
+          if (arg.type !== "Identifier" || arg.name !== "program") return;
           registered.add(
             m[1].replaceAll(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
           );
-        }
+        });
 
         for (const name of [...commandNames].sort()) {
           if (!registered.has(name)) {
