@@ -320,6 +320,42 @@ describe("buildReviewContext", () => {
     );
   }
 
+  /**
+   * A rules ADR plus its companion file, so `runChecks: true` takes the real
+   * check path instead of the zero-rules diagnostics-only fallback. The rules
+   * report unconditionally, keeping the assertions independent of git state.
+   */
+  function writeRuleAdr(id: string, domain: AdrDomain) {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    writeFileSync(
+      join(adrsDir, `${id}-rules.md`),
+      `---\nid: ${id}\ntitle: Test ${id}\ndomain: ${domain}\nrules: true\n---\n\n## Decision\nUse ${id}.\n`
+    );
+    writeFileSync(
+      join(adrsDir, `${id}-rules.rules.ts`),
+      `/// <reference path="../rules.d.ts" />
+
+export default {
+  rules: {
+    "reports-warning": {
+      description: "Always reports three warnings",
+      severity: "warning",
+      async check(ctx) {
+        for (const n of [1, 2, 3]) {
+          ctx.report.warning({ message: \`warning \${n}\` });
+        }
+      },
+    },
+    "reports-nothing": {
+      description: "Never reports anything",
+      async check() {},
+    },
+  },
+} satisfies RuleSet;
+`
+    );
+  }
+
   test("returns empty context for non-git temp dir", async () => {
     writeAdr("ARCH-001", "architecture");
     const ctx = await buildReviewContext(tempDir, { runChecks: false });
@@ -358,6 +394,48 @@ describe("buildReviewContext", () => {
     writeAdr("ARCH-001", "architecture");
     const ctx = await buildReviewContext(tempDir, { runChecks: false });
     expect(ctx.truncatedBriefings).toEqual([]);
+  });
+
+  test("runs the loaded rules when a rules ADR has a companion file", async () => {
+    writeRuleAdr("ARCH-100", "architecture");
+    const ctx = await buildReviewContext(tempDir, { runChecks: true });
+    expect(ctx.checkSummary).not.toBeNull();
+    expect(ctx.checkSummary!.total).toBe(2);
+    expect(ctx.checkSummary!.warnings).toBe(3);
+    expect(ctx.checkSummary!.pass).toBe(true);
+  });
+
+  // Same projection reportJSON applies: only rules with findings survive, and
+  // a warning-only rule is status "pass" with a non-empty violations[].
+  test("keeps only rules with findings in the check summary", async () => {
+    writeRuleAdr("ARCH-101", "architecture");
+    const ctx = await buildReviewContext(tempDir, { runChecks: true });
+    expect(ctx.checkSummary!.results).toHaveLength(1);
+    expect(ctx.checkSummary!.results[0].ruleId).toBe("reports-warning");
+    expect(ctx.checkSummary!.results[0].status).toBe("pass");
+    expect(ctx.checkSummary!.results[0].violations).toHaveLength(3);
+  });
+
+  test("threads maxViolationsPerRule into the summary it builds", async () => {
+    writeRuleAdr("ARCH-102", "architecture");
+    const ctx = await buildReviewContext(tempDir, {
+      runChecks: true,
+      maxViolationsPerRule: 2,
+    });
+    expect(ctx.checkSummary!.truncated).toBe(true);
+    expect(ctx.checkSummary!.results[0].totalViolations).toBe(3);
+    expect(ctx.checkSummary!.results[0].shownViolations).toBe(2);
+  });
+
+  // ARCH-026: strict escalates rule-severity warnings from the real check path.
+  test("threads strict into the summary it builds", async () => {
+    writeRuleAdr("ARCH-103", "architecture");
+    const ctx = await buildReviewContext(tempDir, {
+      runChecks: true,
+      strict: true,
+    });
+    expect(ctx.checkSummary!.warningsExceeded).toBe(true);
+    expect(ctx.checkSummary!.pass).toBe(false);
   });
 });
 

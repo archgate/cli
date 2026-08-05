@@ -1,0 +1,169 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+  type Mock,
+} from "bun:test";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { cursorUserDir } from "../../src/helpers/paths";
+import * as platform from "../../src/helpers/platform";
+import { installCursorPlugin } from "../../src/helpers/plugin-install";
+import { restoreEnv } from "../test-utils";
+
+/** Deliberately incomplete fake Subprocess: run() reads only these fields. */
+function fakeTarSuccess(): ReturnType<typeof Bun.spawn> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return {
+    stdout: new Response("").body,
+    stderr: new Response("").body,
+    exited: Promise.resolve(0),
+  } as unknown as ReturnType<typeof Bun.spawn>;
+}
+
+/**
+ * `installCursorPlugin`'s hooks.json merge step. Lives beside
+ * `plugin-install.test.ts` (download/extract paths) to stay under `max-lines`.
+ * The tarball normally supplies `hooks.json`; `tar` is stubbed here, so each
+ * test seeds the file the extraction would have produced.
+ */
+describe("installCursorPlugin hooks.json merge", () => {
+  let originalFetch: typeof globalThis.fetch;
+  let spawnSpy: Mock<typeof Bun.spawn>;
+  let resolveCommandSpy: Mock<typeof platform.resolveCommand>;
+  let tempHome: string;
+  let savedHome: string | undefined;
+
+  const archgateHookCommand =
+    "archgate check ${filePath} --json 2>/dev/null || true";
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    resolveCommandSpy = spyOn(platform, "resolveCommand").mockImplementation(
+      async () => null
+    );
+    spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeTarSuccess());
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () => ({
+      status: 200,
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(32),
+    })) as unknown as typeof fetch;
+
+    // Redirect ~/.cursor and ~/.archgate into a temp dir — the install deletes
+    // stale archgate files and rewrites hooks.json under cursorUserDir(), which
+    // resolves HOME at call time. Never point these at the real user home.
+    tempHome = mkdtempSync(join(tmpdir(), "archgate-cursor-hooks-"));
+    savedHome = Bun.env.HOME;
+    Bun.env.HOME = tempHome;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    spawnSpy.mockRestore();
+    resolveCommandSpy.mockRestore();
+    mock.restore();
+
+    restoreEnv("HOME", savedHome);
+    rmSync(tempHome, { recursive: true, force: true });
+  });
+
+  /** Seed `~/.cursor/hooks.json` with raw text, as extraction would. */
+  function seedHooksFile(contents: string): string {
+    const cursorDir = cursorUserDir();
+    mkdirSync(cursorDir, { recursive: true });
+    const hooksPath = join(cursorDir, "hooks.json");
+    writeFileSync(hooksPath, contents);
+    return hooksPath;
+  }
+
+  function readHooksFile(hooksPath: string): string {
+    return readFileSync(hooksPath, "utf-8");
+  }
+
+  test("keeps user hooks and replaces a stale archgate hook", async () => {
+    const hooksPath = seedHooksFile(
+      JSON.stringify([
+        { event: "beforeShellExecution", type: "command", command: "my-audit" },
+        {
+          event: "afterFileEdit",
+          type: "command",
+          command: "archgate check --old-flag",
+        },
+      ])
+    );
+
+    await installCursorPlugin("test-token");
+
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const merged = JSON.parse(readHooksFile(hooksPath)) as {
+      event: string;
+      type?: string;
+      command?: string;
+    }[];
+
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toEqual({
+      event: "beforeShellExecution",
+      type: "command",
+      command: "my-audit",
+    });
+    expect(merged[1]).toEqual({
+      event: "afterFileEdit",
+      type: "command",
+      command: archgateHookCommand,
+    });
+  });
+
+  test("appends the archgate hook when none is present", async () => {
+    const hooksPath = seedHooksFile(
+      JSON.stringify([{ event: "afterFileEdit" }])
+    );
+
+    await installCursorPlugin("test-token");
+
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const merged = JSON.parse(readHooksFile(hooksPath)) as {
+      command?: string;
+    }[];
+
+    expect(merged).toHaveLength(2);
+    expect(merged.map((h) => h.command)).toEqual([
+      undefined,
+      archgateHookCommand,
+    ]);
+  });
+
+  test("leaves a malformed hooks.json untouched", async () => {
+    const malformed = "{ not valid json";
+    const hooksPath = seedHooksFile(malformed);
+
+    await installCursorPlugin("test-token");
+
+    expect(readHooksFile(hooksPath)).toBe(malformed);
+  });
+
+  test("leaves a hooks.json with an unexpected shape untouched", async () => {
+    // Valid JSON, wrong shape: the schema expects an array of hook entries.
+    const wrongShape = JSON.stringify({ hooks: [{ event: "afterFileEdit" }] });
+    const hooksPath = seedHooksFile(wrongShape);
+
+    await installCursorPlugin("test-token");
+
+    expect(readHooksFile(hooksPath)).toBe(wrongShape);
+  });
+});

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, afterEach, beforeEach } from "bun:test";
+import { describe, expect, test, afterEach, beforeEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,7 +11,19 @@ import {
   parseRemoteUrl,
   shouldShareRepoIdentity,
   _resetRepoContextCache,
+  type ParsedRemote,
 } from "../../src/helpers/repo";
+import { git, safeRmSync } from "../test-utils";
+
+const EMPTY_CONTEXT = {
+  isGit: false,
+  host: null,
+  owner: null,
+  name: null,
+  repoId: null,
+  remoteUrl: null,
+  defaultBranch: null,
+};
 
 describe("repo helper", () => {
   let originalCwd: string;
@@ -111,12 +123,44 @@ describe("repo helper", () => {
       expect(ssh.normalized).toBe(vs.normalized);
     });
 
-    test("returns all-null on garbage input", () => {
-      const parsed = parseRemoteUrl("not a url");
-      expect(parsed.host).toBeNull();
-      expect(parsed.owner).toBeNull();
-      expect(parsed.name).toBeNull();
-    });
+    const ALL_NULL: ParsedRemote = {
+      host: null,
+      owner: null,
+      name: null,
+      normalized: null,
+    };
+
+    const unparsableCases: {
+      label: string;
+      raw: string;
+      expected: ParsedRemote;
+    }[] = [
+      { label: "garbage input", raw: "not a url", expected: ALL_NULL },
+      { label: "an empty string", raw: "", expected: ALL_NULL },
+      { label: "whitespace only", raw: "   ", expected: ALL_NULL },
+      {
+        label: "a bare origin with no path",
+        raw: "https://github.com",
+        expected: ALL_NULL,
+      },
+      {
+        label: "a single-segment HTTPS path",
+        raw: "https://github.com/foo",
+        expected: { host: "github", owner: null, name: null, normalized: null },
+      },
+      {
+        label: "a single-segment SCP path",
+        raw: "git@github.com:foo",
+        expected: { host: "github", owner: null, name: null, normalized: null },
+      },
+    ];
+
+    test.each(unparsableCases)(
+      "yields no owner/name for $label",
+      ({ raw, expected }) => {
+        expect(parseRemoteUrl(raw)).toEqual(expected);
+      }
+    );
   });
 
   describe("hashRepoId", () => {
@@ -165,6 +209,47 @@ describe("repo helper", () => {
         // delete a directory that is a process's CWD.
         process.chdir(originalCwd);
         rmSync(tempDir, { recursive: true, force: true });
+      }
+    });
+
+    test("reports isGit with no remote, falling back to the checked-out branch", async () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "archgate-repo-noremote-"));
+      try {
+        await git(["init", "--initial-branch=trunk"], tempDir);
+        // CI has no global git identity, and a global signing config would
+        // otherwise fail the commit below.
+        await git(["config", "user.email", "test@test.com"], tempDir);
+        await git(["config", "user.name", "Test"], tempDir);
+        await git(["config", "commit.gpgsign", "false"], tempDir);
+        await git(["commit", "--allow-empty", "-m", "init"], tempDir);
+
+        process.chdir(tempDir);
+        _resetRepoContextCache();
+        const ctx = await getRepoContext();
+
+        // No origin means no remote HEAD symref, so defaultBranch comes from
+        // `rev-parse --abbrev-ref HEAD` instead.
+        expect(ctx).toEqual({
+          ...EMPTY_CONTEXT,
+          isGit: true,
+          defaultBranch: "trunk",
+        });
+      } finally {
+        process.chdir(originalCwd);
+        safeRmSync(tempDir);
+      }
+    });
+
+    test("returns an empty context when git cannot be spawned", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        throw new Error("spawn unavailable");
+      });
+      try {
+        _resetRepoContextCache();
+
+        expect(await getRepoContext()).toEqual(EMPTY_CONTEXT);
+      } finally {
+        spawnSpy.mockRestore();
       }
     });
 

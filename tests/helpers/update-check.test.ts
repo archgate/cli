@@ -6,16 +6,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  checkForUpdatesIfNeeded,
   maybeCheckForUpdates,
   shouldPerformUpdateCheck,
 } from "../../src/helpers/update-check";
 import { restoreEnv } from "../test-utils";
 
-// Tests re-import the module with a cache-busting query string to get a
-// fresh copy per test (module-level state isolation). The dynamic import
-// specifier is a template literal, so TS can't resolve its type — assert
-// it back to the real module's shape via the static (non-templated) path.
-type UpdateCheckModule = typeof import("../../src/helpers/update-check");
+// The module holds no mutable state, and every path it reads (HOME,
+// globalThis.fetch) is resolved at call time, so one static import serves
+// every test. A cache-busting `?t=` specifier would instead create a second
+// module instance whose execution is not attributed to the real source file.
 
 describe("shouldPerformUpdateCheck", () => {
   test("true in a genuine interactive terminal", () => {
@@ -62,11 +62,13 @@ describe("shouldPerformUpdateCheck", () => {
 describe("checkForUpdatesIfNeeded", () => {
   let tempDir: string;
   let originalHome: string | undefined;
+  let originalFetch: typeof globalThis.fetch;
   const originalBunWrite = Bun.write;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-update-check-test-"));
     originalHome = process.env.HOME;
+    originalFetch = globalThis.fetch;
     process.env.HOME = tempDir;
   });
 
@@ -77,6 +79,8 @@ describe("checkForUpdatesIfNeeded", () => {
       /* temp dir may already be removed */
     }
     restoreEnv("HOME", originalHome);
+    // mock.restore() does not undo a direct assignment (ARCH-005).
+    globalThis.fetch = originalFetch;
     Bun.write = originalBunWrite;
     mock.restore();
   });
@@ -88,12 +92,6 @@ describe("checkForUpdatesIfNeeded", () => {
     globalThis.fetch = (async () => {
       throw new Error("network error");
     }) as unknown as typeof fetch;
-
-    // Import after mock setup to get fresh module in test context
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
 
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
@@ -107,11 +105,6 @@ describe("checkForUpdatesIfNeeded", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
-
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
   });
@@ -123,11 +116,6 @@ describe("checkForUpdatesIfNeeded", () => {
     }));
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
 
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).not.toBeNull();
@@ -145,11 +133,6 @@ describe("checkForUpdatesIfNeeded", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
-
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
   });
@@ -158,11 +141,6 @@ describe("checkForUpdatesIfNeeded", () => {
     const mockFetch = mock(async () => ({ ok: true, json: async () => ({}) }));
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
 
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
@@ -174,11 +152,6 @@ describe("checkForUpdatesIfNeeded", () => {
     const fetchSpy = mock(async () => ({ ok: true }));
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
-
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
 
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
@@ -194,11 +167,6 @@ describe("checkForUpdatesIfNeeded", () => {
     }));
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
-
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
 
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toContain("0.2.0");
@@ -221,11 +189,6 @@ describe("checkForUpdatesIfNeeded", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
-
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toContain("0.3.0");
     expect(mockFetch).toHaveBeenCalled();
@@ -244,11 +207,6 @@ describe("checkForUpdatesIfNeeded", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
-
     const result = await checkForUpdatesIfNeeded("not-a-version");
     expect(result).toBeNull();
   });
@@ -264,11 +222,6 @@ describe("checkForUpdatesIfNeeded", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { checkForUpdatesIfNeeded } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
-
     // The outer try/catch should swallow the write error and return null
     const result = await checkForUpdatesIfNeeded("0.1.0");
     expect(result).toBeNull();
@@ -281,6 +234,7 @@ describe("maybeCheckForUpdates", () => {
   let originalIsTTY: boolean | undefined;
   let originalCI: string | undefined;
   let originalArgv: string[];
+  let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-maybe-update-test-"));
@@ -288,6 +242,7 @@ describe("maybeCheckForUpdates", () => {
     originalIsTTY = process.stdout.isTTY;
     originalCI = Bun.env.CI;
     originalArgv = process.argv;
+    originalFetch = globalThis.fetch;
   });
 
   afterEach(() => {
@@ -296,6 +251,8 @@ describe("maybeCheckForUpdates", () => {
     } catch {
       /* temp dir may already be removed */
     }
+    // mock.restore() does not undo a direct assignment (ARCH-005).
+    globalThis.fetch = originalFetch;
     restoreEnv("HOME", originalHome);
     Object.defineProperty(process.stdout, "isTTY", {
       value: originalIsTTY,
@@ -340,12 +297,7 @@ describe("maybeCheckForUpdates", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const { maybeCheckForUpdates: freshMaybeCheckForUpdates } = (await import(
-      `../../src/helpers/update-check?t=${Date.now()}`
-    )) as UpdateCheckModule;
-
-    const result = await freshMaybeCheckForUpdates("0.1.0");
+    const result = await maybeCheckForUpdates("0.1.0");
     expect(result).toContain("0.1.0");
     expect(result).toContain("0.2.0");
   });

@@ -14,8 +14,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
+import { z } from "zod";
 
 import { registerDomainCommand } from "../../../../src/commands/adr/domain/index";
+
+const DomainRemoveJsonSchema = z.object({
+  domain: z.string(),
+  removed: z.boolean(),
+});
 
 function makeProgram(): Command {
   const adr = new Command("adr").exitOverride();
@@ -73,5 +79,41 @@ describe("adr domain remove", () => {
     await program.parseAsync(["node", "adr", "domain", "remove", "ghost"]);
     const out = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(out).toContain("not registered");
+  });
+
+  test("--json reports the removal", async () => {
+    const p1 = makeProgram();
+    await p1.parseAsync(["node", "adr", "domain", "add", "security", "SEC"]);
+
+    logSpy.mockClear();
+    const p2 = makeProgram();
+    await p2.parseAsync([
+      "node",
+      "adr",
+      "domain",
+      "remove",
+      "security",
+      "--json",
+    ]);
+    const parsed = DomainRemoveJsonSchema.parse(
+      JSON.parse(logSpy.mock.calls.map((c) => String(c[0])).join("\n"))
+    );
+    expect(parsed).toEqual({ domain: "security", removed: true });
+  });
+
+  test("--json reports a missing entry as not removed", async () => {
+    const program = makeProgram();
+    await program.parseAsync([
+      "node",
+      "adr",
+      "domain",
+      "remove",
+      "ghost",
+      "--json",
+    ]);
+    const parsed = DomainRemoveJsonSchema.parse(
+      JSON.parse(logSpy.mock.calls.map((c) => String(c[0])).join("\n"))
+    );
+    expect(parsed).toEqual({ domain: "ghost", removed: false });
   });
 });

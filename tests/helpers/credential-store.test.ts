@@ -170,25 +170,19 @@ describe("credential-store", () => {
   });
 
   describe("credential fill with store helper", () => {
-    // This test depends on git credential store + fill round-tripping
-    // correctly with env var overrides. The credential-store module's
-    // gitCredentialEnv() spreads Bun.env at call time and the store helper
-    // interaction differs across platforms. Skipped until we can reliably
-    // isolate the credential helper in all CI environments.
-    test.skip("round-trips credentials through a file-based credential helper", async () => {
-      // Configure a simple store-based credential helper that persists
-      // credentials to a file. This lets us exercise the approve→fill→reject
-      // cycle end-to-end without touching the OS credential manager.
-      const storePath = join(tempDir, "git-credentials");
+    test("round-trips credentials through a file-based credential helper", async () => {
+      // A store-based helper persists to a plain file, exercising the
+      // approve→fill→reject cycle end-to-end without touching the OS
+      // credential manager. Backslashes are escape characters in a git config
+      // value, so the Windows temp path is written with forward slashes.
+      const storePath = join(tempDir, "git-credentials").replaceAll("\\", "/");
       const gitConfig = join(tempDir, ".gitconfig");
       writeFileSync(
         gitConfig,
-        `[credential]\n  helper = store --file=${storePath}\n`
+        `[credential]\n\thelper = store --file=${storePath}\n`
       );
-      // Point git at our custom config so the store helper is used
       Bun.env.GIT_CONFIG_GLOBAL = gitConfig;
 
-      // Save should succeed and be verifiable
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
         await saveCredentials({
@@ -205,13 +199,88 @@ describe("credential-store", () => {
       }
 
       const loaded = await loadCredentials();
-      expect(loaded).not.toBeNull();
-      expect(loaded!.token).toBe("ag_beta_roundtrip");
-      expect(loaded!.github_user).toBe("rounduser");
+      expect(loaded).toEqual({
+        token: "ag_beta_roundtrip",
+        github_user: "rounduser",
+      });
 
       await clearCredentials();
-      const afterClear = await loadCredentials();
-      expect(afterClear).toBeNull();
+      expect(await loadCredentials()).toBeNull();
+    });
+  });
+
+  describe("git credential subprocess failures", () => {
+    /**
+     * Fake Subprocess whose stdout never closes and whose exit never settles,
+     * so `gitCredentialFill` loses its race against the 3s timeout.
+     */
+    function neverSettlingProc(
+      onKill: () => void
+    ): ReturnType<typeof Bun.spawn> {
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
+        stdout: new ReadableStream<Uint8Array>({ start() {} }),
+        stderr: new ReadableStream<Uint8Array>({ start() {} }),
+        exited: new Promise<number>(() => {}),
+        kill: onKill,
+      } as unknown as ReturnType<typeof Bun.spawn>;
+    }
+
+    test("kills the fill subprocess and returns null when it exceeds the timeout", async () => {
+      let killed = false;
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        neverSettlingProc(() => {
+          killed = true;
+        })
+      );
+      try {
+        expect(await loadCredentials()).toBeNull();
+        expect(killed).toBe(true);
+      } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+
+    test("returns null when the fill subprocess cannot be spawned", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        throw new Error("spawn unavailable");
+      });
+      try {
+        expect(await loadCredentials()).toBeNull();
+      } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+
+    test("warns when git credential approve exits non-zero", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return {
+          stdout: new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          stderr: new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.close();
+            },
+          }),
+          exited: Promise.resolve(1),
+          kill: () => {},
+        } as unknown as ReturnType<typeof Bun.spawn>;
+      });
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        await saveCredentials({ token: "ag_beta_x", github_user: "u" });
+
+        expect(warnSpy.mock.calls.flat().join(" ")).toContain(
+          "git credential approve failed."
+        );
+      } finally {
+        warnSpy.mockRestore();
+        spawnSpy.mockRestore();
+      }
     });
   });
 

@@ -20,7 +20,7 @@ Bun's built-in test runner (`bun test`) provides a Jest-compatible API, native T
 
 ## Decision
 
-Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `tests/`, mirroring `src/`; fixtures live in `tests/fixtures/`. Target 90% code coverage, enforced in CI.
+Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `tests/`, mirroring `src/`; fixtures live in `tests/fixtures/`. Target 95% code coverage, enforced in CI.
 
 **Key conventions:**
 
@@ -28,7 +28,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 2. **Fixtures in `tests/fixtures/`** — sample ADR files and mock codebases are shared across suites.
 3. **Temp directories for filesystem tests** — tests that write files use `mkdtemp` for isolation and clean up in `afterEach` or `afterAll`.
 4. **Test file naming** — `<module-name>.test.ts`.
-5. **Coverage target: 90%** — enforced in CI. PRs that drop total line coverage below 90% are blocked by the `Validate Code` gate check.
+5. **Coverage target: 95%** — enforced in CI. PRs that drop total line coverage below 95% are blocked by the `Validate Code` gate check.
 6. **Isolation is the test author's job** — Bun runs every test file in one process, so environment writes, `mock.module()` calls, and un-restored spies escape into later files and produce order-dependent flakes. Restore env vars with `restoreEnv()`, mock first-party modules with `spyOn` over an `import * as mod` namespace, and keep every write inside a `mkdtemp` directory.
 7. **Mock `os.homedir()`, never `HOME`** — Bun caches `os.homedir()` on Linux, so a runtime `HOME` override is silently ignored and the code under test resolves the REAL home directory. Env-var overrides remain valid ONLY for code that reads `Bun.env.*` at call time (`vscode-settings.ts`'s `APPDATA` branch, the `paths.ts` helpers documented as "resolved at call time"). Production code MUST NOT be rewritten to read `Bun.env.HOME` just to make an env override work.
 8. **Per-test timeouts only ever raise the global** — the suite runs `bun test --timeout 60000`, so a shorter override such as `}, 30_000` makes that test _more_ likely to time out, not less.
@@ -153,7 +153,7 @@ afterEach(() => {
 - **Familiar API** — the Jest-compatible `describe`/`it`/`expect` surface and `bun test --watch` need no onboarding.
 - **Fixtures are reusable** — a shared `tests/fixtures/` directory provides consistent sample data across suites.
 - **Same runtime for tests and production** — no behavior discrepancies from testing in Node.js while shipping on Bun.
-- **Lint-enforced test hygiene** — custom oxlint plugins catch assertion-less tests and unguarded env restores before CI runs the suite.
+- **Lint-enforced test hygiene** — custom oxlint plugins catch assertion-less tests, unguarded env restores, and first-party module mocks before CI runs the suite.
 
 ### Negative
 
@@ -166,7 +166,7 @@ afterEach(() => {
 - **Bun test runner API changes** — newer APIs may still evolve between minor versions.
   - **Mitigation:** the project pins a Bun version via `.prototools`; API changes surface during controlled upgrades with full suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may misreport code paths, especially dynamically imported modules.
-  - **Mitigation:** the 90% threshold is enforced on total line coverage, not per-file, and critical modules (engine, formats) are tested thoroughly regardless of the aggregate.
+  - **Mitigation:** the 95% threshold is enforced on total line coverage, not per-file, and critical modules (engine, formats) are tested thoroughly regardless of the aggregate.
 - **Cross-file pollution from shared process state** — leaked env vars, leaked spies, and writes to real user-scope paths (`~/.config/Code/User/settings.json`, `%APPDATA%`, `~/.cursor/`, `~/.config/opencode/`) produce order-dependent flakes that pass on a PR run and fail after merge with identical code. `Bun.env.NODE_ENV` left unset instead of set to `"test"` before Sentry initializes is the same class of leak — the SDK sets `enabled: Bun.env.NODE_ENV !== "test"`.
   - **Mitigation:** `restoreEnv()` for every env capture, `try/finally` around inline spies, and an `os.homedir()` spy that keeps writes inside a `mkdtemp` directory; `test-isolation/no-bare-env-restore` blocks the env variant at lint time.
 - **Platform-specific hangs and timeouts** — an external SDK instance left open keeps Bun's event loop alive on Linux and hangs `bun test` after every test passes, while slow Windows CI filesystems let large fixtures blow the per-test timeout and kill the staging subprocess (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM). Neither reproduces on macOS or locally.
@@ -179,9 +179,10 @@ afterEach(() => {
 - **Archgate rule** `ARCH-005/test-mirrors-src`: scans `src/` and verifies a corresponding `.test.ts` file exists in `tests/`. Severity: `error`.
 - **oxlint plugin** `bun-test/expect-expect` (`lint/expect-expect.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any runnable `test()`/`it()` (including `test.skipIf(...)()` and `test.each(...)()`) whose body contains no `expect()` call, while ignoring `test.skip` and `test.todo`. oxlint's built-in `jest/expect-expect` recognizes only `jest`/`vitest` imports, so it does not cover `bun:test` — this plugin fills that gap.
 - **oxlint plugin** `test-isolation/no-bare-env-restore` (`lint/no-bare-env-restore.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any `Bun.env.NAME = <identifier>` or `process.env.NAME = <identifier>` assignment whose identifier was itself captured from an env read earlier in the same file (e.g. `const originalHome = Bun.env.HOME`). Tracking the capture rather than a naming convention such as `original*` is what separates a restore from an override — both are spelled alike, so `Bun.env.HOME = tempDir` is deliberately left alone, as is computed access (`Bun.env[key]`), which is the shape of the `restoreEnv` helper itself.
-- Both plugins are registered via `jsPlugins` in `.oxlintrc.json` and run as part of `bun run lint` (and therefore `bun run validate` and CI).
+- **oxlint plugin** `test-mocking/no-first-party-module-mock` (`lint/no-first-party-module-mock.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any `mock.module()` whose specifier is relative and carries a `src` path segment, while leaving third-party specifiers (`inquirer`, `node:readline`) alone. oxlint is the right layer for this Don't: the call is syntax-detectable from its specifier, and because `mock.module` is process-global and retroactive, an instance in one file corrupts files that never mention it — a defect no file-by-file review can see. Each plugin file MUST declare a `meta.name` no other plugin uses; a duplicate name silently drops the later file's rules, and oxlint then rejects the config with "Rule not found in plugin".
+- All three plugins are registered via `jsPlugins` in `.oxlintrc.json` and run as part of `bun run lint` (and therefore `bun run validate` and CI).
 - **CI pipeline**: `bun test --timeout 60000` runs on every pull request. Test failures and per-test timeouts block merge, and all workflow jobs set `timeout-minutes` to prevent indefinite hangs.
-- **Coverage threshold**: the `Coverage Report` job enforces a 90% minimum line coverage; below that it fails and the `Validate Code` gate blocks the PR.
+- **Coverage threshold**: the `Coverage Report` job enforces a 95% minimum line coverage; below that it fails and the `Validate Code` gate blocks the PR.
 
 ### Manual Enforcement
 

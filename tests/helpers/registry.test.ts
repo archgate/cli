@@ -1,11 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { detectTarget, resolveSource } from "../../src/helpers/registry";
+
+/** Await a rejection and hand back its message for assertions. */
+async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
+  try {
+    await promise;
+  } catch (err: unknown) {
+    return err instanceof Error ? err.message : String(err);
+  }
+  throw new Error("expected the promise to reject");
+}
 
 describe("resolveSource", () => {
   test("resolves official registry path", () => {
@@ -262,22 +278,40 @@ describe("detectTarget", () => {
     }
   });
 
-  test("throws descriptive error when directory exists but is not a valid target", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
-    mkdirSync(join(tempDir, "empty-dir"));
+  const invalidTargetCases = [
+    {
+      label: "escapes the repository root",
+      subpath: "../outside",
+      expected: /escapes the repository root/u,
+    },
+    {
+      label: "does not exist in the clone",
+      subpath: "nonexistent",
+      expected: /does not exist in the repository/u,
+    },
+    {
+      label: "exists but carries no pack manifest",
+      subpath: "empty-dir",
+      expected: /exists but is not a valid import target/u,
+    },
+    {
+      label: "resolves to a directory whose .md sibling is absent",
+      subpath: "empty-dir/deeper",
+      expected: /does not exist in the repository/u,
+    },
+  ];
 
-    expect(detectTarget(tempDir, "empty-dir")).rejects.toThrow(
-      /exists but is not a valid import target/u
-    );
-  });
+  test.each(invalidTargetCases)(
+    "rejects a subpath that $label",
+    async ({ subpath, expected }) => {
+      tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
+      mkdirSync(join(tempDir, "empty-dir"));
 
-  test("throws descriptive error when subpath does not exist", async () => {
-    tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
-
-    expect(detectTarget(tempDir, "nonexistent")).rejects.toThrow(
-      /does not exist in the repository/u
-    );
-  });
+      expect(await rejectionMessage(detectTarget(tempDir, subpath))).toMatch(
+        expected
+      );
+    }
+  );
 
   test("lists available packs when official registry pack is not found", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
@@ -304,6 +338,42 @@ describe("detectTarget", () => {
       if (err instanceof Error) {
         expect(err.message).toContain("not found in the official registry");
         expect(err.message).toContain("packs/typescript-strict");
+      }
+    }
+  });
+
+  test("skips registry entries that cannot be stat'ed when listing packs", async () => {
+    tempDir = mkdtempSync(join(tmpdir(), "archgate-registry-test-"));
+    const packsDir = join(tempDir, "packs");
+    const validPack = join(packsDir, "typescript-strict");
+    mkdirSync(validPack, { recursive: true });
+    writeFileSync(
+      join(validPack, "archgate-pack.yaml"),
+      [
+        "name: typescript-strict",
+        "version: 1.0.0",
+        "description: Strict TS",
+        "maintainers:",
+        "  - github: testuser",
+      ].join("\n")
+    );
+
+    // A dangling link inside packs/ is returned by readdir but throws ENOENT
+    // on stat. The `junction` type is honoured on Windows and ignored
+    // elsewhere, so the same two lines produce a broken link on every OS.
+    const linkTarget = join(packsDir, "gone");
+    mkdirSync(linkTarget);
+    symlinkSync(linkTarget, join(packsDir, "broken"), "junction");
+    rmSync(linkTarget, { recursive: true, force: true });
+
+    try {
+      await detectTarget(tempDir, "packs/nonexistent", "official");
+      expect.unreachable("Should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      if (err instanceof Error) {
+        expect(err.message).toContain("packs/typescript-strict");
+        expect(err.message).not.toContain("packs/broken");
       }
     }
   });

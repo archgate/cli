@@ -35,6 +35,8 @@ A loop is "standing in for `test.each()`" when either:
 
 A loop that only builds shared setup data or fixtures for a single overall assertion is not covered by this decision.
 
+**Runtime-derived collections:** when the iterated collection is produced at runtime — parsed from command output, gathered by a filesystem scan, or returned by the code under test — `test.each()` does not apply, because the rows do not exist at registration time. Such a loop MUST NOT carry a test's only `expect()`: an empty collection runs the body zero times, so the test asserts nothing and passes even when the behavior under test is entirely broken. Assert the collection itself instead — `expect(names).toEqual([...])`, or a length assertion — so an empty result fails. `bun-test/expect-expect` does not catch this, because the `expect()` call is lexically present.
+
 ## Do's and Don'ts
 
 ### Do
