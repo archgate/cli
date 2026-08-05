@@ -43,8 +43,8 @@ describe("rules-shim derivation", () => {
   );
 
   test("carries a member's signature and JSDoc verbatim", () => {
-    // readYAML is the member whose JSDoc drifted from the interface while the
-    // shim was transcribed by hand (issue #511).
+    // readYAML carries the densest JSDoc on RuleContext, so it is the
+    // strongest single witness that prose travels with the signature.
     const start = rulesTypesSource.indexOf("  /**\n   * Read a YAML file");
     const signature = "readYAML(path: string): Promise<ReadYamlResult>;";
     const end = rulesTypesSource.indexOf(signature) + signature.length;
