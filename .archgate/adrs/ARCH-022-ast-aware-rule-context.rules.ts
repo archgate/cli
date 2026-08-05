@@ -235,28 +235,19 @@ export default {
     },
     "rulecontext-shim-derived": {
       description:
-        "The ambient rules.d.ts shim must be derived from src/formats/rules.ts, never transcribed — a hand-copied shim silently hands rule authors wrong types",
+        "src/helpers/rules-shim.ts must derive the ambient rules.d.ts from src/formats/rules.ts through the rules-source macro, never transcribe it — a hand-copied shim silently hands rule authors wrong types",
       severity: "error",
       async check(ctx) {
-        const [valueExports, macroImport, transcribed] = await Promise.all([
-          // Ambient output has no equivalent for a value, so the source the
-          // shim derives from must declare only types.
-          ctx.grep(RULE_TYPES_FILE, /^export (?!type |interface )/u),
+        // Type-only-ness of RULE_TYPES_FILE is not checked here:
+        // generateRulesDts() throws on a value export, and `check` regenerates
+        // the shim before rules run, so this rule could never observe one.
+        const [macroImport, transcribed] = await Promise.all([
           ctx.grep(
             SHIM_FILE,
             /from "\.\/rules-source" with \{ type: "macro" \}/u
           ),
           ctx.grep(SHIM_FILE, /^\s*declare (?:interface|type) /u),
         ]);
-
-        for (const m of valueExports) {
-          ctx.report.violation({
-            message: `Value export in ${RULE_TYPES_FILE} — the rules.d.ts shim derives its ambient declarations from this file, and a value has no ambient form`,
-            file: RULE_TYPES_FILE,
-            line: m.line,
-            fix: `Move the value to another module; keep ${RULE_TYPES_FILE} type-only`,
-          });
-        }
 
         if (macroImport.length === 0) {
           ctx.report.violation({

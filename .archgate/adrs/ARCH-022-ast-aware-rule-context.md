@@ -89,11 +89,11 @@ Dispatch on `language` MUST be invisible to rule authors.
 - **DO** document, in the signature or JSDoc, that the returned node shape differs per language
 - **DO** use `ast(path, language, { rev: "base" })`/`fileAtBase()` for base comparison — never shell out ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md))
 - **DO** use `ast(path, language, { comments: true })` for comment-governance rules (Key Definitions: shape)
-- **DO** keep `src/formats/rules.ts` type-only; the shim derives from it (`rulecontext-shim-derived`)
+- **DO** keep `src/formats/rules.ts` type-only — the generator throws
 
 ### Don't
 
-- **DON'T** transcribe types into the shim
+- **DON'T** transcribe types into the shim (`rulecontext-shim-derived`)
 - **DON'T** expose `Bun.spawn`/`child_process` on `RuleContext` ([ARCH-024](./ARCH-024-rule-file-sandbox-boundary.md))
 - **DON'T** return `null`/any sentinel from `ctx.ast()` (Decision clause 4) — only `fileAtBase()` returns `null`
 - **DON'T** invoke Python/Ruby before the plausibility check, or re-probe per file
@@ -145,7 +145,7 @@ Five companion checks in `ARCH-022-ast-aware-rule-context.rules.ts`:
 - **`no-unsanctioned-engine-subprocess`** — flags any `Bun.spawn`/`Bun.spawnSync` in `src/engine/` outside the sanctioned helpers (`ast-support.ts` for `ctx.ast()`, `git-files.ts` for git) and bans `child_process` imports in the engine entirely, mirroring how `ARCH-007/no-bun-shell` scans for banned subprocess patterns.
 - **`single-ast-method`** — verifies `RuleContext` in `src/formats/rules.ts` declares exactly one `ast(path, language)` signature and no per-language variants (`pythonAst()`, `rubyAst()`, etc.). One surface suffices because `rulecontext-shim-derived` keeps the shim a derivation of that file.
 - **`python-subprocess-isolated`** — asserts the Python branch of the guarded invocation in `src/engine/runner.ts` includes the `-I` isolation flag, so a refactor cannot silently reintroduce the cwd stdlib-shadowing code-execution vector.
-- **`rulecontext-shim-derived`** — fails on the three ways the shim could stop being a derivation of `src/formats/rules.ts`: a value export in that file (no ambient equivalent), a `src/helpers/rules-shim.ts` that no longer reads it through the `rules-source` macro, and any ambient declaration transcribed into the shim by hand. Signature and JSDoc parity need no check of their own — `generateRulesDts()` copies both verbatim, and `tests/helpers/rules-shim.test.ts` pins that.
+- **`rulecontext-shim-derived`** — fails when `src/helpers/rules-shim.ts` stops reading `src/formats/rules.ts` through the `rules-source` macro, or transcribes an ambient declaration by hand. It does not check that `src/formats/rules.ts` stays type-only: `generateRulesDts()` throws on a value export and `check` regenerates the shim before rules run, so a violation aborts the run (exit 2) before this rule executes. Signature and JSDoc parity need no check either — the generator copies both verbatim, pinned by `tests/helpers/rules-shim.test.ts`.
 
 The base-revision and comment surfaces are covered unchanged by the four AST rules above (`rulecontext-shim-derived` governs how the shim is produced, not these surfaces) — neither adds a subprocess site or a guardrail — plus behavioural coverage in `tests/engine/runner-ast-base.test.ts` (base parsing per language, comment-only structural equivalence, throw-vs-null semantics of `ast({ rev: "base" })` versus `fileAtBase()`) and `tests/engine/runner-ast-comments.test.ts` (TS line/block extraction with delimiter-stripped values and original-source `loc`, string-literal awareness, JavaScript, the opt-in-only absence of `comments`, Ruby `Ripper.lex` line/block tokens, and Python `tokenize` extraction including the `#`-inside-a-string exclusion and composition with `{ rev: "base" }`). Ruby's character-offset columns (versus Ripper's byte offsets) and LF-normalized block values are pinned at the serializer level in `tests/engine/ast-support.test.ts`.
 
