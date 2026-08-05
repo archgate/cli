@@ -274,7 +274,7 @@ jobs:
         id: coverage-report
         uses: ./.github/actions/coverage-report
         with:
-          min-coverage: "95"
+          min-coverage: "99.5"
           github-token: ${{ github.token }}
           event-name: ${{ github.event_name }}
           pr-number: ${{ github.event.pull_request.number }}
@@ -294,7 +294,7 @@ jobs:
           # (zizmor: code injection via template expansion).
           COVERAGE: ${{ steps.coverage-report.outputs.coverage }}
         run: |
-          MIN_COVERAGE=95
+          MIN_COVERAGE=99.5
           # Pass values as awk data (-v), never interpolated into the awk
           # program source — a crafted step output could inject awk code.
           BELOW=$(awk -v coverage="$COVERAGE" -v minimum="$MIN_COVERAGE" \
