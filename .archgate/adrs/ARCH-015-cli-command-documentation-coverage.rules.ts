@@ -81,8 +81,12 @@ export default {
           const arg: unknown = args.at(0);
           if (args.length !== 1 || !isEsTreeNode(arg)) return;
           if (arg.type !== "Identifier" || arg.name !== "program") return;
+          // Split acronym-to-word boundaries too: MCPServer -> mcp-server.
           registered.add(
-            m[1].replaceAll(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
+            m[1]
+              .replaceAll(/([A-Z]+)([A-Z][a-z])/gu, "$1-$2")
+              .replaceAll(/([a-z0-9])([A-Z])/gu, "$1-$2")
+              .toLowerCase()
           );
         });
 
