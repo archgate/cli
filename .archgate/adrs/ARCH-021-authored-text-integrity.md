@@ -86,7 +86,15 @@ $errs
 
 - **No typographic niceties** in PowerShell scripts (acceptable — these are install scripts, not prose)
 - **Generated changelog content is unguarded**: a commit message carrying an escaped backtick reaches `CHANGELOG.md` unchecked and renders wrongly on GitHub and npm
-- **A single escape immediately before a span's closing delimiter is not reported.** ``show \`literal tick`` and a Windows path ending in a backslash are the same bytes — a backslash as the span's last content character — so no lexical rule separates them, and reporting one reports the other. The check accepts this false negative rather than fire on correct prose; the multi-escape form, which is what a mangled snippet almost always looks like, is still caught because its later escapes land in text
+- **A single escape immediately before a span's closing delimiter is not reported.** A failed escape and a path that genuinely ends in a backslash are the same bytes — the span's last content character is a backslash in both, and the delimiter after it closes the span:
+
+  ```text
+  `show \`literal tick`            the author meant to escape the delimiter
+  `C:\Users\<username>\.config\`   a path that really does end in a backslash
+  ```
+
+  No lexical rule separates them, so reporting the first reports the second. The check accepts this false negative rather than fire on correct prose. The multi-escape form a mangled snippet almost always takes is still caught, because its later escapes land in text rather than inside a span
+
 - **Code-span state is carried within a block, not beyond it**: a span crossing a line break is tracked to its close, and a blank line clears it because a span cannot outlive its block. A backtick run left unmatched at the end of a paragraph is therefore read as an open span through to the next blank line, costing reports in that remainder rather than reporting against what may be literal content
 - **One markdown report per line**: a line with several escaped backticks surfaces the rest on the next run
 
