@@ -23,10 +23,18 @@ function asNode(value: unknown): AstNode | undefined {
   return isAstNode(value) ? value : undefined;
 }
 
-/** The identifier name of a non-computed member property, e.g. `module` in `mock.module`. */
-function staticPropertyName(node: AstNode): string | undefined {
-  if (node.computed === true) return undefined;
+/**
+ * The property name of a member expression, covering both `mock.module` and
+ * the equivalent computed string form `mock["module"]`. A computed key that is
+ * not a string literal stays undefined — its name is not knowable statically.
+ */
+function memberPropertyName(node: AstNode): string | undefined {
   const property = asNode(node.property);
+  if (node.computed === true) {
+    return property?.type === "Literal" && typeof property.value === "string"
+      ? property.value
+      : undefined;
+  }
   if (property?.type === "Identifier" && typeof property.name === "string") {
     return property.name;
   }
@@ -36,7 +44,7 @@ function staticPropertyName(node: AstNode): string | undefined {
 /** Whether `callee` is the `mock.module` member expression. */
 function isMockModuleCallee(callee: AstNode | undefined): boolean {
   if (callee?.type !== "MemberExpression") return false;
-  if (staticPropertyName(callee) !== "module") return false;
+  if (memberPropertyName(callee) !== "module") return false;
   const base = asNode(callee.object);
   return base?.type === "Identifier" && base.name === "mock";
 }

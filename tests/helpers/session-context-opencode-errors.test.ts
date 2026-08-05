@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -10,7 +10,7 @@ import {
   listOpencodeSessions,
   readOpencodeSession,
 } from "../../src/helpers/session-context-opencode";
-import { restoreEnv } from "../test-utils";
+import { restoreEnv, safeRmSync } from "../test-utils";
 
 /**
  * Failure paths of the opencode SQLite reader: the database is missing,
@@ -35,12 +35,9 @@ describe("opencode session reader failure paths", () => {
 
   afterEach(() => {
     restoreEnv("XDG_DATA_HOME", originalXdg);
-    try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      // On Windows, SQLite file handles may persist briefly after close.
-      // Temp dirs use unique names, so leftover files don't affect other tests.
-    }
+    // safeRmSync retries EBUSY/EPERM/ENOTEMPTY, which is how Windows reports a
+    // SQLite handle that has not yet been released, and rethrows anything else.
+    safeRmSync(tempDir);
   });
 
   /** Create the `session` table only — messages/parts are unused here. */

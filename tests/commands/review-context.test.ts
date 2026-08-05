@@ -17,7 +17,7 @@ import { Command } from "@commander-js/extra-typings";
 
 import { registerReviewContextCommand } from "../../src/commands/review-context";
 import * as logModule from "../../src/helpers/log";
-import { expectKeys, git, safeRmSync } from "../test-utils";
+import { expectKeys, git, rejectionMessage, safeRmSync } from "../test-utils";
 
 describe("registerReviewContextCommand", () => {
   test("registers 'review-context' as a subcommand", () => {
@@ -250,16 +250,6 @@ Test decision.
     expect(reportedDomains()).toEqual(["architecture"]);
   });
 });
-
-/** Await a rejection and hand back its message for assertions. */
-async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
-  try {
-    await promise;
-  } catch (err: unknown) {
-    return err instanceof Error ? err.message : String(err);
-  }
-  throw new Error("expected the promise to reject");
-}
 
 /** Frontmatter + a Decision section far past the 2000-char briefing budget. */
 function overBudgetAdr(id: string): string {

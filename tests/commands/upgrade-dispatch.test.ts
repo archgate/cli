@@ -39,6 +39,11 @@ import { restoreEnv } from "../test-utils";
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** What `clearLine(stream, 0)` and `cursorTo(stream, 0)` emit on a TTY. */
+const ESC = String.fromCodePoint(27);
+const CLEAR_LINE = `${ESC}[2K`;
+const CURSOR_TO_START = `${ESC}[1G`;
+
 function setExecPath(path: string): void {
   Object.defineProperty(process, "execPath", {
     value: path,
@@ -444,8 +449,12 @@ describe("upgrade dispatch", () => {
   test("clears the progress line after a TTY binary download", async () => {
     setExecPath(join(internalPath("bin"), "archgate"));
     setIsTTY(process.stderr, true);
+    const written: string[] = [];
     const writeSpy = spyOn(process.stderr, "write").mockImplementation(
-      () => true
+      (chunk: unknown) => {
+        written.push(String(chunk));
+        return true;
+      }
     );
     const artifactSpy = spyOn(binaryUpgrade, "getArtifactInfo").mockReturnValue(
       { name: "archgate-test-x64", ext: ".tar.gz", binaryName: "archgate" }
@@ -466,7 +475,8 @@ describe("upgrade dispatch", () => {
 
       expect(downloadSpy.mock.calls[0][2]).toBeDefined();
       expect(replaceSpy).toHaveBeenCalledTimes(1);
-      expect(writeSpy).toHaveBeenCalled();
+      expect(written.join("")).toContain(CLEAR_LINE);
+      expect(written.join("")).toContain(CURSOR_TO_START);
     } finally {
       writeSpy.mockRestore();
       artifactSpy.mockRestore();
@@ -478,8 +488,12 @@ describe("upgrade dispatch", () => {
   test("clears the progress line when a TTY binary download fails", async () => {
     setExecPath(join(internalPath("bin"), "archgate"));
     setIsTTY(process.stderr, true);
+    const written: string[] = [];
     const writeSpy = spyOn(process.stderr, "write").mockImplementation(
-      () => true
+      (chunk: unknown) => {
+        written.push(String(chunk));
+        return true;
+      }
     );
     const artifactSpy = spyOn(binaryUpgrade, "getArtifactInfo").mockReturnValue(
       { name: "archgate-test-x64", ext: ".tar.gz", binaryName: "archgate" }
@@ -494,6 +508,8 @@ describe("upgrade dispatch", () => {
 
       expect(exitSpy).toHaveBeenCalledWith(1);
       expect(errorOutput()).toContain("checksum mismatch");
+      expect(written.join("")).toContain(CLEAR_LINE);
+      expect(written.join("")).toContain(CURSOR_TO_START);
     } finally {
       writeSpy.mockRestore();
       artifactSpy.mockRestore();

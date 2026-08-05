@@ -12,16 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { detectTarget, resolveSource } from "../../src/helpers/registry";
-
-/** Await a rejection and hand back its message for assertions. */
-async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
-  try {
-    await promise;
-  } catch (err: unknown) {
-    return err instanceof Error ? err.message : String(err);
-  }
-  throw new Error("expected the promise to reject");
-}
+import { rejectionMessage } from "../test-utils";
 
 describe("resolveSource", () => {
   test("resolves official registry path", () => {

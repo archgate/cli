@@ -87,6 +87,20 @@ describe("no-first-party-module-mock", () => {
     expect(lint(`mock.module("../srcfoo/thing", () => ({}));`)).toHaveLength(0);
   });
 
+  test('flags the computed form mock["module"]', () => {
+    const violations = lint(
+      `mock["module"]("../../src/helpers/registry", () => ({}));`
+    );
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("ARCH-005");
+  });
+
+  test("ignores a computed key that is not a string literal", () => {
+    expect(
+      lint(`mock[key]("../../src/helpers/registry", () => ({}));`)
+    ).toHaveLength(0);
+  });
+
   test("ignores an unrelated mock call", () => {
     expect(lint(`mock(() => ({}));`)).toHaveLength(0);
   });

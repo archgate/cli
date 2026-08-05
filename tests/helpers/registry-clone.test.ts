@@ -7,17 +7,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { shallowClone } from "../../src/helpers/registry";
-import { git, safeRmSync } from "../test-utils";
-
-/** Await a rejection and hand back its message for assertions. */
-async function rejectionMessage(promise: Promise<unknown>): Promise<string> {
-  try {
-    await promise;
-  } catch (err: unknown) {
-    return err instanceof Error ? err.message : String(err);
-  }
-  throw new Error("expected the promise to reject");
-}
+import { git, rejectionMessage, safeRmSync } from "../test-utils";
 
 describe("shallowClone", () => {
   let fixtureRoot: string;
