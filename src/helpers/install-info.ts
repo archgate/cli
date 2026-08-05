@@ -17,18 +17,22 @@ import { resolvedProjectPaths } from "./project-config";
 // Install method detection (cached)
 // ---------------------------------------------------------------------------
 
-let cachedInstallMethod: string | null = null;
+/**
+ * How archgate reached this machine. Distinct from `upgrade.ts`'s same-named
+ * type, which carries the command needed to perform an upgrade; this one only
+ * names the source.
+ */
+export type InstallMethod = "binary" | "proto" | "local" | "global-pm";
+
+let cachedInstallMethod: InstallMethod | null = null;
 
 /**
  * Detect how archgate was installed, reading `process.execPath` for compiled
  * binaries and `Bun.main` for `bun run` development mode (where
  * `process.execPath` is the bun runtime rather than archgate).
- *
- * @returns One of `"binary"`, `"proto"`, `"local"`, or `"global-pm"`.
  */
-export function detectInstallMethod(): string {
-  if (cachedInstallMethod !== null && cachedInstallMethod !== "")
-    return cachedInstallMethod;
+export function detectInstallMethod(): InstallMethod {
+  if (cachedInstallMethod !== null) return cachedInstallMethod;
 
   // Compiled binary: process.execPath IS archgate (doesn't contain "bun")
   // Dev mode: process.execPath is the bun runtime, Bun.main is the script
