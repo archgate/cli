@@ -8,7 +8,6 @@ import { join } from "node:path";
 
 import {
   computeSha256,
-  installerUrl,
   PACKAGE_IDENTIFIER,
   parseArgs,
   renderManifest,
@@ -27,35 +26,26 @@ const TEMPLATES_DIR = join(
 );
 
 const VALUES = {
-  version: "1.2.3",
   sha256: "a98fca384f1f5fa9e4ad69c052dffe7c5cee267041768f2471ee28d16a4b84b0",
 };
 
-describe("installerUrl", () => {
-  test("points at the versioned release asset", () => {
-    expect(installerUrl("1.2.3")).toBe(
-      `https://github.com/archgate/cli/releases/download/v1.2.3/${SHIM_ARTIFACT_NAME}`
-    );
-  });
+const MANIFEST_NAMES: string[] = [
+  "Archgate.Archgate.yaml",
+  "Archgate.Archgate.installer.yaml",
+  "Archgate.Archgate.locale.en-US.yaml",
+];
 
+describe("SHIM_ARTIFACT_NAME", () => {
   test("targets the win32-x64 shim artifact", () => {
     expect(SHIM_ARTIFACT_NAME).toBe("archgate-shim-win32-x64.exe");
   });
 });
 
 describe("renderManifest", () => {
-  test.each([
-    ["PackageVersion: {{VERSION}}", "PackageVersion: 1.2.3"],
-    [
-      "InstallerSha256: {{SHA256}}",
-      `InstallerSha256: ${VALUES.sha256.toUpperCase()}`,
-    ],
-    [
-      "InstallerUrl: {{INSTALLER_URL}}",
-      `InstallerUrl: ${installerUrl(VALUES.version)}`,
-    ],
-  ])("substitutes %s", (template, expected) => {
-    expect(renderManifest(template, VALUES)).toBe(expected);
+  test("substitutes the checksum", () => {
+    expect(renderManifest("InstallerSha256: {{SHA256}}", VALUES)).toBe(
+      `InstallerSha256: ${VALUES.sha256.toUpperCase()}`
+    );
   });
 
   test("uppercases the checksum, matching winget convention", () => {
@@ -65,8 +55,14 @@ describe("renderManifest", () => {
   });
 
   test("substitutes every occurrence of a repeated placeholder", () => {
-    expect(renderManifest("{{VERSION}} and v{{VERSION}}", VALUES)).toBe(
-      "1.2.3 and v1.2.3"
+    expect(renderManifest("{{SHA256}} {{SHA256}}", VALUES)).toBe(
+      `${VALUES.sha256.toUpperCase()} ${VALUES.sha256.toUpperCase()}`
+    );
+  });
+
+  test("leaves the version alone — it is committed, not rendered", () => {
+    expect(renderManifest('PackageVersion: "0.51.0"', VALUES)).toBe(
+      'PackageVersion: "0.51.0"'
     );
   });
 
@@ -90,29 +86,26 @@ describe("renderManifest", () => {
 });
 
 describe("parseArgs", () => {
-  test("defaults to dist/winget with no version override", () => {
+  test("defaults to dist/winget", () => {
     const options = parseArgs([]);
     expect(options.outDir).toBe(join("dist", "winget"));
-    expect(options.version).toBeUndefined();
     expect(options.manifestsOnly).toBe(false);
   });
 
-  test("reads out-dir, version, and sha256", () => {
-    const options = parseArgs([
-      "--out-dir",
-      "out",
-      "--version",
-      "9.9.9",
-      "--sha256",
-      VALUES.sha256,
-    ]);
+  test("reads out-dir and sha256", () => {
+    const options = parseArgs(["--out-dir", "out", "--sha256", VALUES.sha256]);
     expect(options.outDir).toBe("out");
-    expect(options.version).toBe("9.9.9");
     expect(options.sha256).toBe(VALUES.sha256);
   });
 
   test("rejects an unknown flag", () => {
     expect(() => parseArgs(["--nope"])).toThrow("unknown option '--nope'");
+  });
+
+  test("rejects --version, which the manifests now carry themselves", () => {
+    expect(() => parseArgs(["--version", "9.9.9"])).toThrow(
+      "unknown option '--version'"
+    );
   });
 
   test("requires a checksum when the compile is skipped", () => {
@@ -121,12 +114,9 @@ describe("parseArgs", () => {
     );
   });
 
-  test.each(["--out-dir", "--version", "--sha256"])(
-    "rejects %s with no value",
-    (flag) => {
-      expect(() => parseArgs([flag])).toThrow("argument missing");
-    }
-  );
+  test.each(["--out-dir", "--sha256"])("rejects %s with no value", (flag) => {
+    expect(() => parseArgs([flag])).toThrow("argument missing");
+  });
 
   test.each([
     ["empty", ""],
@@ -144,45 +134,6 @@ describe("parseArgs", () => {
   test("accepts an uppercase checksum", () => {
     const options = parseArgs(["--sha256", VALUES.sha256.toUpperCase()]);
     expect(options.sha256).toBe(VALUES.sha256.toUpperCase());
-  });
-
-  test.each([
-    ["empty", ""],
-    ["not a version", "latest"],
-    ["incomplete", "1.2"],
-    ["flag-shaped", "--manifests-only"],
-    ["leading-zero core", "01.2.3"],
-    ["leading-zero prerelease", "1.2.3-01"],
-    ["empty prerelease identifier", "1.2.3-alpha..1"],
-    ["dangling prerelease", "1.2.3-"],
-    ["dangling build metadata", "1.2.3+"],
-  ])("rejects a %s version", (_label, version) => {
-    expect(() => parseArgs(["--version", version])).toThrow(
-      "must be a semantic version"
-    );
-  });
-
-  test.each([
-    ["1.2.3"],
-    ["0.51.0"],
-    ["0.0.0"],
-    ["1.0.0-rc.1"],
-    ["1.2.3-alpha.beta.1"],
-    ["1.0.0-rc.1+build.5"],
-  ])("accepts the version %s", (version) => {
-    expect(parseArgs(["--version", version]).version).toBe(version);
-  });
-
-  test.each([
-    ["repeated hyphens in build metadata", `9.9.9+${"--".repeat(40)}!`],
-    ["repeated alpha prerelease identifiers", `1.2.3-${"a.".repeat(60)}!`],
-    ["repeated numeric prerelease identifiers", `1.2.3-${"0.".repeat(60)}!`],
-  ])("rejects %s without backtracking", (_label, version) => {
-    const started = performance.now();
-    expect(() => parseArgs(["--version", version])).toThrow(
-      "must be a semantic version"
-    );
-    expect(performance.now() - started).toBeLessThan(1000);
   });
 });
 
@@ -232,7 +183,7 @@ describe("renderManifests", () => {
     expect(contents.join("\n")).not.toContain("{{");
   });
 
-  test("stamps the package identifier and version into every manifest", async () => {
+  test("stamps the package identifier into every manifest", async () => {
     const written = await renderManifests({
       templatesDir: TEMPLATES_DIR,
       outDir: tempDir,
@@ -247,12 +198,32 @@ describe("renderManifests", () => {
       (content) => !content.includes(`PackageIdentifier: ${PACKAGE_IDENTIFIER}`)
     );
     expect(missingIdentifier).toHaveLength(0);
-
-    const missingVersion = contents.filter(
-      (content) => !content.includes(`PackageVersion: "${VALUES.version}"`)
-    );
-    expect(missingVersion).toHaveLength(0);
   });
+
+  // The version is committed, so rendering must pass it through untouched.
+  // Which version is correct is ARCH-013/shim-version-sync's business, not
+  // this test's — asserting a literal here would just duplicate that rule.
+  test.each(MANIFEST_NAMES)(
+    "carries the source PackageVersion of %s through unchanged",
+    async (name) => {
+      await renderManifests({
+        templatesDir: TEMPLATES_DIR,
+        outDir: tempDir,
+        values: VALUES,
+      });
+
+      const versionLine = /^PackageVersion:.*$/mu;
+      const source = versionLine.exec(
+        await Bun.file(join(TEMPLATES_DIR, name)).text()
+      )?.[0];
+      const rendered = versionLine.exec(
+        await Bun.file(join(tempDir, name)).text()
+      )?.[0];
+
+      expect(source).toBeDefined();
+      expect(rendered).toBe(source);
+    }
+  );
 
   test("writes one manifest per template", async () => {
     const written = await renderManifests({

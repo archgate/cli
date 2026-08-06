@@ -11,11 +11,11 @@ rules: true
 
 The archgate CLI is a standalone binary compiled with Bun. To maximize reach, it is distributed through multiple package managers (npm, PyPI, NuGet, Go, Maven Central, RubyGems, winget) using a "thin shim" pattern: each package contains a minimal wrapper in the target ecosystem's language that downloads and caches the platform binary from GitHub Releases on first invocation.
 
-winget is the one target that installs no package built from source. Its `portable` installer type fetches a single executable from a URL and puts it on `PATH`, so the artifact it installs is the Go shim cross-compiled for Windows rather than a seventh implementation of the contract below. `shims/winget/` therefore holds no shim implementation — only `build.ts`, which cross-compiles `shims/go` for `windows/amd64` into `archgate-shim-win32-x64.exe` and renders the `manifests/` templates with that executable's version and SHA256, alongside a `README.md` documenting that recipe and the manual first submission. `build.ts` runs only from this repository and is never published, so it uses the repo's own tooling — Commander for its flags, as the CLI itself does — rather than the standard-library-only rule that binds shipped shim code.
+winget is the one target that installs no package built from source. Its `portable` installer type fetches a single executable from a URL and puts it on `PATH`, so the artifact it installs is the Go shim cross-compiled for Windows rather than a seventh implementation of the contract below. `shims/winget/` therefore holds no shim implementation — only `build.ts`, which cross-compiles `shims/go` for `windows/amd64` into `archgate-shim-win32-x64.exe` and renders that executable's SHA256 into the `manifests/` sources, alongside a `README.md` documenting that recipe and the manual first submission. `build.ts` runs only from this repository and is never published, so it uses the repo's own tooling — Commander for its flags, as the CLI itself does — rather than the standard-library-only rule that binds shipped shim code.
 
 That executable's checksum is computed from a locally built copy and rendered into the manifest, rather than read back from the published asset, so the local build has to match what ships. Go stamps `vcs.revision` and `vcs.time` into a binary by default, which makes the same source hash differently on every commit; `-buildvcs=false` removes the stamping. The toolchain is the other input to that checksum, so every workflow building the shim pins the Go version declared in `shims/go/go.mod`. `release-binaries.yml` uploads the executable next to the platform binaries, and `publish-shims.yml` submits each version's manifest update to `microsoft/winget-pkgs` with `wingetcreate`.
 
-Because the installed executable _is_ the Go shim, a winget install converges on the same `~/.archgate/bin/` cache as every other method. Because no shim package is published from the directory, it carries none of the three artifacts ARCH-013 synchronizes into published shim packages — no version constant, no root-mirrored `README.md`, no `LICENSE.md`. A directory-specific `README.md` is not one of those artifacts and is expected here.
+Because the installed executable _is_ the Go shim, a winget install converges on the same `~/.archgate/bin/` cache as every other method. Because no shim package is published from the directory, it carries neither of the two content artifacts ARCH-013 mirrors into published shim packages — no root-mirrored `README.md`, no `LICENSE.md`. The version is a different matter: the manifests state it directly, so ARCH-013 syncs and enforces it exactly as it does every other shim's. A directory-specific `README.md` is not one of those mirrored artifacts and is expected here.
 
 ## Decision
 
@@ -60,6 +60,7 @@ All shims produce identical user-facing error messages on stderr:
 - Verify SHA256 checksums before extracting downloaded archives
 - Use identical error messages across all shims
 - Add new shim version files to `.simple-release.js` and the ARCH-013 companion rules
+- Commit any distribution value known when the version is bumped and cover it with a sync rule; reserve build-time placeholders for values that cannot exist until the artifact is built, like a checksum
 - Ship the winget executable as a cross-compiled build of `shims/go`, so Windows has one shim implementation rather than two that can drift
 - Build the winget executable with `-buildvcs=false` on the Go version pinned in `shims/go/go.mod`, so the same source and toolchain yield the same checksum and a rendered manifest keeps matching the released executable
 
@@ -69,7 +70,7 @@ All shims produce identical user-facing error messages on stderr:
 - Don't add runtime dependencies to any shim package
 - Don't use a different cache location per ecosystem
 - Don't skip SHA256 verification
-- Don't give `shims/winget/` a version constant, a root-mirrored `README.md`, or a `LICENSE.md` — no shim package is published from that directory, so those files would have no consumer and no source of truth to track; its own `README.md` describing the build recipe is expected
+- Don't give `shims/winget/` a root-mirrored `README.md` or a `LICENSE.md` — no shim package is published from that directory, so those files would have no consumer and no source of truth to track; its own `README.md` describing the build recipe is expected. Its manifests do carry the version, in `PackageVersion` and in the two URLs that embed it, synced like every other shim
 - Don't add a top-level `main` field to the root `package.json` — npm always includes the `main` entry point in the published tarball regardless of the `files` array, which would bundle the CLI source into the thin shim. The npm package exposes only `bin/archgate.cjs` (and sub-path exports like `./rules`); it needs no default entry point.
 
 ## Consequences
