@@ -85,6 +85,34 @@ export default {
             pattern: /VERSION\s*=\s*"([^"]+)"/u,
             label: "RubyGem version.rb",
           },
+          {
+            file: "shims/winget/manifests/Archgate.Archgate.yaml",
+            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
+            label: "winget version manifest",
+          },
+          {
+            file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
+            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
+            label: "winget installer manifest",
+          },
+          {
+            file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
+            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
+            label: "winget locale manifest",
+          },
+          // The two URLs embed the version too. A manifest whose
+          // PackageVersion is current but whose URL is stale points winget at
+          // the wrong release asset, so each is matched on its own.
+          {
+            file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
+            pattern: /InstallerUrl:\s*"[^"]*\/releases\/download\/v([^/]+)/u,
+            label: "winget InstallerUrl",
+          },
+          {
+            file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
+            pattern: /ReleaseNotesUrl:\s*\S*\/releases\/tag\/v(\S+)/u,
+            label: "winget ReleaseNotesUrl",
+          },
         ];
 
         for (const { file, pattern, label } of shimFiles) {

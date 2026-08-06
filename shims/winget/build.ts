@@ -1,12 +1,14 @@
 /**
  * Generates the winget distribution artifacts: the portable shim executable
- * cross-compiled from `shims/go`, and the winget manifests rendered from the
- * templates in `manifests/`.
+ * cross-compiled from `shims/go`, and the manifests in `manifests/`.
+ *
+ * Manifest versions are committed and synced per ARCH-013. `{{SHA256}}` is the
+ * only slot filled here — the checksum exists only once the binary is built.
  *
  * @example
  * ```bash
  * bun run build:winget --out-dir dist/winget
- * bun run build:winget --manifests-only --version 0.51.0 --sha256 <hex>
+ * bun run build:winget --manifests-only --sha256 <hex>
  * ```
  */
 
@@ -21,28 +23,16 @@ export const PACKAGE_IDENTIFIER = "Archgate.Archgate";
 /** Release asset name for the portable shim executable. */
 export const SHIM_ARTIFACT_NAME = "archgate-shim-win32-x64.exe";
 
-const RELEASE_BASE_URL = "https://github.com/archgate/cli/releases/download";
 const PLACEHOLDER_PATTERN = /\{\{([A-Z0-9_]+)\}\}/gu;
 
-/** Values substituted into the manifest templates. */
+/** Values substituted into the manifest sources. */
 export interface ManifestValues {
-  /** CLI version without a leading `v` (e.g. `0.51.0`). */
-  version: string;
   /** SHA256 of the shim executable, hex-encoded. */
   sha256: string;
 }
 
 /**
- * Builds the GitHub Releases URL the winget manifest points at.
- *
- * @param version - CLI version without a leading `v`.
- */
-export function installerUrl(version: string): string {
-  return `${RELEASE_BASE_URL}/v${version}/${SHIM_ARTIFACT_NAME}`;
-}
-
-/**
- * Substitutes `{{PLACEHOLDER}}` tokens in a manifest template.
+ * Substitutes `{{PLACEHOLDER}}` tokens in a manifest source.
  *
  * winget rejects a manifest containing an unsubstituted token only after a
  * submission round-trip, so an unresolved placeholder fails here instead.
@@ -54,9 +44,7 @@ export function renderManifest(
   values: ManifestValues
 ): string {
   const substitutions: Record<string, string> = {
-    VERSION: values.version,
     SHA256: values.sha256.toUpperCase(),
-    INSTALLER_URL: installerUrl(values.version),
   };
 
   const rendered = template.replaceAll(
@@ -155,15 +143,11 @@ export async function renderManifests(options: {
 
 interface CliOptions {
   outDir: string;
-  version?: string | undefined;
   sha256?: string | undefined;
   manifestsOnly: boolean;
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
-/** Semantic Versioning 2.0.0 grammar, per the published semver.org pattern. */
-const SEMVER_PATTERN =
-  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?:[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/u;
 
 /**
  * Validates a `--sha256` value.
@@ -183,23 +167,6 @@ function parseSha256(value: string): string {
 }
 
 /**
- * Validates a `--version` value.
- *
- * The version is rendered into the manifest and into the release download URL,
- * so a malformed one yields a manifest pointing at an asset that never exists.
- *
- * @throws If the value is not a semantic version.
- */
-function parseVersion(value: string): string {
-  if (!SEMVER_PATTERN.test(value)) {
-    throw new InvalidArgumentError(
-      `must be a semantic version, got "${value}"`
-    );
-  }
-  return value;
-}
-
-/**
  * Parses the script's command-line arguments.
  *
  * @throws {CommanderError} If an option is unknown, its value is missing, or a
@@ -210,11 +177,6 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     .name("build:winget")
     .description("Build the winget shim executable and render its manifests")
     .option("--out-dir <dir>", "output directory", join("dist", "winget"))
-    .option(
-      "--version <version>",
-      "version to render (defaults to package.json)",
-      parseVersion
-    )
     .option(
       "--sha256 <hex>",
       "checksum of an already-published executable",
@@ -241,11 +203,6 @@ async function main(): Promise<void> {
   const options = parseArgs(Bun.argv.slice(2));
   const repoRoot = join(import.meta.dir, "..", "..");
 
-  const pkg = (await Bun.file(join(repoRoot, "package.json")).json()) as {
-    version: string;
-  };
-  const version = options.version ?? pkg.version;
-
   let sha256 = options.sha256;
   if (!options.manifestsOnly) {
     const outFile = join(options.outDir, SHIM_ARTIFACT_NAME);
@@ -261,10 +218,10 @@ async function main(): Promise<void> {
   const written = await renderManifests({
     templatesDir: join(import.meta.dir, "manifests"),
     outDir: options.outDir,
-    values: { version, sha256: sha256 ?? "" },
+    values: { sha256: sha256 ?? "" },
   });
 
-  console.log(`Rendered ${PACKAGE_IDENTIFIER} manifests for v${version}:`);
+  console.log(`Rendered ${PACKAGE_IDENTIFIER} manifests:`);
   for (const path of written) {
     console.log(`  ${path}`);
   }

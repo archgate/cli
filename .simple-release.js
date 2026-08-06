@@ -158,6 +158,37 @@ class ArchgateProject extends NpmProject {
         }
       }
 
+      // winget: manifests. No package is built from this directory — winget
+      // installs the executable from a release URL — so the version lives in
+      // the manifests themselves, both as PackageVersion and inside the two
+      // URLs that embed it.
+      const wingetManifestPaths = [
+        "shims/winget/manifests/Archgate.Archgate.yaml",
+        "shims/winget/manifests/Archgate.Archgate.installer.yaml",
+        "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
+      ];
+      for (const manifestPath of wingetManifestPaths) {
+        if (!existsSync(manifestPath)) continue;
+        const content = readFileSync(manifestPath, "utf8");
+        const updated = content
+          .replace(
+            /^PackageVersion:\s*"[^"]+"/mu,
+            `PackageVersion: "${version}"`
+          )
+          .replace(
+            /(InstallerUrl:\s*"[^"]*\/releases\/download\/)v[^/]+/u,
+            `$1v${version}`
+          )
+          .replace(
+            /(ReleaseNotesUrl:\s*\S*\/releases\/tag\/)v\S+/u,
+            `$1v${version}`
+          );
+        if (updated !== content) {
+          writeFileSync(manifestPath, updated);
+          this.changedFiles.push(manifestPath);
+        }
+      }
+
       // RubyGem: version.rb
       const rubyVersionPath = "shims/rubygem/lib/archgate/version.rb";
       if (existsSync(rubyVersionPath)) {
