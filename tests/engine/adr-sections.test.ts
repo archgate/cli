@@ -207,7 +207,11 @@ describe("collectBriefingDiagnostics", () => {
     await writeAdrFile("ZZ-broken.md", "no frontmatter at all");
     const { briefingWarnings, unparsedAdrs } =
       await collectBriefingDiagnostics(dir);
-    expect(unparsedAdrs).toEqual(["ZZ-broken.md"]);
+    // Project-relative and POSIX-separated, matching `briefingWarnings.file`:
+    // the GitHub Actions and SARIF reporters emit this value as-is, and GitHub
+    // resolves both against the repository root. A bare filename would anchor
+    // the finding to a nonexistent root-level file.
+    expect(unparsedAdrs).toEqual([".archgate/adrs/ZZ-broken.md"]);
     expect(briefingWarnings).toEqual([]);
   });
 

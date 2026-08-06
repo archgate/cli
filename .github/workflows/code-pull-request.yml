@@ -286,6 +286,48 @@ jobs:
       - name: Run actionlint
         run: ./actionlint -color
 
+  # Publishes ADR violations to the Security tab (code scanning) so findings are
+  # visible in GitHub rather than buried in the `validate` job log. This job is
+  # reporting-only: `validate` runs the same check and is what gates the merge,
+  # so a violation here must still upload rather than abort the job.
+  archgate-sarif:
+    name: Archgate SARIF (Code Scanning)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read # actions/checkout
+      security-events: write # upload-sarif
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Full history so the configured `baseBranch` (origin/main) resolves
+          # for change-scoped rules.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-bun-project
+      - name: Run archgate check (SARIF)
+        # `check` exits 1 on violations, and strict mode (`.archgate/config.json`)
+        # also escalates advisory findings — the results must still reach the
+        # Security tab in exactly that case, so don't let it fail the job.
+        continue-on-error: true
+        # Written outside the working tree: GEN-005 allowlists the repository
+        # root, and a stray `.sarif` there would fail the very check producing it.
+        run: bun run cli check --output sarif > "$RUNNER_TEMP/archgate.sarif"
+      - name: Upload SARIF to GitHub Security tab
+        # Fork PRs get a read-only GITHUB_TOKEN regardless of the `permissions:`
+        # above, so the upload is rejected — don't fail the gate for external
+        # contributors.
+        if: success() || failure()
+        continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
+        uses: github/codeql-action/upload-sarif@7188fc363630916deb702c7fdcf4e481b751f97a # v4.37.1
+        with:
+          sarif_file: ${{ runner.temp }}/archgate.sarif
+          # Distinct category keeps these results from overwriting the other
+          # SARIF producers in this repo (CodeQL, zizmor, Scorecard).
+          category: archgate
+
   coverage:
     name: Coverage Report
     runs-on: ubuntu-latest
@@ -359,6 +401,7 @@ jobs:
         smoke-linux,
         zizmor,
         actionlint,
+        archgate-sarif,
         coverage,
       ]
     steps:
@@ -374,6 +417,7 @@ jobs:
              [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
              [[ "${{ needs.zizmor.result }}" != "success" ]] || \
              [[ "${{ needs.actionlint.result }}" != "success" ]] || \
+             [[ "${{ needs.archgate-sarif.result }}" != "success" ]] || \
              [[ "${{ needs.coverage.result }}" != "success" ]]; then
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
@@ -382,6 +426,7 @@ jobs:
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
             echo "  zizmor: ${{ needs.zizmor.result }}"
             echo "  actionlint: ${{ needs.actionlint.result }}"
+            echo "  archgate-sarif: ${{ needs.archgate-sarif.result }}"
             echo "  coverage: ${{ needs.coverage.result }}"
             exit 1
           fi
