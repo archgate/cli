@@ -1,6 +1,6 @@
 ---
 title: Installasjon
-description: Installer Archgate CLI på macOS, Linux eller Windows via en enlinje-installatør, npm eller frittstående binærfil. Begynn å håndheve ADR-er som kjørbare koderegler på minutter.
+description: Installer Archgate CLI på macOS, Linux eller Windows via en enlinje-installatør, winget, npm eller frittstående binærfil. Begynn å håndheve ADR-er som kjørbare koderegler på minutter.
 ---
 
 ## Frittstående installasjon (anbefalt)
@@ -30,6 +30,22 @@ Du kan tilpasse installasjonen med miljøvariabler:
 | `ARCHGATE_INSTALL_DIR` | Egendefinert installasjonsmappe                 | `~/.archgate/bin` |
 
 Du kan også laste ned binærfiler direkte fra [GitHub Releases](https://github.com/archgate/cli/releases).
+
+## Installer via winget (Windows)
+
+:::note[Venter på gjennomgang i winget-pkgs]
+`Archgate.Archgate` står i kø for å bli tatt inn i [winget-fellesskapets repositorium](https://github.com/microsoft/winget-pkgs). Inntil pakken er publisert der, returnerer denne kommandoen "No package found" — bruk den frittstående installatøren over i mellomtiden.
+:::
+
+På Windows kan du installere Archgate med [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/):
+
+```powershell
+winget install Archgate.Archgate
+```
+
+Dette installerer en liten, portabel wrapper og legger `archgate` i PATH. Ved første kjøring lastes plattformbinærfilen ned, sjekksummen verifiseres, og filen mellomlagres i `~/.archgate/bin/` — samme cache som alle andre installasjonsmetoder bruker, så du laster ikke ned noe på nytt når du bytter mellom dem.
+
+Oppgrader med `winget upgrade Archgate.Archgate`.
 
 ## Installer via npm
 

@@ -29,7 +29,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
-          REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip")
+          REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip" "archgate-shim-win32-x64.exe")
           for i in $(seq 1 10); do
             ASSETS=$(gh release view "$TAG" --repo archgate/cli --json assets --jq '.assets[].name')
             ALL_FOUND=true
@@ -155,6 +155,41 @@ jobs:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           mvn clean deploy -P release -B --no-transfer-progress
+
+  # Submits a manifest update PR to microsoft/winget-pkgs. It fails loudly rather
+  # than continue-on-error: the other publish jobs only depend on
+  # wait-for-binaries, so a winget failure never blocks them, and a silent
+  # failure would let winget drift versions behind unnoticed.
+  publish-winget:
+    needs: wait-for-binaries
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions: {}
+    steps:
+      - name: Submit manifest update to winget-pkgs
+        shell: pwsh
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          if (-not $env:WINGET_TOKEN) {
+            Write-Host "::warning::WINGET_TOKEN is not configured - skipping winget submission."
+            Write-Host "::warning::Set that secret once Archgate.Archgate is accepted into winget-pkgs."
+            exit 0
+          }
+
+          $version = $env:TAG -replace '^v', ''
+          $url = "https://github.com/archgate/cli/releases/download/$env:TAG/archgate-shim-win32-x64.exe"
+
+          # aka.ms/wingetcreate/latest is Microsoft's documented download
+          # endpoint for wingetcreate, the official manifest submission tool.
+          Invoke-WebRequest -Uri https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+
+          .\wingetcreate.exe update Archgate.Archgate --version $version --urls $url --submit --token $env:WINGET_TOKEN
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "wingetcreate exited with code $LASTEXITCODE"
+            exit 1
+          }
 
   publish-rubygem:
     needs: wait-for-binaries

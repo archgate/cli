@@ -142,6 +142,20 @@ You can customize the install with environment variables:
 
 You can also download binaries directly from [GitHub Releases](https://github.com/archgate/cli/releases).
 
+## Install via winget (Windows)
+
+`Archgate.Archgate` is queued for acceptance into the [winget community repository](https://github.com/microsoft/winget-pkgs). Until it is published there, this command returns "No package found" — use the standalone installer above in the meantime.
+
+On Windows, install Archgate with the [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/):
+
+```powershell
+winget install Archgate.Archgate
+```
+
+This installs a small portable wrapper and puts `archgate` on your PATH. On first run it downloads the platform binary, verifies its checksum, and caches it to `~/.archgate/bin/` — the same cache every other install method uses, so switching between them re-downloads nothing.
+
+Upgrade with `winget upgrade Archgate.Archgate`.
+
 ## Install via npm
 
 Install Archgate globally using your preferred Node.js package manager:
