@@ -27,6 +27,14 @@ ADR compliance is enforced automatically. `bun run validate` includes an ADR che
 - Git
 - [proto](https://moonrepo.dev/docs/proto) (for toolchain management)
 
+#### Claude Code hooks
+
+The hooks in `.claude/settings.json` each invoke a single `bun run hook:*` package script and contain no shell syntax — no variable expansion, no pipes, no command substitution, no quoting. Their logic lives in `scripts/*.ts`.
+
+Claude Code picks a hook's shell per surface, and the choice is not always the one a hook asks for: a POSIX command that runs under Git Bash in the terminal can be handed to `cmd.exe` in the desktop app, which fails on the first token. Keeping the command to `bun run <script>` sidesteps the question — the same string is valid under Bash, `cmd.exe`, and PowerShell, so every surface behaves identically. `bun run` also locates `package.json` by walking up from the working directory, so hooks do not depend on where they are invoked from.
+
+Write hook logic in TypeScript under `scripts/`, add a `hook:*` entry to `package.json`, and point the hook at that script. A hook reads its JSON payload from stdin and, where the event defines a return value, writes it to stdout — keep everything else on stderr.
+
 ### Setup
 
 1. **Install proto** (if not already installed):
