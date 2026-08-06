@@ -142,29 +142,34 @@ jobs:
           }
 
           # Point the shim at an empty home so it performs a real download
-          # instead of reusing a cached binary.
+          # instead of reusing a cached binary. PowerShell runs `finally` when a
+          # `try` body calls `exit`, so the profile is removed on every path.
           $shimHome = Join-Path $env:TEMP "archgate-winget-smoke-$(Get-Random)"
-          New-Item -Path $shimHome -ItemType Directory -Force | Out-Null
-          $env:USERPROFILE = $shimHome
+          $realProfile = $env:USERPROFILE
+          try {
+            New-Item -Path $shimHome -ItemType Directory -Force | Out-Null
+            $env:USERPROFILE = $shimHome
 
-          $output = & $exe --version 2>&1
-          Write-Host "winget shim output: $output"
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Shim exited with code $LASTEXITCODE"
-            exit 1
-          }
-          if ("$output" -notmatch [regex]::Escape($version)) {
-            Write-Error "Expected version $version in shim output"
-            exit 1
-          }
+            $output = & $exe --version 2>&1
+            Write-Host "winget shim output: $output"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Shim exited with code $LASTEXITCODE"
+              exit 1
+            }
+            if ("$output" -notmatch [regex]::Escape($version)) {
+              Write-Error "Expected version $version in shim output"
+              exit 1
+            }
 
-          $cached = Join-Path $shimHome ".archgate" "bin" "archgate.exe"
-          if (-not (Test-Path $cached)) {
-            Write-Error "Shim did not cache the binary at $cached"
-            exit 1
+            $cached = Join-Path $shimHome ".archgate" "bin" "archgate.exe"
+            if (-not (Test-Path $cached)) {
+              Write-Error "Shim did not cache the binary at $cached"
+              exit 1
+            }
+          } finally {
+            $env:USERPROFILE = $realProfile
+            Remove-Item -Path $shimHome -Recurse -Force -ErrorAction SilentlyContinue
           }
-
-          Remove-Item -Path $shimHome -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Smoke test install.ps1
         shell: pwsh

@@ -104,11 +104,11 @@ describe("parseArgs", () => {
       "--version",
       "9.9.9",
       "--sha256",
-      "abc",
+      VALUES.sha256,
     ]);
     expect(options.outDir).toBe("out");
     expect(options.version).toBe("9.9.9");
-    expect(options.sha256).toBe("abc");
+    expect(options.sha256).toBe(VALUES.sha256);
   });
 
   test("rejects an unknown flag", () => {
@@ -119,6 +119,41 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--manifests-only"])).toThrow(
       "--manifests-only requires --sha256 <hex>"
     );
+  });
+
+  test.each(["--out-dir", "--version", "--sha256"])(
+    "rejects %s with no value",
+    (flag) => {
+      expect(() => parseArgs([flag])).toThrow(`${flag} requires a value`);
+    }
+  );
+
+  test.each(["--out-dir", "--version", "--sha256"])(
+    "rejects %s followed by another flag",
+    (flag) => {
+      expect(() => parseArgs([flag, "--manifests-only"])).toThrow(
+        `${flag} requires a value`
+      );
+    }
+  );
+
+  test("rejects an empty checksum", () => {
+    expect(() => parseArgs(["--sha256", ""])).toThrow(
+      "--sha256 requires a value"
+    );
+  });
+
+  test.each([
+    ["too short", "abc"],
+    ["non-hex", `${"a".repeat(63)}z`],
+    ["too long", `${VALUES.sha256}0`],
+  ])("rejects a %s checksum", (_label, sha256) => {
+    expect(() => parseArgs(["--sha256", sha256])).toThrow("--sha256 must be a");
+  });
+
+  test("accepts an uppercase checksum", () => {
+    const options = parseArgs(["--sha256", VALUES.sha256.toUpperCase()]);
+    expect(options.sha256).toBe(VALUES.sha256.toUpperCase());
   });
 });
 
@@ -160,7 +195,7 @@ describe("renderManifests", () => {
       values: VALUES,
     });
 
-    expect(written.length).toBeGreaterThan(0);
+    expect(written).toHaveLength(3);
 
     const contents = await Promise.all(
       written.map(async (path) => Bun.file(path).text())

@@ -84,9 +84,10 @@ export async function computeSha256(filePath: string): Promise<string> {
 /**
  * Cross-compiles the Go shim to a Windows executable.
  *
- * `-trimpath` and `-s -w` keep the artifact reproducible and small, since the
- * shim only downloads and execs the real binary. `outFile` is resolved against
- * the current directory because `go build` runs inside the module directory.
+ * `-buildvcs=false` keeps the artifact reproducible — Go otherwise stamps the
+ * commit hash in, so identical source checksums differently on every commit
+ * and a locally rendered manifest stops matching the released executable.
+ * `outFile` is resolved here because `go build` runs in the module directory.
  *
  * @throws If the Go toolchain is missing or the build exits non-zero.
  */
@@ -99,6 +100,7 @@ export async function buildShimExecutable(options: {
       "go",
       "build",
       "-trimpath",
+      "-buildvcs=false",
       "-ldflags",
       "-s -w",
       "-o",
@@ -156,7 +158,17 @@ interface CliOptions {
   manifestsOnly: boolean;
 }
 
-/** Parses the script's command-line arguments. */
+const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
+
+/**
+ * Parses the script's command-line arguments.
+ *
+ * A malformed checksum reaches the published winget manifest, where it makes
+ * every install fail verification, so it is rejected here rather than rendered.
+ *
+ * @throws If an option is unknown, its value is missing, or `--sha256` is not
+ * a 64-character hex digest.
+ */
 export function parseArgs(argv: readonly string[]): CliOptions {
   const options: CliOptions = {
     outDir: join("dist", "winget"),
@@ -165,17 +177,24 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     manifestsOnly: false,
   };
 
+  const valueFor = (flag: string, raw: string | undefined): string => {
+    if (raw === undefined || raw === "" || raw.startsWith("--")) {
+      throw new Error(`${flag} requires a value`);
+    }
+    return raw;
+  };
+
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     switch (arg) {
       case "--out-dir":
-        options.outDir = argv[++index] ?? options.outDir;
+        options.outDir = valueFor(arg, argv[++index]);
         break;
       case "--version":
-        options.version = argv[++index];
+        options.version = valueFor(arg, argv[++index]);
         break;
       case "--sha256":
-        options.sha256 = argv[++index];
+        options.sha256 = valueFor(arg, argv[++index]);
         break;
       case "--manifests-only":
         options.manifestsOnly = true;
@@ -183,6 +202,12 @@ export function parseArgs(argv: readonly string[]): CliOptions {
       default:
         throw new Error(`Unknown argument: ${arg}`);
     }
+  }
+
+  if (options.sha256 !== undefined && !SHA256_PATTERN.test(options.sha256)) {
+    throw new Error(
+      `--sha256 must be a 64-character hex digest, got "${options.sha256}"`
+    );
   }
 
   if (options.manifestsOnly && options.sha256 === undefined) {
