@@ -11,7 +11,9 @@ rules: true
 
 The archgate CLI is a standalone binary compiled with Bun. To maximize reach, it is distributed through multiple package managers (npm, PyPI, NuGet, Go, Maven Central, RubyGems, winget) using a "thin shim" pattern: each package contains a minimal wrapper in the target ecosystem's language that downloads and caches the platform binary from GitHub Releases on first invocation.
 
-winget is the one target that installs no package built from source. Its `portable` installer type fetches a single executable from a URL and puts it on `PATH`, so the artifact it installs is the Go shim cross-compiled for Windows rather than a seventh implementation of the contract below. `shims/winget/` therefore holds no shim implementation — only `build.ts`, which cross-compiles `shims/go` for `windows/amd64` into `archgate-shim-win32-x64.exe` and renders the `manifests/` templates with that executable's version and SHA256, alongside a `README.md` documenting that recipe and the manual first submission. `release-binaries.yml` uploads the executable next to the platform binaries, and `publish-shims.yml` submits each version's manifest update to `microsoft/winget-pkgs` with `wingetcreate`.
+winget is the one target that installs no package built from source. Its `portable` installer type fetches a single executable from a URL and puts it on `PATH`, so the artifact it installs is the Go shim cross-compiled for Windows rather than a seventh implementation of the contract below. `shims/winget/` therefore holds no shim implementation — only `build.ts`, which cross-compiles `shims/go` for `windows/amd64` into `archgate-shim-win32-x64.exe` and renders the `manifests/` templates with that executable's version and SHA256, alongside a `README.md` documenting that recipe and the manual first submission.
+
+That executable is the one artifact in this model whose checksum is written into a manifest by hand rather than computed from the uploaded asset, so it has to be reproducible. Go stamps `vcs.revision` and `vcs.time` into a binary by default, which makes the same source hash differently on every commit; `-buildvcs=false` removes the stamping, so a manifest rendered from a local build matches the executable published for that version. `release-binaries.yml` uploads the executable next to the platform binaries, and `publish-shims.yml` submits each version's manifest update to `microsoft/winget-pkgs` with `wingetcreate`.
 
 Because the installed executable _is_ the Go shim, a winget install converges on the same `~/.archgate/bin/` cache as every other method. Because nothing is published out of the directory, it carries none of the three artifacts ARCH-013 synchronizes into published shim packages — no version constant, no root-mirrored `README.md`, no `LICENSE.md`. A directory-specific `README.md` is not one of those artifacts and is expected here.
 
@@ -59,6 +61,7 @@ All shims produce identical user-facing error messages on stderr:
 - Use identical error messages across all shims
 - Add new shim version files to `.simple-release.js` and the ARCH-013 companion rules
 - Ship the winget executable as a cross-compiled build of `shims/go`, so Windows has one shim implementation rather than two that can drift
+- Build the winget executable with `-buildvcs=false`, so identical source yields an identical checksum and a rendered manifest keeps matching the released executable
 
 ### Don't
 
