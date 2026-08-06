@@ -10,6 +10,7 @@ import {
   ImportsManifestSchema,
   parsePackMetadata,
 } from "../../src/formats/pack";
+import { UserError } from "../../src/helpers/user-error";
 
 describe("PackMetadataSchema", () => {
   test("parses valid pack metadata", () => {
@@ -142,6 +143,28 @@ tags:
     expect(result.name).toBe("test-pack");
     expect(result.version).toBe("0.2.0");
     expect(result.tags).toEqual(["language:go"]);
+  });
+
+  test("throws a UserError listing every schema failure", () => {
+    const yaml = `
+name: Test_Pack
+version: "1.0"
+description: A test pack
+maintainers: []
+`;
+    expect(() => parsePackMetadata(yaml)).toThrow(UserError);
+    expect(() => parsePackMetadata(yaml)).toThrow(/Invalid pack metadata:/u);
+    expect(() => parsePackMetadata(yaml)).toThrow(/lowercase kebab-case/u);
+    expect(() => parsePackMetadata(yaml)).toThrow(/version must be semver/u);
+    expect(() => parsePackMetadata(yaml)).toThrow(
+      /maintainers: Too small: expected array to have >=1 items/u
+    );
+  });
+
+  test("throws when the document is not a mapping at all", () => {
+    expect(() => parsePackMetadata("just a scalar")).toThrow(
+      /Invalid pack metadata:/u
+    );
   });
 });
 

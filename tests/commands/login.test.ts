@@ -23,6 +23,7 @@ import { registerLoginCommand } from "../../src/commands/login";
 import * as credentialStore from "../../src/helpers/credential-store";
 import * as exitMod from "../../src/helpers/exit";
 import * as loginFlow from "../../src/helpers/login-flow";
+import * as paths from "../../src/helpers/paths";
 import * as telemetry from "../../src/helpers/telemetry";
 
 // ---------------------------------------------------------------------------
@@ -252,6 +253,51 @@ describe("login action handlers", () => {
         .join("\n");
       // printNextStep prints either "archgate check" or "archgate init"
       expect(allOutput).toMatch(/archgate (check|init)/u);
+    });
+
+    test("next step is `archgate check` when a project root is present", async () => {
+      loadCredentialsSpy.mockResolvedValueOnce(null);
+      runLoginFlowSpy.mockResolvedValueOnce({
+        ok: true,
+        githubUser: "octocat",
+      });
+      const rootSpy = spyOn(paths, "findProjectRoot").mockReturnValue(
+        "/fake/project"
+      );
+
+      try {
+        const program = makeProgram();
+        await program.parseAsync(["node", "test", "login"]);
+
+        const allOutput = logSpy.mock.calls
+          .map((c: unknown[]) => c.map(String).join(" "))
+          .join("\n");
+        expect(allOutput).toContain("archgate check");
+      } finally {
+        rootSpy.mockRestore();
+      }
+    });
+
+    test("next step is `archgate init` when no project root is found", async () => {
+      loadCredentialsSpy.mockResolvedValueOnce(null);
+      runLoginFlowSpy.mockResolvedValueOnce({
+        ok: true,
+        githubUser: "octocat",
+      });
+      const rootSpy = spyOn(paths, "findProjectRoot").mockReturnValue(null);
+
+      try {
+        const program = makeProgram();
+        await program.parseAsync(["node", "test", "login"]);
+
+        const allOutput = logSpy.mock.calls
+          .map((c: unknown[]) => c.map(String).join(" "))
+          .join("\n");
+        expect(allOutput).toContain("archgate init");
+        expect(allOutput).not.toContain("archgate check");
+      } finally {
+        rootSpy.mockRestore();
+      }
     });
 
     test("exits with code 1 and prints TLS hint on TLS error", async () => {

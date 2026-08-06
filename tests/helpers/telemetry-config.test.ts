@@ -98,6 +98,27 @@ describe("telemetry-config", () => {
       expect(config.noticeShown).toBe(true);
     });
 
+    test("creates new config when the file is valid JSON of the wrong shape", async () => {
+      // JSON.parse succeeds, so only the schema check rejects this — a
+      // distinct path from the malformed-JSON case below.
+      const { mkdirSync } = await import("node:fs");
+      const configDir = join(tempDir, ".archgate");
+      mkdirSync(configDir, { recursive: true });
+      await Bun.write(
+        join(configDir, "config.json"),
+        JSON.stringify({ telemetry: "yes", installId: 42 })
+      );
+
+      const { loadTelemetryConfig } =
+        await import("../../src/helpers/telemetry-config");
+
+      const config = loadTelemetryConfig();
+      expect(config.telemetry).toBe(true);
+      expect(config.installId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u
+      );
+    });
+
     test("creates new config when file is malformed", async () => {
       const { mkdirSync } = await import("node:fs");
       const configDir = join(tempDir, ".archgate");

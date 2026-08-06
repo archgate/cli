@@ -1,17 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  spyOn,
+  type Mock,
+} from "bun:test";
 
 import {
   beginCommand,
   classifyErrorKind,
+  exitForBrokenPipe,
+  exitWith,
   finalizeCommand,
   isEpipeError,
   _getExitState,
   _resetExitState,
 } from "../../src/helpers/exit";
+import * as telemetryMod from "../../src/helpers/telemetry";
 import { UserError } from "../../src/helpers/user-error";
-import { restoreEnv } from "../test-utils";
+import { rejectionMessage, restoreEnv } from "../test-utils";
 
 describe("exit helper", () => {
   let originalNodeEnv: string | undefined;
@@ -142,6 +153,94 @@ describe("exit helper", () => {
       expect(classifyErrorKind(new RangeError("out of range"))).toBe(
         "RangeError"
       );
+    });
+  });
+
+  describe("exitWith", () => {
+    let exitSpy: Mock<typeof process.exit>;
+    let trackSpy: Mock<typeof telemetryMod.trackCommandResult>;
+
+    beforeEach(() => {
+      // Throwing instead of exiting lets the test observe the requested code
+      // without tearing down the test runner.
+      exitSpy = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit");
+      });
+      trackSpy = spyOn(telemetryMod, "trackCommandResult").mockImplementation(
+        () => {}
+      );
+    });
+
+    afterEach(() => {
+      exitSpy.mockRestore();
+      trackSpy.mockRestore();
+    });
+
+    test.each([
+      [0, "success"],
+      [1, "user_error"],
+      [2, "internal_error"],
+      [130, "cancelled"],
+    ] as const)("code %d maps to the %s outcome", async (code, outcome) => {
+      beginCommand("check");
+
+      expect(await rejectionMessage(exitWith(code))).toBe("process.exit");
+      expect(exitSpy).toHaveBeenCalledWith(code);
+      expect(trackSpy).toHaveBeenCalledTimes(1);
+      expect(trackSpy.mock.calls[0][0]).toBe("check");
+      expect(trackSpy.mock.calls[0][1]).toBe(code);
+      expect(trackSpy.mock.calls[0][3]).toMatchObject({
+        outcome,
+        error_kind: null,
+      });
+    });
+
+    test("an explicit outcome overrides the code-derived default", async () => {
+      beginCommand("check");
+
+      expect(
+        await rejectionMessage(
+          exitWith(1, { outcome: "cancelled", errorKind: "user_abort" })
+        )
+      ).toBe("process.exit");
+      expect(trackSpy.mock.calls[0][3]).toMatchObject({
+        outcome: "cancelled",
+        error_kind: "user_abort",
+      });
+    });
+
+    test("falls back to the 'root' command name when none was begun", async () => {
+      expect(await rejectionMessage(exitWith(0))).toBe("process.exit");
+      // beginCommand was never called, so exitWith names the invocation "root".
+      expect(trackSpy.mock.calls[0][0]).toBe("root");
+    });
+  });
+
+  describe("exitForBrokenPipe", () => {
+    test("exits 0 and tags the completion as a cancelled broken pipe", async () => {
+      const exitSpy = spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("process.exit");
+      });
+      const trackSpy = spyOn(
+        telemetryMod,
+        "trackCommandResult"
+      ).mockImplementation(() => {});
+      try {
+        beginCommand("adr list");
+
+        expect(await rejectionMessage(exitForBrokenPipe())).toBe(
+          "process.exit"
+        );
+        // Pipeline convention: a closed reader is success, not an error.
+        expect(exitSpy).toHaveBeenCalledWith(0);
+        expect(trackSpy.mock.calls[0][3]).toMatchObject({
+          outcome: "cancelled",
+          error_kind: "broken_pipe",
+        });
+      } finally {
+        exitSpy.mockRestore();
+        trackSpy.mockRestore();
+      }
     });
   });
 });

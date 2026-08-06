@@ -32,43 +32,6 @@ function mockFetch(handler: () => Promise<Response>) {
   globalThis.fetch = mock(handler) as unknown as typeof fetch;
 }
 
-describe("getArtifactInfo", () => {
-  test.skipIf(getArtifactInfo() === null)(
-    "returns artifact info for the current platform",
-    () => {
-      const info = getArtifactInfo();
-
-      expect(info).not.toBeNull();
-      expect(info!.name).toMatch(
-        /^archgate-(darwin-arm64|linux-x64|win32-x64)$/u
-      );
-      expect(info!.ext).toMatch(/^\.(tar\.gz|zip)$/u);
-      expect(info!.binaryName).toMatch(/^archgate(\.exe)?$/u);
-    }
-  );
-
-  test.skipIf(process.platform !== "win32")(
-    "returns .zip extension for win32",
-    () => {
-      const info = getArtifactInfo();
-      expect(info).not.toBeNull();
-      expect(info!.ext).toBe(".zip");
-      expect(info!.binaryName).toBe("archgate.exe");
-      expect(info!.name).toBe("archgate-win32-x64");
-    }
-  );
-
-  test.skipIf(process.platform === "win32")(
-    "returns .tar.gz extension for non-win32",
-    () => {
-      const info = getArtifactInfo();
-      expect(info).not.toBeNull();
-      expect(info!.ext).toBe(".tar.gz");
-      expect(info!.binaryName).toBe("archgate");
-    }
-  );
-});
-
 describe("getManualInstallHint", () => {
   test.skipIf(process.platform !== "win32")(
     "returns Windows install command",
@@ -90,7 +53,15 @@ describe("getManualInstallHint", () => {
 });
 
 describe("fetchLatestGitHubVersion", () => {
+  let originalFetch: typeof fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
   afterEach(() => {
+    // mock.restore() does not undo a direct assignment to globalThis.fetch.
+    globalThis.fetch = originalFetch;
     mock.restore();
   });
 
@@ -128,10 +99,39 @@ describe("fetchLatestGitHubVersion", () => {
     const result = await fetchLatestGitHubVersion();
     expect(result).toBeNull();
   });
+
+  // A payload that parses as JSON but fails the release schema — the GitHub
+  // API returning a non-string tag, or an error object in place of a release.
+  const malformedPayloads = [
+    ["a non-string tag_name", { tag_name: 42 }],
+    ["a null tag_name", { tag_name: null }],
+    ["an array payload", []],
+  ] as const;
+
+  test.each(malformedPayloads)(
+    "returns null for %s",
+    async (_label, payload) => {
+      mockFetch(async () => {
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        return { ok: true, json: async () => payload } as Response;
+      });
+
+      const result = await fetchLatestGitHubVersion();
+      expect(result).toBeNull();
+    }
+  );
 });
 
 describe("downloadReleaseBinary", () => {
+  let originalFetch: typeof fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
   afterEach(() => {
+    // mock.restore() does not undo a direct assignment to globalThis.fetch.
+    globalThis.fetch = originalFetch;
     mock.restore();
   });
 

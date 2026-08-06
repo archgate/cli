@@ -31,8 +31,19 @@ let mockSaveCredentials: Mock<typeof credMod.saveCredentials>;
 // Mock inquirer for the signup flow prompts (lazy-loaded via dynamic import).
 // Use Record<string, unknown> as return type so mockImplementation can return
 // different shapes for different prompts (email, editor, useCase, confirmed).
+/**
+ * The subset of each signup question the tests read back. Declaring it lets
+ * the validator assertions below index the recorded call without a cast.
+ */
+interface SignupQuestion {
+  name?: string;
+  validate?: (value: string) => boolean | string;
+}
+
 const mockInquirerPrompt = mock(
-  async (): Promise<Record<string, unknown>> => ({ email: "test@example.com" })
+  async (_question: SignupQuestion): Promise<Record<string, unknown>> => ({
+    email: "test@example.com",
+  })
 );
 void mock.module("inquirer", () => ({
   default: { prompt: mockInquirerPrompt },
@@ -416,6 +427,46 @@ describe("login-flow", () => {
     expect(signupBody!.editor).toBe("claude-code");
     // Only 3 prompts (no editor prompt)
     expect(promptCallCount).toBe(3);
+  });
+
+  test("signup prompts validate the email and use-case answers", async () => {
+    mockClaimArchgateToken.mockImplementation(async () => {
+      throw new SignupRequiredError();
+    });
+
+    // Deliberately incomplete fake: only the call signature fetch invokes
+    // matters for this test.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = (async () =>
+      Response.json(
+        { token: "validated-token" },
+        { status: 201 }
+      )) as unknown as typeof fetch;
+
+    // A pre-selected editor drops the editor prompt, so the recorded calls
+    // are email, useCase, confirm — in that order.
+    let promptCallCount = 0;
+    mockInquirerPrompt.mockImplementation(async () => {
+      promptCallCount++;
+      switch (promptCallCount) {
+        case 1:
+          return { email: "test@example.com" };
+        case 2:
+          return { useCase: "governance" };
+        default:
+          return { confirmed: true };
+      }
+    });
+
+    await runLoginFlow({ editor: "claude-code" });
+
+    const emailValidate = mockInquirerPrompt.mock.calls[0][0].validate;
+    expect(emailValidate?.("not-an-email")).toBe("Enter a valid email address");
+    expect(emailValidate?.("dev@example.com")).toBe(true);
+
+    const useCaseValidate = mockInquirerPrompt.mock.calls[1][0].validate;
+    expect(useCaseValidate?.("   ")).toBe("Please describe your use case");
+    expect(useCaseValidate?.("governance")).toBe(true);
   });
 
   test("claimArchgateToken throws non-signup error -> propagates", async () => {

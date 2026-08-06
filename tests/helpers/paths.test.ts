@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
+import * as os from "node:os";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { findProjectRoot } from "../../src/helpers/paths";
+import { findProjectRoot, internalPath } from "../../src/helpers/paths";
+import { restoreEnv } from "../test-utils";
 
 describe("findProjectRoot", () => {
   let tempDir: string;
@@ -73,4 +75,59 @@ describe("findProjectRoot", () => {
     const result = findProjectRoot(nested);
     expect(result).toBeNull();
   });
+
+  test("gives up at the ancestor-depth bound instead of walking on", () => {
+    mkdirSync(join(tempDir, ".archgate", "adrs"), { recursive: true });
+    // Deeper than the 1000-ancestor bound. The directories need not exist —
+    // the walk only stats each candidate.
+    let deep = tempDir;
+    for (let i = 0; i < 1005; i++) deep = join(deep, "d");
+
+    // A real project root sits above, but further than the bound allows.
+    expect(findProjectRoot(deep)).toBeNull();
+    // Fire-test the other direction: within the bound the same root is found.
+    expect(findProjectRoot(join(tempDir, "d"))).toBe(tempDir);
+  });
+});
+
+describe("internalPath", () => {
+  let originalHome: string | undefined;
+  let originalUserProfile: string | undefined;
+
+  beforeEach(() => {
+    originalHome = Bun.env.HOME;
+    originalUserProfile = Bun.env.USERPROFILE;
+  });
+
+  afterEach(() => {
+    restoreEnv("HOME", originalHome);
+    restoreEnv("USERPROFILE", originalUserProfile);
+  });
+
+  test("prefers HOME when it holds a usable value", () => {
+    Bun.env.HOME = join("/srv", "someone");
+    expect(internalPath("cache")).toBe(
+      join("/srv", "someone", ".archgate", "cache")
+    );
+  });
+
+  test.each(["", "undefined"])(
+    "falls back to os.homedir() when HOME is %p",
+    (badHome) => {
+      const fakeHome = join(tmpdir(), "archgate-fake-home");
+      const homeSpy = spyOn(os, "homedir").mockReturnValue(fakeHome);
+      try {
+        // Shells and tooling surface an unset variable both ways; neither may
+        // reach path.join, or an ./undefined/.archgate tree appears under cwd.
+        Bun.env.HOME = badHome;
+        delete Bun.env.USERPROFILE;
+
+        expect(internalPath("cache")).toBe(
+          join(fakeHome, ".archgate", "cache")
+        );
+      } finally {
+        homeSpy.mockRestore();
+      }
+    }
+  );
 });

@@ -9,7 +9,13 @@ import {
   test,
   type Mock,
 } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
 
@@ -311,5 +317,31 @@ describe("readCursorSession", () => {
     if (!result.ok) throw new Error("expected ok");
 
     expect(result.data.sessionId).toBe("session-good");
+  });
+
+  test("ignores an entry whose stat fails (dangling link)", async () => {
+    // A dangling link: readdir lists the entry, while stat follows it and
+    // raises ENOENT.
+    const danglingTarget = mkdtempSync(join(os.tmpdir(), "archgate-dangling-"));
+    // "junction" so the link can be created unprivileged on Windows too;
+    // the type argument is ignored on POSIX.
+    symlinkSync(
+      danglingTarget,
+      join(transcriptsDir, "session-gone"),
+      "junction"
+    );
+    rmSync(danglingTarget, { recursive: true, force: true });
+    makeSession("session-live", [
+      JSON.stringify({
+        role: "user",
+        message: { role: "user", content: "still here" },
+      }),
+    ]);
+
+    const result = await listCursorSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["session-live"]);
   });
 });

@@ -238,6 +238,28 @@ describe("scanRuleSource", () => {
     });
   });
 
+  describe("caller-supplied transpiled JS", () => {
+    test("walks the supplied JS rather than transpiling the source again", () => {
+      // The TypeScript source is clean; only the supplied JS names a banned
+      // module, so a violation proves the supplied JS is what was walked.
+      const violations = scanRuleSource(
+        `export const ok = 1;`,
+        `import fs from "node:fs";`
+      );
+      expect(violations).toHaveLength(1);
+      expect(violations[0].message).toContain(`"node:fs"`);
+      expect(violations[0].message).toContain("blocked");
+    });
+
+    test("returns a parse-error violation when the supplied JS is broken", () => {
+      const violations = scanRuleSource(`export const ok = 1;`, `const = ;`);
+      expect(violations).toHaveLength(1);
+      expect(violations[0].message).toContain("Parse error");
+      expect(violations[0].line).toBe(1);
+      expect(violations[0].column).toBe(0);
+    });
+  });
+
   // Position remapping tests are in rule-scanner-positions.test.ts
 });
 

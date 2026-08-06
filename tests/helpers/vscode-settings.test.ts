@@ -364,3 +364,136 @@ describe("getVscodeUserSettingsPath", () => {
     }
   );
 });
+
+/**
+ * `getVscodeUserSettingsPath()` branches on `src/helpers/platform.ts`, which
+ * resolves `process.platform` at call time. Bun exposes that as a writable
+ * property, so simulating it and clearing the platform cache reaches the macOS
+ * and WSL branches from any runner.
+ */
+describe("getVscodeUserSettingsPath branch matrix", () => {
+  const HOME = "/simulated-home";
+  const APP_DATA = "/simulated-appdata";
+  const WIN_HOME = "/mnt/c/Users/simulated";
+
+  let platformDesc: PropertyDescriptor;
+  let savedEnv: Record<string, string | undefined>;
+  let homedirSpy: Mock<typeof os.homedir>;
+  let spawnSpy: Mock<typeof Bun.spawn>;
+
+  beforeEach(() => {
+    platformDesc = Object.getOwnPropertyDescriptor(process, "platform")!;
+    savedEnv = {
+      APPDATA: process.env.APPDATA,
+      WSL_DISTRO_NAME: process.env.WSL_DISTRO_NAME,
+      WSL_INTEROP: process.env.WSL_INTEROP,
+    };
+    homedirSpy = spyOn(os, "homedir").mockReturnValue(HOME);
+    spawnSpy = spyOn(Bun, "spawn");
+  });
+
+  afterEach(() => {
+    Object.defineProperty(process, "platform", platformDesc);
+    spawnSpy.mockRestore();
+    homedirSpy.mockRestore();
+    restoreEnvAll(savedEnv);
+    _resetAllCaches();
+  });
+
+  /**
+   * Stub `cmd.exe` and `wslpath`, the two subprocesses
+   * `getWindowsHomeDirFromWSL()` shells out to. `resolvable: false` makes the
+   * first one fail, which is the "Windows home not resolvable" fall-through.
+   */
+  function stubWslSubprocesses(resolvable: boolean): void {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    spawnSpy.mockImplementation(((cmd: string[]) => {
+      if (cmd[0] === "wslpath") {
+        return {
+          stdout: WIN_HOME + "\n",
+          stderr: "",
+          exited: Promise.resolve(0),
+        };
+      }
+      return {
+        stdout: resolvable ? "C:\\Users\\simulated\r\n" : "",
+        stderr: "",
+        exited: Promise.resolve(resolvable ? 0 : 1),
+      };
+    }) as unknown as typeof Bun.spawn);
+  }
+
+  // [label, simulated platform, APPDATA, WSL_DISTRO_NAME, Windows home
+  //  resolvable, expected path with "/" separators]
+  const cases = [
+    [
+      "win32 with APPDATA set",
+      "win32",
+      APP_DATA,
+      null,
+      false,
+      `${APP_DATA}/Code/User/settings.json`,
+    ],
+    [
+      "win32 with APPDATA unset",
+      "win32",
+      null,
+      null,
+      false,
+      `${HOME}/AppData/Roaming/Code/User/settings.json`,
+    ],
+    [
+      "macOS",
+      "darwin",
+      null,
+      null,
+      false,
+      `${HOME}/Library/Application Support/Code/User/settings.json`,
+    ],
+    [
+      "WSL with a resolvable Windows home",
+      "linux",
+      null,
+      "Ubuntu-22.04",
+      true,
+      `${WIN_HOME}/AppData/Roaming/Code/User/settings.json`,
+    ],
+    [
+      "WSL without a resolvable Windows home",
+      "linux",
+      null,
+      "Ubuntu-22.04",
+      false,
+      `${HOME}/.config/Code/User/settings.json`,
+    ],
+    [
+      "plain Linux",
+      "linux",
+      null,
+      null,
+      false,
+      `${HOME}/.config/Code/User/settings.json`,
+    ],
+  ] as const;
+
+  test.each(cases)(
+    "resolves the settings path on %s",
+    async (_label, platform, appData, wslDistro, resolvable, expected) => {
+      Object.defineProperty(process, "platform", {
+        ...platformDesc,
+        value: platform,
+      });
+      delete process.env.WSL_INTEROP;
+      if (appData === null) delete process.env.APPDATA;
+      else process.env.APPDATA = appData;
+      if (wslDistro === null) delete process.env.WSL_DISTRO_NAME;
+      else process.env.WSL_DISTRO_NAME = wslDistro;
+      stubWslSubprocesses(resolvable);
+      _resetAllCaches();
+
+      const path = await getVscodeUserSettingsPath();
+
+      expect(path.replaceAll("\\", "/")).toBe(expected);
+    }
+  );
+});
