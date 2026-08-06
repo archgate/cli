@@ -15,7 +15,7 @@ winget is the one target that installs no package built from source. Its `portab
 
 That executable's checksum is computed from a locally built copy and rendered into the manifest, rather than read back from the published asset, so the local build has to match what ships. Go stamps `vcs.revision` and `vcs.time` into a binary by default, which makes the same source hash differently on every commit; `-buildvcs=false` removes the stamping. The toolchain is the other input to that checksum, so every workflow building the shim pins the Go version declared in `shims/go/go.mod`. `release-binaries.yml` uploads the executable next to the platform binaries, and `publish-shims.yml` submits each version's manifest update to `microsoft/winget-pkgs` with `wingetcreate`.
 
-Because the installed executable _is_ the Go shim, a winget install converges on the same `~/.archgate/bin/` cache as every other method. Because nothing is published out of the directory, it carries none of the three artifacts ARCH-013 synchronizes into published shim packages — no version constant, no root-mirrored `README.md`, no `LICENSE.md`. A directory-specific `README.md` is not one of those artifacts and is expected here.
+Because the installed executable _is_ the Go shim, a winget install converges on the same `~/.archgate/bin/` cache as every other method. Because no shim package is published from the directory, it carries none of the three artifacts ARCH-013 synchronizes into published shim packages — no version constant, no root-mirrored `README.md`, no `LICENSE.md`. A directory-specific `README.md` is not one of those artifacts and is expected here.
 
 ## Decision
 
