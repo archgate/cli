@@ -11,7 +11,7 @@ rules: true
 
 The archgate CLI is a standalone binary compiled with Bun. To maximize reach, it is distributed through multiple package managers (npm, PyPI, NuGet, Go, Maven Central, RubyGems, winget) using a "thin shim" pattern: each package contains a minimal wrapper in the target ecosystem's language that downloads and caches the platform binary from GitHub Releases on first invocation.
 
-winget is the one target that installs no package built from source. Its `portable` installer type fetches a single executable from a URL and puts it on `PATH`, so the artifact it installs is the Go shim cross-compiled for Windows rather than a seventh implementation of the contract below. `shims/winget/` therefore holds no shim implementation — only `build.ts`, which cross-compiles `shims/go` for `windows/amd64` into `archgate-shim-win32-x64.exe` and renders the `manifests/` templates with that executable's version and SHA256, alongside a `README.md` documenting that recipe and the manual first submission.
+winget is the one target that installs no package built from source. Its `portable` installer type fetches a single executable from a URL and puts it on `PATH`, so the artifact it installs is the Go shim cross-compiled for Windows rather than a seventh implementation of the contract below. `shims/winget/` therefore holds no shim implementation — only `build.ts`, which cross-compiles `shims/go` for `windows/amd64` into `archgate-shim-win32-x64.exe` and renders the `manifests/` templates with that executable's version and SHA256, alongside a `README.md` documenting that recipe and the manual first submission. `build.ts` runs only from this repository and is never published, so it uses the repo's own tooling — Commander for its flags, as the CLI itself does — rather than the standard-library-only rule that binds shipped shim code.
 
 That executable's checksum is computed from a locally built copy and rendered into the manifest, rather than read back from the published asset, so the local build has to match what ships. Go stamps `vcs.revision` and `vcs.time` into a binary by default, which makes the same source hash differently on every commit; `-buildvcs=false` removes the stamping. The toolchain is the other input to that checksum, so every workflow building the shim pins the Go version declared in `shims/go/go.mod`. `release-binaries.yml` uploads the executable next to the platform binaries, and `publish-shims.yml` submits each version's manifest update to `microsoft/winget-pkgs` with `wingetcreate`.
 
@@ -55,7 +55,7 @@ All shims produce identical user-facing error messages on stderr:
 
 ### Do
 
-- Use only the target ecosystem's standard library (zero runtime dependencies)
+- Use only the target ecosystem's standard library in every shim package (zero runtime dependencies), since that code ships to users; repo-only build tooling is not bound by this
 - Share the `~/.archgate/bin/` cache directory across all shim packages
 - Verify SHA256 checksums before extracting downloaded archives
 - Use identical error messages across all shims

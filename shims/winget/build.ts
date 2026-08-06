@@ -13,6 +13,8 @@
 import { mkdir, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
+import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
+
 /** winget package identifier, as submitted to microsoft/winget-pkgs. */
 export const PACKAGE_IDENTIFIER = "Archgate.Archgate";
 
@@ -153,62 +155,78 @@ export async function renderManifests(options: {
 
 interface CliOptions {
   outDir: string;
-  version: string | undefined;
-  sha256: string | undefined;
+  version?: string | undefined;
+  sha256?: string | undefined;
   manifestsOnly: boolean;
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)*$/u;
 
 /**
- * Parses the script's command-line arguments.
+ * Validates a `--sha256` value.
  *
  * A malformed checksum reaches the published winget manifest, where it makes
  * every install fail verification, so it is rejected here rather than rendered.
  *
- * @throws If an option is unknown, its value is missing, or `--sha256` is not
- * a 64-character hex digest.
+ * @throws If the digest is not 64 hexadecimal characters.
  */
-export function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = {
-    outDir: join("dist", "winget"),
-    version: undefined,
-    sha256: undefined,
-    manifestsOnly: false,
-  };
-
-  const valueFor = (flag: string, raw: string | undefined): string => {
-    if (raw === undefined || raw === "" || raw.startsWith("--")) {
-      throw new Error(`${flag} requires a value`);
-    }
-    return raw;
-  };
-
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index];
-    switch (arg) {
-      case "--out-dir":
-        options.outDir = valueFor(arg, argv[++index]);
-        break;
-      case "--version":
-        options.version = valueFor(arg, argv[++index]);
-        break;
-      case "--sha256":
-        options.sha256 = valueFor(arg, argv[++index]);
-        break;
-      case "--manifests-only":
-        options.manifestsOnly = true;
-        break;
-      default:
-        throw new Error(`Unknown argument: ${arg}`);
-    }
-  }
-
-  if (options.sha256 !== undefined && !SHA256_PATTERN.test(options.sha256)) {
-    throw new Error(
-      `--sha256 must be a 64-character hex digest, got "${options.sha256}"`
+function parseSha256(value: string): string {
+  if (!SHA256_PATTERN.test(value)) {
+    throw new InvalidArgumentError(
+      `must be a 64-character hex digest, got "${value}"`
     );
   }
+  return value;
+}
+
+/**
+ * Validates a `--version` value.
+ *
+ * The version is rendered into the manifest and into the release download URL,
+ * so a malformed one yields a manifest pointing at an asset that never exists.
+ *
+ * @throws If the value is not a semantic version.
+ */
+function parseVersion(value: string): string {
+  if (!SEMVER_PATTERN.test(value)) {
+    throw new InvalidArgumentError(
+      `must be a semantic version, got "${value}"`
+    );
+  }
+  return value;
+}
+
+/**
+ * Parses the script's command-line arguments.
+ *
+ * @throws {CommanderError} If an option is unknown, its value is missing, or a
+ * value fails validation.
+ */
+export function parseArgs(argv: readonly string[]): CliOptions {
+  const command = new Command()
+    .name("build:winget")
+    .description("Build the winget shim executable and render its manifests")
+    .option("--out-dir <dir>", "output directory", join("dist", "winget"))
+    .option(
+      "--version <version>",
+      "version to render (defaults to package.json)",
+      parseVersion
+    )
+    .option(
+      "--sha256 <hex>",
+      "checksum of an already-published executable",
+      parseSha256
+    )
+    .option(
+      "--manifests-only",
+      "skip the compile and render manifests only",
+      false
+    )
+    .exitOverride()
+    .parse(argv, { from: "user" });
+
+  const options = command.opts();
 
   if (options.manifestsOnly && options.sha256 === undefined) {
     throw new Error("--manifests-only requires --sha256 <hex>");

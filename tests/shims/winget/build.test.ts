@@ -112,7 +112,7 @@ describe("parseArgs", () => {
   });
 
   test("rejects an unknown flag", () => {
-    expect(() => parseArgs(["--nope"])).toThrow("Unknown argument: --nope");
+    expect(() => parseArgs(["--nope"])).toThrow("unknown option '--nope'");
   });
 
   test("requires a checksum when the compile is skipped", () => {
@@ -124,37 +124,45 @@ describe("parseArgs", () => {
   test.each(["--out-dir", "--version", "--sha256"])(
     "rejects %s with no value",
     (flag) => {
-      expect(() => parseArgs([flag])).toThrow(`${flag} requires a value`);
+      expect(() => parseArgs([flag])).toThrow("argument missing");
     }
   );
-
-  test.each(["--out-dir", "--version", "--sha256"])(
-    "rejects %s followed by another flag",
-    (flag) => {
-      expect(() => parseArgs([flag, "--manifests-only"])).toThrow(
-        `${flag} requires a value`
-      );
-    }
-  );
-
-  test("rejects an empty checksum", () => {
-    expect(() => parseArgs(["--sha256", ""])).toThrow(
-      "--sha256 requires a value"
-    );
-  });
 
   test.each([
+    ["empty", ""],
     ["too short", "abc"],
     ["non-hex", `${"a".repeat(63)}z`],
     ["too long", `${VALUES.sha256}0`],
+    ["trailing newline", `${VALUES.sha256}\n`],
+    ["flag-shaped", "--manifests-only"],
   ])("rejects a %s checksum", (_label, sha256) => {
-    expect(() => parseArgs(["--sha256", sha256])).toThrow("--sha256 must be a");
+    expect(() => parseArgs(["--sha256", sha256])).toThrow(
+      "must be a 64-character hex digest"
+    );
   });
 
   test("accepts an uppercase checksum", () => {
     const options = parseArgs(["--sha256", VALUES.sha256.toUpperCase()]);
     expect(options.sha256).toBe(VALUES.sha256.toUpperCase());
   });
+
+  test.each([
+    ["empty", ""],
+    ["not a version", "latest"],
+    ["incomplete", "1.2"],
+    ["flag-shaped", "--manifests-only"],
+  ])("rejects a %s version", (_label, version) => {
+    expect(() => parseArgs(["--version", version])).toThrow(
+      "must be a semantic version"
+    );
+  });
+
+  test.each(["1.2.3", "0.51.0", "1.0.0-rc.1"])(
+    "accepts the version %s",
+    (version) => {
+      expect(parseArgs(["--version", version]).version).toBe(version);
+    }
+  );
 });
 
 describe("computeSha256", () => {
