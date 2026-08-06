@@ -161,7 +161,8 @@ interface CliOptions {
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
-const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)*$/u;
+const SEMVER_PATTERN =
+  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 
 /**
  * Validates a `--sha256` value.

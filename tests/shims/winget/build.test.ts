@@ -157,12 +157,20 @@ describe("parseArgs", () => {
     );
   });
 
-  test.each(["1.2.3", "0.51.0", "1.0.0-rc.1"])(
+  test.each(["1.2.3", "0.51.0", "1.0.0-rc.1", "1.0.0-rc.1+build.5"])(
     "accepts the version %s",
     (version) => {
       expect(parseArgs(["--version", version]).version).toBe(version);
     }
   );
+
+  test("rejects an adversarial version without backtracking", () => {
+    const started = performance.now();
+    expect(() => parseArgs(["--version", `9.9.9+${"--".repeat(40)}!`])).toThrow(
+      "must be a semantic version"
+    );
+    expect(performance.now() - started).toBeLessThan(1000);
+  });
 });
 
 describe("computeSha256", () => {
