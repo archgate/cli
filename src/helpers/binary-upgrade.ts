@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { createHash } from "node:crypto";
-import { chmodSync, mkdtempSync, renameSync, unlinkSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+} from "node:fs";
 import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -218,62 +225,82 @@ export async function downloadReleaseBinary(
     logDebug("Checksum verification skipped:", err);
   }
   const tmpDir = mkdtempSync(join(tmpdir(), "archgate-upgrade-"));
-  const archivePath = join(tmpDir, `archgate${artifact.ext}`);
-  logDebug("Extracting archive to:", tmpDir);
+  try {
+    const archivePath = join(tmpDir, `archgate${artifact.ext}`);
+    logDebug("Extracting archive to:", tmpDir);
 
-  await Bun.write(archivePath, buffer);
+    await Bun.write(archivePath, buffer);
 
-  if (artifact.ext === ".tar.gz") {
-    // Validate archive entries before extraction to prevent path traversal
-    const listProc = Bun.spawn(["tar", "-tzf", archivePath], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const listing = await new Response(listProc.stdout).text();
-    await listProc.exited;
+    if (artifact.ext === ".tar.gz") {
+      // Validate archive entries before extraction to prevent path traversal.
+      // Backslashes are normalized because a member stored as `..\evil` is
+      // listed escaped by GNU tar and literal by bsdtar; both forms reach the
+      // `../` check only after normalization.
+      const listProc = Bun.spawn(["tar", "-tzf", archivePath], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const listing = await new Response(listProc.stdout).text();
+      await listProc.exited;
 
-    for (const entry of listing.split("\n").filter(Boolean)) {
-      const normalized = entry.replaceAll("\\", "/").trim();
-      if (
-        normalized.startsWith("/") ||
-        normalized.includes("../") ||
-        normalized === ".."
-      ) {
-        throw new Error(
-          `Unsafe path in release archive: "${entry}" — aborting extraction`
+      for (const entry of listing.split("\n").filter(Boolean)) {
+        const normalized = entry.replaceAll("\\", "/").trim();
+        if (
+          normalized.startsWith("/") ||
+          normalized.includes("../") ||
+          normalized === ".."
+        ) {
+          throw new Error(
+            `Unsafe path in release archive: "${entry}" — aborting extraction`
+          );
+        }
+      }
+
+      const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", tmpDir], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const exitCode = await proc.exited;
+      if (exitCode !== 0) {
+        throw new UserError(
+          `Failed to extract archive (tar exit code ${exitCode})`
+        );
+      }
+    } else {
+      // `-ErrorAction Stop` promotes Expand-Archive's non-terminating error to
+      // a terminating one; without it PowerShell exits 0 on a corrupt archive
+      // and extraction failure goes unnoticed.
+      const proc = Bun.spawn(
+        [
+          "powershell",
+          "-NoProfile",
+          "-Command",
+          `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
+        ],
+        { stdout: "pipe", stderr: "pipe" }
+      );
+      const exitCode = await proc.exited;
+      if (exitCode !== 0) {
+        throw new UserError(
+          `Failed to extract archive (PowerShell exit code ${exitCode})`
         );
       }
     }
 
-    const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", tmpDir], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
+    const binaryPath = join(tmpDir, artifact.binaryName);
+    if (!existsSync(binaryPath)) {
       throw new UserError(
-        `Failed to extract archive (tar exit code ${exitCode})`
+        `Extraction produced no ${artifact.binaryName} — the downloaded archive is corrupt or incomplete`
       );
     }
-  } else {
-    const proc = Bun.spawn(
-      [
-        "powershell",
-        "-NoProfile",
-        "-Command",
-        `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force`,
-      ],
-      { stdout: "pipe", stderr: "pipe" }
-    );
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
-      throw new UserError(
-        `Failed to extract archive (PowerShell exit code ${exitCode})`
-      );
-    }
-  }
 
-  return join(tmpDir, artifact.binaryName);
+    return binaryPath;
+  } catch (err) {
+    // The caller only receives a path on success, so it can only clean up the
+    // extraction directory then; every failure has to remove it here.
+    rmSync(tmpDir, { recursive: true, force: true });
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,8 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
-import { rmSync } from "node:fs";
+import { readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname } from "node:path";
 
 import {
@@ -105,6 +106,42 @@ function mockArchiveDownload(archive: Uint8Array): void {
   }) as unknown as typeof fetch;
 }
 
+/** Names of the extraction directories `downloadReleaseBinary` currently owns. */
+function upgradeTempDirs(): Set<string> {
+  return new Set(
+    readdirSync(tmpdir()).filter((name) => name.startsWith("archgate-upgrade-"))
+  );
+}
+
+/**
+ * Assert that `run` rejects without leaving its extraction directory behind.
+ *
+ * @returns The rejection message, for the caller's own assertions.
+ */
+async function rejectionWithoutLeak(run: Promise<unknown>): Promise<string> {
+  const before = upgradeTempDirs();
+  const message = await rejectionMessage(run);
+  const leaked = [...upgradeTempDirs()].filter((name) => !before.has(name));
+  expect(leaked).toEqual([]);
+  return message;
+}
+
+/**
+ * Replace `Bun.spawn` with a stub reporting `exitCode` and extracting nothing.
+ *
+ * @returns The argv of each spawn, populated as calls arrive.
+ */
+function stubSpawn(exitCode: number): string[][] {
+  const calls: string[][] = [];
+  const spawnSpy = spyOn(Bun, "spawn");
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  spawnSpy.mockImplementation(((argv: string[]) => {
+    calls.push(argv);
+    return { stdout: "", stderr: "", exited: Promise.resolve(exitCode) };
+  }) as unknown as typeof Bun.spawn);
+  return calls;
+}
+
 describe("downloadReleaseBinary archive handling", () => {
   let originalFetch: typeof fetch;
 
@@ -118,10 +155,9 @@ describe("downloadReleaseBinary archive handling", () => {
     mock.restore();
   });
 
-  // A backslash-separated escape (`..\evil`) has no row: GNU tar lists it with
-  // the backslash escaped, so the guard's backslash normalization never sees
-  // the shape it is written for. `test.skipIf(...).each()` also only accepts a
-  // mutable row array, hence no `as const` here.
+  // Entries listed verbatim by tar, so the message quotes them unchanged.
+  // `test.skipIf(...).each()` only accepts a mutable row array, hence no
+  // `as const` here.
   const unsafeEntries: string[] = [
     "../evil",
     "pkg/../../evil",
@@ -137,12 +173,31 @@ describe("downloadReleaseBinary archive handling", () => {
     async (entry) => {
       mockArchiveDownload(buildTarGz([entry]));
 
-      const message = await rejectionMessage(
+      const message = await rejectionWithoutLeak(
         downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
       );
 
       expect(message).toContain("Unsafe path in release archive");
       expect(message).toContain(entry);
+    }
+  );
+
+  // A backslash escape gets its own case because the quoted entry is not the
+  // stored name: GNU tar lists `..\evil` with the backslash doubled and bsdtar
+  // lists it verbatim. Normalizing either form yields a `../` the guard trips
+  // on, so the assertion accepts both spellings.
+  test.skipIf(process.platform === "win32")(
+    "aborts extraction for a backslash-separated escape",
+    async () => {
+      const entry = `..${String.fromCodePoint(92)}evil`;
+      mockArchiveDownload(buildTarGz([entry]));
+
+      const message = await rejectionWithoutLeak(
+        downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+      );
+
+      expect(message).toContain("Unsafe path in release archive");
+      expect(message).toMatch(/\.\.\\+evil/u);
     }
   );
 
@@ -166,7 +221,7 @@ describe("downloadReleaseBinary archive handling", () => {
     // and `tar -xzf` is what rejects it.
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
 
-    const message = await rejectionMessage(
+    const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
@@ -175,23 +230,40 @@ describe("downloadReleaseBinary archive handling", () => {
 
   test("reports the PowerShell exit code when zip extraction fails", async () => {
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
-    // A corrupt archive does not produce a failing exit code here:
-    // `Expand-Archive`'s error is non-terminating, so `powershell -Command`
-    // still exits 0. Stubbing the spawn is what reaches the failure branch,
-    // and it reaches it on every runner rather than only on Windows.
-    const spawnSpy = spyOn(Bun, "spawn");
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    spawnSpy.mockImplementation((() => ({
-      stdout: "",
-      stderr: "Expand-Archive : Central Directory corrupt.",
-      exited: Promise.resolve(3),
-    })) as unknown as typeof Bun.spawn);
+    // Stubbing the spawn reaches the failure branch on every runner rather
+    // than only on Windows, the sole platform shipping `.zip` releases.
+    stubSpawn(3);
 
-    const message = await rejectionMessage(
+    const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT)
     );
 
     expect(message).toBe("Failed to extract archive (PowerShell exit code 3)");
+  });
+
+  test("stops PowerShell on a non-terminating Expand-Archive error", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    const calls = stubSpawn(0);
+
+    await rejectionWithoutLeak(downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT));
+
+    // Without `-ErrorAction Stop`, Expand-Archive reports a corrupt archive as
+    // a non-terminating error and `powershell -Command` still exits 0.
+    expect(calls[0]).toContain("powershell");
+    expect(calls[0].at(-1)).toContain("-ErrorAction Stop");
+  });
+
+  test("rejects when extraction reports success but produces no binary", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    stubSpawn(0);
+
+    const message = await rejectionWithoutLeak(
+      downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT)
+    );
+
+    expect(message).toBe(
+      "Extraction produced no archgate.exe — the downloaded archive is corrupt or incomplete"
+    );
   });
 
   test("continues past checksum verification when the request fails", async () => {
