@@ -85,7 +85,7 @@ export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
     violations: b.violations.map(
       (v): ViolationDetail => ({
         message: v.message,
-        file: relative(projectRoot, v.file).replaceAll("\\", "/"),
+        file: toProjectRelative(projectRoot, v.file),
         line: v.line,
         endLine: v.endLine,
         endColumn: v.endColumn,
@@ -169,10 +169,21 @@ const parsedAdrsCache = new Map<string, Promise<ParsedAdrEntry[]>>();
 const skippedAdrsCache = new Map<string, string[]>();
 
 /**
+ * Project-root-relative, POSIX-separated form of an absolute path. Backslashes
+ * are normalized because GitHub resolves annotation and SARIF paths as POSIX
+ * on every platform, so a Windows run must not emit `.archgate\adrs\X.md`.
+ */
+function toProjectRelative(projectRoot: string, absolutePath: string): string {
+  return relative(projectRoot, absolutePath).replaceAll("\\", "/");
+}
+
+/**
  * ADR files that were skipped during parsing, so a caller reporting on the
  * corpus can say the listing is incomplete instead of implying it is clean.
  *
- * @returns Filenames relative to the ADR directory. Call after `parseAllAdrs`.
+ * @returns Paths relative to the project root, POSIX-separated — the form
+ * GitHub Actions annotations and SARIF `artifactLocation.uri` resolve
+ * against. Call after `parseAllAdrs`.
  */
 export function getSkippedAdrs(projectRoot: string): string[] {
   return skippedAdrsCache.get(projectRoot) ?? [];
@@ -206,7 +217,7 @@ export async function parseAllAdrs(
       const code = getErrnoCode(err);
       if (code !== "ENOENT") {
         skippedAdrsCache.set(projectRoot, [
-          `${adrsDir} (unreadable: ${code ?? String(err)})`,
+          `${toProjectRelative(projectRoot, adrsDir)} (unreadable: ${code ?? String(err)})`,
         ]);
       }
       return [];
@@ -219,7 +230,7 @@ export async function parseAllAdrs(
           return { file, adr: parseAdr(content, filePath) };
         } catch (err) {
           logDebug(`Skipping unparseable ADR: ${filePath}`, err);
-          skipped.push(file);
+          skipped.push(toProjectRelative(projectRoot, filePath));
           return null;
         }
       })
