@@ -27,6 +27,24 @@ ADR compliance is enforced automatically. `bun run validate` includes an ADR che
 - Git
 - [proto](https://moonrepo.dev/docs/proto) (for toolchain management)
 
+#### Windows: Git Bash must be resolvable
+
+The Claude Code hooks in `.claude/settings.json` are POSIX shell and declare `"shell": "bash"`. That names the shell but does not locate it — Claude Code auto-detects Git Bash, and falls back to `cmd.exe` when it finds none. Git for Windows installs `bash.exe` under `Git\bin`, which its installer does not add to `PATH`, so a session launched outside a Git Bash terminal (the Claude desktop app, launched from Explorer) can hit that fallback while the same hooks work from the CLI.
+
+Point Claude Code at the executable in your user-level `~/.claude/settings.json` — the path is machine-specific, so it does not belong in this repo's checked-in settings:
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_GIT_BASH_PATH": "C:\\Program Files\\Git\\bin\\bash.exe"
+  }
+}
+```
+
+The filename must be `bash.exe`, `sh.exe`, `bash`, or `sh`. Any other name — including Git's own `git-bash.exe` launcher — is ignored and auto-detection resumes as if the variable were unset. Restart Claude Code afterwards; the `env` block is read at launch.
+
+Each hook command starts with an `archgate_hooks_need_git_bash_see_CONTRIBUTING_md=1` assignment. Bash treats it as an unused variable; `cmd.exe` splits it on `=` and aborts with `'archgate_hooks_need_git_bash_see_CONTRIBUTING_md' is not recognized as an internal or external command`, which names this section instead of failing on whichever POSIX token happened to come first.
+
 ### Setup
 
 1. **Install proto** (if not already installed):
