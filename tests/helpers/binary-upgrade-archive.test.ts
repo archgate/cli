@@ -126,18 +126,33 @@ async function rejectionWithoutLeak(run: Promise<unknown>): Promise<string> {
   return message;
 }
 
+interface SpawnReply {
+  exitCode: number;
+  stdout?: string;
+}
+
 /**
- * Replace `Bun.spawn` with a stub reporting `exitCode` and extracting nothing.
+ * Replace `Bun.spawn` with a stub extracting nothing, answering with either a
+ * fixed exit code or a per-invocation reply derived from the argv.
  *
  * @returns The argv of each spawn, populated as calls arrive.
  */
-function stubSpawn(exitCode: number): string[][] {
+function stubSpawn(
+  reply: number | ((argv: string[]) => SpawnReply)
+): string[][] {
   const calls: string[][] = [];
+  const respond =
+    typeof reply === "number" ? () => ({ exitCode: reply }) : reply;
   const spawnSpy = spyOn(Bun, "spawn");
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   spawnSpy.mockImplementation(((argv: string[]) => {
     calls.push(argv);
-    return { stdout: "", stderr: "", exited: Promise.resolve(exitCode) };
+    const { exitCode, stdout }: SpawnReply = respond(argv);
+    return {
+      stdout: stdout ?? "",
+      stderr: "",
+      exited: Promise.resolve(exitCode),
+    };
   }) as unknown as typeof Bun.spawn);
   return calls;
 }
@@ -216,16 +231,33 @@ describe("downloadReleaseBinary archive handling", () => {
     }
   );
 
-  test("reports the tar exit code when extraction fails", async () => {
-    // Not a gzip stream at all: `tar -tzf` lists nothing, so the guard passes
-    // and `tar -xzf` is what rejects it.
+  test("rejects when the archive listing fails", async () => {
+    // Not a gzip stream at all, so `tar -tzf` cannot read it. An empty listing
+    // must not be mistaken for an archive with no unsafe entries.
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
 
     const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
-    expect(message).toContain("Failed to extract archive (tar exit code");
+    expect(message).toContain("Failed to read archive listing (tar exit code");
+  });
+
+  test("reports the tar exit code when extraction fails", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    // The listing succeeds with a safe entry so the guard passes and `tar -xzf`
+    // is what rejects the archive, on every runner rather than only on Linux.
+    stubSpawn((argv) =>
+      argv.includes("-tzf")
+        ? { exitCode: 0, stdout: "archgate\n" }
+        : { exitCode: 2 }
+    );
+
+    const message = await rejectionWithoutLeak(
+      downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+    );
+
+    expect(message).toBe("Failed to extract archive (tar exit code 2)");
   });
 
   test("reports the PowerShell exit code when zip extraction fails", async () => {
@@ -283,12 +315,12 @@ describe("downloadReleaseBinary archive handling", () => {
       throw new Error("checksum host unreachable");
     }) as unknown as typeof fetch;
 
-    const message = await rejectionMessage(
+    const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
-    // The transport failure is swallowed; the run proceeds to extraction.
+    // The transport failure is swallowed; the run proceeds to archive handling.
     expect(message).not.toContain("checksum host unreachable");
-    expect(message).toContain("Failed to extract archive");
+    expect(message).toContain("tar exit code");
   });
 });

@@ -122,6 +122,24 @@ export type DownloadProgressCallback = (progress: DownloadProgress) => void;
 // ---------------------------------------------------------------------------
 
 /**
+ * Run `cmd`, draining both pipes concurrently with the exit code.
+ *
+ * @see ARCH-007 — awaiting one pipe alone leaves the child blocked once it
+ * fills the other, so `proc.exited` never resolves.
+ */
+async function runCapture(
+  cmd: string[]
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stdout, stderr };
+}
+
+/**
  * Download and extract the release binary to a temp directory.
  * Returns the path to the extracted binary.
  *
@@ -236,14 +254,16 @@ export async function downloadReleaseBinary(
       // Backslashes are normalized because a member stored as `..\evil` is
       // listed escaped by GNU tar and literal by bsdtar; both forms reach the
       // `../` check only after normalization.
-      const listProc = Bun.spawn(["tar", "-tzf", archivePath], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const listing = await new Response(listProc.stdout).text();
-      await listProc.exited;
+      const list = await runCapture(["tar", "-tzf", archivePath]);
+      if (list.exitCode !== 0) {
+        // An empty listing from a failed run would otherwise read as "no
+        // unsafe entries" and wave the archive through the guard below.
+        throw new UserError(
+          `Failed to read archive listing (tar exit code ${list.exitCode})`
+        );
+      }
 
-      for (const entry of listing.split("\n").filter(Boolean)) {
+      for (const entry of list.stdout.split("\n").filter(Boolean)) {
         const normalized = entry.replaceAll("\\", "/").trim();
         if (
           normalized.startsWith("/") ||
@@ -256,11 +276,13 @@ export async function downloadReleaseBinary(
         }
       }
 
-      const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", tmpDir], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      const exitCode = await proc.exited;
+      const { exitCode } = await runCapture([
+        "tar",
+        "-xzf",
+        archivePath,
+        "-C",
+        tmpDir,
+      ]);
       if (exitCode !== 0) {
         throw new UserError(
           `Failed to extract archive (tar exit code ${exitCode})`
@@ -270,16 +292,12 @@ export async function downloadReleaseBinary(
       // `-ErrorAction Stop` promotes Expand-Archive's non-terminating error to
       // a terminating one; without it PowerShell exits 0 on a corrupt archive
       // and extraction failure goes unnoticed.
-      const proc = Bun.spawn(
-        [
-          "powershell",
-          "-NoProfile",
-          "-Command",
-          `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
-        ],
-        { stdout: "pipe", stderr: "pipe" }
-      );
-      const exitCode = await proc.exited;
+      const { exitCode } = await runCapture([
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
+      ]);
       if (exitCode !== 0) {
         throw new UserError(
           `Failed to extract archive (PowerShell exit code ${exitCode})`
