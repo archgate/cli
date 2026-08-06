@@ -60,6 +60,7 @@ All shims produce identical user-facing error messages on stderr:
 - Verify SHA256 checksums before extracting downloaded archives
 - Use identical error messages across all shims
 - Add new shim version files to `.simple-release.js` and the ARCH-013 companion rules
+- Commit any distribution value known when the version is bumped and cover it with a sync rule; reserve build-time placeholders for values that cannot exist until the artifact is built, like a checksum
 - Ship the winget executable as a cross-compiled build of `shims/go`, so Windows has one shim implementation rather than two that can drift
 - Build the winget executable with `-buildvcs=false` on the Go version pinned in `shims/go/go.mod`, so the same source and toolchain yield the same checksum and a rendered manifest keeps matching the released executable
 
