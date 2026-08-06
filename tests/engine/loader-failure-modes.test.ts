@@ -159,7 +159,9 @@ export default {
 
     const skipped = getSkippedAdrs(tempDir);
     expect(skipped).toHaveLength(1);
-    expect(skipped[0]).toContain("unreadable: EACCES");
+    // Project-relative even on this branch — an absolute path here would leak
+    // the runner's filesystem layout into GitHub annotations and SARIF.
+    expect(skipped[0]).toBe(".archgate/adrs (unreadable: EACCES)");
   });
 
   test("falls back to the raw error when the failure carries no errno code", async () => {
@@ -190,7 +192,9 @@ export default {
 
     expect(await parseAllAdrs(tempDir)).toHaveLength(0);
 
-    expect(getSkippedAdrs(tempDir)).toEqual(["BROKEN-001-invalid.md"]);
+    expect(getSkippedAdrs(tempDir)).toEqual([
+      ".archgate/adrs/BROKEN-001-invalid.md",
+    ]);
   });
 
   // -- Rule files that clear both gates but still fail ----------------------
