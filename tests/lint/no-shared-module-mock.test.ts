@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { describe, expect, test } from "bun:test";
 
-import plugin from "../../lint/no-first-party-module-mock";
+import plugin from "../../lint/no-shared-module-mock";
 import { parseJsModule } from "../../src/engine/js-parser";
 
 /** Minimal ESTree-ish node shape, matching the plugin's own definition. */
@@ -34,7 +34,7 @@ function walkCalls(node: AstNode, visit: (call: AstNode) => void): void {
 }
 
 /**
- * Run the `test-mocking/no-first-party-module-mock` rule against a source
+ * Run the `test-mocking/no-shared-module-mock` rule against a source
  * snippet and return every reported violation. Parses via the sanctioned
  * in-process `meriyah` entry point (`parseJsModule`, ARCH-022).
  */
@@ -44,7 +44,7 @@ function lint(source: string): ReportedViolation[] {
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const program = parseJsModule(source) as unknown as AstNode;
   const violations: ReportedViolation[] = [];
-  const rule = plugin.rules["no-first-party-module-mock"];
+  const rule = plugin.rules["no-shared-module-mock"];
   const visitor = rule.create({
     report({ message }) {
       violations.push({ message });
@@ -56,25 +56,36 @@ function lint(source: string): ReportedViolation[] {
   return violations;
 }
 
-describe("no-first-party-module-mock", () => {
+describe("no-shared-module-mock", () => {
   test.each([
     ["../../src/helpers/registry"],
     ["../../../src/helpers/plugin-install"],
     ["../../../../src/commands/adr/domain/index"],
     ["./src/engine/loader"],
-  ])("flags mock.module(%s)", (specifier) => {
+  ])("flags a first-party mock.module(%s)", (specifier) => {
     const violations = lint(`mock.module("${specifier}", () => ({}));`);
     expect(violations).toHaveLength(1);
     expect(violations[0]?.message).toContain(specifier);
   });
 
-  test.each([
-    ["inquirer"],
-    ["node:readline"],
-    ["node:fs"],
-    ["@commander-js/extra-typings"],
-  ])("allows mock.module(%s)", (specifier) => {
-    expect(lint(`mock.module("${specifier}", () => ({}));`)).toHaveLength(0);
+  test.each([["node:readline"], ["node:fs"], ["node:child_process"]])(
+    "flags a builtin mock.module(%s)",
+    (specifier) => {
+      const violations = lint(`mock.module("${specifier}", () => ({}));`);
+      expect(violations).toHaveLength(1);
+      expect(violations[0]?.message).toContain(specifier);
+    }
+  );
+
+  test.each([["inquirer"], ["@commander-js/extra-typings"], ["posthog-node"]])(
+    "allows mock.module(%s)",
+    (specifier) => {
+      expect(lint(`mock.module("${specifier}", () => ({}));`)).toHaveLength(0);
+    }
+  );
+
+  test("ignores a third-party specifier that merely starts with node", () => {
+    expect(lint(`mock.module("nodemailer", () => ({}));`)).toHaveLength(0);
   });
 
   test("ignores a relative specifier with no src segment", () => {
@@ -117,7 +128,15 @@ describe("no-first-party-module-mock", () => {
 
   test("names spyOn as the replacement and cites ARCH-005", () => {
     const violations = lint(`mock.module("../../src/helpers/x", () => ({}));`);
+    expect(violations[0]?.message).toContain("import * as mod");
     expect(violations[0]?.message).toContain("spyOn");
+    expect(violations[0]?.message).toContain("ARCH-005");
+  });
+
+  test("points a builtin at the object the module writes through", () => {
+    const violations = lint(`mock.module("node:readline", () => ({}));`);
+    expect(violations[0]?.message).toContain("writes through");
+    expect(violations[0]?.message).not.toContain("import * as mod");
     expect(violations[0]?.message).toContain("ARCH-005");
   });
 });

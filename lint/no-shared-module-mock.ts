@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 
-// Custom oxlint JS plugin: tests stub first-party modules with `spyOn` over an
-// `import * as mod` namespace, never `mock.module()` — which is process-global,
-// retroactive, and not undone by `mock.restore()`, so one file's stub reaches
-// files that never mention it (ARCH-005). Third-party specifiers are allowed:
-// `inquirer` and `node:readline` have no namespace object to spy.
+// Custom oxlint JS plugin: `mock.module()` is process-global, retroactive, and
+// not undone by `mock.restore()`, so one file's stub reaches files that never
+// mention it (ARCH-005). Flagged for the two specifier families the whole run
+// shares: first-party `src/` modules (stub with `spyOn` over `import * as mod`)
+// and `node:` builtins (spy the object the module writes through).
 
 /** Minimal ESTree-ish node shape. The oxlint AST is ESLint-compatible. */
 type AstNode = { type: string } & Record<string, unknown>;
@@ -68,6 +68,17 @@ function isFirstPartySpecifier(specifier: string): boolean {
   return specifier.split("/").includes("src");
 }
 
+/**
+ * Whether `specifier` names a Node builtin.
+ *
+ * The `node:` prefix is the only form this repo writes (`unicorn/prefer-node-
+ * protocol` rewrites the bare names), so matching the prefix covers every
+ * builtin without enumerating them.
+ */
+function isNodeBuiltinSpecifier(specifier: string): boolean {
+  return specifier.startsWith("node:");
+}
+
 interface ReportDescriptor {
   node: AstNode;
   message: string;
@@ -77,11 +88,17 @@ interface RuleContext {
   report(descriptor: ReportDescriptor): void;
 }
 
+const LEAK =
+  "`mock.module()` is process-global and retroactive, and `mock.restore()` does not undo it, so this stub reaches every other test file in the run (ARCH-005).";
+
 function message(specifier: string): string {
-  return `Stub "${specifier}" with \`spyOn\` over an \`import * as mod\` namespace instead of \`mock.module()\`. \`mock.module()\` is process-global and retroactive, and \`mock.restore()\` does not undo it, so this stub reaches every other test file in the run (ARCH-005).`;
+  const replacement = isNodeBuiltinSpecifier(specifier)
+    ? 'by spying the object it writes through (`spyOn(process.stdout, "write")`)'
+    : "with `spyOn` over an `import * as mod` namespace";
+  return `Stub "${specifier}" ${replacement} instead of \`mock.module()\`. ${LEAK}`;
 }
 
-const noFirstPartyModuleMock = {
+const noSharedModuleMock = {
   create(context: RuleContext) {
     return {
       CallExpression(node: AstNode) {
@@ -89,7 +106,12 @@ const noFirstPartyModuleMock = {
         const args = Array.isArray(node.arguments) ? node.arguments : [];
         const specifier = stringLiteralValue(asNode(args[0]));
         if (specifier === undefined) return;
-        if (!isFirstPartySpecifier(specifier)) return;
+        if (
+          !isFirstPartySpecifier(specifier) &&
+          !isNodeBuiltinSpecifier(specifier)
+        ) {
+          return;
+        }
         context.report({ node, message: message(specifier) });
       },
     };
@@ -98,7 +120,7 @@ const noFirstPartyModuleMock = {
 
 const plugin = {
   meta: { name: "test-mocking" },
-  rules: { "no-first-party-module-mock": noFirstPartyModuleMock },
+  rules: { "no-shared-module-mock": noSharedModuleMock },
 };
 
 export default plugin;
