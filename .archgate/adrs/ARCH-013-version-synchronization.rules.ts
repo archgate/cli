@@ -39,10 +39,15 @@ export default {
         if (pkgJson.version === undefined || pkgJson.version === "") return;
         const expected = pkgJson.version;
 
+        // `required` fields must match their pattern. Without it a field whose
+        // format stops matching is skipped in silence by both this rule and
+        // the `.simple-release.js` bump hook, so a manifest can ship pointing
+        // at an asset that was never published.
         const shimFiles: Array<{
           file: string;
           pattern: RegExp;
           label: string;
+          required?: boolean;
         }> = [
           {
             file: "shims/pypi/pyproject.toml",
@@ -89,16 +94,19 @@ export default {
             file: "shims/winget/manifests/Archgate.Archgate.yaml",
             pattern: /^PackageVersion:\s*"([^"]+)"/mu,
             label: "winget version manifest",
+            required: true,
           },
           {
             file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
             pattern: /^PackageVersion:\s*"([^"]+)"/mu,
             label: "winget installer manifest",
+            required: true,
           },
           {
             file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
             pattern: /^PackageVersion:\s*"([^"]+)"/mu,
             label: "winget locale manifest",
+            required: true,
           },
           // The two URLs embed the version too. A manifest whose
           // PackageVersion is current but whose URL is stale points winget at
@@ -107,15 +115,17 @@ export default {
             file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
             pattern: /InstallerUrl:\s*"[^"]*\/releases\/download\/v([^/]+)/u,
             label: "winget InstallerUrl",
+            required: true,
           },
           {
             file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
             pattern: /ReleaseNotesUrl:\s*\S*\/releases\/tag\/v(\S+)/u,
             label: "winget ReleaseNotesUrl",
+            required: true,
           },
         ];
 
-        for (const { file, pattern, label } of shimFiles) {
+        for (const { file, pattern, label, required } of shimFiles) {
           let content: string;
           try {
             // oxlint-disable-next-line no-await-in-loop -- sequential read is intentional; files are few and order-independent but must check each
@@ -125,8 +135,17 @@ export default {
             continue;
           }
 
-          const match = content.match(pattern);
-          if (!match) continue;
+          const match = pattern.exec(content);
+          if (!match) {
+            if (required === true) {
+              ctx.report.violation({
+                message: `${label} is missing or malformed in ${file}`,
+                file,
+                fix: `Restore the expected format so the version is readable — the bump hook rewrites this field only when it matches ${String(pattern)}`,
+              });
+            }
+            continue;
+          }
 
           const shimVersion = match[1];
           if (shimVersion !== expected) {

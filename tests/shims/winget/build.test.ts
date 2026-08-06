@@ -29,6 +29,12 @@ const VALUES = {
   sha256: "a98fca384f1f5fa9e4ad69c052dffe7c5cee267041768f2471ee28d16a4b84b0",
 };
 
+const MANIFEST_NAMES: string[] = [
+  "Archgate.Archgate.yaml",
+  "Archgate.Archgate.installer.yaml",
+  "Archgate.Archgate.locale.en-US.yaml",
+];
+
 describe("SHIM_ARTIFACT_NAME", () => {
   test("targets the win32-x64 shim artifact", () => {
     expect(SHIM_ARTIFACT_NAME).toBe("archgate-shim-win32-x64.exe");
@@ -197,30 +203,27 @@ describe("renderManifests", () => {
   // The version is committed, so rendering must pass it through untouched.
   // Which version is correct is ARCH-013/shim-version-sync's business, not
   // this test's — asserting a literal here would just duplicate that rule.
-  test("carries each source PackageVersion through unchanged", async () => {
-    const written = await renderManifests({
-      templatesDir: TEMPLATES_DIR,
-      outDir: tempDir,
-      values: VALUES,
-    });
+  test.each(MANIFEST_NAMES)(
+    "carries the source PackageVersion of %s through unchanged",
+    async (name) => {
+      await renderManifests({
+        templatesDir: TEMPLATES_DIR,
+        outDir: tempDir,
+        values: VALUES,
+      });
 
-    const versionLine = /^PackageVersion:.*$/mu;
-    const pairs = await Promise.all(
-      written.map(async (path) => {
-        const rendered = await Bun.file(path).text();
-        const source = await Bun.file(
-          join(TEMPLATES_DIR, path.split(/[/\\]/u).at(-1) ?? "")
-        ).text();
-        return [versionLine.exec(rendered)?.[0], versionLine.exec(source)?.[0]];
-      })
-    );
+      const versionLine = /^PackageVersion:.*$/mu;
+      const source = versionLine.exec(
+        await Bun.file(join(TEMPLATES_DIR, name)).text()
+      )?.[0];
+      const rendered = versionLine.exec(
+        await Bun.file(join(tempDir, name)).text()
+      )?.[0];
 
-    expect(pairs).toHaveLength(3);
-    for (const [rendered, source] of pairs) {
       expect(source).toBeDefined();
       expect(rendered).toBe(source);
     }
-  });
+  );
 
   test("writes one manifest per template", async () => {
     const written = await renderManifests({
