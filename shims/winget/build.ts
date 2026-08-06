@@ -161,8 +161,9 @@ interface CliOptions {
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/iu;
+/** Semantic Versioning 2.0.0 grammar, per the published semver.org pattern. */
 const SEMVER_PATTERN =
-  /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
+  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-(?:(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?:[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/u;
 
 /**
  * Validates a `--sha256` value.

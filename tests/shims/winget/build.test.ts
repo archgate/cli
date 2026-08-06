@@ -151,22 +151,35 @@ describe("parseArgs", () => {
     ["not a version", "latest"],
     ["incomplete", "1.2"],
     ["flag-shaped", "--manifests-only"],
+    ["leading-zero core", "01.2.3"],
+    ["leading-zero prerelease", "1.2.3-01"],
+    ["empty prerelease identifier", "1.2.3-alpha..1"],
+    ["dangling prerelease", "1.2.3-"],
+    ["dangling build metadata", "1.2.3+"],
   ])("rejects a %s version", (_label, version) => {
     expect(() => parseArgs(["--version", version])).toThrow(
       "must be a semantic version"
     );
   });
 
-  test.each(["1.2.3", "0.51.0", "1.0.0-rc.1", "1.0.0-rc.1+build.5"])(
-    "accepts the version %s",
-    (version) => {
-      expect(parseArgs(["--version", version]).version).toBe(version);
-    }
-  );
+  test.each([
+    ["1.2.3"],
+    ["0.51.0"],
+    ["0.0.0"],
+    ["1.0.0-rc.1"],
+    ["1.2.3-alpha.beta.1"],
+    ["1.0.0-rc.1+build.5"],
+  ])("accepts the version %s", (version) => {
+    expect(parseArgs(["--version", version]).version).toBe(version);
+  });
 
-  test("rejects an adversarial version without backtracking", () => {
+  test.each([
+    ["repeated hyphens in build metadata", `9.9.9+${"--".repeat(40)}!`],
+    ["repeated alpha prerelease identifiers", `1.2.3-${"a.".repeat(60)}!`],
+    ["repeated numeric prerelease identifiers", `1.2.3-${"0.".repeat(60)}!`],
+  ])("rejects %s without backtracking", (_label, version) => {
     const started = performance.now();
-    expect(() => parseArgs(["--version", `9.9.9+${"--".repeat(40)}!`])).toThrow(
+    expect(() => parseArgs(["--version", version])).toThrow(
       "must be a semantic version"
     );
     expect(performance.now() - started).toBeLessThan(1000);
