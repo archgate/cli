@@ -1,3 +1,22 @@
+## [0.52.0](https://github.com/archgate/cli/compare/v0.51.0...v0.52.0) (2026-08-06)
+
+### ⚠ BREAKING CHANGES
+
+* add --strict and --output <format> (SARIF), remove --json/--ci/--max-warnings from check (#536)
+
+### Features
+
+* add --strict and --output <format> (SARIF), remove --json/--ci/--max-warnings from check ([#536](https://github.com/archgate/cli/issues/536)) ([70b1ede](https://github.com/archgate/cli/commit/70b1edee1f9ba38e6ad0a73ebc1898289e4b6f42))
+* **dist:** distribute archgate via winget ([#552](https://github.com/archgate/cli/issues/552)) ([93cb3a8](https://github.com/archgate/cli/commit/93cb3a893b84c08893c71a37524eed69872fe228)), references [#544](https://github.com/archgate/cli/issues/544)
+* **lint:** migrate to TypeScript 7 and adopt oxlint type-aware linting ([#534](https://github.com/archgate/cli/issues/534)) ([29daad8](https://github.com/archgate/cli/commit/29daad886dae8f3da80bb9e2af7bde2629ed9d35)), references [#529](https://github.com/archgate/cli/issues/529)
+* **plugin:** install Copilot plugin declaratively, covering the desktop app ([#543](https://github.com/archgate/cli/issues/543)) ([ae2b988](https://github.com/archgate/cli/commit/ae2b988af46bb9006c2e91860e91dc297d4eca17))
+
+### Bug Fixes
+
+* bound scan loop, narrow install-method types, and extend ARCH-021 to markdown code spans ([#548](https://github.com/archgate/cli/issues/548)) ([3793d80](https://github.com/archgate/cli/commit/3793d8047933161e5380adadf1be70aae331d2b7)), closes [#541](https://github.com/archgate/cli/issues/541) [#540](https://github.com/archgate/cli/issues/540) [#515](https://github.com/archgate/cli/issues/515), references [#541](https://github.com/archgate/cli/issues/541) [#540](https://github.com/archgate/cli/issues/540) [#515](https://github.com/archgate/cli/issues/515)
+* **cli:** exit 0 quietly when the output pipe closes (EPIPE) ([#546](https://github.com/archgate/cli/issues/546)) ([e7bfa19](https://github.com/archgate/cli/commit/e7bfa19e699d9e10e7bbc9f4ae3c271953dc2a72))
+* **hooks:** invoke hooks through package scripts instead of a shell ([#557](https://github.com/archgate/cli/issues/557)) ([3b9e411](https://github.com/archgate/cli/commit/3b9e411f5692999c841f243db3b69d557881ff2c)), references [#442](https://github.com/archgate/cli/issues/442) [#441](https://github.com/archgate/cli/issues/441) [#442](https://github.com/archgate/cli/issues/442)
+
 ## [0.51.0](https://github.com/archgate/cli/compare/v0.50.0...v0.51.0) (2026-07-26)
 
 ### Features
