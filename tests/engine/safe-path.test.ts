@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
+import * as fs from "node:fs";
 import {
   mkdtempSync,
   rmSync,
@@ -223,6 +224,48 @@ describe("safe-path", () => {
         expect(() => safePath(tempDir, "swap/f.txt")).toThrow(
           /resolves outside the project.*access denied/u
         );
+      }
+    );
+
+    test.skipIf(!DIR_LINKS)(
+      "ALLOWS a dangling link, which resolves to nothing",
+      () => {
+        // The link's target is gone, so it can reach neither inside nor
+        // outside the project; the eventual read fails on its own merits.
+        const outsideDir = makeOutsideDir();
+        symlinkSync(outsideDir, join(tempDir, "gone"), "junction");
+        rmSync(outsideDir, { recursive: true, force: true });
+
+        expect(() => safePath(tempDir, "gone/secret.txt")).not.toThrow();
+      }
+    );
+
+    test.skipIf(!DIR_LINKS)(
+      "stays fail-closed when the root itself cannot be realpath'd",
+      () => {
+        const outsideDir = makeOutsideDir();
+        writeFileSync(join(outsideDir, "secret.txt"), "sensitive");
+        symlinkSync(outsideDir, join(tempDir, "linkdir"), "junction");
+
+        const realRealpathSync = fs.realpathSync;
+        const realpathSpy = spyOn(fs, "realpathSync");
+        // The replacement narrows to the single-argument form the module
+        // under test uses; everything else forwards to the real one.
+        // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+        realpathSpy.mockImplementation(((p: fs.PathLike) => {
+          if (p === tempDir) throw new Error("EACCES: permission denied");
+          return realRealpathSync(p);
+        }) as unknown as typeof fs.realpathSync);
+
+        try {
+          // The comparison falls back to the lexical root — an escaping link
+          // must still be refused rather than waved through.
+          expect(() => safePath(tempDir, "linkdir/secret.txt")).toThrow(
+            /resolves outside the project through symbolic link "linkdir"/u
+          );
+        } finally {
+          realpathSpy.mockRestore();
+        }
       }
     );
   });

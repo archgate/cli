@@ -16,6 +16,7 @@ import {
   writeFileSync,
   existsSync,
 } from "node:fs";
+import * as nodeFs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -140,6 +141,34 @@ describe("clean action handler", () => {
         value: originalExecPath,
         configurable: true,
       });
+    }
+  });
+
+  test("routes a removal failure through the command error boundary", async () => {
+    const archgateDir = join(fakeHome, ".archgate");
+    mkdirSync(archgateDir, { recursive: true });
+    writeFileSync(join(archgateDir, "cache.json"), "{}");
+
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    const rmSpy = spyOn(nodeFs, "rmSync").mockImplementation(() => {
+      throw new Error("EPERM: operation not permitted");
+    });
+
+    try {
+      const program = makeProgram();
+      expect(program.parseAsync(["node", "test", "clean"])).rejects.toThrow(
+        "process.exit"
+      );
+
+      // An unexpected filesystem failure is a bug, not user error → exit 2.
+      expect(exitSpy.mock.calls.at(-1)?.[0]).toBe(2);
+      const errOut = errorSpy.mock.calls
+        .map((c: unknown[]) => c.map(String).join(" "))
+        .join("\n");
+      expect(errOut).toContain("EPERM: operation not permitted");
+    } finally {
+      rmSpy.mockRestore();
+      errorSpy.mockRestore();
     }
   });
 });

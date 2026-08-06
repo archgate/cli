@@ -18,6 +18,12 @@ import { z } from "zod";
 
 import { registerDomainCommand } from "../../../../src/commands/adr/domain/index";
 
+const AddResultSchema = z.object({
+  domain: z.string(),
+  prefix: z.string(),
+  added: z.boolean(),
+});
+
 const DomainEntrySchema = z.object({
   domain: z.string(),
   prefix: z.string(),
@@ -80,6 +86,25 @@ describe("adr domain add", () => {
     const parsed = DomainEntrySchema.array().parse(JSON.parse(raw));
     const sec = parsed.find((e) => e.domain === "security");
     expect(sec?.source).toBe("custom");
+  });
+
+  test("--json prints the registered domain as a machine-readable payload", async () => {
+    const program = makeProgram();
+    await program.parseAsync([
+      "node",
+      "adr",
+      "domain",
+      "add",
+      "security",
+      "SEC",
+      "--json",
+    ]);
+
+    const raw = logSpy.mock.calls.map((c) => String(c[0])).join("");
+    const parsed = AddResultSchema.parse(JSON.parse(raw));
+    expect(parsed).toEqual({ domain: "security", prefix: "SEC", added: true });
+    // `--json` requests pretty-printed output regardless of agent context.
+    expect(raw).toContain("\n");
   });
 
   test("rejects built-in names", async () => {

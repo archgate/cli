@@ -10,7 +10,14 @@ import {
   type Mock,
 } from "bun:test";
 
-import { logDebug, logInfo, logError, logWarn } from "../../src/helpers/log";
+import {
+  logDebug,
+  logInfo,
+  logError,
+  logWarn,
+  setLogLevel,
+} from "../../src/helpers/log";
+import { restoreEnv } from "../test-utils";
 
 describe("log helpers", () => {
   let logSpy: Mock<typeof console.log>;
@@ -97,5 +104,66 @@ describe("log helpers", () => {
       logDebug("trace me");
       expect(traceSpy).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe("setLogLevel", () => {
+  let originalDebug: string | undefined;
+  let logSpy: Mock<typeof console.log>;
+  let warnSpy: Mock<typeof console.warn>;
+
+  beforeEach(() => {
+    originalDebug = Bun.env.DEBUG;
+    delete Bun.env.DEBUG;
+    logSpy = spyOn(console, "log").mockImplementation(() => {});
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    // The active level is module state shared with every later test file, so
+    // put it back to the "info" default before restoring DEBUG.
+    setLogLevel("info");
+    restoreEnv("DEBUG", originalDebug);
+    logSpy.mockRestore();
+    warnSpy.mockRestore();
+  });
+
+  test("raising the level to debug makes logDebug write", () => {
+    setLogLevel("debug");
+    logDebug("now visible");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("the debug level exports DEBUG so subprocesses inherit it", () => {
+    setLogLevel("debug");
+    expect(Bun.env.DEBUG).toBe("1");
+  });
+
+  test.each([
+    ["error", 0, 0],
+    ["warn", 0, 1],
+    ["info", 1, 1],
+  ] as const)(
+    "level %s allows %d info and %d warn writes",
+    (level, infoWrites, warnWrites) => {
+      setLogLevel(level);
+
+      logInfo("info line");
+      logWarn("warn line");
+
+      expect(logSpy).toHaveBeenCalledTimes(infoWrites);
+      expect(warnSpy).toHaveBeenCalledTimes(warnWrites);
+    }
+  );
+
+  test("errors are written regardless of the level", () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      setLogLevel("error");
+      logError("always shown");
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

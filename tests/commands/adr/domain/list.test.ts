@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { Command } from "@commander-js/extra-typings";
 
 import { registerDomainCommand } from "../../../../src/commands/adr/domain/index";
+import * as projectConfig from "../../../../src/helpers/project-config";
 
 function makeProgram(): Command {
   const adr = new Command("adr").exitOverride();
@@ -56,5 +57,29 @@ describe("adr domain list", () => {
     const out = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(out).toContain("backend");
     expect(out).toContain("default");
+  });
+
+  test("routes a config-read failure through the command error boundary", async () => {
+    const entriesSpy = spyOn(
+      projectConfig,
+      "listDomainEntries"
+    ).mockImplementation(() => {
+      throw new Error("config.json is unreadable");
+    });
+    try {
+      const program = makeProgram();
+      expect(
+        program.parseAsync(["node", "adr", "domain", "list"])
+      ).rejects.toThrow("process.exit");
+
+      // An unexpected failure is a bug, not user error → exit 2.
+      expect(exitSpy.mock.calls.at(-1)?.[0]).toBe(2);
+      const errOut = errorSpy.mock.calls
+        .map((c: unknown[]) => c.map(String).join(" "))
+        .join("\n");
+      expect(errOut).toContain("config.json is unreadable");
+    } finally {
+      entriesSpy.mockRestore();
+    }
   });
 });

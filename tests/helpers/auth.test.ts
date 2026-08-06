@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { restoreEnv } from "../test-utils";
+import { rejectionMessage, restoreEnv } from "../test-utils";
 
 /** Type-safe fetch mock — Bun's fetch type includes `preconnect` which mock() doesn't provide. */
 function mockFetch(handler: () => Promise<Response>) {
@@ -335,6 +335,20 @@ describe("auth", () => {
 
       expect(pollForAccessToken("dc_abc", 0, 0)).rejects.toThrow(
         "Device code expired. Please try again."
+      );
+    });
+
+    test("throws on a non-OK HTTP status without parsing the body", async () => {
+      const { pollForAccessToken } = await import("../../src/helpers/auth");
+
+      Bun.sleep = mock(async () => {});
+
+      // A gateway error carries no OAuth error code, so the status is all the
+      // message can report.
+      mockFetch(async () => new Response("upstream failure", { status: 502 }));
+
+      expect(await rejectionMessage(pollForAccessToken("dc_abc", 0, 60))).toBe(
+        "GitHub token poll failed (HTTP 502)"
       );
     });
   });

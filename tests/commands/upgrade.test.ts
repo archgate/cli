@@ -195,6 +195,21 @@ describe("install method detection", () => {
       expect(method.type).toBe("package-manager");
     });
 
+    test("stops the package-root walk at the ancestor-depth cap", async () => {
+      // 1200 synthetic ancestors, none of which exist: the walk for a
+      // package.json exhausts its depth budget before reaching a filesystem
+      // root, so the local-install branch gives up rather than looping on a
+      // pathological path. No directories are created — `dirname` is pure
+      // string work and `existsSync` simply reports false throughout.
+      const segments = Array.from({ length: 1200 }, (_, i) => `d${String(i)}`);
+      setExecPath(
+        join(tempDir, "node_modules", ...segments, ".bin", "archgate")
+      );
+
+      const method = await _detectInstallMethod();
+      expect(method.type).toBe("package-manager");
+    });
+
     test("binary detection takes priority over other methods", async () => {
       setExecPath(join(tempDir, ".archgate", "bin", "archgate"));
       const method = await _detectInstallMethod();

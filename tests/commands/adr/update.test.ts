@@ -201,6 +201,83 @@ describe("adr update action handler", () => {
     expect(updatedContent).toContain("domain: architecture");
   });
 
+  test("--files replaces the frontmatter globs, trimming and dropping blanks", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync([
+      "node",
+      "adr",
+      "update",
+      "--id",
+      "ARCH-001",
+      "--body",
+      "## Context\nScoped now.",
+      "--files",
+      " src/api/** , ,src/routes/** ",
+    ]);
+
+    const updatedContent = await Bun.file(
+      join(adrsDir, "ARCH-001-use-typescript.md")
+    ).text();
+    expect(updatedContent).toContain('"src/api/**"');
+    expect(updatedContent).toContain('"src/routes/**"');
+    expect(updatedContent).not.toContain('""');
+  });
+
+  test("--domain rewrites the domain after validating it against the config", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+    await parent.parseAsync([
+      "node",
+      "adr",
+      "update",
+      "--id",
+      "ARCH-001",
+      "--body",
+      "## Context\nMoved.",
+      "--domain",
+      "backend",
+    ]);
+
+    const updatedContent = await Bun.file(
+      join(adrsDir, "ARCH-001-use-typescript.md")
+    ).text();
+    expect(updatedContent).toContain("domain: backend");
+  });
+
+  test("--domain rejects a domain that is neither built-in nor registered", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
+
+    process.chdir(tempDir);
+    const parent = makeProgram();
+
+    expect(
+      parent.parseAsync([
+        "node",
+        "adr",
+        "update",
+        "--id",
+        "ARCH-001",
+        "--body",
+        "## Context\nSomething.",
+        "--domain",
+        "not-a-domain",
+      ])
+    ).rejects.toThrow("process.exit");
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
   test("exits with error when ADR ID is not found", async () => {
     const adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });

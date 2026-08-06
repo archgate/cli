@@ -15,7 +15,10 @@ import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
 
-import { registerClaudeCodeSessionContextCommand } from "../../../src/commands/session-context/claude-code";
+import {
+  makeMaxEntriesOption,
+  registerClaudeCodeSessionContextCommand,
+} from "../../../src/commands/session-context/claude-code";
 import * as sessionContextHelpers from "../../../src/helpers/session-context";
 import { runCli } from "../../integration/cli-harness";
 import { safeRmSync } from "../../test-utils";
@@ -48,6 +51,40 @@ describe("registerClaudeCodeSessionContextCommand", () => {
     registerClaudeCodeSessionContextCommand(parent);
     const sub = parent.commands.find((c) => c.name() === "claude-code")!;
     expect(sub.commands.map((c) => c.name()).sort()).toEqual(["list", "show"]);
+  });
+});
+
+describe("makeMaxEntriesOption", () => {
+  /** Parse `--max-entries <value>` in isolation, with commander's exit and
+   * stderr writes neutralized so a rejection surfaces as a thrown error. */
+  function parseMaxEntries(value: string): number | undefined {
+    const program = new Command("probe")
+      .addOption(makeMaxEntriesOption())
+      .exitOverride()
+      .configureOutput({
+        writeErr: () => {
+          // Commander writes the rejection to stderr; the throw is the signal.
+        },
+      });
+    program.parse(["--max-entries", value], { from: "user" });
+    return program.opts().maxEntries;
+  }
+
+  test.each(["0", "-1", "abc", "", "Infinity", "0.5"])(
+    "rejects %p as a limit",
+    (value) => {
+      expect(() => parseMaxEntries(value)).toThrow(
+        /must be a positive integer/u
+      );
+    }
+  );
+
+  test.each<[string, number]>([
+    ["1", 1],
+    ["200", 200],
+    ["3.9", 3],
+  ])("accepts %p as %p", (value, expected) => {
+    expect(parseMaxEntries(value)).toBe(expected);
   });
 });
 

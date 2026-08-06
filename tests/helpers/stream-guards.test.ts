@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
+import * as exitMod from "../../src/helpers/exit";
 import {
   handleStderrError,
   handleStdoutError,
@@ -77,6 +78,26 @@ describe("stream-guards", () => {
       expect(() => {
         handleStderrError(err);
       }).toThrow("boom");
+    });
+  });
+
+  describe("the default exit action", () => {
+    test("routes an unreplaced stdout EPIPE through exitForBrokenPipe", () => {
+      // Never settles: the production action fires and forgets, and a
+      // resolving stub would let the real exit path run under the test.
+      const exitSpy = spyOn(exitMod, "exitForBrokenPipe").mockImplementation(
+        async () => new Promise<never>(() => {})
+      );
+      try {
+        // Drop the per-test stub so the shipped action is what runs.
+        _setBrokenPipeExit(null);
+
+        handleStdoutError(makeEpipeError());
+
+        expect(exitSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        exitSpy.mockRestore();
+      }
     });
   });
 

@@ -20,6 +20,7 @@ import {
   findAdrFileById,
   updateAdrFile,
 } from "../../src/helpers/adr-writer";
+import { rejectionMessage } from "../test-utils";
 
 describe("slugify", () => {
   test("converts to lowercase kebab-case and handles edge cases", () => {
@@ -165,6 +166,29 @@ describe("createAdrFile", () => {
       domain: "general",
     });
     expect(existsSync(def.filePath.replace(".md", ".rules.ts"))).toBe(false);
+  });
+
+  test("an explicit prefix overrides the built-in domain lookup", async () => {
+    const result = await createAdrFile(tempDir, {
+      title: "Custom Domain ADR",
+      domain: "general",
+      prefix: "SEC",
+    });
+    expect(result.id).toBe("SEC-001");
+    expect(result.fileName).toBe("SEC-001-custom-domain-adr.md");
+  });
+
+  test("rejects a prefix that resolves to nothing", async () => {
+    // An empty explicit prefix carries no ID stem, so no ADR ID can be built.
+    expect(
+      await rejectionMessage(
+        createAdrFile(tempDir, {
+          title: "No Prefix",
+          domain: "general",
+          prefix: "",
+        })
+      )
+    ).toContain("No prefix registered for domain 'general'");
   });
 });
 

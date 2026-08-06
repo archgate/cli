@@ -13,9 +13,12 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
 
+import * as platform from "../../src/helpers/platform";
 import {
   encodeProjectPath,
+  getContentPreview,
   listClaudeCodeSessions,
+  listCursorSessions,
   readClaudeCodeSession,
   readCursorSession,
 } from "../../src/helpers/session-context";
@@ -52,6 +55,58 @@ describe("encodeProjectPath", () => {
     expect(await encodeProjectPath(unixPath, "cursor")).toBe(
       await encodeProjectPath(unixPath)
     );
+  });
+});
+
+describe("encodeProjectPath under WSL", () => {
+  // The Windows-side editor writes its session directory under the Windows
+  // spelling of the project path, so the encoder must translate first.
+  let isWSLSpy: Mock<typeof platform.isWSL>;
+  let toWindowsPathSpy: Mock<typeof platform.toWindowsPath>;
+
+  beforeEach(() => {
+    isWSLSpy = spyOn(platform, "isWSL").mockReturnValue(true);
+    toWindowsPathSpy = spyOn(platform, "toWindowsPath");
+  });
+
+  afterEach(() => {
+    isWSLSpy.mockRestore();
+    toWindowsPathSpy.mockRestore();
+  });
+
+  test("encodes the translated Windows path", async () => {
+    toWindowsPathSpy.mockResolvedValue("C:\\Users\\me\\proj");
+
+    expect(await encodeProjectPath("/home/me/proj")).toBe("C--Users-me-proj");
+    expect(toWindowsPathSpy).toHaveBeenCalledWith("/home/me/proj");
+  });
+
+  test.each<[string, string | null]>([
+    ["null", null],
+    ["an empty string", ""],
+  ])("keeps the Linux path when wslpath yields %s", async (_label, value) => {
+    toWindowsPathSpy.mockResolvedValue(value);
+
+    expect(await encodeProjectPath("/home/me/proj")).toBe("-home-me-proj");
+  });
+});
+
+describe("getContentPreview", () => {
+  test("returns an empty string when the entry carries no content", () => {
+    expect(getContentPreview({ type: "user", role: "user" })).toBe("");
+  });
+
+  test("skips blocks with no recognized preview shape", () => {
+    const preview = getContentPreview({
+      type: "assistant",
+      role: "assistant",
+      message: {
+        role: "assistant",
+        content: [{ type: "thinking", thinking: "internal" }],
+      },
+    });
+
+    expect(preview).toBe("");
   });
 });
 
@@ -334,6 +389,17 @@ describe("readClaudeCodeSession", () => {
   });
 });
 
+describe("listClaudeCodeSessions", () => {
+  test("returns error when the projects directory cannot be read", async () => {
+    const result = await listClaudeCodeSessions("/nonexistent/archgate/path");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("No session files found");
+      expect(result.path).toContain("nonexistent");
+    }
+  });
+});
+
 describe("readCursorSession", () => {
   test("returns error when no transcripts directory found", async () => {
     const result = await readCursorSession("/nonexistent/path");
@@ -346,4 +412,15 @@ describe("readCursorSession", () => {
   });
 
   // Happy-path tests with temp home dir are in session-context-cursor.test.ts.
+});
+
+describe("listCursorSessions", () => {
+  test("returns error when the transcripts directory cannot be read", async () => {
+    const result = await listCursorSessions("/nonexistent/archgate/path");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("No Cursor agent-transcripts directory found");
+      expect(result.path).toContain("nonexistent");
+    }
+  });
 });

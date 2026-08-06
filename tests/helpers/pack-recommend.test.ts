@@ -199,6 +199,46 @@ describe("recommendPacksFromDir", () => {
     expect(recs[0].matchedTags).toContain("runtime:bun");
   });
 
+  test.each([
+    ["runtime", "runtime:deno"],
+    ["framework", "framework:remix"],
+    ["unknown-namespace", "planet:mars"],
+  ])("drops a non-matching %s tag but keeps the pack", (_kind, tag) => {
+    createPack(tempDir, "mixed", {
+      tags: [tag, "concern:testing"],
+      adrCount: 1,
+    });
+
+    const stack: DetectedStack = {
+      languages: ["typescript"],
+      runtimes: ["node"],
+      frameworks: ["nextjs"],
+    };
+
+    const recs = recommendPacksFromDir(stack, tempDir);
+    expect(recs).toHaveLength(1);
+    // Only the concern tag survives, so relevance stays medium.
+    expect(recs[0].matchedTags).toEqual(["concern:testing"]);
+    expect(recs[0].relevance).toBe("medium");
+  });
+
+  test("skips a pack whose metadata cannot be parsed", () => {
+    createPack(tempDir, "healthy", { tags: ["concern:testing"], adrCount: 1 });
+    const brokenDir = join(tempDir, "packs", "broken");
+    mkdirSync(brokenDir, { recursive: true });
+    // Missing every required field — parsePackMetadata throws a UserError.
+    writeFileSync(join(brokenDir, "archgate-pack.yaml"), "name: 'Not Valid'\n");
+
+    const stack: DetectedStack = {
+      languages: ["typescript"],
+      runtimes: [],
+      frameworks: [],
+    };
+
+    const recs = recommendPacksFromDir(stack, tempDir);
+    expect(recs.map((r) => r.packName)).toEqual(["healthy"]);
+  });
+
   test("alphabetical sort within same relevance", () => {
     createPack(tempDir, "zebra", { tags: ["concern:zebra"], adrCount: 1 });
     createPack(tempDir, "alpha", { tags: ["concern:alpha"], adrCount: 1 });
@@ -327,6 +367,24 @@ describe("recommendPacks", () => {
     const recs = await recommendPacks(stack);
     expect(recs).toHaveLength(0);
     expect(existsSync(fakeCloneDir)).toBe(false);
+  });
+
+  test("a failed clone cleanup does not replace the return value", async () => {
+    // A NUL byte makes rmSync throw on argument validation (every platform),
+    // while existsSync just reports the path as absent.
+    mockShallowClone(async () =>
+      join(tmpdir(), `archgate-rec-${String.fromCodePoint(0)}bad`)
+    );
+
+    const stack: DetectedStack = {
+      languages: ["typescript"],
+      runtimes: [],
+      frameworks: [],
+    };
+
+    // Without the try/catch in the `finally` block, the cleanup error would
+    // propagate and this would reject instead.
+    expect(await recommendPacks(stack)).toEqual([]);
   });
 
   test("returns empty array when cloned registry has no matching packs", async () => {
