@@ -28,13 +28,7 @@
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "archgate_hooks_need_git_bash_see_CONTRIBUTING_md=1; bun run format:file \"$(jq -r .tool_input.file_path)\" || true",
-            "shell": "bash"
-          }
-        ]
+        "hooks": [{ "type": "command", "command": "bun run hook:format-file" }]
       }
     ],
     "WorktreeCreate": [
@@ -42,8 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "archgate_hooks_need_git_bash_see_CONTRIBUTING_md=1; name=$(jq -r '.name // empty' | tr -d '\\r'); [ -z \"$name\" ] && name=\"wt-$$\"; dir=\"$CLAUDE_PROJECT_DIR/.claude/worktrees/$name\"; branch=\"claude/$name\"; if [ -d \"$dir\" ] && [ ! -e \"$dir/.git\" ]; then rm -rf \"$dir\"; fi; if [ ! -d \"$dir\" ]; then git worktree prune >&2; git worktree add \"$dir\" -B \"$branch\" >&2 || exit 1; fi; cd \"$dir\" || exit 1; bun install --silent >&2 || echo \"warning: bun install failed in $dir -- dependencies may be missing, run 'bun install' manually\" >&2; printf '%s\\n' \"$dir\"",
-            "shell": "bash",
+            "command": "bun run hook:worktree-create",
             "timeout": 60,
             "statusMessage": "Installing dependencies in worktree..."
           }
@@ -56,8 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "archgate_hooks_need_git_bash_see_CONTRIBUTING_md=1; \"$CLAUDE_PROJECT_DIR\"/scripts/install-cloud-deps.sh",
-            "shell": "bash",
+            "command": "bun run hook:session-start",
             "timeout": 120,
             "statusMessage": "Installing dependencies in cloud session..."
           }

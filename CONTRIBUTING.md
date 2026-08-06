@@ -27,23 +27,13 @@ ADR compliance is enforced automatically. `bun run validate` includes an ADR che
 - Git
 - [proto](https://moonrepo.dev/docs/proto) (for toolchain management)
 
-#### Windows: Git Bash must be resolvable
+#### Claude Code hooks
 
-The Claude Code hooks in `.claude/settings.json` are POSIX shell and declare `"shell": "bash"`. That names the shell but does not locate it — Claude Code auto-detects Git Bash, and falls back to `cmd.exe` when it finds none. Git for Windows installs `bash.exe` under `Git\bin`, which its installer does not add to `PATH`, so a session launched outside a Git Bash terminal (the Claude desktop app, launched from Explorer) can hit that fallback while the same hooks work from the CLI.
+The hooks in `.claude/settings.json` each invoke a single `bun run hook:*` package script and contain no shell syntax — no variable expansion, no pipes, no command substitution, no quoting. Their logic lives in `scripts/*.ts`.
 
-Point Claude Code at the executable in your user-level `~/.claude/settings.json` — the path is machine-specific, so it does not belong in this repo's checked-in settings:
+Claude Code picks a hook's shell per surface, and the choice is not always the one a hook asks for: a POSIX command that runs under Git Bash in the terminal can be handed to `cmd.exe` in the desktop app, which fails on the first token. Keeping the command to `bun run <script>` sidesteps the question — the same string is valid under Bash, `cmd.exe`, and PowerShell, so every surface behaves identically. `bun run` also locates `package.json` by walking up from the working directory, so hooks do not depend on where they are invoked from.
 
-```json
-{
-  "env": {
-    "CLAUDE_CODE_GIT_BASH_PATH": "C:\\Program Files\\Git\\bin\\bash.exe"
-  }
-}
-```
-
-The filename must be `bash.exe`, `sh.exe`, `bash`, or `sh`. Any other name — including Git's own `git-bash.exe` launcher — is ignored and auto-detection resumes as if the variable were unset. Restart Claude Code afterwards; the `env` block is read at launch.
-
-Each hook command starts with an `archgate_hooks_need_git_bash_see_CONTRIBUTING_md=1` assignment. Bash treats it as an unused variable; `cmd.exe` splits it on `=` and aborts with `'archgate_hooks_need_git_bash_see_CONTRIBUTING_md' is not recognized as an internal or external command`, which names this section instead of failing on whichever POSIX token happened to come first.
+Write hook logic in TypeScript under `scripts/`, add a `hook:*` entry to `package.json`, and point the hook at that script. A hook reads its JSON payload from stdin and, where the event defines a return value, writes it to stdout — keep everything else on stderr.
 
 ### Setup
 

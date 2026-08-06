@@ -53,7 +53,7 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [Answer every review finding on its own thread](feedback_reply_on_review_threads.md) — declines especially; a summary comment does not close the loop
 - [Throw UserError in boundary-wrapped guards](feedback_throw_usererror_in_guards.md) — not `logError` + `exitWith(1)`
 - [Docs are forward-only and version-independent](feedback_forward_only_docs.md) — no pinned versions or drift-prone counts; nothing enforces this
-- [Claude Code hooks config](project_claude_code_hooks_config.md) — `"shell": "bash"`, `WorktreeCreate` contract, cloud env `SessionStart` bun-install workaround
+- [Claude Code hooks config](project_claude_code_hooks_config.md) — hook commands carry no shell syntax, `WorktreeCreate` contract, cloud env `SessionStart` bun-install workaround
 - [PR review thread triage](project_pr_review_thread_triage.md) — REST hides resolution state; use the GraphQL `reviewThreads.isResolved` field
 - [Rules engine follow-up](project_rules_engine_internals.md) — the one pending perf item no rule tracks
 - [Parallel agents share one git index](feedback_parallel_agents_shared_worktree.md) — a stray stash/rebase from any one agent wipes every other agent's uncommitted work
