@@ -15,9 +15,6 @@ import {
 // Module mocks — must be declared before imports that use them.
 // ---------------------------------------------------------------------------
 
-/** Mock cursorTo from node:readline (used by prompt.ts withPromptFix). */
-void mock.module("node:readline", () => ({ cursorTo: mock(() => true) }));
-
 // Auth + credential-store stubs are installed per-test via spyOn (see
 // beforeEach), NOT mock.module. spyOn is auto-restored and scoped to this
 // file; mock.module is process-global and would leak mocked implementations

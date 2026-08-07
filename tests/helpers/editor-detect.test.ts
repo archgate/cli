@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  type Mock,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be declared before imports that use them.
 // ---------------------------------------------------------------------------
-
-/** Tracks calls to cursorTo from node:readline. */
-const mockCursorTo = mock(() => true);
-void mock.module("node:readline", () => ({ cursorTo: mockCursorTo }));
 
 /**
  * Shape of the question objects both prompt helpers build. Declaring it here
@@ -164,52 +170,68 @@ describe("editor-detect", () => {
   // subsequent output lines start at the wrong horizontal offset.
   // -------------------------------------------------------------------------
 
-  // Cursor reset is part of the Windows-only withPromptFix() workaround.
-  // These tests only run on Windows where the fix is active.
+  // Cursor reset is part of the Windows-only withPromptFix() workaround, so
+  // these tests only run there. A `process.stdout.write` spy observes it —
+  // stubbing `node:readline` is process-global and would neuter `cursorTo` for
+  // every module loaded afterwards (ARCH-005).
   describe.skipIf(process.platform !== "win32")(
     "cursor reset (Windows)",
     () => {
+      /** What `cursorTo(stream, 0)` writes to the stream. */
+      const CURSOR_TO_START = `${String.fromCodePoint(27)}[1G`;
+
+      function setStdoutIsTTY(value: boolean | undefined): void {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value,
+          writable: true,
+          configurable: true,
+        });
+      }
+
       describe.each([
         ["promptEditorSelection", promptEditorSelection],
         ["promptSingleEditorSelection", promptSingleEditorSelection],
       ] as const)("%s", (_name, promptFn) => {
         const originalIsTTY = process.stdout.isTTY;
+        let written: string[];
+        let writeSpy: Mock<typeof process.stdout.write>;
+
+        // withPromptFix wraps `process.stdout.write` in a permanent LF -> CRLF
+        // proxy on its first call (ARCH-019). Install it before the spy so
+        // `mockRestore()` puts that proxy back rather than dropping it.
+        beforeAll(async () => {
+          await promptFn(MOCK_DETECTED);
+        });
 
         beforeEach(() => {
-          mockCursorTo.mockClear();
+          written = [];
+          writeSpy = spyOn(process.stdout, "write").mockImplementation(
+            (chunk: unknown) => {
+              written.push(String(chunk));
+              return true;
+            }
+          );
         });
 
         afterEach(() => {
-          Object.defineProperty(process.stdout, "isTTY", {
-            value: originalIsTTY,
-            writable: true,
-            configurable: true,
-          });
+          writeSpy.mockRestore();
+          setStdoutIsTTY(originalIsTTY);
         });
 
         test("resets cursor to column 0 after prompt when stdout is TTY", async () => {
-          Object.defineProperty(process.stdout, "isTTY", {
-            value: true,
-            writable: true,
-            configurable: true,
-          });
+          setStdoutIsTTY(true);
 
           await promptFn(MOCK_DETECTED);
 
-          expect(mockCursorTo).toHaveBeenCalledTimes(1);
-          expect(mockCursorTo).toHaveBeenCalledWith(process.stdout, 0);
+          expect(written.join("")).toContain(CURSOR_TO_START);
         });
 
-        test("does not call cursorTo when stdout is not TTY", async () => {
-          Object.defineProperty(process.stdout, "isTTY", {
-            value: undefined,
-            writable: true,
-            configurable: true,
-          });
+        test("does not reset the cursor when stdout is not TTY", async () => {
+          setStdoutIsTTY(undefined);
 
           await promptFn(MOCK_DETECTED);
 
-          expect(mockCursorTo).not.toHaveBeenCalled();
+          expect(written.join("")).not.toContain(CURSOR_TO_START);
         });
       });
     }

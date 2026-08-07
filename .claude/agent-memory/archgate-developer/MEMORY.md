@@ -44,7 +44,8 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [Coverage measurement](project_coverage_measurement.md) — reproducing CI's merged number; the cache-busting import that fakes a coverage gap
 - [Typecheck and build](project_typecheck_and_build.md) — what tsc actually checks, the `rules.d.ts` prelude, embedding files via a sync Bun macro
 - [ADR briefing budget](project_adr_briefing_budget.md) — measuring a section against the 2000-char cap; `review-context` needs `--verbose` to return prose
-- [CI run behavior](project_ci_run_behavior.md) — a conflicting PR runs nothing; editing a PR body cancels the run and fakes a coverage regression
+- [CI run behavior](project_ci_run_behavior.md) — a conflicting PR runs nothing; editing a PR body cancels the run and fakes a coverage regression; a re-run erases the failure text
+- [Reproducing a test flake](project_flake_reproduction.md) — bun ignores the file order you pass; WSL gives a local Linux run with a known-noisy baseline
 - [Verify agent claims](feedback_verify_agent_claims.md) — agents misquote ADRs and invent supporting detail; check every quote mechanically
 - [Verify agents on TS changes must typecheck](feedback_verify_agents_run_typecheck.md) — `bun test`+lint+format missed a `noUnusedParameters` error a subagent self-reported as clean
 - [Pick the right enforcement layer](feedback_prefer_tests_over_adr_rules.md) — syntax → lint rule; behaviour → test; governance → ADR rule; CLI behaviour → built-in
