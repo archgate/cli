@@ -133,10 +133,13 @@ describe("no-shared-module-mock", () => {
     expect(violations[0]?.message).toContain("ARCH-005");
   });
 
-  test("points a builtin at the object the module writes through", () => {
-    const violations = lint(`mock.module("node:readline", () => ({}));`);
-    expect(violations[0]?.message).toContain("writes through");
-    expect(violations[0]?.message).not.toContain("import * as mod");
-    expect(violations[0]?.message).toContain("ARCH-005");
-  });
+  test.each([["node:fs"], ["node:child_process"], ["node:readline"]])(
+    "does not point %s at a replacement that cannot stub it",
+    (specifier) => {
+      const message = lint(`mock.module("${specifier}", () => ({}));`)[0]
+        ?.message;
+      expect(message).toContain("file-scoped `spyOn`");
+      expect(message).not.toContain("process.stdout");
+    }
+  );
 });

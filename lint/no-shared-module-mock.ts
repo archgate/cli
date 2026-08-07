@@ -92,10 +92,7 @@ const LEAK =
   "`mock.module()` is process-global and retroactive, and `mock.restore()` does not undo it, so this stub reaches every other test file in the run (ARCH-005).";
 
 function message(specifier: string): string {
-  const replacement = isNodeBuiltinSpecifier(specifier)
-    ? 'by spying the object it writes through (`spyOn(process.stdout, "write")`)'
-    : "with `spyOn` over an `import * as mod` namespace";
-  return `Stub "${specifier}" ${replacement} instead of \`mock.module()\`. ${LEAK}`;
+  return `Stub "${specifier}" with a file-scoped \`spyOn\` — over an \`import * as mod\` namespace, or over the object the module acts on — instead of \`mock.module()\`. ${LEAK}`;
 }
 
 const noSharedModuleMock = {

@@ -13,7 +13,7 @@ Files are run in directory-traversal order, so a two-file "A then B" reproductio
 
 That asymmetry is the whole reason this class of bug surfaces intermittently on Linux and never on Windows, where NTFS order is stable.
 
-**How to apply:** to place a probe after a specific file, put it in the same directory under a later-sorting name. A pair that passes is not evidence the pollution is absent.
+**How to apply:** read the observed order off the output before treating a reproduction as valid. A filename cannot be relied on to place a probe, since sorted order is NTFS behaviour rather than something bun guarantees — expect to try a few positions and confirm each one. A pair that passes is not evidence the pollution is absent.
 
 ## WSL runs the suite on Linux without CI
 
