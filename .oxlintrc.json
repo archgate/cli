@@ -2,7 +2,7 @@
   "jsPlugins": [
     "./lint/expect-expect.ts",
     "./lint/no-bare-env-restore.ts",
-    "./lint/no-first-party-module-mock.ts",
+    "./lint/no-shared-module-mock.ts",
     "./.archgate/lint/oxlint.ts"
   ],
   "options": { "typeAware": true },
@@ -122,7 +122,7 @@
       "files": ["tests/**/*.test.ts"],
       "rules": {
         "bun-test/expect-expect": "error",
-        "test-mocking/no-first-party-module-mock": "error",
+        "test-mocking/no-shared-module-mock": "error",
         "test-isolation/no-bare-env-restore": "error"
       }
     },

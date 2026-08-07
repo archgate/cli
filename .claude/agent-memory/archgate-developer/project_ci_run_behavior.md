@@ -21,4 +21,10 @@ The downstream symptom is misleading rather than obvious: the cancelled Windows 
 
 **How to apply:** check `gh run list --workflow Validate` for a superseding run before investigating coverage at all. Edit the body before pushing, or once the run has finished.
 
+## A re-run erases the original failure text
+
+The run summary shows only the latest attempt, so `gh run view --log-failed` on a re-run returns nothing at all. The original job log survives: `gh api repos/archgate/cli/actions/jobs/<job-id>/logs` returns the full assertion diff plus the `##[group]tests/...` headers, which give the exact test-file execution order that run used.
+
+**How to apply:** for an order-dependent flake that ordering is the evidence, so pull the job log before asking for a re-run — see [[flake-reproduction]].
+
 See also [[coverage-measurement]] for why a single-platform number sits below the merged one.

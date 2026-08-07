@@ -45,7 +45,6 @@ const mockInquirerPrompt = mock(
   })
 );
 
-void mock.module("node:readline", () => ({ cursorTo: mock(() => true) }));
 void mock.module("inquirer", () => ({
   default: { prompt: mockInquirerPrompt },
 }));
