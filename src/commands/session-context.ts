@@ -47,17 +47,23 @@ const makeMaxEntriesOption = () =>
     "maximum entries to return (default: 200)"
   ).argParser(parseMaxEntries);
 
+interface SharedOptions {
+  maxEntries?: number;
+  editor?: DetectedHarness;
+  root?: boolean;
+}
+
 /**
  * Merge an option declared on both `session-context` and its subcommand.
  * Commander hoists parent-known options from anywhere on the command line, so
  * the flag is often parsed by the parent; the child value wins when present.
+ * Every option both levels declare must be read through this, or the parent
+ * silently swallows it and the subcommand sees `undefined`.
  */
-function withGlobals<K extends "maxEntries" | "editor">(
+function withGlobals<K extends keyof SharedOptions>(
   key: K,
-  opts: { maxEntries?: number; editor?: DetectedHarness },
-  command: {
-    optsWithGlobals: () => { maxEntries?: number; editor?: DetectedHarness };
-  }
+  opts: SharedOptions,
+  command: { optsWithGlobals: () => SharedOptions }
 ) {
   return opts[key] ?? command.optsWithGlobals()[key];
 }
@@ -138,7 +144,7 @@ export function registerSessionContextCommand(program: Command) {
         const result = await readAutoSessionById(projectRoot, sessionId, {
           maxEntries: withGlobals("maxEntries", opts, command),
           editor: withGlobals("editor", opts, command),
-          root: opts.root,
+          root: withGlobals("root", opts, command),
         });
 
         if (!result.ok) {

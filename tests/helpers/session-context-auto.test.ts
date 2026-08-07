@@ -245,6 +245,35 @@ describe("session-context auto resolution", () => {
     });
   });
 
+  describe("dispatch", () => {
+    // Each editor must reach its own reader. The temp home holds only Claude
+    // Code fixtures, so any other editor answering with its own storage error
+    // proves the call was routed there rather than to a default.
+    test.each([
+      ["copilot", "Copilot"],
+      ["cursor", "Cursor"],
+      ["opencode", "opencode"],
+    ] as const)("routes %s reads to its own reader", async (editor, marker) => {
+      const result = await readAutoSession(PROJECT_ROOT, { editor });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error).toContain(marker);
+    });
+
+    test.each([
+      ["copilot", "Copilot"],
+      ["cursor", "Cursor"],
+      ["opencode", "opencode"],
+    ] as const)("routes %s lists to its own reader", async (editor, marker) => {
+      const result = await listAutoSessions(PROJECT_ROOT, { editor });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error).toContain(marker);
+    });
+  });
+
   describe("--root", () => {
     test.each(["claude-code", "copilot", "cursor"] as const)(
       "rejects --root for %s, which has no session graph",

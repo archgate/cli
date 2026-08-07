@@ -101,57 +101,66 @@ function requireEditor(explicit?: DetectedHarness): ResolvedEditor {
   };
 }
 
-/**
- * Reject an editor the switches below do not handle. Typing the parameter as
- * `never` turns a newly added {@link DetectedHarness} into a compile error
- * rather than a silent fallthrough.
- */
-function unhandledEditor(editor: never): never {
-  throw new Error(`Unhandled editor: ${String(editor)}`);
+interface ReadOptions {
+  maxEntries?: number;
+  sessionId?: string;
+  root?: boolean;
 }
 
-/** List sessions for one editor. opencode's reader is synchronous. */
+/**
+ * Per-editor readers. Keying by `Record<DetectedHarness, …>` makes a newly
+ * added editor a compile error here, so exhaustiveness needs no runtime
+ * fallback branch. opencode's readers are synchronous, and it is the only
+ * editor that understands `root` — it alone has a parent/child session graph.
+ */
+const LISTERS: Record<
+  DetectedHarness,
+  (projectRoot: string | null) => SessionListResult | Promise<SessionListResult>
+> = {
+  "claude-code": listClaudeCodeSessions,
+  copilot: listCopilotSessions,
+  cursor: listCursorSessions,
+  opencode: listOpencodeSessions,
+};
+
+const READERS: Record<
+  DetectedHarness,
+  (
+    projectRoot: string | null,
+    options: ReadOptions
+  ) => ReadResult | Promise<ReadResult>
+> = {
+  "claude-code": async (root, o) =>
+    readClaudeCodeSession(root, {
+      maxEntries: o.maxEntries,
+      sessionId: o.sessionId,
+    }),
+  copilot: async (root, o) =>
+    readCopilotSession(root, {
+      maxEntries: o.maxEntries,
+      sessionId: o.sessionId,
+    }),
+  cursor: async (root, o) =>
+    readCursorSession(root, {
+      maxEntries: o.maxEntries,
+      sessionId: o.sessionId,
+    }),
+  opencode: (root, o) => readOpencodeSession(root, o),
+};
+
 async function listFor(
   editor: DetectedHarness,
   projectRoot: string | null
 ): Promise<SessionListResult> {
-  switch (editor) {
-    case "claude-code":
-      return listClaudeCodeSessions(projectRoot);
-    case "copilot":
-      return listCopilotSessions(projectRoot);
-    case "cursor":
-      return listCursorSessions(projectRoot);
-    case "opencode":
-      return listOpencodeSessions(projectRoot);
-    default:
-      return unhandledEditor(editor);
-  }
+  return LISTERS[editor](projectRoot);
 }
 
-/**
- * Read one session for one editor. opencode's reader is synchronous, and is
- * the only one that understands `root` — it alone has a parent/child session
- * graph.
- */
 async function readFor(
   editor: DetectedHarness,
   projectRoot: string | null,
-  options: { maxEntries?: number; sessionId?: string; root?: boolean }
+  options: ReadOptions
 ): Promise<ReadResult> {
-  const { root, ...shared } = options;
-  switch (editor) {
-    case "claude-code":
-      return readClaudeCodeSession(projectRoot, shared);
-    case "copilot":
-      return readCopilotSession(projectRoot, shared);
-    case "cursor":
-      return readCursorSession(projectRoot, shared);
-    case "opencode":
-      return readOpencodeSession(projectRoot, { ...shared, root });
-    default:
-      return unhandledEditor(editor);
-  }
+  return READERS[editor](projectRoot, options);
 }
 
 /**
