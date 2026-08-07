@@ -104,6 +104,9 @@ Editor integrations share the `EditorTarget` union. Adding a new editor requires
 5. `src/commands/plugin/install.ts` — extend `.choices([...] as const)` and add a case to `installForEditor` + the manual-instructions `catch`
 6. `src/commands/plugin/url.ts` — extend `.choices([...] as const)` and branch before the URL ternary
 7. Tests that assert the exact choice list: `tests/commands/plugin/install.test.ts`, `tests/commands/plugin/url.test.ts`, and `tests/helpers/editor-detect.test.ts` (length + id order)
+8. To make the editor's transcripts readable, also extend `src/helpers/harness-detect.ts` (`DetectedHarness` union and the `SIGNALS` table), the `listFor`/`readFor` switches in `src/helpers/session-context-auto.ts`, and the `EDITORS` choice list in `src/commands/session-context.ts`
+
+**Two detections answer different questions — keep them apart.** `editor-detect.ts` asks whether an editor is _installed_, so a config directory or a binary on PATH is proof. `harness-detect.ts` asks which editor is _running this process_, where only a variable the editor injects into its subprocesses counts; an installed-but-idle editor must never register there. Reaching for `copilotConfigDir()` or a PATH probe in the runtime path would make every user of that editor look like they are inside it.
 
 User-scope editors (e.g., opencode) write to a path resolved in `paths.ts` rather than the project tree — `configureEditorSettings` returns that path for the init summary and the real work happens in `tryInstallPlugin`.
 
