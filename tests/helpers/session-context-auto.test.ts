@@ -19,6 +19,7 @@ import {
 import * as os from "node:os";
 import { join } from "node:path";
 
+import { encodeProjectPath } from "../../src/helpers/session-context";
 import {
   listAutoSessions,
   readAutoSession,
@@ -44,10 +45,6 @@ const HARNESS_VARS = [
 ] as const;
 
 const PROJECT_ROOT = "/__archgate_auto_project";
-const ENCODED_PROJECT = PROJECT_ROOT.replaceAll("/", "-")
-  .replaceAll("\\", "-")
-  .replaceAll(":", "-")
-  .replaceAll(".", "-");
 
 const OLDER_SESSION = "11111111-1111-4111-8111-111111111111";
 const NEWER_SESSION = "22222222-2222-4222-8222-222222222222";
@@ -64,7 +61,7 @@ describe("session-context auto resolution", () => {
   let tempHome: string;
   let homedirSpy: Mock<typeof os.homedir>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     for (const key of HARNESS_VARS) {
       saved.set(key, Bun.env[key]);
       delete Bun.env[key];
@@ -74,7 +71,10 @@ describe("session-context auto resolution", () => {
     homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHome);
     Bun.env.XDG_DATA_HOME = join(tempHome, ".local", "share");
 
-    const projectsDir = join(tempHome, ".claude", "projects", ENCODED_PROJECT);
+    // Derived from the encoder, not restated — a hand-rolled copy drifts
+    // silently. encodeProjectPath's output is asserted in session-context.test.ts.
+    const encodedProject = await encodeProjectPath(PROJECT_ROOT);
+    const projectsDir = join(tempHome, ".claude", "projects", encodedProject);
     mkdirSync(projectsDir, { recursive: true });
 
     // Written oldest-first so the recency order is unambiguous.
