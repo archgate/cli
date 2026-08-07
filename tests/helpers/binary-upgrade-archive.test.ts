@@ -11,7 +11,6 @@ import {
 } from "bun:test";
 import { readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname } from "node:path";
 
 import {
   type ArtifactInfo,
@@ -221,12 +220,15 @@ describe("downloadReleaseBinary archive handling", () => {
     async () => {
       mockArchiveDownload(buildTarGz(["archgate", "nested/dir/file"]));
 
-      const binaryPath = await downloadReleaseBinary("v1.0.0", TAR_ARTIFACT);
+      const { binaryPath, tmpDir } = await downloadReleaseBinary(
+        "v1.0.0",
+        TAR_ARTIFACT
+      );
       try {
         expect(binaryPath).toEndWith("archgate");
+        expect(binaryPath).toStartWith(tmpDir);
       } finally {
-        // downloadReleaseBinary extracts into its own mkdtemp directory.
-        rmSync(dirname(binaryPath), { recursive: true, force: true });
+        rmSync(tmpDir, { recursive: true, force: true });
       }
     }
   );

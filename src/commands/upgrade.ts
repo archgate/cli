@@ -278,23 +278,22 @@ async function upgradeBinary(tag: string): Promise<void> {
 
   logDebug("Artifact:", artifact.name, "ext:", artifact.ext);
   const hint = getManualInstallHint();
-  // downloadReleaseBinary hands back a path inside an extraction directory it
-  // cannot remove itself, so removing it once the binary is installed is the
-  // caller's job.
+  // downloadReleaseBinary creates an extraction directory it cannot remove
+  // itself, so removing it once the binary is installed is the caller's job.
   let extractDir: string | undefined;
   try {
     try {
       const onProgress = createDownloadProgress();
-      const newBinaryPath = await downloadReleaseBinary(
+      const { binaryPath, tmpDir } = await downloadReleaseBinary(
         tag,
         artifact,
         onProgress
       );
-      extractDir = dirname(newBinaryPath);
+      extractDir = tmpDir;
       finishDownloadProgress();
-      logDebug("Downloaded binary to:", newBinaryPath);
+      logDebug("Downloaded binary to:", binaryPath);
       logDebug("Replacing binary:", process.execPath);
-      replaceBinary(process.execPath, newBinaryPath);
+      replaceBinary(process.execPath, binaryPath);
     } finally {
       // Runs before the handler below, which ends the process via exitWith().
       if (extractDir !== undefined) {

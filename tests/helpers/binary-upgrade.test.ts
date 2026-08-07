@@ -381,7 +381,7 @@ describe("downloadReleaseBinary", () => {
         binaryName: "archgate.exe",
       };
       try {
-        const binaryPath = await downloadReleaseBinary("v1.0.0", artifact);
+        const { binaryPath } = await downloadReleaseBinary("v1.0.0", artifact);
         expect(binaryPath).toContain("archgate.exe");
         expect(existsSync(binaryPath)).toBe(true);
       } finally {

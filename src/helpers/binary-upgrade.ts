@@ -139,19 +139,31 @@ async function runCapture(
   return { exitCode, stdout, stderr };
 }
 
+export interface DownloadedBinary {
+  /** Path to the extracted binary, inside {@link DownloadedBinary.tmpDir}. */
+  binaryPath: string;
+  /**
+   * Extraction directory this call created. The caller removes it once the
+   * binary is installed; deriving it from `binaryPath` instead would delete
+   * whichever directory that path happens to sit in.
+   */
+  tmpDir: string;
+}
+
 /**
  * Download and extract the release binary to a temp directory.
- * Returns the path to the extracted binary.
  *
  * When an `onProgress` callback is provided the response body is streamed
  * so the caller can display incremental progress.  Without the callback the
  * response is buffered in one shot.
+ *
+ * @returns The extracted binary and the directory the caller must remove.
  */
 export async function downloadReleaseBinary(
   tag: string,
   artifact: ArtifactInfo,
   onProgress?: DownloadProgressCallback
-): Promise<string> {
+): Promise<DownloadedBinary> {
   const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`;
   const archiveUrl = `${baseUrl}/${artifact.name}${artifact.ext}`;
   const checksumUrl = `${baseUrl}/${artifact.name}${artifact.ext}.sha256`;
@@ -312,10 +324,10 @@ export async function downloadReleaseBinary(
       );
     }
 
-    return binaryPath;
+    return { binaryPath, tmpDir };
   } catch (err) {
-    // The caller only receives a path on success, so it can only clean up the
-    // extraction directory then; every failure has to remove it here.
+    // The caller learns of tmpDir only on success, so it can only clean up
+    // then; every failure has to remove it here.
     rmSync(tmpDir, { recursive: true, force: true });
     throw err;
   }
