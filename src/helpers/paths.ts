@@ -35,7 +35,7 @@ export function internalPath(...path: string[]) {
  * — shells and tooling sometimes surface an unset variable as the string
  * "undefined", which would otherwise leak into the resolved path.
  */
-function usableEnv(value: string | undefined): string | null {
+export function usableEnv(value: string | undefined): string | null {
   if (typeof value !== "string") return null;
   if (value.length === 0 || value === "undefined") return null;
   return value;

@@ -4,168 +4,135 @@ import { describe, expect, test } from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";
 
-import { registerSessionContextCommand } from "../../src/commands/session-context/index";
+import {
+  parseMaxEntries,
+  registerSessionContextCommand,
+} from "../../src/commands/session-context";
+
+/** Build a fresh program and return the registered `session-context` command. */
+function sessionContext() {
+  const program = new Command();
+  registerSessionContextCommand(program);
+  return program.commands.find((c) => c.name() === "session-context")!;
+}
+
+/** Resolve `session-context` itself, or one of its subcommands by name. */
+function target(subcommand?: string) {
+  const cmd = sessionContext();
+  if (subcommand === undefined) return cmd;
+  return cmd.commands.find((c) => c.name() === subcommand)!;
+}
+
+const EDITORS = ["claude-code", "copilot", "cursor", "opencode"];
 
 describe("registerSessionContextCommand", () => {
   test("registers 'session-context' as a subcommand", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const sub = program.commands.find((c) => c.name() === "session-context");
-    expect(sub).toBeDefined();
+    expect(sessionContext()).toBeDefined();
   });
 
   test("has a description", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const sub = program.commands.find((c) => c.name() === "session-context")!;
-    expect(sub.description()).toBeTruthy();
+    expect(sessionContext().description()).toBeTruthy();
   });
 
-  test("registers 'claude-code' subcommand", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "claude-code");
-    expect(sub).toBeDefined();
-  });
-
-  test("registers 'copilot' subcommand", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "copilot");
-    expect(sub).toBeDefined();
-  });
-
-  test("registers 'cursor' subcommand", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "cursor");
-    expect(sub).toBeDefined();
-  });
-
-  test("registers 'opencode' subcommand", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "opencode");
-    expect(sub).toBeDefined();
-  });
-
-  test("claude-code subcommand has only --max-entries (read current conversation)", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "claude-code")!;
-    const opts = sub.options.map((o) => o.long);
-    expect(opts).toContain("--max-entries");
-    expect(opts).not.toContain("--session-id");
-    expect(opts).not.toContain("--list");
-    expect(opts).not.toContain("--skip");
-  });
-
-  test("cursor subcommand has only --max-entries (read current conversation)", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "cursor")!;
-    const opts = sub.options.map((o) => o.long);
-    expect(opts).toContain("--max-entries");
-    expect(opts).not.toContain("--session-id");
-    expect(opts).not.toContain("--list");
-    expect(opts).not.toContain("--skip");
-  });
-
-  test("copilot subcommand has only --max-entries (read current conversation)", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "copilot")!;
-    const opts = sub.options.map((o) => o.long);
-    expect(opts).toContain("--max-entries");
-    expect(opts).not.toContain("--session-id");
-    expect(opts).not.toContain("--list");
-    expect(opts).not.toContain("--skip");
-  });
-
-  test("session-context has exactly the four editor subcommands", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    // list/show are NOT direct children of session-context
-    expect(parent.commands.map((c) => c.name())).toEqual([
-      "claude-code",
-      "copilot",
-      "cursor",
-      "opencode",
+  test("has exactly the list and show subcommands", () => {
+    // Editors are selected with --editor, not with a subcommand each.
+    expect(sessionContext().commands.map((c) => c.name())).toEqual([
+      "list",
+      "show",
     ]);
   });
 
-  test.each(["claude-code", "copilot", "cursor", "opencode"])(
-    "%s subcommand has list and show children",
-    (editor) => {
-      const program = new Command();
-      registerSessionContextCommand(program);
-      const parent = program.commands.find(
-        (c) => c.name() === "session-context"
-      )!;
-      const sub = parent.commands.find((c) => c.name() === editor)!;
-      const children = sub.commands.map((c) => c.name()).sort();
-      expect(children).toEqual(["list", "show"]);
-    }
-  );
-
-  test.each([
-    ["claude-code", false],
-    ["copilot", false],
-    ["cursor", false],
-    ["opencode", true],
-  ] as const)("%s show has --root: %p", (editor, hasRoot) => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === editor)!;
-    const show = sub.commands.find((c) => c.name() === "show")!;
-    const opts = show.options.map((o) => o.long);
-    expect(opts).toContain("--max-entries");
-    if (hasRoot) {
-      expect(opts).toContain("--root");
-    } else {
-      expect(opts).not.toContain("--root");
+  test("no longer registers a subcommand per editor", () => {
+    const names = sessionContext().commands.map((c) => c.name());
+    for (const editor of EDITORS) {
+      expect(names).not.toContain(editor);
     }
   });
 
-  test("opencode subcommand has only --max-entries (read current conversation)", () => {
-    const program = new Command();
-    registerSessionContextCommand(program);
-    const parent = program.commands.find(
-      (c) => c.name() === "session-context"
-    )!;
-    const sub = parent.commands.find((c) => c.name() === "opencode")!;
-    const opts = sub.options.map((o) => o.long);
-    expect(opts).toContain("--max-entries");
-    expect(opts).not.toContain("--session-id");
-    expect(opts).not.toContain("--root");
-    expect(opts).not.toContain("--list");
-    expect(opts).not.toContain("--skip");
+  describe("--editor", () => {
+    test.each([
+      ["session-context", undefined],
+      ["list", "list"],
+      ["show", "show"],
+    ])("%s accepts --editor", (_label, subcommand) => {
+      expect(target(subcommand).options.map((o) => o.long)).toContain(
+        "--editor"
+      );
+    });
+
+    test.each([
+      ["session-context", undefined],
+      ["list", "list"],
+      ["show", "show"],
+    ])("%s restricts --editor to the known editors", (_label, subcommand) => {
+      const editor = target(subcommand).options.find(
+        (o) => o.long === "--editor"
+      )!;
+      expect(editor.argChoices).toEqual(EDITORS);
+    });
+
+    test("--editor takes a value rather than being a boolean flag", () => {
+      const editor = sessionContext().options.find(
+        (o) => o.long === "--editor"
+      )!;
+      expect(editor.required).toBe(true);
+    });
+  });
+
+  describe("--max-entries", () => {
+    test.each([
+      ["session-context", undefined],
+      ["show", "show"],
+    ])("%s accepts --max-entries", (_label, subcommand) => {
+      expect(target(subcommand).options.map((o) => o.long)).toContain(
+        "--max-entries"
+      );
+    });
+
+    test("list does not accept --max-entries", () => {
+      expect(target("list").options.map((o) => o.long)).not.toContain(
+        "--max-entries"
+      );
+    });
+
+    test.each([["0"], ["-1"], ["abc"], [""]])(
+      "rejects %p as a max-entries value",
+      (value) => {
+        expect(() => parseMaxEntries(value)).toThrow();
+      }
+    );
+
+    test("accepts a positive integer", () => {
+      expect(parseMaxEntries("25")).toBe(25);
+    });
+
+    test("truncates a fractional value", () => {
+      expect(parseMaxEntries("25.9")).toBe(25);
+    });
+  });
+
+  describe("--root", () => {
+    test.each([
+      ["session-context", undefined],
+      ["show", "show"],
+    ])("%s accepts --root", (_label, subcommand) => {
+      expect(target(subcommand).options.map((o) => o.long)).toContain("--root");
+    });
+
+    test("list does not accept --root", () => {
+      expect(target("list").options.map((o) => o.long)).not.toContain("--root");
+    });
+  });
+
+  describe("arguments", () => {
+    test("show takes a session-id argument", () => {
+      expect(target("show").registeredArguments.map((a) => a.name())).toEqual([
+        "session-id",
+      ]);
+    });
+
+    test("list takes no arguments", () => {
+      expect(target("list").registeredArguments).toHaveLength(0);
+    });
   });
 });

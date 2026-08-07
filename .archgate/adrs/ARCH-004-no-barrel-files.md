@@ -41,7 +41,7 @@ A **re-export** is any `export { X } from "./other-module"` or `export type { X 
 Files named `index.ts` that contain actual logic are **not** barrel files and are permitted. Examples of permitted `index.ts` files:
 
 - `src/commands/adr/index.ts` — defines `registerAdrCommand()` with command group composition logic
-- `src/commands/session-context/index.ts` — defines `registerSessionContextCommand()` with subcommand composition logic
+- `src/commands/plugin/index.ts` — defines `registerPluginCommand()` with subcommand composition logic
 
 ## Do's and Don'ts
 
