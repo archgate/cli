@@ -41,13 +41,16 @@ function writeHeaderField(
 }
 
 /**
- * Build a 512-byte ustar header for a zero-length regular file.
+ * Build a 512-byte ustar header for a zero-length member.
  *
  * `tar` refuses to *create* an archive whose member escapes the extraction
  * root, so an archive carrying such a member has to be assembled byte by byte.
  * That is the only shape that reaches the path-traversal guard.
+ *
+ * @param linkTarget When given, the member is a symlink to it rather than a
+ * regular file.
  */
-function tarHeader(name: string): Uint8Array {
+function tarHeader(name: string, linkTarget?: string): Uint8Array {
   const header = new Uint8Array(512);
   writeHeaderField(header, 0, name);
   writeHeaderField(header, 100, "0000644\0");
@@ -57,7 +60,8 @@ function tarHeader(name: string): Uint8Array {
   writeHeaderField(header, 136, "00000000000\0");
   // The checksum is computed with its own field filled with spaces.
   writeHeaderField(header, 148, "        ");
-  writeHeaderField(header, 156, "0");
+  writeHeaderField(header, 156, linkTarget === undefined ? "0" : "2");
+  if (linkTarget !== undefined) writeHeaderField(header, 157, linkTarget);
   writeHeaderField(header, 257, "ustar\0");
   writeHeaderField(header, 263, "00");
 
@@ -75,6 +79,13 @@ function buildTarGz(names: string[]): Uint8Array {
   names.forEach((name, index) => {
     tar.set(tarHeader(name), index * 512);
   });
+  return Bun.gzipSync(tar);
+}
+
+/** A gzipped tar whose sole member is a symlink to `linkTarget`. */
+function buildSymlinkTarGz(name: string, linkTarget: string): Uint8Array {
+  const tar = new Uint8Array(512 + 1024);
+  tar.set(tarHeader(name, linkTarget), 0);
   return Bun.gzipSync(tar);
 }
 
@@ -230,6 +241,23 @@ describe("downloadReleaseBinary archive handling", () => {
       } finally {
         rmSync(tmpDir, { recursive: true, force: true });
       }
+    }
+  );
+
+  // The member name is `archgate`, so the path-traversal guard has nothing to
+  // object to — only the post-extraction check sees what it really is.
+  test.skipIf(process.platform === "win32")(
+    "refuses a binary that extracts as a symlink",
+    async () => {
+      mockArchiveDownload(buildSymlinkTarGz("archgate", "/bin/sh"));
+
+      const message = await rejectionWithoutLeak(
+        downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+      );
+
+      expect(message).toBe(
+        "Extraction produced archgate as a symbolic link — refusing to install it"
+      );
     }
   );
 

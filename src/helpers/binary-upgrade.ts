@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import {
   chmodSync,
-  existsSync,
+  lstatSync,
   mkdtempSync,
   renameSync,
   rmSync,
@@ -318,9 +318,19 @@ export async function downloadReleaseBinary(
     }
 
     const binaryPath = join(tmpDir, artifact.binaryName);
-    if (!existsSync(binaryPath)) {
+    // lstat rather than existsSync: the latter follows symlinks and accepts
+    // directories, so an archive member that is either would be installed as
+    // the binary. replaceBinary renames without following, so a symlink would
+    // land in ~/.archgate/bin/ pointing wherever the archive chose.
+    const stats = lstatSync(binaryPath, { throwIfNoEntry: false });
+    if (!stats) {
       throw new UserError(
         `Extraction produced no ${artifact.binaryName} — the downloaded archive is corrupt or incomplete`
+      );
+    }
+    if (!stats.isFile()) {
+      throw new UserError(
+        `Extraction produced ${artifact.binaryName} as a ${stats.isSymbolicLink() ? "symbolic link" : "non-regular file"} — refusing to install it`
       );
     }
 

@@ -380,11 +380,17 @@ describe("downloadReleaseBinary", () => {
         ext: ".zip" as const,
         binaryName: "archgate.exe",
       };
+      let extractDir: string | undefined;
       try {
-        const { binaryPath } = await downloadReleaseBinary("v1.0.0", artifact);
-        expect(binaryPath).toContain("archgate.exe");
-        expect(existsSync(binaryPath)).toBe(true);
+        const result = await downloadReleaseBinary("v1.0.0", artifact);
+        extractDir = result.tmpDir;
+        expect(result.binaryPath).toContain("archgate.exe");
+        expect(existsSync(result.binaryPath)).toBe(true);
       } finally {
+        // The extraction directory is this call's, not the fixture's tmpDir.
+        if (extractDir !== undefined) {
+          rmSync(extractDir, { recursive: true, force: true });
+        }
         try {
           rmSync(tmpDir, { recursive: true, force: true });
         } catch {
