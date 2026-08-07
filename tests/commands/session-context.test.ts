@@ -43,10 +43,8 @@ describe("registerSessionContextCommand", () => {
   });
 
   test("no longer registers a subcommand per editor", () => {
-    const names = sessionContext().commands.map((c) => c.name());
-    for (const editor of EDITORS) {
-      expect(names).not.toContain(editor);
-    }
+    const names = new Set(sessionContext().commands.map((c) => c.name()));
+    expect(EDITORS.filter((e) => names.has(e))).toEqual([]);
   });
 
   describe("--editor", () => {

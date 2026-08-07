@@ -4,6 +4,7 @@ import type { Command } from "@commander-js/extra-typings";
 import { InvalidArgumentError, Option } from "@commander-js/extra-typings";
 
 import { exitWith, handleCommandError } from "../helpers/exit";
+import { DETECTED_HARNESSES } from "../helpers/harness-detect";
 import type { DetectedHarness } from "../helpers/harness-detect";
 import { logError } from "../helpers/log";
 import { formatJSON } from "../helpers/output";
@@ -14,17 +15,18 @@ import {
   readAutoSessionById,
 } from "../helpers/session-context-auto";
 
-const EDITORS = ["claude-code", "copilot", "cursor", "opencode"] as const;
-
 /**
  * Shared `--editor` option. Omitted, the editor is resolved from the
  * environment of the AI editor running the command.
+ *
+ * Choices come from the detection layer's own list, so `--editor` can neither
+ * offer an editor detection does not know nor omit one it does.
  */
 const makeEditorOption = () =>
   new Option(
     "--editor <name>",
     "editor to read (default: detected from the environment)"
-  ).choices(EDITORS);
+  ).choices(DETECTED_HARNESSES);
 
 /**
  * Parse `--max-entries`, rejecting non-numeric or non-positive input — a NaN

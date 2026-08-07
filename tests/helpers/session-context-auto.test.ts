@@ -49,11 +49,30 @@ const PROJECT_ROOT = "/__archgate_auto_project";
 const OLDER_SESSION = "11111111-1111-4111-8111-111111111111";
 const NEWER_SESSION = "22222222-2222-4222-8222-222222222222";
 
-function transcript(marker: string): string {
-  return `${JSON.stringify({
-    type: "user",
-    message: { role: "user", content: marker },
-  })}\n`;
+/** A JSONL transcript of `entries` user messages. */
+function transcript(marker: string, entries = 1): string {
+  return Array.from(
+    { length: entries },
+    (_, i) =>
+      `${JSON.stringify({
+        type: "user",
+        message: { role: "user", content: `${marker}-${i}` },
+      })}\n`
+  ).join("");
+}
+
+/** Entry count in the newest session's fixture, for the trimming assertions. */
+const NEWER_ENTRY_COUNT = 3;
+
+/**
+ * Number of transcript entries in a reader payload, or -1 when the field is
+ * absent or not an array. Narrowed with `in` so the loosely typed `data`
+ * needs no assertion.
+ */
+function transcriptLength(data: object): number {
+  if (!("transcript" in data)) return -1;
+  const entries = data.transcript;
+  return Array.isArray(entries) ? entries.length : -1;
 }
 
 describe("session-context auto resolution", () => {
@@ -85,7 +104,7 @@ describe("session-context auto resolution", () => {
     const past = new Date(Date.now() - 60_000);
     writeFileSync(
       join(projectsDir, `${NEWER_SESSION}.jsonl`),
-      transcript("newer-session")
+      transcript("newer-session", NEWER_ENTRY_COUNT)
     );
     // Force OLDER_SESSION to be genuinely older than NEWER_SESSION.
     utimesSync(join(projectsDir, `${OLDER_SESSION}.jsonl`), past, past);
@@ -178,14 +197,28 @@ describe("session-context auto resolution", () => {
       );
     });
 
+    test("returns every entry when maxEntries is not given", async () => {
+      Bun.env.CLAUDECODE = "1";
+
+      const result = await readAutoSession(PROJECT_ROOT);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(transcriptLength(result.data)).toBe(NEWER_ENTRY_COUNT);
+    });
+
     test("caps the transcript with maxEntries", async () => {
+      // The newest fixture holds NEWER_ENTRY_COUNT entries, so a cap of 1
+      // must actually trim — otherwise dropping maxEntries would still pass.
       Bun.env.CLAUDECODE = "1";
 
       const result = await readAutoSession(PROJECT_ROOT, { maxEntries: 1 });
 
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.data).toHaveProperty("transcript");
+      expect(transcriptLength(result.data)).toBe(1);
+      // The pre-trim count is reported alongside the trimmed transcript.
+      expect(result.data).toMatchObject({ relevantEntries: NEWER_ENTRY_COUNT });
     });
   });
 

@@ -10,7 +10,19 @@
 
 import { usableEnv } from "./paths";
 
-export type DetectedHarness = "claude-code" | "copilot" | "cursor" | "opencode";
+/**
+ * Every editor this CLI can read sessions for. The single source of truth:
+ * {@link DetectedHarness} is derived from it, so a command offering these as
+ * choices cannot drift from what detection recognizes.
+ */
+export const DETECTED_HARNESSES = [
+  "claude-code",
+  "copilot",
+  "cursor",
+  "opencode",
+] as const;
+
+export type DetectedHarness = (typeof DETECTED_HARNESSES)[number];
 
 export interface HarnessDetection {
   /** Winning harness under {@link SIGNALS} precedence, or null when none matched. */

@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
+  DETECTED_HARNESSES,
   detectHarness,
   type DetectedHarness,
 } from "../../src/helpers/harness-detect";
@@ -23,6 +24,15 @@ const HARNESS_VARS = [
 ] as const;
 
 const UUID = "261667f2-f770-40fd-bbfd-c70dc1f0a80c";
+
+/** Each editor paired with an env var that identifies it. */
+const MARKER_CASES: Array<[DetectedHarness, string]> = [
+  ["claude-code", "CLAUDECODE"],
+  ["copilot", "COPILOT_CLI"],
+  ["cursor", "CURSOR_AGENT"],
+  ["opencode", "OPENCODE"],
+  ["opencode", "OPENCODE_CLIENT"],
+];
 
 describe("detectHarness", () => {
   const saved = new Map<string, string | undefined>();
@@ -50,13 +60,7 @@ describe("detectHarness", () => {
     expect(result.envSessionId).toBeNull();
   });
 
-  test.each<[DetectedHarness, string]>([
-    ["claude-code", "CLAUDECODE"],
-    ["copilot", "COPILOT_CLI"],
-    ["cursor", "CURSOR_AGENT"],
-    ["opencode", "OPENCODE"],
-    ["opencode", "OPENCODE_CLIENT"],
-  ])("detects %s from %s", (editor, marker) => {
+  test.each(MARKER_CASES)("detects %s from %s", (editor, marker) => {
     Bun.env[marker] = "1";
 
     const result = detectHarness();
@@ -64,6 +68,14 @@ describe("detectHarness", () => {
     expect(result.editor).toBe(editor);
     expect(result.via).toBe(marker);
     expect(result.candidates).toEqual([editor]);
+  });
+
+  test("every editor the CLI supports is detectable", () => {
+    // SIGNALS is a list, so an editor added to DETECTED_HARNESSES without a
+    // signal would compile and simply never be detected. This turns that
+    // silent gap into a failure.
+    const covered = new Set(MARKER_CASES.map(([editor]) => editor));
+    expect(DETECTED_HARNESSES.filter((h) => !covered.has(h))).toEqual([]);
   });
 
   test.each<[string, string, string]>([
