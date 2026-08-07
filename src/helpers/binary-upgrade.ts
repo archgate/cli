@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { createHash } from "node:crypto";
-import { chmodSync, mkdtempSync, renameSync, unlinkSync } from "node:fs";
+import {
+  chmodSync,
+  lstatSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+} from "node:fs";
 import { unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -115,18 +122,48 @@ export type DownloadProgressCallback = (progress: DownloadProgress) => void;
 // ---------------------------------------------------------------------------
 
 /**
+ * Run `cmd`, draining both pipes concurrently with the exit code.
+ *
+ * @see ARCH-007 — awaiting one pipe alone leaves the child blocked once it
+ * fills the other, so `proc.exited` never resolves.
+ */
+async function runCapture(
+  cmd: string[]
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const proc = Bun.spawn(cmd, { stdout: "pipe", stderr: "pipe" });
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { exitCode, stdout, stderr };
+}
+
+export interface DownloadedBinary {
+  /** Path to the extracted binary, inside {@link DownloadedBinary.tmpDir}. */
+  binaryPath: string;
+  /**
+   * Extraction directory this call created. The caller removes it once the
+   * binary is installed; deriving it from `binaryPath` instead would delete
+   * whichever directory that path happens to sit in.
+   */
+  tmpDir: string;
+}
+
+/**
  * Download and extract the release binary to a temp directory.
- * Returns the path to the extracted binary.
  *
  * When an `onProgress` callback is provided the response body is streamed
  * so the caller can display incremental progress.  Without the callback the
  * response is buffered in one shot.
+ *
+ * @returns The extracted binary and the directory the caller must remove.
  */
 export async function downloadReleaseBinary(
   tag: string,
   artifact: ArtifactInfo,
   onProgress?: DownloadProgressCallback
-): Promise<string> {
+): Promise<DownloadedBinary> {
   const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`;
   const archiveUrl = `${baseUrl}/${artifact.name}${artifact.ext}`;
   const checksumUrl = `${baseUrl}/${artifact.name}${artifact.ext}.sha256`;
@@ -218,62 +255,92 @@ export async function downloadReleaseBinary(
     logDebug("Checksum verification skipped:", err);
   }
   const tmpDir = mkdtempSync(join(tmpdir(), "archgate-upgrade-"));
-  const archivePath = join(tmpDir, `archgate${artifact.ext}`);
-  logDebug("Extracting archive to:", tmpDir);
+  try {
+    const archivePath = join(tmpDir, `archgate${artifact.ext}`);
+    logDebug("Extracting archive to:", tmpDir);
 
-  await Bun.write(archivePath, buffer);
+    await Bun.write(archivePath, buffer);
 
-  if (artifact.ext === ".tar.gz") {
-    // Validate archive entries before extraction to prevent path traversal
-    const listProc = Bun.spawn(["tar", "-tzf", archivePath], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const listing = await new Response(listProc.stdout).text();
-    await listProc.exited;
+    if (artifact.ext === ".tar.gz") {
+      // Validate archive entries before extraction to prevent path traversal.
+      // Backslashes are normalized because a member stored as `..\evil` is
+      // listed escaped by GNU tar and literal by bsdtar; both forms reach the
+      // `../` check only after normalization.
+      const list = await runCapture(["tar", "-tzf", archivePath]);
+      if (list.exitCode !== 0) {
+        // An empty listing from a failed run would otherwise read as "no
+        // unsafe entries" and wave the archive through the guard below.
+        throw new UserError(
+          `Failed to read archive listing (tar exit code ${list.exitCode})`
+        );
+      }
 
-    for (const entry of listing.split("\n").filter(Boolean)) {
-      const normalized = entry.replaceAll("\\", "/").trim();
-      if (
-        normalized.startsWith("/") ||
-        normalized.includes("../") ||
-        normalized === ".."
-      ) {
-        throw new Error(
-          `Unsafe path in release archive: "${entry}" — aborting extraction`
+      for (const entry of list.stdout.split("\n").filter(Boolean)) {
+        const normalized = entry.replaceAll("\\", "/").trim();
+        if (
+          normalized.startsWith("/") ||
+          normalized.includes("../") ||
+          normalized === ".."
+        ) {
+          throw new Error(
+            `Unsafe path in release archive: "${entry}" — aborting extraction`
+          );
+        }
+      }
+
+      const { exitCode } = await runCapture([
+        "tar",
+        "-xzf",
+        archivePath,
+        "-C",
+        tmpDir,
+      ]);
+      if (exitCode !== 0) {
+        throw new UserError(
+          `Failed to extract archive (tar exit code ${exitCode})`
+        );
+      }
+    } else {
+      // `-ErrorAction Stop` promotes Expand-Archive's non-terminating error to
+      // a terminating one; without it PowerShell exits 0 on a corrupt archive
+      // and extraction failure goes unnoticed.
+      const { exitCode } = await runCapture([
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
+      ]);
+      if (exitCode !== 0) {
+        throw new UserError(
+          `Failed to extract archive (PowerShell exit code ${exitCode})`
         );
       }
     }
 
-    const proc = Bun.spawn(["tar", "-xzf", archivePath, "-C", tmpDir], {
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
+    const binaryPath = join(tmpDir, artifact.binaryName);
+    // lstat rather than existsSync: the latter follows symlinks and accepts
+    // directories, so an archive member that is either would be installed as
+    // the binary. replaceBinary renames without following, so a symlink would
+    // land in ~/.archgate/bin/ pointing wherever the archive chose.
+    const stats = lstatSync(binaryPath, { throwIfNoEntry: false });
+    if (!stats) {
       throw new UserError(
-        `Failed to extract archive (tar exit code ${exitCode})`
+        `Extraction produced no ${artifact.binaryName} — the downloaded archive is corrupt or incomplete`
       );
     }
-  } else {
-    const proc = Bun.spawn(
-      [
-        "powershell",
-        "-NoProfile",
-        "-Command",
-        `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force`,
-      ],
-      { stdout: "pipe", stderr: "pipe" }
-    );
-    const exitCode = await proc.exited;
-    if (exitCode !== 0) {
+    if (!stats.isFile()) {
       throw new UserError(
-        `Failed to extract archive (PowerShell exit code ${exitCode})`
+        `Extraction produced ${artifact.binaryName} as a ${stats.isSymbolicLink() ? "symbolic link" : "non-regular file"} — refusing to install it`
       );
     }
-  }
 
-  return join(tmpDir, artifact.binaryName);
+    return { binaryPath, tmpDir };
+  } catch (err) {
+    // The caller learns of tmpDir only on success, so it can only clean up
+    // then; every failure has to remove it here.
+    rmSync(tmpDir, { recursive: true, force: true });
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------------------

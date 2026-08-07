@@ -9,8 +9,8 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
-import { rmSync } from "node:fs";
-import { dirname } from "node:path";
+import { readdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 import {
   type ArtifactInfo,
@@ -41,13 +41,16 @@ function writeHeaderField(
 }
 
 /**
- * Build a 512-byte ustar header for a zero-length regular file.
+ * Build a 512-byte ustar header for a zero-length member.
  *
  * `tar` refuses to *create* an archive whose member escapes the extraction
  * root, so an archive carrying such a member has to be assembled byte by byte.
  * That is the only shape that reaches the path-traversal guard.
+ *
+ * @param linkTarget When given, the member is a symlink to it rather than a
+ * regular file.
  */
-function tarHeader(name: string): Uint8Array {
+function tarHeader(name: string, linkTarget?: string): Uint8Array {
   const header = new Uint8Array(512);
   writeHeaderField(header, 0, name);
   writeHeaderField(header, 100, "0000644\0");
@@ -57,7 +60,8 @@ function tarHeader(name: string): Uint8Array {
   writeHeaderField(header, 136, "00000000000\0");
   // The checksum is computed with its own field filled with spaces.
   writeHeaderField(header, 148, "        ");
-  writeHeaderField(header, 156, "0");
+  writeHeaderField(header, 156, linkTarget === undefined ? "0" : "2");
+  if (linkTarget !== undefined) writeHeaderField(header, 157, linkTarget);
   writeHeaderField(header, 257, "ustar\0");
   writeHeaderField(header, 263, "00");
 
@@ -75,6 +79,13 @@ function buildTarGz(names: string[]): Uint8Array {
   names.forEach((name, index) => {
     tar.set(tarHeader(name), index * 512);
   });
+  return Bun.gzipSync(tar);
+}
+
+/** A gzipped tar whose sole member is a symlink to `linkTarget`. */
+function buildSymlinkTarGz(name: string, linkTarget: string): Uint8Array {
+  const tar = new Uint8Array(512 + 1024);
+  tar.set(tarHeader(name, linkTarget), 0);
   return Bun.gzipSync(tar);
 }
 
@@ -105,6 +116,57 @@ function mockArchiveDownload(archive: Uint8Array): void {
   }) as unknown as typeof fetch;
 }
 
+/** Names of the extraction directories `downloadReleaseBinary` currently owns. */
+function upgradeTempDirs(): Set<string> {
+  return new Set(
+    readdirSync(tmpdir()).filter((name) => name.startsWith("archgate-upgrade-"))
+  );
+}
+
+/**
+ * Assert that `run` rejects without leaving its extraction directory behind.
+ *
+ * @returns The rejection message, for the caller's own assertions.
+ */
+async function rejectionWithoutLeak(run: Promise<unknown>): Promise<string> {
+  const before = upgradeTempDirs();
+  const message = await rejectionMessage(run);
+  const leaked = [...upgradeTempDirs()].filter((name) => !before.has(name));
+  expect(leaked).toEqual([]);
+  return message;
+}
+
+interface SpawnReply {
+  exitCode: number;
+  stdout?: string;
+}
+
+/**
+ * Replace `Bun.spawn` with a stub extracting nothing, answering with either a
+ * fixed exit code or a per-invocation reply derived from the argv.
+ *
+ * @returns The argv of each spawn, populated as calls arrive.
+ */
+function stubSpawn(
+  reply: number | ((argv: string[]) => SpawnReply)
+): string[][] {
+  const calls: string[][] = [];
+  const respond =
+    typeof reply === "number" ? () => ({ exitCode: reply }) : reply;
+  const spawnSpy = spyOn(Bun, "spawn");
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  spawnSpy.mockImplementation(((argv: string[]) => {
+    calls.push(argv);
+    const { exitCode, stdout }: SpawnReply = respond(argv);
+    return {
+      stdout: stdout ?? "",
+      stderr: "",
+      exited: Promise.resolve(exitCode),
+    };
+  }) as unknown as typeof Bun.spawn);
+  return calls;
+}
+
 describe("downloadReleaseBinary archive handling", () => {
   let originalFetch: typeof fetch;
 
@@ -118,10 +180,9 @@ describe("downloadReleaseBinary archive handling", () => {
     mock.restore();
   });
 
-  // A backslash-separated escape (`..\evil`) has no row: GNU tar lists it with
-  // the backslash escaped, so the guard's backslash normalization never sees
-  // the shape it is written for. `test.skipIf(...).each()` also only accepts a
-  // mutable row array, hence no `as const` here.
+  // Entries listed verbatim by tar, so the message quotes them unchanged.
+  // `test.skipIf(...).each()` only accepts a mutable row array, hence no
+  // `as const` here.
   const unsafeEntries: string[] = [
     "../evil",
     "pkg/../../evil",
@@ -137,7 +198,7 @@ describe("downloadReleaseBinary archive handling", () => {
     async (entry) => {
       mockArchiveDownload(buildTarGz([entry]));
 
-      const message = await rejectionMessage(
+      const message = await rejectionWithoutLeak(
         downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
       );
 
@@ -146,52 +207,125 @@ describe("downloadReleaseBinary archive handling", () => {
     }
   );
 
+  // A backslash escape gets its own case because the quoted entry is not the
+  // stored name: GNU tar lists `..\evil` with the backslash doubled and bsdtar
+  // lists it verbatim. Normalizing either form yields a `../` the guard trips
+  // on, so the assertion accepts both spellings.
+  test.skipIf(process.platform === "win32")(
+    "aborts extraction for a backslash-separated escape",
+    async () => {
+      const entry = `..${String.fromCodePoint(92)}evil`;
+      mockArchiveDownload(buildTarGz([entry]));
+
+      const message = await rejectionWithoutLeak(
+        downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+      );
+
+      expect(message).toContain("Unsafe path in release archive");
+      expect(message).toMatch(/\.\.\\+evil/u);
+    }
+  );
+
   test.skipIf(process.platform === "win32")(
     "extracts an archive whose entries all stay inside the root",
     async () => {
       mockArchiveDownload(buildTarGz(["archgate", "nested/dir/file"]));
 
-      const binaryPath = await downloadReleaseBinary("v1.0.0", TAR_ARTIFACT);
+      const { binaryPath, tmpDir } = await downloadReleaseBinary(
+        "v1.0.0",
+        TAR_ARTIFACT
+      );
       try {
         expect(binaryPath).toEndWith("archgate");
+        expect(binaryPath).toStartWith(tmpDir);
       } finally {
-        // downloadReleaseBinary extracts into its own mkdtemp directory.
-        rmSync(dirname(binaryPath), { recursive: true, force: true });
+        rmSync(tmpDir, { recursive: true, force: true });
       }
     }
   );
 
-  test("reports the tar exit code when extraction fails", async () => {
-    // Not a gzip stream at all: `tar -tzf` lists nothing, so the guard passes
-    // and `tar -xzf` is what rejects it.
+  // The member name is `archgate`, so the path-traversal guard has nothing to
+  // object to — only the post-extraction check sees what it really is.
+  test.skipIf(process.platform === "win32")(
+    "refuses a binary that extracts as a symlink",
+    async () => {
+      mockArchiveDownload(buildSymlinkTarGz("archgate", "/bin/sh"));
+
+      const message = await rejectionWithoutLeak(
+        downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+      );
+
+      expect(message).toBe(
+        "Extraction produced archgate as a symbolic link — refusing to install it"
+      );
+    }
+  );
+
+  test("rejects when the archive listing fails", async () => {
+    // Not a gzip stream at all, so `tar -tzf` cannot read it. An empty listing
+    // must not be mistaken for an archive with no unsafe entries.
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
 
-    const message = await rejectionMessage(
+    const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
-    expect(message).toContain("Failed to extract archive (tar exit code");
+    expect(message).toContain("Failed to read archive listing (tar exit code");
+  });
+
+  test("reports the tar exit code when extraction fails", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    // The listing succeeds with a safe entry so the guard passes and `tar -xzf`
+    // is what rejects the archive, on every runner rather than only on Linux.
+    stubSpawn((argv) =>
+      argv.includes("-tzf")
+        ? { exitCode: 0, stdout: "archgate\n" }
+        : { exitCode: 2 }
+    );
+
+    const message = await rejectionWithoutLeak(
+      downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+    );
+
+    expect(message).toBe("Failed to extract archive (tar exit code 2)");
   });
 
   test("reports the PowerShell exit code when zip extraction fails", async () => {
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
-    // A corrupt archive does not produce a failing exit code here:
-    // `Expand-Archive`'s error is non-terminating, so `powershell -Command`
-    // still exits 0. Stubbing the spawn is what reaches the failure branch,
-    // and it reaches it on every runner rather than only on Windows.
-    const spawnSpy = spyOn(Bun, "spawn");
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    spawnSpy.mockImplementation((() => ({
-      stdout: "",
-      stderr: "Expand-Archive : Central Directory corrupt.",
-      exited: Promise.resolve(3),
-    })) as unknown as typeof Bun.spawn);
+    // Stubbing the spawn reaches the failure branch on every runner rather
+    // than only on Windows, the sole platform shipping `.zip` releases.
+    stubSpawn(3);
 
-    const message = await rejectionMessage(
+    const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT)
     );
 
     expect(message).toBe("Failed to extract archive (PowerShell exit code 3)");
+  });
+
+  test("stops PowerShell on a non-terminating Expand-Archive error", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    const calls = stubSpawn(0);
+
+    await rejectionWithoutLeak(downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT));
+
+    // Without `-ErrorAction Stop`, Expand-Archive reports a corrupt archive as
+    // a non-terminating error and `powershell -Command` still exits 0.
+    expect(calls[0]).toContain("powershell");
+    expect(calls[0].at(-1)).toContain("-ErrorAction Stop");
+  });
+
+  test("rejects when extraction reports success but produces no binary", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
+    stubSpawn(0);
+
+    const message = await rejectionWithoutLeak(
+      downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT)
+    );
+
+    expect(message).toBe(
+      "Extraction produced no archgate.exe — the downloaded archive is corrupt or incomplete"
+    );
   });
 
   test("continues past checksum verification when the request fails", async () => {
@@ -211,12 +345,12 @@ describe("downloadReleaseBinary archive handling", () => {
       throw new Error("checksum host unreachable");
     }) as unknown as typeof fetch;
 
-    const message = await rejectionMessage(
+    const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
-    // The transport failure is swallowed; the run proceeds to extraction.
+    // The transport failure is swallowed; the run proceeds to archive handling.
     expect(message).not.toContain("checksum host unreachable");
-    expect(message).toContain("Failed to extract archive");
+    expect(message).toContain("tar exit code");
   });
 });

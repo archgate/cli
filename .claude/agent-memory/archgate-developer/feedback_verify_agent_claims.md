@@ -20,7 +20,11 @@ Four failure modes worth testing for by hand:
 
 **A review agent's verdict on non-English prose is worthless**, and it invents the detail that supports it: an orthography pass over the pt-br docs returned PASS while asserting accents the words do not contain (`depreciadas` "(á)", `governança` "(ã)"). Grep cannot settle a claim about meaning, so verify mechanically instead — does the stripped form still occur, did fenced code blocks change — and leave the language judgement to a human speaker.
 
-**Reproduce a described failure before scheduling work from it**, including when your own scan reports zero. Of three issues one audit derived from memory files, two collapsed to nothing once the failure was actually tested (#517 Go proxy, #518 branch protection); the third was real but larger than described (#516).
+**Reproduce a described failure before scheduling work from it**, including when your own scan reports zero. Of three issues one audit derived from memory files, two collapsed to nothing once the failure was actually tested (#517 Go proxy, #518 branch protection); the third was real but larger than described (#516). A second trio filed from coverage work held the same ratio: #554 was accurate, #555's central claim was false (the branch it called dead is load-bearing), and #556 understated its own bug (the leak it pinned to failure paths happens on success too).
+
+An issue filed by a prior session is unverified in the current checkout, and its own claim of having been verified counts for nothing: #555 opened with "verified empirically against real GNU tar output rather than inferred from reading" and was still wrong about what that output does. Re-run the check yourself.
+
+Test the premise separately from the defect. A report can name a real defect while its stated mechanism is wrong, and a fix built on the stated mechanism removes working code — #555 asked for the deletion of a guard branch that is load-bearing.
 
 And prove a zero is a real zero: `\b` inside a JS template literal is a backspace, not a word boundary, so a regex built that way found no corruption where 69 occurrences sat.
 

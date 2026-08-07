@@ -464,7 +464,10 @@ describe("upgrade dispatch", () => {
       "downloadReleaseBinary"
     ).mockImplementation(async (_tag, _artifact, onProgress) => {
       onProgress?.({ downloadedBytes: 10, totalBytes: 100 });
-      return join(tempDir, "new-binary");
+      // A subdirectory, so the command's cleanup cannot reach tempDir itself.
+      const extractDir = join(tempDir, "extract");
+      mkdirSync(extractDir, { recursive: true });
+      return { binaryPath: join(extractDir, "new-binary"), tmpDir: extractDir };
     });
     const replaceSpy = spyOn(binaryUpgrade, "replaceBinary").mockImplementation(
       () => {}

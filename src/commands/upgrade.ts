@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { existsSync } from "node:fs";
+import { existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { clearLine, cursorTo } from "node:readline";
 
@@ -278,17 +278,28 @@ async function upgradeBinary(tag: string): Promise<void> {
 
   logDebug("Artifact:", artifact.name, "ext:", artifact.ext);
   const hint = getManualInstallHint();
+  // downloadReleaseBinary creates an extraction directory it cannot remove
+  // itself, so removing it once the binary is installed is the caller's job.
+  let extractDir: string | undefined;
   try {
-    const onProgress = createDownloadProgress();
-    const newBinaryPath = await downloadReleaseBinary(
-      tag,
-      artifact,
-      onProgress
-    );
-    finishDownloadProgress();
-    logDebug("Downloaded binary to:", newBinaryPath);
-    logDebug("Replacing binary:", process.execPath);
-    replaceBinary(process.execPath, newBinaryPath);
+    try {
+      const onProgress = createDownloadProgress();
+      const { binaryPath, tmpDir } = await downloadReleaseBinary(
+        tag,
+        artifact,
+        onProgress
+      );
+      extractDir = tmpDir;
+      finishDownloadProgress();
+      logDebug("Downloaded binary to:", binaryPath);
+      logDebug("Replacing binary:", process.execPath);
+      replaceBinary(process.execPath, binaryPath);
+    } finally {
+      // Runs before the handler below, which ends the process via exitWith().
+      if (extractDir !== undefined) {
+        rmSync(extractDir, { recursive: true, force: true });
+      }
+    }
   } catch (err) {
     if (err instanceof Error && err.name === "ExitPromptError") throw err;
     finishDownloadProgress();

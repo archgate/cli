@@ -16,6 +16,8 @@ import {
   spyOn,
   test,
 } from "bun:test";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { Command } from "@commander-js/extra-typings";
@@ -43,8 +45,11 @@ describe("upgrade action handler (upgrade flow)", () => {
   let credsSpy: Mock<typeof credentialStore.loadCredentials>;
   let originalExecPath: string;
   let originalIsTTY: boolean | undefined;
+  /** A real directory, so the command's cleanup is exercised rather than a no-op. */
+  let fakeExtractDir: string;
 
   beforeEach(() => {
+    fakeExtractDir = mkdtempSync(join(tmpdir(), "archgate-upgrade-test-"));
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     exitSpy = spyOn(exitModule, "exitWith").mockImplementation(() => {
@@ -64,7 +69,10 @@ describe("upgrade action handler (upgrade flow)", () => {
     downloadSpy = spyOn(
       binaryUpgrade,
       "downloadReleaseBinary"
-    ).mockResolvedValue("/tmp/new-binary");
+    ).mockResolvedValue({
+      binaryPath: join(fakeExtractDir, "new-binary"),
+      tmpDir: fakeExtractDir,
+    });
     replaceSpy = spyOn(binaryUpgrade, "replaceBinary").mockImplementation(
       () => {}
     );
@@ -93,6 +101,7 @@ describe("upgrade action handler (upgrade flow)", () => {
   });
 
   afterEach(() => {
+    rmSync(fakeExtractDir, { recursive: true, force: true });
     logSpy.mockRestore();
     errorSpy.mockRestore();
     exitSpy.mockRestore();
@@ -126,6 +135,9 @@ describe("upgrade action handler (upgrade flow)", () => {
 
     expect(downloadSpy).toHaveBeenCalledTimes(1);
     expect(replaceSpy).toHaveBeenCalledTimes(1);
+    // The archive inside it can exceed 100 MB, so a successful upgrade must
+    // not leave the extraction directory behind.
+    expect(existsSync(fakeExtractDir)).toBe(false);
 
     const output = logSpy.mock.calls
       .map((c: unknown[]) => String(c[0]))
