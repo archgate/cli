@@ -15,8 +15,14 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import { nestedStringFromJsonEnv } from "./harness-detect";
 import { logDebug } from "./log";
-import { antigravityCliDir, antigravityConversationsDir } from "./paths";
+import {
+  antigravityCliDir,
+  antigravityConversationsDir,
+  antigravityDataDirs,
+  usableEnv,
+} from "./paths";
 import {
   type ReadSessionOptions,
   type SessionListEntry,
@@ -55,6 +61,11 @@ interface MetadataRow {
   data: Uint8Array | null;
 }
 
+/** Row of the shared summaries index. */
+interface SummaryRow {
+  workspace_uris: string;
+}
+
 interface AntigravitySessionSummary {
   sessionId: string;
   sessionFile: string;
@@ -71,26 +82,69 @@ type AntigravitySessionResult =
   | { ok: true; data: AntigravitySessionSummary }
   | { ok: false; error: string; path?: string; available?: string[] };
 
-/** Full JSONL transcript for a conversation. */
-function transcriptPath(conversationId: string): string {
-  return join(
-    antigravityCliDir(),
-    "brain",
-    conversationId,
-    ".system_generated",
-    "logs",
-    "transcript_full.jsonl"
-  );
+/**
+ * Transcript filenames, most complete first. The CLI writes both; the desktop
+ * app writes only the truncated one.
+ */
+const TRANSCRIPT_NAMES = ["transcript_full.jsonl", "transcript.jsonl"];
+
+/** Directory holding a conversation's generated logs within a data directory. */
+function logsDir(dataDir: string, conversationId: string): string {
+  return join(dataDir, "brain", conversationId, ".system_generated", "logs");
 }
 
 /**
- * Workspace directory a conversation belongs to.
+ * Locate a conversation's transcript across both data directories.
  *
- * Only the conversation's own database records this — the shared summaries
- * database indexes the IDE's conversations, not the CLI's. The value is a
- * percent-encoded `file://` URI embedded in a protobuf blob.
+ * A conversation belongs to whichever distribution created it, and the two
+ * write to separate trees, so both are searched.
  */
-function conversationWorkspace(file: string): string | null {
+function transcriptPath(conversationId: string): string | null {
+  for (const dataDir of antigravityDataDirs()) {
+    for (const name of TRANSCRIPT_NAMES) {
+      const candidate = join(logsDir(dataDir, conversationId), name);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+/** Every conversation with a readable transcript, in either data directory. */
+function conversationsWithTranscripts(): string[] {
+  const ids = new Set<string>();
+  for (const dataDir of antigravityDataDirs()) {
+    const brain = join(dataDir, "brain");
+    let entries: string[];
+    try {
+      entries = readdirSync(brain);
+    } catch {
+      continue;
+    }
+    for (const id of entries) {
+      if (transcriptPath(id) !== null) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+/**
+ * A `file:///` URI, bounded to URI-legal characters. The CLI embeds one in a
+ * protobuf blob, so a permissive class runs past the string's end into the
+ * following tag bytes and yields a path that matches nothing.
+ */
+const FILE_URI = /file:\/\/\/[A-Za-z0-9%._~!$&'()*+,;=:@/-]+/u;
+
+/** Decode a `file:///` URI into a plain path. */
+function pathFromUri(uri: string): string | null {
+  try {
+    return decodeURIComponent(uri.replace(/^file:\/\/\//u, ""));
+  } catch {
+    return null;
+  }
+}
+
+/** Workspace recorded in a CLI conversation's own database. */
+function workspaceFromDb(file: string): string | null {
   let db: Database;
   try {
     db = new Database(file, { readonly: true });
@@ -104,17 +158,74 @@ function conversationWorkspace(file: string): string | null {
       .get();
     if (row?.data === null || row?.data === undefined) return null;
     const text = new TextDecoder("utf-8", { fatal: false }).decode(row.data);
-    // Bounded to URI-legal characters: a permissive class runs past the
-    // string's end into the following protobuf tag bytes and yields a path
-    // that matches nothing.
-    const match = /file:\/\/\/[A-Za-z0-9%._~!$&'()*+,;=:@/-]+/u.exec(text);
-    if (match === null) return null;
-    return decodeURIComponent(match[0].replace(/^file:\/\/\//u, ""));
+    const match = FILE_URI.exec(text);
+    return match === null ? null : pathFromUri(match[0]);
   } catch {
     return null;
   } finally {
     db.close();
   }
+}
+
+/**
+ * Workspace recorded in the shared summaries index, which covers the desktop
+ * app's conversations. It lags a live conversation, so it is a fallback
+ * rather than the primary source.
+ */
+function workspaceFromSummaries(conversationId: string): string | null {
+  const file = join(antigravityCliDir(), "conversation_summaries.db");
+  if (!existsSync(file)) return null;
+
+  let db: Database;
+  try {
+    db = new Database(file, { readonly: true });
+  } catch {
+    return null;
+  }
+
+  try {
+    const row = db
+      .query<SummaryRow, [string]>(
+        "SELECT workspace_uris FROM conversation_summaries WHERE conversation_id = ?"
+      )
+      .get(conversationId);
+    if (row?.workspace_uris === undefined) return null;
+    // The column holds a JSON array of URIs; the first match is its first
+    // element, so the URI is taken directly rather than parsed out.
+    const match = FILE_URI.exec(row.workspace_uris);
+    return match === null ? null : pathFromUri(match[0]);
+  } catch {
+    return null;
+  } finally {
+    db.close();
+  }
+}
+
+/** Workspace a conversation belongs to, from whichever store records it. */
+function workspaceFor(conversationId: string): string | null {
+  const cliDb = join(antigravityConversationsDir(), `${conversationId}.db`);
+  if (existsSync(cliDb)) {
+    const fromDb = workspaceFromDb(cliDb);
+    if (fromDb !== null) return fromDb;
+  }
+  return workspaceFromSummaries(conversationId);
+}
+
+/**
+ * Conversation the caller is running inside.
+ *
+ * The CLI names it in a flat variable; the desktop app nests it in JSON. A
+ * live conversation is not always indexed yet, so it is admitted even when
+ * its workspace cannot be resolved — it is the caller's own by definition.
+ */
+function currentConversationId(): string | null {
+  const flat = usableEnv(Bun.env.ANTIGRAVITY_CONVERSATION_ID);
+  if (flat !== null) return flat;
+
+  return nestedStringFromJsonEnv("ANTIGRAVITY_SOURCE_METADATA", [
+    "tool",
+    "conversationId",
+  ]);
 }
 
 interface AntigravityConversation {
@@ -127,29 +238,31 @@ interface AntigravityConversation {
 function findConversations(
   projectRoot: string | null
 ): AntigravityConversation[] | null {
-  const dir = antigravityConversationsDir();
-  if (!existsSync(dir)) return null;
+  // Either tree counts: `brain` holds transcripts, `conversations` the
+  // per-conversation databases. One without the other still means Antigravity
+  // is installed, which is a different answer from having no conversations.
+  const hasStore = antigravityDataDirs().some(
+    (d) => existsSync(join(d, "brain")) || existsSync(join(d, "conversations"))
+  );
+  if (!hasStore) return null;
 
   const target = normalizePath(projectRoot ?? process.cwd());
-  let names: string[];
-  try {
-    names = readdirSync(dir).filter((f) => f.endsWith(".db"));
-  } catch {
-    return null;
-  }
+  const current = currentConversationId();
 
   const found: AntigravityConversation[] = [];
-  for (const name of names) {
-    const file = join(dir, name);
-    const workspace = conversationWorkspace(file);
-    if (workspace === null || normalizePath(workspace) !== target) continue;
+  for (const id of conversationsWithTranscripts()) {
+    const workspace = workspaceFor(id);
+    const matches = workspace !== null && normalizePath(workspace) === target;
+    if (!matches && id !== current) continue;
+    const file = transcriptPath(id);
+    if (file === null) continue;
     let mtime = 0;
     try {
       mtime = statSync(file).mtimeMs;
     } catch {
       continue;
     }
-    found.push({ id: basename(name, ".db"), file, mtime });
+    found.push({ id, file, mtime });
   }
 
   return found.sort((a, b) => b.mtime - a.mtime);
@@ -164,12 +277,12 @@ function findConversations(
 export function listAntigravitySessions(
   projectRoot: string | null
 ): SessionListResult {
-  const dir = antigravityConversationsDir();
+  const dir = antigravityCliDir();
   const conversations = findConversations(projectRoot);
   if (conversations === null) {
     return {
       ok: false,
-      error: "No Antigravity CLI conversations directory found",
+      error: "No Antigravity conversations directory found",
       path: dir,
     };
   }
@@ -194,19 +307,19 @@ export async function readAntigravitySession(
   options?: ReadAntigravitySessionOptions
 ): Promise<AntigravitySessionResult> {
   const limit = options?.maxEntries ?? 200;
-  const dir = antigravityConversationsDir();
+  const dir = antigravityCliDir();
   const conversations = findConversations(projectRoot);
   if (conversations === null) {
     return {
       ok: false,
-      error: "No Antigravity CLI conversations directory found",
+      error: "No Antigravity conversations directory found",
       path: dir,
     };
   }
   if (conversations.length === 0) {
     return {
       ok: false,
-      error: "No Antigravity CLI conversations found for this project",
+      error: "No Antigravity conversations found for this project",
       path: dir,
     };
   }
@@ -225,7 +338,7 @@ export async function readAntigravitySession(
     };
   }
 
-  const file = transcriptPath(target.id);
+  const file = target.file;
   logDebug("Reading Antigravity transcript", file);
   let raw: string;
   try {

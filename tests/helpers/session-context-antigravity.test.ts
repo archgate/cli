@@ -15,6 +15,13 @@ import { restoreEnv, safeRmSync } from "../test-utils";
 const PROJECT = join(tmpdir(), "__archgate_agy_project");
 const OTHER_PROJECT = join(tmpdir(), "__archgate_agy_other");
 
+/** Environment variables the reader consults, cleared for each test. */
+const ENV_VARS = [
+  "ANTIGRAVITY_AGENT",
+  "ANTIGRAVITY_CONVERSATION_ID",
+  "ANTIGRAVITY_SOURCE_METADATA",
+] as const;
+
 /**
  * A workspace URI embedded the way the CLI stores it: inside a protobuf blob,
  * so the URI is followed by tag bytes rather than terminated cleanly.
@@ -31,7 +38,7 @@ function metadataBlob(workspace: string): Uint8Array {
   ]);
 }
 
-/** One transcript line, as the CLI writes it. */
+/** One transcript line, as either distribution writes it. */
 function entry(type: string, content?: string): string {
   const base: Record<string, unknown> = {
     step_index: 0,
@@ -50,8 +57,9 @@ const assistantEntry = (text: string) => entry("PLANNER_RESPONSE", text);
 /** A planner turn that only made a tool call carries no prose. */
 const toolOnlyEntry = () => entry("PLANNER_RESPONSE", "");
 
-describe("Antigravity CLI session reader", () => {
+describe("Antigravity session reader", () => {
   let tempHome: string;
+  const saved = new Map<string, string | undefined>();
   let savedHome: string | undefined;
   let savedUserProfile: string | undefined;
 
@@ -61,27 +69,46 @@ describe("Antigravity CLI session reader", () => {
     savedUserProfile = Bun.env.USERPROFILE;
     Bun.env.HOME = tempHome;
     Bun.env.USERPROFILE = tempHome;
+    for (const key of ENV_VARS) {
+      saved.set(key, Bun.env[key]);
+      delete Bun.env[key];
+    }
   });
 
   afterEach(() => {
+    for (const key of ENV_VARS) restoreEnv(key, saved.get(key));
+    saved.clear();
     restoreEnv("HOME", savedHome);
     restoreEnv("USERPROFILE", savedUserProfile);
     safeRmSync(tempHome);
   });
 
-  /**
-   * Write a conversation: the database naming its workspace, and the JSONL
-   * transcript holding its turns.
-   */
-  function writeConversation(
+  /** `antigravity-cli` is the CLI's data directory, `antigravity` the app's. */
+  function dataDir(app: "cli" | "ide"): string {
+    return join(
+      tempHome,
+      ".gemini",
+      app === "cli" ? "antigravity-cli" : "antigravity"
+    );
+  }
+
+  /** Write a conversation transcript into one distribution's store. */
+  function writeTranscript(
+    app: "cli" | "ide",
     id: string,
-    workspace: string,
-    transcript?: string
+    transcript: string,
+    name = app === "cli" ? "transcript_full.jsonl" : "transcript.jsonl"
   ) {
-    const cliDir = join(tempHome, ".gemini", "antigravity-cli");
-    const convDir = join(cliDir, "conversations");
-    mkdirSync(convDir, { recursive: true });
-    const db = new Database(join(convDir, `${id}.db`), { create: true });
+    const logs = join(dataDir(app), "brain", id, ".system_generated", "logs");
+    mkdirSync(logs, { recursive: true });
+    writeFileSync(join(logs, name), transcript);
+  }
+
+  /** Record a CLI conversation's workspace in its own database. */
+  function writeCliWorkspace(id: string, workspace: string) {
+    const dir = join(dataDir("cli"), "conversations");
+    mkdirSync(dir, { recursive: true });
+    const db = new Database(join(dir, `${id}.db`), { create: true });
     db.run(
       "CREATE TABLE trajectory_metadata_blob (id text DEFAULT 'main', data blob, PRIMARY KEY (id))"
     );
@@ -90,37 +117,49 @@ describe("Antigravity CLI session reader", () => {
       metadataBlob(workspace),
     ]);
     db.close();
-
-    if (transcript === undefined) return;
-    const logs = join(cliDir, "brain", id, ".system_generated", "logs");
-    mkdirSync(logs, { recursive: true });
-    writeFileSync(join(logs, "transcript_full.jsonl"), transcript);
   }
 
-  test("reports a missing conversations directory", async () => {
+  /** Record a workspace in the shared summaries index the app relies on. */
+  function writeSummary(id: string, workspace: string) {
+    const dir = dataDir("cli");
+    mkdirSync(dir, { recursive: true });
+    const db = new Database(join(dir, "conversation_summaries.db"), {
+      create: true,
+    });
+    db.run(
+      "CREATE TABLE IF NOT EXISTS conversation_summaries (conversation_id text, workspace_uris text NOT NULL)"
+    );
+    db.run(
+      "INSERT INTO conversation_summaries (conversation_id, workspace_uris) VALUES (?, ?)",
+      [id, JSON.stringify([`file:///${workspace.replaceAll("\\", "/")}`])]
+    );
+    db.close();
+  }
+
+  test("reports a missing store", async () => {
     const result = await readAntigravitySession(PROJECT);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toContain(
-      "No Antigravity CLI conversations directory"
-    );
+    expect(result.error).toContain("No Antigravity conversations directory");
   });
 
   test("reports when no conversation belongs to the project", async () => {
-    writeConversation("c1", OTHER_PROJECT, userEntry("hi"));
+    writeCliWorkspace("c1", OTHER_PROJECT);
+    writeTranscript("cli", "c1", userEntry("hi"));
 
     const result = await readAntigravitySession(PROJECT);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toContain("No Antigravity CLI conversations found");
+    expect(result.error).toContain("No Antigravity conversations found");
   });
 
-  test("reads user and assistant turns", async () => {
-    writeConversation(
+  test("reads a CLI conversation", async () => {
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript(
+      "cli",
       "c1",
-      PROJECT,
       userEntry("what does this repo do?") +
         assistantEntry("It governs AI agents with ADRs.")
     );
@@ -129,15 +168,57 @@ describe("Antigravity CLI session reader", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.sessionId).toBe("c1");
     expect(result.data.transcript).toEqual([
       { role: "user", contentPreview: "what does this repo do?" },
       { role: "assistant", contentPreview: "It governs AI agents with ADRs." },
     ]);
   });
 
+  test("reads a desktop app conversation via the summaries index", async () => {
+    // The app keeps its conversations in a separate tree and records no
+    // workspace of its own, so the shared index supplies it.
+    writeSummary("ide1", PROJECT);
+    writeTranscript("ide", "ide1", userEntry("from the app"));
+
+    const result = await readAntigravitySession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessionId).toBe("ide1");
+    expect(result.data.sessionFile).toBe("transcript.jsonl");
+  });
+
+  test("reads the caller's own conversation before it is indexed", async () => {
+    // A live conversation is not in the summaries index yet. It is the
+    // caller's by definition, so it is admitted without a workspace match.
+    Bun.env.ANTIGRAVITY_AGENT = "1";
+    Bun.env.ANTIGRAVITY_SOURCE_METADATA = JSON.stringify({
+      tool: { conversationId: "live" },
+    });
+    writeTranscript("ide", "live", userEntry("still running"));
+
+    const result = await readAntigravitySession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessionId).toBe("live");
+  });
+
+  test("prefers the untruncated transcript when both exist", async () => {
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("full"), "transcript_full.jsonl");
+    writeTranscript("cli", "c1", userEntry("truncated"), "transcript.jsonl");
+
+    const result = await readAntigravitySession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcript[0]?.contentPreview).toBe("full");
+  });
+
   test("strips the USER_REQUEST wrapper from a user turn", async () => {
-    writeConversation("c1", PROJECT, userEntry("plain question"));
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("plain question"));
 
     const result = await readAntigravitySession(PROJECT);
 
@@ -147,11 +228,10 @@ describe("Antigravity CLI session reader", () => {
   });
 
   test("drops metadata appended after the closing USER_REQUEST tag", async () => {
-    // The CLI appends <ADDITIONAL_METADATA> after the closing tag, so the
-    // wrapped span has to be extracted rather than the ends trimmed.
     const content =
       "<USER_REQUEST>\nwhat time is it?\n</USER_REQUEST>\n<ADDITIONAL_METADATA>\nThe current local time is: 2026-01-01T00:00:00+00:00.\n</ADDITIONAL_METADATA>";
-    writeConversation("c1", PROJECT, entry("USER_INPUT", content));
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", entry("USER_INPUT", content));
 
     const result = await readAntigravitySession(PROJECT);
 
@@ -161,11 +241,10 @@ describe("Antigravity CLI session reader", () => {
   });
 
   test("skips tool calls, results, and prose-less planner turns", async () => {
-    // A planner turn that only issued a tool call has empty content; emitting
-    // it would pad the transcript with blank assistant turns.
-    writeConversation(
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript(
+      "cli",
       "c1",
-      PROJECT,
       userEntry("list the files") +
         toolOnlyEntry() +
         entry("RUN_COMMAND") +
@@ -185,9 +264,8 @@ describe("Antigravity CLI session reader", () => {
   });
 
   test("matches the workspace despite trailing bytes after the URI", async () => {
-    // The URI sits inside a protobuf blob, so a permissive scan runs past its
-    // end into the tag bytes and would match no project at all.
-    writeConversation("c1", PROJECT, userEntry("still mine"));
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("still mine"));
 
     const result = await readAntigravitySession(PROJECT);
 
@@ -197,9 +275,10 @@ describe("Antigravity CLI session reader", () => {
   });
 
   test("caps the transcript with maxEntries", async () => {
-    writeConversation(
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript(
+      "cli",
       "c1",
-      PROJECT,
       userEntry("one") + userEntry("two") + userEntry("three")
     );
 
@@ -212,8 +291,10 @@ describe("Antigravity CLI session reader", () => {
   });
 
   test("selects a conversation by id", async () => {
-    writeConversation("c1", PROJECT, userEntry("first"));
-    writeConversation("c2", PROJECT, userEntry("second"));
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("first"));
+    writeCliWorkspace("c2", PROJECT);
+    writeTranscript("cli", "c2", userEntry("second"));
 
     const result = await readAntigravitySession(PROJECT, { sessionId: "c2" });
 
@@ -223,7 +304,8 @@ describe("Antigravity CLI session reader", () => {
   });
 
   test("reports an unknown id with the available ids", async () => {
-    writeConversation("c1", PROJECT, userEntry("first"));
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("first"));
 
     const result = await readAntigravitySession(PROJECT, { sessionId: "nope" });
 
@@ -233,20 +315,21 @@ describe("Antigravity CLI session reader", () => {
     expect(result.available).toEqual(["c1"]);
   });
 
-  test("reports a conversation with no transcript on disk", async () => {
-    writeConversation("c1", PROJECT);
+  test("ignores a conversation with no transcript on disk", async () => {
+    writeCliWorkspace("c1", PROJECT);
 
     const result = await readAntigravitySession(PROJECT);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toContain("Failed to read session file");
+    expect(result.error).toContain("No Antigravity conversations found");
   });
 
   test("reads a transcript that is still being appended to", async () => {
-    writeConversation(
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript(
+      "cli",
       "c1",
-      PROJECT,
       `${userEntry("complete")}{"type":"PLANNER_RESPONSE","cont`
     );
 
@@ -259,14 +342,21 @@ describe("Antigravity CLI session reader", () => {
     ]);
   });
 
-  test("lists only conversations for the project", async () => {
-    writeConversation("mine", PROJECT, userEntry("mine"));
-    writeConversation("theirs", OTHER_PROJECT, userEntry("theirs"));
+  test("lists conversations from both stores for the project", async () => {
+    writeCliWorkspace("fromCli", PROJECT);
+    writeTranscript("cli", "fromCli", userEntry("cli"));
+    writeSummary("fromIde", PROJECT);
+    writeTranscript("ide", "fromIde", userEntry("ide"));
+    writeCliWorkspace("elsewhere", OTHER_PROJECT);
+    writeTranscript("cli", "elsewhere", userEntry("theirs"));
 
     const result = listAntigravitySessions(PROJECT);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.data.sessions.map((s) => s.id)).toEqual(["mine"]);
+    expect(result.data.sessions.map((s) => s.id).sort()).toEqual([
+      "fromCli",
+      "fromIde",
+    ]);
   });
 });

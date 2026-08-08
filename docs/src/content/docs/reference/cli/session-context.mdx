@@ -23,15 +23,15 @@ Reads the **current conversation** — by default for the editor running the com
 
 Every supported editor sets environment variables on the commands it runs, and Archgate reads them to work out which editor is asking. Pass `--editor` to override the result, or to read a different editor's transcripts.
 
-| Editor      | Detected by                   | Pins the exact session via       |
-| ----------- | ----------------------------- | -------------------------------- |
-| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`    |
-| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`         |
-| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                |
-| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`       |
-| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`         |
-| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(none — falls back to recency)_ |
-| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                  |
+| Editor      | Detected by                   | Pins the exact session via                                                              |
+| ----------- | ----------------------------- | --------------------------------------------------------------------------------------- |
+| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`, or `conversationId` inside `ANTIGRAVITY_SOURCE_METADATA` |
+| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`                                                                |
+| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                                                                       |
+| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`                                                              |
+| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`                                                                |
+| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(none — falls back to recency)_                                                        |
+| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                                                                         |
 
 Editors that publish their own session id get the **exact** conversation rather than the most recent one. This matters when a project has several sessions open at once, where the most recent may not be the conversation you are part of. A published id that matches no session for the project is ignored and recency applies, so a stale id never turns a working command into an error.
 
@@ -78,7 +78,7 @@ archgate session-context show <session-id>
 
 ## How each editor stores sessions
 
-- **Antigravity** — the `agy` CLI writes each conversation as JSONL under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/`, and records the workspace it belongs to in a sibling SQLite database. Only the CLI is readable: the Antigravity IDE keeps a separate store whose transcripts are encrypted at rest.
+- **Antigravity** — both the `agy` CLI and the desktop app write conversations as JSONL under `brain/<id>/.system_generated/logs/`, in `~/.gemini/antigravity-cli/` and `~/.gemini/antigravity/` respectively; both are read. The CLI records the workspace in each conversation's own database, the app in a shared summaries index. A conversation the caller is running inside is read even before that index catches up, since the environment names it.
 - **Claude Code** — one JSONL transcript per session, keyed by the encoded project path. Session IDs are the transcript filenames.
 - **Codex** — rollout files under date shards (`sessions/YYYY/MM/DD/`), shared by the Codex CLI and the desktop app. Sessions are matched by the `cwd` recorded in each rollout's `session_meta` line, and the session ID is the thread ID. Rollouts older than a week are zstd-compressed in place; both forms are read. Honors `CODEX_HOME`.
 - **Copilot CLI** — sessions are matched by their workspace `cwd` field.

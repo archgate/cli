@@ -8,6 +8,8 @@
  * *installed*; an installed-but-idle editor must never register here.
  */
 
+import { z } from "zod";
+
 import { usableEnv } from "./paths";
 
 /**
@@ -48,6 +50,11 @@ interface HarnessSignal {
   /** Env var carrying this harness's own session id, when it has one. */
   sessionIdVar?: string;
   /**
+   * Env var holding JSON with the session id nested inside, consulted when
+   * {@link HarnessSignal.sessionIdVar} is unset.
+   */
+  nestedSessionId?: { variable: string; path: string[] };
+  /**
    * Require a UUID-shaped session id. Set only for Cursor, whose
    * `getSafeConversationId` rewrites `%` to `_`: lossless for a UUID, but
    * one-way otherwise, where the rewritten value could collide with a
@@ -65,11 +72,15 @@ interface HarnessSignal {
  */
 const SIGNALS: HarnessSignal[] = [
   {
-    // The Antigravity CLI (`agy`). The IDE shares neither the marker nor the
-    // store, and encrypts its transcripts, so only the CLI is readable.
+    // Both the `agy` CLI and the desktop app set the marker. The CLI names
+    // the conversation in a flat variable; the app only nests it in JSON.
     editor: "antigravity",
     markers: ["ANTIGRAVITY_AGENT"],
     sessionIdVar: "ANTIGRAVITY_CONVERSATION_ID",
+    nestedSessionId: {
+      variable: "ANTIGRAVITY_SOURCE_METADATA",
+      path: ["tool", "conversationId"],
+    },
   },
   {
     editor: "claude-code",
@@ -105,6 +116,46 @@ const SIGNALS: HarnessSignal[] = [
   { editor: "opencode", markers: ["OPENCODE", "OPENCODE_CLIENT"] },
 ];
 
+const JsonObjectSchema = z.record(z.string(), z.unknown());
+
+/**
+ * Follow `path` into the JSON held by an environment variable, returning the
+ * string at the end of it.
+ *
+ * Antigravity's desktop app leaves its flat id variable unset and names the
+ * conversation only inside a JSON blob, so without this the app would be
+ * detected but never pinned.
+ */
+export function nestedStringFromJsonEnv(
+  variable: string,
+  path: string[]
+): string | null {
+  const raw = usableEnv(Bun.env[variable]);
+  if (raw === null) return null;
+
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  for (const key of path) {
+    const object = JsonObjectSchema.safeParse(value);
+    if (!object.success) return null;
+    value = object.data[key];
+  }
+  return typeof value === "string" && value !== "" ? value : null;
+}
+
+/** Session id nested in a JSON-valued env var, when the signal declares one. */
+function readNestedSessionId(signal: HarnessSignal): string | null {
+  if (signal.nestedSessionId === undefined) return null;
+  return nestedStringFromJsonEnv(
+    signal.nestedSessionId.variable,
+    signal.nestedSessionId.path
+  );
+}
+
 /** The env var that marks `signal` as running, or null when none is set. */
 function matchedMarker(signal: HarnessSignal): string | null {
   for (const marker of signal.markers) {
@@ -123,7 +174,8 @@ function matchedMarker(signal: HarnessSignal): string | null {
  */
 function readSessionId(signal: HarnessSignal): string | null {
   if (signal.sessionIdVar === undefined) return null;
-  const value = usableEnv(Bun.env[signal.sessionIdVar]);
+  const value =
+    usableEnv(Bun.env[signal.sessionIdVar]) ?? readNestedSessionId(signal);
   if (value === null) return null;
   if (signal.requireUuidSessionId === true && !UUID_PATTERN.test(value)) {
     return null;

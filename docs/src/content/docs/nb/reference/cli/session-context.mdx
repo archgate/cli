@@ -23,15 +23,15 @@ Leser den **gjeldende samtalen** — som standard for editoren som kjører komma
 
 Hver støttet editor setter miljøvariabler på kommandoene den kjører, og Archgate leser dem for å finne ut hvilken editor som spør. Bruk `--editor` for å overstyre resultatet, eller for å lese sesjonsloggene til en annen editor.
 
-| Editor      | Gjenkjennes av                | Låser den nøyaktige sesjonen via     |
-| ----------- | ----------------------------- | ------------------------------------ |
-| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`        |
-| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`             |
-| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                    |
-| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`           |
-| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`             |
-| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(ingen — faller tilbake på nyeste)_ |
-| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                      |
+| Editor      | Gjenkjennes av                | Låser den nøyaktige sesjonen via                                                         |
+| ----------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
+| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`, eller `conversationId` inni `ANTIGRAVITY_SOURCE_METADATA` |
+| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`                                                                 |
+| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                                                                        |
+| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`                                                               |
+| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`                                                                 |
+| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(ingen — faller tilbake på nyeste)_                                                     |
+| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                                                                          |
 
 Editorer som publiserer sin egen sesjons-ID får den **nøyaktige** samtalen i stedet for den nyeste. Det betyr noe når et prosjekt har flere sesjoner åpne samtidig, der den nyeste kanskje ikke er samtalen du er en del av. En publisert ID som ikke passer til noen sesjon i prosjektet blir ignorert, og den nyeste brukes — slik gjør en utdatert ID aldri en fungerende kommando om til en feil.
 
@@ -78,7 +78,7 @@ archgate session-context show <session-id>
 
 ## Slik lagrer hver editor sesjoner
 
-- **Antigravity** — `agy`-CLI-en skriver hver samtale som JSONL under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/`, og lagrer arbeidsområdet den hører til i en SQLite-database ved siden av. Bare CLI-en er lesbar: Antigravity-IDE-en har et eget lager der sesjonsloggene er kryptert i ro.
+- **Antigravity** — både `agy`-CLI-en og skrivebordsappen skriver samtaler som JSONL under `brain/<id>/.system_generated/logs/`, i henholdsvis `~/.gemini/antigravity-cli/` og `~/.gemini/antigravity/`; begge leses. CLI-en lagrer arbeidsområdet i samtalens egen database, appen i en delt sammendragsindeks. En samtale kalleren kjører inne i, leses selv før den indeksen er oppdatert, siden miljøet navngir den.
 - **Claude Code** — én JSONL-sesjonslogg per sesjon, nøklet på den kodede prosjektstien. Sesjons-ID-ene er filnavnene til sesjonsloggene.
 - **Codex** — rollout-filer i datomapper (`sessions/YYYY/MM/DD/`), delt av Codex CLI og skrivebordsappen. Sesjoner matches på `cwd` som er lagret i hver rollouts `session_meta`-linje, og sesjons-ID-en er tråd-ID-en. Rollouts eldre enn en uke komprimeres med zstd på stedet; begge formene leses. Respekterer `CODEX_HOME`.
 - **Copilot CLI** — sesjoner matches på `cwd`-feltet til arbeidsområdet.

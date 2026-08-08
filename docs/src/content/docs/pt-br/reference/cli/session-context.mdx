@@ -23,15 +23,15 @@ Lê a **conversa atual** — por padrão, a do editor que executa o comando, que
 
 Todo editor compatível define variáveis de ambiente nos comandos que executa, e o Archgate as lê para descobrir qual editor está perguntando. Passe `--editor` para sobrepor o resultado ou para ler as transcrições de outro editor.
 
-| Editor      | Detectado por                 | Fixa a sessão exata via          |
-| ----------- | ----------------------------- | -------------------------------- |
-| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`    |
-| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`         |
-| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                |
-| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`       |
-| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`         |
-| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(nenhuma — recorre à recência)_ |
-| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                  |
+| Editor      | Detectado por                 | Fixa a sessão exata via                                                                    |
+| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
+| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`, ou `conversationId` dentro de `ANTIGRAVITY_SOURCE_METADATA` |
+| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`                                                                   |
+| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                                                                          |
+| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`                                                                 |
+| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`                                                                   |
+| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(nenhuma — recorre à recência)_                                                           |
+| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                                                                            |
 
 Editores que publicam o próprio identificador de sessão obtêm a conversa **exata**, em vez da mais recente. Isso importa quando um projeto tem várias sessões abertas ao mesmo tempo, situação em que a mais recente pode não ser a conversa da qual você participa. Um identificador publicado que não corresponde a nenhuma sessão do projeto é ignorado e a recência prevalece, de modo que um identificador obsoleto nunca transforma um comando funcional em erro.
 
@@ -78,7 +78,7 @@ archgate session-context show <session-id>
 
 ## Como cada editor armazena as sessões
 
-- **Antigravity** — o CLI `agy` grava cada conversa como JSONL em `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/` e registra o workspace correspondente em um banco SQLite vizinho. Apenas o CLI é legível: o IDE do Antigravity mantém um armazenamento separado cujas transcrições são criptografadas em repouso.
+- **Antigravity** — tanto o CLI `agy` quanto o aplicativo desktop gravam as conversas como JSONL em `brain/<id>/.system_generated/logs/`, em `~/.gemini/antigravity-cli/` e `~/.gemini/antigravity/` respectivamente; ambos são lidos. O CLI registra o workspace no banco da própria conversa; o aplicativo, em um índice de resumos compartilhado. Uma conversa em que o chamador está executando é lida mesmo antes de esse índice ser atualizado, pois o ambiente a identifica.
 - **Claude Code** — uma transcrição JSONL por sessão, indexada pelo caminho codificado do projeto. Os IDs de sessão são os nomes dos arquivos de transcrição.
 - **Codex** — arquivos de rollout em pastas por data (`sessions/YYYY/MM/DD/`), compartilhados pelo Codex CLI e pelo aplicativo desktop. As sessões são correspondidas pelo `cwd` registrado na linha `session_meta` de cada rollout, e o ID de sessão é o ID da thread. Rollouts com mais de uma semana são comprimidos com zstd no lugar; ambas as formas são lidas. Respeita `CODEX_HOME`.
 - **Copilot CLI** — as sessões são correspondidas pelo campo `cwd` do workspace.

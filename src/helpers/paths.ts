@@ -109,6 +109,22 @@ export function antigravityConversationsDir(): string {
 }
 
 /**
+ * Resolve the Antigravity desktop app's data directory,
+ * `~/.gemini/antigravity/`.
+ */
+export function antigravityIdeDir(): string {
+  return join(archgateHomeDir(), ".gemini", "antigravity");
+}
+
+/**
+ * Both Antigravity data directories. The CLI and the desktop app each write
+ * their own conversations, and both are readable.
+ */
+export function antigravityDataDirs(): string[] {
+  return [antigravityCliDir(), antigravityIdeDir()];
+}
+
+/**
  * Resolve the Codex home directory, honoring `CODEX_HOME` and defaulting to
  * `~/.codex/`. Shared by the Codex CLI and the desktop/IDE app, which both
  * resolve it through the same helper.
