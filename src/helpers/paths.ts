@@ -94,6 +94,47 @@ export function opencodeDbPath(): string {
 }
 
 /**
+ * Resolve the Codex home directory, honoring `CODEX_HOME` and defaulting to
+ * `~/.codex/`. Shared by the Codex CLI and the desktop/IDE app, which both
+ * resolve it through the same helper.
+ */
+export function codexHomeDir(): string {
+  const override = usableEnv(Bun.env.CODEX_HOME);
+  if (override !== null) return override;
+  return join(archgateHomeDir(), ".codex");
+}
+
+/**
+ * Resolve the Codex rollout directory. Sessions live under date shards
+ * (`sessions/YYYY/MM/DD/`); `archived_sessions/` is a sibling tree that
+ * `session-context` does not read.
+ */
+export function codexSessionsDir(): string {
+  return join(codexHomeDir(), "sessions");
+}
+
+/**
+ * Resolve the Pi agent directory, honoring `PI_CODING_AGENT_DIR` and
+ * defaulting to `~/.pi/agent/`.
+ */
+export function piAgentDir(): string {
+  const override = usableEnv(Bun.env.PI_CODING_AGENT_DIR);
+  if (override !== null) return override;
+  return join(archgateHomeDir(), ".pi", "agent");
+}
+
+/**
+ * Resolve the Pi session directory. `PI_CODING_AGENT_SESSION_DIR` relocates
+ * sessions independently of the agent directory, matching Pi's own
+ * precedence.
+ */
+export function piSessionsDir(): string {
+  const override = usableEnv(Bun.env.PI_CODING_AGENT_SESSION_DIR);
+  if (override !== null) return override;
+  return join(piAgentDir(), "sessions");
+}
+
+/**
  * Resolve the Cursor user-scope config directory (`~/.cursor/`).
  *
  * Cursor discovers skills and agents from `~/.cursor/{skills,agents}/`.

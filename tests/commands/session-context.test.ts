@@ -23,7 +23,7 @@ function target(subcommand?: string) {
   return cmd.commands.find((c) => c.name() === subcommand)!;
 }
 
-const EDITORS = ["claude-code", "copilot", "cursor", "opencode"];
+const EDITORS = ["claude-code", "codex", "copilot", "cursor", "opencode", "pi"];
 
 describe("registerSessionContextCommand", () => {
   test("registers 'session-context' as a subcommand", () => {

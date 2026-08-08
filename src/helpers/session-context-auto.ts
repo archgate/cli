@@ -18,6 +18,7 @@ import {
   readCursorSession,
 } from "./session-context";
 import type { SessionListEntry, SessionListResult } from "./session-context";
+import { listCodexSessions, readCodexSession } from "./session-context-codex";
 import {
   listCopilotSessions,
   readCopilotSession,
@@ -26,6 +27,7 @@ import {
   listOpencodeSessions,
   readOpencodeSession,
 } from "./session-context-opencode";
+import { listPiSessions, readPiSession } from "./session-context-pi";
 import { UserError } from "./user-error";
 
 /** How the returned session was chosen. */
@@ -118,9 +120,11 @@ const LISTERS: Record<
   (projectRoot: string | null) => SessionListResult | Promise<SessionListResult>
 > = {
   "claude-code": listClaudeCodeSessions,
+  codex: listCodexSessions,
   copilot: listCopilotSessions,
   cursor: listCursorSessions,
   opencode: listOpencodeSessions,
+  pi: listPiSessions,
 };
 
 const READERS: Record<
@@ -146,6 +150,13 @@ const READERS: Record<
       sessionId: o.sessionId,
     }),
   opencode: (root, o) => readOpencodeSession(root, o),
+  codex: async (root, o) =>
+    readCodexSession(root, {
+      maxEntries: o.maxEntries,
+      sessionId: o.sessionId,
+    }),
+  pi: async (root, o) =>
+    readPiSession(root, { maxEntries: o.maxEntries, sessionId: o.sessionId }),
 };
 
 async function listFor(

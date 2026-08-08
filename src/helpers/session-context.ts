@@ -2,12 +2,23 @@
 // Copyright 2026 Archgate
 import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { z } from "zod";
 
 import type { EditorTarget } from "./init-project";
-import { isWSL, toWindowsPath } from "./platform";
+import { isWindows, isWSL, toWindowsPath } from "./platform";
+
+/**
+ * Normalize a path for cross-platform comparison: resolve to absolute, use
+ * `/` separators, and lowercase on Windows where the filesystem is
+ * case-insensitive. Readers compare a session's recorded working directory
+ * against the project root through this.
+ */
+export function normalizePath(p: string): string {
+  const resolved = resolve(p).replaceAll("\\", "/");
+  return isWindows() ? resolved.toLowerCase() : resolved;
+}
 
 /**
  * Slugify a project root the way cursor-agent names its directory under

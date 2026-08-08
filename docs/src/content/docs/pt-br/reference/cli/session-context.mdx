@@ -13,11 +13,11 @@ Lê a **conversa atual** — por padrão, a do editor que executa o comando, que
 
 ## Opções
 
-| Opção               | Descrição                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| `--editor <name>`   | Editor a ler: `claude-code`, `copilot`, `cursor` ou `opencode`. Por padrão, o editor detectado. |
-| `--max-entries <n>` | Número máximo de entradas a retornar (padrão: 200)                                              |
-| `--root`            | Somente opencode: resolve uma sessão-filha de subagente até seu ancestral de nível superior     |
+| Opção               | Descrição                                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `--editor <name>`   | Editor a ler: `claude-code`, `codex`, `copilot`, `cursor`, `opencode` ou `pi`. Por padrão, o editor detectado. |
+| `--max-entries <n>` | Número máximo de entradas a retornar (padrão: 200)                                                             |
+| `--root`            | Somente opencode: resolve uma sessão-filha de subagente até seu ancestral de nível superior                    |
 
 ## Detecção automática do editor
 
@@ -26,9 +26,11 @@ Todo editor compatível define variáveis de ambiente nos comandos que executa, 
 | Editor      | Detectado por                 | Fixa a sessão exata via          |
 | ----------- | ----------------------------- | -------------------------------- |
 | Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`         |
+| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                |
 | Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`       |
 | Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`         |
 | opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(nenhuma — recorre à recência)_ |
+| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                  |
 
 Editores que publicam o próprio identificador de sessão obtêm a conversa **exata**, em vez da mais recente. Isso importa quando um projeto tem várias sessões abertas ao mesmo tempo, situação em que a mais recente pode não ser a conversa da qual você participa. Um identificador publicado que não corresponde a nenhuma sessão do projeto é ignorado e a recência prevalece, de modo que um identificador obsoleto nunca transforma um comando funcional em erro.
 
@@ -51,7 +53,7 @@ Todo comando informa o que resolveu em um objeto `detection`:
 }
 ```
 
-`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso, editores que publicam um identificador de sessão vencem aquele que não publica, e Claude Code, Copilot e Cursor têm preferência nessa ordem.
+`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso, editores que publicam um identificador de sessão vencem aquele que não publica, e entre eles a ordem é Claude Code, Codex, Copilot, Cursor, Pi.
 
 A detecção falha quando o Archgate executa a partir de um shell comum, e não dentro de um editor de IA. O comando então encerra com código 1 e solicita `--editor`.
 
@@ -76,8 +78,10 @@ archgate session-context show <session-id>
 ## Como cada editor armazena as sessões
 
 - **Claude Code** — uma transcrição JSONL por sessão, indexada pelo caminho codificado do projeto. Os IDs de sessão são os nomes dos arquivos de transcrição.
+- **Codex** — arquivos de rollout em pastas por data (`sessions/YYYY/MM/DD/`), compartilhados pelo Codex CLI e pelo aplicativo desktop. As sessões são correspondidas pelo `cwd` registrado na linha `session_meta` de cada rollout, e o ID de sessão é o ID da thread. Rollouts com mais de uma semana são comprimidos com zstd no lugar; ambas as formas são lidas. Respeita `CODEX_HOME`.
 - **Copilot CLI** — as sessões são correspondidas pelo campo `cwd` do workspace.
 - **Cursor** — as sessões são correspondidas pelo caminho codificado do projeto; os IDs são UUIDs.
+- **Pi** — as sessões ficam em um diretório que codifica o diretório de trabalho, e o `cwd` do cabeçalho de cada arquivo também é verificado, de modo que um diretório de sessões realocado ainda é resolvido. Respeita `PI_CODING_AGENT_DIR` e `PI_CODING_AGENT_SESSION_DIR`. O Pi publica o ID de sessão apenas para comandos executados pelo seu agente, então um comando digitado manualmente é detectado, mas selecionado por recência.
 - **opencode** — as sessões são correspondidas comparando o campo `directory` da sessão com a raiz do projeto. Execuções de subagentes são registradas como sessões-filhas que compartilham o diretório do pai; elas ficam fora de `list` e da seleção por recência, de modo que a sessão de nível superior mais recente é sempre a sessão principal de desenvolvimento. Ainda podem ser lidas por ID com `show`, e `--root` resolve uma sessão-filha até seu ancestral de nível superior — útil quando um subagente conhece o próprio ID de sessão e precisa da conversa à qual ele pertence.
 
 ## Exemplos

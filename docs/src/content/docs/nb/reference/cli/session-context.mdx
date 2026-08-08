@@ -13,11 +13,11 @@ Leser den **gjeldende samtalen** — som standard for editoren som kjører komma
 
 ## Valg
 
-| Valg                | Beskrivelse                                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `--editor <name>`   | Editor som skal leses: `claude-code`, `copilot`, `cursor` eller `opencode`. Som standard den gjenkjente editoren. |
-| `--max-entries <n>` | Høyeste antall oppføringer som returneres (standard: 200)                                                         |
-| `--root`            | Kun opencode: løs opp en underagents barnesesjon til forelderen på øverste nivå                                   |
+| Valg                | Beskrivelse                                                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--editor <name>`   | Editor som skal leses: `claude-code`, `codex`, `copilot`, `cursor`, `opencode` eller `pi`. Som standard den gjenkjente editoren. |
+| `--max-entries <n>` | Høyeste antall oppføringer som returneres (standard: 200)                                                                        |
+| `--root`            | Kun opencode: løs opp en underagents barnesesjon til forelderen på øverste nivå                                                  |
 
 ## Automatisk gjenkjenning av editor
 
@@ -26,9 +26,11 @@ Hver støttet editor setter miljøvariabler på kommandoene den kjører, og Arch
 | Editor      | Gjenkjennes av                | Låser den nøyaktige sesjonen via     |
 | ----------- | ----------------------------- | ------------------------------------ |
 | Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`             |
+| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                    |
 | Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`           |
 | Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`             |
 | opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(ingen — faller tilbake på nyeste)_ |
+| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                      |
 
 Editorer som publiserer sin egen sesjons-ID får den **nøyaktige** samtalen i stedet for den nyeste. Det betyr noe når et prosjekt har flere sesjoner åpne samtidig, der den nyeste kanskje ikke er samtalen du er en del av. En publisert ID som ikke passer til noen sesjon i prosjektet blir ignorert, og den nyeste brukes — slik gjør en utdatert ID aldri en fungerende kommando om til en feil.
 
@@ -51,7 +53,7 @@ Hver kommando rapporterer hva den kom fram til i et `detection`-objekt:
 }
 ```
 
-`via` er miljøvariabelen som identifiserte editoren, eller `--editor` når du oppga en. `session` er `pinned` når editorens egen sesjons-ID ble brukt, `recent` når den nyeste sesjonen ble tatt, og `explicit` når en sesjons-ID ble oppgitt på kommandolinjen. `candidates` lister hver editor som hadde markøren sin satt — mer enn én dukker opp når en agent kjører inne i en annen agent. Da vinner editorer som publiserer en sesjons-ID over den som ikke gjør det, og Claude Code, Copilot og Cursor foretrekkes i den rekkefølgen.
+`via` er miljøvariabelen som identifiserte editoren, eller `--editor` når du oppga en. `session` er `pinned` når editorens egen sesjons-ID ble brukt, `recent` når den nyeste sesjonen ble tatt, og `explicit` når en sesjons-ID ble oppgitt på kommandolinjen. `candidates` lister hver editor som hadde markøren sin satt — mer enn én dukker opp når en agent kjører inne i en annen agent. Da vinner editorer som publiserer en sesjons-ID over den som ikke gjør det, og blant dem er rekkefølgen Claude Code, Codex, Copilot, Cursor, Pi.
 
 Gjenkjenningen mislykkes når Archgate kjøres fra et vanlig skall i stedet for inne i en AI-editor. Kommandoen avslutter da med kode 1 og ber om `--editor`.
 
@@ -76,8 +78,10 @@ archgate session-context show <session-id>
 ## Slik lagrer hver editor sesjoner
 
 - **Claude Code** — én JSONL-sesjonslogg per sesjon, nøklet på den kodede prosjektstien. Sesjons-ID-ene er filnavnene til sesjonsloggene.
+- **Codex** — rollout-filer i datomapper (`sessions/YYYY/MM/DD/`), delt av Codex CLI og skrivebordsappen. Sesjoner matches på `cwd` som er lagret i hver rollouts `session_meta`-linje, og sesjons-ID-en er tråd-ID-en. Rollouts eldre enn en uke komprimeres med zstd på stedet; begge formene leses. Respekterer `CODEX_HOME`.
 - **Copilot CLI** — sesjoner matches på `cwd`-feltet til arbeidsområdet.
 - **Cursor** — sesjoner matches på den kodede prosjektstien; ID-ene er UUID-er.
+- **Pi** — sesjoner ligger i en mappe som koder arbeidskatalogen, og `cwd` i hver fils header kontrolleres i tillegg, slik at en flyttet sesjonsmappe fortsatt løses opp. Respekterer `PI_CODING_AGENT_DIR` og `PI_CODING_AGENT_SESSION_DIR`. Pi publiserer sesjons-ID-en bare til kommandoer agenten selv kjører, så en manuelt skrevet kommando gjenkjennes, men velges etter nyeste.
 - **opencode** — sesjoner matches ved å sammenligne sesjonens `directory`-felt med prosjektroten. Kjøringer av underagenter lagres som barnesesjoner som deler forelderens katalog; disse holdes utenfor `list` og utenfor valget av nyeste, slik at den nyeste sesjonen på øverste nivå alltid er hovedøkten. De kan fortsatt leses etter ID med `show`, og `--root` løser opp en barnesesjon til forelderen på øverste nivå — nyttig når en underagent kjenner sin egen sesjons-ID og trenger samtalen den hører til.
 
 ## Eksempler

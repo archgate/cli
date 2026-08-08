@@ -17,9 +17,11 @@ import { usableEnv } from "./paths";
  */
 export const DETECTED_HARNESSES = [
   "claude-code",
+  "codex",
   "copilot",
   "cursor",
   "opencode",
+  "pi",
 ] as const;
 
 export type DetectedHarness = (typeof DETECTED_HARNESSES)[number];
@@ -67,6 +69,14 @@ const SIGNALS: HarnessSignal[] = [
     sessionIdVar: "CLAUDE_CODE_SESSION_ID",
   },
   {
+    // Codex injects the thread id after applying its sandbox env policy, so
+    // the marker survives filtering. `CODEX_SANDBOX` is macOS-only and would
+    // miss Linux and Windows entirely.
+    editor: "codex",
+    markers: ["CODEX_THREAD_ID"],
+    sessionIdVar: "CODEX_THREAD_ID",
+  },
+  {
     editor: "copilot",
     markers: ["COPILOT_CLI"],
     sessionIdVar: "COPILOT_AGENT_SESSION_ID",
@@ -76,6 +86,13 @@ const SIGNALS: HarnessSignal[] = [
     markers: ["CURSOR_AGENT"],
     sessionIdVar: "CURSOR_CONVERSATION_ID",
     requireUuidSessionId: true,
+  },
+  {
+    // Pi marks every child process, but publishes the session id only to its
+    // agent's bash tool — a user-typed `!` command sees the marker alone.
+    editor: "pi",
+    markers: ["PI_CODING_AGENT"],
+    sessionIdVar: "PI_SESSION_ID",
   },
   { editor: "opencode", markers: ["OPENCODE", "OPENCODE_CLIENT"] },
 ];

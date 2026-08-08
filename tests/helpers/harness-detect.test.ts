@@ -15,12 +15,15 @@ import { restoreEnv } from "../test-utils";
 const HARNESS_VARS = [
   "CLAUDECODE",
   "CLAUDE_CODE_SESSION_ID",
+  "CODEX_THREAD_ID",
   "COPILOT_CLI",
   "COPILOT_AGENT_SESSION_ID",
   "CURSOR_AGENT",
   "CURSOR_CONVERSATION_ID",
   "OPENCODE",
   "OPENCODE_CLIENT",
+  "PI_CODING_AGENT",
+  "PI_SESSION_ID",
 ] as const;
 
 const UUID = "261667f2-f770-40fd-bbfd-c70dc1f0a80c";
@@ -28,10 +31,12 @@ const UUID = "261667f2-f770-40fd-bbfd-c70dc1f0a80c";
 /** Each editor paired with an env var that identifies it. */
 const MARKER_CASES: Array<[DetectedHarness, string]> = [
   ["claude-code", "CLAUDECODE"],
+  ["codex", "CODEX_THREAD_ID"],
   ["copilot", "COPILOT_CLI"],
   ["cursor", "CURSOR_AGENT"],
   ["opencode", "OPENCODE"],
   ["opencode", "OPENCODE_CLIENT"],
+  ["pi", "PI_CODING_AGENT"],
 ];
 
 describe("detectHarness", () => {
