@@ -118,6 +118,9 @@ const SIGNALS: HarnessSignal[] = [
 
 const JsonObjectSchema = z.record(z.string(), z.unknown());
 
+/** A session id is usable only as a non-empty string. */
+const SessionIdSchema = z.string().min(1);
+
 /**
  * Follow `path` into the JSON held by an environment variable, returning the
  * string at the end of it.
@@ -144,7 +147,8 @@ export function nestedStringFromJsonEnv(
     if (!object.success) return null;
     value = object.data[key];
   }
-  return typeof value === "string" && value !== "" ? value : null;
+  const leaf = SessionIdSchema.safeParse(value);
+  return leaf.success ? leaf.data : null;
 }
 
 /** Session id nested in a JSON-valued env var, when the signal declares one. */

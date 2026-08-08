@@ -91,6 +91,32 @@ describe("Codex session reader", () => {
     expect(result.error).toContain("No Codex sessions directory found");
   });
 
+  test("tolerates a sessions path that is not a directory", async () => {
+    writeFileSync(join(codexHome, "sessions"), "not a directory");
+
+    const result = await readCodexSession(PROJECT);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("No Codex sessions found for this project");
+  });
+
+  test("skips a rollout whose compressed body is corrupt", async () => {
+    const dir = join(codexHome, "sessions", "2026", "01", "02");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "rollout-2026-01-02T00-00-00-id-corrupt.jsonl.zst"),
+      Buffer.from("this is not a zstd frame")
+    );
+    writeRollout("id-good", PROJECT, event("user_message", "hi"));
+
+    const result = await listCodexSessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["id-good"]);
+  });
+
   test("reports when no rollout belongs to the project", async () => {
     writeRollout("id-other", OTHER_PROJECT, event("user_message", "hi"));
 

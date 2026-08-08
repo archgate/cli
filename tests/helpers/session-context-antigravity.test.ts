@@ -144,6 +144,125 @@ describe("Antigravity session reader", () => {
     expect(result.error).toContain("No Antigravity conversations directory");
   });
 
+  test("ignores a conversation directory holding no transcript", () => {
+    mkdirSync(join(dataDir("cli"), "brain", "no-logs"), { recursive: true });
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("hi"));
+
+    const result = listAntigravitySessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["c1"]);
+  });
+
+  test("falls back to the index when a conversation database cannot open", () => {
+    writeTranscript("cli", "c1", userEntry("hi"));
+    // A directory where the database belongs: opening it throws.
+    mkdirSync(join(dataDir("cli"), "conversations", "c1.db"), {
+      recursive: true,
+    });
+    writeSummary("c1", PROJECT);
+
+    const result = listAntigravitySessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["c1"]);
+  });
+
+  test("falls back to the index when the metadata table is absent", () => {
+    writeTranscript("cli", "c1", userEntry("hi"));
+    const dir = join(dataDir("cli"), "conversations");
+    mkdirSync(dir, { recursive: true });
+    const db = new Database(join(dir, "c1.db"), { create: true });
+    db.run("CREATE TABLE unrelated (id text)");
+    db.close();
+    writeSummary("c1", PROJECT);
+
+    const result = listAntigravitySessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["c1"]);
+  });
+
+  test("reads a conversation when the summaries index cannot open", () => {
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("hi"));
+    mkdirSync(join(dataDir("cli"), "conversation_summaries.db"), {
+      recursive: true,
+    });
+
+    const result = listAntigravitySessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["c1"]);
+  });
+
+  test("reads a conversation when the summaries table is absent", () => {
+    writeCliWorkspace("c1", PROJECT);
+    writeTranscript("cli", "c1", userEntry("hi"));
+    const db = new Database(join(dataDir("cli"), "conversation_summaries.db"), {
+      create: true,
+    });
+    db.run("CREATE TABLE unrelated (id text)");
+    db.close();
+
+    const result = listAntigravitySessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["c1"]);
+  });
+
+  test("ignores a workspace URI that cannot be decoded", async () => {
+    writeTranscript("ide", "c1", userEntry("hi"));
+    const dir = dataDir("cli");
+    mkdirSync(dir, { recursive: true });
+    const db = new Database(join(dir, "conversation_summaries.db"), {
+      create: true,
+    });
+    db.run(
+      "CREATE TABLE conversation_summaries (conversation_id text, workspace_uris text NOT NULL)"
+    );
+    // A stray percent sign makes the URI undecodable.
+    db.run(
+      "INSERT INTO conversation_summaries (conversation_id, workspace_uris) VALUES (?, ?)",
+      ["c1", JSON.stringify(["file:///bad%zz"])]
+    );
+    db.close();
+
+    const result = await readAntigravitySession(PROJECT);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("No Antigravity conversations found");
+  });
+
+  test("reports a transcript that cannot be read", async () => {
+    // A directory named like the transcript: discovered, then unreadable.
+    mkdirSync(
+      join(
+        dataDir("cli"),
+        "brain",
+        "c1",
+        ".system_generated",
+        "logs",
+        "transcript_full.jsonl"
+      ),
+      { recursive: true }
+    );
+    writeCliWorkspace("c1", PROJECT);
+
+    const result = await readAntigravitySession(PROJECT);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("Failed to read session file");
+  });
+
   test("reports when no conversation belongs to the project", async () => {
     writeCliWorkspace("c1", OTHER_PROJECT);
     writeTranscript("cli", "c1", userEntry("hi"));

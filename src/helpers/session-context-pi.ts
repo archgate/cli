@@ -22,6 +22,7 @@ import {
   type SessionListResult,
   getContentPreview,
   normalizePath,
+  sessionReadFailure,
 } from "./session-context";
 
 /** Roles that represent conversation turns; tool results carry their own role. */
@@ -151,12 +152,9 @@ async function findPiSessions(
   for (const { file, header } of headers) {
     if (header === null) continue;
     if (header.cwd === "" || normalizePath(header.cwd) !== target) continue;
-    let mtime = 0;
-    try {
-      mtime = statSync(file).mtimeMs;
-    } catch {
-      continue;
-    }
+    const stat = statSync(file, { throwIfNoEntry: false });
+    if (stat === undefined) continue;
+    const mtime = stat.mtimeMs;
     // The filename is `<timestamp>_<sessionId>`; the header id is authoritative.
     found.push({
       id: header.id === "" ? basename(file, ".jsonl") : header.id,
@@ -259,16 +257,10 @@ export async function readPiSession(
   }
 
   logDebug("Reading Pi session", target.file);
-  let raw: string;
-  try {
-    raw = await Bun.file(target.file).text();
-  } catch {
-    return {
-      ok: false,
-      error: "Failed to read session file",
-      path: target.file,
-    };
-  }
+  const raw = await Bun.file(target.file)
+    .text()
+    .catch(() => null);
+  if (raw === null) return sessionReadFailure(target.file);
 
   // Bun.JSONL.parse drops a trailing partial line, which a session being
   // appended to right now will have.

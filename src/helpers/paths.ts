@@ -8,11 +8,11 @@ import { logDebug } from "./log";
 import { UserError } from "./user-error";
 
 /**
- * Resolves the user home directory for ~/.archgate paths.
- * Ignores empty env and the literal string "undefined" (mis-set env / tooling bugs)
- * so path.join does not create a ./undefined/.archgate tree under cwd.
+ * Resolve the user's home directory, the base for every user-scope path here.
+ * Ignores empty env and the literal string "undefined" (mis-set env / tooling
+ * bugs) so path.join does not create a ./undefined tree under cwd.
  */
-function archgateHomeDir(): string {
+function userHomeDir(): string {
   const fromEnv = Bun.env.HOME ?? Bun.env.USERPROFILE;
   if (
     typeof fromEnv === "string" &&
@@ -25,13 +25,13 @@ function archgateHomeDir(): string {
 }
 
 export function internalPath(...path: string[]) {
-  const internalFolder = join(archgateHomeDir(), ".archgate");
+  const internalFolder = join(userHomeDir(), ".archgate");
   return join(internalFolder, ...path);
 }
 
 /**
  * Accept an env-var value only when it is a non-empty string that isn't the
- * literal "undefined". Mirrors the defensive handling in `archgateHomeDir()`
+ * literal "undefined". Mirrors the defensive handling in `userHomeDir()`
  * — shells and tooling sometimes surface an unset variable as the string
  * "undefined", which would otherwise leak into the resolved path.
  */
@@ -50,7 +50,7 @@ export function usableEnv(value: string | undefined): string | null {
  */
 export function opencodeConfigDir(): string {
   const xdg = usableEnv(Bun.env.XDG_CONFIG_HOME);
-  const base = xdg ?? join(archgateHomeDir(), ".config");
+  const base = xdg ?? join(userHomeDir(), ".config");
   return join(base, "opencode");
 }
 
@@ -67,7 +67,7 @@ export function opencodeAgentsDir(): string {
 export function copilotConfigDir(): string {
   const override = usableEnv(Bun.env.COPILOT_HOME);
   if (override !== null) return override;
-  return join(archgateHomeDir(), ".copilot");
+  return join(userHomeDir(), ".copilot");
 }
 
 /**
@@ -89,7 +89,7 @@ export function copilotSessionStateDir(): string {
  */
 export function opencodeDbPath(): string {
   const xdg = usableEnv(Bun.env.XDG_DATA_HOME);
-  const base = xdg ?? join(archgateHomeDir(), ".local", "share");
+  const base = xdg ?? join(userHomeDir(), ".local", "share");
   return join(base, "opencode", "opencode.db");
 }
 
@@ -100,7 +100,7 @@ export function opencodeDbPath(): string {
  * its transcripts encrypted and is therefore unreadable.
  */
 export function antigravityCliDir(): string {
-  return join(archgateHomeDir(), ".gemini", "antigravity-cli");
+  return join(userHomeDir(), ".gemini", "antigravity-cli");
 }
 
 /** Resolve the Antigravity CLI conversation directory. */
@@ -113,7 +113,7 @@ export function antigravityConversationsDir(): string {
  * `~/.gemini/antigravity/`.
  */
 export function antigravityIdeDir(): string {
-  return join(archgateHomeDir(), ".gemini", "antigravity");
+  return join(userHomeDir(), ".gemini", "antigravity");
 }
 
 /**
@@ -132,7 +132,7 @@ export function antigravityDataDirs(): string[] {
 export function codexHomeDir(): string {
   const override = usableEnv(Bun.env.CODEX_HOME);
   if (override !== null) return override;
-  return join(archgateHomeDir(), ".codex");
+  return join(userHomeDir(), ".codex");
 }
 
 /**
@@ -151,7 +151,7 @@ export function codexSessionsDir(): string {
 export function piAgentDir(): string {
   const override = usableEnv(Bun.env.PI_CODING_AGENT_DIR);
   if (override !== null) return override;
-  return join(archgateHomeDir(), ".pi", "agent");
+  return join(userHomeDir(), ".pi", "agent");
 }
 
 /**
@@ -175,7 +175,7 @@ export function piSessionsDir(): string {
  * Resolved at call time (not cached) so tests can override HOME.
  */
 export function cursorUserDir(): string {
-  return join(archgateHomeDir(), ".cursor");
+  return join(userHomeDir(), ".cursor");
 }
 
 export const paths = { cacheFolder: internalPath("cache") } as const;

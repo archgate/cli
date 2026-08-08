@@ -21,6 +21,7 @@ import {
   type SessionListEntry,
   type SessionListResult,
   normalizePath,
+  sessionReadFailure,
 } from "./session-context";
 
 /** Rollouts older than a week are zstd-compressed in place by Codex. */
@@ -265,12 +266,9 @@ async function findCodexRollouts(
   for (const { file, meta } of inspected) {
     if (meta === null) continue;
     if (meta.cwd === "" || normalizePath(meta.cwd) !== target) continue;
-    let mtime = 0;
-    try {
-      mtime = statSync(file).mtimeMs;
-    } catch {
-      continue;
-    }
+    const stat = statSync(file, { throwIfNoEntry: false });
+    if (stat === undefined) continue;
+    const mtime = stat.mtimeMs;
     found.push({
       id:
         meta.id !== undefined && meta.id !== ""
@@ -354,13 +352,7 @@ export async function readCodexSession(
 
   logDebug("Reading Codex rollout", target.file);
   const raw = await readRollout(target.file);
-  if (raw === null) {
-    return {
-      ok: false,
-      error: "Failed to read session file",
-      path: target.file,
-    };
-  }
+  if (raw === null) return sessionReadFailure(target.file);
 
   // Bun.JSONL.parse drops a trailing partial line, which a rollout being
   // appended to right now will have.

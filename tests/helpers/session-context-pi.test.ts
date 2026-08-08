@@ -83,6 +83,35 @@ describe("Pi session reader", () => {
     expect(result.error).toContain("No Pi sessions directory found");
   });
 
+  test("tolerates a shard path that is not a directory", async () => {
+    // The shard name is derived from the project path, so an unrelated file
+    // can occupy it. Listing its entries fails and the scan yields nothing.
+    const sessions = join(tempHome, "sessions");
+    mkdirSync(sessions, { recursive: true });
+    writeFileSync(join(sessions, encodePiProjectDir(PROJECT)), "not a dir");
+
+    const result = await readPiSession(PROJECT);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("No Pi sessions found for this project");
+  });
+
+  test("skips a session entry whose header cannot be read", async () => {
+    writeSession("good", "id-good", PROJECT, message("user", "hi"));
+    // A directory named like a session file: enumerated, but unreadable.
+    mkdirSync(
+      join(tempHome, "sessions", encodePiProjectDir(PROJECT), "broken.jsonl"),
+      { recursive: true }
+    );
+
+    const result = await listPiSessions(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessions.map((s) => s.id)).toEqual(["id-good"]);
+  });
+
   test("reports when no session belongs to the project", async () => {
     writeSession("s1", "id-other", OTHER_PROJECT, message("user", "hi"));
 

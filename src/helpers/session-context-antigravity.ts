@@ -28,6 +28,7 @@ import {
   type SessionListEntry,
   type SessionListResult,
   normalizePath,
+  sessionReadFailure,
 } from "./session-context";
 
 /**
@@ -270,12 +271,9 @@ function findConversations(
     if (!matches && id !== current) continue;
     const file = transcriptPath(id);
     if (file === null) continue;
-    let mtime = 0;
-    try {
-      mtime = statSync(file).mtimeMs;
-    } catch {
-      continue;
-    }
+    const stat = statSync(file, { throwIfNoEntry: false });
+    if (stat === undefined) continue;
+    const mtime = stat.mtimeMs;
     found.push({ id, file, mtime });
   }
 
@@ -358,12 +356,10 @@ export async function readAntigravitySession(
 
   const file = target.file;
   logDebug("Reading Antigravity transcript", file);
-  let raw: string;
-  try {
-    raw = await Bun.file(file).text();
-  } catch {
-    return { ok: false, error: "Failed to read session file", path: file };
-  }
+  const raw = await Bun.file(file)
+    .text()
+    .catch(() => null);
+  if (raw === null) return sessionReadFailure(file);
 
   // Bun.JSONL.parse drops a trailing partial line, which a conversation being
   // appended to right now will have.

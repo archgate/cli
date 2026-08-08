@@ -21,6 +21,18 @@ export function normalizePath(p: string): string {
 }
 
 /**
+ * Failure for a session file that is discovered but then unreadable, which a
+ * session removed between discovery and the read produces.
+ */
+export function sessionReadFailure(file: string) {
+  return {
+    ok: false as const,
+    error: "Failed to read session file",
+    path: file,
+  };
+}
+
+/**
  * Slugify a project root the way cursor-agent names its directory under
  * `~/.cursor/projects/`: each non-alphanumeric run becomes one dash, and the
  * ends are trimmed. Collapsing is what resolves a dot-segment — `\.claude\`
