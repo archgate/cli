@@ -4867,7 +4867,7 @@ Every command reports what it resolved in a `detection` object:
 }
 ```
 
-`via` is the environment variable that identified the editor, or `--editor` when you named one. `session` is `pinned` when the editor's own session id was used, `recent` when the most recent session was taken, and `explicit` when a session id was passed on the command line. `candidates` lists every editor whose marker was present — more than one appears when an agent runs inside another agent. In that case editors that publish a session id win over the one that does not, and among them the order is Antigravity, Claude Code, Codex, Copilot, Cursor, Pi.
+`via` is the environment variable that identified the editor, or `--editor` when you named one. `session` is `pinned` when the editor's own session id was used, `recent` when the most recent session was taken, and `explicit` when a session id was passed on the command line. `candidates` lists every editor whose marker was present — more than one appears when an agent runs inside another agent. The winner then comes from a fixed order — Antigravity, Claude Code, Codex, Copilot, Cursor, Pi, then opencode — which ranks the editors that publish a session id ahead of the one that does not. That order applies whatever the ids happen to be: an empty or unusable id changes which session is selected, never which editor.
 
 Detection fails when Archgate runs from a plain shell rather than inside an AI editor. The command then exits 1 and asks for `--editor`.
 
