@@ -17,7 +17,7 @@ Two ways the Validate workflow fails to tell you what you think it is telling yo
 
 `code-pull-request.yml` triggers on `pull_request: [edited]`, and its concurrency group sets `cancel-in-progress`, so a `gh pr edit` mid-run supersedes the run already going.
 
-The downstream symptom is misleading rather than obvious: the cancelled Windows smoke test never uploads `coverage-windows`, so the Coverage job merges Linux alone and reports a figure a fraction under the 99.5% gate — which reads as a coverage regression caused by your change.
+The downstream symptom is misleading rather than obvious: the cancelled Windows smoke test never uploads `coverage-windows`, so the Coverage job merges Linux alone and reports a figure a fraction under the gate — which reads as a coverage regression caused by your change.
 
 **How to apply:** check `gh run list --workflow Validate` for a superseding run before investigating coverage at all. Edit the body before pushing, or once the run has finished.
 

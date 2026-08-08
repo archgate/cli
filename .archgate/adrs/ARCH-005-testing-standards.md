@@ -20,7 +20,7 @@ Bun's built-in test runner (`bun test`) provides a Jest-compatible API, native T
 
 ## Decision
 
-Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `tests/`, mirroring `src/`; fixtures live in `tests/fixtures/`. Target 99.5% code coverage, enforced in CI.
+Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `tests/`, mirroring `src/`; fixtures live in `tests/fixtures/`. Target 99.9% code coverage, enforced in CI.
 
 **Key conventions:**
 
@@ -28,7 +28,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 2. **Fixtures in `tests/fixtures/`** — sample ADR files and mock codebases are shared across suites.
 3. **Temp directories for filesystem tests** — tests that write files use `mkdtemp` for isolation and clean up in `afterEach` or `afterAll`.
 4. **Test file naming** — `<module-name>.test.ts`.
-5. **Coverage target: 99.5%** — enforced in CI. PRs that drop total line coverage below 99.5% are blocked by the `Validate Code` gate check. A residue is unreachable: Bun emits never-incrementing lcov records for some structural tokens (`} catch {`; on Linux also blank lines, comments, braces).
+5. **Coverage target: 99.9%** — enforced in CI. PRs that drop total line coverage below 99.9% are blocked by the `Validate Code` gate check. A residue is unreachable: Bun emits never-incrementing lcov records for some structural tokens (`} catch {`; on Linux also blank lines, comments, braces).
 6. **Isolation is the test author's job** — Bun runs every test file in one process, so environment writes, `mock.module()` calls, and un-restored spies escape into later files and produce order-dependent flakes. Restore env vars with `restoreEnv()`, mock first-party modules with `spyOn` over an `import * as mod` namespace, and keep every write inside a `mkdtemp` directory.
 7. **Mock `os.homedir()`, never `HOME`** — Bun caches `os.homedir()` on Linux, so a runtime `HOME` override is silently ignored and the code under test resolves the REAL home directory. Env-var overrides remain valid ONLY for code that reads `Bun.env.*` at call time (`vscode-settings.ts`'s `APPDATA` branch, the `paths.ts` helpers documented as "resolved at call time"). Production code MUST NOT be rewritten to read `Bun.env.HOME` just to make an env override work.
 8. **Per-test timeouts only ever raise the global** — `bun run test` applies `--timeout 60000`, so a shorter override such as `}, 30_000` makes that test _more_ likely to time out, not less.
@@ -210,7 +210,7 @@ describe.each([
 - **Bun test runner API changes** — newer APIs may still evolve between minor versions.
   - **Mitigation:** the project pins a Bun version via `.prototools`; API changes surface during controlled upgrades with full suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may misreport code paths, especially dynamically imported modules.
-  - **Mitigation:** the 99.5% threshold is enforced on total line coverage, not per-file, and critical modules (engine, formats) are tested thoroughly regardless of the aggregate.
+  - **Mitigation:** the 99.9% threshold is enforced on total line coverage, not per-file, and critical modules (engine, formats) are tested thoroughly regardless of the aggregate.
 - **Cross-file pollution from shared process state** — leaked env vars, leaked spies, and writes to real user-scope paths (`~/.config/Code/User/settings.json`, `%APPDATA%`, `~/.cursor/`, `~/.config/opencode/`) produce order-dependent flakes that pass on a PR run and fail after merge with identical code. `Bun.env.NODE_ENV` left unset instead of set to `"test"` before Sentry initializes is the same class of leak — the SDK sets `enabled: Bun.env.NODE_ENV !== "test"`.
   - **Mitigation:** `restoreEnv()` for every env capture, `try/finally` around inline spies, and an `os.homedir()` spy that keeps writes inside a `mkdtemp` directory; `test-isolation/no-bare-env-restore` blocks the env variant at lint time.
 - **Platform-specific hangs and timeouts** — an external SDK instance left open keeps Bun's event loop alive on Linux and hangs `bun test` after every test passes, while slow Windows CI filesystems let large fixtures blow the per-test timeout and kill the staging subprocess (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM). Neither reproduces on macOS or locally.
@@ -226,7 +226,7 @@ describe.each([
 - **oxlint plugin** `test-mocking/no-shared-module-mock` (`lint/no-shared-module-mock.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any `mock.module()` whose specifier is relative and carries a `src` path segment, or begins with `node:`. Those are the two families every file in the run resolves to a single shared instance, so a stub of either corrupts files that never mention it; ordinary third-party specifiers (`inquirer`) stay allowed. A builtin stub is the subtler half: Bun patches only the keys the factory returns, leaving the rest real, so `mock.module("node:readline", () => ({ cursorTo }))` keeps `clearLine` working while `cursorTo` silently no-ops for every module loaded afterwards. Observe a builtin's effect by spying the object it writes through instead. oxlint is the right layer for this Don't: the call is syntax-detectable from its specifier, and the damage lands in files no reviewer would think to open. Each plugin file MUST declare a `meta.name` no other plugin uses; a duplicate name silently drops the later file's rules, and oxlint then rejects the config with "Rule not found in plugin".
 - All three plugins are registered via `jsPlugins` in `.oxlintrc.json` and run as part of `bun run lint` (and therefore `bun run validate` and CI).
 - **CI pipeline**: every pull request runs `bun run validate:coverage`, which reaches the suite through the `test:coverage` script (`bun test --timeout 60000 --coverage`). Invoke the suite by script name (GEN-003) — a bare `bun test` applies Bun's 5-second default instead of the 60-second global and reports timeouts that the gate never sees. Test failures and per-test timeouts block merge, and all workflow jobs set `timeout-minutes` to prevent indefinite hangs.
-- **Coverage threshold**: the `Coverage Report` job enforces a 99.5% minimum line coverage; below that it fails and the `Validate Code` gate blocks the PR.
+- **Coverage threshold**: the `Coverage Report` job enforces a 99.9% minimum line coverage; below that it fails and the `Validate Code` gate blocks the PR. The threshold is declared once as the job's `MIN_COVERAGE` env value; `.github/actions/coverage-report/action.yml` performs the comparison and returns the verdict as its `threshold-met` output. It rounds the merged figure to one decimal (`printf "%.1f"`) before comparing, so the gate admits anything from 99.85% upward.
 
 ### Manual Enforcement
 
