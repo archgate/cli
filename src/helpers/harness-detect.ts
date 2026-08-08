@@ -16,6 +16,7 @@ import { usableEnv } from "./paths";
  * choices cannot drift from what detection recognizes.
  */
 export const DETECTED_HARNESSES = [
+  "antigravity",
   "claude-code",
   "codex",
   "copilot",
@@ -63,6 +64,13 @@ interface HarnessSignal {
  * does not. Every match is still reported in `candidates`.
  */
 const SIGNALS: HarnessSignal[] = [
+  {
+    // The Antigravity CLI (`agy`). The IDE shares neither the marker nor the
+    // store, and encrypts its transcripts, so only the CLI is readable.
+    editor: "antigravity",
+    markers: ["ANTIGRAVITY_AGENT"],
+    sessionIdVar: "ANTIGRAVITY_CONVERSATION_ID",
+  },
   {
     editor: "claude-code",
     markers: ["CLAUDECODE"],

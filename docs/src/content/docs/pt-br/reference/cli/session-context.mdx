@@ -13,11 +13,11 @@ Lê a **conversa atual** — por padrão, a do editor que executa o comando, que
 
 ## Opções
 
-| Opção               | Descrição                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `--editor <name>`   | Editor a ler: `claude-code`, `codex`, `copilot`, `cursor`, `opencode` ou `pi`. Por padrão, o editor detectado. |
-| `--max-entries <n>` | Número máximo de entradas a retornar (padrão: 200)                                                             |
-| `--root`            | Somente opencode: resolve uma sessão-filha de subagente até seu ancestral de nível superior                    |
+| Opção               | Descrição                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--editor <name>`   | Editor a ler: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `opencode` ou `pi`. Por padrão, o editor detectado. |
+| `--max-entries <n>` | Número máximo de entradas a retornar (padrão: 200)                                                                            |
+| `--root`            | Somente opencode: resolve uma sessão-filha de subagente até seu ancestral de nível superior                                   |
 
 ## Detecção automática do editor
 
@@ -25,6 +25,7 @@ Todo editor compatível define variáveis de ambiente nos comandos que executa, 
 
 | Editor      | Detectado por                 | Fixa a sessão exata via          |
 | ----------- | ----------------------------- | -------------------------------- |
+| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`    |
 | Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`         |
 | Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                |
 | Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`       |
@@ -53,7 +54,7 @@ Todo comando informa o que resolveu em um objeto `detection`:
 }
 ```
 
-`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso, editores que publicam um identificador de sessão vencem aquele que não publica, e entre eles a ordem é Claude Code, Codex, Copilot, Cursor, Pi.
+`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso, editores que publicam um identificador de sessão vencem aquele que não publica, e entre eles a ordem é Antigravity, Claude Code, Codex, Copilot, Cursor, Pi.
 
 A detecção falha quando o Archgate executa a partir de um shell comum, e não dentro de um editor de IA. O comando então encerra com código 1 e solicita `--editor`.
 
@@ -77,6 +78,7 @@ archgate session-context show <session-id>
 
 ## Como cada editor armazena as sessões
 
+- **Antigravity** — o CLI `agy` grava cada conversa como JSONL em `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/` e registra o workspace correspondente em um banco SQLite vizinho. Apenas o CLI é legível: o IDE do Antigravity mantém um armazenamento separado cujas transcrições são criptografadas em repouso.
 - **Claude Code** — uma transcrição JSONL por sessão, indexada pelo caminho codificado do projeto. Os IDs de sessão são os nomes dos arquivos de transcrição.
 - **Codex** — arquivos de rollout em pastas por data (`sessions/YYYY/MM/DD/`), compartilhados pelo Codex CLI e pelo aplicativo desktop. As sessões são correspondidas pelo `cwd` registrado na linha `session_meta` de cada rollout, e o ID de sessão é o ID da thread. Rollouts com mais de uma semana são comprimidos com zstd no lugar; ambas as formas são lidas. Respeita `CODEX_HOME`.
 - **Copilot CLI** — as sessões são correspondidas pelo campo `cwd` do workspace.

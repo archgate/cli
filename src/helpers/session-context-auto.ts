@@ -18,6 +18,10 @@ import {
   readCursorSession,
 } from "./session-context";
 import type { SessionListEntry, SessionListResult } from "./session-context";
+import {
+  listAntigravitySessions,
+  readAntigravitySession,
+} from "./session-context-antigravity";
 import { listCodexSessions, readCodexSession } from "./session-context-codex";
 import {
   listCopilotSessions,
@@ -119,6 +123,7 @@ const LISTERS: Record<
   DetectedHarness,
   (projectRoot: string | null) => SessionListResult | Promise<SessionListResult>
 > = {
+  antigravity: listAntigravitySessions,
   "claude-code": listClaudeCodeSessions,
   codex: listCodexSessions,
   copilot: listCopilotSessions,
@@ -157,6 +162,11 @@ const READERS: Record<
     }),
   pi: async (root, o) =>
     readPiSession(root, { maxEntries: o.maxEntries, sessionId: o.sessionId }),
+  antigravity: async (root, o) =>
+    readAntigravitySession(root, {
+      maxEntries: o.maxEntries,
+      sessionId: o.sessionId,
+    }),
 };
 
 async function listFor(

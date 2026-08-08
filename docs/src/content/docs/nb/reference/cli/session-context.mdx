@@ -13,11 +13,11 @@ Leser den **gjeldende samtalen** — som standard for editoren som kjører komma
 
 ## Valg
 
-| Valg                | Beskrivelse                                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `--editor <name>`   | Editor som skal leses: `claude-code`, `codex`, `copilot`, `cursor`, `opencode` eller `pi`. Som standard den gjenkjente editoren. |
-| `--max-entries <n>` | Høyeste antall oppføringer som returneres (standard: 200)                                                                        |
-| `--root`            | Kun opencode: løs opp en underagents barnesesjon til forelderen på øverste nivå                                                  |
+| Valg                | Beskrivelse                                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--editor <name>`   | Editor som skal leses: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `opencode` eller `pi`. Som standard den gjenkjente editoren. |
+| `--max-entries <n>` | Høyeste antall oppføringer som returneres (standard: 200)                                                                                       |
+| `--root`            | Kun opencode: løs opp en underagents barnesesjon til forelderen på øverste nivå                                                                 |
 
 ## Automatisk gjenkjenning av editor
 
@@ -25,6 +25,7 @@ Hver støttet editor setter miljøvariabler på kommandoene den kjører, og Arch
 
 | Editor      | Gjenkjennes av                | Låser den nøyaktige sesjonen via     |
 | ----------- | ----------------------------- | ------------------------------------ |
+| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`        |
 | Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`             |
 | Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                    |
 | Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`           |
@@ -53,7 +54,7 @@ Hver kommando rapporterer hva den kom fram til i et `detection`-objekt:
 }
 ```
 
-`via` er miljøvariabelen som identifiserte editoren, eller `--editor` når du oppga en. `session` er `pinned` når editorens egen sesjons-ID ble brukt, `recent` når den nyeste sesjonen ble tatt, og `explicit` når en sesjons-ID ble oppgitt på kommandolinjen. `candidates` lister hver editor som hadde markøren sin satt — mer enn én dukker opp når en agent kjører inne i en annen agent. Da vinner editorer som publiserer en sesjons-ID over den som ikke gjør det, og blant dem er rekkefølgen Claude Code, Codex, Copilot, Cursor, Pi.
+`via` er miljøvariabelen som identifiserte editoren, eller `--editor` når du oppga en. `session` er `pinned` når editorens egen sesjons-ID ble brukt, `recent` når den nyeste sesjonen ble tatt, og `explicit` når en sesjons-ID ble oppgitt på kommandolinjen. `candidates` lister hver editor som hadde markøren sin satt — mer enn én dukker opp når en agent kjører inne i en annen agent. Da vinner editorer som publiserer en sesjons-ID over den som ikke gjør det, og blant dem er rekkefølgen Antigravity, Claude Code, Codex, Copilot, Cursor, Pi.
 
 Gjenkjenningen mislykkes når Archgate kjøres fra et vanlig skall i stedet for inne i en AI-editor. Kommandoen avslutter da med kode 1 og ber om `--editor`.
 
@@ -77,6 +78,7 @@ archgate session-context show <session-id>
 
 ## Slik lagrer hver editor sesjoner
 
+- **Antigravity** — `agy`-CLI-en skriver hver samtale som JSONL under `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/`, og lagrer arbeidsområdet den hører til i en SQLite-database ved siden av. Bare CLI-en er lesbar: Antigravity-IDE-en har et eget lager der sesjonsloggene er kryptert i ro.
 - **Claude Code** — én JSONL-sesjonslogg per sesjon, nøklet på den kodede prosjektstien. Sesjons-ID-ene er filnavnene til sesjonsloggene.
 - **Codex** — rollout-filer i datomapper (`sessions/YYYY/MM/DD/`), delt av Codex CLI og skrivebordsappen. Sesjoner matches på `cwd` som er lagret i hver rollouts `session_meta`-linje, og sesjons-ID-en er tråd-ID-en. Rollouts eldre enn en uke komprimeres med zstd på stedet; begge formene leses. Respekterer `CODEX_HOME`.
 - **Copilot CLI** — sesjoner matches på `cwd`-feltet til arbeidsområdet.

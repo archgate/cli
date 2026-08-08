@@ -94,6 +94,21 @@ export function opencodeDbPath(): string {
 }
 
 /**
+ * Resolve the Antigravity CLI (`agy`) data directory, `~/.gemini/antigravity-cli/`.
+ *
+ * Distinct from the Antigravity IDE's `~/.gemini/antigravity/`, which stores
+ * its transcripts encrypted and is therefore unreadable.
+ */
+export function antigravityCliDir(): string {
+  return join(archgateHomeDir(), ".gemini", "antigravity-cli");
+}
+
+/** Resolve the Antigravity CLI conversation directory. */
+export function antigravityConversationsDir(): string {
+  return join(antigravityCliDir(), "conversations");
+}
+
+/**
  * Resolve the Codex home directory, honoring `CODEX_HOME` and defaulting to
  * `~/.codex/`. Shared by the Codex CLI and the desktop/IDE app, which both
  * resolve it through the same helper.

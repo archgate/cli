@@ -13,6 +13,8 @@ import { restoreEnv } from "../test-utils";
 // harness (CLAUDECODE is set), so all of them are cleared before each test —
 // otherwise the ambient environment leaks into every assertion.
 const HARNESS_VARS = [
+  "ANTIGRAVITY_AGENT",
+  "ANTIGRAVITY_CONVERSATION_ID",
   "CLAUDECODE",
   "CLAUDE_CODE_SESSION_ID",
   "CODEX_THREAD_ID",
@@ -30,6 +32,7 @@ const UUID = "261667f2-f770-40fd-bbfd-c70dc1f0a80c";
 
 /** Each editor paired with an env var that identifies it. */
 const MARKER_CASES: Array<[DetectedHarness, string]> = [
+  ["antigravity", "ANTIGRAVITY_AGENT"],
   ["claude-code", "CLAUDECODE"],
   ["codex", "CODEX_THREAD_ID"],
   ["copilot", "COPILOT_CLI"],
@@ -84,9 +87,12 @@ describe("detectHarness", () => {
   });
 
   test.each<[string, string, string]>([
+    ["antigravity", "ANTIGRAVITY_AGENT", "ANTIGRAVITY_CONVERSATION_ID"],
     ["claude-code", "CLAUDECODE", "CLAUDE_CODE_SESSION_ID"],
+    ["codex", "CODEX_THREAD_ID", "CODEX_THREAD_ID"],
     ["copilot", "COPILOT_CLI", "COPILOT_AGENT_SESSION_ID"],
     ["cursor", "CURSOR_AGENT", "CURSOR_CONVERSATION_ID"],
+    ["pi", "PI_CODING_AGENT", "PI_SESSION_ID"],
   ])("%s publishes its session id via %s", (_editor, marker, idVar) => {
     Bun.env[marker] = "1";
     Bun.env[idVar] = UUID;
