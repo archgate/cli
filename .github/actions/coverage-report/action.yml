@@ -68,14 +68,20 @@ runs:
         RUN_URL: ${{ inputs.run-url }}
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        # A blank or non-numeric threshold compares as a string and makes every
-        # comparison succeed, silently disabling the gate. Reject it loudly.
+        # awk compares a value it cannot read as a number as a string, and a
+        # string comparison reports even 0% coverage as meeting the threshold —
+        # silently disabling the gate. Require a plain decimal percentage before
+        # the value is ever used as a number. Digits alone are not enough: "."
+        # and "1..2" contain none but a digit or a dot, yet neither is a number.
+        reject_threshold() {
+          echo "::error::min-coverage must be a number between 0 and 100, got '${MIN_COVERAGE}'."
+          exit 1
+        }
         case "$MIN_COVERAGE" in
-          '' | *[!0-9.]*)
-            echo "::error::min-coverage must be a number, got '${MIN_COVERAGE}'."
-            exit 1
-            ;;
+          '' | '.' | *[!0-9.]* | *.*.*) reject_threshold ;;
         esac
+        # Safe to compare numerically now that the syntax is known good.
+        awk -v m="$MIN_COVERAGE" 'BEGIN{exit !(m >= 0 && m <= 100)}' || reject_threshold
 
         # Start with Linux coverage
         cp "$LINUX_COVERAGE" merged.info
