@@ -35,6 +35,8 @@ const PiHeaderSchema = z.object({
 
 const PiEntrySchema = z.object({
   type: z.string().default(""),
+  id: z.string().optional(),
+  parentId: z.string().optional(),
   message: z
     .object({
       role: z.string().default(""),
@@ -42,6 +44,34 @@ const PiEntrySchema = z.object({
     })
     .optional(),
 });
+
+type PiEntry = z.infer<typeof PiEntrySchema>;
+
+/**
+ * Entries on the session's active branch, in file order.
+ *
+ * Pi branches in place rather than starting a new file, so `/fork` and
+ * `/rewind` leave abandoned entries behind, linked by `id`/`parentId`. The
+ * chain is walked back from the newest entry to skip them. Sessions predating
+ * the tree format carry no ids and are returned whole.
+ */
+function activeBranch(entries: PiEntry[]): PiEntry[] {
+  const leaf = entries.findLast((e) => e.id !== undefined);
+  if (leaf === undefined) return entries;
+
+  const byId = new Map(
+    entries.filter((e) => e.id !== undefined).map((e) => [e.id, e])
+  );
+  const onPath = new Set<string>();
+  let cursor: PiEntry | undefined = leaf;
+  while (cursor?.id !== undefined && !onPath.has(cursor.id)) {
+    onPath.add(cursor.id);
+    cursor =
+      cursor.parentId === undefined ? undefined : byId.get(cursor.parentId);
+  }
+
+  return entries.filter((e) => e.id === undefined || onPath.has(e.id));
+}
 
 interface PiSessionSummary {
   sessionId: string;
@@ -245,21 +275,26 @@ export async function readPiSession(
   const lines = Bun.JSONL.parse(raw);
   const totalEntries = lines.length;
 
-  const transcript: PiSessionSummary["transcript"] = [];
+  const parsed: PiEntry[] = [];
   for (const line of lines) {
     const entry = PiEntrySchema.safeParse(line);
-    if (!entry.success) continue;
-    if (entry.data.type !== "message") continue;
-    const message = entry.data.message;
+    if (entry.success) parsed.push(entry.data);
+  }
+
+  const transcript: PiSessionSummary["transcript"] = [];
+  for (const entry of activeBranch(parsed)) {
+    if (entry.type !== "message") continue;
+    const message = entry.message;
     if (message === undefined || !PI_RELEVANT_ROLES.has(message.role)) continue;
-    transcript.push({
+    const contentPreview = getContentPreview({
+      type: "message",
       role: message.role,
-      contentPreview: getContentPreview({
-        type: "message",
-        role: message.role,
-        message: { role: message.role, content: message.content },
-      }),
+      message: { role: message.role, content: message.content },
     });
+    // A turn that only made a tool call or thought carries no prose; emitting
+    // it would pad the transcript with blank entries.
+    if (contentPreview.trim() === "") continue;
+    transcript.push({ role: message.role, contentPreview });
   }
 
   const trimmed =

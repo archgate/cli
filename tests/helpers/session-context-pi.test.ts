@@ -166,6 +166,55 @@ describe("Pi session reader", () => {
     expect(result.ok).toBe(false);
   });
 
+  test("skips a turn that carries no prose", async () => {
+    // A turn that only made a tool call or thought has empty content;
+    // emitting it would pad the transcript with blank entries.
+    const empty = `${JSON.stringify({
+      type: "message",
+      message: { role: "assistant", content: [] },
+    })}\n`;
+    writeSession("s1", "id-1", PROJECT, empty + message("assistant", "real"));
+
+    const result = await readPiSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcript).toEqual([
+      { role: "assistant", contentPreview: "real" },
+    ]);
+  });
+
+  test("follows the active branch after a fork", async () => {
+    // Pi branches in place: /fork and /rewind leave the abandoned entries in
+    // the same file, linked by id/parentId. Reading linearly would interleave
+    // the abandoned turn with the live conversation.
+    const linked = (id: string, parentId: string, role: string, text: string) =>
+      `${JSON.stringify({
+        type: "message",
+        id,
+        parentId,
+        message: { role, content: [{ type: "text", text }] },
+      })}\n`;
+
+    writeSession(
+      "s1",
+      "id-1",
+      PROJECT,
+      linked("a", "root", "user", "shared question") +
+        linked("abandoned", "a", "assistant", "discarded answer") +
+        linked("b", "a", "assistant", "kept answer")
+    );
+
+    const result = await readPiSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcript).toEqual([
+      { role: "user", contentPreview: "shared question" },
+      { role: "assistant", contentPreview: "kept answer" },
+    ]);
+  });
+
   test("caps the transcript with maxEntries", async () => {
     writeSession(
       "s1",
