@@ -100,6 +100,38 @@ describe("detectHarness", () => {
     expect(detectHarness().envSessionId).toBe(UUID);
   });
 
+  test("reads a nested session id when the flat variable is unset", () => {
+    // Antigravity's desktop app names the conversation only inside JSON, so
+    // the nested source has to be consulted without the flat one present.
+    Bun.env.ANTIGRAVITY_AGENT = "1";
+    Bun.env.ANTIGRAVITY_SOURCE_METADATA = JSON.stringify({
+      tool: { conversationId: UUID },
+    });
+
+    expect(detectHarness().envSessionId).toBe(UUID);
+  });
+
+  test("prefers the flat session id over the nested one", () => {
+    Bun.env.ANTIGRAVITY_AGENT = "1";
+    Bun.env.ANTIGRAVITY_CONVERSATION_ID = UUID;
+    Bun.env.ANTIGRAVITY_SOURCE_METADATA = JSON.stringify({
+      tool: { conversationId: "nested-should-lose" },
+    });
+
+    expect(detectHarness().envSessionId).toBe(UUID);
+  });
+
+  test.each([
+    ["malformed JSON", "{not json"],
+    ["a missing path", JSON.stringify({ tool: {} })],
+    ["a non-string leaf", JSON.stringify({ tool: { conversationId: 7 } })],
+  ])("rejects a nested session id from %s", (_label, value) => {
+    Bun.env.ANTIGRAVITY_AGENT = "1";
+    Bun.env.ANTIGRAVITY_SOURCE_METADATA = value;
+
+    expect(detectHarness().envSessionId).toBeNull();
+  });
+
   test("opencode publishes no session id", () => {
     Bun.env.OPENCODE = "1";
 

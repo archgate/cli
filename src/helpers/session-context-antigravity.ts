@@ -63,6 +63,7 @@ interface MetadataRow {
 
 /** Row of the shared summaries index. */
 interface SummaryRow {
+  conversation_id: string;
   workspace_uris: string;
 }
 
@@ -168,47 +169,59 @@ function workspaceFromDb(file: string): string | null {
 }
 
 /**
- * Workspace recorded in the shared summaries index, which covers the desktop
- * app's conversations. It lags a live conversation, so it is a fallback
- * rather than the primary source.
+ * Every workspace recorded in the shared summaries index, keyed by
+ * conversation. The index covers the desktop app's conversations and lags a
+ * live one, so it is a fallback rather than the primary source.
  */
-function workspaceFromSummaries(conversationId: string): string | null {
+function summaryWorkspaces(): Map<string, string> {
   const file = join(antigravityCliDir(), "conversation_summaries.db");
-  if (!existsSync(file)) return null;
+  if (!existsSync(file)) return new Map();
 
   let db: Database;
   try {
     db = new Database(file, { readonly: true });
   } catch {
-    return null;
+    return new Map();
   }
 
+  const workspaces = new Map<string, string>();
   try {
-    const row = db
-      .query<SummaryRow, [string]>(
-        "SELECT workspace_uris FROM conversation_summaries WHERE conversation_id = ?"
+    const rows = db
+      .query<SummaryRow, []>(
+        "SELECT conversation_id, workspace_uris FROM conversation_summaries"
       )
-      .get(conversationId);
-    if (row?.workspace_uris === undefined) return null;
-    // The column holds a JSON array of URIs; the first match is its first
-    // element, so the URI is taken directly rather than parsed out.
-    const match = FILE_URI.exec(row.workspace_uris);
-    return match === null ? null : pathFromUri(match[0]);
+      .all();
+    for (const row of rows) {
+      // The column holds a JSON array of URIs; the first match is its first
+      // element, so the URI is taken directly rather than parsed out.
+      const match = FILE_URI.exec(row.workspace_uris);
+      const path = match === null ? null : pathFromUri(match[0]);
+      if (path !== null) workspaces.set(row.conversation_id, path);
+    }
   } catch {
-    return null;
+    return new Map();
   } finally {
     db.close();
   }
+  return workspaces;
 }
 
-/** Workspace a conversation belongs to, from whichever store records it. */
-function workspaceFor(conversationId: string): string | null {
+/**
+ * Workspace a conversation belongs to, from whichever store records it.
+ *
+ * @param summaries - The shared index, read once for the whole scan; opening
+ * it per conversation would make discovery cost grow with the history.
+ */
+function workspaceFor(
+  conversationId: string,
+  summaries: Map<string, string>
+): string | null {
   const cliDb = join(antigravityConversationsDir(), `${conversationId}.db`);
   if (existsSync(cliDb)) {
     const fromDb = workspaceFromDb(cliDb);
     if (fromDb !== null) return fromDb;
   }
-  return workspaceFromSummaries(conversationId);
+  return summaries.get(conversationId) ?? null;
 }
 
 /**
@@ -248,10 +261,11 @@ function findConversations(
 
   const target = normalizePath(projectRoot ?? process.cwd());
   const current = currentConversationId();
+  const summaries = summaryWorkspaces();
 
   const found: AntigravityConversation[] = [];
   for (const id of conversationsWithTranscripts()) {
-    const workspace = workspaceFor(id);
+    const workspace = workspaceFor(id, summaries);
     const matches = workspace !== null && normalizePath(workspace) === target;
     if (!matches && id !== current) continue;
     const file = transcriptPath(id);
@@ -277,7 +291,9 @@ function findConversations(
 export function listAntigravitySessions(
   projectRoot: string | null
 ): SessionListResult {
-  const dir = antigravityCliDir();
+  // Both trees are searched, so reporting only one would point troubleshooting
+  // at a directory the caller's distribution never writes to.
+  const dir = antigravityDataDirs().join(", ");
   const conversations = findConversations(projectRoot);
   if (conversations === null) {
     return {
@@ -307,7 +323,9 @@ export async function readAntigravitySession(
   options?: ReadAntigravitySessionOptions
 ): Promise<AntigravitySessionResult> {
   const limit = options?.maxEntries ?? 200;
-  const dir = antigravityCliDir();
+  // Both trees are searched, so reporting only one would point troubleshooting
+  // at a directory the caller's distribution never writes to.
+  const dir = antigravityDataDirs().join(", ");
   const conversations = findConversations(projectRoot);
   if (conversations === null) {
     return {

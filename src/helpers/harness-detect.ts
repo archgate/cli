@@ -173,9 +173,11 @@ function matchedMarker(signal: HarnessSignal): string | null {
  * unset variable indistinguishable from a rejected one.
  */
 function readSessionId(signal: HarnessSignal): string | null {
-  if (signal.sessionIdVar === undefined) return null;
-  const value =
-    usableEnv(Bun.env[signal.sessionIdVar]) ?? readNestedSessionId(signal);
+  const flat =
+    signal.sessionIdVar === undefined
+      ? null
+      : usableEnv(Bun.env[signal.sessionIdVar]);
+  const value = flat ?? readNestedSessionId(signal);
   if (value === null) return null;
   if (signal.requireUuidSessionId === true && !UUID_PATTERN.test(value)) {
     return null;

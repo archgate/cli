@@ -78,7 +78,7 @@ archgate session-context show <session-id>
 
 ## Slik lagrer hver editor sesjoner
 
-- **Antigravity** — både `agy`-CLI-en og skrivebordsappen skriver samtaler som JSONL under `brain/<id>/.system_generated/logs/`, i henholdsvis `~/.gemini/antigravity-cli/` og `~/.gemini/antigravity/`; begge leses. CLI-en lagrer arbeidsområdet i samtalens egen database, appen i en delt sammendragsindeks. En samtale kalleren kjører inne i, leses selv før den indeksen er oppdatert, siden miljøet navngir den.
+- **Antigravity** — både `agy`-CLI-en og skrivebordsappen skriver samtaler som JSONL under `brain/<id>/.system_generated/logs/`, i henholdsvis `~/.gemini/antigravity-cli/` og `~/.gemini/antigravity/`; begge leses. CLI-en lagrer arbeidsområdet i samtalens egen database, appen i en delt sammendragsindeks. En samtale som kalleren kjører inne i, leses selv før den indeksen er oppdatert, siden miljøet navngir den.
 - **Claude Code** — én JSONL-sesjonslogg per sesjon, nøklet på den kodede prosjektstien. Sesjons-ID-ene er filnavnene til sesjonsloggene.
 - **Codex** — rollout-filer i datomapper (`sessions/YYYY/MM/DD/`), delt av Codex CLI og skrivebordsappen. Sesjoner matches på `cwd` som er lagret i hver rollouts `session_meta`-linje, og sesjons-ID-en er tråd-ID-en. CLI-en og skrivebordsappen lagrer turer i ulike hendelsesformater, og begge leses. Rollouts eldre enn en uke komprimeres med zstd på stedet; begge formene leses. Respekterer `CODEX_HOME`.
 - **Copilot CLI** — sesjoner matches på `cwd`-feltet til arbeidsområdet.

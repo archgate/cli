@@ -120,8 +120,8 @@ describe("Codex session reader", () => {
   });
 
   test("reads turns recorded as item_completed events", async () => {
-    // The CLI and the desktop app write different event shapes. Reading only
-    // the flat one returned an empty transcript for every CLI rollout.
+    // The CLI nests turn text in item_completed content blocks, where the
+    // desktop app flattens it into `message`.
     writeRollout(
       "id-cli",
       PROJECT,
