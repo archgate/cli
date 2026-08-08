@@ -1,3 +1,10 @@
+## [0.52.1](https://github.com/archgate/cli/compare/v0.52.0...v0.52.1) (2026-08-08)
+
+### Bug Fixes
+
+* **tests:** stop node:readline mocks leaking a no-op cursorTo ([#560](https://github.com/archgate/cli/issues/560)) ([181572a](https://github.com/archgate/cli/commit/181572a71f1739db6f43318e6de9babcec2830f5)), references [#559](https://github.com/archgate/cli/issues/559)
+* **upgrade:** detect failed extraction and stop leaking temp directories ([#561](https://github.com/archgate/cli/issues/561)) ([8e1c5db](https://github.com/archgate/cli/commit/8e1c5db03bb4b8bc43c33c6cf9750abb6ccc1e62)), closes [#554](https://github.com/archgate/cli/issues/554) [#555](https://github.com/archgate/cli/issues/555) [#556](https://github.com/archgate/cli/issues/556), references [#554](https://github.com/archgate/cli/issues/554) [#555](https://github.com/archgate/cli/issues/555) [#556](https://github.com/archgate/cli/issues/556)
+
 ## [0.52.0](https://github.com/archgate/cli/compare/v0.51.0...v0.52.0) (2026-08-06)
 
 ### ⚠ BREAKING CHANGES
