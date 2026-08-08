@@ -147,12 +147,14 @@ For full governance in cloud environments, ensure `archgate` is available on the
 
 ## Session transcript access
 
-The `archgate session-context cursor` command reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
+The `archgate session-context` command reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
 
-The command accepts two optional flags:
+When Cursor is the detected editor, no editor needs to be named. Pass `--editor cursor` to read Cursor's transcripts regardless of what was detected — useful when another agent is running inside Cursor and wins detection. The command accepts two options:
 
 - `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries).
-- `--session-id <uuid>` -- A specific session UUID to read. If omitted, the most recent session is used.
+- `--editor <name>` -- Read another editor's transcripts instead of the detected one.
+
+Use `archgate session-context list` to discover earlier sessions, and `archgate session-context show <session-id>` to read a specific one.
 
 ## Tips for effective usage
 

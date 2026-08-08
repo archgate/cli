@@ -41,19 +41,35 @@ describe("encodeProjectPath", () => {
     ],
     ["C:\\Users\\user\\project", "cursor", "C-Users-user-project"],
     ["C:\\Users/user\\project", "cursor", "C-Users-user-project"],
+    // Cursor collapses each separator run to one dash, so a dot-segment
+    // yields "-claude-", not "--claude-".
     [
       "E:\\archgate\\cli\\.claude\\worktrees\\fancy-prancing-sedgewick",
       "cursor",
-      "E-archgate-cli--claude-worktrees-fancy-prancing-sedgewick",
+      "E-archgate-cli-claude-worktrees-fancy-prancing-sedgewick",
     ],
+    ["/home/user/.config/project", "cursor", "home-user-config-project"],
+    ["/a//b", "cursor", "a-b"],
+    // Leading and trailing dashes are trimmed.
+    ["/home/user/project", "cursor", "home-user-project"],
+    ["/trailing/", "cursor", "trailing"],
+    ["project", "cursor", "project"],
+    ["", "cursor", ""],
   ])("encodes %p (target=%p) -> %p", async (input, target, expected) => {
     expect(await encodeProjectPath(input, target)).toBe(expected);
   });
 
-  test("cursor target produces same result as default for Unix paths", async () => {
-    const unixPath = "/home/user/project";
-    expect(await encodeProjectPath(unixPath, "cursor")).toBe(
-      await encodeProjectPath(unixPath)
+  test("cursor collapses separator runs the default target preserves", async () => {
+    // A project under a dot-directory — every git worktree in .claude/ — is
+    // where the two encodings diverge, and where reusing one for the other
+    // resolves to a directory that does not exist.
+    const worktree = "E:\\project\\.claude\\worktrees\\wt";
+
+    expect(await encodeProjectPath(worktree, "cursor")).toBe(
+      "E-project-claude-worktrees-wt"
+    );
+    expect(await encodeProjectPath(worktree)).toBe(
+      "E--project--claude-worktrees-wt"
     );
   });
 });
@@ -129,18 +145,16 @@ describe("readClaudeCodeSession", () => {
     // ~/.claude/projects. A HOME env override does NOT work here — Bun caches
     // homedir() on Linux — so the implementation is mocked instead (ARCH-005).
     const projectRoot = "/__archgate_test_project";
-    const encodedProject = projectRoot
-      .replaceAll("/", "-")
-      .replaceAll("\\", "-")
-      .replaceAll(":", "-")
-      .replaceAll(".", "-");
     let tempHome: string;
     let homedirSpy: Mock<typeof os.homedir>;
     let projectsDir: string;
 
-    beforeEach(() => {
+    beforeEach(async () => {
       tempHome = mkdtempSync(join(os.tmpdir(), "archgate-claude-session-"));
       homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHome);
+      // Derived from the encoder, not restated — a hand-rolled copy drifts
+      // silently. The encoder's own output is asserted above.
+      const encodedProject = await encodeProjectPath(projectRoot);
       projectsDir = join(tempHome, ".claude", "projects", encodedProject);
       mkdirSync(projectsDir, { recursive: true });
     });
