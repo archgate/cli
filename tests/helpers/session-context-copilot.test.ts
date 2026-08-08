@@ -164,6 +164,30 @@ describe("readCopilotSession", () => {
     expect(result.data.transcript[1]?.contentPreview).toBe("also visible");
   });
 
+  test("skips an assistant turn that carries only tool calls", async () => {
+    // Copilot records a tool-only turn as an assistant.message with empty
+    // content and the calls in `toolRequests`, which reads as a blank turn.
+    const sessionId = `copilot-${uniqueId}-toolonly`;
+    makeSession(sessionId, projectRoot, [
+      JSON.stringify({ type: "user.message", data: { content: "run it" } }),
+      JSON.stringify({
+        type: "assistant.message",
+        data: { content: "", toolRequests: [{ name: "bash" }] },
+      }),
+      JSON.stringify({ type: "assistant.message", data: { content: "done" } }),
+    ]);
+
+    const result = await readCopilotSession(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+
+    expect(result.data.relevantEntries).toBe(2);
+    expect(result.data.transcript).toEqual([
+      { role: "user", contentPreview: "run it" },
+      { role: "assistant", contentPreview: "done" },
+    ]);
+  });
+
   test("returns error when session has no events.jsonl", async () => {
     const sessionId = `copilot-${uniqueId}-noevents`;
     makeSession(sessionId, projectRoot); // no events array

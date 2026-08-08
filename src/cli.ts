@@ -17,7 +17,7 @@ import { registerInitCommand } from "./commands/init";
 import { registerLoginCommand } from "./commands/login";
 import { registerPluginCommand } from "./commands/plugin/index";
 import { registerReviewContextCommand } from "./commands/review-context";
-import { registerSessionContextCommand } from "./commands/session-context/index";
+import { registerSessionContextCommand } from "./commands/session-context";
 import { registerTelemetryCommand } from "./commands/telemetry";
 import { registerUpgradeCommand } from "./commands/upgrade";
 import { cleanupStaleBinary } from "./helpers/binary-upgrade";

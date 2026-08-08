@@ -20,6 +20,7 @@ import * as os from "node:os";
 import { join } from "node:path";
 
 import {
+  encodeProjectPath,
   listCursorSessions,
   readCursorSession,
 } from "../../src/helpers/session-context";
@@ -32,18 +33,17 @@ describe("readCursorSession", () => {
   // ~/.cursor/projects. A HOME env override does NOT work here — Bun caches
   // homedir() on Linux — so the implementation is mocked instead (ARCH-005).
   const projectRoot = "/__archgate_cursor_test_project";
-  const encodedProject = projectRoot
-    .replaceAll("/", "-")
-    .replaceAll("\\", "-")
-    .replaceAll(":", "")
-    .replaceAll(".", "-");
   let tempHome: string;
   let homedirSpy: Mock<typeof os.homedir>;
   let transcriptsDir: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempHome = mkdtempSync(join(os.tmpdir(), "archgate-cursor-session-"));
     homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHome);
+    // Derived from the encoder rather than restated here: a hand-rolled copy
+    // drifts silently, and these tests exercise the reader, not the encoding.
+    // encodeProjectPath's own output is asserted in session-context.test.ts.
+    const encodedProject = await encodeProjectPath(projectRoot, "cursor");
     transcriptsDir = join(
       tempHome,
       ".cursor",
