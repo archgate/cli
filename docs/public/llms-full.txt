@@ -4826,11 +4826,11 @@ Reads the **current conversation** — by default for the editor running the com
 
 ## Options
 
-| Option              | Description                                                                                         |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
-| `--editor <name>`   | Editor to read: `claude-code`, `copilot`, `cursor`, or `opencode`. Defaults to the detected editor. |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                                                            |
-| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor                       |
+| Option              | Description                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `--editor <name>`   | Editor to read: `claude-code`, `codex`, `copilot`, `cursor`, `opencode`, or `pi`. Defaults to the detected editor. |
+| `--max-entries <n>` | Maximum entries to return (default: 200)                                                                           |
+| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor                                      |
 
 ## Automatic editor detection
 
@@ -4839,9 +4839,11 @@ Every supported editor sets environment variables on the commands it runs, and A
 | Editor      | Detected by                   | Pins the exact session via       |
 | ----------- | ----------------------------- | -------------------------------- |
 | Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`         |
+| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                |
 | Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`       |
 | Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`         |
 | opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(none — falls back to recency)_ |
+| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                  |
 
 Editors that publish their own session id get the **exact** conversation rather than the most recent one. This matters when a project has several sessions open at once, where the most recent may not be the conversation you are part of. A published id that matches no session for the project is ignored and recency applies, so a stale id never turns a working command into an error.
 
@@ -4864,7 +4866,7 @@ Every command reports what it resolved in a `detection` object:
 }
 ```
 
-`via` is the environment variable that identified the editor, or `--editor` when you named one. `session` is `pinned` when the editor's own session id was used, `recent` when the most recent session was taken, and `explicit` when a session id was passed on the command line. `candidates` lists every editor whose marker was present — more than one appears when an agent runs inside another agent. In that case editors that publish a session id win over one that does not, and Claude Code, Copilot, and Cursor are preferred in that order.
+`via` is the environment variable that identified the editor, or `--editor` when you named one. `session` is `pinned` when the editor's own session id was used, `recent` when the most recent session was taken, and `explicit` when a session id was passed on the command line. `candidates` lists every editor whose marker was present — more than one appears when an agent runs inside another agent. In that case editors that publish a session id win over the one that does not, and among them the order is Claude Code, Codex, Copilot, Cursor, Pi.
 
 Detection fails when Archgate runs from a plain shell rather than inside an AI editor. The command then exits 1 and asks for `--editor`.
 
@@ -4889,8 +4891,10 @@ archgate session-context show <session-id>
 ## How each editor stores sessions
 
 - **Claude Code** — one JSONL transcript per session, keyed by the encoded project path. Session IDs are the transcript filenames.
+- **Codex** — rollout files under date shards (`sessions/YYYY/MM/DD/`), shared by the Codex CLI and the desktop app. Sessions are matched by the `cwd` recorded in each rollout's `session_meta` line, and the session ID is the thread ID. Rollouts older than a week are zstd-compressed in place; both forms are read. Honors `CODEX_HOME`.
 - **Copilot CLI** — sessions are matched by their workspace `cwd` field.
 - **Cursor** — sessions are matched by the encoded project path; IDs are UUIDs.
+- **Pi** — sessions live under a directory encoding the working directory, and each file's header `cwd` is verified as well, so a relocated session directory still resolves. Honors `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. Pi publishes its session ID only to commands its agent runs, so a manually typed command is detected but selected by recency.
 - **opencode** — sessions are matched by comparing the session `directory` field to the project root. Sub-agent runs are recorded as child sessions sharing the parent's directory; these are excluded from `list` and from recency selection, so the most recent top-level session is always the main development session. They can still be read by ID with `show`, and `--root` resolves a child session up to its top-level ancestor — useful when a sub-agent knows its own session ID and needs the conversation it belongs to.
 
 ## Examples
