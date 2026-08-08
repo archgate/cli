@@ -77,21 +77,67 @@ interface CodexRollout {
 }
 
 /**
+ * Bytes read from a rollout when only its `session_meta` is wanted. The meta
+ * line is written at session creation, so the head is enough to classify a
+ * rollout without paying for its whole transcript.
+ */
+const HEAD_BYTES = 64 * 1024;
+
+/** Rollouts inspected at once during discovery. */
+const DISCOVERY_CONCURRENCY = 8;
+
+/**
  * Read a rollout as text, transparently decompressing the `.zst` form.
  *
  * Codex compresses rollouts older than seven days in place, so a reader that
  * handled only `.jsonl` would see nothing beyond the most recent week.
+ *
+ * @param headOnly - Read just the leading {@link HEAD_BYTES}. Compressed
+ * rollouts ignore this: the whole member must be inflated to reach any of it.
  */
-async function readRollout(file: string): Promise<string | null> {
+async function readRollout(
+  file: string,
+  headOnly = false
+): Promise<string | null> {
   try {
     if (file.endsWith(COMPRESSED_SUFFIX)) {
       const bytes = await Bun.file(file).bytes();
       return new TextDecoder().decode(Bun.zstdDecompressSync(bytes));
     }
-    return await Bun.file(file).text();
+    const handle = Bun.file(file);
+    return await (headOnly ? handle.slice(0, HEAD_BYTES) : handle).text();
   } catch {
     return null;
   }
+}
+
+/**
+ * Map over items with a bounded number in flight.
+ *
+ * A sessions directory accumulates indefinitely, and discovery inflates every
+ * compressed rollout it meets. Reading them all at once would hold each
+ * inflated transcript in memory simultaneously.
+ */
+async function mapBounded<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = Array.from({ length: items.length });
+  let cursor = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      for (let i = cursor++; i < items.length; i = cursor++) {
+        // Sequential within a worker is the mechanism: parallelism comes from
+        // running `limit` workers, which is what keeps memory bounded.
+        // oxlint-disable-next-line eslint/no-await-in-loop
+        results[i] = await fn(items[i]);
+      }
+    }
+  );
+  await Promise.all(workers);
+  return results;
 }
 
 /** Directory entries, or an empty list when the directory is unreadable. */
@@ -163,11 +209,13 @@ async function findCodexRollouts(
   const target = normalizePath(projectRoot ?? process.cwd());
   const files = enumerateRolloutFiles(sessionsDir);
 
-  const inspected = await Promise.all(
-    files.map(async (file) => {
-      const raw = await readRollout(file);
+  const inspected = await mapBounded(
+    files,
+    DISCOVERY_CONCURRENCY,
+    async (file) => {
+      const raw = await readRollout(file, true);
       return { file, meta: raw === null ? null : parseRolloutMeta(raw) };
-    })
+    }
   );
 
   const found: CodexRollout[] = [];

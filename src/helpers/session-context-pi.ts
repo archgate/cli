@@ -138,14 +138,20 @@ async function findPiSessions(
   return found.sort((a, b) => b.mtime - a.mtime);
 }
 
+/**
+ * Bytes read when only the header is wanted. It is line 1, so the head is
+ * enough to classify a session without reading its whole transcript.
+ */
+const HEADER_BYTES = 64 * 1024;
+
 /** Parse the leading `session` header, or null when the file is unusable. */
 async function readPiHeader(
   file: string
 ): Promise<{ id: string; cwd: string } | null> {
   let firstLine: string;
   try {
-    const raw = await Bun.file(file).text();
-    firstLine = raw.slice(0, raw.indexOf("\n") + 1 || undefined).trim();
+    const head = await Bun.file(file).slice(0, HEADER_BYTES).text();
+    firstLine = head.slice(0, head.indexOf("\n") + 1 || undefined).trim();
   } catch {
     return null;
   }

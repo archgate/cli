@@ -149,7 +149,7 @@ Para governança completa em ambientes na nuvem, garanta que `archgate` esteja d
 
 O comando `archgate session-context` lê transcrições de sessão do agente Cursor do disco. Isso permite que skills acessem o histórico da conversa atual, o que é útil para recuperar contexto que pode ter sido compactado ou truncado.
 
-O Archgate detecta o Cursor a partir do ambiente, então não é preciso informar um editor. O comando aceita duas opções:
+Quando o Cursor é o editor detectado, não é preciso informar um editor. Use `--editor cursor` para ler as transcrições do Cursor independentemente do que foi detectado — útil quando outro agente executa dentro do Cursor e vence a detecção. O comando aceita duas opções:
 
 - `--max-entries <n>` -- Número máximo de entradas a retornar (padrão: 200, entradas mais recentes).
 - `--editor <name>` -- Lê as transcrições de outro editor em vez do detectado.
