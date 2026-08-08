@@ -23,12 +23,28 @@ function meta(id: string, cwd: string): string {
   })}\n`;
 }
 
-/** An `event_msg` conversation line. */
+/** An `event_msg` conversation line, the shape the desktop app writes. */
 function event(type: string, message: string): string {
   return `${JSON.stringify({
     timestamp: "2026-01-01T00:00:01.000Z",
     type: "event_msg",
     payload: { type, message },
+  })}\n`;
+}
+
+/**
+ * An `item_completed` conversation line, the shape the CLI writes: the text
+ * is nested in content blocks rather than flattened into `message`.
+ */
+function itemEvent(itemType: string, text: string): string {
+  return `${JSON.stringify({
+    timestamp: "2026-01-01T00:00:01.000Z",
+    type: "event_msg",
+    payload: {
+      type: "item_completed",
+      thread_id: "t1",
+      item: { type: itemType, id: "i1", content: [{ type: "text", text }] },
+    },
   })}\n`;
 }
 
@@ -100,6 +116,59 @@ describe("Codex session reader", () => {
     expect(result.data.transcript).toEqual([
       { role: "user", contentPreview: "hello" },
       { role: "assistant", contentPreview: "hi there" },
+    ]);
+  });
+
+  test("reads turns recorded as item_completed events", async () => {
+    // The CLI and the desktop app write different event shapes. Reading only
+    // the flat one returned an empty transcript for every CLI rollout.
+    writeRollout(
+      "id-cli",
+      PROJECT,
+      itemEvent("UserMessage", "hello from the CLI") +
+        itemEvent("AgentMessage", "hi there")
+    );
+
+    const result = await readCodexSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcript).toEqual([
+      { role: "user", contentPreview: "hello from the CLI" },
+      { role: "assistant", contentPreview: "hi there" },
+    ]);
+  });
+
+  test("skips item_completed events that are not conversation turns", async () => {
+    writeRollout(
+      "id-1",
+      PROJECT,
+      itemEvent("UserMessage", "keep") +
+        itemEvent("Reasoning", "internal") +
+        itemEvent("CommandExecution", "ls")
+    );
+
+    const result = await readCodexSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcript.map((t) => t.role)).toEqual(["user"]);
+  });
+
+  test("reads both event shapes without double-counting", async () => {
+    writeRollout(
+      "id-1",
+      PROJECT,
+      event("user_message", "flat") + itemEvent("AgentMessage", "nested")
+    );
+
+    const result = await readCodexSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.transcript).toEqual([
+      { role: "user", contentPreview: "flat" },
+      { role: "assistant", contentPreview: "nested" },
     ]);
   });
 

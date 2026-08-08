@@ -46,13 +46,56 @@ const SessionMetaPayloadSchema = z.object({
 const EventMsgPayloadSchema = z.object({
   type: z.string().default(""),
   message: z.string().default(""),
+  item: z
+    .object({
+      type: z.string().default(""),
+      content: z
+        .array(z.object({ text: z.string().default("") }).loose())
+        .optional(),
+    })
+    .optional(),
 });
 
-/** `event_msg` payload types that represent a conversation turn. */
+/**
+ * `event_msg` payload types carrying a turn as a flat `message` string. The
+ * desktop app records conversations this way.
+ */
 const ROLE_BY_EVENT = new Map([
   ["user_message", "user"],
   ["agent_message", "assistant"],
 ]);
+
+/**
+ * Item kinds carrying a turn inside an `item_completed` event — how the CLI
+ * records conversations, nesting the text in content blocks. Both shapes live
+ * under `event_msg`, so one pass reads either without double-counting.
+ * `response_item` repeats the same turns wrapped in injected environment and
+ * developer messages, so it stays unread.
+ */
+const ROLE_BY_ITEM = new Map([
+  ["UserMessage", "user"],
+  ["AgentMessage", "assistant"],
+]);
+
+const MAX_PREVIEW = 300;
+
+/**
+ * Conversation turn carried by an `event_msg` payload, in whichever shape the
+ * writing distribution used, or null when the event is not a turn.
+ */
+function conversationTurn(
+  payload: z.infer<typeof EventMsgPayloadSchema>
+): { role: string; text: string } | null {
+  const flatRole = ROLE_BY_EVENT.get(payload.type);
+  if (flatRole !== undefined) return { role: flatRole, text: payload.message };
+
+  const item = payload.item;
+  if (payload.type !== "item_completed" || item === undefined) return null;
+  const itemRole = ROLE_BY_ITEM.get(item.type);
+  if (itemRole === undefined) return null;
+  const text = (item.content ?? []).map((block) => block.text).join("");
+  return text === "" ? null : { role: itemRole, text };
+}
 
 interface CodexSessionSummary {
   sessionId: string;
@@ -327,17 +370,18 @@ export async function readCodexSession(
   const transcript: CodexSessionSummary["transcript"] = [];
   for (const line of lines) {
     const entry = CodexLineSchema.safeParse(line);
-    // `event_msg` carries pre-flattened text; `response_item` repeats the same
-    // turns in the raw model format, so reading both would double-count.
     if (!entry.success || entry.data.type !== "event_msg") continue;
     const event = EventMsgPayloadSchema.safeParse(entry.data.payload ?? {});
     if (!event.success) continue;
-    const role = ROLE_BY_EVENT.get(event.data.type);
-    if (role === undefined) continue;
-    const text = event.data.message;
+
+    const turn = conversationTurn(event.data);
+    if (turn === null) continue;
     transcript.push({
-      role,
-      contentPreview: text.length > 300 ? `${text.slice(0, 300)}...` : text,
+      role: turn.role,
+      contentPreview:
+        turn.text.length > MAX_PREVIEW
+          ? `${turn.text.slice(0, MAX_PREVIEW)}...`
+          : turn.text,
     });
   }
 
