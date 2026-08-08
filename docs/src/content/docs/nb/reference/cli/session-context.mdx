@@ -54,7 +54,7 @@ Hver kommando rapporterer hva den kom fram til i et `detection`-objekt:
 }
 ```
 
-`via` er miljøvariabelen som identifiserte editoren, eller `--editor` når du oppga en. `session` er `pinned` når editorens egen sesjons-ID ble brukt, `recent` når den nyeste sesjonen ble tatt, og `explicit` når en sesjons-ID ble oppgitt på kommandolinjen. `candidates` lister hver editor som hadde markøren sin satt — mer enn én dukker opp når en agent kjører inne i en annen agent. Da vinner editorer som publiserer en sesjons-ID over den som ikke gjør det, og blant dem er rekkefølgen Antigravity, Claude Code, Codex, Copilot, Cursor, Pi.
+`via` er miljøvariabelen som identifiserte editoren, eller `--editor` når du oppga en. `session` er `pinned` når editorens egen sesjons-ID ble brukt, `recent` når den nyeste sesjonen ble tatt, og `explicit` når en sesjons-ID ble oppgitt på kommandolinjen. `candidates` lister hver editor som hadde markøren sin satt — mer enn én dukker opp når en agent kjører inne i en annen agent. Vinneren kommer da fra en fast rekkefølge — Antigravity, Claude Code, Codex, Copilot, Cursor, Pi og deretter opencode — som setter editorene som publiserer en sesjons-ID foran den som ikke gjør det. Rekkefølgen gjelder uansett hvilke ID-er som finnes: en tom eller ubrukelig ID endrer hvilken sesjon som velges, aldri hvilken editor.
 
 Gjenkjenningen mislykkes når Archgate kjøres fra et vanlig skall i stedet for inne i en AI-editor. Kommandoen avslutter da med kode 1 og ber om `--editor`.
 

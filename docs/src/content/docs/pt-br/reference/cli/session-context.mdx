@@ -54,7 +54,7 @@ Todo comando informa o que resolveu em um objeto `detection`:
 }
 ```
 
-`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso, editores que publicam um identificador de sessão vencem aquele que não publica, e entre eles a ordem é Antigravity, Claude Code, Codex, Copilot, Cursor, Pi.
+`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso o vencedor vem de uma ordem fixa — Antigravity, Claude Code, Codex, Copilot, Cursor, Pi e então opencode — que coloca os editores que publicam um identificador de sessão à frente daquele que não publica. Essa ordem vale quaisquer que sejam os identificadores: um identificador vazio ou inutilizável muda qual sessão é selecionada, nunca qual editor.
 
 A detecção falha quando o Archgate executa a partir de um shell comum, e não dentro de um editor de IA. O comando então encerra com código 1 e solicita `--editor`.
 

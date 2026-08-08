@@ -33,20 +33,32 @@ import { restoreEnv } from "../test-utils";
 // not enough: opencodeDbPath() falls back to Bun.env.HOME, which the spy does
 // not redirect, and the suite would otherwise read the real ~/.local/share.
 const HARNESS_VARS = [
+  // Every detection marker, so an ambient one cannot select an editor these
+  // tests did not ask for. The suite may itself run inside any of them.
+  "ANTIGRAVITY_AGENT",
+  "ANTIGRAVITY_CONVERSATION_ID",
+  "ANTIGRAVITY_SOURCE_METADATA",
   "CLAUDECODE",
   "CLAUDE_CODE_SESSION_ID",
+  "CODEX_THREAD_ID",
   "COPILOT_CLI",
   "COPILOT_AGENT_SESSION_ID",
   "CURSOR_AGENT",
   "CURSOR_CONVERSATION_ID",
   "OPENCODE",
   "OPENCODE_CLIENT",
+  "PI_CODING_AGENT",
+  "PI_SESSION_ID",
+  // Store locations, so the dispatch tests read the temp home rather than the
+  // developer's real ~/.codex and ~/.pi.
   "XDG_DATA_HOME",
-  // Codex and Pi resolve their stores from these; without overrides the
-  // dispatch tests would read the developer's real ~/.codex and ~/.pi.
   "CODEX_HOME",
   "PI_CODING_AGENT_DIR",
   "PI_CODING_AGENT_SESSION_DIR",
+  // Antigravity and Copilot resolve their stores from the home directory,
+  // which the os.homedir() spy does not reach.
+  "HOME",
+  "USERPROFILE",
 ] as const;
 
 const PROJECT_ROOT = "/__archgate_auto_project";
@@ -96,6 +108,8 @@ describe("session-context auto resolution", () => {
     Bun.env.XDG_DATA_HOME = join(tempHome, ".local", "share");
     Bun.env.CODEX_HOME = join(tempHome, ".codex");
     Bun.env.PI_CODING_AGENT_DIR = join(tempHome, ".pi", "agent");
+    Bun.env.HOME = tempHome;
+    Bun.env.USERPROFILE = tempHome;
 
     // Derived from the encoder, not restated — a hand-rolled copy drifts
     // silently. encodeProjectPath's output is asserted in session-context.test.ts.
@@ -290,6 +304,7 @@ describe("session-context auto resolution", () => {
     // Code fixtures, so any other editor answering with its own storage error
     // proves the call was routed there rather than to a default.
     test.each([
+      ["antigravity", "Antigravity"],
       ["codex", "Codex"],
       ["copilot", "Copilot"],
       ["cursor", "Cursor"],
@@ -304,6 +319,7 @@ describe("session-context auto resolution", () => {
     });
 
     test.each([
+      ["antigravity", "Antigravity"],
       ["codex", "Codex"],
       ["copilot", "Copilot"],
       ["cursor", "Cursor"],
