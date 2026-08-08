@@ -204,6 +204,62 @@ describe("Pi session reader", () => {
     expect(result.available).toEqual(["id-1"]);
   });
 
+  test("reports a missing sessions directory when listing", async () => {
+    Bun.env.PI_CODING_AGENT_SESSION_DIR = join(tempHome, "absent");
+
+    const result = await listPiSessions(PROJECT);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("No Pi sessions directory found");
+  });
+
+  test("resolves sessions under PI_CODING_AGENT_DIR", async () => {
+    // The agent-dir override relocates the whole config tree; sessions sit
+    // beneath it unless the session-dir override also applies.
+    const savedSessionDir = Bun.env.PI_CODING_AGENT_SESSION_DIR;
+    const savedAgentDir = Bun.env.PI_CODING_AGENT_DIR;
+    delete Bun.env.PI_CODING_AGENT_SESSION_DIR;
+    Bun.env.PI_CODING_AGENT_DIR = join(tempHome, "agent");
+    try {
+      const dir = join(
+        tempHome,
+        "agent",
+        "sessions",
+        encodePiProjectDir(PROJECT)
+      );
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "s1.jsonl"),
+        header("id-agentdir", PROJECT) + message("user", "via agent dir")
+      );
+
+      const result = await readPiSession(PROJECT);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.sessionId).toBe("id-agentdir");
+    } finally {
+      restoreEnv("PI_CODING_AGENT_DIR", savedAgentDir);
+      restoreEnv("PI_CODING_AGENT_SESSION_DIR", savedSessionDir);
+    }
+  });
+
+  test("falls back to the filename when the header carries no id", async () => {
+    const dir = join(tempHome, "sessions", encodePiProjectDir(PROJECT));
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "2026-01-01T00-00-00_fallback.jsonl"),
+      `${JSON.stringify({ type: "session", cwd: PROJECT })}\n${message("user", "x")}`
+    );
+
+    const result = await readPiSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessionId).toBe("2026-01-01T00-00-00_fallback");
+  });
+
   test("lists only sessions for the project", async () => {
     writeSession("s1", "id-1", PROJECT, message("user", "mine"));
     writeSession("s2", "id-other", OTHER_PROJECT, message("user", "theirs"));

@@ -199,6 +199,34 @@ describe("Codex session reader", () => {
     expect(result.available).toEqual(["id-1"]);
   });
 
+  test("reports a missing sessions directory when listing", async () => {
+    const result = await listCodexSessions(PROJECT);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain("No Codex sessions directory found");
+  });
+
+  test("falls back to the filename thread id when session_meta omits it", async () => {
+    const dir = join(codexHome, "sessions", "2026", "01", "01");
+    mkdirSync(dir, { recursive: true });
+    const line = `${JSON.stringify({
+      timestamp: "2026-01-01T00:00:00.000Z",
+      type: "session_meta",
+      payload: { cwd: PROJECT },
+    })}\n`;
+    writeFileSync(
+      join(dir, "rollout-2026-01-01T00-00-00-from-filename.jsonl"),
+      line + event("user_message", "hi")
+    );
+
+    const result = await readCodexSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessionId).toBe("from-filename");
+  });
+
   test("lists only rollouts for the project", async () => {
     writeRollout("id-1", PROJECT, event("user_message", "mine"));
     writeRollout("id-other", OTHER_PROJECT, event("user_message", "theirs"));

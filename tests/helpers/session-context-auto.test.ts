@@ -42,6 +42,11 @@ const HARNESS_VARS = [
   "OPENCODE",
   "OPENCODE_CLIENT",
   "XDG_DATA_HOME",
+  // Codex and Pi resolve their stores from these; without overrides the
+  // dispatch tests would read the developer's real ~/.codex and ~/.pi.
+  "CODEX_HOME",
+  "PI_CODING_AGENT_DIR",
+  "PI_CODING_AGENT_SESSION_DIR",
 ] as const;
 
 const PROJECT_ROOT = "/__archgate_auto_project";
@@ -89,6 +94,8 @@ describe("session-context auto resolution", () => {
     tempHome = mkdtempSync(join(os.tmpdir(), "archgate-auto-session-"));
     homedirSpy = spyOn(os, "homedir").mockReturnValue(tempHome);
     Bun.env.XDG_DATA_HOME = join(tempHome, ".local", "share");
+    Bun.env.CODEX_HOME = join(tempHome, ".codex");
+    Bun.env.PI_CODING_AGENT_DIR = join(tempHome, ".pi", "agent");
 
     // Derived from the encoder, not restated — a hand-rolled copy drifts
     // silently. encodeProjectPath's output is asserted in session-context.test.ts.
@@ -283,9 +290,11 @@ describe("session-context auto resolution", () => {
     // Code fixtures, so any other editor answering with its own storage error
     // proves the call was routed there rather than to a default.
     test.each([
+      ["codex", "Codex"],
       ["copilot", "Copilot"],
       ["cursor", "Cursor"],
       ["opencode", "opencode"],
+      ["pi", "Pi"],
     ] as const)("routes %s reads to its own reader", async (editor, marker) => {
       const result = await readAutoSession(PROJECT_ROOT, { editor });
 
@@ -295,9 +304,11 @@ describe("session-context auto resolution", () => {
     });
 
     test.each([
+      ["codex", "Codex"],
       ["copilot", "Copilot"],
       ["cursor", "Cursor"],
       ["opencode", "opencode"],
+      ["pi", "Pi"],
     ] as const)("routes %s lists to its own reader", async (editor, marker) => {
       const result = await listAutoSessions(PROJECT_ROOT, { editor });
 
