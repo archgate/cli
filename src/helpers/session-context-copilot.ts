@@ -214,7 +214,11 @@ export async function readCopilotSession(
       role,
       message: { content },
     };
-    relevant.push({ role, contentPreview: getContentPreview(normalized) });
+    const contentPreview = getContentPreview(normalized);
+    // An assistant turn that only issued tool calls carries no prose, and
+    // `toolRequests` holds the calls instead.
+    if (contentPreview.trim() === "") continue;
+    relevant.push({ role, contentPreview });
   }
 
   const trimmed = relevant.length > limit ? relevant.slice(-limit) : relevant;
