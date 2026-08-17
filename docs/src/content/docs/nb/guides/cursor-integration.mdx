@@ -147,12 +147,14 @@ For full styring i skymiljøer, sørg for at `archgate` er tilgjengelig på VM-e
 
 ## Tilgang til sesjonsutskrifter
 
-Kommandoen `archgate session-context cursor` leser Cursor-agentens sesjonsutskrifter fra disk. Dette lar ferdigheter få tilgang til historikken til den gjeldende samtalen, noe som er nyttig for å gjenopprette kontekst som kan ha blitt komprimert eller avkortet.
+Kommandoen `archgate session-context` leser Cursor-agentens sesjonsutskrifter fra disk. Dette lar ferdigheter få tilgang til historikken til den gjeldende samtalen, noe som er nyttig for å gjenopprette kontekst som kan ha blitt komprimert eller avkortet.
 
-Kommandoen aksepterer to valgfrie flagg:
+Når Cursor er den gjenkjente editoren, trenger du ikke oppgi en editor. Bruk `--editor cursor` for å lese Cursors sesjonsutskrifter uansett hva som ble gjenkjent — nyttig når en annen agent kjører inne i Cursor og vinner gjenkjenningen. Kommandoen aksepterer to valg:
 
 - `--max-entries <n>` -- Maksimalt antall oppføringer å returnere (standard: 200, nyeste oppføringer).
-- `--session-id <uuid>` -- En spesifikk sesjons-UUID å lese. Hvis utelatt, brukes den nyeste sesjonen.
+- `--editor <name>` -- Les en annen editors sesjonsutskrifter i stedet for den gjenkjente.
+
+Bruk `archgate session-context list` for å oppdage tidligere sesjoner, og `archgate session-context show <session-id>` for å lese en bestemt en.
 
 ## Tips for effektiv bruk
 

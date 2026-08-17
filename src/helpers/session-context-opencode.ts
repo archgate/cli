@@ -2,17 +2,16 @@
 // Copyright 2026 Archgate
 import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
 
 import { logDebug } from "./log";
 import { opencodeDbPath } from "./paths";
-import { isWindows } from "./platform";
 import {
   RELEVANT_ROLES,
   type ReadSessionOptions,
   type SessionListResult,
   type TranscriptEntry,
   getContentPreview,
+  normalizePath,
 } from "./session-context";
 
 interface OpencodeSessionSummary {
@@ -43,10 +42,6 @@ type OpencodeSessionResult =
  * Lowercases on Windows (case-insensitive FS), normalizes separators to `/`,
  * and resolves to an absolute path.
  */
-function normalizePath(p: string): string {
-  const resolved = resolve(p).replaceAll("\\", "/");
-  return isWindows() ? resolved.toLowerCase() : resolved;
-}
 
 interface SessionRow {
   id: string;

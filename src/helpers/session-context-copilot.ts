@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 import { z } from "zod";
 
 import { logDebug } from "./log";
 import { copilotSessionStateDir } from "./paths";
-import { isWindows } from "./platform";
 import {
   MessageContentSchema,
   type ReadSessionOptions,
   type SessionListResult,
   type TranscriptEntry,
   getContentPreview,
+  normalizePath,
 } from "./session-context";
 
 const WorkspaceMetaSchema = z.object({
@@ -42,16 +42,6 @@ interface ReadCopilotSessionOptions extends ReadSessionOptions {
 type CopilotSessionResult =
   | { ok: true; data: CopilotSessionSummary }
   | { ok: false; error: string; path?: string; available?: string[] };
-
-/**
- * Normalize a file path for cross-platform comparison.
- * Lowercases on Windows (case-insensitive FS), normalizes separators to `/`,
- * and resolves to an absolute path.
- */
-function normalizePath(p: string): string {
-  const resolved = resolve(p).replaceAll("\\", "/");
-  return isWindows() ? resolved.toLowerCase() : resolved;
-}
 
 const COPILOT_RELEVANT_TYPES = new Set(["user.message", "assistant.message"]);
 
@@ -224,7 +214,11 @@ export async function readCopilotSession(
       role,
       message: { content },
     };
-    relevant.push({ role, contentPreview: getContentPreview(normalized) });
+    const contentPreview = getContentPreview(normalized);
+    // An assistant turn that only issued tool calls carries no prose, and
+    // `toolRequests` holds the calls instead.
+    if (contentPreview.trim() === "") continue;
+    relevant.push({ role, contentPreview });
   }
 
   const trimmed = relevant.length > limit ? relevant.slice(-limit) : relevant;

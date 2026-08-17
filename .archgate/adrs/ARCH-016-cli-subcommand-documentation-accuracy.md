@@ -38,7 +38,7 @@ Conversely, every heading whose command path's parent chain consists of command-
 **Scope:**
 
 - **Module-backed subcommands, at every depth.** A group is any directory with an `index.ts`; its subcommands are sibling `<sub>.ts` modules and child groups. `src/commands/adr/domain/add.ts` is the command `adr domain add` and needs that heading in `adr.mdx`.
-- **In-module subcommands are manual territory.** Subcommands registered inside a single module (e.g. `session-context/claude-code.ts` registering `list`/`show`) are invisible to file-layout discovery: their headings are permitted, not orphan-flagged, and their coverage rests on code review.
+- **In-module subcommands are manual territory.** Subcommands registered inside a single module (e.g. `session-context.ts` registering `list`/`show`) are invisible to file-layout discovery: their headings are permitted, not orphan-flagged, and their coverage rests on code review. A heading is orphan-checked only when every ancestor in its command path is a group directory, so a command whose parent is a plain module — or a top-level command with no directory at all — is exempt.
 - **EN docs only.** The pt-br mirror is enforced by GEN-002.
 - **Website docs only.** The skill reference (`commands.md` in plugin directories) is in a separate repository and cannot be checked from this project. Its sync is a manual responsibility documented in the Do's section below.
 
@@ -75,7 +75,7 @@ Conversely, every heading whose command path's parent chain consists of command-
 ### Risks
 
 - **Non-standard heading format bypasses the rule.** A heading like `## Import ADRs` instead of `## archgate adr import` goes undetected. **Mitigation:** The Do's section specifies the required format, and the rule's fix suggestion includes the expected heading text.
-- **Orphan detection is depth-limited by design.** A heading whose parent chain ends in a leaf module (e.g. `#### archgate session-context claude-code list`) cannot be verified against the file layout and is never orphan-flagged, so a stale in-module subcommand heading survives the rule. **Mitigation:** reviewers check in-module subcommand docs when the registering module changes.
+- **Orphan detection is depth-limited by design.** A heading is orphan-flagged only when every ancestor in its command path is a group directory. A heading under a leaf module, or under a top-level command with no directory (e.g. `### archgate session-context list`), cannot be verified against the file layout, so a stale in-module subcommand heading survives the rule. **Mitigation:** reviewers check in-module subcommand docs when the registering module changes.
 
 ## Compliance and Enforcement
 
