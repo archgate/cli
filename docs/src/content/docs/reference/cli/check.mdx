@@ -141,6 +141,14 @@ Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `
 { "baseBranch": "main" }
 ```
 
+### Skipping untouched ADRs
+
+Whenever the change set is non-empty (any of priorities 1--4 above), an ADR whose `files` globs match none of the changed files is skipped entirely: its rules never run, and it does not appear in the results or the pass/fail counts -- the same behavior as a `[files...]` filter that matches nothing the ADR governs. Deleted files count as changes, so removing a file inside an ADR's scope still runs that ADR. ADRs without a `files` scope always run.
+
+This means a rule does not need to filter `ctx.scopedFiles` against `ctx.changedFiles` just to avoid work when its ADR is irrelevant to the change; the framework never invokes it in that case. Filtering inside the rule is still useful when some in-scope files changed and the rule only wants to inspect those.
+
+When the change set is empty -- detection fails, `--staged` finds nothing staged, or the working tree matches the base (for example on the base branch itself in CI) -- every ADR runs (full-scan mode).
+
 ## Diagnostics
 
 During execution, `archgate check` emits warnings for common misconfigurations that may cause slow or unexpected results:

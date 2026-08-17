@@ -141,6 +141,14 @@ A autodetecção tenta `origin/HEAD`, depois `origin/main`, `origin/master`, `ma
 { "baseBranch": "main" }
 ```
 
+### Pulando ADRs não afetados
+
+Sempre que o conjunto de alterações não estiver vazio (qualquer uma das prioridades 1--4 acima), um ADR cujos globs em `files` não correspondam a nenhum dos arquivos alterados é pulado por completo: suas regras nunca executam, e ele não aparece nos resultados nem nas contagens de aprovação/falha -- o mesmo comportamento de um filtro `[files...]` que não corresponde a nada governado pelo ADR. Arquivos excluídos contam como alterações, então remover um arquivo dentro do escopo de um ADR ainda executa esse ADR. ADRs sem escopo `files` sempre executam.
+
+Isso significa que uma regra não precisa filtrar `ctx.scopedFiles` contra `ctx.changedFiles` apenas para evitar trabalho quando seu ADR é irrelevante para a alteração; o framework nunca a invoca nesse caso. Filtrar dentro da regra continua útil quando alguns arquivos no escopo mudaram e a regra quer inspecionar apenas esses.
+
+Quando o conjunto de alterações está vazio -- a detecção falha, `--staged` não encontra nada em stage, ou a árvore de trabalho é igual à base (por exemplo, na própria branch base no CI) -- todos os ADRs executam (modo de varredura completa).
+
 ## Diagnósticos
 
 Durante a execução, `archgate check` emite avisos para configurações incorretas comuns que podem causar resultados lentos ou inesperados:

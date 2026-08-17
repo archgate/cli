@@ -49,7 +49,7 @@ import {
   getMergeBase,
   getFileAtRev,
 } from "./git-files";
-import { listMatchingFiles, matchLines } from "./glob-utils";
+import { anyFileMatches, listMatchingFiles, matchLines } from "./glob-utils";
 import { parseTsOrJsSource } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { isWithinRoot, resolveUserPath, safePath } from "./safe-path";
@@ -405,6 +405,9 @@ function createRuleContext(
 
 /**
  * Run all rules from loaded ADRs. Parallel across ADRs, sequential within each ADR.
+ * When a change set is resolved (`--staged`, or a `--base`/detected ref that
+ * yields changed files), ADRs whose `files` globs match none of the changed
+ * files are skipped entirely; ADRs without `files` always run.
  */
 export async function runChecks(
   projectRoot: string,
@@ -481,6 +484,14 @@ export async function runChecks(
     allTrackedFilesPromise,
   ]);
 
+  // Incremental mode: an ADR whose `files` globs match none of the changed
+  // files is skipped before scope resolution — its rules never run and it is
+  // absent from the results, exactly like a `--files` filter that matches
+  // nothing (archgate/cli#567). Matching against `changedFiles` rather than
+  // the on-disk scope keeps deleted files counted as changes.
+  const isUntouched = (globs?: string[]) =>
+    changedFiles.length > 0 && !anyFileMatches(globs, changedFiles);
+
   // ARCH-022: the ctx.ast() interpreter probe is cached once per check
   // invocation — shared across every ADR and rule in this run.
   const interpreterCache = new Map<string, Promise<string | null>>();
@@ -495,6 +506,11 @@ export async function runChecks(
 
   const adrResults = await Promise.allSettled(
     loadedAdrs.map(async ({ adr, ruleSet }) => {
+      if (isUntouched(adr.frontmatter.files)) {
+        logDebug(`Skipping ADR ${adr.frontmatter.id}: scope untouched`);
+        return [];
+      }
+
       const respectGitignore = adr.frontmatter.respectGitignore !== false;
       const trackedFiles = respectGitignore ? allTrackedFiles : null;
 
