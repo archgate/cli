@@ -3345,7 +3345,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff plus uncommitted working-tree changes (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
+2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff plus uncommitted working-tree changes (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules. You do not need to guard against an empty intersection: when the change set is non-empty and none of it matches the ADR's `files` globs, the ADR is [skipped entirely](/reference/cli/check/#skipping-untouched-adrs) and the rule is never called.
 
 3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
 
@@ -4238,6 +4238,14 @@ Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `
 ```json
 { "baseBranch": "main" }
 ```
+
+### Skipping untouched ADRs
+
+Whenever the change set is non-empty (any of priorities 1--4 above), an ADR whose `files` globs match none of the changed files is skipped entirely: its rules never run, and it does not appear in the results or the pass/fail counts -- the same behavior as a `[files...]` filter that matches nothing the ADR governs. Deleted files count as changes, so removing a file inside an ADR's scope still runs that ADR. ADRs without a `files` scope always run.
+
+This means a rule does not need to filter `ctx.scopedFiles` against `ctx.changedFiles` just to avoid work when its ADR is irrelevant to the change; the framework never invokes it in that case. Filtering inside the rule is still useful when some in-scope files changed and the rule only wants to inspect those.
+
+When the change set is empty -- detection fails, `--staged` finds nothing staged, or the working tree matches the base (for example on the base branch itself in CI) -- every ADR runs (full-scan mode).
 
 ## Diagnostics
 
