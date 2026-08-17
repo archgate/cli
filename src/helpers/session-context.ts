@@ -2,19 +2,55 @@
 // Copyright 2026 Archgate
 import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, resolve } from "node:path";
 
 import { z } from "zod";
 
 import type { EditorTarget } from "./init-project";
-import { isWSL, toWindowsPath } from "./platform";
+import { isWindows, isWSL, toWindowsPath } from "./platform";
+
+/**
+ * Normalize a path for cross-platform comparison: resolve to absolute, use
+ * `/` separators, and lowercase on Windows where the filesystem is
+ * case-insensitive. Readers compare a session's recorded working directory
+ * against the project root through this.
+ */
+export function normalizePath(p: string): string {
+  const resolved = resolve(p).replaceAll("\\", "/");
+  return isWindows() ? resolved.toLowerCase() : resolved;
+}
+
+/**
+ * Failure for a session file that is discovered but then unreadable, which a
+ * session removed between discovery and the read produces.
+ */
+export function sessionReadFailure(file: string) {
+  return {
+    ok: false as const,
+    error: "Failed to read session file",
+    path: file,
+  };
+}
+
+/**
+ * Slugify a project root the way cursor-agent names its directory under
+ * `~/.cursor/projects/`: each non-alphanumeric run becomes one dash, and the
+ * ends are trimmed. Collapsing is what resolves a dot-segment — `\.claude\`
+ * yields `-claude-`, so a worktree under `.claude/` finds Cursor's directory.
+ */
+function slugifyCursorPath(raw: string): string {
+  return raw
+    .replaceAll(/[^a-zA-Z0-9]/gu, "-")
+    .replaceAll(/-+/gu, "-")
+    .replaceAll(/^-+|-+$/gu, "");
+}
 
 /**
  * Encode a project root into the session-directory name under
- * `~/.claude/projects/` or `~/.cursor/projects/`: separators (`\`, `/`) and
- * dots become dashes; drive-letter colons become dashes for Claude Code
- * (`C:\Users\x` → `C--Users-x`) but are stripped by Cursor (`C-Users-x`).
- * In WSL, converts to the Windows path first to match the Windows-side editor.
+ * `~/.claude/projects/` or `~/.cursor/projects/`. Each editor's own encoding
+ * must be matched exactly: Claude Code keeps every separator it maps to a
+ * dash (`C:\Users\x` → `C--Users-x`), while Cursor collapses runs and trims
+ * (`C-Users-x`). In WSL, converts to the Windows path first.
  */
 export async function encodeProjectPath(
   projectRoot: string,
@@ -27,11 +63,11 @@ export async function encodeProjectPath(
       raw = winPath;
     }
   }
-  const colonReplacement = target === "cursor" ? "" : "-";
+  if (target === "cursor") return slugifyCursorPath(raw);
   return raw
     .replaceAll("\\", "-")
     .replaceAll("/", "-")
-    .replaceAll(":", colonReplacement)
+    .replaceAll(":", "-")
     .replaceAll(".", "-");
 }
 

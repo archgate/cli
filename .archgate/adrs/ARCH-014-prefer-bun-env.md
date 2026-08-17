@@ -50,11 +50,13 @@ All environment variable access in `src/` MUST use `Bun.env` instead of `process
 - **DO** use nullish coalescing for defaults: `Bun.env.NODE_ENV ?? "production"`
 - **DO** use `Boolean(Bun.env.CI)` for truthy checks on environment flags — but only inline, as one operand of a larger `&&`/`||` expression, or assigned to a `const` first. `Boolean(x)` used as the _sole, direct_ condition of `if (...)`/`cond ? a : b`/`!x` trips `eslint(no-extra-boolean-cast)` ("redundant Boolean call"), since that position is already boolean-coerced — assign to a `const` first (see Implementation Pattern) or use an explicit `!== undefined && !== ""` comparison instead
 - **DO** keep `process.env` in test files (`tests/`) where test harness compatibility is needed
+- **DO** normalize a value through `usableEnv()` (`src/helpers/paths.ts`) before using it as a lookup key, path segment, or identifier — it maps both `""` and the literal string `"undefined"`, which shells and tooling surface for an unset variable, to `null`
 
 ### Don't
 
 - **DON'T** use `process.env` in any file under `src/` — use `Bun.env` instead
-- **DON'T** create wrapper functions around `Bun.env` — access it directly
+- **DON'T** create wrapper functions around `Bun.env` — access it directly. `usableEnv()` is not such a wrapper: it validates a value already read from `Bun.env`, and performs no lookup of its own
+- **DON'T** default an env value to an empty string (`Bun.env.FOO ?? ""`) when the consumer distinguishes "absent" from "supplied" — `""` reads as absent at the far end, so a rejected value becomes indistinguishable from an unset one and the failure surfaces as silently wrong behavior rather than an error
 - **DON'T** destructure `Bun.env` (e.g., `const { HOME } = Bun.env`) — the proxy-based implementation may not support it reliably across versions; access properties individually
 
 ## Implementation Pattern

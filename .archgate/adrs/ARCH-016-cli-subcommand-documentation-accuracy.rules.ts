@@ -109,8 +109,8 @@ export default {
 
           // Docs -> subcommand: a heading is an orphan only when its parent
           // chain consists of group directories — a heading under a leaf
-          // module (e.g. "session-context claude-code list") documents an
-          // in-module subcommand the file layout cannot verify.
+          // module (e.g. "session-context list") documents an in-module
+          // subcommand the file layout cannot verify.
           const lowerPaths = new Set([...cmdPaths].map((p) => p.toLowerCase()));
           for (const docPath of [...documented].sort()) {
             if (lowerPaths.has(docPath)) continue;

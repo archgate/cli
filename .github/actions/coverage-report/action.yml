@@ -68,6 +68,21 @@ runs:
         RUN_URL: ${{ inputs.run-url }}
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
+        # awk compares a value it cannot read as a number as a string, and a
+        # string comparison reports even 0% coverage as meeting the threshold —
+        # silently disabling the gate. Require a plain decimal percentage before
+        # the value is ever used as a number. Digits alone are not enough: "."
+        # and "1..2" contain none but a digit or a dot, yet neither is a number.
+        reject_threshold() {
+          echo "::error::min-coverage must be a number between 0 and 100, got '${MIN_COVERAGE}'."
+          exit 1
+        }
+        case "$MIN_COVERAGE" in
+          '' | '.' | *[!0-9.]* | *.*.*) reject_threshold ;;
+        esac
+        # Safe to compare numerically now that the syntax is known good.
+        awk -v m="$MIN_COVERAGE" 'BEGIN{exit !(m >= 0 && m <= 100)}' || reject_threshold
+
         # Start with Linux coverage
         cp "$LINUX_COVERAGE" merged.info
 
@@ -88,14 +103,20 @@ runs:
         # Parse summary stats
         LINES_FOUND=$(awk -F: '/^LF:/{s+=$2} END{print s+0}' coverage.info)
         LINES_HIT=$(awk -F: '/^LH:/{s+=$2} END{print s+0}' coverage.info)
+        # Pass values as awk data (-v), never interpolated into the awk program
+        # source — min-coverage is caller-supplied and could otherwise inject
+        # awk code. Rounding to one decimal here means the effective gate is the
+        # requested threshold minus 0.05.
         if [ "$LINES_FOUND" -gt 0 ]; then
-          COVERAGE=$(awk "BEGIN{printf \"%.1f\", ($LINES_HIT/$LINES_FOUND)*100}")
+          COVERAGE=$(awk -v hit="$LINES_HIT" -v found="$LINES_FOUND" \
+            'BEGIN{printf "%.1f", (hit/found)*100}')
         else
           COVERAGE="0.0"
         fi
 
         # Determine coverage threshold status
-        THRESHOLD_MET=$(awk "BEGIN{print ($COVERAGE >= $MIN_COVERAGE) ? 1 : 0}")
+        THRESHOLD_MET=$(awk -v coverage="$COVERAGE" -v minimum="$MIN_COVERAGE" \
+          'BEGIN{print (coverage >= minimum) ? 1 : 0}')
         if [ "$THRESHOLD_MET" = "1" ]; then
           THRESHOLD_LABEL="met"
           THRESHOLD_MET_OUTPUT="true"

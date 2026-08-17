@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-CI enforces a 99.5% floor on merged Linux+Windows coverage. Two things make a local number disagree with it, and both send you chasing work that does not exist.
+CI enforces a 99.9% floor on merged Linux+Windows coverage. Two things make a local number disagree with it, and both send you chasing work that does not exist.
 
 ## Reproducing CI's number
 
