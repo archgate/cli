@@ -51,13 +51,23 @@ export interface SuppressionResult {
 const SUPPRESSION_RE =
   /^[ \t]*(?:\/\/|#)\s*archgate-ignore(-file)?\s+([\w-]+)\/([\w-]+)(?:\s+(.+))?$/u;
 
+/**
+ * Matches the HTML-comment form used in markdown, e.g.
+ * `<!-- archgate-ignore ARCH-021/no-escaped-backtick escaped on purpose -->`.
+ * Markdown renders `#` as a heading and `//` as body text, so prose files need
+ * a form that stays invisible. Capture groups match SUPPRESSION_RE.
+ */
+const HTML_SUPPRESSION_RE =
+  /^[ \t]*<!--\s*archgate-ignore(-file)?\s+([\w-]+)\/([\w-]+)(?:\s+(.+?))?\s*-->[ \t]*$/u;
+
 /** Regex to detect fenced code block delimiters in markdown (``` or ~~~). */
 const FENCE_RE = /^[ \t]*(`{3,}|~{3,})/u;
 
 /**
  * Parse suppression comments from file content. In markdown files (.md, .mdx),
  * lines inside fenced code blocks are skipped so that documented examples of
- * `archgate-ignore` are not treated as real suppression directives.
+ * `archgate-ignore` are not treated as real suppression directives, and the
+ * HTML-comment form is additionally recognised.
  *
  * @returns One entry per matching comment line.
  */
@@ -77,7 +87,9 @@ export function parseSuppressions(
     }
     if (insideCodeBlock) continue;
 
-    const match = SUPPRESSION_RE.exec(lines[i]);
+    const match =
+      SUPPRESSION_RE.exec(lines[i]) ??
+      (isMarkdown ? HTML_SUPPRESSION_RE.exec(lines[i]) : null);
     if (!match) continue;
 
     results.push({

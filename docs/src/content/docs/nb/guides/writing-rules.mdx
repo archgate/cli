@@ -655,6 +655,16 @@ Formatet er `ADR-ID/rule-id` etterfulgt av en begrunnelse. Begrunnelsen er **på
 
 Både `//` og `#` kommentarstiler støttes, slik at undertrykkelser fungerer i TypeScript, JavaScript, YAML, Python, shell-skript og andre filtyper reglene dine kan skanne.
 
+**Markdown**-filer (`.md`, `.mdx`) godtar i tillegg HTML-kommentarformen, som forblir usynlig på den gjengitte siden — `#` ville blitt en overskrift og `//` ville vist seg som brødtekst:
+
+```md
+<!-- archgate-ignore ARCH-021/no-escaped-backtick bakoverfnutten er sitert fra en shell-utskrift -->
+
+<!-- archgate-ignore-file ARCH-021/ai-writing-signs ordrett utdrag fra en ekstern RFC -->
+```
+
+Kommentaren må fylle hele linjen, og direktiver inne i inngjerdede kodeblokker ignoreres slik at dokumenterte eksempler forblir uvirksomme.
+
 :::tip
 Ubrukte undertrykkelseskommentarer (kommentarer som ikke matcher noen brudd) gir også advarsler, som hjelper deg med å rydde opp i foreldede unntak etter hvert som koden utvikler seg.
 :::
