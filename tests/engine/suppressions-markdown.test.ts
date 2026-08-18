@@ -50,6 +50,17 @@ describe("parseSuppressions (markdown HTML comments)", () => {
     expect(result[0].ruleId).toBe("no-escaped-backtick");
   });
 
+  test("treats a whitespace-only reason as missing", () => {
+    const content = [
+      "<!-- archgate-ignore ARCH-021/no-escaped-backtick    -->",
+      "text",
+    ].join("\n");
+    const result = parseSuppressions(content, "docs/guide.md");
+
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toBeNull();
+  });
+
   test("parses the file-level variant", () => {
     const content = [
       "<!-- archgate-ignore-file ARCH-021/ai-writing-signs quoted source text -->",
@@ -230,6 +241,25 @@ describe("applySuppressions (markdown HTML comments)", () => {
       [
         "# Guide",
         "<!-- archgate-ignore ARCH-021/no-escaped-backtick -->",
+        "An escaped backtick line.",
+        "",
+      ].join("\n")
+    );
+
+    const v = makeViolation();
+    const result = await applySuppressions(tempDir, [makeRuleResult([v])]);
+
+    expect(result.suppressedCount).toBe(0);
+    expect(result.activeViolations.has(v)).toBe(true);
+    expect(result.warnings[0].message).toContain("missing a reason");
+  });
+
+  test("whitespace-only reason leaves the violation active and warns", async () => {
+    writeFileSync(
+      join(tempDir, "docs", "guide.md"),
+      [
+        "# Guide",
+        "<!-- archgate-ignore ARCH-021/no-escaped-backtick    -->",
         "An escaped backtick line.",
         "",
       ].join("\n")

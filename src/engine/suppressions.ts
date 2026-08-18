@@ -64,6 +64,18 @@ const HTML_SUPPRESSION_RE =
 const FENCE_RE = /^[ \t]*(`{3,}|~{3,})/u;
 
 /**
+ * Normalise the reason capture. Group 4 is genuinely optional in both
+ * suppression patterns — TS's RegExpExecArray typing doesn't model per-group
+ * optionality, hence the `string | undefined` parameter. A reason that is only
+ * whitespace carries no justification, so it is reported as absent rather than
+ * as an empty one, which would otherwise satisfy the reason requirement.
+ */
+function normalizeReason(raw: string | undefined): string | null {
+  const reason = raw?.trim();
+  return reason === undefined || reason === "" ? null : reason;
+}
+
+/**
  * Parse suppression comments from file content. In markdown files (.md, .mdx),
  * lines inside fenced code blocks are skipped so that documented examples of
  * `archgate-ignore` are not treated as real suppression directives, and the
@@ -96,11 +108,7 @@ export function parseSuppressions(
       type: match[1] === "-file" ? "file" : "next-line",
       adrId: match[2],
       ruleId: match[3],
-      // Group 4 (reason) is genuinely optional in SUPPRESSION_RE — TS's
-      // RegExpExecArray typing doesn't model per-group optionality, so the
-      // `?.` here is required at runtime despite the lint claiming it isn't.
-      // oxlint-disable-next-line typescript/no-unnecessary-condition
-      reason: match[4]?.trim() ?? null,
+      reason: normalizeReason(match[4]),
       line: i + 1,
       file: filePath,
       matched: false,
