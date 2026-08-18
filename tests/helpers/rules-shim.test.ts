@@ -168,4 +168,34 @@ describe("rules-shim", () => {
     const content = await Bun.file(dtsPath).text();
     expect(content).toContain("declare interface RuleContext");
   });
+
+  // Regression: `archgate check` on a read-only filesystem (EROFS, Sentry
+  // CLI-A) must not abort because the editor-typing shim can't be written.
+  // A directory squatting on the shim path makes the write fail on every OS.
+  test("ensureRulesShim tolerates an unwritable shim path", async () => {
+    const dtsPath = join(tempDir, ".archgate", "rules.d.ts");
+    mkdirSync(dtsPath, { recursive: true });
+
+    // Would reject with EISDIR/EPERM if the write were not best-effort.
+    await ensureRulesShim(tempDir);
+
+    // Nothing was written over the squatter; the command simply carried on.
+    expect(existsSync(dtsPath)).toBe(true);
+    expect(await Bun.file(dtsPath).exists()).toBe(false);
+  });
+
+  test("ensureRulesShim tolerates an unwritable custom shim path", async () => {
+    const customAdrsDir = join(tempDir, "docs", "adrs");
+    const customDtsPath = join(tempDir, "docs", "rules.d.ts");
+    mkdirSync(customAdrsDir, { recursive: true });
+    mkdirSync(customDtsPath);
+
+    await ensureRulesShim(tempDir, customAdrsDir);
+
+    // The squatter on the custom path is left alone.
+    expect(existsSync(customDtsPath)).toBe(true);
+    expect(await Bun.file(customDtsPath).exists()).toBe(false);
+    // The default shim is still written when its own path is writable.
+    expect(existsSync(join(tempDir, ".archgate", "rules.d.ts"))).toBe(true);
+  });
 });

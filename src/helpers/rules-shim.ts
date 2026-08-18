@@ -88,7 +88,11 @@ export async function writeRulesShim(projectRoot: string): Promise<void> {
 
 /**
  * Write `rules.d.ts` to a specific path if it doesn't already match.
- * Returns true when a disk write occurred, false when skipped (up-to-date).
+ *
+ * Best-effort: the shim only feeds editor type checking of `.rules.ts`
+ * files, so a project on a read-only or otherwise unwritable filesystem
+ * (EROFS, EACCES) must still be checkable. A failed write is logged at debug
+ * level and swallowed rather than aborting the command that triggered it.
  */
 async function ensureShimAt(dtsPath: string, expected: string): Promise<void> {
   try {
@@ -101,8 +105,16 @@ async function ensureShimAt(dtsPath: string, expected: string): Promise<void> {
     // File missing or unreadable — fall through to the write.
   }
 
-  await Bun.write(dtsPath, expected);
-  logDebug("Rules type definitions written:", dtsPath);
+  try {
+    await Bun.write(dtsPath, expected);
+    logDebug("Rules type definitions written:", dtsPath);
+  } catch (error) {
+    logDebug(
+      "Rules type definitions not written (filesystem not writable):",
+      dtsPath,
+      error instanceof Error ? error.message : String(error)
+    );
+  }
 }
 
 /**
@@ -110,6 +122,8 @@ async function ensureShimAt(dtsPath: string, expected: string): Promise<void> {
  * the on-disk content already matches. When `customAdrsDir` differs from the
  * default `.archgate/adrs/`, a copy also lands next to that directory so the
  * companion files' triple-slash reference resolves.
+ *
+ * Never throws on write failure — see {@link ensureShimAt}.
  */
 export async function ensureRulesShim(
   projectRoot: string,
