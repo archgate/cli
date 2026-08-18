@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 import { getGitTrackedFiles } from "../../src/engine/git-files";
 import {
+  anyFileMatches,
   listMatchingFiles,
   matchLines,
   matchTrackedFiles,
@@ -70,6 +71,33 @@ describe("matchTrackedFiles", () => {
     const tracked = new Set(["a.ts", "b.md", "c.json"]);
     const matched = matchTrackedFiles(["*.ts", "*.md"], tracked);
     expect(matched).toEqual(new Set(["a.ts", "b.md"]));
+  });
+});
+
+describe("anyFileMatches", () => {
+  const files = new Set(["src/cli.ts", "docs/readme.md", ".github/ci.yml"]);
+
+  test.each([
+    [["src/**/*.ts"], true],
+    [["docs/**"], true],
+    [["**/*.yml"], true],
+    [["tests/**/*.ts"], false],
+    [["tests/**", "src/**/*.md"], false],
+    [["tests/**", "src/**/*.ts"], true],
+    [["{src,tests}/**/*.ts"], true],
+  ])("patterns %j -> %p", (patterns, expected) => {
+    expect(anyFileMatches(patterns, files)).toBe(expected);
+  });
+
+  test.each<{ patterns: string[] | undefined }>([
+    { patterns: undefined },
+    { patterns: [] },
+  ])("$patterns patterns match everything (unscoped ADR)", ({ patterns }) => {
+    expect(anyFileMatches(patterns, files)).toBe(true);
+  });
+
+  test("an empty file set matches nothing under a real scope", () => {
+    expect(anyFileMatches(["**/*"], new Set())).toBe(false);
   });
 });
 

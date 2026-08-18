@@ -600,7 +600,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Bruk `ctx.changedFiles` for inkrementell sjekking.** `ctx.changedFiles` fylles automatisk med grenforskjellen pluss ikke-committede endringer i arbeidstreet (eller stagede filer med `--staged`). Filtrer `ctx.scopedFiles` mot den for å bare sjekke det som er endret, eller bruk den direkte for regler om avhengigheter mellom filer.
+2. **Bruk `ctx.changedFiles` for inkrementell sjekking.** `ctx.changedFiles` fylles automatisk med grenforskjellen pluss ikke-committede endringer i arbeidstreet (eller stagede filer med `--staged`). Filtrer `ctx.scopedFiles` mot den for å bare sjekke det som er endret, eller bruk den direkte for regler om avhengigheter mellom filer. Du trenger ikke å gardere deg mot et tomt snitt: når endringssettet ikke er tomt og ingenting i det matcher ADR-ens `files`-globs, [hoppes ADR-en over i sin helhet](/reference/cli/check/#hopper-over-uberørte-adr-er) og regelen kalles aldri.
 
 3. **Hold reglene fokusert på ett anliggende.** En regel som sjekker både navnekonvensjoner og importmønstre bør deles i to regler med separate ID-er.
 

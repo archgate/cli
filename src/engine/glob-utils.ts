@@ -108,6 +108,22 @@ export function matchTrackedFiles(
 }
 
 /**
+ * True when at least one of `files` matches any of `patterns`. Undefined or
+ * empty `patterns` (an unscoped ADR) match everything.
+ */
+export function anyFileMatches(
+  patterns: string[] | undefined,
+  files: Iterable<string>
+): boolean {
+  if (patterns === undefined || patterns.length === 0) return true;
+  const globs = patterns.map((p) => new Bun.Glob(p));
+  for (const file of files) {
+    if (globs.some((g) => g.match(file))) return true;
+  }
+  return false;
+}
+
+/**
  * List project files matching a rule-supplied glob pattern, sorted and
  * `/`-normalized. Every brace-expanded alternative is validated first —
  * expansion can surface absolute or `..` alternatives hidden inside a brace

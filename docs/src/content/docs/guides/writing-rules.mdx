@@ -600,7 +600,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff plus uncommitted working-tree changes (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules.
+2. **Use `ctx.changedFiles` for incremental checking.** `ctx.changedFiles` is auto-populated with the branch diff plus uncommitted working-tree changes (or staged files with `--staged`). Filter `ctx.scopedFiles` against it to check only what changed, or use it directly for cross-file dependency rules. You do not need to guard against an empty intersection: when the change set is non-empty and none of it matches the ADR's `files` globs, the ADR is [skipped entirely](/reference/cli/check/#skipping-untouched-adrs) and the rule is never called.
 
 3. **Keep rules focused on one concern.** A rule that checks both naming conventions and import patterns should be split into two rules with separate IDs.
 

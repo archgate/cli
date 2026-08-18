@@ -141,6 +141,14 @@ Autodeteksjon prøver `origin/HEAD`, deretter `origin/main`, `origin/master`, lo
 { "baseBranch": "main" }
 ```
 
+### Hopper over uberørte ADR-er
+
+Når endringssettet ikke er tomt (en av prioritetene 1--4 ovenfor), hoppes en ADR hvis `files`-globs ikke matcher noen av de endrede filene over i sin helhet: reglene kjøres aldri, og ADR-en vises verken i resultatene eller i tellingen av beståtte/feilede regler -- samme oppførsel som et `[files...]`-filter som ikke matcher noe ADR-en styrer. Slettede filer regnes som endringer, så fjerning av en fil innenfor en ADRs omfang kjører fortsatt den ADR-en. ADR-er uten `files`-omfang kjøres alltid.
+
+Det betyr at en regel ikke trenger å filtrere `ctx.scopedFiles` mot `ctx.changedFiles` bare for å unngå arbeid når ADR-en er irrelevant for endringen; rammeverket kaller den aldri i det tilfellet. Filtrering inne i regelen er fortsatt nyttig når noen filer i omfanget er endret og regelen bare vil undersøke dem.
+
+Når endringssettet er tomt -- deteksjonen mislykkes, `--staged` finner ingenting staget, eller arbeidstreet er likt basen (for eksempel på selve basegrenen i CI) -- kjøres alle ADR-er (fullskanmodus).
+
 ## Diagnostikk
 
 Under kjøring sender `archgate check` advarsler for vanlige feilkonfigurasjoner som kan forårsake trege eller uventede resultater:

@@ -600,7 +600,7 @@ ARCH-006/no-unapproved-deps
    }
    ```
 
-2. **Use `ctx.changedFiles` para verificação incremental.** `ctx.changedFiles` é auto-preenchido com o diff da branch mais as alterações não commitadas da árvore de trabalho (ou arquivos staged com `--staged`). Filtre `ctx.scopedFiles` com ele para verificar apenas o que mudou, ou use-o diretamente para regras de dependência entre arquivos.
+2. **Use `ctx.changedFiles` para verificação incremental.** `ctx.changedFiles` é auto-preenchido com o diff da branch mais as alterações não commitadas da árvore de trabalho (ou arquivos staged com `--staged`). Filtre `ctx.scopedFiles` com ele para verificar apenas o que mudou, ou use-o diretamente para regras de dependência entre arquivos. Você não precisa se proteger contra uma interseção vazia: quando o conjunto de alterações não está vazio e nada nele corresponde aos globs em `files` do ADR, o ADR é [pulado por completo](/reference/cli/check/#pulando-adrs-não-afetados) e a regra nunca é chamada.
 
 3. **Mantenha as regras focadas em uma única preocupação.** Uma regra que verifica tanto convenções de nomenclatura quanto padrões de import deve ser dividida em duas regras com IDs separados.
 
