@@ -655,6 +655,16 @@ O formato é `ADR-ID/rule-id` seguido de um motivo. O motivo é **obrigatório**
 
 Ambos os estilos de comentário `//` e `#` são suportados, então as supressões funcionam em TypeScript, JavaScript, YAML, Python, shell scripts e outros tipos de arquivo que suas regras podem analisar.
 
+Arquivos **Markdown** (`.md`, `.mdx`) também aceitam a forma de comentário HTML, que permanece invisível na página renderizada — `#` viraria um título e `//` apareceria como texto do corpo:
+
+```md
+<!-- archgate-ignore ARCH-021/no-escaped-backtick a crase é citada de uma transcrição de shell -->
+
+<!-- archgate-ignore-file ARCH-021/ai-writing-signs trecho literal de uma RFC externa -->
+```
+
+O comentário deve ocupar a linha inteira, e diretivas dentro de blocos de código cercados são ignoradas para que exemplos documentados permaneçam inertes.
+
 :::tip
 Comentários de supressão não utilizados (comentários que não correspondem a nenhuma violação) também produzem avisos, ajudando a limpar exceções obsoletas à medida que o código evolui.
 :::

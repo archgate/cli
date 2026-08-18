@@ -655,6 +655,16 @@ The format is `ADR-ID/rule-id` followed by a reason. The reason is **required**.
 
 Both `//` and `#` comment styles are supported, so suppressions work in TypeScript, JavaScript, YAML, Python, shell scripts, and other file types your rules may scan.
 
+**Markdown** files (`.md`, `.mdx`) also accept the HTML-comment form, which stays invisible in the rendered page — `#` would become a heading and `//` would render as body text:
+
+```md
+<!-- archgate-ignore ARCH-021/no-escaped-backtick the backtick is quoted from a shell transcript -->
+
+<!-- archgate-ignore-file ARCH-021/ai-writing-signs verbatim excerpt from an external RFC -->
+```
+
+The comment must occupy the whole line, and directives inside fenced code blocks are ignored so documented examples stay inert.
+
 :::tip
 Unused suppression comments (comments that don't match any violation) also produce warnings, helping you clean up stale exceptions as code evolves.
 :::

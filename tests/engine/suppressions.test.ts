@@ -74,6 +74,17 @@ describe("parseSuppressions", () => {
     expect(result[0].reason).toBeNull();
   });
 
+  test("records null reason when reason text is only whitespace", () => {
+    const content = [
+      "// archgate-ignore ARCH-006/no-unapproved-deps    ",
+      "import chalk;",
+    ].join("\n");
+    const result = parseSuppressions(content, "src/foo.ts");
+
+    expect(result).toHaveLength(1);
+    expect(result[0].reason).toBeNull();
+  });
+
   test("parses multiple suppression comments in one file", () => {
     const content = [
       "// archgate-ignore ARCH-001/cmd-export legacy",
