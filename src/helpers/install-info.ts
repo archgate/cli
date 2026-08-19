@@ -14,6 +14,47 @@ import { internalPath } from "./paths";
 import { resolvedProjectPaths } from "./project-config";
 
 // ---------------------------------------------------------------------------
+// Executable resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Virtual filesystem roots Bun serves a compiled binary's bundled entry from:
+ * `/$bunfs/` on Linux and macOS, `B:/~BUN/` on Windows. No on-disk script
+ * occupies either, so a `Bun.main` under one identifies a standalone build.
+ */
+const BUNFS_ROOTS = ["/$bunfs/", "b:/~bun/"];
+
+/**
+ * True when archgate runs as a compiled standalone binary, where
+ * `process.execPath` is the archgate executable rather than the bun runtime.
+ */
+function isCompiledBinary(): boolean {
+  const main = Bun.main.replaceAll("\\", "/").toLowerCase();
+  return BUNFS_ROOTS.some((root) => main.startsWith(root));
+}
+
+/**
+ * The path to the archgate executable or entry script.
+ *
+ * @returns `process.execPath` for a compiled binary, `Bun.main` under the bun
+ * runtime (`bun run src/cli.ts`, `bunx archgate`).
+ */
+export function archgatePath(): string {
+  return isCompiledBinary() ? process.execPath : Bun.main;
+}
+
+/**
+ * Build the argv for re-invoking this CLI as a subprocess. Never use
+ * `process.argv[0]`: a compiled binary reports the literal string `"bun"`
+ * there, which is unspawnable without Bun installed.
+ */
+export function selfInvokeArgv(args: string[]): string[] {
+  return isCompiledBinary()
+    ? [process.execPath, ...args]
+    : [process.execPath, Bun.main, ...args];
+}
+
+// ---------------------------------------------------------------------------
 // Install method detection (cached)
 // ---------------------------------------------------------------------------
 
@@ -27,33 +68,27 @@ export type InstallMethod = "binary" | "proto" | "local" | "global-pm";
 let cachedInstallMethod: InstallMethod | null = null;
 
 /**
- * Detect how archgate was installed, reading `process.execPath` for compiled
- * binaries and `Bun.main` for `bun run` development mode (where
- * `process.execPath` is the bun runtime rather than archgate).
+ * Detect how archgate was installed by classifying {@link archgatePath}.
  */
 export function detectInstallMethod(): InstallMethod {
   if (cachedInstallMethod !== null) return cachedInstallMethod;
 
-  // Compiled binary: process.execPath IS archgate (doesn't contain "bun")
-  // Dev mode: process.execPath is the bun runtime, Bun.main is the script
-  const archgatePath = process.execPath.includes("bun")
-    ? Bun.main
-    : process.execPath;
+  const selfPath = archgatePath();
 
   const binDir = internalPath("bin");
-  if (archgatePath.startsWith(binDir)) {
+  if (selfPath.startsWith(binDir)) {
     cachedInstallMethod = "binary";
     return cachedInstallMethod;
   }
 
   const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
   const protoHome = Bun.env.PROTO_HOME ?? join(home, ".proto");
-  if (archgatePath.startsWith(join(protoHome, "tools", "archgate"))) {
+  if (selfPath.startsWith(join(protoHome, "tools", "archgate"))) {
     cachedInstallMethod = "proto";
     return cachedInstallMethod;
   }
 
-  if (archgatePath.includes("node_modules")) {
+  if (selfPath.includes("node_modules")) {
     cachedInstallMethod = "local";
     return cachedInstallMethod;
   }
