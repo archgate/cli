@@ -17,6 +17,7 @@ import {
   initProject,
 } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
+import { selfInvokeArgv } from "../helpers/install-info";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { withPromptFix } from "../helpers/prompt";
@@ -280,8 +281,10 @@ async function runGreenfieldWizard(projectRoot: string): Promise<void> {
     return;
   }
 
-  // Import selected packs via subprocess to reuse existing import logic
-  const args = [process.argv[0], "adr", "import", "--yes", ...selectedPacks];
+  // Import selected packs via subprocess to reuse existing import logic.
+  // `selfInvokeArgv` resolves the archgate executable — `process.argv[0]` is
+  // the literal string "bun" inside a compiled binary and is not spawnable.
+  const args = selfInvokeArgv(["adr", "import", "--yes", ...selectedPacks]);
   const proc = Bun.spawn(args, {
     cwd: projectRoot,
     stdout: "inherit",

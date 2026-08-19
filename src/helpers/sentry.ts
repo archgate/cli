@@ -11,7 +11,7 @@
 import type * as SentryNs from "@sentry/node-core/light";
 
 import packageJson from "../../package.json";
-import { detectInstallMethod } from "./install-info";
+import { archgatePath, detectInstallMethod } from "./install-info";
 import { logDebug, registerBreadcrumbHook } from "./log";
 import { getPlatformInfo } from "./platform";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
@@ -33,21 +33,6 @@ const SENTRY_DSN =
  * The tunnel server lives in services/sentry-tunnel/ and runs on Railway.
  */
 const SENTRY_TUNNEL = "https://s.archgate.dev/tunnel";
-
-// ---------------------------------------------------------------------------
-// Install method detection
-// ---------------------------------------------------------------------------
-
-/**
- * The path to the archgate executable or script.
- * - Compiled binary: process.execPath IS the archgate binary
- * - bun run / bunx: Bun.main is the entry script (src/cli.ts or similar)
- */
-function getArchgatePath(): string {
-  const execPath = process.execPath;
-  if (!execPath.includes("bun")) return execPath;
-  return Bun.main;
-}
 
 // ---------------------------------------------------------------------------
 // State
@@ -116,7 +101,7 @@ export async function initSentry(): Promise<void> {
           is_ci: String(Boolean(Bun.env.CI)),
           is_tty: String(process.stdout.isTTY),
           install_method: detectInstallMethod(),
-          install_path: getArchgatePath(),
+          install_path: archgatePath(),
         },
         contexts: {
           // Override the default "node" runtime that @sentry/node-core sets

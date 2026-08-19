@@ -14,6 +14,39 @@ import { internalPath } from "./paths";
 import { resolvedProjectPaths } from "./project-config";
 
 // ---------------------------------------------------------------------------
+// Executable resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * True when the current process is the bun runtime executing archgate's
+ * sources (`bun run src/cli.ts`, `bunx archgate`) rather than a compiled
+ * standalone binary, where `process.execPath` IS the archgate executable.
+ */
+function isBunRuntime(): boolean {
+  return process.execPath.includes("bun");
+}
+
+/**
+ * The path to the archgate executable or entry script.
+ * - Compiled binary: `process.execPath` IS the archgate binary
+ * - `bun run` / `bunx`: `Bun.main` is the entry script (src/cli.ts or similar)
+ */
+export function archgatePath(): string {
+  return isBunRuntime() ? Bun.main : process.execPath;
+}
+
+/**
+ * Build the argv for re-invoking this CLI as a subprocess. Never use
+ * `process.argv[0]`: a compiled binary reports the literal string `"bun"`
+ * there, which is unspawnable without Bun installed.
+ */
+export function selfInvokeArgv(args: string[]): string[] {
+  return isBunRuntime()
+    ? [process.execPath, Bun.main, ...args]
+    : [process.execPath, ...args];
+}
+
+// ---------------------------------------------------------------------------
 // Install method detection (cached)
 // ---------------------------------------------------------------------------
 
@@ -34,26 +67,22 @@ let cachedInstallMethod: InstallMethod | null = null;
 export function detectInstallMethod(): InstallMethod {
   if (cachedInstallMethod !== null) return cachedInstallMethod;
 
-  // Compiled binary: process.execPath IS archgate (doesn't contain "bun")
-  // Dev mode: process.execPath is the bun runtime, Bun.main is the script
-  const archgatePath = process.execPath.includes("bun")
-    ? Bun.main
-    : process.execPath;
+  const selfPath = archgatePath();
 
   const binDir = internalPath("bin");
-  if (archgatePath.startsWith(binDir)) {
+  if (selfPath.startsWith(binDir)) {
     cachedInstallMethod = "binary";
     return cachedInstallMethod;
   }
 
   const home = Bun.env.HOME ?? Bun.env.USERPROFILE ?? "~";
   const protoHome = Bun.env.PROTO_HOME ?? join(home, ".proto");
-  if (archgatePath.startsWith(join(protoHome, "tools", "archgate"))) {
+  if (selfPath.startsWith(join(protoHome, "tools", "archgate"))) {
     cachedInstallMethod = "proto";
     return cachedInstallMethod;
   }
 
-  if (archgatePath.includes("node_modules")) {
+  if (selfPath.includes("node_modules")) {
     cachedInstallMethod = "local";
     return cachedInstallMethod;
   }

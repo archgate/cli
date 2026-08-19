@@ -6,8 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  archgatePath,
   detectInstallMethod,
   getProjectContext,
+  selfInvokeArgv,
   _resetInstallInfoCaches,
 } from "../../src/helpers/install-info";
 import { restoreEnv } from "../test-utils";
@@ -15,6 +17,60 @@ import { restoreEnv } from "../test-utils";
 describe("install-info", () => {
   afterEach(() => {
     _resetInstallInfoCaches();
+  });
+
+  describe("executable resolution", () => {
+    // Both helpers key off `process.execPath` naming the bun runtime, so
+    // swapping it simulates the compiled binary without building one.
+    let originalExecPath: string;
+
+    beforeEach(() => {
+      originalExecPath = process.execPath;
+    });
+
+    afterEach(() => {
+      process.execPath = originalExecPath;
+    });
+
+    test("archgatePath is the executable itself for a compiled binary", () => {
+      process.execPath = join("/opt", "archgate", "archgate");
+      expect(archgatePath()).toBe(join("/opt", "archgate", "archgate"));
+    });
+
+    test("archgatePath falls back to the entry script under the bun runtime", () => {
+      process.execPath = join("/usr", "local", "bin", "bun");
+      expect(archgatePath()).toBe(Bun.main);
+    });
+
+    test("selfInvokeArgv spawns the binary directly when compiled", () => {
+      const binary = join("/home", "u", ".archgate", "bin", "archgate");
+      process.execPath = binary;
+      expect(selfInvokeArgv(["adr", "import", "--yes"])).toEqual([
+        binary,
+        "adr",
+        "import",
+        "--yes",
+      ]);
+    });
+
+    test("selfInvokeArgv passes the entry script under the bun runtime", () => {
+      const bun = join("/usr", "local", "bin", "bun");
+      process.execPath = bun;
+      expect(selfInvokeArgv(["adr", "import"])).toEqual([
+        bun,
+        Bun.main,
+        "adr",
+        "import",
+      ]);
+    });
+
+    test('selfInvokeArgv never yields the bare string "bun" as the command', () => {
+      // Regression: `process.argv[0]` is the literal "bun" inside a compiled
+      // standalone binary, so spawning it failed with
+      // `Executable not found in $PATH: "bun"`.
+      process.execPath = join("/home", "u", ".archgate", "bin", "archgate");
+      expect(selfInvokeArgv(["adr", "import"])[0]).not.toBe("bun");
+    });
   });
 
   describe("detectInstallMethod", () => {
