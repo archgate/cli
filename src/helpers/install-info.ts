@@ -18,21 +18,29 @@ import { resolvedProjectPaths } from "./project-config";
 // ---------------------------------------------------------------------------
 
 /**
- * True when the current process is the bun runtime executing archgate's
- * sources (`bun run src/cli.ts`, `bunx archgate`) rather than a compiled
- * standalone binary, where `process.execPath` IS the archgate executable.
+ * Virtual filesystem roots Bun serves a compiled binary's bundled entry from:
+ * `/$bunfs/` on Linux and macOS, `B:/~BUN/` on Windows. No on-disk script
+ * occupies either, so a `Bun.main` under one identifies a standalone build.
  */
-function isBunRuntime(): boolean {
-  return process.execPath.includes("bun");
+const BUNFS_ROOTS = ["/$bunfs/", "b:/~bun/"];
+
+/**
+ * True when archgate runs as a compiled standalone binary, where
+ * `process.execPath` is the archgate executable rather than the bun runtime.
+ */
+function isCompiledBinary(): boolean {
+  const main = Bun.main.replaceAll("\\", "/").toLowerCase();
+  return BUNFS_ROOTS.some((root) => main.startsWith(root));
 }
 
 /**
  * The path to the archgate executable or entry script.
- * - Compiled binary: `process.execPath` IS the archgate binary
- * - `bun run` / `bunx`: `Bun.main` is the entry script (src/cli.ts or similar)
+ *
+ * @returns `process.execPath` for a compiled binary, `Bun.main` under the bun
+ * runtime (`bun run src/cli.ts`, `bunx archgate`).
  */
 export function archgatePath(): string {
-  return isBunRuntime() ? Bun.main : process.execPath;
+  return isCompiledBinary() ? process.execPath : Bun.main;
 }
 
 /**
@@ -41,9 +49,9 @@ export function archgatePath(): string {
  * there, which is unspawnable without Bun installed.
  */
 export function selfInvokeArgv(args: string[]): string[] {
-  return isBunRuntime()
-    ? [process.execPath, Bun.main, ...args]
-    : [process.execPath, ...args];
+  return isCompiledBinary()
+    ? [process.execPath, ...args]
+    : [process.execPath, Bun.main, ...args];
 }
 
 // ---------------------------------------------------------------------------
@@ -60,9 +68,7 @@ export type InstallMethod = "binary" | "proto" | "local" | "global-pm";
 let cachedInstallMethod: InstallMethod | null = null;
 
 /**
- * Detect how archgate was installed, reading `process.execPath` for compiled
- * binaries and `Bun.main` for `bun run` development mode (where
- * `process.execPath` is the bun runtime rather than archgate).
+ * Detect how archgate was installed by classifying {@link archgatePath}.
  */
 export function detectInstallMethod(): InstallMethod {
   if (cachedInstallMethod !== null) return cachedInstallMethod;

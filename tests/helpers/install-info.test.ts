@@ -14,37 +14,86 @@ import {
 } from "../../src/helpers/install-info";
 import { restoreEnv } from "../test-utils";
 
+/** A `Bun.main` value Bun reports only inside a compiled standalone binary. */
+const BUNFS_MAIN = "/$bunfs/root/archgate";
+
+/** Assign `Bun.main`, which the published types declare as a constant. */
+function setBunMain(main: string): void {
+  Reflect.set(Bun, "main", main);
+}
+
+/** Present the process as a compiled binary living at `binary`. */
+function asCompiledBinary(binary: string, main = BUNFS_MAIN): void {
+  process.execPath = binary;
+  setBunMain(main);
+}
+
+/** Present the process as the bun runtime at `bun` executing `script`. */
+function asBunRuntime(bun: string, script: string): void {
+  process.execPath = bun;
+  setBunMain(script);
+}
+
 describe("install-info", () => {
   afterEach(() => {
     _resetInstallInfoCaches();
   });
 
   describe("executable resolution", () => {
-    // Both helpers key off `process.execPath` naming the bun runtime, so
-    // swapping it simulates the compiled binary without building one.
+    // Both helpers key off `Bun.main` naming a path under Bun's virtual
+    // filesystem, so stubbing it simulates a compiled binary without
+    // building one. `asCompiledBinary` and `asBunRuntime` set up each mode.
     let originalExecPath: string;
+    let originalMain: string;
 
     beforeEach(() => {
       originalExecPath = process.execPath;
+      originalMain = Bun.main;
     });
 
     afterEach(() => {
       process.execPath = originalExecPath;
+      setBunMain(originalMain);
     });
 
-    test("archgatePath is the executable itself for a compiled binary", () => {
-      process.execPath = join("/opt", "archgate", "archgate");
-      expect(archgatePath()).toBe(join("/opt", "archgate", "archgate"));
+    test.each([
+      { label: "Linux and macOS", main: "/$bunfs/root/archgate" },
+      { label: "Windows", main: "B:/~BUN/root/archgate" },
+      {
+        label: "Windows with backslashes",
+        main: String.raw`B:\~BUN\root\archgate`,
+      },
+    ])(
+      "archgatePath is the executable itself for a $label binary",
+      ({ main }) => {
+        const binary = join("/opt", "archgate", "archgate");
+        asCompiledBinary(binary, main);
+        expect(archgatePath()).toBe(binary);
+      }
+    );
+
+    test("archgatePath is the entry script under the bun runtime", () => {
+      const script = join("/repo", "src", "cli.ts");
+      asBunRuntime(join("/usr", "local", "bin", "bun"), script);
+      expect(archgatePath()).toBe(script);
     });
 
-    test("archgatePath falls back to the entry script under the bun runtime", () => {
-      process.execPath = join("/usr", "local", "bin", "bun");
-      expect(archgatePath()).toBe(Bun.main);
+    test('a binary whose path contains "bun" still resolves to itself', () => {
+      // The executable's own name and location carry no signal.
+      const binary = join("/home", "bunny", "tools", "bun-archgate");
+      asCompiledBinary(binary, "/$bunfs/root/archgate");
+      expect(archgatePath()).toBe(binary);
+    });
+
+    test("a renamed runtime still resolves to the entry script", () => {
+      const script = join("/repo", "src", "cli.ts");
+      asBunRuntime(join("/opt", "runtimes", "js-engine"), script);
+      expect(archgatePath()).toBe(script);
     });
 
     test("selfInvokeArgv spawns the binary directly when compiled", () => {
       const binary = join("/home", "u", ".archgate", "bin", "archgate");
-      process.execPath = binary;
+      asCompiledBinary(binary, "/$bunfs/root/archgate");
       expect(selfInvokeArgv(["adr", "import", "--yes"])).toEqual([
         binary,
         "adr",
@@ -55,20 +104,23 @@ describe("install-info", () => {
 
     test("selfInvokeArgv passes the entry script under the bun runtime", () => {
       const bun = join("/usr", "local", "bin", "bun");
-      process.execPath = bun;
+      const script = join("/repo", "src", "cli.ts");
+      asBunRuntime(bun, script);
       expect(selfInvokeArgv(["adr", "import"])).toEqual([
         bun,
-        Bun.main,
+        script,
         "adr",
         "import",
       ]);
     });
 
     test('selfInvokeArgv never yields the bare string "bun" as the command', () => {
-      // Regression: `process.argv[0]` is the literal "bun" inside a compiled
-      // standalone binary, so spawning it failed with
-      // `Executable not found in $PATH: "bun"`.
-      process.execPath = join("/home", "u", ".archgate", "bin", "archgate");
+      // A compiled binary must name its own executable, which stays
+      // spawnable on machines where bun is absent from $PATH.
+      asCompiledBinary(
+        join("/home", "u", ".archgate", "bin", "archgate"),
+        "/$bunfs/root/archgate"
+      );
       expect(selfInvokeArgv(["adr", "import"])[0]).not.toBe("bun");
     });
   });
@@ -97,26 +149,30 @@ describe("install-info", () => {
     });
 
     describe("with a synthetic executable path", () => {
-      // `process.execPath` is the only input to the classification when it
-      // does not name the bun runtime, so pointing it at a fabricated
-      // location exercises each branch without installing anything.
+      // Compiled-binary mode classifies `process.execPath`, so pointing it at
+      // a fabricated location exercises each branch without installing
+      // anything.
       let tempHome: string;
       let originalExecPath: string;
+      let originalMain: string;
       let originalHome: string | undefined;
       let originalProtoHome: string | undefined;
 
       beforeEach(() => {
         tempHome = mkdtempSync(join(tmpdir(), "archgate-installmethod-"));
         originalExecPath = process.execPath;
+        originalMain = Bun.main;
         originalHome = Bun.env.HOME;
         originalProtoHome = Bun.env.PROTO_HOME;
         Bun.env.HOME = tempHome;
         delete Bun.env.PROTO_HOME;
+        setBunMain(BUNFS_MAIN);
         _resetInstallInfoCaches();
       });
 
       afterEach(() => {
         process.execPath = originalExecPath;
+        setBunMain(originalMain);
         restoreEnv("HOME", originalHome);
         restoreEnv("PROTO_HOME", originalProtoHome);
         _resetInstallInfoCaches();
