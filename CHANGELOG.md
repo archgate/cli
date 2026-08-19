@@ -1,3 +1,15 @@
+## [0.54.0](https://github.com/archgate/cli/compare/v0.53.0...v0.54.0) (2026-08-19)
+
+### Features
+
+* **check:** skip ADRs whose files scope has no changed files ([#569](https://github.com/archgate/cli/issues/569)) ([3225734](https://github.com/archgate/cli/commit/32257349928970075176349a88a3a87a3da8d961))
+* **suppressions:** accept HTML-comment archgate-ignore in markdown ([#571](https://github.com/archgate/cli/issues/571)) ([ec5bbab](https://github.com/archgate/cli/commit/ec5bbab425f96487a0f443227e719ad118511a84)), closes [#570](https://github.com/archgate/cli/issues/570)
+
+### Bug Fixes
+
+* **check:** tolerate unwritable rules.d.ts on read-only filesystems ([#568](https://github.com/archgate/cli/issues/568)) ([b3a7ccd](https://github.com/archgate/cli/commit/b3a7ccd87e00f414e783111526d14a386c4c4ef5))
+* **init:** spawn the real executable when importing packs ([#573](https://github.com/archgate/cli/issues/573)) ([fc5cf87](https://github.com/archgate/cli/commit/fc5cf87b986a29a8b05d5e95eda5f34f5c531ee1))
+
 ## [0.53.0](https://github.com/archgate/cli/compare/v0.52.0...v0.53.0) (2026-08-08)
 
 ### ⚠ BREAKING CHANGES
