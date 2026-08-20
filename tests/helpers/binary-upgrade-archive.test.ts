@@ -82,10 +82,17 @@ function buildTarGz(names: string[]): Uint8Array {
   return Bun.gzipSync(tar);
 }
 
-/** A gzipped tar whose sole member is a symlink to `linkTarget`. */
-function buildSymlinkTarGz(name: string, linkTarget: string): Uint8Array {
-  const tar = new Uint8Array(512 + 1024);
-  tar.set(tarHeader(name, linkTarget), 0);
+/**
+ * A gzipped tar whose `name` member is a symlink to a sibling member. The
+ * target must stay inside the archive: Bun.Archive refuses an absolute or
+ * escaping one outright, so it never lands for the post-extraction check to
+ * catch. An in-archive target is the real attack anyway — the symlink
+ * resolves to a payload the same archive ships.
+ */
+function buildSymlinkTarGz(name: string): Uint8Array {
+  const tar = new Uint8Array(512 * 2 + 1024);
+  tar.set(tarHeader("payload"), 0);
+  tar.set(tarHeader(name, "./payload"), 512);
   return Bun.gzipSync(tar);
 }
 
@@ -249,11 +256,13 @@ describe("downloadReleaseBinary archive handling", () => {
 
   // Windows is excluded because Bun.Archive skips symlink members there, so
   // `archgate` is absent rather than present-and-wrong; the absence branch is
-  // covered by the unsafe-entry cases above.
+  // covered by the unsafe-entry cases above. Verified under WSL — a
+  // `skipIf(win32)` case reports as passing on this project's Windows dev
+  // machines without ever running.
   test.skipIf(process.platform === "win32")(
     "refuses a binary that extracts as a symlink",
     async () => {
-      mockArchiveDownload(buildSymlinkTarGz("archgate", "/bin/sh"));
+      mockArchiveDownload(buildSymlinkTarGz("archgate"));
 
       const message = await rejectionWithoutLeak(
         downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
