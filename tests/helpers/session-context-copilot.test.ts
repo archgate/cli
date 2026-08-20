@@ -409,6 +409,23 @@ describe("readCopilotSession", () => {
     expect(result.data.sessions.map((s) => s.id)).toEqual([sessionId]);
   });
 
+  test("skips a session directory whose workspace.yaml is malformed", async () => {
+    // Distinct from the missing-file case above: the file is present and
+    // readable, so the read succeeds and it is the YAML parse that throws.
+    const brokenDir = join(stateDir, `copilot-${uniqueId}-broken-yaml`);
+    mkdirSync(brokenDir, { recursive: true });
+    writeFileSync(join(brokenDir, "workspace.yaml"), "cwd: [unclosed\n");
+    const sessionId = `copilot-${uniqueId}-valid-yaml`;
+    makeSession(sessionId, projectRoot, [
+      JSON.stringify({ type: "user.message", data: { content: "kept" } }),
+    ]);
+
+    const result = await listCopilotSessions(projectRoot);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("expected ok");
+    expect(result.data.sessions.map((s) => s.id)).toEqual([sessionId]);
+  });
+
   test("ignores an entry whose stat fails (dangling link)", async () => {
     // A dangling link: readdir lists the entry, while stat follows it and
     // raises ENOENT. "junction" so the link can be created unprivileged on

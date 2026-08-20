@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -110,6 +110,34 @@ describe("Pi session reader", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.data.sessions.map((s) => s.id)).toEqual(["id-good"]);
+  });
+
+  test("skips a session file that exists but denies the header read", async () => {
+    // The sibling case above uses a directory, which resolves as absent before
+    // any read; this is the other half, a real file whose read fails. Content
+    // must be a non-empty, well-formed JSONL line: an empty file makes the
+    // header slice a no-op read that never reaches the permission bits, and a
+    // malformed one throws out of the JSONL parse, which is not guarded.
+    const denied = process.platform !== "win32" && process.getuid?.() !== 0;
+    writeSession("good", "id-good", PROJECT, message("user", "hi"));
+    const locked = join(
+      tempHome,
+      "sessions",
+      encodePiProjectDir(PROJECT),
+      "locked.jsonl"
+    );
+    writeFileSync(locked, `${JSON.stringify({ type: "message" })}\n`);
+    if (denied) chmodSync(locked, 0o000);
+
+    try {
+      const result = await listPiSessions(PROJECT);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.data.sessions.map((s) => s.id)).toEqual(["id-good"]);
+    } finally {
+      if (denied) chmodSync(locked, 0o644);
+    }
   });
 
   test("reports when no session belongs to the project", async () => {
