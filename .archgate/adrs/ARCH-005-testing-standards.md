@@ -3,7 +3,7 @@ id: ARCH-005
 title: Testing Standards
 domain: architecture
 rules: true
-files: ["tests/**/*.ts", "package.json"]
+files: ["tests/**/*.ts", "package.json", ".github/workflows/*.yml"]
 ---
 
 ## Context

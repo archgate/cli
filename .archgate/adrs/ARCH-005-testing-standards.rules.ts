@@ -48,18 +48,43 @@ export default {
           return;
         }
 
+        /** Script names whose command splits the run across processes. */
+        const multiprocess = new Set<string>();
+
         for (const [name, command] of Object.entries(scripts)) {
           if (typeof command !== "string") continue;
-          if (!command.includes("--coverage")) continue;
+          const flag = MULTIPROCESS_FLAGS.find((f) => command.includes(f));
+          if (flag === undefined) continue;
+          multiprocess.add(name);
 
-          for (const flag of MULTIPROCESS_FLAGS) {
-            if (!command.includes(flag)) continue;
-            ctx.report.violation({
-              message: `Script "${name}" combines ${flag} with --coverage; multi-process runs inflate the lines-found denominator and fail the 99.9% gate`,
-              file: "package.json",
-              fix: `Drop ${flag} from "${name}". Use it on a script that reports no coverage, such as "test".`,
-            });
-          }
+          if (!command.includes("--coverage")) continue;
+          ctx.report.violation({
+            message: `Script "${name}" combines ${flag} with --coverage; multi-process runs inflate the lines-found denominator and fail the 99.9% gate`,
+            file: "package.json",
+            fix: `Drop ${flag} from "${name}". Use it on a script that reports no coverage, such as "test".`,
+          });
+        }
+
+        // A caller can reopen this without touching package.json:
+        // `bun run test --coverage` appends the flag to a parallel script. That
+        // is how the Windows smoke job silently dropped the merged gate to
+        // 90.5%, and it is invisible to the scripts pass above.
+        const callSite = new RegExp(
+          String.raw`bun run (${[...multiprocess].join("|")})\b[^\n]*--coverage`,
+          "u"
+        );
+        if (multiprocess.size === 0) return;
+
+        for (const file of await ctx.glob(".github/workflows/*.yml")) {
+          // oxlint-disable-next-line no-await-in-loop -- reads are cached per path
+          const text = await ctx.readFile(file);
+          const match = callSite.exec(text);
+          if (match === null) continue;
+          ctx.report.violation({
+            message: `"${match[0].trim()}" adds --coverage to "${match[1]}", which runs multi-process; the inflated denominator fails the 99.9% gate`,
+            file,
+            fix: `Call the single-process script instead, e.g. \`bun run test:coverage\` (GEN-003 — invoke by script name rather than appending flags).`,
+          });
         }
       },
     },

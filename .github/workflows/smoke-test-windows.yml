@@ -34,7 +34,10 @@ jobs:
 
       - name: Tests
         id: tests
-        run: bun run test --coverage
+        # `test:coverage`, not `test --coverage`: `test` carries `--parallel`,
+        # and a multi-process run inflates the lines-found denominator that the
+        # merged 99.9% gate is calibrated against (ARCH-005).
+        run: bun run test:coverage
       - name: Upload coverage
         if: always() && steps.tests.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
