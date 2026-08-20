@@ -16,7 +16,7 @@ import {
   writeImportedAdrs,
 } from "../../helpers/adr-import";
 import { handleCommandError } from "../../helpers/exit";
-import { formatJSON, isAgentContext } from "../../helpers/output";
+import { formatJSON, isAgentContext, padCell } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
 import {
   getMergedDomainPrefixes,
@@ -93,7 +93,7 @@ export function registerAdrImportCommand(adr: Command) {
           console.log(
             styleText(
               "bold",
-              `${"Original ID".padEnd(origWidth)}${"New ID".padEnd(newWidth)}Title`
+              `${padCell("Original ID", origWidth)}${padCell("New ID", newWidth)}Title`
             )
           );
           console.log(
@@ -104,7 +104,7 @@ export function registerAdrImportCommand(adr: Command) {
           );
           for (const entry of idMap) {
             console.log(
-              `${entry.original.padEnd(origWidth)}${entry.newId.padEnd(newWidth)}${entry.title}`
+              `${padCell(entry.original, origWidth)}${padCell(entry.newId, newWidth)}${entry.title}`
             );
           }
           console.log();

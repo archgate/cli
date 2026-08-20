@@ -32,3 +32,17 @@ export function formatJSON(data: unknown, forcePretty?: boolean): string {
   const pretty = forcePretty ?? !isAgentContext();
   return JSON.stringify(data, null, pretty ? 2 : undefined);
 }
+
+/**
+ * Pad `value` to `width` terminal columns for a fixed-column table.
+ *
+ * `String.padEnd` counts UTF-16 code units, so a CJK or emoji cell — an ADR
+ * domain is user-authored — pads short and skews every column after it.
+ * `Bun.stringWidth` measures the columns a terminal actually spends.
+ *
+ * @returns The value plus trailing spaces, or unchanged when already at or
+ * over `width` — mirroring `padEnd`, which never truncates.
+ */
+export function padCell(value: string, width: number): string {
+  return value + " ".repeat(Math.max(0, width - Bun.stringWidth(value)));
+}

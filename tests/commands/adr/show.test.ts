@@ -96,6 +96,41 @@ describe("adr show action handler", () => {
     expect(allOutput).toContain("We need a type-safe language.");
   });
 
+  test("emits the raw file when stdout is piped", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
+
+    process.chdir(tempDir);
+    await makeProgram().parseAsync(["node", "adr", "show", "ARCH-001"]);
+
+    // Agents and scripts parse the source, so the piped form stays verbatim —
+    // frontmatter delimiters and all.
+    expect(String(logSpy.mock.calls[0][0])).toBe(ADR_CONTENT);
+  });
+
+  test("renders for a terminal when stdout is a TTY", async () => {
+    const adrsDir = join(tempDir, ".archgate", "adrs");
+    mkdirSync(adrsDir, { recursive: true });
+    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
+
+    const originalIsTTY = process.stdout.isTTY;
+    process.stdout.isTTY = true;
+    try {
+      process.chdir(tempDir);
+      await makeProgram().parseAsync(["node", "adr", "show", "ARCH-001"]);
+    } finally {
+      process.stdout.isTTY = originalIsTTY;
+    }
+
+    const output = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(output).toContain("ARCH-001  Use TypeScript");
+    expect(output).toContain("We need a type-safe language.");
+    // The YAML frontmatter is rendered as a header rather than fed to the
+    // markdown parser, which would read `---` as a horizontal rule.
+    expect(output).not.toContain("rules: false");
+  });
+
   test("exits with error when ADR ID is not found", async () => {
     const adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });

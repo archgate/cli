@@ -36,6 +36,7 @@
   ],
   "type": "module",
   "scripts": {
+    "audit": "bun audit",
     "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
     "build:winget": "bun run shims/winget/build.ts",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
@@ -52,7 +53,10 @@
     "hook:session-start": "bun run scripts/session-start.ts",
     "hook:worktree-create": "bun run scripts/worktree-create.ts",
     "knip": "knip",
+    "licenses": "bun pm licenses",
     "lint": "bun run scripts/ensure-rules-dts.ts && oxlint --deny-warnings .",
+    "profile:cpu": "bun --cpu-prof-md --cpu-prof-dir=.profiles src/cli.ts",
+    "profile:heap": "bun --heap-prof-md --heap-prof-dir=.profiles src/cli.ts",
     "test": "bun test --timeout 60000 --parallel",
     "test:changed": "bun test --timeout 60000 --parallel --changed",
     "test:coverage": "bun test --timeout 60000 --coverage",
