@@ -93,10 +93,12 @@ describe("readIfExists", () => {
   });
 });
 
-// chmod is a no-op on Windows, so an unreadable-but-present file can only be
-// built on POSIX.
-describe.skipIf(process.platform === "win32")(
-  "readTextIfExists on POSIX",
+// An unreadable-but-present file can only be built as a non-root POSIX user:
+// chmod is a no-op on Windows, and root bypasses the permission bits entirely
+// (CAP_DAC_OVERRIDE), so the read would succeed and the assertion below would
+// fail. Root is the default in many containers, though not on CI's runners.
+describe.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+  "readTextIfExists on POSIX as a non-root user",
   () => {
     let dir: string;
 
