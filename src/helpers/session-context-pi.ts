@@ -13,6 +13,7 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import { readIfExists, readTextIfExists } from "./fs-read";
 import { logDebug } from "./log";
 import { piSessionsDir } from "./paths";
 import {
@@ -178,7 +179,10 @@ async function readPiHeader(
 ): Promise<{ id: string; cwd: string } | null> {
   let firstLine: string;
   try {
-    const head = await Bun.file(file).slice(0, HEADER_BYTES).text();
+    const head = await readIfExists(file, async (f) =>
+      f.slice(0, HEADER_BYTES).text()
+    );
+    if (head === null) return null;
     firstLine = head.slice(0, head.indexOf("\n") + 1 || undefined).trim();
   } catch {
     return null;
@@ -257,9 +261,7 @@ export async function readPiSession(
   }
 
   logDebug("Reading Pi session", target.file);
-  const raw = await Bun.file(target.file)
-    .text()
-    .catch(() => null);
+  const raw = await readTextIfExists(target.file).catch(() => null);
   if (raw === null) return sessionReadFailure(target.file);
 
   // Bun.JSONL.parse drops a trailing partial line, which a session being

@@ -15,6 +15,7 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import { readTextIfExists } from "./fs-read";
 import { nestedStringFromJsonEnv } from "./harness-detect";
 import { logDebug } from "./log";
 import {
@@ -356,9 +357,7 @@ export async function readAntigravitySession(
 
   const file = target.file;
   logDebug("Reading Antigravity transcript", file);
-  const raw = await Bun.file(file)
-    .text()
-    .catch(() => null);
+  const raw = await readTextIfExists(file).catch(() => null);
   if (raw === null) return sessionReadFailure(file);
 
   // Bun.JSONL.parse drops a trailing partial line, which a conversation being

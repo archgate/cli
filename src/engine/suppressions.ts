@@ -3,6 +3,7 @@
 import { resolve } from "node:path";
 
 import type { ViolationDetail } from "../formats/rules";
+import { readTextIfExists } from "../helpers/fs-read";
 import { logDebug } from "../helpers/log";
 import type { RuleResult } from "./runner";
 
@@ -166,7 +167,8 @@ export async function applySuppressions(
   const readPromises = Array.from(filePathsNeeded, async (relPath) => {
     try {
       const absPath = resolve(projectRoot, relPath);
-      const content = await Bun.file(absPath).text();
+      const content = await readTextIfExists(absPath);
+      if (content === null) return;
       const suppressions = parseSuppressions(content, relPath);
       if (suppressions.length > 0) {
         fileSuppressions.set(relPath, suppressions);
