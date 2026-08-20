@@ -16,8 +16,8 @@ import type { RuleResult } from "../../src/engine/runner";
 import { applySuppressions } from "../../src/engine/suppressions";
 import type { ViolationDetail } from "../../src/formats/rules";
 
-// Sibling of suppressions.test.ts, which sits at oxlint's 500-line max-lines
-// cap. Covers the suppression scan's file-read failure paths.
+// The suppression scan's file-read failure paths: a violation whose file is
+// absent, and one whose file is present but unreadable.
 describe("applySuppressions I/O failures", () => {
   let tempDir: string;
 
@@ -65,7 +65,7 @@ describe("applySuppressions I/O failures", () => {
     const result = await applySuppressions(tempDir, [makeRuleResult([v])]);
 
     expect(result.suppressedCount).toBe(0);
-    expect(result.activeViolations.has(v)).toBe(true);
+    expect(result.activeViolations).toContain(v);
     expect(result.warnings).toHaveLength(0);
   });
 
@@ -83,7 +83,7 @@ describe("applySuppressions I/O failures", () => {
       const result = await applySuppressions(tempDir, [makeRuleResult([v])]);
 
       expect(result.suppressedCount).toBe(0);
-      expect(result.activeViolations.has(v)).toBe(true);
+      expect(result.activeViolations).toContain(v);
       expect(result.warnings).toHaveLength(0);
     } finally {
       // Restore before afterEach's rmSync so cleanup cannot fail.
