@@ -140,30 +140,14 @@ const DISCOVERY_CONCURRENCY = 8;
  * whole-member inflate takes, holding the head rather than the transcript.
  */
 async function readCompressedHead(file: BunFile): Promise<string> {
-  // `new Response(...).textStream()` would fold the decoding in, but it is
-  // absent from @types/bun 1.4.0 and casting past that costs more than the
-  // reader it saves.
-  const reader = file
-    .stream()
-    .pipeThrough(new DecompressionStream("zstd"))
-    .getReader();
-  const decoder = new TextDecoder();
+  const inflated = file.stream().pipeThrough(new DecompressionStream("zstd"));
   let text = "";
   let lines = 0;
-  try {
-    while (lines < META_SCAN_LINES) {
-      // oxlint-disable-next-line no-await-in-loop -- each chunk depends on the previous read
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      for (const char of chunk) if (char === "\n") lines++;
-      text += chunk;
-    }
-  } finally {
-    // Releases the underlying file handle when the loop exits early.
-    await reader.cancel().catch(() => {
-      // Already errored or closed — nothing left to release.
-    });
+  // Breaking out cancels the stream, which releases the file handle.
+  for await (const chunk of new Response(inflated).textStream()) {
+    for (const char of chunk) if (char === "\n") lines++;
+    text += chunk;
+    if (lines >= META_SCAN_LINES) break;
   }
   return text;
 }
