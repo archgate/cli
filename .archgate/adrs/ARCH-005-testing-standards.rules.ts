@@ -16,8 +16,53 @@ function dirnameOf(path: string): string {
   return idx === -1 ? "." : path.slice(0, idx);
 }
 
+/** Flags that split a `bun test` run across more than one process. */
+const MULTIPROCESS_FLAGS = ["--parallel", "--shard"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export default {
   rules: {
+    /**
+     * Splitting a coverage run across processes inflates the lines-found
+     * denominator without changing lines hit, so it fails the 99.9% gate while
+     * covering identical code. See ARCH-005 Consequences → Risks.
+     */
+    "coverage-runs-single-process": {
+      description:
+        "test:coverage must not split across processes — it shifts the coverage denominator",
+      severity: "error",
+      async check(ctx) {
+        // ctx.readFile rejects on a missing file rather than returning null,
+        // so absence and malformed JSON share one guard.
+        let scripts: Record<string, unknown>;
+        try {
+          const parsed: unknown = JSON.parse(
+            await ctx.readFile("package.json")
+          );
+          if (!isRecord(parsed) || !isRecord(parsed.scripts)) return;
+          scripts = parsed.scripts;
+        } catch {
+          return;
+        }
+
+        for (const [name, command] of Object.entries(scripts)) {
+          if (typeof command !== "string") continue;
+          if (!command.includes("--coverage")) continue;
+
+          for (const flag of MULTIPROCESS_FLAGS) {
+            if (!command.includes(flag)) continue;
+            ctx.report.violation({
+              message: `Script "${name}" combines ${flag} with --coverage; multi-process runs inflate the lines-found denominator and fail the 99.9% gate`,
+              file: "package.json",
+              fix: `Drop ${flag} from "${name}". Use it on a script that reports no coverage, such as "test".`,
+            });
+          }
+        }
+      },
+    },
     "test-mirrors-src": {
       description: "Test directory structure should mirror src/ structure",
       severity: "error",

@@ -23,27 +23,16 @@ import { join } from "node:path";
 import { cursorUserDir } from "../../src/helpers/paths";
 import * as platform from "../../src/helpers/platform";
 import { installCursorPlugin } from "../../src/helpers/plugin-install";
-import { restoreEnv } from "../test-utils";
-
-/** Deliberately incomplete fake Subprocess: run() reads only these fields. */
-function fakeTarSuccess(): ReturnType<typeof Bun.spawn> {
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return {
-    stdout: new Response("").body,
-    stderr: new Response("").body,
-    exited: Promise.resolve(0),
-  } as unknown as ReturnType<typeof Bun.spawn>;
-}
+import { restoreEnv, tarballOf } from "../test-utils";
 
 /**
  * `installCursorPlugin`'s hooks.json merge step. Lives beside
  * `plugin-install.test.ts` (download/extract paths) to stay under `max-lines`.
- * The tarball normally supplies `hooks.json`; `tar` is stubbed here, so each
- * test seeds the file the extraction would have produced.
+ * The tarball normally supplies `hooks.json`; the bundle served here is empty,
+ * so each test seeds the file the extraction would have produced.
  */
 describe("installCursorPlugin hooks.json merge", () => {
   let originalFetch: typeof globalThis.fetch;
-  let spawnSpy: Mock<typeof Bun.spawn>;
   let resolveCommandSpy: Mock<typeof platform.resolveCommand>;
   let tempHome: string;
   let savedHome: string | undefined;
@@ -51,17 +40,19 @@ describe("installCursorPlugin hooks.json merge", () => {
   const archgateHookCommand =
     "archgate check ${filePath} --json 2>/dev/null || true";
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalFetch = globalThis.fetch;
     resolveCommandSpy = spyOn(platform, "resolveCommand").mockImplementation(
       async () => null
     );
-    spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => fakeTarSuccess());
+    // An empty tarball: Bun.Archive reads it and extracts nothing, leaving the
+    // hooks.json each test seeds as the only input to the merge.
+    const emptyBundle = await tarballOf({});
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = (async () => ({
       status: 200,
       ok: true,
-      arrayBuffer: async () => new ArrayBuffer(32),
+      arrayBuffer: async () => emptyBundle,
     })) as unknown as typeof fetch;
 
     // Redirect ~/.cursor and ~/.archgate into a temp dir — the install deletes
@@ -74,7 +65,6 @@ describe("installCursorPlugin hooks.json merge", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    spawnSpy.mockRestore();
     resolveCommandSpy.mockRestore();
     mock.restore();
 

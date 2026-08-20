@@ -124,6 +124,17 @@ function upgradeTempDirs(): Set<string> {
 }
 
 /**
+ * Names an escaping member would create beside the extraction directory, if
+ * any are present. Named rather than diffed against a snapshot of `tmpdir()`,
+ * whose other entries come and go while sibling test workers run.
+ */
+function escapedSiblings(): string[] {
+  return readdirSync(tmpdir()).filter(
+    (name) => name === "evil" || name === "..evil"
+  );
+}
+
+/**
  * Assert that `run` rejects without leaving its extraction directory behind.
  *
  * @returns The rejection message, for the caller's own assertions.
@@ -198,7 +209,6 @@ describe("downloadReleaseBinary archive handling", () => {
     "confines the unsafe archive entry %s to the extraction root",
     async (entry) => {
       mockArchiveDownload(buildTarGz([entry]));
-      const siblingsBefore = new Set(readdirSync(tmpdir()));
 
       // No `archgate` member survives normalization, so the post-extraction
       // check is what rejects — the escape simply never happened.
@@ -207,26 +217,19 @@ describe("downloadReleaseBinary archive handling", () => {
       );
 
       expect(message).toContain("Extraction produced no archgate");
-      const appeared = readdirSync(tmpdir()).filter(
-        (name) => !siblingsBefore.has(name)
-      );
-      expect(appeared).toEqual([]);
+      expect(escapedSiblings()).toEqual([]);
     }
   );
 
   test("confines a backslash-separated escape to the extraction root", async () => {
-    const entry = `..${String.fromCodePoint(92)}evil`;
-    mockArchiveDownload(buildTarGz([entry]));
-    const siblingsBefore = new Set(readdirSync(tmpdir()));
+    mockArchiveDownload(buildTarGz([`..${String.fromCodePoint(92)}evil`]));
 
     const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
     expect(message).toContain("Extraction produced no archgate");
-    expect(
-      readdirSync(tmpdir()).filter((name) => !siblingsBefore.has(name))
-    ).toEqual([]);
+    expect(escapedSiblings()).toEqual([]);
   });
 
   test("extracts an archive whose entries all stay inside the root", async () => {

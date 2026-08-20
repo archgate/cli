@@ -3,7 +3,7 @@ id: ARCH-005
 title: Testing Standards
 domain: architecture
 rules: true
-files: ["tests/**/*.ts"]
+files: ["tests/**/*.ts", "package.json"]
 ---
 
 ## Context
@@ -29,7 +29,7 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 3. **Temp directories for filesystem tests** — tests that write files use `mkdtemp` for isolation and clean up in `afterEach` or `afterAll`.
 4. **Test file naming** — `<module-name>.test.ts`.
 5. **Coverage target: 99.9%** — enforced in CI. PRs that drop total line coverage below 99.9% are blocked by the `Validate Code` gate check. A residue is unreachable: Bun emits never-incrementing lcov records for some structural tokens (`} catch {`; on Linux also blank lines, comments, braces).
-6. **Isolation is the test author's job** — Bun runs every test file in one process, so environment writes, `mock.module()` calls, and un-restored spies escape into later files and produce order-dependent flakes. Restore env vars with `restoreEnv()`, mock first-party modules with `spyOn` over an `import * as mod` namespace, and keep every write inside a `mkdtemp` directory.
+6. **Isolation is the test author's job** — `test:coverage`, the run CI gates on, executes every file in one process, so environment writes, `mock.module()` calls, and un-restored spies escape into later files. Restore env vars with `restoreEnv()`, mock first-party modules with `spyOn` over an `import * as mod` namespace, and keep every write inside a `mkdtemp` directory.
 7. **Mock `os.homedir()`, never `HOME`** — Bun caches `os.homedir()` on Linux, so a runtime `HOME` override is silently ignored and the code under test resolves the REAL home directory. Env-var overrides remain valid ONLY for code that reads `Bun.env.*` at call time (`vscode-settings.ts`'s `APPDATA` branch, the `paths.ts` helpers documented as "resolved at call time"). Production code MUST NOT be rewritten to read `Bun.env.HOME` just to make an env override work.
 8. **Per-test timeouts only ever raise the global** — `bun run test` applies `--timeout 60000`, so a shorter override such as `}, 30_000` makes that test _more_ likely to time out, not less.
 
@@ -203,7 +203,7 @@ describe.each([
 
 - **Fewer features than Jest/Vitest** — coverage reporting is limited to the `--coverage` flag and mock utilities are sparse next to Jest's, though snapshot testing (`toMatchSnapshot`, `toMatchInlineSnapshot`) is supported.
 - **Limited community resources** — fewer Stack Overflow answers and tutorials; contributors consult Bun documentation directly.
-- **One shared process** — `mock.module()` is process-global and retroactive (it patches a module for every importer, including ones that ran before the call) and not undone by `mock.restore()`, so other test files intermittently receive the mock instead of the real implementation; env writes escape into later test files the same way. Isolation is the test author's responsibility rather than the runner's — never dodge this by splitting production code into an `-impl` file, since that only changes what gets mocked, not whether the leak happens.
+- **One shared process, on the run that gates** — `mock.module()` is process-global and retroactive (it patches a module for every importer, including ones that ran before the call) and not undone by `mock.restore()`, so other test files intermittently receive the mock instead of the real implementation; env writes escape into later test files the same way. Bun 1.4's `--isolate` ends this for `bun run test`, but not for `test:coverage`, which must stay single-process to keep the coverage denominator comparable (Decision #9). The leak class therefore still reaches CI, and isolation stays the test author's responsibility — never dodge it by splitting production code into an `-impl` file, since that only changes what gets mocked, not whether the leak happens.
 
 ### Risks
 
@@ -211,6 +211,8 @@ describe.each([
   - **Mitigation:** the project pins a Bun version via `.prototools`; API changes surface during controlled upgrades with full suite validation.
 - **Coverage reporting gaps** — `bun test --coverage` may misreport code paths, especially dynamically imported modules.
   - **Mitigation:** the 99.9% threshold is enforced on total line coverage, not per-file, and critical modules (engine, formats) are tested thoroughly regardless of the aggregate.
+- **Coverage denominator scales with process count** — Bun merges per-process lcov correctly for lines _hit_, but each process lazily compiles a different subset of function bodies, and the merge unions the lines each reports as _found_. More processes therefore means a larger denominator over the same executed code. Measured on this suite: 1 process 97.2%, 3 (`--shard=i/3`) 91.3%, 16 (`--parallel`) 85.8% — with hits constant at ~11255 throughout. Multi-process coverage would fail the gate while covering exactly as much.
+  - **Mitigation:** Decision #9 keeps `test:coverage` single-process. `bun run test` takes `--parallel` freely, since it reports no coverage.
 - **Cross-file pollution from shared process state** — leaked env vars, leaked spies, and writes to real user-scope paths (`~/.config/Code/User/settings.json`, `%APPDATA%`, `~/.cursor/`, `~/.config/opencode/`) produce order-dependent flakes that pass on a PR run and fail after merge with identical code. `Bun.env.NODE_ENV` left unset instead of set to `"test"` before Sentry initializes is the same class of leak — the SDK sets `enabled: Bun.env.NODE_ENV !== "test"`.
   - **Mitigation:** `restoreEnv()` for every env capture, `try/finally` around inline spies, and an `os.homedir()` spy that keeps writes inside a `mkdtemp` directory; `test-isolation/no-bare-env-restore` blocks the env variant at lint time.
 - **Platform-specific hangs and timeouts** — an external SDK instance left open keeps Bun's event loop alive on Linux and hangs `bun test` after every test passes, while slow Windows CI filesystems let large fixtures blow the per-test timeout and kill the staging subprocess (`git add . failed (exit 143)`, where 143 = 128 + SIGTERM). Neither reproduces on macOS or locally.
