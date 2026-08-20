@@ -14,7 +14,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { opencodeConfigDir } from "../../src/helpers/paths";
+import { cursorUserDir, opencodeConfigDir } from "../../src/helpers/paths";
 import * as platform from "../../src/helpers/platform";
 import {
   buildCursorMarketplaceUrl,
@@ -70,6 +70,21 @@ function fakeSpawnResult(
     readable: new ReadableStream(),
     [Symbol.asyncDispose]: async () => {},
   } as unknown as ReturnType<typeof Bun.spawn>;
+}
+
+/**
+ * A real gzipped tar carrying `entries`, as the plugins API would serve it.
+ * Extraction is Bun.Archive rather than a `tar` subprocess, so a bundle test
+ * asserts the files that land on disk instead of the argv of a spawn.
+ */
+async function tarballOf(
+  entries: Record<string, string>
+): Promise<ArrayBuffer> {
+  const bytes = await new Bun.Archive(entries, { compress: "gzip" }).bytes();
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  );
 }
 
 /** Replace globalThis.fetch with a mock returning the given status/body. */
@@ -394,25 +409,35 @@ describe("plugin-install", () => {
   // -----------------------------------------------------------------------
 
   describe("installOpencodePlugin", () => {
-    test("downloads tarball and extracts via tar on success", async () => {
-      const tarContent = new ArrayBuffer(256);
-      mockFetch(200, tarContent);
-      spawnSpy.mockImplementation(() => fakeSpawnResult(0));
+    test("downloads the tarball and writes its entries into the config dir", async () => {
+      mockFetch(
+        200,
+        await tarballOf({
+          "agents/archgate-developer.md": "agent",
+          "skills/archgate-adr-author/SKILL.md": "skill",
+        })
+      );
 
       await installOpencodePlugin("test-token");
 
-      expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0];
-      expect(callArgs[0]).toBe("tar");
-      expect(callArgs).toContain("-xzf");
+      const base = opencodeConfigDir();
+      expect(
+        await Bun.file(join(base, "agents", "archgate-developer.md")).text()
+      ).toBe("agent");
+      expect(
+        await Bun.file(
+          join(base, "skills", "archgate-adr-author", "SKILL.md")
+        ).text()
+      ).toBe("skill");
+      // Nothing is spawned any more — extraction is in-process.
+      expect(spawnSpy).not.toHaveBeenCalled();
     });
 
-    test("throws when tar extraction fails", async () => {
+    test("throws when the downloaded bundle is not a readable archive", async () => {
       mockFetch(200, new ArrayBuffer(64));
-      spawnSpy.mockImplementation(() => fakeSpawnResult(2));
 
       expect(installOpencodePlugin("test-token")).rejects.toThrow(
-        "tar -xzf failed"
+        "Failed to extract opencode components"
       );
     });
 
@@ -436,25 +461,41 @@ describe("plugin-install", () => {
   // -----------------------------------------------------------------------
 
   describe("installCursorPlugin", () => {
-    test("downloads tarball and extracts via tar on success", async () => {
-      const tarContent = new ArrayBuffer(256);
-      mockFetch(200, tarContent);
-      spawnSpy.mockImplementation(() => fakeSpawnResult(0));
+    test("downloads the tarball and writes its entries into the cursor dir", async () => {
+      mockFetch(
+        200,
+        await tarballOf({ "agents/archgate-developer.md": "agent" })
+      );
 
       await installCursorPlugin("test-token");
 
-      expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0];
-      expect(callArgs[0]).toBe("tar");
+      expect(
+        await Bun.file(
+          join(cursorUserDir(), "agents", "archgate-developer.md")
+        ).text()
+      ).toBe("agent");
+      expect(spawnSpy).not.toHaveBeenCalled();
     });
 
-    test("throws when tar extraction fails", async () => {
+    test("throws when the downloaded bundle is not a readable archive", async () => {
       mockFetch(200, new ArrayBuffer(64));
-      spawnSpy.mockImplementation(() => fakeSpawnResult(2));
 
       expect(installCursorPlugin("test-token")).rejects.toThrow(
-        "tar -xzf failed"
+        "Failed to extract Cursor components"
       );
+    });
+
+    // The tarball is untrusted input written into a live `~/.cursor/`, so
+    // containment is Bun.Archive's guarantee rather than a pre-extraction scan.
+    test("confines a traversing entry to the cursor dir", async () => {
+      mockFetch(200, await tarballOf({ "../escaped.md": "pwned" }));
+
+      await installCursorPlugin("test-token");
+
+      expect(await Bun.file(join(cursorUserDir(), "escaped.md")).text()).toBe(
+        "pwned"
+      );
+      expect(await Bun.file(join(tempHome, "escaped.md")).exists()).toBe(false);
     });
 
     test("throws re-login message on 401 download", async () => {

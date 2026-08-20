@@ -256,54 +256,29 @@ export async function downloadReleaseBinary(
   }
   const tmpDir = mkdtempSync(join(tmpdir(), "archgate-upgrade-"));
   try {
-    const archivePath = join(tmpDir, `archgate${artifact.ext}`);
     logDebug("Extracting archive to:", tmpDir);
 
-    await Bun.write(archivePath, buffer);
-
     if (artifact.ext === ".tar.gz") {
-      // Validate archive entries before extraction to prevent path traversal.
-      // Backslashes are normalized because a member stored as `..\evil` is
-      // listed escaped by GNU tar and literal by bsdtar; both forms reach the
-      // `../` check only after normalization.
-      const list = await runCapture(["tar", "-tzf", archivePath]);
-      if (list.exitCode !== 0) {
-        // An empty listing from a failed run would otherwise read as "no
-        // unsafe entries" and wave the archive through the guard below.
+      // Bun.Archive confines every member to `tmpDir`: a leading `/` is
+      // stripped, `../` segments are normalized away, and a bare `..` entry is
+      // skipped. The previous `tar -tzf` scan approximated that containment by
+      // parsing human-readable output, whose spelling differed between GNU tar
+      // and bsdtar; the extractor enforcing it needs no listing at all.
+      try {
+        await new Bun.Archive(buffer).extract(tmpDir);
+      } catch (err) {
         throw new UserError(
-          `Failed to read archive listing (tar exit code ${list.exitCode})`
-        );
-      }
-
-      for (const entry of list.stdout.split("\n").filter(Boolean)) {
-        const normalized = entry.replaceAll("\\", "/").trim();
-        if (
-          normalized.startsWith("/") ||
-          normalized.includes("../") ||
-          normalized === ".."
-        ) {
-          throw new Error(
-            `Unsafe path in release archive: "${entry}" — aborting extraction`
-          );
-        }
-      }
-
-      const { exitCode } = await runCapture([
-        "tar",
-        "-xzf",
-        archivePath,
-        "-C",
-        tmpDir,
-      ]);
-      if (exitCode !== 0) {
-        throw new UserError(
-          `Failed to extract archive (tar exit code ${exitCode})`
+          `Failed to extract archive (${err instanceof Error ? err.message : String(err)})`
         );
       }
     } else {
+      // Bun.Archive reads tar and tar.gz only, so the Windows `.zip` release
+      // keeps PowerShell; switching the artifact to tar.gz would break every
+      // shim, each of which downloads `.zip` for win32 (ARCH-017).
       // `-ErrorAction Stop` promotes Expand-Archive's non-terminating error to
-      // a terminating one; without it PowerShell exits 0 on a corrupt archive
-      // and extraction failure goes unnoticed.
+      // a terminating one; without it PowerShell exits 0 on a corrupt archive.
+      const archivePath = join(tmpDir, `archgate${artifact.ext}`);
+      await Bun.write(archivePath, buffer);
       const { exitCode } = await runCapture([
         "powershell",
         "-NoProfile",

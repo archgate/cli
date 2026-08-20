@@ -152,7 +152,6 @@ export async function installCursorPlugin(token: string): Promise<void> {
     apiPath: "/api/cursor",
     token,
     label: "Cursor",
-    tempFile: "archgate-cursor.tar.gz",
   });
 
   await mergeCursorHooks(cursorDir);
@@ -245,18 +244,17 @@ async function downloadPluginAsset(
 // ---------------------------------------------------------------------------
 
 /**
- * Install an archgate editor plugin bundle (agents + skills), shared by
- * Cursor and opencode: ensure `agents/`/`skills/` exist, delete stale
- * `archgate-*` entries (only those — other files stay untouched), then
- * download and extract the authenticated tarball with `tar` via ARCH-007's
- * `run()`. Editor-specific post-install steps happen in each caller.
+ * Install an archgate editor plugin bundle (agents + skills), shared by Cursor
+ * and opencode: ensure `agents/`/`skills/` exist, delete stale `archgate-*`
+ * entries (only those), then extract the authenticated tarball. Bun.Archive
+ * reads the bytes directly — no tarball on disk, no `tar` on PATH — and
+ * confines every member to `baseDir`, a live user config dir here.
  */
 async function installEditorPluginBundle(opts: {
   baseDir: string;
   apiPath: string;
   token: string;
   label: string;
-  tempFile: string;
 }): Promise<void> {
   const agentsDir = join(opts.baseDir, "agents");
   const skillsDir = join(opts.baseDir, "skills");
@@ -282,27 +280,18 @@ async function installEditorPluginBundle(opts: {
     rmSync(join(skillsDir, dir), { recursive: true, force: true });
   }
 
-  const tarballPath = internalPath(opts.tempFile);
   const buffer = await downloadPluginAsset(opts.apiPath, opts.token);
   logDebug(
     `Downloaded ${opts.label} bundle (${Math.round(buffer.byteLength / 1024)} KB)`
   );
-  await Bun.write(tarballPath, buffer);
 
+  logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
   try {
-    logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
-    const result = await run(["tar", "-xzf", tarballPath, "-C", opts.baseDir]);
-    if (result.exitCode !== 0) {
-      throw new UserError(
-        `tar -xzf failed (exit ${result.exitCode}) while extracting ${opts.label} components`
-      );
-    }
-  } finally {
-    try {
-      unlinkSync(tarballPath);
-    } catch {
-      // Ignore cleanup errors
-    }
+    await new Bun.Archive(buffer).extract(opts.baseDir);
+  } catch (err) {
+    throw new UserError(
+      `Failed to extract ${opts.label} components (${err instanceof Error ? err.message : String(err)})`
+    );
   }
 }
 
@@ -346,7 +335,6 @@ export async function installOpencodePlugin(token: string): Promise<void> {
     apiPath: "/api/opencode",
     token,
     label: "opencode",
-    tempFile: "archgate-opencode.tar.gz",
   });
 
   // Configure opencode.json with default_agent (idempotent — only sets if absent)
