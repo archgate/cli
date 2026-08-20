@@ -71,7 +71,7 @@
     "@commitlint/config-conventional": "21.2.0",
     "@sentry/node-core": "10.67.0",
     "@simple-release/npm": "3.2.5",
-    "@types/bun": "1.3.14",
+    "@types/bun": "1.4.0",
     "conventional-changelog": "8.1.0",
     "conventional-changelog-angular": "9.2.1",
     "czg": "1.13.1",

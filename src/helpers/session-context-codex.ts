@@ -136,10 +136,13 @@ const DISCOVERY_CONCURRENCY = 8;
  * Inflate only as far as the first {@link META_SCAN_LINES} lines.
  *
  * Discovery classifies a rollout from its `session_meta` line, so inflating the
- * rest is wasted: on an 8 MB transcript this returns in about a fifth of the
- * time a whole-member inflate takes, and holds a fraction of the bytes.
+ * rest is wasted: on an 8 MB rollout this returns in a tenth of the time a
+ * whole-member inflate takes, holding the head rather than the transcript.
  */
 async function readCompressedHead(file: BunFile): Promise<string> {
+  // `new Response(...).textStream()` would fold the decoding in, but it is
+  // absent from @types/bun 1.4.0 and casting past that costs more than the
+  // reader it saves.
   const reader = file
     .stream()
     .pipeThrough(new DecompressionStream("zstd"))
