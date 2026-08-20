@@ -6,6 +6,7 @@ import { basename, join, resolve } from "node:path";
 
 import { z } from "zod";
 
+import { readTextIfExists } from "./fs-read";
 import type { EditorTarget } from "./init-project";
 import { isWindows, isWSL, toWindowsPath } from "./platform";
 
@@ -282,16 +283,14 @@ export async function readClaudeCodeSession(
   }
 
   const sessionFile = join(projectsDir, targetName);
+  const raw = await readTextIfExists(sessionFile);
+  if (raw === null) return sessionReadFailure(sessionFile);
+
   let entries: TranscriptEntry[];
   try {
-    const raw = await Bun.file(sessionFile).text();
     entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
   } catch {
-    return {
-      ok: false,
-      error: "Failed to read session file",
-      path: sessionFile,
-    };
+    return sessionReadFailure(sessionFile);
   }
 
   const relevant: ClaudeSessionSummary["transcript"] = [];
@@ -434,16 +433,14 @@ export async function readCursorSession(
     targetDir.name,
     `${targetDir.name}.jsonl`
   );
+  const raw = await readTextIfExists(sessionFile);
+  if (raw === null) return sessionReadFailure(sessionFile);
+
   let entries: TranscriptEntry[];
   try {
-    const raw = await Bun.file(sessionFile).text();
     entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
   } catch {
-    return {
-      ok: false,
-      error: "Failed to read session file",
-      path: sessionFile,
-    };
+    return sessionReadFailure(sessionFile);
   }
 
   const relevant: CursorSessionSummary["transcript"] = [];

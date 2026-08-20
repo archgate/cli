@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import { readTextIfExists } from "./fs-read";
 import { logDebug } from "./log";
 import { copilotSessionStateDir } from "./paths";
 import {
@@ -102,7 +103,8 @@ async function findMatchingCopilotSessions(
     const yamlPath = join(stateDir, dir.name, "workspace.yaml");
     try {
       // oxlint-disable-next-line no-await-in-loop -- sequential read needed: each session's YAML determines project match
-      const raw = await Bun.file(yamlPath).text();
+      const raw = await readTextIfExists(yamlPath);
+      if (raw === null) continue;
       const metaResult = WorkspaceMetaSchema.safeParse(Bun.YAML.parse(raw));
       if (!metaResult.success) continue;
       const cwd = metaResult.data.cwd;
@@ -188,16 +190,20 @@ export async function readCopilotSession(
 
   // 4. Read events.jsonl
   const eventsFile = join(stateDir, target.name, "events.jsonl");
+  const noTranscript = {
+    ok: false as const,
+    error: "Session exists but has no conversation transcript",
+    path: eventsFile,
+  };
+
+  const raw = await readTextIfExists(eventsFile);
+  if (raw === null) return noTranscript;
+
   let rawEntries: z.infer<typeof CopilotEventsSchema>;
   try {
-    const raw = await Bun.file(eventsFile).text();
     rawEntries = CopilotEventsSchema.parse(Bun.JSONL.parse(raw));
   } catch {
-    return {
-      ok: false,
-      error: "Session exists but has no conversation transcript",
-      path: eventsFile,
-    };
+    return noTranscript;
   }
 
   // 5. Filter to user/assistant events and normalize to TranscriptEntry shape

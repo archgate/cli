@@ -2,6 +2,7 @@
 // Copyright 2026 Archgate
 import { dirname, join } from "node:path";
 
+import { readTextIfExists } from "./fs-read";
 import { logDebug } from "./log";
 import { projectPath } from "./paths";
 import { rulesSourceText } from "./rules-source" with { type: "macro" };
@@ -96,13 +97,15 @@ export async function writeRulesShim(projectRoot: string): Promise<void> {
  */
 async function ensureShimAt(dtsPath: string, expected: string): Promise<void> {
   try {
-    const existing = await Bun.file(dtsPath).text();
+    // A missing shim reads as null, which never equals `expected`, so it falls
+    // through to the write below.
+    const existing = await readTextIfExists(dtsPath);
     if (existing === expected) {
       logDebug("Rules type definitions up-to-date:", dtsPath);
       return;
     }
   } catch {
-    // File missing or unreadable — fall through to the write.
+    // Unreadable — fall through to the write.
   }
 
   try {

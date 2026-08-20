@@ -14,6 +14,7 @@ import { basename, join } from "node:path";
 
 import { z } from "zod";
 
+import { readIfExists } from "./fs-read";
 import { logDebug } from "./log";
 import { codexSessionsDir } from "./paths";
 import {
@@ -145,11 +146,13 @@ async function readRollout(
 ): Promise<string | null> {
   try {
     if (file.endsWith(COMPRESSED_SUFFIX)) {
-      const bytes = await Bun.file(file).bytes();
+      const bytes = await readIfExists(file, async (f) => f.bytes());
+      if (bytes === null) return null;
       return new TextDecoder().decode(Bun.zstdDecompressSync(bytes));
     }
-    const handle = Bun.file(file);
-    return await (headOnly ? handle.slice(0, HEAD_BYTES) : handle).text();
+    return await readIfExists(file, async (f) =>
+      (headOnly ? f.slice(0, HEAD_BYTES) : f).text()
+    );
   } catch {
     return null;
   }
