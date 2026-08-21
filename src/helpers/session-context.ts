@@ -148,13 +148,22 @@ type CursorSessionResult =
   | { ok: true; data: CursorSessionSummary }
   | { ok: false; error: string; path?: string; available?: string[] };
 
+/**
+ * Cap `text` at `max` terminal columns, appending an ellipsis when it was cut.
+ *
+ * `String.slice` counts UTF-16 code units, so a cut inside an emoji leaves a
+ * lone surrogate — valid JSON, but a value a non-JS reader of `--json` cannot
+ * re-encode to UTF-8. `Bun.sliceAnsi` cuts on grapheme boundaries.
+ */
+export function truncatePreview(text: string, max: number): string {
+  const sliced = Bun.sliceAnsi(text, 0, max);
+  return sliced === text ? text : `${sliced}...`;
+}
+
 /** Extract a preview string from a single content block, or null for unknown types. */
 function parseContentBlock(block: ContentBlock): string | null {
   const text = TextBlockSchema.safeParse(block);
-  if (text.success) {
-    const t = text.data.text;
-    return t.length > 300 ? t.slice(0, 300) + "..." : t;
-  }
+  if (text.success) return truncatePreview(text.data.text, 300);
   const toolUse = ToolUseBlockSchema.safeParse(block);
   if (toolUse.success) return `[tool_use: ${toolUse.data.name}]`;
   const toolResult = ToolResultBlockSchema.safeParse(block);
@@ -165,9 +174,7 @@ function parseContentBlock(block: ContentBlock): string | null {
 
 export function getContentPreview(entry: TranscriptEntry): string {
   const content = entry.message?.content;
-  if (typeof content === "string") {
-    return content.length > 500 ? content.slice(0, 500) + "..." : content;
-  }
+  if (typeof content === "string") return truncatePreview(content, 500);
   if (Array.isArray(content)) {
     const parts: string[] = [];
     for (const block of content) {

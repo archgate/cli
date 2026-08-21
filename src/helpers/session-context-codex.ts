@@ -24,6 +24,7 @@ import {
   type SessionListResult,
   normalizePath,
   sessionReadFailure,
+  truncatePreview,
 } from "./session-context";
 
 /** Rollouts older than a week are zstd-compressed in place by Codex. */
@@ -413,10 +414,7 @@ export async function readCodexSession(
     if (turn === null) continue;
     transcript.push({
       role: turn.role,
-      contentPreview:
-        turn.text.length > MAX_PREVIEW
-          ? `${turn.text.slice(0, MAX_PREVIEW)}...`
-          : turn.text,
+      contentPreview: truncatePreview(turn.text, MAX_PREVIEW),
     });
   }
 

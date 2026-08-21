@@ -255,6 +255,24 @@ describe("readClaudeCodeSession", () => {
       expect(preview).toEndWith("...");
     });
 
+    // A cut on a UTF-16 code-unit boundary can land inside an emoji and leave
+    // a lone surrogate. It survives JSON.stringify as an escape, but a non-JS
+    // reader of --json cannot re-encode that to UTF-8.
+    test("truncates on a character boundary, not mid-emoji", async () => {
+      const content = "x".repeat(499) + "\u{1F44D}" + "y".repeat(50);
+      writeSession([{ type: "user", message: { role: "user", content } }]);
+
+      const result = await readClaudeCodeSession(projectRoot);
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error("expected ok");
+      const preview = result.data.transcript[0]?.contentPreview ?? "";
+      expect(preview).toEndWith("...");
+      expect(preview).not.toMatch(/[\uD800-\uDFFF]/u);
+      // Round-trips through UTF-8 unchanged — what a lone surrogate breaks.
+      const encoded = new TextEncoder().encode(preview);
+      expect(new TextDecoder().decode(encoded)).toBe(preview);
+    });
+
     test("handles array content: text truncation, tool_use, tool_result", async () => {
       writeSession([
         {
