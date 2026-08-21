@@ -31,7 +31,7 @@ import {
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../src/helpers/plugin-install";
-import { restoreEnv } from "../test-utils";
+import { restoreEnv, tarballOf } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -70,21 +70,6 @@ function fakeSpawnResult(
     readable: new ReadableStream(),
     [Symbol.asyncDispose]: async () => {},
   } as unknown as ReturnType<typeof Bun.spawn>;
-}
-
-/**
- * A real gzipped tar carrying `entries`, as the plugins API would serve it.
- * Extraction is in-process, so a bundle test asserts the files that land on
- * disk.
- */
-async function tarballOf(
-  entries: Record<string, string>
-): Promise<ArrayBuffer> {
-  const bytes = await new Bun.Archive(entries, { compress: "gzip" }).bytes();
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  );
 }
 
 /** Replace globalThis.fetch with a mock returning the given status/body. */

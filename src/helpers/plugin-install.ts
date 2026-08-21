@@ -152,8 +152,6 @@ export async function installCursorPlugin(token: string): Promise<void> {
     apiPath: "/api/cursor",
     token,
     label: "Cursor",
-    // mergeCursorHooks reads this back out of the extracted tree.
-    extraPaths: ["hooks.json"],
   });
 
   await mergeCursorHooks(cursorDir);
@@ -174,42 +172,42 @@ function isCursorHookArray(
 }
 
 /**
- * Merge archgate hooks into `~/.cursor/hooks.json`.
+ * Ensure `~/.cursor/hooks.json` registers the archgate hook.
  *
- * If the file already exists, reads it, removes any previous archgate hooks
- * (identified by the archgate check command), appends the new ones, and
- * writes back. If it doesn't exist, uses the extracted file as-is.
+ * The hook is written here rather than shipped in the bundle: hooks.json is a
+ * list of shell commands Cursor runs on every file edit, so a downloaded file
+ * would be arbitrary code execution. Pre-existing user hooks are preserved and
+ * a malformed file is left alone.
  */
 async function mergeCursorHooks(cursorDir: string): Promise<void> {
   const hooksPath = join(cursorDir, "hooks.json");
-  if (!existsSync(hooksPath)) return;
+  const archgateHook = {
+    event: "afterFileEdit",
+    type: "command",
+    command: "archgate check ${filePath} --json 2>/dev/null || true",
+  };
 
-  try {
-    const parsed: unknown = await Bun.file(hooksPath).json();
-    if (!isCursorHookArray(parsed)) {
-      throw new Error("hooks.json has an unexpected shape");
+  let existing: { event: string; command?: string }[] = [];
+  if (existsSync(hooksPath)) {
+    try {
+      const parsed: unknown = await Bun.file(hooksPath).json();
+      if (!isCursorHookArray(parsed)) {
+        logDebug("hooks.json has an unexpected shape — leaving it alone");
+        return;
+      }
+      existing = parsed;
+    } catch {
+      logDebug("Could not read hooks.json — leaving existing file");
+      return;
     }
-    const existing = parsed;
-
-    const filtered = existing.filter(
-      (h) => h.command === undefined || !h.command.includes("archgate check")
-    );
-
-    const archgateHooks = [
-      {
-        event: "afterFileEdit",
-        type: "command",
-        command: "archgate check ${filePath} --json 2>/dev/null || true",
-      },
-    ];
-
-    for (const h of archgateHooks) filtered.push(h);
-    await Bun.write(hooksPath, JSON.stringify(filtered, null, 2) + "\n");
-    logDebug("Merged archgate hooks into", hooksPath);
-  } catch {
-    // If existing hooks.json is malformed, leave it alone
-    logDebug("Could not merge hooks.json — leaving existing file");
   }
+
+  const filtered = existing.filter(
+    (h) => h.command === undefined || !h.command.includes("archgate check")
+  );
+  filtered.push(archgateHook);
+  await Bun.write(hooksPath, JSON.stringify(filtered, null, 2) + "\n");
+  logDebug("Registered the archgate hook in", hooksPath);
 }
 
 // ---------------------------------------------------------------------------
@@ -252,18 +250,15 @@ const BUNDLE_CONTENTS = ["agents/**", "skills/**"];
 /**
  * Install an archgate editor plugin bundle, shared by Cursor and opencode:
  * ensure `agents/`/`skills/` exist, delete stale `archgate-*` entries, then
- * extract the tarball filtered to {@link BUNDLE_CONTENTS} plus `extraPaths`.
- * Bun.Archive keeps members inside `baseDir` — a live user config dir — and
- * the filter stops a bundle dropping files beside them.
- *
- * @param opts.extraPaths - Additional globs this editor's bundle may write.
+ * extract the tarball, filtered to {@link BUNDLE_CONTENTS}. Bun.Archive keeps
+ * members inside `baseDir` — a live user config dir — and the filter stops a
+ * bundle dropping files beside them.
  */
 async function installEditorPluginBundle(opts: {
   baseDir: string;
   apiPath: string;
   token: string;
   label: string;
-  extraPaths?: string[];
 }): Promise<void> {
   const agentsDir = join(opts.baseDir, "agents");
   const skillsDir = join(opts.baseDir, "skills");
@@ -297,7 +292,7 @@ async function installEditorPluginBundle(opts: {
   logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
   try {
     await new Bun.Archive(buffer).extract(opts.baseDir, {
-      glob: [...BUNDLE_CONTENTS, ...(opts.extraPaths ?? [])],
+      glob: BUNDLE_CONTENTS,
     });
   } catch (err) {
     throw new UserError(

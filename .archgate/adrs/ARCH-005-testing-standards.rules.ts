@@ -74,15 +74,22 @@ export default {
           });
         }
 
-        // A caller can reopen this without touching package.json:
-        // `bun run test --coverage` appends the flag to a parallel script. That
-        // is how the Windows smoke job silently dropped the merged gate to
-        // 90.5%, and it is invisible to the scripts pass above.
+        if (multiprocess.size === 0) return;
+
+        // `bun run test --coverage` reassembles the combination at the call
+        // site, where the scan above cannot see it. Longest name first so
+        // `test:changed` wins over `test`, each name escaped so `test.ci`
+        // cannot match `testXci`, and the name ends at whitespace because `\b`
+        // stops at the `:` inside one.
+        const names = [...multiprocess]
+          .sort((a, b) => b.length - a.length)
+          .map((name) =>
+            name.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`)
+          );
         const callSite = new RegExp(
-          String.raw`bun run (${[...multiprocess].join("|")})\b[^\n]*--coverage`,
+          String.raw`bun run (${names.join("|")})(?=\s)[^\n]*--coverage`,
           "u"
         );
-        if (multiprocess.size === 0) return;
 
         for (const file of await ctx.glob(".github/workflows/*.yml")) {
           // oxlint-disable-next-line no-await-in-loop -- reads are cached per path

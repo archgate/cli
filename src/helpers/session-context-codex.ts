@@ -143,17 +143,20 @@ async function readCompressedHead(file: BunFile): Promise<string> {
   const inflated = file.stream().pipeThrough(new DecompressionStream("zstd"));
   let text = "";
   let lines = 0;
+  let bytes = 0;
   // {@link HEAD_BYTES} bounds a rollout whose first lines are huge, or which
   // carries no newline at all — discovery inflates several at once, so the
-  // line count alone is not a memory bound. Breaking out cancels the stream,
-  // releasing the file handle.
+  // line count alone is not a memory bound. Decoded bytes, not string length,
+  // so the budget means the same here as on the uncompressed path. Breaking
+  // out cancels the stream, releasing the file handle.
   for await (const chunk of new Response(inflated).textStream()) {
     for (const char of chunk) if (char === "\n") lines++;
     text += chunk;
-    if (lines >= META_SCAN_LINES || text.length >= HEAD_BYTES) break;
+    bytes += Buffer.byteLength(chunk, "utf8");
+    if (lines >= META_SCAN_LINES || bytes >= HEAD_BYTES) break;
   }
-  // A byte-bounded read can stop mid-line, and Bun.JSONL.parse rejects the
-  // whole head over one truncated entry.
+  // The byte budget can stop mid-line, and Bun.JSONL.parse rejects the whole
+  // head over one truncated entry.
   const lastBreak = text.lastIndexOf("\n");
   return lines >= META_SCAN_LINES || lastBreak === -1
     ? text
@@ -166,8 +169,10 @@ async function readCompressedHead(file: BunFile): Promise<string> {
  * Codex compresses rollouts older than seven days in place, so a reader that
  * handled only `.jsonl` would see nothing beyond the most recent week.
  *
- * @param headOnly - Read just the head: {@link HEAD_BYTES} for a plain rollout,
- * {@link META_SCAN_LINES} lines for a compressed one.
+ * @param headOnly - Read just the head. A plain rollout stops at
+ * {@link HEAD_BYTES}; a compressed one stops at whichever of
+ * {@link META_SCAN_LINES} lines or {@link HEAD_BYTES} decoded bytes comes
+ * first, truncating to the last complete line.
  */
 async function readRollout(
   file: string,

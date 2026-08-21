@@ -256,9 +256,7 @@ describe("downloadReleaseBinary archive handling", () => {
 
   // Windows is excluded because Bun.Archive skips symlink members there, so
   // `archgate` is absent rather than present-and-wrong; the absence branch is
-  // covered by the unsafe-entry cases above. Verified under WSL — a
-  // `skipIf(win32)` case reports as passing on this project's Windows dev
-  // machines without ever running.
+  // covered by the unsafe-entry cases above.
   test.skipIf(process.platform === "win32")(
     "refuses a binary that extracts as a symlink",
     async () => {
