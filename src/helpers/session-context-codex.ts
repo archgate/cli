@@ -12,6 +12,7 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
+import type { BunFile } from "bun";
 import { z } from "zod";
 
 import { readIfExists } from "./fs-read";
@@ -122,14 +123,49 @@ interface CodexRollout {
 }
 
 /**
- * Bytes read from a rollout when only its `session_meta` is wanted. The meta
- * line is written at session creation, so the head is enough to classify a
- * rollout without paying for its whole transcript.
+ * Bytes read from a rollout when only its `session_meta` is wanted, which is
+ * written at session creation. Exported so a test can assert the bound.
  */
-const HEAD_BYTES = 64 * 1024;
+export const HEAD_BYTES = 64 * 1024;
 
 /** Rollouts inspected at once during discovery. */
 const DISCOVERY_CONCURRENCY = 8;
+
+/**
+ * Inflate only as far as the first {@link META_SCAN_LINES} lines or
+ * {@link HEAD_BYTES} decoded bytes. On an 8 MB rollout that is a tenth of the
+ * time a whole-member inflate takes. Exported because `readCodexSession` reads
+ * the chosen rollout in full afterwards, so only a direct call can show this
+ * stopped early.
+ */
+export async function readCompressedHead(file: BunFile): Promise<string> {
+  const inflated = file.stream().pipeThrough(new DecompressionStream("zstd"));
+  let text = "";
+  let lines = 0;
+  let bytes = 0;
+  // {@link HEAD_BYTES} bounds a rollout whose first lines are huge, or which
+  // carries no newline at all — discovery inflates several at once, so the
+  // line count alone is not a memory bound. Decoded bytes, not string length,
+  // so the budget means the same here as on the uncompressed path. Breaking
+  // out cancels the stream, releasing the file handle.
+  for await (const raw of new Response(inflated).textStream()) {
+    // Trim before appending: one decompressed chunk can exceed the budget on
+    // its own, and appending first would already have spent the memory. A
+    // UTF-8 character is at least one byte, so taking that many characters
+    // never exceeds that many bytes.
+    const chunk = raw.slice(0, HEAD_BYTES - bytes);
+    for (const char of chunk) if (char === "\n") lines++;
+    text += chunk;
+    bytes += Buffer.byteLength(chunk, "utf8");
+    if (lines >= META_SCAN_LINES || bytes >= HEAD_BYTES) break;
+  }
+  // The byte budget can stop mid-line, and Bun.JSONL.parse rejects the whole
+  // head over one truncated entry.
+  const lastBreak = text.lastIndexOf("\n");
+  return lines >= META_SCAN_LINES || lastBreak === -1
+    ? text
+    : text.slice(0, lastBreak);
+}
 
 /**
  * Read a rollout as text, transparently decompressing the `.zst` form.
@@ -137,8 +173,10 @@ const DISCOVERY_CONCURRENCY = 8;
  * Codex compresses rollouts older than seven days in place, so a reader that
  * handled only `.jsonl` would see nothing beyond the most recent week.
  *
- * @param headOnly - Read just the leading {@link HEAD_BYTES}. Compressed
- * rollouts ignore this: the whole member must be inflated to reach any of it.
+ * @param headOnly - Read just the head. A plain rollout stops at
+ * {@link HEAD_BYTES}; a compressed one stops at whichever of
+ * {@link META_SCAN_LINES} lines or {@link HEAD_BYTES} decoded bytes comes
+ * first, truncating to the last complete line.
  */
 async function readRollout(
   file: string,
@@ -146,9 +184,11 @@ async function readRollout(
 ): Promise<string | null> {
   try {
     if (file.endsWith(COMPRESSED_SUFFIX)) {
-      const bytes = await readIfExists(file, async (f) => f.bytes());
-      if (bytes === null) return null;
-      return new TextDecoder().decode(Bun.zstdDecompressSync(bytes));
+      return await readIfExists(file, async (f) =>
+        headOnly
+          ? readCompressedHead(f)
+          : new TextDecoder().decode(Bun.zstdDecompressSync(await f.bytes()))
+      );
     }
     return await readIfExists(file, async (f) =>
       (headOnly ? f.slice(0, HEAD_BYTES) : f).text()

@@ -5,7 +5,7 @@ import { styleText } from "node:util";
 import type { Command } from "@commander-js/extra-typings";
 
 import { handleCommandError } from "../../../helpers/exit";
-import { formatJSON, isAgentContext } from "../../../helpers/output";
+import { formatJSON, isAgentContext, padCell } from "../../../helpers/output";
 import { requireProjectRoot } from "../../../helpers/paths";
 import { listDomainEntries } from "../../../helpers/project-config";
 
@@ -31,7 +31,7 @@ export function registerDomainListCommand(domain: Command) {
         console.log(
           styleText(
             "bold",
-            `${"Domain".padEnd(nameWidth)}${"Prefix".padEnd(prefixWidth)}Source`
+            `${padCell("Domain", nameWidth)}${padCell("Prefix", prefixWidth)}Source`
           )
         );
         console.log(
@@ -42,7 +42,7 @@ export function registerDomainListCommand(domain: Command) {
         );
         for (const entry of entries) {
           console.log(
-            `${entry.domain.padEnd(nameWidth)}${entry.prefix.padEnd(prefixWidth)}${entry.source}`
+            `${padCell(entry.domain, nameWidth)}${padCell(entry.prefix, prefixWidth)}${entry.source}`
           );
         }
       } catch (err) {

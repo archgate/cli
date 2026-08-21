@@ -107,3 +107,18 @@ export async function rejectionMessage(
   }
   throw new Error("expected the promise to reject");
 }
+
+/**
+ * A real gzipped tar carrying `entries`, as the plugins API serves a bundle.
+ * Installs extract in-process, so a test supplies bytes a real extractor can
+ * read and asserts the files that land on disk.
+ */
+export async function tarballOf(
+  entries: Record<string, string>
+): Promise<ArrayBuffer> {
+  const bytes = await new Bun.Archive(entries, { compress: "gzip" }).bytes();
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  );
+}

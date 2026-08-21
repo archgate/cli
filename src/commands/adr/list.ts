@@ -10,7 +10,7 @@ import { parseAllAdrs } from "../../engine/loader";
 import type { AdrFrontmatter } from "../../formats/adr";
 import { rejectBlank } from "../../helpers/cli-options";
 import { handleCommandError } from "../../helpers/exit";
-import { formatJSON, isAgentContext } from "../../helpers/output";
+import { formatJSON, isAgentContext, padCell } from "../../helpers/output";
 import { requireProjectRoot } from "../../helpers/paths";
 import { resolvedProjectPaths } from "../../helpers/project-config";
 
@@ -76,7 +76,7 @@ export function registerAdrListCommand(adr: Command) {
         console.log(
           styleText(
             "bold",
-            `${"ID".padEnd(idWidth)}${"Domain".padEnd(domainWidth)}${"Rules".padEnd(rulesWidth)}Title`
+            `${padCell("ID", idWidth)}${padCell("Domain", domainWidth)}${padCell("Rules", rulesWidth)}Title`
           )
         );
         console.log(
@@ -89,7 +89,7 @@ export function registerAdrListCommand(adr: Command) {
         for (const adr of filtered) {
           const fm = adr.frontmatter;
           console.log(
-            `${fm.id.padEnd(idWidth)}${fm.domain.padEnd(domainWidth)}${String(fm.rules).padEnd(rulesWidth)}${fm.title}`
+            `${padCell(fm.id, idWidth)}${padCell(fm.domain, domainWidth)}${padCell(String(fm.rules), rulesWidth)}${fm.title}`
           );
         }
       } catch (err) {

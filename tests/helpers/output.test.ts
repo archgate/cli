@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 
-import { isAgentContext, formatJSON } from "../../src/helpers/output";
+import { isAgentContext, formatJSON, padCell } from "../../src/helpers/output";
 import { restoreEnv } from "../test-utils";
 
 describe("output helpers", () => {
@@ -36,6 +36,31 @@ describe("output helpers", () => {
       // Removing CI makes isAgentContext() return true.
       delete process.env.CI;
       expect(isAgentContext()).toBe(true);
+    });
+  });
+
+  describe("padCell", () => {
+    test("pads an ASCII value to the requested column count", () => {
+      expect(padCell("ID", 5)).toBe("ID   ");
+    });
+
+    test("measures wide characters in columns, not UTF-16 units", () => {
+      // "決定記録" is 4 code units but occupies 8 terminal columns, so padEnd
+      // would emit 6 spaces here and push every later column out of line.
+      const padded = padCell("決定記録", 12);
+      expect(Bun.stringWidth(padded)).toBe(12);
+      expect(padded).toBe("決定記録    ");
+    });
+
+    test("leaves a value at or over the width unchanged, like padEnd", () => {
+      expect(padCell("exact", 5)).toBe("exact");
+      expect(padCell("overlong", 3)).toBe("overlong");
+    });
+
+    test("keeps a mixed-width table aligned across rows", () => {
+      const rows = ["archgate", "決定", "ok"].map((v) => padCell(v, 10) + "|");
+      const widths = new Set(rows.map((r) => Bun.stringWidth(r)));
+      expect(widths.size).toBe(1);
     });
   });
 

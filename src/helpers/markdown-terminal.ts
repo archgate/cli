@@ -1,0 +1,138 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2026 Archgate
+/**
+ * Render markdown for a terminal via `Bun.markdown.render`.
+ *
+ * Callers gate this on a TTY and emit the raw source otherwise (ARCH-003):
+ * piped output feeds agents and scripts, which want the markdown verbatim.
+ */
+
+import { styleText } from "node:util";
+
+import { padCell } from "./output";
+
+/**
+ * Cell and row terminators. `Bun.markdown.render` builds bottom-up, so a cell
+ * cannot know its column's width; the table callback recovers the grid from
+ * these and aligns it. Both are control characters markdown source cannot
+ * carry as text.
+ */
+const CELL_END = "\u0000";
+const ROW_END = "\u0001";
+
+/** Body indent for a fenced code block. */
+const CODE_INDENT = "    ";
+
+/** Placeholder a list item leaves for its own marker; see the `list` callback. */
+const BULLET = "\u0011";
+
+/** Strip a single trailing newline run, leaving inner blank lines intact. */
+function trimTrailingNewlines(value: string): string {
+  return value.replace(/\n+$/u, "");
+}
+
+/** Prefix every line of `value` with `prefix`. */
+function prefixLines(value: string, prefix: string): string {
+  return trimTrailingNewlines(value)
+    .split("\n")
+    .map((line) => prefix + line)
+    .join("\n");
+}
+
+/**
+ * Lay the collected grid out in aligned columns.
+ *
+ * @param raw - Children of the `table` callback: cells terminated by
+ * {@link CELL_END}, rows by {@link ROW_END}.
+ */
+function renderTable(raw: string): string {
+  const rows = raw
+    .split(ROW_END)
+    .filter((row) => row !== "")
+    .map((row) => row.split(CELL_END).slice(0, -1));
+  if (rows.length === 0) return "";
+
+  const columns = Math.max(...rows.map((row) => row.length));
+  const widths = Array.from({ length: columns }, (_unused, column) =>
+    Math.max(...rows.map((row) => Bun.stringWidth(row[column] ?? "")))
+  );
+
+  const lines = rows.map((row) =>
+    widths
+      .map((width, column) => padCell(row[column] ?? "", width))
+      .join("  ")
+      .trimEnd()
+  );
+
+  // The header is the first row; a rule under it is what makes the grid
+  // readable without drawing borders around every cell.
+  const rule = styleText(
+    "dim",
+    widths.map((width) => "─".repeat(width)).join("  ")
+  );
+  return [lines[0], rule, ...lines.slice(1)].join("\n") + "\n\n";
+}
+
+/**
+ * Render `markdown` with ANSI styling for direct terminal display.
+ *
+ * @param markdown - The document source.
+ * @returns The styled text, with one trailing newline.
+ */
+export function renderMarkdownForTerminal(markdown: string): string {
+  const rendered = Bun.markdown.render(markdown, {
+    text: (value) => value,
+    strong: (children) => styleText("bold", children),
+    emphasis: (children) => styleText("italic", children),
+    strikethrough: (children) => styleText("strikethrough", children),
+    codespan: (children) => styleText("cyan", children),
+    // The href is dimmed rather than hidden: a terminal that does not linkify
+    // leaves the reader with no way to reach it otherwise.
+    link: (children, attrs) =>
+      `${styleText("blue", children)} ${styleText("dim", `(${attrs.href})`)}`,
+    image: (children, attrs) =>
+      styleText("dim", `[image: ${children || attrs.src}]`),
+    heading: (children, attrs) => {
+      const text = styleText("bold", children);
+      const prefix = styleText("dim", "#".repeat(attrs.level) + " ");
+      return `\n${prefix}${text}\n\n`;
+    },
+    paragraph: (children) => `${children}\n\n`,
+    code: (children, attrs) => {
+      const language = attrs?.language ?? "";
+      const label =
+        language === "" ? "" : styleText("dim", `${CODE_INDENT}${language}\n`);
+      const body = prefixLines(children, CODE_INDENT);
+      return `${label}${styleText("dim", body)}\n\n`;
+    },
+    blockquote: (children) =>
+      `${prefixLines(children, styleText("dim", "│ "))}\n\n`,
+    hr: () => `${styleText("dim", "─".repeat(60))}\n\n`,
+    // An item cannot see its own position, so it emits a placeholder the list
+    // replaces — with a counter when ordered, a bullet otherwise.
+    list: (children, attrs) => {
+      let n = attrs.ordered ? (attrs.start ?? 1) : 0;
+      const marked = children.replaceAll(BULLET, () =>
+        styleText("dim", attrs.ordered ? `  ${n++}. ` : "  - ")
+      );
+      return `${trimTrailingNewlines(marked)}\n\n`;
+    },
+    listItem: (children) => {
+      // Nested blocks arrive already terminated; flattening to single spacing
+      // keeps a list compact regardless of how deeply it nests.
+      const body = trimTrailingNewlines(children).replaceAll(/\n{2,}/gu, "\n");
+      return `${BULLET}${body}\n`;
+    },
+    table: renderTable,
+    thead: (children) => children,
+    tbody: (children) => children,
+    tr: (children) => `${children}${ROW_END}`,
+    th: (children) => `${styleText("bold", children)}${CELL_END}`,
+    td: (children) => `${children}${CELL_END}`,
+    // Raw HTML in an ADR is a comment (archgate-ignore) far more often than
+    // markup worth showing, so it is dropped rather than printed verbatim.
+    html: () => "",
+  });
+
+  return `${trimTrailingNewlines(rendered)}\n`;
+}

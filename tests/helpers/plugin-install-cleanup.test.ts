@@ -26,7 +26,7 @@ import {
   installCursorPlugin,
   installOpencodePlugin,
 } from "../../src/helpers/plugin-install";
-import { restoreEnv } from "../test-utils";
+import { restoreEnv, tarballOf } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -71,6 +71,16 @@ function mockFetch(status: number, body: ArrayBuffer | null = null): void {
     arrayBuffer: async () => body ?? new ArrayBuffer(0),
   })) as unknown as typeof fetch;
 }
+
+/**
+ * The bundle every install test serves. The names deliberately avoid the
+ * `archgate-*` files each test seeds, so re-appearance after extraction never
+ * masks a cleanup that failed to run.
+ */
+const BUNDLE = {
+  "agents/archgate-fresh.md": "new",
+  "skills/archgate-fresh-skill/SKILL.md": "new",
+};
 
 // ---------------------------------------------------------------------------
 // Setup / Teardown
@@ -139,7 +149,7 @@ describe("plugin install — stale file cleanup", () => {
       mkdirSync(join(skillsDir, "archgate-reviewer"));
       writeFileSync(join(skillsDir, "archgate-reviewer", "SKILL.md"), "old");
 
-      mockFetch(200, new ArrayBuffer(64));
+      mockFetch(200, await tarballOf(BUNDLE));
 
       await installOpencodePlugin("test-token");
 
@@ -162,7 +172,7 @@ describe("plugin install — stale file cleanup", () => {
       // Archgate file that should be cleaned
       writeFileSync(join(agentsDir, "archgate-old.md"), "old");
 
-      mockFetch(200, new ArrayBuffer(64));
+      mockFetch(200, await tarballOf(BUNDLE));
 
       await installOpencodePlugin("test-token");
 
@@ -174,7 +184,7 @@ describe("plugin install — stale file cleanup", () => {
     });
 
     test("handles clean install with no pre-existing files", async () => {
-      mockFetch(200, new ArrayBuffer(64));
+      mockFetch(200, await tarballOf(BUNDLE));
 
       await installOpencodePlugin("test-token");
 
@@ -182,17 +192,16 @@ describe("plugin install — stale file cleanup", () => {
       expect(existsSync(join(tempDir, "opencode", "skills"))).toBe(true);
     });
 
+    // The bundle's paths are already `agents/...`, so extracting one level too
+    // deep would land them at `opencode/agents/agents/...`.
     test("extracts into config dir, not agents subdir", async () => {
-      mockFetch(200, new ArrayBuffer(64));
+      mockFetch(200, await tarballOf(BUNDLE));
 
       await installOpencodePlugin("test-token");
 
-      const callArgs = spawnSpy.mock.calls[0][0];
-      const targetIdx = callArgs.indexOf("-C");
-      expect(targetIdx).toBeGreaterThanOrEqual(0);
-      const targetDir = callArgs[targetIdx + 1];
-      expect(targetDir).toMatch(/opencode$/u);
-      expect(targetDir).not.toMatch(/agents$/u);
+      const base = join(tempDir, "opencode");
+      expect(existsSync(join(base, "agents", "archgate-fresh.md"))).toBe(true);
+      expect(existsSync(join(base, "agents", "agents"))).toBe(false);
     });
   });
 
@@ -209,7 +218,7 @@ describe("plugin install — stale file cleanup", () => {
       mkdirSync(join(skillsDir, "archgate-reviewer"));
       writeFileSync(join(skillsDir, "archgate-reviewer", "SKILL.md"), "old");
 
-      mockFetch(200, new ArrayBuffer(64));
+      mockFetch(200, await tarballOf(BUNDLE));
 
       await installCursorPlugin("test-token");
 
@@ -218,15 +227,13 @@ describe("plugin install — stale file cleanup", () => {
     });
 
     test("extracts into cursor user dir, not a subdirectory", async () => {
-      mockFetch(200, new ArrayBuffer(64));
+      mockFetch(200, await tarballOf(BUNDLE));
 
       await installCursorPlugin("test-token");
 
-      const callArgs = spawnSpy.mock.calls[0][0];
-      const targetIdx = callArgs.indexOf("-C");
-      expect(targetIdx).toBeGreaterThanOrEqual(0);
-      const targetDir = callArgs[targetIdx + 1];
-      expect(targetDir).toMatch(/\.cursor$/u);
+      const base = join(tempDir, ".cursor");
+      expect(existsSync(join(base, "agents", "archgate-fresh.md"))).toBe(true);
+      expect(existsSync(join(base, "agents", "agents"))).toBe(false);
     });
   });
 });

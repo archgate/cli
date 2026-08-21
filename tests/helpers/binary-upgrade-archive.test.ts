@@ -82,10 +82,17 @@ function buildTarGz(names: string[]): Uint8Array {
   return Bun.gzipSync(tar);
 }
 
-/** A gzipped tar whose sole member is a symlink to `linkTarget`. */
-function buildSymlinkTarGz(name: string, linkTarget: string): Uint8Array {
-  const tar = new Uint8Array(512 + 1024);
-  tar.set(tarHeader(name, linkTarget), 0);
+/**
+ * A gzipped tar whose `name` member is a symlink to a sibling member. The
+ * target must stay inside the archive: Bun.Archive refuses an absolute or
+ * escaping one outright, so it never lands for the post-extraction check to
+ * catch. An in-archive target is the real attack anyway — the symlink
+ * resolves to a payload the same archive ships.
+ */
+function buildSymlinkTarGz(name: string): Uint8Array {
+  const tar = new Uint8Array(512 * 2 + 1024);
+  tar.set(tarHeader("payload"), 0);
+  tar.set(tarHeader(name, "./payload"), 512);
   return Bun.gzipSync(tar);
 }
 
@@ -120,6 +127,17 @@ function mockArchiveDownload(archive: Uint8Array): void {
 function upgradeTempDirs(): Set<string> {
   return new Set(
     readdirSync(tmpdir()).filter((name) => name.startsWith("archgate-upgrade-"))
+  );
+}
+
+/**
+ * Names an escaping member would create beside the extraction directory, if
+ * any are present. Named rather than diffed against a snapshot of `tmpdir()`,
+ * whose other entries come and go while sibling test workers run.
+ */
+function escapedSiblings(): string[] {
+  return readdirSync(tmpdir()).filter(
+    (name) => name === "evil" || name === "..evil"
   );
 }
 
@@ -190,66 +208,59 @@ describe("downloadReleaseBinary archive handling", () => {
     "..",
   ];
 
-  // The guard reads `tar -tzf` output, and GNU tar on Windows treats the
-  // `C:\...` archive path as a remote host, so the listing never happens
-  // there. Windows ships `.zip` releases and takes the PowerShell branch below.
-  test.skipIf(process.platform === "win32").each(unsafeEntries)(
-    "aborts extraction for the unsafe archive entry %s",
+  // Bun.Archive confines each of these to the extraction root rather than
+  // refusing the archive, so the property under test is that nothing lands
+  // beside the temp directory. Extraction is in-process, so these run on every
+  // platform.
+  test.each(unsafeEntries)(
+    "confines the unsafe archive entry %s to the extraction root",
     async (entry) => {
       mockArchiveDownload(buildTarGz([entry]));
 
+      // No `archgate` member survives normalization, so the post-extraction
+      // check is what rejects — the escape simply never happened.
       const message = await rejectionWithoutLeak(
         downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
       );
 
-      expect(message).toContain("Unsafe path in release archive");
-      expect(message).toContain(entry);
+      expect(message).toContain("Extraction produced no archgate");
+      expect(escapedSiblings()).toEqual([]);
     }
   );
 
-  // A backslash escape gets its own case because the quoted entry is not the
-  // stored name: GNU tar lists `..\evil` with the backslash doubled and bsdtar
-  // lists it verbatim. Normalizing either form yields a `../` the guard trips
-  // on, so the assertion accepts both spellings.
-  test.skipIf(process.platform === "win32")(
-    "aborts extraction for a backslash-separated escape",
-    async () => {
-      const entry = `..${String.fromCodePoint(92)}evil`;
-      mockArchiveDownload(buildTarGz([entry]));
+  test("confines a backslash-separated escape to the extraction root", async () => {
+    mockArchiveDownload(buildTarGz([`..${String.fromCodePoint(92)}evil`]));
 
-      const message = await rejectionWithoutLeak(
-        downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
-      );
+    const message = await rejectionWithoutLeak(
+      downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
+    );
 
-      expect(message).toContain("Unsafe path in release archive");
-      expect(message).toMatch(/\.\.\\+evil/u);
+    expect(message).toContain("Extraction produced no archgate");
+    expect(escapedSiblings()).toEqual([]);
+  });
+
+  test("extracts an archive whose entries all stay inside the root", async () => {
+    mockArchiveDownload(buildTarGz(["archgate", "nested/dir/file"]));
+
+    const { binaryPath, tmpDir } = await downloadReleaseBinary(
+      "v1.0.0",
+      TAR_ARTIFACT
+    );
+    try {
+      expect(binaryPath).toEndWith("archgate");
+      expect(binaryPath).toStartWith(tmpDir);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
     }
-  );
+  });
 
-  test.skipIf(process.platform === "win32")(
-    "extracts an archive whose entries all stay inside the root",
-    async () => {
-      mockArchiveDownload(buildTarGz(["archgate", "nested/dir/file"]));
-
-      const { binaryPath, tmpDir } = await downloadReleaseBinary(
-        "v1.0.0",
-        TAR_ARTIFACT
-      );
-      try {
-        expect(binaryPath).toEndWith("archgate");
-        expect(binaryPath).toStartWith(tmpDir);
-      } finally {
-        rmSync(tmpDir, { recursive: true, force: true });
-      }
-    }
-  );
-
-  // The member name is `archgate`, so the path-traversal guard has nothing to
-  // object to — only the post-extraction check sees what it really is.
+  // Windows is excluded because Bun.Archive skips symlink members there, so
+  // `archgate` is absent rather than present-and-wrong; the absence branch is
+  // covered by the unsafe-entry cases above.
   test.skipIf(process.platform === "win32")(
     "refuses a binary that extracts as a symlink",
     async () => {
-      mockArchiveDownload(buildSymlinkTarGz("archgate", "/bin/sh"));
+      mockArchiveDownload(buildSymlinkTarGz("archgate"));
 
       const message = await rejectionWithoutLeak(
         downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
@@ -261,33 +272,16 @@ describe("downloadReleaseBinary archive handling", () => {
     }
   );
 
-  test("rejects when the archive listing fails", async () => {
-    // Not a gzip stream at all, so `tar -tzf` cannot read it. An empty listing
-    // must not be mistaken for an archive with no unsafe entries.
+  test("reports the failure when the archive is unreadable", async () => {
+    // Not a gzip stream at all, so Bun.Archive rejects it outright rather than
+    // extracting nothing and letting the absence check speak for it.
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
 
     const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
     );
 
-    expect(message).toContain("Failed to read archive listing (tar exit code");
-  });
-
-  test("reports the tar exit code when extraction fails", async () => {
-    mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
-    // The listing succeeds with a safe entry so the guard passes and `tar -xzf`
-    // is what rejects the archive, on every runner rather than only on Linux.
-    stubSpawn((argv) =>
-      argv.includes("-tzf")
-        ? { exitCode: 0, stdout: "archgate\n" }
-        : { exitCode: 2 }
-    );
-
-    const message = await rejectionWithoutLeak(
-      downloadReleaseBinary("v1.0.0", TAR_ARTIFACT)
-    );
-
-    expect(message).toBe("Failed to extract archive (tar exit code 2)");
+    expect(message).toContain("Failed to extract archive (");
   });
 
   test("reports the PowerShell exit code when zip extraction fails", async () => {
@@ -351,6 +345,6 @@ describe("downloadReleaseBinary archive handling", () => {
 
     // The transport failure is swallowed; the run proceeds to archive handling.
     expect(message).not.toContain("checksum host unreachable");
-    expect(message).toContain("tar exit code");
+    expect(message).toContain("Failed to extract archive (");
   });
 });

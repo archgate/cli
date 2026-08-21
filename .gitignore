@@ -55,3 +55,5 @@ shims/pypi/.pytest_cache/
 
 # Invalid HOME/USERPROFILE (e.g. literal "undefined") can create this under cwd — never commit
 /undefined/
+# CPU/heap profiles from `bun run profile:*`
+/.profiles/

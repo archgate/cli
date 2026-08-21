@@ -6,8 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  HEAD_BYTES,
   listCodexSessions,
   readCodexSession,
+  readCompressedHead,
 } from "../../src/helpers/session-context-codex";
 import { restoreEnv, safeRmSync } from "../test-utils";
 
@@ -215,6 +217,32 @@ describe("Codex session reader", () => {
     expect(result.data.transcript).toEqual([
       { role: "user", contentPreview: "from the archive" },
     ]);
+  });
+
+  // Asserted against the head reader itself: readCodexSession reads the chosen
+  // rollout in full afterwards, so an end-to-end result cannot show whether
+  // discovery stopped early. Content is multibyte, which is where a
+  // string-length budget and a byte budget diverge.
+  test("bounds the head read to HEAD_BYTES on multibyte content", async () => {
+    const wide = "決".repeat(40_000); // 40k chars, 120k bytes — over the budget
+    const file = join(codexHome, "huge.jsonl.zst");
+    mkdirSync(codexHome, { recursive: true });
+    await Bun.write(
+      file,
+      Bun.zstdCompressSync(
+        Buffer.from(meta("id-wide", PROJECT) + event("user_message", wide))
+      )
+    );
+
+    const head = await readCompressedHead(Bun.file(file));
+
+    expect(Buffer.byteLength(head, "utf8")).toBeLessThanOrEqual(HEAD_BYTES);
+    // Still carries what discovery classifies on. Parsed rather than matched
+    // as a substring: the cwd is JSON-escaped inside the line.
+    expect(Bun.JSONL.parse(head)[0]).toMatchObject({
+      type: "session_meta",
+      payload: { cwd: PROJECT },
+    });
   });
 
   test("ignores response_item lines that repeat the same turns", async () => {

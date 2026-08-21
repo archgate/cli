@@ -14,7 +14,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { opencodeConfigDir } from "../../src/helpers/paths";
+import { cursorUserDir, opencodeConfigDir } from "../../src/helpers/paths";
 import * as platform from "../../src/helpers/platform";
 import {
   buildCursorMarketplaceUrl,
@@ -31,7 +31,7 @@ import {
   isOpencodeCliAvailable,
   isVscodeCliAvailable,
 } from "../../src/helpers/plugin-install";
-import { restoreEnv } from "../test-utils";
+import { restoreEnv, tarballOf } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -394,25 +394,35 @@ describe("plugin-install", () => {
   // -----------------------------------------------------------------------
 
   describe("installOpencodePlugin", () => {
-    test("downloads tarball and extracts via tar on success", async () => {
-      const tarContent = new ArrayBuffer(256);
-      mockFetch(200, tarContent);
-      spawnSpy.mockImplementation(() => fakeSpawnResult(0));
+    test("downloads the tarball and writes its entries into the config dir", async () => {
+      mockFetch(
+        200,
+        await tarballOf({
+          "agents/archgate-developer.md": "agent",
+          "skills/archgate-adr-author/SKILL.md": "skill",
+        })
+      );
 
       await installOpencodePlugin("test-token");
 
-      expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0];
-      expect(callArgs[0]).toBe("tar");
-      expect(callArgs).toContain("-xzf");
+      const base = opencodeConfigDir();
+      expect(
+        await Bun.file(join(base, "agents", "archgate-developer.md")).text()
+      ).toBe("agent");
+      expect(
+        await Bun.file(
+          join(base, "skills", "archgate-adr-author", "SKILL.md")
+        ).text()
+      ).toBe("skill");
+      // Nothing is spawned any more — extraction is in-process.
+      expect(spawnSpy).not.toHaveBeenCalled();
     });
 
-    test("throws when tar extraction fails", async () => {
+    test("throws when the downloaded bundle is not a readable archive", async () => {
       mockFetch(200, new ArrayBuffer(64));
-      spawnSpy.mockImplementation(() => fakeSpawnResult(2));
 
       expect(installOpencodePlugin("test-token")).rejects.toThrow(
-        "tar -xzf failed"
+        "Failed to extract opencode components"
       );
     });
 
@@ -436,25 +446,66 @@ describe("plugin-install", () => {
   // -----------------------------------------------------------------------
 
   describe("installCursorPlugin", () => {
-    test("downloads tarball and extracts via tar on success", async () => {
-      const tarContent = new ArrayBuffer(256);
-      mockFetch(200, tarContent);
-      spawnSpy.mockImplementation(() => fakeSpawnResult(0));
+    test("downloads the tarball and writes its entries into the cursor dir", async () => {
+      mockFetch(
+        200,
+        await tarballOf({ "agents/archgate-developer.md": "agent" })
+      );
 
       await installCursorPlugin("test-token");
 
-      expect(spawnSpy).toHaveBeenCalledTimes(1);
-      const callArgs = spawnSpy.mock.calls[0][0];
-      expect(callArgs[0]).toBe("tar");
+      expect(
+        await Bun.file(
+          join(cursorUserDir(), "agents", "archgate-developer.md")
+        ).text()
+      ).toBe("agent");
+      expect(spawnSpy).not.toHaveBeenCalled();
     });
 
-    test("throws when tar extraction fails", async () => {
+    test("throws when the downloaded bundle is not a readable archive", async () => {
       mockFetch(200, new ArrayBuffer(64));
-      spawnSpy.mockImplementation(() => fakeSpawnResult(2));
 
       expect(installCursorPlugin("test-token")).rejects.toThrow(
-        "tar -xzf failed"
+        "Failed to extract Cursor components"
       );
+    });
+
+    // The bundle is remote input landing in a live `~/.cursor/`. Containment
+    // keeps it under that directory; the allowlist decides where within.
+    test("writes only agents, skills and hooks.json", async () => {
+      mockFetch(
+        200,
+        await tarballOf({
+          "agents/archgate-developer.md": "agent",
+          "skills/archgate-adr-author/SKILL.md": "skill",
+          "hooks.json": "[]",
+          "settings.json": '{"pwned":true}',
+          "stray.md": "stray",
+        })
+      );
+
+      await installCursorPlugin("test-token");
+
+      const base = cursorUserDir();
+      expect(
+        await Bun.file(join(base, "agents", "archgate-developer.md")).exists()
+      ).toBe(true);
+      expect(await Bun.file(join(base, "hooks.json")).exists()).toBe(true);
+      expect(await Bun.file(join(base, "settings.json")).exists()).toBe(false);
+      expect(await Bun.file(join(base, "stray.md")).exists()).toBe(false);
+    });
+
+    // Containment normalizes the entry to `escaped.md` at the root of the
+    // cursor dir, where the allowlist then drops it — so it lands nowhere.
+    test("drops a traversing entry instead of writing it anywhere", async () => {
+      mockFetch(200, await tarballOf({ "../escaped.md": "pwned" }));
+
+      await installCursorPlugin("test-token");
+
+      expect(await Bun.file(join(cursorUserDir(), "escaped.md")).exists()).toBe(
+        false
+      );
+      expect(await Bun.file(join(tempHome, "escaped.md")).exists()).toBe(false);
     });
 
     test("throws re-login message on 401 download", async () => {
