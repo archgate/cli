@@ -227,7 +227,7 @@ describe("Codex session reader", () => {
     const wide = "決".repeat(40_000); // 40k chars, 120k bytes — over the budget
     const file = join(codexHome, "huge.jsonl.zst");
     mkdirSync(codexHome, { recursive: true });
-    writeFileSync(
+    await Bun.write(
       file,
       Bun.zstdCompressSync(
         Buffer.from(meta("id-wide", PROJECT) + event("user_message", wide))
@@ -239,13 +239,10 @@ describe("Codex session reader", () => {
     expect(Buffer.byteLength(head, "utf8")).toBeLessThanOrEqual(HEAD_BYTES);
     // Still carries what discovery classifies on. Parsed rather than matched
     // as a substring: the cwd is JSON-escaped inside the line.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const metaLine = JSON.parse(head.split("\n")[0]) as {
-      type: string;
-      payload: { cwd: string };
-    };
-    expect(metaLine.type).toBe("session_meta");
-    expect(metaLine.payload.cwd).toBe(PROJECT);
+    expect(Bun.JSONL.parse(head)[0]).toMatchObject({
+      type: "session_meta",
+      payload: { cwd: PROJECT },
+    });
   });
 
   test("ignores response_item lines that repeat the same turns", async () => {
