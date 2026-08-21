@@ -74,8 +74,8 @@ function fakeSpawnResult(
 
 /**
  * A real gzipped tar carrying `entries`, as the plugins API would serve it.
- * Extraction is Bun.Archive rather than a `tar` subprocess, so a bundle test
- * asserts the files that land on disk instead of the argv of a spawn.
+ * Extraction is in-process, so a bundle test asserts the files that land on
+ * disk.
  */
 async function tarballOf(
   entries: Record<string, string>
@@ -485,15 +485,40 @@ describe("plugin-install", () => {
       );
     });
 
-    // The tarball is untrusted input written into a live `~/.cursor/`, so
-    // containment is Bun.Archive's guarantee rather than a pre-extraction scan.
-    test("confines a traversing entry to the cursor dir", async () => {
+    // The bundle is remote input landing in a live `~/.cursor/`. Containment
+    // keeps it under that directory; the allowlist decides where within.
+    test("writes only agents, skills and hooks.json", async () => {
+      mockFetch(
+        200,
+        await tarballOf({
+          "agents/archgate-developer.md": "agent",
+          "skills/archgate-adr-author/SKILL.md": "skill",
+          "hooks.json": "[]",
+          "settings.json": '{"pwned":true}',
+          "stray.md": "stray",
+        })
+      );
+
+      await installCursorPlugin("test-token");
+
+      const base = cursorUserDir();
+      expect(
+        await Bun.file(join(base, "agents", "archgate-developer.md")).exists()
+      ).toBe(true);
+      expect(await Bun.file(join(base, "hooks.json")).exists()).toBe(true);
+      expect(await Bun.file(join(base, "settings.json")).exists()).toBe(false);
+      expect(await Bun.file(join(base, "stray.md")).exists()).toBe(false);
+    });
+
+    // Containment normalizes the entry to `escaped.md` at the root of the
+    // cursor dir, where the allowlist then drops it — so it lands nowhere.
+    test("drops a traversing entry instead of writing it anywhere", async () => {
       mockFetch(200, await tarballOf({ "../escaped.md": "pwned" }));
 
       await installCursorPlugin("test-token");
 
-      expect(await Bun.file(join(cursorUserDir(), "escaped.md")).text()).toBe(
-        "pwned"
+      expect(await Bun.file(join(cursorUserDir(), "escaped.md")).exists()).toBe(
+        false
       );
       expect(await Bun.file(join(tempHome, "escaped.md")).exists()).toBe(false);
     });

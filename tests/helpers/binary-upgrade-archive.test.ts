@@ -208,10 +208,10 @@ describe("downloadReleaseBinary archive handling", () => {
     "..",
   ];
 
-  // Bun.Archive confines each of these to the extraction root instead of
+  // Bun.Archive confines each of these to the extraction root rather than
   // refusing the archive, so the property under test is that nothing lands
-  // beside the temp directory. Extraction is in-process, so unlike the former
-  // `tar -tzf` guard these run on Windows too.
+  // beside the temp directory. Extraction is in-process, so these run on every
+  // platform.
   test.each(unsafeEntries)(
     "confines the unsafe archive entry %s to the extraction root",
     async (entry) => {

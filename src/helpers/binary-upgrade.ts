@@ -261,9 +261,8 @@ export async function downloadReleaseBinary(
     if (artifact.ext === ".tar.gz") {
       // Bun.Archive confines every member to `tmpDir`: a leading `/` is
       // stripped, `../` segments are normalized away, and a bare `..` entry is
-      // skipped. The previous `tar -tzf` scan approximated that containment by
-      // parsing human-readable output, whose spelling differed between GNU tar
-      // and bsdtar; the extractor enforcing it needs no listing at all.
+      // skipped. Containment is the extractor's guarantee, so no entry listing
+      // is read or validated here.
       try {
         await new Bun.Archive(buffer).extract(tmpDir);
       } catch (err) {

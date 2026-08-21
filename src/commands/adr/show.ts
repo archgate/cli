@@ -1,7 +1,7 @@
-import { styleText } from "node:util";
-
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+import { styleText } from "node:util";
+
 import type { Command } from "@commander-js/extra-typings";
 
 import { findAdrFileById } from "../../helpers/adr-writer";
@@ -30,9 +30,11 @@ export function registerAdrShowCommand(adr: Command) {
         }
 
         // Raw source unless a human is watching: piped output feeds agents and
-        // scripts, which parse the file verbatim (ARCH-003).
+        // scripts, which parse the file verbatim (ARCH-003). `write` rather
+        // than `console.log`, which would append a second trailing newline to
+        // a file that already ends in one.
         if (!process.stdout.isTTY) {
-          console.log(await Bun.file(adr.filePath).text());
+          process.stdout.write(await Bun.file(adr.filePath).text());
           return;
         }
 

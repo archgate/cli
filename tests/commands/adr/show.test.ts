@@ -81,32 +81,33 @@ describe("adr show action handler", () => {
     return parent;
   }
 
-  test("shows ADR content by ID", async () => {
+  // Both output branches are covered explicitly below — piped and TTY — which
+  // between them assert every line of the action handler.
+  test("emits the raw file byte-for-byte when stdout is piped", async () => {
     const adrsDir = join(tempDir, ".archgate", "adrs");
     mkdirSync(adrsDir, { recursive: true });
     writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
 
-    process.chdir(tempDir);
-    const parent = makeProgram();
-    await parent.parseAsync(["node", "adr", "show", "ARCH-001"]);
+    const writeSpy = spyOn(process.stdout, "write").mockImplementation(
+      () => true
+    );
+    const originalIsTTY = process.stdout.isTTY;
+    process.stdout.isTTY = false;
+    let written: string[];
+    try {
+      process.chdir(tempDir);
+      await makeProgram().parseAsync(["node", "adr", "show", "ARCH-001"]);
+    } finally {
+      // Read the calls before restoring: mockRestore() also resets them.
+      written = writeSpy.mock.calls.map((call) => String(call[0]));
+      process.stdout.isTTY = originalIsTTY;
+      writeSpy.mockRestore();
+    }
 
-    const allOutput = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
-    expect(allOutput).toContain("ARCH-001");
-    expect(allOutput).toContain("Use TypeScript");
-    expect(allOutput).toContain("We need a type-safe language.");
-  });
-
-  test("emits the raw file when stdout is piped", async () => {
-    const adrsDir = join(tempDir, ".archgate", "adrs");
-    mkdirSync(adrsDir, { recursive: true });
-    writeFileSync(join(adrsDir, "ARCH-001-use-typescript.md"), ADR_CONTENT);
-
-    process.chdir(tempDir);
-    await makeProgram().parseAsync(["node", "adr", "show", "ARCH-001"]);
-
-    // Agents and scripts parse the source, so the piped form stays verbatim —
-    // frontmatter delimiters and all.
-    expect(String(logSpy.mock.calls[0][0])).toBe(ADR_CONTENT);
+    // Agents and scripts parse the source, so the piped form is the file
+    // exactly — frontmatter delimiters and all, and no appended newline. The
+    // spy also catches the reporter's own writes, so match on membership.
+    expect(written).toContain(ADR_CONTENT);
   });
 
   test("renders for a terminal when stdout is a TTY", async () => {

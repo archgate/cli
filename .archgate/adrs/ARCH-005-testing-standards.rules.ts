@@ -23,6 +23,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Whether `command` passes `flag` as its own token. A substring test would
+ * read `--parallelism` as `--parallel`; the flag ends at whitespace, `=`, or
+ * end of string, and `--shard=1/3` must still count.
+ */
+function hasFlag(command: string, flag: string): boolean {
+  return new RegExp(String.raw`(?:^|\s)${flag}(?=$|[\s=])`, "u").test(command);
+}
+
 export default {
   rules: {
     /**
@@ -53,11 +62,11 @@ export default {
 
         for (const [name, command] of Object.entries(scripts)) {
           if (typeof command !== "string") continue;
-          const flag = MULTIPROCESS_FLAGS.find((f) => command.includes(f));
+          const flag = MULTIPROCESS_FLAGS.find((f) => hasFlag(command, f));
           if (flag === undefined) continue;
           multiprocess.add(name);
 
-          if (!command.includes("--coverage")) continue;
+          if (!hasFlag(command, "--coverage")) continue;
           ctx.report.violation({
             message: `Script "${name}" combines ${flag} with --coverage; multi-process runs inflate the lines-found denominator and fail the 99.9% gate`,
             file: "package.json",

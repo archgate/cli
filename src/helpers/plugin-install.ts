@@ -152,6 +152,8 @@ export async function installCursorPlugin(token: string): Promise<void> {
     apiPath: "/api/cursor",
     token,
     label: "Cursor",
+    // mergeCursorHooks reads this back out of the extracted tree.
+    extraPaths: ["hooks.json"],
   });
 
   await mergeCursorHooks(cursorDir);
@@ -243,18 +245,25 @@ async function downloadPluginAsset(
 // Shared — editor plugin bundle install (agents + skills)
 // ---------------------------------------------------------------------------
 
+/** Bundle paths an install may write. Everything else in the tarball is
+ * dropped. */
+const BUNDLE_CONTENTS = ["agents/**", "skills/**"];
+
 /**
- * Install an archgate editor plugin bundle (agents + skills), shared by Cursor
- * and opencode: ensure `agents/`/`skills/` exist, delete stale `archgate-*`
- * entries (only those), then extract the authenticated tarball. Bun.Archive
- * reads the bytes directly — no tarball on disk, no `tar` on PATH — and
- * confines every member to `baseDir`, a live user config dir here.
+ * Install an archgate editor plugin bundle, shared by Cursor and opencode:
+ * ensure `agents/`/`skills/` exist, delete stale `archgate-*` entries, then
+ * extract the tarball filtered to {@link BUNDLE_CONTENTS} plus `extraPaths`.
+ * Bun.Archive keeps members inside `baseDir` — a live user config dir — and
+ * the filter stops a bundle dropping files beside them.
+ *
+ * @param opts.extraPaths - Additional globs this editor's bundle may write.
  */
 async function installEditorPluginBundle(opts: {
   baseDir: string;
   apiPath: string;
   token: string;
   label: string;
+  extraPaths?: string[];
 }): Promise<void> {
   const agentsDir = join(opts.baseDir, "agents");
   const skillsDir = join(opts.baseDir, "skills");
@@ -287,7 +296,9 @@ async function installEditorPluginBundle(opts: {
 
   logDebug(`Extracting ${opts.label} components into ${opts.baseDir}`);
   try {
-    await new Bun.Archive(buffer).extract(opts.baseDir);
+    await new Bun.Archive(buffer).extract(opts.baseDir, {
+      glob: [...BUNDLE_CONTENTS, ...(opts.extraPaths ?? [])],
+    });
   } catch (err) {
     throw new UserError(
       `Failed to extract ${opts.label} components (${err instanceof Error ? err.message : String(err)})`

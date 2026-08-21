@@ -66,12 +66,12 @@ describe("renderMarkdownForTerminal", () => {
       expect(widths.size).toBe(1);
     });
 
-    test("keeps each cell's text", () => {
-      const out = render(table);
-      for (const cell of ["Package", "Purpose", "zod", "Schemas"]) {
-        expect(out).toContain(cell);
+    test.each(["Package", "Purpose", "zod", "Schemas"])(
+      "keeps the cell text %s",
+      (cell) => {
+        expect(render(table)).toContain(cell);
       }
-    });
+    );
 
     test("sizes columns by terminal width, not code-unit length", () => {
       const wide = "| a | b |\n| --- | --- |\n| 決定記録 | x |\n";
@@ -95,14 +95,15 @@ describe("renderMarkdownForTerminal", () => {
       expect(out).not.toContain("archgate-ignore");
     });
 
-    test("leaves no marker placeholder in the output", () => {
-      // The list marker is injected via a control-character placeholder; one
-      // surviving into the output would print as a stray glyph.
-      const out = render("- a\n\n1. b\n\nparagraph");
-      expect(out).not.toContain(String.fromCodePoint(0x11));
-      expect(out).not.toContain(String.fromCodePoint(0x1f));
-      expect(out).not.toContain(String.fromCodePoint(0x1e));
-    });
+    // List markers and table cells are placed via control-character
+    // placeholders; one surviving into the output prints as a stray glyph.
+    test.each([0x11, 0x1f, 0x1e])(
+      "leaves no U+%s placeholder in the output",
+      (codePoint) => {
+        const out = render("- a\n\n1. b\n\n| x |\n| --- |\n| y |\n\nparagraph");
+        expect(out).not.toContain(String.fromCodePoint(codePoint));
+      }
+    );
 
     test("ends with exactly one newline", () => {
       expect(render("text\n\n\n")).toEndWith("text\n");

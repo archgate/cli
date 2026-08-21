@@ -110,8 +110,8 @@ export async function rejectionMessage(
 
 /**
  * A real gzipped tar carrying `entries`, as the plugins API serves a bundle.
- * Extraction is `Bun.Archive` rather than a `tar` subprocess, so an install
- * test supplies bytes an extractor can actually read instead of stubbing spawn.
+ * Installs extract in-process, so a test supplies bytes a real extractor can
+ * read and asserts the files that land on disk.
  */
 export async function tarballOf(
   entries: Record<string, string>

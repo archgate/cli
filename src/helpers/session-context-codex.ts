@@ -143,13 +143,21 @@ async function readCompressedHead(file: BunFile): Promise<string> {
   const inflated = file.stream().pipeThrough(new DecompressionStream("zstd"));
   let text = "";
   let lines = 0;
-  // Breaking out cancels the stream, which releases the file handle.
+  // {@link HEAD_BYTES} bounds a rollout whose first lines are huge, or which
+  // carries no newline at all — discovery inflates several at once, so the
+  // line count alone is not a memory bound. Breaking out cancels the stream,
+  // releasing the file handle.
   for await (const chunk of new Response(inflated).textStream()) {
     for (const char of chunk) if (char === "\n") lines++;
     text += chunk;
-    if (lines >= META_SCAN_LINES) break;
+    if (lines >= META_SCAN_LINES || text.length >= HEAD_BYTES) break;
   }
-  return text;
+  // A byte-bounded read can stop mid-line, and Bun.JSONL.parse rejects the
+  // whole head over one truncated entry.
+  const lastBreak = text.lastIndexOf("\n");
+  return lines >= META_SCAN_LINES || lastBreak === -1
+    ? text
+    : text.slice(0, lastBreak);
 }
 
 /**

@@ -8,7 +8,7 @@
  * installed `@types/*`.
  */
 
-import { existsSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { ensureRulesShim } from "../src/helpers/rules-shim";
@@ -21,7 +21,7 @@ const projectRoot = join(import.meta.dir, "..");
  * `@types/*` can change. The cost is one full rebuild per install; the cache
  * can otherwise withhold a real error as readily as report a fixed one.
  */
-function invalidateStaleBuildInfo(): void {
+async function invalidateStaleBuildInfo(): Promise<void> {
   const lockPath = join(projectRoot, "bun.lock");
   if (!existsSync(lockPath)) return;
 
@@ -32,7 +32,9 @@ function invalidateStaleBuildInfo(): void {
 
   let outDir: string;
   try {
-    outDir = resolveOutDir(Bun.JSONC.parse(readFileSync(tsconfigPath, "utf8")));
+    outDir = resolveOutDir(
+      Bun.JSONC.parse(await Bun.file(tsconfigPath).text())
+    );
   } catch {
     return;
   }
@@ -57,5 +59,5 @@ function resolveOutDir(parsed: unknown): string {
   return typeof options.outDir === "string" ? options.outDir : ".";
 }
 
-invalidateStaleBuildInfo();
+await invalidateStaleBuildInfo();
 await ensureRulesShim(projectRoot);
