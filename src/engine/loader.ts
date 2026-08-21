@@ -82,18 +82,16 @@ export function blockedToRuleResult(projectRoot: string, b: BlockedAdr) {
     ruleId,
     adrId: id,
     description,
-    violations: b.violations.map(
-      (v): ViolationDetail => ({
-        message: v.message,
-        file: toProjectRelative(projectRoot, v.file),
-        line: v.line,
-        endLine: v.endLine,
-        endColumn: v.endColumn,
-        severity: "error",
-        adrId: id,
-        ruleId,
-      })
-    ),
+    violations: b.violations.map((v): ViolationDetail => ({
+      message: v.message,
+      file: toProjectRelative(projectRoot, v.file),
+      line: v.line,
+      endLine: v.endLine,
+      endColumn: v.endColumn,
+      severity: "error",
+      adrId: id,
+      ruleId,
+    })),
     error: b.error,
     durationMs: 0,
   };

@@ -36,7 +36,7 @@ export function parseJsModule(
 }
 
 /**
- * Extract `//` line and `/* … *​/` block comments from TypeScript/JavaScript
+ * Extract `//` line and `/* … *\/` block comments from TypeScript/JavaScript
  * source, with delimiter-stripped text and original-source positions (0-based
  * columns, matching ESTree `loc` and Python `col_offset`). String and
  * template literals are skipped; regex literals are NOT tracked — a known
