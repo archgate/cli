@@ -179,13 +179,13 @@ describe("installCursorPlugin hooks.json merge", () => {
 
     await installCursorPlugin("test-token");
 
+    // The whole entry, not just its command: dropping `event` or `type` would
+    // leave the hook registered but inert.
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    const merged = JSON.parse(readHooksFile(hooksPath)) as {
-      command?: string;
-    }[];
-    expect(merged.map((h) => h.command)).toEqual([
-      userCommand,
-      archgateHookCommand,
+    const merged = JSON.parse(readHooksFile(hooksPath)) as unknown[];
+    expect(merged).toEqual([
+      { event: "afterFileEdit", type: "command", command: userCommand },
+      { event: "afterFileEdit", type: "command", command: archgateHookCommand },
     ]);
   });
 

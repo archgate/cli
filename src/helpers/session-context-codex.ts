@@ -123,23 +123,22 @@ interface CodexRollout {
 }
 
 /**
- * Bytes read from a rollout when only its `session_meta` is wanted. The meta
- * line is written at session creation, so the head is enough to classify a
- * rollout without paying for its whole transcript.
+ * Bytes read from a rollout when only its `session_meta` is wanted, which is
+ * written at session creation. Exported so a test can assert the bound.
  */
-const HEAD_BYTES = 64 * 1024;
+export const HEAD_BYTES = 64 * 1024;
 
 /** Rollouts inspected at once during discovery. */
 const DISCOVERY_CONCURRENCY = 8;
 
 /**
- * Inflate only as far as the first {@link META_SCAN_LINES} lines.
- *
- * Discovery classifies a rollout from its `session_meta` line, so inflating the
- * rest is wasted: on an 8 MB rollout this returns in a tenth of the time a
- * whole-member inflate takes, holding the head rather than the transcript.
+ * Inflate only as far as the first {@link META_SCAN_LINES} lines or
+ * {@link HEAD_BYTES} decoded bytes. On an 8 MB rollout that is a tenth of the
+ * time a whole-member inflate takes. Exported because `readCodexSession` reads
+ * the chosen rollout in full afterwards, so only a direct call can show this
+ * stopped early.
  */
-async function readCompressedHead(file: BunFile): Promise<string> {
+export async function readCompressedHead(file: BunFile): Promise<string> {
   const inflated = file.stream().pipeThrough(new DecompressionStream("zstd"));
   let text = "";
   let lines = 0;

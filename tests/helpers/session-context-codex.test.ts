@@ -6,8 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  HEAD_BYTES,
   listCodexSessions,
   readCodexSession,
+  readCompressedHead,
 } from "../../src/helpers/session-context-codex";
 import { restoreEnv, safeRmSync } from "../test-utils";
 
@@ -217,21 +219,33 @@ describe("Codex session reader", () => {
     ]);
   });
 
-  // Discovery reads only the head of a compressed rollout, and inflates
-  // several at once. A rollout whose first line alone dwarfs the budget must
-  // not be buffered whole — the meta line still classifies it.
-  test("classifies a compressed rollout whose first turn is enormous", async () => {
-    writeCompressedRollout(
-      "id-huge",
-      PROJECT,
-      event("user_message", "x".repeat(2 * 1024 * 1024))
+  // Asserted against the head reader itself: readCodexSession reads the chosen
+  // rollout in full afterwards, so an end-to-end result cannot show whether
+  // discovery stopped early. Content is multibyte, which is where a
+  // string-length budget and a byte budget diverge.
+  test("bounds the head read to HEAD_BYTES on multibyte content", async () => {
+    const wide = "決".repeat(40_000); // 40k chars, 120k bytes — over the budget
+    const file = join(codexHome, "huge.jsonl.zst");
+    mkdirSync(codexHome, { recursive: true });
+    writeFileSync(
+      file,
+      Bun.zstdCompressSync(
+        Buffer.from(meta("id-wide", PROJECT) + event("user_message", wide))
+      )
     );
 
-    const result = await readCodexSession(PROJECT);
+    const head = await readCompressedHead(Bun.file(file));
 
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.data.sessionFile).toEndWith(".jsonl.zst");
+    expect(Buffer.byteLength(head, "utf8")).toBeLessThanOrEqual(HEAD_BYTES);
+    // Still carries what discovery classifies on. Parsed rather than matched
+    // as a substring: the cwd is JSON-escaped inside the line.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const metaLine = JSON.parse(head.split("\n")[0]) as {
+      type: string;
+      payload: { cwd: string };
+    };
+    expect(metaLine.type).toBe("session_meta");
+    expect(metaLine.payload.cwd).toBe(PROJECT);
   });
 
   test("ignores response_item lines that repeat the same turns", async () => {
