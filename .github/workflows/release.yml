@@ -43,7 +43,7 @@ jobs:
           permission-contents: write
           permission-pull-requests: write
       - name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           token: ${{ steps.generate_token.outputs.token }}
           # The check workflow only reads context — no git push happens here.
@@ -64,7 +64,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Context check
         id: check
-        uses: TrigenSoftware/simple-release-action@1d376657d9af2a93f280e071b7327d3203719e24 # v2.0.8
+        uses: TrigenSoftware/simple-release-action@709ea3e785fd030c13a5e7959c18a51d57da1254 # v2.0.9
         with:
           workflow: check
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -101,7 +101,7 @@ jobs:
       - name: Checkout code
         # Credentials must persist: simple-release-action pushes the release
         # branch via git using the checkout-persisted app token.
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 # zizmor: ignore[artipacked]
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
         with:
           token: ${{ steps.generate_token.outputs.token }}
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
@@ -133,7 +133,7 @@ jobs:
           HOOK
           chmod +x .git/hooks/prepare-commit-msg
       - name: Create or update pull request
-        uses: TrigenSoftware/simple-release-action@1d376657d9af2a93f280e071b7327d3203719e24 # v2.0.8
+        uses: TrigenSoftware/simple-release-action@709ea3e785fd030c13a5e7959c18a51d57da1254 # v2.0.9
         with:
           workflow: pull-request
           github-token: ${{ steps.generate_token.outputs.token }}
@@ -163,7 +163,7 @@ jobs:
       - name: Checkout code
         # Credentials must persist: simple-release-action pushes the release
         # tag via git using the checkout-persisted app token.
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0 # zizmor: ignore[artipacked]
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
         with:
           token: ${{ steps.generate_token.outputs.token }}
       - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
@@ -184,7 +184,7 @@ jobs:
         id: validate
         run: bun run validate
       - name: Release
-        uses: TrigenSoftware/simple-release-action@1d376657d9af2a93f280e071b7327d3203719e24 # v2.0.8
+        uses: TrigenSoftware/simple-release-action@709ea3e785fd030c13a5e7959c18a51d57da1254 # v2.0.9
         with:
           workflow: release
           github-token: ${{ steps.generate_token.outputs.token }}
