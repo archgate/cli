@@ -266,7 +266,8 @@ describe("readClaudeCodeSession", () => {
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error("expected ok");
       const preview = result.data.transcript[0]?.contentPreview ?? "";
-      expect(preview).toEndWith("...");
+      // The whole emoji survives: 499 x's plus it, then the ellipsis.
+      expect(preview).toBe("x".repeat(499) + "\u{1F44D}...");
       expect(preview).not.toMatch(/[\uD800-\uDFFF]/u);
       // Round-trips through UTF-8 unchanged — what a lone surrogate breaks.
       const encoded = new TextEncoder().encode(preview);
