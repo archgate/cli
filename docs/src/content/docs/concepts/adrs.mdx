@@ -1,11 +1,11 @@
 ---
 title: Architecture Decision Records
-description: Learn how Architecture Decision Records (ADRs) work in Archgate as both human-readable documentation and machine-executable compliance rules.
+description: "Learn how Architecture Decision Records (ADRs) work in Archgate: human-readable guardrails that AI agents follow, paired with machine-checkable rules that enforce them."
 ---
 
 An Architecture Decision Record (ADR) is a short document that captures a single architectural decision along with its context and consequences. ADRs answer the question: _why_ was this decision made, and _what_ are its trade-offs?
 
-Archgate builds on the ADR concept by giving each decision two expressions: a **document** that humans and AI agents read, and an optional **rules file** that machines execute.
+Archgate builds on the ADR concept by giving each decision two expressions: a **document** that humans and AI agents read, and an optional **rules file** that machines execute. The document is the guardrail your agents follow before they write. The rules file is the check that blocks what slips through.
 
 ## Two Expressions of an ADR
 

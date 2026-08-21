@@ -18,6 +18,8 @@ hero:
 import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 import CodeShowcase from "../../../components/CodeShowcase.astro";
 
+A IA escreve código rápido, mas não conhece as suas regras. O Archgate transforma as decisões do time em checagens executáveis: um lint de arquitetura, convenções e código gerado por IA. Os agentes leem as regras antes de escrever código, e o `archgate check` bloqueia o que passar. No CI, no pre-commit e dentro de qualquer ferramenta de IA.
+
 ## Como funciona
 
 O Archgate possui duas camadas que trabalham juntas:
@@ -32,6 +34,8 @@ O Archgate possui duas camadas que trabalham juntas:
 />
 
 Quando você executa `archgate check`, a CLI carrega cada ADR que possui `rules: true` em seu frontmatter, executa o arquivo de regras complementar e reporta quaisquer violações. Código de saída 0 significa que seu código está em conformidade. Código de saída 1 significa que não está.
+
+O ciclo não para na detecção. Cada erro pode virar uma nova regra ou ADR, e depois disso a sua IA nunca mais o repete. Os guardrails ficam mais rígidos com o tempo, em vez de mais caros.
 
 ## Funcionalidades Principais
 
@@ -51,11 +55,12 @@ Quando você executa `archgate check`, a CLI carrega cada ADR que possui `rules:
     comandos CLI. Eles leem as decisões antes de escrever código e validam
     depois. Sem copiar e colar regras nos prompts.
   </Card>
-  <Card title="Auto-Guardrails" icon="approve-check-circle">
-    O Archgate governa seu próprio desenvolvimento. A mesma ferramenta que
-    verifica seu código verifica o nosso. Nossos próprios ADRs aplicam estrutura
-    de comandos, tratamento de erros, formatação de saída, testes e mais. [Veja
-    no GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
+  <Card title="Verifica a Si Mesmo" icon="approve-check-circle">
+    O Archgate aplica as próprias regras no próprio código. A mesma ferramenta
+    que verifica seu código verifica o nosso. Nossos próprios ADRs aplicam
+    estrutura de comandos, tratamento de erros, formatação de saída, testes e
+    mais. [Veja no
+    GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   </Card>
 </CardGrid>
 

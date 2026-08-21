@@ -18,6 +18,8 @@ hero:
 import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 import CodeShowcase from "../../components/CodeShowcase.astro";
 
+AI agents write code fast, but they don't know your rules. Archgate turns your team's decisions into executable checks: a lint step for architecture, conventions, and AI-generated code. Your agents read the rules before writing code, and `archgate check` blocks what slips through. In CI, in pre-commit hooks, and inside every major AI coding tool.
+
 ## How it works
 
 Archgate has two layers that work together:
@@ -32,6 +34,8 @@ Archgate has two layers that work together:
 />
 
 When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file, and reports any violations. Exit code 0 means your code complies. Exit code 1 means it does not.
+
+The loop does not stop at detection. Every mistake can become a new rule or ADR, and once it does, your AI never repeats it. Guardrails get tighter over time instead of more expensive.
 
 ## Key Features
 
@@ -51,10 +55,10 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
     They read decisions before writing code and validate after. No copy-pasting
     rules into prompts.
   </Card>
-  <Card title="Self-Governance" icon="approve-check-circle">
-    Archgate governs its own development. The same tool that checks your code
-    checks ours. Our own ADRs enforce command structure, error handling, output
-    formatting, testing, and more. [See them on
+  <Card title="Checks Itself" icon="approve-check-circle">
+    Archgate enforces its own rules on its own codebase. The same tool that
+    checks your code checks ours. Our own ADRs enforce command structure, error
+    handling, output formatting, testing, and more. [See them on
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   </Card>
 </CardGrid>

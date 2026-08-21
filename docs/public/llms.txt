@@ -6,11 +6,11 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 ## Key capabilities
 
-- **Executable rules**: Write compliance rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
+- **Executable rules**: Write lint rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
 - **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
 - **AI-aware guardrails**: Editor plugins give AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
 - **Editor plugins**: Claude Code, VS Code, Cursor, and GitHub Copilot plugins give AI agents role-based enforcement skills.
-- **Self-governance**: Archgate governs its own development using the same tool.
+- **Checks itself**: Archgate enforces its own rules on its own codebase using the same tool.
 
 ## Installation
 
@@ -21,7 +21,7 @@ Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercont
 - [Getting Started: Installation](https://cli.archgate.dev/getting-started/installation/): Install on macOS, Linux, or Windows via npm, Homebrew, or standalone binary.
 - [Getting Started: Quick Start](https://cli.archgate.dev/getting-started/quick-start/): Set up Archgate in under 5 minutes with your first ADR and rule.
 - [Core Concepts: ADRs](https://cli.archgate.dev/concepts/adrs/): How Architecture Decision Records work as both documentation and executable rules.
-- [Core Concepts: Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
+- [Core Concepts: Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system, the lint step that turns ADR decisions into executable checks.
 - [Core Concepts: Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain to scope and enforce rules.
 - [Guide: Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
 - [Guide: Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the satisfies RuleSet pattern with file matching and violation reporting.

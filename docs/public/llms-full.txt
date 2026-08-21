@@ -6,11 +6,11 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 ## Key capabilities
 
-- **Executable rules**: Write compliance rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
+- **Executable rules**: Write lint rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
 - **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
 - **AI-aware guardrails**: Editor plugins give AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
 - **Editor plugins**: Claude Code, VS Code, Cursor, and GitHub Copilot plugins give AI agents role-based enforcement skills.
-- **Self-governance**: Archgate governs its own development using the same tool.
+- **Checks itself**: Archgate enforces its own rules on its own codebase using the same tool.
 
 ## Installation
 
@@ -21,7 +21,7 @@ Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercont
 - [Getting Started: Installation](https://cli.archgate.dev/getting-started/installation/): Install on macOS, Linux, or Windows via npm, Homebrew, or standalone binary.
 - [Getting Started: Quick Start](https://cli.archgate.dev/getting-started/quick-start/): Set up Archgate in under 5 minutes with your first ADR and rule.
 - [Core Concepts: ADRs](https://cli.archgate.dev/concepts/adrs/): How Architecture Decision Records work as both documentation and executable rules.
-- [Core Concepts: Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system that turns ADR decisions into automated compliance checks.
+- [Core Concepts: Rules](https://cli.archgate.dev/concepts/rules/): The TypeScript rule system, the lint step that turns ADR decisions into executable checks.
 - [Core Concepts: Domains](https://cli.archgate.dev/concepts/domains/): Organize ADRs by domain to scope and enforce rules.
 - [Guide: Writing ADRs](https://cli.archgate.dev/guides/writing-adrs/): Complete guide to writing effective ADRs with YAML frontmatter and markdown structure.
 - [Guide: Writing Rules](https://cli.archgate.dev/guides/writing-rules/): Write TypeScript rules using the satisfies RuleSet pattern with file matching and violation reporting.
@@ -56,6 +56,8 @@ Below is the complete English documentation for Archgate CLI.
 
 Source: https://cli.archgate.dev/
 
+AI agents write code fast, but they don't know your rules. Archgate turns your team's decisions into executable checks: a lint step for architecture, conventions, and AI-generated code. Your agents read the rules before writing code, and `archgate check` blocks what slips through. In CI, in pre-commit hooks, and inside every major AI coding tool.
+
 ## How it works
 
 Archgate has two layers that work together:
@@ -65,6 +67,8 @@ Archgate has two layers that work together:
 2. **ADRs as rules**: Companion `.rules.ts` files with automated checks written in TypeScript. They run against your codebase and report violations with file paths and line numbers.
 
 When you run `archgate check`, the CLI loads every ADR that has `rules: true` in its frontmatter, executes the companion rules file, and reports any violations. Exit code 0 means your code complies. Exit code 1 means it does not.
+
+The loop does not stop at detection. Every mistake can become a new rule or ADR, and once it does, your AI never repeats it. Guardrails get tighter over time instead of more expensive.
 
 ## Key Features
 
@@ -84,9 +88,9 @@ When you run `archgate check`, the CLI loads every ADR that has `rules: true` in
     rules into prompts.
   
   
-    Archgate governs its own development. The same tool that checks your code
-    checks ours. Our own ADRs enforce command structure, error handling, output
-    formatting, testing, and more. [See them on
+    Archgate enforces its own rules on its own codebase. The same tool that
+    checks your code checks ours. Our own ADRs enforce command structure, error
+    handling, output formatting, testing, and more. [See them on
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   
 
@@ -495,7 +499,7 @@ Source: https://cli.archgate.dev/concepts/adrs/
 
 An Architecture Decision Record (ADR) is a short document that captures a single architectural decision along with its context and consequences. ADRs answer the question: _why_ was this decision made, and _what_ are its trade-offs?
 
-Archgate builds on the ADR concept by giving each decision two expressions: a **document** that humans and AI agents read, and an optional **rules file** that machines execute.
+Archgate builds on the ADR concept by giving each decision two expressions: a **document** that humans and AI agents read, and an optional **rules file** that machines execute. The document is the guardrail your agents follow before they write. The rules file is the check that blocks what slips through.
 
 ## Two Expressions of an ADR
 
@@ -812,6 +816,8 @@ When using the Archgate editor plugin to author ADRs, agents are instructed to d
 Source: https://cli.archgate.dev/concepts/rules/
 
 Rules are the executable side of an ADR. They live in companion `.rules.ts` files alongside the ADR document and export a plain object typed with `satisfies RuleSet`. When you run `archgate check`, the CLI loads each ADR that has `rules: true`, imports its companion rules file, and executes every check against your codebase.
+
+This pairing is what makes Archgate the lint step for AI work: every check traces back to a documented decision, and every violation points to the file and line that broke it.
 
 ## Defining Rules
 
@@ -2754,7 +2760,7 @@ The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/
 
 Source: https://cli.archgate.dev/guides/writing-rules/
 
-Rules are TypeScript functions that check your codebase for ADR compliance. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
+Rules are TypeScript functions that lint your codebase against your team's decisions. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
 
 ```
 .archgate/adrs/
