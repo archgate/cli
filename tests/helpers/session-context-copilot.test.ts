@@ -2,6 +2,7 @@
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -59,6 +60,26 @@ describe("readCopilotSession", () => {
       writeFileSync(join(sessionDir, "events.jsonl"), events.join("\n"));
     }
   }
+
+  // events.jsonl exists but cannot be read: the reader reports "no transcript"
+  // rather than letting the rejection escape. Non-root POSIX only.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "reports no transcript when events.jsonl cannot be read",
+    async () => {
+      const sessionId = `copilot-${uniqueId}-locked`;
+      makeSession(sessionId, projectRoot, ['{"type":"user.message"}']);
+      const file = join(stateDir, sessionId, "events.jsonl");
+      chmodSync(file, 0o000);
+      try {
+        const result = await readCopilotSession(projectRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) throw new Error("expected a failure result");
+        expect(result.error).toContain("no conversation transcript");
+      } finally {
+        chmodSync(file, 0o600);
+      }
+    }
+  );
 
   test("returns data for most recent session matching project", async () => {
     const sessionId = `copilot-${uniqueId}-1`;

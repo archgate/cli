@@ -196,12 +196,15 @@ export async function readCopilotSession(
     path: eventsFile,
   };
 
-  const raw = await readTextIfExists(eventsFile);
+  // A file that exists but cannot be read rejects rather than yielding null.
+  const raw = await readTextIfExists(eventsFile).catch(() => null);
   if (raw === null) return noTranscript;
 
   let rawEntries: z.infer<typeof CopilotEventsSchema>;
   try {
-    rawEntries = CopilotEventsSchema.parse(Bun.JSONL.parse(raw));
+    const parsed = CopilotEventsSchema.safeParse(Bun.JSONL.parse(raw));
+    if (!parsed.success) return noTranscript;
+    rawEntries = parsed.data;
   } catch {
     return noTranscript;
   }
