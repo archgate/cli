@@ -283,12 +283,18 @@ export async function readClaudeCodeSession(
   }
 
   const sessionFile = join(projectsDir, targetName);
-  const raw = await readTextIfExists(sessionFile);
+  // `.catch` as well as the null: readTextIfExists rejects for a file that
+  // exists but cannot be read, which is the case sessionReadFailure names.
+  const raw = await readTextIfExists(sessionFile).catch(() => null);
   if (raw === null) return sessionReadFailure(sessionFile);
 
   let entries: TranscriptEntry[];
   try {
-    entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
+    const parsed = z
+      .array(TranscriptEntrySchema)
+      .safeParse(Bun.JSONL.parse(raw));
+    if (!parsed.success) return sessionReadFailure(sessionFile);
+    entries = parsed.data;
   } catch {
     return sessionReadFailure(sessionFile);
   }
@@ -433,12 +439,18 @@ export async function readCursorSession(
     targetDir.name,
     `${targetDir.name}.jsonl`
   );
-  const raw = await readTextIfExists(sessionFile);
+  // `.catch` as well as the null: readTextIfExists rejects for a file that
+  // exists but cannot be read, which is the case sessionReadFailure names.
+  const raw = await readTextIfExists(sessionFile).catch(() => null);
   if (raw === null) return sessionReadFailure(sessionFile);
 
   let entries: TranscriptEntry[];
   try {
-    entries = z.array(TranscriptEntrySchema).parse(Bun.JSONL.parse(raw));
+    const parsed = z
+      .array(TranscriptEntrySchema)
+      .safeParse(Bun.JSONL.parse(raw));
+    if (!parsed.success) return sessionReadFailure(sessionFile);
+    entries = parsed.data;
   } catch {
     return sessionReadFailure(sessionFile);
   }

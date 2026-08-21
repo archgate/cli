@@ -14,6 +14,7 @@ import {
   mkdtempSync,
   rmSync,
   symlinkSync,
+  chmodSync,
   writeFileSync,
 } from "node:fs";
 import * as os from "node:os";
@@ -64,6 +65,30 @@ describe("readCursorSession", () => {
     mkdirSync(sessionDir, { recursive: true });
     writeFileSync(join(sessionDir, `${sessionId}.jsonl`), lines.join("\n"));
   }
+
+  // Discovery finds the file, the read then fails — permission-denied here,
+  // a session removed mid-read in practice. Non-root POSIX only: chmod is a
+  // no-op on Windows and root ignores the mode bits.
+  test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+    "reports a read failure when the transcript cannot be read",
+    async () => {
+      makeSession("session-locked", ['{"role":"user"}']);
+      const file = join(
+        transcriptsDir,
+        "session-locked",
+        "session-locked.jsonl"
+      );
+      chmodSync(file, 0o000);
+      try {
+        const result = await readCursorSession(projectRoot);
+        expect(result.ok).toBe(false);
+        if (result.ok) throw new Error("expected a failure result");
+        expect(result.error).toBe("Failed to read session file");
+      } finally {
+        chmodSync(file, 0o600);
+      }
+    }
+  );
 
   test("returns data for most recent session", async () => {
     makeSession("session-abc", [

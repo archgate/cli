@@ -9,7 +9,13 @@ import {
   test,
   type Mock,
 } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
 
@@ -170,6 +176,29 @@ describe("readClaudeCodeSession", () => {
         entries.map((e) => JSON.stringify(e)).join("\n")
       );
     }
+
+    // A session file can exist at discovery and be unreadable at the read:
+    // removed in between, or permission-denied. readTextIfExists rejects
+    // rather than yielding null there, which is the case sessionReadFailure
+    // names. Only reproducible as a non-root POSIX user — chmod is a no-op on
+    // Windows and root ignores the mode bits.
+    test.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+      "reports a read failure for a session file that cannot be read",
+      async () => {
+        const file = join(projectsDir, "session.jsonl");
+        writeFileSync(file, '{"type":"user"}');
+        chmodSync(file, 0o000);
+        try {
+          const result = await readClaudeCodeSession(projectRoot);
+          expect(result.ok).toBe(false);
+          if (result.ok) throw new Error("expected a failure result");
+          expect(result.error).toBe("Failed to read session file");
+        } finally {
+          // Restore before afterEach's rmSync, which cannot remove it otherwise.
+          chmodSync(file, 0o600);
+        }
+      }
+    );
 
     test("returns data with correct transcript when JSONL exists", async () => {
       writeSession([
