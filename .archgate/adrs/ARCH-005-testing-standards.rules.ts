@@ -91,7 +91,11 @@ export default {
           "u"
         );
 
-        for (const file of await ctx.glob(".github/workflows/*.yml")) {
+        const workflows = [
+          ...(await ctx.glob(".github/workflows/*.yml")),
+          ...(await ctx.glob(".github/workflows/*.yaml")),
+        ];
+        for (const file of workflows) {
           // oxlint-disable-next-line no-await-in-loop -- reads are cached per path
           const text = await ctx.readFile(file);
           const match = callSite.exec(text);

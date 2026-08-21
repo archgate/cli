@@ -217,6 +217,23 @@ describe("Codex session reader", () => {
     ]);
   });
 
+  // Discovery reads only the head of a compressed rollout, and inflates
+  // several at once. A rollout whose first line alone dwarfs the budget must
+  // not be buffered whole — the meta line still classifies it.
+  test("classifies a compressed rollout whose first turn is enormous", async () => {
+    writeCompressedRollout(
+      "id-huge",
+      PROJECT,
+      event("user_message", "x".repeat(2 * 1024 * 1024))
+    );
+
+    const result = await readCodexSession(PROJECT);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data.sessionFile).toEndWith(".jsonl.zst");
+  });
+
   test("ignores response_item lines that repeat the same turns", async () => {
     // Rollouts carry the conversation twice; counting both would duplicate it.
     const responseItem = `${JSON.stringify({

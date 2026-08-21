@@ -28,8 +28,8 @@ import { restoreEnv, tarballOf } from "../test-utils";
 /**
  * `installCursorPlugin`'s hooks.json merge step. Lives beside
  * `plugin-install.test.ts` (download/extract paths) to stay under `max-lines`.
- * The tarball normally supplies `hooks.json`; the bundle served here is empty,
- * so each test seeds the file the extraction would have produced.
+ * The bundle served by default is empty, so each test controls hooks.json by
+ * seeding whatever the user is meant to already have.
  */
 describe("installCursorPlugin hooks.json merge", () => {
   let originalFetch: typeof globalThis.fetch;
@@ -165,6 +165,28 @@ describe("installCursorPlugin hooks.json merge", () => {
       type: "command",
       command: archgateHookCommand,
     });
+  });
+
+  // Only hooks this installer generated are replaced. A user command that
+  // merely mentions `archgate check` is theirs.
+  test("keeps a user hook whose command mentions archgate check", async () => {
+    const userCommand = "my-audit && archgate check --strict";
+    const hooksPath = seedHooksFile(
+      JSON.stringify([
+        { event: "afterFileEdit", type: "command", command: userCommand },
+      ])
+    );
+
+    await installCursorPlugin("test-token");
+
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    const merged = JSON.parse(readHooksFile(hooksPath)) as {
+      command?: string;
+    }[];
+    expect(merged.map((h) => h.command)).toEqual([
+      userCommand,
+      archgateHookCommand,
+    ]);
   });
 
   test("appends the archgate hook when none is present", async () => {

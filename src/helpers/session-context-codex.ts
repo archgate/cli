@@ -149,7 +149,12 @@ async function readCompressedHead(file: BunFile): Promise<string> {
   // line count alone is not a memory bound. Decoded bytes, not string length,
   // so the budget means the same here as on the uncompressed path. Breaking
   // out cancels the stream, releasing the file handle.
-  for await (const chunk of new Response(inflated).textStream()) {
+  for await (const raw of new Response(inflated).textStream()) {
+    // Trim before appending: one decompressed chunk can exceed the budget on
+    // its own, and appending first would already have spent the memory. A
+    // UTF-8 character is at least one byte, so taking that many characters
+    // never exceeds that many bytes.
+    const chunk = raw.slice(0, HEAD_BYTES - bytes);
     for (const char of chunk) if (char === "\n") lines++;
     text += chunk;
     bytes += Buffer.byteLength(chunk, "utf8");
