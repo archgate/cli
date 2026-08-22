@@ -6,7 +6,7 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 ## Key capabilities
 
-- **Executable rules**: Write lint rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
+- **Executable rules**: Write lint rules in TypeScript. Archgate runs them against your codebase and reports violations, with file paths and line numbers when rules provide them.
 - **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
 - **AI-aware guardrails**: Editor plugins give AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
 - **Editor plugins**: Claude Code, VS Code, Cursor, and GitHub Copilot plugins give AI agents role-based enforcement skills.
@@ -89,8 +89,9 @@ The loop does not stop at detection. Every mistake can become a new rule or ADR,
   
   
     Archgate enforces its own rules on its own codebase. The same tool that
-    checks your code checks ours. Our own ADRs enforce command structure, error
-    handling, output formatting, testing, and more. [See them on
+    checks your code checks ours. The rules paired with our own ADRs enforce
+    command structure, error handling, output formatting, testing, and more.
+    [See them on
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   
 
@@ -817,7 +818,7 @@ Source: https://cli.archgate.dev/concepts/rules/
 
 Rules are the executable side of an ADR. They live in companion `.rules.ts` files alongside the ADR document and export a plain object typed with `satisfies RuleSet`. When you run `archgate check`, the CLI loads each ADR that has `rules: true`, imports its companion rules file, and executes every check against your codebase.
 
-This pairing is what makes Archgate the lint step for AI work: every check traces back to a documented decision, and every violation points to the file and line that broke it.
+This pairing is what makes Archgate the lint step for AI work: every check traces back to a documented decision, and violations point to the file and line that broke them when rules provide them.
 
 ## Defining Rules
 
@@ -2760,7 +2761,7 @@ The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/
 
 Source: https://cli.archgate.dev/guides/writing-rules/
 
-Rules are TypeScript functions that lint your codebase against your team's decisions. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
+Rules are TypeScript checks that lint your codebase against your team's decisions. They live in companion `.rules.ts` files next to ADR markdown files and run when you execute `archgate check`.
 
 ```
 .archgate/adrs/

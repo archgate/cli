@@ -6,7 +6,7 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 ## Key capabilities
 
-- **Executable rules**: Write lint rules in TypeScript. Archgate runs them against your codebase and reports violations with file paths and line numbers.
+- **Executable rules**: Write lint rules in TypeScript. Archgate runs them against your codebase and reports violations, with file paths and line numbers when rules provide them.
 - **CI integration**: Wire `archgate check` into any CI/CD pipeline. Exit code 1 blocks merges when rules are violated.
 - **AI-aware guardrails**: Editor plugins give AI agents (Claude, Cursor, Copilot) live access to ADRs. Agents read decisions before writing code and validate after.
 - **Editor plugins**: Claude Code, VS Code, Cursor, and GitHub Copilot plugins give AI agents role-based enforcement skills.

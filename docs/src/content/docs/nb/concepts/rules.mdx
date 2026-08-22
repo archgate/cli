@@ -5,7 +5,7 @@ description: Forstå Archgates TypeScript-regelsystem, lint-steget som gjør Arc
 
 Regler er den kjørbare siden av en ADR. De bor i tilhørende `.rules.ts`-filer ved siden av ADR-dokumentet og eksporterer et vanlig objekt typet med `satisfies RuleSet`. Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: true`, importerer den tilhørende regelfilen og kjører hver sjekk mot kodebasen din.
 
-Det er denne koblingen som gjør Archgate til lint-steget for AI-arbeid: hver kontroll sporer tilbake til en dokumentert beslutning, og hvert brudd peker på filen og linjen som brøt den.
+Det er denne koblingen som gjør Archgate til lint-steget for AI-arbeid: hver kontroll sporer tilbake til en dokumentert beslutning, og brudd peker på filen og linjen som brøt den når reglene oppgir dem.
 
 ## Definere regler
 
