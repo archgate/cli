@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
 
 PackageIdentifier: Archgate.Archgate
-PackageVersion: "0.54.0"
+PackageVersion: "0.55.0"
 PackageLocale: en-US
 Publisher: Archgate
 PublisherUrl: https://cli.archgate.dev
@@ -28,7 +28,7 @@ Tags:
   - cli
   - governance
   - linter
-ReleaseNotesUrl: https://github.com/archgate/cli/releases/tag/v0.54.0
+ReleaseNotesUrl: https://github.com/archgate/cli/releases/tag/v0.55.0
 Documentations:
   - DocumentLabel: Documentation
     DocumentUrl: https://cli.archgate.dev
