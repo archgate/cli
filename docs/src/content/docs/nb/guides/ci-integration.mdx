@@ -1,9 +1,9 @@
 ---
 title: CI-integrasjon
-description: Integrer Archgate-samsvarsjekker i GitHub Actions, GitLab CI eller hvilken som helst CI/CD-pipeline. Blokker sammenslåinger når arkitekturregler brytes.
+description: Integrer Archgate-kontroller i GitHub Actions, GitLab CI eller hvilken som helst CI/CD-pipeline. Blokker sammenslåinger når reglene dine brytes.
 ---
 
-Archgate-sjekker passer inn i ethvert CI-system som respekterer exit-koder. Legg til ett enkelt steg i pipelinen din, så blokkeres sammenslåinger automatisk ved brudd.
+Archgate-sjekker passer inn i ethvert CI-system som respekterer exit-koder. Legg til ett enkelt steg i pipelinen din: brudd med alvorlighetsgraden `error` får jobben til å feile med exit-kode 1 (bruk `--strict` for å eskalere advarsler også). Merk jobben som en påkrevd sjekk i branch-beskyttelsesreglene, så blokkerer brudd sammenslåinger.
 
 ## GitHub Actions
 

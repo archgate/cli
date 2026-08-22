@@ -18,6 +18,8 @@ hero:
 import { Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 import CodeShowcase from "../../../components/CodeShowcase.astro";
 
+AI-agenter skriver kode raskt, men de kjenner ikke reglene dine. Archgate gjør teamets beslutninger om til kjørbare kontroller: et lint-steg for arkitektur, konvensjoner og AI-generert kode. Agentene dine leser reglene før de skriver kode, og `archgate check` blokkerer det som slipper gjennom. I CI, i pre-commit hooks og inne i alle store AI-kodingsverktøy.
+
 ## Hvordan det fungerer
 
 Archgate har to lag som fungerer sammen:
@@ -32,6 +34,8 @@ Archgate har to lag som fungerer sammen:
 />
 
 Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: true` i frontmatter, kjører den tilhørende regelfilen og rapporterer eventuelle brudd. Utgangskode 0 betyr at koden din er i samsvar. Utgangskode 1 betyr at den ikke er det.
+
+Løkken stopper ikke ved deteksjon. Hver feil kan bli en ny regel eller ADR, og etter det gjentar AI-en din den aldri. Guardrails blir strammere over tid i stedet for dyrere.
 
 ## Hovedfunksjoner
 
@@ -51,10 +55,11 @@ Når du kjører `archgate check`, laster CLI-en inn hver ADR som har `rules: tru
     CLI-kommandoer. De leser beslutninger før de skriver kode, og validerer
     etterpå. Ingen kopiering og liming av regler i ledetekster.
   </Card>
-  <Card title="Selvstyre" icon="approve-check-circle">
-    Archgate styrer sin egen utvikling. Det samme verktøyet som sjekker koden
-    din, sjekker vår. Våre egne ADR-er håndhever kommandostruktur,
-    feilhåndtering, utdataformatering, testing og mer. [Se dem på
+  <Card title="Sjekker seg selv" icon="approve-check-circle">
+    Archgate håndhever sine egne regler på sin egen kodebase. Det samme
+    verktøyet som sjekker koden din, sjekker vår. Reglene som hører til våre
+    egne ADR-er håndhever kommandostruktur, feilhåndtering, utdataformatering,
+    testing og mer. [Se dem på
     GitHub](https://github.com/archgate/cli/tree/main/.archgate/adrs).
   </Card>
 </CardGrid>
