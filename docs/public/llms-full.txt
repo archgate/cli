@@ -988,7 +988,7 @@ The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/
 
 Source: https://cli.archgate.dev/guides/ci-integration/
 
-Archgate checks fit into any CI system that respects exit codes. Add a single step to your pipeline and violations will block merges automatically.
+Archgate checks fit into any CI system that respects exit codes. Add a single step to your pipeline: error-severity violations fail the job with exit code 1 (pass `--strict` to escalate warnings too). Mark the job as a required check in your branch protection rules and violations block merges.
 
 ## GitHub Actions
 

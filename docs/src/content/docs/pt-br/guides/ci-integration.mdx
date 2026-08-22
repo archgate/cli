@@ -3,7 +3,7 @@ title: Integração com CI
 description: Integre as checagens do Archgate no GitHub Actions, GitLab CI ou qualquer pipeline CI/CD. Bloqueie merges quando suas regras forem violadas.
 ---
 
-As verificações do Archgate funcionam em qualquer sistema de CI que respeite códigos de saída. Adicione um único passo ao seu pipeline e as violações bloquearão merges automaticamente.
+As verificações do Archgate funcionam em qualquer sistema de CI que respeite códigos de saída. Adicione um único passo ao seu pipeline: violações com severidade `error` fazem o job falhar com código de saída 1 (use `--strict` para escalar warnings também). Marque o job como verificação obrigatória nas regras de proteção de branch e as violações bloqueiam merges.
 
 ## GitHub Actions
 
