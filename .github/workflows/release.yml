@@ -7,12 +7,6 @@ on:
     branches:
       - main
 
-# Concurrency sits on the mutating jobs below, never here. An `issue_comment`
-# run and the `push` run for the same merge both resolve `github.ref_name` to
-# the default branch, so a workflow-level group lets the newer comment run
-# evict the still-pending push run — the only run that releases. A job gated
-# off by `check` never enters the group, so comment runs cannot displace a push.
-
 permissions: {}
 
 env:
