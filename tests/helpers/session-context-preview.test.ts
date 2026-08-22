@@ -5,8 +5,8 @@ import { describe, expect, test } from "bun:test";
 import { truncatePreview } from "../../src/helpers/session-context";
 
 /**
- * `truncatePreview`'s Unicode boundary behaviour. Lives beside
- * `session-context.test.ts` (reader paths) to stay under `max-lines`.
+ * `truncatePreview`'s Unicode boundary behaviour; the reader paths that call it
+ * are covered in `session-context.test.ts`.
  */
 describe("truncatePreview", () => {
   // Exact expected output, not just a trailing "...": assertions that only
