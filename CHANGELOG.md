@@ -1,3 +1,16 @@
+## [0.55.0](https://github.com/archgate/cli/compare/v0.54.0...v0.55.0) (2026-08-22)
+
+### Features
+
+* **bun:** adopt Bun 1.4 archive, test parallelism, and terminal APIs ([#576](https://github.com/archgate/cli/issues/576)) ([22715ee](https://github.com/archgate/cli/commit/22715eef22c2a6a99f5807a1ae4f8c7f15b5bf8b))
+
+### Bug Fixes
+
+* **ci:** stop comment runs from evicting the release push run ([#585](https://github.com/archgate/cli/issues/585)) ([9a3c881](https://github.com/archgate/cli/commit/9a3c881caab965460ede278a79fbc020fadcb620)), references [#581](https://github.com/archgate/cli/issues/581) [#575](https://github.com/archgate/cli/issues/575)
+* **fs:** survive Bun 1.4's rejecting-read regression, and upgrade to 1.4.0 ([#574](https://github.com/archgate/cli/issues/574)) ([51f7ffc](https://github.com/archgate/cli/commit/51f7ffc5783fff0fb2efd3eb637ca5051b939838))
+* **session-context:** report a read failure instead of throwing it ([#577](https://github.com/archgate/cli/issues/577)) ([94ffdcd](https://github.com/archgate/cli/commit/94ffdcd83c3bef51a34ea10defea36ab47eea0cd)), references [#576](https://github.com/archgate/cli/issues/576) [#574](https://github.com/archgate/cli/issues/574) [#576](https://github.com/archgate/cli/issues/576)
+* **session-context:** truncate previews on grapheme boundaries ([#581](https://github.com/archgate/cli/issues/581)) ([cc8d93c](https://github.com/archgate/cli/commit/cc8d93c9c7ce538e58a23fdd5de739224d9366e8))
+
 ## [0.54.0](https://github.com/archgate/cli/compare/v0.53.0...v0.54.0) (2026-08-19)
 
 ### Features
