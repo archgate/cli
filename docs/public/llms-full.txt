@@ -2,7 +2,7 @@
 
 > Archgate is a CLI for enterprise-grade linting and guardrails for AI work, built on Architecture Decision Records (ADRs). It combines human-readable documentation with machine-checkable TypeScript rules to enforce architectural decisions across codebases, for both humans and AI agents.
 
-Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdown files with YAML frontmatter that describe architectural decisions. Companion `.rules.ts` files contain automated TypeScript checks that run against the codebase and report violations with file paths and line numbers.
+Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdown files with YAML frontmatter that describe architectural decisions. Companion `.rules.ts` files contain automated TypeScript checks that run against the codebase and report violations, with file paths and line numbers when rules provide them.
 
 ## Key capabilities
 
@@ -818,7 +818,7 @@ Source: https://cli.archgate.dev/concepts/rules/
 
 Rules are the executable side of an ADR. They live in companion `.rules.ts` files alongside the ADR document and export a plain object typed with `satisfies RuleSet`. When you run `archgate check`, the CLI loads each ADR that has `rules: true`, imports its companion rules file, and executes every check against your codebase.
 
-This pairing is what makes Archgate the lint step for AI work: every check traces back to a documented decision, and violations point to the file and line that broke them when rules provide them.
+This pairing is what makes Archgate the lint step for AI work: every check traces back to a documented decision, and violations point to the file and line where they occurred, when rules provide them.
 
 ## Defining Rules
 
