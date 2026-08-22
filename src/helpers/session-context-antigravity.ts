@@ -30,6 +30,7 @@ import {
   type SessionListResult,
   normalizePath,
   sessionReadFailure,
+  truncatePreview,
 } from "./session-context";
 
 /**
@@ -375,8 +376,7 @@ export async function readAntigravitySession(
     if (text === "") continue;
     transcript.push({
       role,
-      contentPreview:
-        text.length > MAX_PREVIEW ? `${text.slice(0, MAX_PREVIEW)}...` : text,
+      contentPreview: truncatePreview(text, MAX_PREVIEW),
     });
   }
 
