@@ -8,6 +8,7 @@
 [![Release](https://github.com/archgate/cli/actions/workflows/release.yml/badge.svg)](https://github.com/archgate/cli/actions/workflows/release.yml)
 [![Docs](https://img.shields.io/badge/docs-cli.archgate.dev-blue)](https://cli.archgate.dev)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12659/badge)](https://www.bestpractices.dev/projects/12659)
+[![Reddit](https://img.shields.io/reddit/subreddit-subscribers/archgatedev?style=flat&label=r%2Farchgatedev&color=FF4500)](https://www.reddit.com/r/archgatedev)
 
 </div>
 
@@ -78,6 +79,10 @@ Each ADR can have a companion `.rules.ts` file that exports automated checks. Se
 ## Documentation
 
 Full documentation is available at **[cli.archgate.dev](https://cli.archgate.dev)**, including guides for writing ADRs, writing rules, CI integration, editor plugin setup, and the complete CLI reference.
+
+## Community
+
+Questions, ideas, or feedback? Join the discussion at [r/archgatedev](https://www.reddit.com/r/archgatedev).
 
 ## Contributing
 
