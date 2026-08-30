@@ -9,7 +9,9 @@ Fjern CLI-hurtigbufferkatalogen.
 archgate clean
 ```
 
-Fjerner `~/.archgate/`, som lagrer hurtigbufrede data som tidsstempler for oppdateringssjekker. Trygt å kjøre når som helst -- katalogen gjenskapes automatisk ved behov.
+Fjerner `~/.archgate/`, som lagrer CLI-ens konfigurasjon, hurtigbuffer og (for binærinstallasjoner) den nedlastede `archgate`-kjørbare filen. Trygt å kjøre når som helst -- katalogen gjenskapes automatisk ved behov.
+
+Hvis den kjørende binærfilen ble installert til `~/.archgate/bin/`, beholder `clean` denne `bin/`-katalogen slik at den ikke sletter den kjørbare filen den for øyeblikket kjører som, og fjerner alt annet. Hvis `~/.archgate/` ikke finnes, skriver den ut `Nothing to clean.` og avslutter uten feil.
 
 ## Eksempel
 
@@ -19,4 +21,10 @@ archgate clean
 
 ```
 /home/user/.archgate cleaned up
+```
+
+Når den kjørende binærfilen ligger under `~/.archgate/bin/`, merker meldingen at `bin/` ble beholdt:
+
+```
+/home/user/.archgate cleaned up (bin/ preserved)
 ```

@@ -19,7 +19,9 @@ The Cursor plugin is currently in beta. Run `archgate login` to sign up and auth
 
 If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full guardrails workflow.
 
-The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection is needed -- files are written directly to the Cursor user directory.
+The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts only the `agents/` and `skills/` directories into `~/.cursor/`; anything else in the tarball is discarded. Stale `archgate-*` agents and skill directories from a previous install are removed first, so local edits to those files do not survive a reinstall. No CLI detection is needed -- files are written directly to the Cursor user directory.
+
+The `afterFileEdit` hook is not taken from the tarball. The CLI writes it into `~/.cursor/hooks.json` itself, preserving any hooks you already have there and leaving a malformed file untouched.
 
 To explicitly install the plugin:
 
@@ -38,23 +40,24 @@ archgate plugin install --editor cursor
 
 **User scope** (`~/.cursor/`):
 
-| File                                           | Purpose                                                             |
-| ---------------------------------------------- | ------------------------------------------------------------------- |
-| `~/.cursor/skills/archgate-reviewer.md`        | Validates code changes against all project ADRs                     |
-| `~/.cursor/skills/archgate-lessons-learned.md` | Captures learnings and proposes new ADRs when patterns emerge       |
-| `~/.cursor/skills/archgate-adr-author.md`      | Creates and edits ADRs following project conventions                |
-| `~/.cursor/skills/archgate-onboard.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
-| `~/.cursor/skills/archgate-cli-reference.md`   | Internal reference for AI agents with the Archgate CLI guide        |
-| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR guardrails workflow     |
-| `~/.cursor/agents/archgate-planner.md`         | Planning agent for scoping and breaking down work                   |
+| File                                                 | Purpose                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------- |
+| `~/.cursor/skills/archgate-reviewer/SKILL.md`        | Validates code changes against all project ADRs                     |
+| `~/.cursor/skills/archgate-lessons-learned/SKILL.md` | Captures learnings and proposes new ADRs when patterns emerge       |
+| `~/.cursor/skills/archgate-adr-author/SKILL.md`      | Creates and edits ADRs following project conventions                |
+| `~/.cursor/skills/archgate-onboard/SKILL.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
+| `~/.cursor/skills/archgate-cli-reference/SKILL.md`   | Internal reference for AI agents with the Archgate CLI guide        |
+| `~/.cursor/agents/archgate-developer.md`             | Primary development agent with the full ADR guardrails workflow     |
+| `~/.cursor/agents/archgate-planner.md`               | Planning agent for scoping and breaking down work                   |
+| `~/.cursor/hooks.json`                               | `afterFileEdit` hook, merged into any hooks you already have        |
 
 **Project scope**:
 
-| File                 | Purpose                                                               |
-| -------------------- | --------------------------------------------------------------------- |
-| `.cursor/hooks.json` | `afterFileEdit` hook that runs `archgate check` after every file edit |
+| File                 | Purpose                                                             |
+| -------------------- | ------------------------------------------------------------------- |
+| `.cursor/hooks.json` | `afterFileEdit` hook that runs `archgate check` on each edited file |
 
-The `.cursor/hooks.json` file is the only file written to your project tree. It ensures `archgate check` runs automatically after every file edit, catching ADR violations in real time.
+The `.cursor/hooks.json` file is the only file written to your project tree, and `archgate init` writes it only when it does not already exist -- an existing file is left alone. It ensures `archgate check` runs automatically after every file edit, catching ADR violations in real time.
 
 ## What the plugin provides
 
@@ -83,11 +86,11 @@ These are the same roles available in the Claude Code plugin (`archgate:reviewer
 
 ### Hooks
 
-| Hook            | Trigger         | Action                                                     |
-| --------------- | --------------- | ---------------------------------------------------------- |
-| `afterFileEdit` | Every file edit | Runs `archgate check` to catch ADR violations in real time |
+| Hook            | Trigger         | Action                                                           |
+| --------------- | --------------- | ---------------------------------------------------------------- |
+| `afterFileEdit` | Every file edit | Runs `archgate check` on the edited file to catch ADR violations |
 
-The hook is defined in `.cursor/hooks.json` at the project level, so it works both locally and in cloud agent environments.
+The hook is defined in `.cursor/hooks.json` at the project level, so it works both locally and in cloud agent environments. The plugin install additionally registers the same hook in your user-level `~/.cursor/hooks.json`.
 
 ## Initial setup with onboard
 
@@ -149,10 +152,12 @@ For full governance in cloud environments, ensure `archgate` is available on the
 
 The `archgate session-context` command reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
 
-When Cursor is the detected editor, no editor needs to be named. Pass `--editor cursor` to read Cursor's transcripts regardless of what was detected — useful when another agent is running inside Cursor and wins detection. The command accepts two options:
+When Cursor is the detected editor, no editor needs to be named. Pass `--editor cursor` to read Cursor's transcripts regardless of what was detected — useful when another agent is running inside Cursor and wins detection. The two options that matter for Cursor are:
 
-- `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries).
+- `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries). Must be a positive integer.
 - `--editor <name>` -- Read another editor's transcripts instead of the detected one.
+
+(A third option, `--root`, applies to opencode only.)
 
 Use `archgate session-context list` to discover earlier sessions, and `archgate session-context show <session-id>` to read a specific one.
 

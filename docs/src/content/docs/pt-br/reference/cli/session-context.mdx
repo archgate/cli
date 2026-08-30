@@ -9,35 +9,49 @@ Lê transcrições de sessão de editores de IA para o projeto. Útil para audit
 archgate session-context [subcommand] [options]
 ```
 
-Lê a **conversa atual** — por padrão, a do editor que executa o comando, que o Archgate detecta a partir do ambiente. Dois subcomandos cobrem o restante: `list` para descobrir sessões anteriores e `show <session-id>` para ler uma sessão específica.
+Sem subcomando, lê a **conversa atual** do editor que executa o comando, que o Archgate detecta a partir do ambiente. Dois subcomandos cobrem o restante: `list` para descobrir sessões anteriores e `show <session-id>` para ler uma sessão específica. Toda forma imprime JSON no stdout, e apenas sessões pertencentes ao projeto atual são consideradas.
 
 ## Opções
 
-| Opção               | Descrição                                                                                                                     |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `--editor <name>`   | Editor a ler: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `opencode` ou `pi`. Por padrão, o editor detectado. |
-| `--max-entries <n>` | Número máximo de entradas a retornar (padrão: 200)                                                                            |
-| `--root`            | Somente opencode: resolve uma sessão-filha de subagente até seu ancestral de nível superior                                   |
+| Opção               | Descrição                                                                                                                          |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `--editor <name>`   | Editor a ler: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `opencode` ou `pi`. Por padrão, o editor detectado.      |
+| `--max-entries <n>` | Número máximo de entradas da transcrição a retornar, as mais recentes primeiro (padrão: 200). Deve ser um número inteiro positivo. |
+| `--root`            | Somente opencode: resolve uma sessão-filha de subagente até seu ancestral de nível superior. Rejeitado para qualquer outro editor. |
 
-## Detecção automática do editor
+## Subcomandos
 
-Todo editor compatível define variáveis de ambiente nos comandos que executa, e o Archgate as lê para descobrir qual editor está perguntando. Passe `--editor` para sobrepor o resultado ou para ler as transcrições de outro editor.
+### archgate session-context list
 
-| Editor      | Detectado por                 | Fixa a sessão exata via                                                                    |
-| ----------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
-| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`, ou `conversationId` dentro de `ANTIGRAVITY_SOURCE_METADATA` |
-| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`                                                                   |
-| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                                                                          |
-| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`                                                                 |
-| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`                                                                   |
-| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(nenhuma — recorre à recência)_                                                           |
-| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                                                                            |
+Lista as sessões disponíveis do projeto como JSON (`id`, `updatedAt` e `title` para editores que armazenam um), da mais recente para a mais antiga. Aceita `--editor`.
 
-Editores que publicam o próprio identificador de sessão obtêm a conversa **exata**, em vez da mais recente. Isso importa quando um projeto tem várias sessões abertas ao mesmo tempo, situação em que a mais recente pode não ser a conversa da qual você participa. Um identificador publicado que não corresponde a nenhuma sessão do projeto é ignorado e a recência prevalece, de modo que um identificador obsoleto nunca transforma um comando funcional em erro.
+```bash
+archgate session-context list
+```
 
-Um identificador de sessão só fixa o editor que o publicou. Passar `--editor cursor` de dentro do Claude Code lê as transcrições do Cursor por recência e ignora `CLAUDE_CODE_SESSION_ID`.
+### archgate session-context show
 
-Todo comando informa o que resolveu em um objeto `detection`:
+Lê uma sessão específica por ID (obtido em `list`). Um ID explícito sempre prevalece sobre a sessão apontada pelo ambiente. Aceita `--editor`, `--max-entries` e `--root`.
+
+```bash
+archgate session-context show <session-id>
+```
+
+## Detecção do editor
+
+Todo editor compatível marca os processos que gera, e o Archgate lê essas marcas para descobrir qual editor está perguntando. Passe `--editor` para sobrepor o resultado, ou para ler as transcrições de outro editor.
+
+Alguns editores também publicam o ID da conversa que estão executando no momento. Quando isso acontece, o Archgate lê essa conversa **exata**, em vez da mais recente. Isso importa quando um projeto tem várias sessões abertas ao mesmo tempo, situação em que a mais recente pode não ser a conversa da qual você participa. Um ID publicado que não corresponde a nenhuma sessão do projeto é ignorado e a recência prevalece, de modo que um ID obsoleto nunca transforma um comando funcional em erro.
+
+Um ID publicado só se aplica ao editor que o publicou. Passar `--editor cursor` de dentro do Claude Code lê as transcrições do Cursor por recência.
+
+Quando marcas de mais de um editor estão presentes — um agente executando dentro de outro agente — o vencedor é decidido por uma ordem fixa: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `pi`, depois `opencode`. Toda correspondência ainda é relatada na saída. Essa ordem vale quaisquer que sejam os IDs de sessão publicados: um ID vazio ou inutilizável muda qual sessão é selecionada, nunca qual editor.
+
+A detecção falha quando o Archgate executa a partir de um shell comum, e não dentro de um editor de IA. O comando então encerra com código 1 e solicita `--editor`.
+
+## Saída
+
+Toda invocação relata o que resolveu em um objeto `detection`, ao lado do payload da sessão:
 
 ```json
 {
@@ -54,37 +68,25 @@ Todo comando informa o que resolveu em um objeto `detection`:
 }
 ```
 
-`via` é a variável de ambiente que identificou o editor, ou `--editor` quando você informou um. `session` é `pinned` quando o identificador de sessão do próprio editor foi usado, `recent` quando a sessão mais recente foi tomada e `explicit` quando um identificador de sessão foi passado na linha de comando. `candidates` lista todos os editores cujo marcador estava presente — mais de um aparece quando um agente executa dentro de outro agente. Nesse caso o vencedor vem de uma ordem fixa — Antigravity, Claude Code, Codex, Copilot, Cursor, Pi e então opencode — que coloca os editores que publicam um identificador de sessão à frente daquele que não publica. Essa ordem vale quaisquer que sejam os identificadores: um identificador vazio ou inutilizável muda qual sessão é selecionada, nunca qual editor.
+| Campo                       | Significado                                                                                                                                                                                                      |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detection.editor`          | Editor cujas sessões foram lidas                                                                                                                                                                                 |
+| `detection.via`             | Variável de ambiente que identificou o editor, ou `--editor` quando você informou um                                                                                                                             |
+| `detection.session`         | `pinned` (o ID de sessão do próprio editor foi usado), `recent` (a sessão mais recente foi tomada) ou `explicit` (um ID foi passado para `show`). Não é relatado por `list`, que não seleciona uma única sessão. |
+| `detection.candidates`      | Todo editor cujo marcador estava presente, em ordem de precedência                                                                                                                                               |
+| `sessionId` / `sessionFile` | Identifica a sessão que foi lida; qual dos dois aparece depende do editor                                                                                                                                        |
+| `totalEntries`              | Entradas na sessão armazenada                                                                                                                                                                                    |
+| `relevantEntries`           | Entradas conversacionais restantes após pular eventos de bookkeeping e turnos sem texto                                                                                                                          |
+| `transcript`                | As últimas `--max-entries` dessas entradas, cada uma com `role` e `contentPreview`                                                                                                                               |
 
-A detecção falha quando o Archgate executa a partir de um shell comum, e não dentro de um editor de IA. O comando então encerra com código 1 e solicita `--editor`.
+`list` substitui o payload da sessão por um array `sessions`. Quando nenhuma sessão pode ser lida, o motivo é escrito em stderr e o comando encerra com código 1.
 
-## Subcomandos
+## Comportamento específico de cada editor
 
-### archgate session-context list
-
-Lista as sessões disponíveis do projeto como JSON (`id`, `updatedAt` e `title` para editores que armazenam um), da mais recente para a mais antiga. Aceita `--editor`.
-
-```bash
-archgate session-context list
-```
-
-### archgate session-context show
-
-Lê uma sessão específica por ID (obtido em `list`). Um ID explícito sempre prevalece sobre o publicado pelo ambiente. Aceita `--editor`, `--max-entries` e `--root`.
-
-```bash
-archgate session-context show <session-id>
-```
-
-## Como cada editor armazena as sessões
-
-- **Antigravity** — tanto o CLI `agy` quanto o aplicativo desktop gravam as conversas como JSONL em `brain/<id>/.system_generated/logs/`, em `~/.gemini/antigravity-cli/` e `~/.gemini/antigravity/` respectivamente; ambos são lidos. O CLI registra o workspace no banco da própria conversa; o aplicativo, em um índice de resumos compartilhado. Uma conversa em que o chamador está executando é lida mesmo antes de esse índice ser atualizado, pois o ambiente a identifica.
-- **Claude Code** — uma transcrição JSONL por sessão, indexada pelo caminho codificado do projeto. Os IDs de sessão são os nomes dos arquivos de transcrição.
-- **Codex** — arquivos de rollout em pastas por data (`sessions/YYYY/MM/DD/`), compartilhados pelo Codex CLI e pelo aplicativo desktop. As sessões são correspondidas pelo `cwd` registrado na linha `session_meta` de cada rollout, e o ID de sessão é o ID da thread. O CLI e o aplicativo desktop registram os turnos em formatos de evento diferentes, e ambos são lidos. Rollouts com mais de uma semana são comprimidos com zstd no lugar; ambas as formas são lidas. Respeita `CODEX_HOME`.
-- **Copilot CLI** — as sessões são correspondidas pelo campo `cwd` do workspace.
-- **Cursor** — as sessões são correspondidas pelo caminho codificado do projeto; os IDs são UUIDs.
-- **Pi** — as sessões ficam em um diretório que codifica o diretório de trabalho, e o `cwd` do cabeçalho de cada arquivo também é verificado, de modo que um diretório de sessões realocado ainda é resolvido. Respeita `PI_CODING_AGENT_DIR` e `PI_CODING_AGENT_SESSION_DIR`. O Pi ramifica uma sessão no próprio arquivo em vez de criar um novo, então apenas o ramo ativo é lido — um turno bifurcado ou desfeito fica de fora. O Pi publica o ID de sessão apenas para comandos executados pelo seu agente, então um comando digitado manualmente é detectado, mas selecionado por recência.
-- **opencode** — as sessões são correspondidas comparando o campo `directory` da sessão com a raiz do projeto. Execuções de subagentes são registradas como sessões-filhas que compartilham o diretório do pai; elas ficam fora de `list` e da seleção por recência, de modo que a sessão de nível superior mais recente é sempre a sessão principal de desenvolvimento. Ainda podem ser lidas por ID com `show`, e `--root` resolve uma sessão-filha até seu ancestral de nível superior — útil quando um subagente conhece o próprio ID de sessão e precisa da conversa à qual ele pertence.
+- **Antigravity** e **Codex** distribuem, cada um, um CLI e um aplicativo desktop, e conversas de ambas as distribuições são lidas.
+- **Codex** respeita `CODEX_HOME`.
+- **Pi** respeita `PI_CODING_AGENT_DIR` e `PI_CODING_AGENT_SESSION_DIR`. O Pi ramifica uma sessão no próprio lugar, em vez de iniciar uma nova, então apenas o ramo ativo é lido — um turno bifurcado ou desfeito fica de fora. O Pi publica o ID de sessão apenas para comandos executados pelo seu agente, então um comando que você digita manualmente ainda é detectado como Pi, mas selecionado por recência.
+- **opencode** registra execuções de subagentes como sessões-filhas da conversa que as iniciou. Sessões-filhas ficam fora de `list` e da seleção por recência, de modo que a sessão de nível superior mais recente é sempre a sessão principal de desenvolvimento. Ainda podem ser lidas por ID com `show`, e `--root` resolve uma sessão-filha até seu ancestral de nível superior — útil quando um subagente conhece o próprio ID de sessão e precisa da conversa à qual ele pertence.
 
 ## Exemplos
 

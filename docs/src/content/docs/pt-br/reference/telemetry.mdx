@@ -22,7 +22,7 @@ Quando você executa um comando do Archgate, registramos:
 
 Além dos eventos gerais do ciclo de vida do comando (`command_executed` / `command_completed`), comandos específicos enviam eventos enriquecidos:
 
-- **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado, se filtros foram aplicados, arquivos analisados, duração de carregamento, duração da verificação. Sem caminhos de arquivo ou conteúdo de violação
+- **`check`**: contagens agregadas de regras (total, aprovadas, reprovadas, avisos, erros), formato de saída usado, se filtros foram aplicados, arquivos analisados, duração de carregamento, duração da verificação, e linguagens/runtimes/frameworks detectados no projeto (comparados com uma lista fixa de sinais conhecidos de dependências e arquivos de configuração, ex.: `typescript`, `bun`, `nextjs`). Sem caminhos de arquivo ou conteúdo de violação
 - **`init`**: escolha do editor, se o plugin foi instalado, se o projeto já existia. Um evento separado `project_initialized` é enviado uma única vez, contendo o bucket do host do repositório, `repo_is_git` e uma flag `repo_public`. Para repositórios confirmados como públicos no GitHub / GitLab / Bitbucket / Azure DevOps, esse evento também leva URL remota, owner e nome do repositório; veja [Identidade do repositório](#identidade-do-repositório). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
 - **`upgrade`**: transição de versão (de → para), método de instalação, sucesso/falha e uma razão de falha opcional
 - **`login`**: subcomando usado (login, logout, refresh, status), sucesso/falha e um bucket de falha (`network`, `tls`, `denied`, `other`) quando falha
@@ -56,17 +56,18 @@ Veja [Como desativar](#como-desativar) abaixo para detalhes completos.
 
 Quando a CLI falha (código de saída 2), enviamos:
 
-- **Tipo do erro, mensagem e stack trace** (caminhos de arquivos são reduzidos para caminhos relativos como `src/cli.ts`)
-- **Contexto de execução**: SO, arquitetura, versão do Bun, versão do Archgate
+- **Tipo do erro, mensagem e stack trace**, incluindo os caminhos de arquivo do local da falha. Para o binário compilado (a instalação padrão), esses são caminhos internos do bundle do Bun (ex.: `/$bunfs/root/cli.js`), não caminhos do seu sistema de arquivos. Para uma instalação `local` (dependência de desenvolvimento) ou `global-pm`, os frames do stack podem incluir o caminho absoluto real do arquivo da CLI instalado na sua máquina
+- **Caminho de instalação**: o caminho absoluto do executável `archgate` instalado ou do script de entrada, enviado como uma tag do Sentry em cada relatório de falha
+- **Contexto de execução**: SO, arquitetura, versão do Bun, versão do Archgate, método de instalação
 - **ID de instalação anônimo** (mesmo UUID aleatório da análise)
 
 ## O que NÃO coletamos
 
-- **Nenhuma informação pessoal**: nenhum email, senha, segredo ou endereço IP. O evento único `project_initialized` pode incluir `repo_owner` e `repo_name` para repositórios confirmados como públicos pelo host; veja [Identidade do repositório](#identidade-do-repositório). Repositórios privados e auto-hospedados nunca têm identidade compartilhada.
-- **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR ou código-fonte. Relatórios de erro (Sentry) podem incluir caminhos relativos em stack traces, mas nunca caminhos absolutos ou conteúdos de arquivo.
+- **Nenhuma informação pessoal**: nenhum email, senha, segredo ou endereço IP. Duas exceções qualificadas: o evento único `project_initialized` pode incluir a URL remota, `repo_owner` e `repo_name` para repositórios confirmados como públicos pelo host (veja [Identidade do repositório](#identidade-do-repositório); repositórios privados e auto-hospedados nunca têm identidade compartilhada), e relatórios de falha incluem o caminho absoluto de instalação do executável `archgate`, que pode conter o nome da sua conta no sistema operacional (veja [Rastreamento de erros](#rastreamento-de-erros-sentry)).
+- **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR ou código-fonte. Relatórios de erro (Sentry) incluem os caminhos de arquivo do local da falha no stack trace e o caminho absoluto de instalação do executável `archgate` (veja [Rastreamento de erros](#rastreamento-de-erros-sentry) para saber exatamente como isso aparece em cada método de instalação), mas nunca conteúdos de arquivo.
 - **Nenhum contexto de IA**: nada de interações com agentes, prompts ou conteúdo gerado por IA
 - **Nenhum valor livre de flag**: a única exceção é o formato selecionado em `--output` (um enum fixo: `console`/`json`/`github`/`sarif`); nunca registramos valores fornecidos pelo usuário nem o conteúdo da saída
-- **Nenhuma atividade de rede**: nenhuma URL, chave de API ou token
+- **Nenhuma atividade de rede**: nenhuma chave de API ou token, e nenhuma URL — com uma exceção: a URL remota de um repositório confirmado como público pelo host, no evento único `project_initialized` (veja [Identidade do repositório](#identidade-do-repositório))
 
 ## Anonimização de IP
 

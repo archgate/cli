@@ -26,6 +26,19 @@ archgate review-context [options]
 archgate review-context --staged
 ```
 
+## Hvilke filer regnes som endret
+
+Selv uten flagg jobber denne kommandoen mot en basisreferanse i stedet for bare arbeidstreet: settet med endrede filer er greindiffen (`git diff <base>...HEAD`) forent med stagede, ustagede og ikke-ignorerte usporede filer. Basisreferansen løses på samme måte som for [`archgate check`](/reference/cli/check/):
+
+| Prioritet | Kilde                                    | Endrede filer                                               |
+| --------- | ---------------------------------------- | ----------------------------------------------------------- |
+| 1         | `--staged`                               | Bare stagede filer — ingen basisreferanse løses             |
+| 2         | `--base <ref>`                           | `git diff <ref>...HEAD` + endringer i arbeidstreet          |
+| 3         | `.archgate/config.json` sin `baseBranch` | `git diff <resolved-ref>...HEAD` + endringer i arbeidstreet |
+| 4         | Autodeteksjon                            | `git diff <detected-ref>...HEAD` + endringer i arbeidstreet |
+
+Autodeteksjon prøver `origin/HEAD`, deretter `origin/main`, `origin/master`, lokal `main`, og lokal `master`, og resultatet lagres i `.archgate/config.json` slik at senere kjøringer hopper over søket. `--base` uten verdi er det samme som å utelate det: først config, deretter autodeteksjon. Når ingen basisreferanse i det hele tatt kan løses, brukes bare endringer i arbeidstreet.
+
 ## Streng modus
 
 Send `--strict` for å få denne kommandoen til å mislykkes (avslutningskode 1) i stedet for bare å rapportere: den mislykkes når `truncatedBriefings` ikke er tom (krever `--verbose` for at det skal være noe å avkorte), eller, med `--run-checks`, når den gjenbrukte `checkSummary.warningsExceeded` eller `checkSummary.strictAdvisoryExceeded` er `true`. `--strict` mislykkes **ikke** ved vanlige regelbrudd (`checkSummary.failed`/`ruleErrors`) — denne kommandoen forblir en kontekstgenerator for agenter, ikke en ny samsvarssperre; bruk [`archgate check`](/reference/cli/check/) for å sperre på regelbrudd. En `--strict`-feil skriver ut hele JSON-svaret først, og logger deretter årsaken til stderr før den avslutter.

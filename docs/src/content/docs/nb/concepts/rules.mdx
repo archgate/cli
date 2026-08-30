@@ -49,7 +49,7 @@ Alvorlighetsgraden bestemmer hva som skjer når en regel finner et problem:
 | `warning`        | 0         | Advarselen logges, men sjekken består |
 | `info`           | 0         | Informasjonsmelding, sjekken består   |
 
-Når `archgate check` kjøres, betyr exit code 1 at minst ett brudd med alvorlighetsgrad `error` ble funnet. Exit code 0 betyr ingen feil (advarsler og informasjonsmeldinger logges, men blokkerer ikke).
+Når `archgate check` kjøres uten `--strict`, betyr exit code 1 at minst ett brudd med alvorlighetsgrad `error` ble funnet. Exit code 0 betyr ingen feil (advarsler og informasjonsmeldinger logges, men blokkerer ikke). Med `--strict` kan advarsler og enkelte rådgivende funn også gi exit code 1 -- se [Konfigurasjon -- `strict`](/reference/configuration/#strict).
 
 ## RuleContext
 

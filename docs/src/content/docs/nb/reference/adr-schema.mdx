@@ -283,7 +283,7 @@ Hvis et påkrevd felt mangler, feiler ADR-parsingen:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - domain: Required
+  - domain: Invalid input: expected string, received undefined
 ```
 
 ### Ugyldig domeneformat
@@ -303,7 +303,7 @@ Hvis `rules` er en streng i stedet for en boolean:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - rules: Expected boolean, received string
+  - rules: Invalid input: expected boolean, received string
 ```
 
 ADR-er som feiler validering, hoppes over av `archgate check` og rapporteres som feil.

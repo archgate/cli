@@ -7,13 +7,14 @@ O plugin Archgate para Claude Code oferece aos agentes de IA que trabalham no [C
 
 ## O que o plugin oferece
 
-O plugin adiciona um agente e skills baseadas em papéis ao Claude Code. O agente orquestra o fluxo de guardrails, invocando skills conforme necessário -- ler as decisões antes de codificar, validar depois e capturar novos padrões para a equipe.
+O plugin adiciona agentes e skills baseadas em papéis ao Claude Code. O agente developer orquestra o fluxo de guardrails, invocando skills conforme necessário -- ler as decisões antes de codificar, validar depois e capturar novos padrões para a equipe.
 
-### Agente
+### Agentes
 
-| Agente               | Propósito                                                                      |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+| Agente               | Propósito                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois                |
+| `archgate:planner`   | Agente de planejamento para escopar trabalho e dividir tarefas em passos compatíveis com ADRs |
 
 O agente `archgate:developer` é definido como agente padrão via `.claude/settings.local.json`. Ele orquestra as skills abaixo automaticamente como parte do seu fluxo.
 
@@ -21,10 +22,11 @@ O agente `archgate:developer` é definido como agente padrão via `.claude/setti
 
 | Skill                      | Propósito                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `archgate:architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
-| `archgate:quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
+| `archgate:reviewer`        | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
+| `archgate:lessons-learned` | Captura aprendizados e propõe novos ADRs quando padrões emergem                            |
 | `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
 | `archgate:onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+| `archgate:cli-reference`   | Referência interna para agentes de IA com o guia completo de comandos do CLI Archgate      |
 
 ## Instalação
 
@@ -44,24 +46,28 @@ Isso inicia um GitHub Device Flow. O CLI exibe um código único e uma URL -- ab
 
 ### 2. Inicialize seu projeto com o plugin
 
-Execute `archgate init` no seu projeto. Se você já estiver logado, o plugin é instalado automaticamente:
+Execute `archgate init` com a flag `--editor claude`. Se você já estiver logado, o plugin é instalado automaticamente:
 
 ```bash
-archgate init
+archgate init --editor claude
 ```
+
+Sem `--editor`, uma execução interativa detecta os editores instalados na sua máquina e permite escolher um ou mais; uma execução não interativa (um agente ou CI) usa Claude Code como padrão.
 
 Para solicitar explicitamente a instalação do plugin:
 
 ```bash
-archgate init --install-plugin
+archgate init --editor claude --install-plugin
 ```
 
 Isso cria `.claude/settings.local.json` com o agente `archgate:developer` e as permissões de skills pré-configuradas.
 
 Se o CLI `claude` estiver no seu PATH, o plugin é instalado automaticamente via:
 
-1. `claude plugin marketplace add` (registra o marketplace do Archgate)
+1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registra o marketplace do Archgate)
 2. `claude plugin install archgate@archgate` (instala o plugin)
+
+A URL do marketplace não contém credenciais -- o git se autentica em `plugins.archgate.dev` usando o token que o `archgate login` armazena no gerenciador de credenciais do sistema operacional.
 
 Se o CLI `claude` não for encontrado, o comando exibe os comandos manuais para você executar.
 
@@ -70,13 +76,15 @@ Se o CLI `claude` não for encontrado, o comando exibe os comandos manuais para 
 Se seu projeto já foi inicializado, você pode instalar ou reinstalar o plugin sem executar `archgate init` novamente:
 
 ```bash
-archgate plugin install
+archgate plugin install --editor claude
 ```
 
-Para obter a URL autenticada do repositório para configuração manual:
+Sem `--editor`, uma execução interativa pede para você selecionar os editores e uma execução não interativa usa Claude Code como padrão.
+
+Para imprimir a URL do repositório do plugin para configuração manual:
 
 ```bash
-archgate plugin url
+archgate plugin url --editor claude
 ```
 
 ## Configuração inicial com onboard
@@ -98,7 +106,7 @@ O plugin segue um fluxo estruturado para cada tarefa de codificação:
 
 Quando o desenvolvedor atribui uma tarefa de codificação, o agente executa `archgate review-context` para ler todos os ADRs que se aplicam aos arquivos sendo alterados. Isso fornece um resumo condensado com as seções **Decision** e **Do's and Don'ts** de cada ADR relevante.
 
-O agente não escreve código até ter lido os ADRs aplicáveis. Isso é garantido pelo agente `archgate:developer`.
+O agente não escreve código até ter lido os ADRs aplicáveis. Isso faz parte do fluxo de trabalho do agente `archgate:developer`.
 
 ### 2. Escrever código seguindo as restrições dos ADRs
 
@@ -108,13 +116,13 @@ O agente escreve código que cumpre as restrições dos ADRs. As seções Do's a
 
 Após escrever o código, o agente executa `archgate check` para rodar as regras automatizadas contra as alterações. Qualquer violação é corrigida antes de prosseguir.
 
-### 4. Revisão do arquiteto
+### 4. Revisão das alterações
 
-O agente invoca `archgate:architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam. A skill de arquiteto revisa o contexto completo das alterações contra todos os ADRs aplicáveis.
+O agente invoca `archgate:reviewer` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam. A skill reviewer revisa o contexto completo das alterações contra todos os ADRs aplicáveis.
 
 ### 5. Capturar aprendizados
 
-O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados. O quality manager pode propor novos ADRs ou atualizações em existentes quando convenções recorrentes surgem.
+O agente invoca `archgate:lessons-learned` para revisar o trabalho e identificar padrões que valem ser capturados. Essa skill pode propor novos ADRs ou atualizações em existentes quando convenções recorrentes surgem.
 
 ## Recusa orientada por ADRs
 
@@ -138,7 +146,7 @@ O plugin usa comandos do CLI Archgate diretamente para ler ADRs e executar verif
 - **`archgate adr list`** -- inventário de todos os ADRs do projeto com metadados
 - **`archgate session-context`** -- lê transcrições de sessão para recuperação de contexto
 
-Todos os comandos rodam localmente e leem diretamente do seu diretório `.archgate/adrs/`. Nenhum dado sai da sua máquina.
+Todos os comandos rodam localmente e leem diretamente do seu diretório `.archgate/adrs/`. Nenhum conteúdo de ADR ou de código-fonte sai da sua máquina.
 
 ## Quando usar cada agente ou skill
 
@@ -146,8 +154,9 @@ Todos os comandos rodam localmente e leem diretamente do seu diretório `.archga
 | ------------------------------------------------------- | -------------------------- |
 | Iniciando um novo projeto com Archgate                  | `archgate:onboard`         |
 | Tarefas de codificação do dia a dia                     | `archgate:developer`       |
-| Revisando um PR para conformidade com ADRs              | `archgate:architect`       |
-| Percebendo um padrão recorrente que vale ser codificado | `archgate:quality-manager` |
+| Planejando e escopando trabalho                         | `archgate:planner`         |
+| Revisando um PR para conformidade com ADRs              | `archgate:reviewer`        |
+| Percebendo um padrão recorrente que vale ser codificado | `archgate:lessons-learned` |
 | Criando ou editando um ADR                              | `archgate:adr-author`      |
 
-O agente `archgate:developer` orquestra as skills automaticamente -- ele invoca `archgate:architect` e `archgate:quality-manager` como parte do seu fluxo. Na maioria das vezes, você só precisa interagir diretamente com o agente developer.
+O agente `archgate:developer` orquestra as skills automaticamente -- ele invoca `archgate:reviewer` e `archgate:lessons-learned` como parte do seu fluxo. Na maioria das vezes, você só precisa interagir diretamente com o agente developer.

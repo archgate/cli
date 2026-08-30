@@ -9,7 +9,9 @@ Remove o diretório de cache da CLI.
 archgate clean
 ```
 
-Remove `~/.archgate/`, que armazena dados em cache como timestamps de verificação de atualização. Seguro para executar a qualquer momento -- o diretório é recriado automaticamente quando necessário.
+Remove `~/.archgate/`, que armazena a configuração da CLI, o cache e (em instalações via binário) o executável `archgate` baixado. Seguro para executar a qualquer momento -- o diretório é recriado automaticamente quando necessário.
+
+Se o binário em execução foi instalado em `~/.archgate/bin/`, `clean` preserva esse diretório `bin/` para não excluir o executável no qual está rodando no momento, e remove todo o resto. Se `~/.archgate/` não existir, ele exibe `Nothing to clean.` e é encerrado sem erro.
 
 ## Exemplo
 
@@ -19,4 +21,10 @@ archgate clean
 
 ```
 /home/user/.archgate cleaned up
+```
+
+Quando o binário em execução está em `~/.archgate/bin/`, a mensagem indica que `bin/` foi preservado:
+
+```
+/home/user/.archgate cleaned up (bin/ preserved)
 ```

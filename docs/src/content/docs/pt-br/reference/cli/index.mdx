@@ -7,14 +7,16 @@ description: "Referência completa de todos os comandos da CLI do Archgate: init
 
 Estas opções estão disponíveis em todos os comandos:
 
-| Opção             | Descrição                          |
-| ----------------- | ---------------------------------- |
-| `--version`, `-V` | Exibe a versão do Archgate         |
-| `--help`, `-h`    | Mostra ajuda para qualquer comando |
+| Opção                 | Descrição                                                                |
+| --------------------- | ------------------------------------------------------------------------ |
+| `--version`, `-V`     | Exibe a versão do Archgate                                               |
+| `--help`, `-h`        | Mostra ajuda para qualquer comando                                       |
+| `--log-level <level>` | Define a verbosidade do log: `error`, `warn`, `info` (padrão) ou `debug` |
 
 ```bash
 archgate --version
 archgate check --help
+archgate --log-level debug check
 ```
 
 ## Comandos
@@ -31,3 +33,4 @@ archgate check --help
 | [`archgate upgrade`](./upgrade/)                 | Atualizar o Archgate para a versão mais recente          |
 | [`archgate doctor`](./doctor/)                   | Verificar ambiente do sistema e integrações com editores |
 | [`archgate clean`](./clean/)                     | Remover o diretório de cache da CLI                      |
+| [`archgate telemetry`](./telemetry/)             | Gerenciar a coleta anônima de dados de uso               |

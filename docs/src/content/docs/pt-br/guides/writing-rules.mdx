@@ -11,6 +11,8 @@ Regras são checagens TypeScript que fazem lint do seu codebase contra as decis�
   ARCH-001-command-structure.rules.ts    # The automated checks
 ```
 
+O arquivo complementar deve ter o mesmo nome base do arquivo do ADR, e o frontmatter do ADR deve definir `rules: true` -- `archgate check` só carrega arquivos complementares de ADRs que declaram isso. Um ADR com `rules: true` e sem arquivo complementar é reportado como um erro de regra (código de saída 2).
+
 ## Configuração básica
 
 Todo arquivo de regras exporta por padrão um objeto simples tipado com `satisfies RuleSet`. Cada chave no objeto `rules` se torna um ID de regra, e cada regra tem uma `description` e uma função async `check` que recebe um objeto de contexto.
@@ -128,11 +130,15 @@ const content = await ctx.readFile("src/cli.ts");
 
 ### ctx.readJSON(path)
 
-Lê e faz o parse de um arquivo JSON. Retorna `unknown` -- faça cast para o formato esperado.
+Lê e faz o parse de um arquivo JSON. Retorna `unknown` para um caminho arbitrário -- faça cast para o formato esperado. O caminho literal `"package.json"` tem uma sobrecarga dedicada que retorna um `PackageJson` tipado, então nenhum cast é necessário nesse caso.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+// Tipado pela sobrecarga -- pkg.dependencies é Record<string, string> | undefined
+const pkg = await ctx.readJSON("package.json");
+
+// Qualquer outro caminho retorna unknown
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -184,14 +190,14 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 
 Um terceiro argumento opcional cobre mais duas necessidades:
 
-- `{ rev: "base" }` faz o parse do arquivo na **revisão base do git** em vez da árvore de trabalho -- combine com um parse da árvore de trabalho para detectar se a estrutura executável mudou (veja abaixo).
-- `{ comments: true }` anexa um array `comments` estruturado à árvore (`typescript`/`javascript`/`python`), para que regras de governança de comentários trabalhem com tokens de comentário estruturados em vez de regex.
+- `rev: "base"` faz o parse do arquivo na **revisão base do git** em vez da árvore de trabalho -- combine com um parse da árvore de trabalho para detectar se a estrutura executável mudou (veja abaixo).
+- `comments: true` anexa um array `comments` estruturado à árvore (todas as quatro linguagens), para que regras de governança de comentários trabalhem com tokens de comentário estruturados em vez de regex.
 
 Veja [Verificações estruturais com ctx.ast()](#verificações-estruturais-com-ctxast) abaixo para exemplos completos, e a [Referência da API de Regras](/reference/rule-api/#ast) para o formato retornado por linguagem e as opções completas.
 
 ### ctx.fileAtBase(path)
 
-Lê o código-fonte de um arquivo na **revisão base do git** -- a base de merge entre a ref `--base` e `HEAD`. Retorna `null` quando nenhuma base é resolvida (sem `--base`) ou o arquivo não existia na base (um arquivo adicionado), então uma única verificação de null cobre ambos os casos. Para uma comparação estrutural, prefira `ctx.ast(path, language, { rev: "base" })`.
+Lê o código-fonte de um arquivo na **revisão base do git** -- a base de merge entre a ref base e `HEAD`. `archgate check` resolve essa ref por conta própria (`--base <ref>`, depois a branch base configurada, depois auto-detecção), então uma base normalmente está disponível sem passar nenhuma flag. Retorna `null` quando nenhuma base pôde ser resolvida (uma execução com `--staged`, um projeto que não é um repositório git, nenhuma branch base detectável, ou históricos não relacionados) ou quando o arquivo não existia na base (um arquivo adicionado), então uma única verificação de null cobre ambos os casos. Para uma comparação estrutural, prefira `ctx.ast()` com `rev: "base"`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -210,12 +216,14 @@ A interface de relatório com três métodos de severidade:
 
 Cada método aceita um objeto com:
 
-| Campo     | Tipo     | Obrigatório | Descrição                                    |
-| --------- | -------- | ----------- | -------------------------------------------- |
-| `message` | `string` | Sim         | Qual é a violação                            |
-| `file`    | `string` | Não         | Caminho do arquivo com a violação            |
-| `line`    | `number` | Não         | Número da linha da violação                  |
-| `fix`     | `string` | Não         | Correção sugerida (exibida ao desenvolvedor) |
+| Campo       | Tipo     | Obrigatório | Descrição                                                          |
+| ----------- | -------- | ----------- | ------------------------------------------------------------------ |
+| `message`   | `string` | Sim         | Qual é a violação                                                  |
+| `file`      | `string` | Não         | Caminho do arquivo com a violação                                  |
+| `line`      | `number` | Não         | Número da linha da violação                                        |
+| `endLine`   | `number` | Não         | Linha final do intervalo com o problema (`--output json` e SARIF)  |
+| `endColumn` | `number` | Não         | Coluna final do intervalo com o problema (`--output json` apenas)  |
+| `fix`       | `string` | Não         | Correção sugerida (`--output json`; no console só com `--verbose`) |
 
 ```typescript
 ctx.report.violation({
@@ -449,7 +457,7 @@ O Ripper usa um formato de nó diferente para a forma com parênteses -- `puts("
 
 ### Comparando com a revisão base
 
-Algumas regras não se importam com o estado atual de um arquivo, mas com **o que mudou**. Um caso comum: dispensar uma exigência (um bump de versão, uma entrada no changelog) quando uma alteração é apenas de documentação -- a estrutura executável permanece intocada e só comentários ou formatação se moveram. `ctx.ast(path, language, { rev: "base" })` faz o parse do arquivo na revisão base do git, para que você possa compará-lo com o parse da árvore de trabalho. Comentários estão ausentes dos formatos ESTree e `ast` do Python -- mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele, então uma serialização crua difere mesmo em uma edição apenas de documentação. Compare uma **projeção sem posições** das duas árvores. (Docstrings do Python são nós de string comuns na árvore `ast`, então uma docstring editada é uma mudança real da árvore -- remova-as também se sua regra deve tratar edições de documentação como neutras.)
+Algumas regras não se importam com o estado atual de um arquivo, mas com **o que mudou**. Um caso comum: dispensar uma exigência (um bump de versão, uma entrada no changelog) quando uma alteração é apenas de documentação -- a estrutura executável permanece intocada e só comentários ou formatação se moveram. Chamar `ctx.ast()` com `rev: "base"` faz o parse do arquivo na revisão base do git, para que você possa compará-lo com o parse da árvore de trabalho. Comentários estão ausentes dos formatos ESTree e `ast` do Python -- mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele, então uma serialização crua difere mesmo em uma edição apenas de documentação. Compare uma **projeção sem posições** das duas árvores. (Docstrings do Python são nós de string comuns na árvore `ast`, então uma docstring editada é uma mudança real da árvore -- remova-as também se sua regra deve tratar edições de documentação como neutras.)
 
 ```typescript
 export default {
@@ -500,7 +508,7 @@ O `archgate check` resolve uma base automaticamente (ou aceita um `--base <ref>`
 
 ### Governando comentários
 
-`ctx.ast(path, language, { comments: true })` anexa um array `comments` à árvore, para que regras de política de comentários trabalhem com tokens estruturados (`type`, `value`, `loc`) em vez de regex linha a linha. As posições dos comentários são precisas em relação ao código-fonte original mesmo para TypeScript. Suportado para `typescript`, `javascript` e `python`.
+Chamar `ctx.ast()` com `comments: true` anexa um array `comments` à árvore, para que regras de política de comentários trabalhem com tokens estruturados (`type`, `value`, `loc`) em vez de regex linha a linha. As posições dos comentários são precisas em relação ao código-fonte original mesmo para TypeScript. Suportado para todas as quatro linguagens -- para `ruby`, onde a árvore é um array `Ripper.sexp`, o array `comments` fica pendurado nesse array como uma propriedade não indexada.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });
@@ -521,34 +529,37 @@ Arquivos de regra podem importar apenas `node:path`, `node:url`, `node:util` e `
 
 ## Níveis de severidade
 
-Cada regra pode definir uma severidade padrão em sua configuração. A severidade determina como as violações são tratadas:
+A severidade de um resultado é decidida pelo método `ctx.report.*` que o produziu -- não há um campo de severidade separado para manter sincronizado:
 
-| Severidade | Código de saída | Comportamento                               |
-| ---------- | --------------- | ------------------------------------------- |
-| `error`    | 1               | Bloqueia CI, deve ser corrigido             |
-| `warning`  | 0               | Registrado, mas não bloqueia                |
-| `info`     | 0               | Informacional, registrado para visibilidade |
+| Método de report         | Severidade | Código de saída | Comportamento                               |
+| ------------------------ | ---------- | --------------- | ------------------------------------------- |
+| `ctx.report.violation()` | `error`    | 1               | Bloqueia CI, deve ser corrigido             |
+| `ctx.report.warning()`   | `warning`  | 0               | Registrado, mas não bloqueia                |
+| `ctx.report.info()`      | `info`     | 0               | Informacional, registrado para visibilidade |
 
-Defina a severidade na definição da regra:
+Então uma regra que nunca deve bloquear o CI reporta via `warning()`:
 
 ```typescript
 export default {
   rules: {
     "my-rule": {
       description: "...",
-      severity: "warning",
       async check(ctx) {
-        // Violations from this rule are warnings, not errors
-        ctx.report.violation({ message: "..." });
+        // Reportado como warning -- a verificação ainda sai com código 0
+        ctx.report.warning({ message: "..." });
       },
     },
   },
 } satisfies RuleSet;
 ```
 
-Se `severity` for omitido, o padrão é `error`.
+Uma única regra pode misturar os três, reportando alguns resultados como erros e outros como warnings ou notas.
 
-Você também pode reportar com diferentes severidades dentro da mesma regra usando `ctx.report.violation()`, `ctx.report.warning()` e `ctx.report.info()` diretamente.
+:::caution
+`RuleConfig` também aceita um campo `severity` opcional. Ele é validado quando o arquivo de regras é carregado, mas **não** muda a severidade de nada que a regra reporte -- `ctx.report.violation()` é sempre um erro, mesmo em uma regra declarada com `severity: "warning"`. Escolha o método de report, não o campo.
+:::
+
+Sob `archgate check --strict`, qualquer resultado com severidade `warning` falha a execução (código de saída 1) em vez de apenas ser registrado. Resultados `info` nunca afetam o código de saída.
 
 ## Timeout de regras
 
@@ -562,7 +573,7 @@ Mantenha as regras rápidas:
 
 ## O campo `fix`
 
-O campo `fix` é uma string opcional exibida ao desenvolvedor junto com a mensagem de violação. Ele descreve qual ação tomar para resolver o problema. Correções não são aplicadas automaticamente -- são orientações.
+O campo `fix` é uma string opcional que descreve qual ação tomar para resolver o problema. Correções não são aplicadas automaticamente -- são orientações.
 
 ```typescript
 ctx.report.violation({
@@ -572,14 +583,15 @@ ctx.report.violation({
 });
 ```
 
-Quando exibido, o fix aparece abaixo da mensagem de violação:
+O reporter de console imprime o fix abaixo da violação **apenas com `--verbose`**; caso contrário, mostra somente a mensagem e `file:line`:
 
 ```
-ARCH-006/no-unapproved-deps
-  package.json
-    Unapproved dependency: "chalk"
-    Fix: Use styleText() from node:util instead of chalk
+  x ARCH-006/no-unapproved-deps Only approved dependencies may be added
+    [error] Unapproved dependency: "chalk" package.json
+           fix: Use styleText() from node:util instead of chalk
 ```
+
+`--output json` sempre carrega a string `fix`, então agentes e integrações de editor a veem independentemente de `--verbose`. Os reporters do GitHub Actions e SARIF emitem apenas a mensagem -- coloque qualquer coisa que um revisor precise ler em `message`, não em `fix`.
 
 ## Dicas para escrever regras
 
