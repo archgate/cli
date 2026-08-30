@@ -193,8 +193,8 @@ archgate adr domain add <name> <prefix>
 
 Navneregler:
 
-- `<name>` -- kebab-case med små bokstaver, 2-32 tegn (f.eks. `security`, `ml-ops`)
-- `<prefix>` -- store bokstaver, sifre eller understrek, 2-10 tegn (f.eks. `SEC`, `MLOPS`)
+- `<name>` -- kebab-case med små bokstaver, 2-32 tegn, må starte med en liten bokstav (f.eks. `security`, `ml-ops`)
+- `<prefix>` -- store bokstaver, sifre eller understrek, 2-10 tegn, må starte med en stor bokstav (f.eks. `SEC`, `MLOPS`)
 - Egendefinerte navn og prefikser kan ikke kollidere med innebygde eller med andre egendefinerte oppføringer.
 
 Eksempel:
@@ -225,9 +225,9 @@ Kommandoen kloner kilden, leser ADR-filer, omtilordner ID-er for å passe inn i 
 
 ### Argumenter
 
-| Argument      | Beskrivelse                                        |
-| ------------- | -------------------------------------------------- |
-| `<source...>` | Registersti(er), `org/repo/path` eller git-URL(er) |
+| Argument      | Beskrivelse                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `<source...>` | Registersti(er), `org/repo/path` eller git-URL(er). Påkrevd av kommandoen selv med `--list`, som ignorerer verdien. |
 
 ### Valg
 
@@ -264,10 +264,10 @@ Importer ikke-interaktivt (hopp over bekreftelse):
 archgate adr import archgate/packs/typescript --yes
 ```
 
-List tidligere importerte ADR-er:
+List tidligere importerte ADR-er (`<source...>`-argumentet er fortsatt påkrevd av parseren, men verdien ignoreres med `--list`):
 
 ```bash
-archgate adr import --list
+archgate adr import archgate/packs/typescript --list
 ```
 
 ---

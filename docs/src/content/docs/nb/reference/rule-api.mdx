@@ -14,9 +14,9 @@ export default {
   rules: {
     "my-rule-id": {
       description: "Human-readable description of what this rule checks",
-      severity: "error", // optional, defaults to "error"
       async check(ctx) {
-        // Rule logic here
+        // Rule logic here -- the report method decides the severity
+        ctx.report.violation({ message: "..." });
       },
     },
   },
@@ -43,11 +43,15 @@ interface RuleConfig {
 }
 ```
 
-| Felt          | Type                                  | Påkrevd | Beskrivelse                                                |
-| ------------- | ------------------------------------- | ------- | ---------------------------------------------------------- |
-| `description` | `string`                              | Ja      | Lesbar beskrivelse som vises i sjekkutdata                 |
-| `severity`    | `Severity`                            | Nei     | Standard alvorlighetsgrad for brudd. Standard er `"error"` |
-| `check`       | `(ctx: RuleContext) => Promise<void>` | Ja      | Asynkron funksjon som inneholder regellogikken             |
+| Felt          | Type                                  | Påkrevd | Beskrivelse                                      |
+| ------------- | ------------------------------------- | ------- | ------------------------------------------------ |
+| `description` | `string`                              | Ja      | Lesbar beskrivelse som vises i sjekkutdata       |
+| `severity`    | `Severity`                            | Nei     | Godtas og valideres, men uten effekt -- se under |
+| `check`       | `(ctx: RuleContext) => Promise<void>` | Ja      | Asynkron funksjon som inneholder regellogikken   |
+
+:::caution
+`severity` setter **ikke** alvorlighetsgraden for regelens funn. Hvert funn tar sin alvorlighetsgrad fra `ctx.report.*`-metoden som produserte det: `violation()` er alltid `error`, `warning()` er `warning`, `info()` er `info` -- selv inne i en regel erklært med `severity: "warning"`. For å rapportere ikke-blokkerende funn, kall `ctx.report.warning()`.
+:::
 
 ---
 
@@ -65,10 +69,31 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
+  readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   readYAML(path: string): Promise<ReadYamlResult>;
+  ast(
+    path: string,
+    language: "typescript" | "javascript",
+    opts?: AstOptions
+  ): Promise<EsTreeProgram>;
+  ast(
+    path: string,
+    language: "python",
+    opts?: AstOptions
+  ): Promise<PythonAstModule>;
+  ast(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
-  findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+  findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+  findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+  findAstNodes(
+    tree: unknown,
+    ...types: string[]
+  ): (EsTreeNode | PythonAstNode)[];
   checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
@@ -164,11 +189,13 @@ const content = await ctx.readFile("src/config.ts");
 fileAtBase(path: string): Promise<string | null>;
 ```
 
-Les en fils kildekode ved den **sammenligningsgrunnlagsrevisjonen** -- fellespunktet (merge base) mellom `--base`-referansen og `HEAD`, den samme commiten `changedFiles` beregnes mot. Bruk den til å sammenligne arbeidstreet mot punktet der endringssettet delte seg fra basisen.
+Les en fils kildekode ved den **sammenligningsgrunnlagsrevisjonen** -- fellespunktet (merge base) mellom grunnreferansen og `HEAD`, den samme commiten `changedFiles` beregnes mot. Bruk den til å sammenligne arbeidstreet mot punktet der endringssettet delte seg fra basisen.
+
+`archgate check` løser selv grunnreferansen, i denne rekkefølgen: `--base <ref>`, deretter grunngrenen lagret i `.archgate/config.json`, deretter automatisk deteksjon (`origin/HEAD`, `origin/main`/`origin/master`, deretter lokal `main`/`master`). En basis er derfor normalt tilgjengelig uten å sende noe flagg.
 
 Returnerer `null` i de to "ingenting å sammenligne mot"-tilfellene, slik at en enkelt null-sjekk dekker begge:
 
-- **Ingen basis er løst** -- sjekken kjørte uten `--base` (eller historikkene er urelaterte).
+- **Ingen basis er løst** -- en `--staged`-kjøring, et prosjekt som ikke er et git-repository, ingen grunngren kunne oppdages, eller historikkene er urelaterte.
 - **Filen fantes ikke ved basisen** -- en lagt-til fil.
 
 ```typescript
@@ -185,14 +212,20 @@ For en **strukturell** sammenligning (som ignorerer kommentarer og formatering),
 #### readJSON
 
 ```typescript
+readJSON(path: "package.json"): Promise<PackageJson>;
 readJSON(path: string): Promise<unknown>;
 ```
 
-Les og parse en JSON-fil. Stien er relativ til prosjektroten. Returnerer den parsede verdien som `unknown` -- cast til forventet type i regelen din.
+Les og parse en JSON-fil. Stien er relativ til prosjektroten. Returnerer den parsede verdien som `unknown` -- cast til forventet type i regelen din. Den bokstavelige stien `"package.json"` matcher en dedikert overload som returnerer det ambiente `PackageJson`-grensesnittet (`name`, `version`, `scripts`, `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, `workspaces`, `engines`, ... pluss en indekssignatur), så det vanlige tilfellet trenger ingen cast.
+
+I motsetning til `glob`, `readFile` og `ast` caches ikke den parsede verdien på tvers av regler: hvert kall returnerer et ferskt objekt, så en mutasjon kan ikke lekke inn i en annen regel.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+const pkg = await ctx.readJSON("package.json");
+const deps = pkg.dependencies ?? {};
+
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -254,9 +287,20 @@ for (const file of await ctx.glob("docs/**/*.md")) {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby",
+  language: "typescript" | "javascript",
   opts?: AstOptions
-): Promise<AstNode>;
+): Promise<EsTreeProgram>;
+ast(
+  path: string,
+  language: "python",
+  opts?: AstOptions
+): Promise<PythonAstModule>;
+ast(
+  path: string,
+  language: "ruby",
+  opts?: AstOptions
+): Promise<RubyAstProgram>;
+ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
 
 interface AstOptions {
   rev?: "base";
@@ -264,7 +308,7 @@ interface AstOptions {
 }
 ```
 
-Parse en kildefil til dens språknative AST. Stien er relativ til prosjektroten og går gjennom samme sandkasse som `readFile`. TypeScript og JavaScript parses i prosessen; Python og Ruby parses ved å starte systemtolkens egen AST-fasilitet fra standardbiblioteket som en underprosess. Formen på det returnerte treet varierer per språk -- se [AstNode](#astnode).
+Parse en kildefil til dens språknative AST. Stien er relativ til prosjektroten og går gjennom samme sandkasse som `readFile`. Å sende språket som et bokstavelig strengliteral velger en per-språk-overload, så returtypen er allerede innsnevret -- `program.body` er typet uten cast, og det er bare en ikke-literal `AstLanguage` som faller tilbake til `AstNode`-unionen. TypeScript og JavaScript parses i prosessen; Python og Ruby parses ved å starte systemtolkens egen AST-fasilitet fra standardbiblioteket som en underprosess. Formen på det returnerte treet varierer per språk -- se [AstNode](#astnode).
 
 Parseresultater caches gjennom én enkelt `archgate check`-kjøring, med nøkkel `(path, language, rev, comments)`: gjentatte -- til og med samtidige -- identiske kall på tvers av regler koster én parse (én tolkoppstart for Python/Ruby), og en mislykket parse kaster den samme feilen på nytt til alle kallere. Behandle det returnerte treet som skrivebeskyttet -- det kan være delt med andre regler.
 
@@ -334,8 +378,8 @@ Kommentarposisjoner er nøyaktige mot **originalkilden**, selv for TypeScript. D
 
 - **Parsefeil**: filen kan ikke parses som det forespurte språket. Feilmeldingen inkluderer parserens diagnostikk.
 - **Manglende tolk** (kun `python`/`ruby`): ingen egnet tolk ble funnet på `PATH`.
-- **Usannsynlig input**: filens filendelse samsvarer ikke med det forespurte språket (f.eks. kaster `ctx.ast("config.json", "python")` før noen tolk startes).
-- **Ingen grunnrevisjon** (kun `{ rev: "base" }`): sjekken kjørte uten `--base`, så det finnes ingen basis å parse. Bruk `fileAtBase()` for å oppdage dette som `null` i stedet.
+- **Usannsynlig input**: filens _navn_ samsvarer ikke med det forespurte språket (f.eks. kaster `ctx.ast("config.json", "python")` før noen tolk startes). Godtatte navn er `.ts`/`.tsx`/`.mts`/`.cts` for `typescript`, `.js`/`.jsx`/`.mjs`/`.cjs` for `javascript`, `.py`/`.pyi` for `python`, og `.rb`/`.rake`/`.gemspec` pluss de bare grunnfilnavnene `Rakefile` og `Gemfile` for `ruby`.
+- **Ingen grunnrevisjon** (kun `{ rev: "base" }`): ingen grunnreferanse ble løst for denne kjøringen (se [fileAtBase](#fileatbase)), så det finnes ingen basis å parse. Bruk `fileAtBase()` for å oppdage dette som `null` i stedet.
 - **Fil ikke til stede ved basisen** (kun `{ rev: "base" }`): stien ble lagt til etter basisen og fantes ikke der.
 
 En kastet feil er isolert til regelen som feiler: andre regler og ADR-er i samme sjekk-kjøring fortsetter som normalt, og feilen vises som en regelkjøringsfeil med avslutningskode 2 (til forskjell fra avslutningskode 1 for brudd). Kastetilfellene kan skilles fra hverandre på meldingsteksten, slik at sjekkutdataene skiller "dette miljøet kan ikke kjøre denne regelen" fra "denne filen har en syntaksfeil" eller "det finnes ingen grunnrevisjon".
@@ -347,10 +391,12 @@ Python- og Ruby-regler krever at den tilhørende tolken (`python3`/`python`, `ru
 #### findAstNodes
 
 ```typescript
-findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+findAstNodes(tree: unknown, ...types: string[]): (EsTreeNode | PythonAstNode)[];
 ```
 
-Samler rekursivt inn hver node i en parset AST der typediskriminantfeltet matcher en av `types`. Dette er den innebygde erstatningen for den rekursive vandreren AST-regler tidligere måtte håndrulle: `ctx.ast()` returnerer bevisst språknative former, men å finne noder etter typenavn avhenger bare av diskriminantfeltet, så én hjelpemetode dekker alle språk. Synkron -- ingen `await` nødvendig.
+Samler rekursivt inn hver node i en parset AST der typediskriminantfeltet matcher en av `types`, i preorder (tom når ingenting matcher). Dette er den innebygde erstatningen for den rekursive vandreren AST-regler tidligere måtte håndrulle: `ctx.ast()` returnerer bevisst språknative former, men å finne noder etter typenavn avhenger bare av diskriminantfeltet, så én hjelpemetode dekker alle språk. Synkron -- ingen `await` nødvendig.
 
 - **Språkagnostisk**: hver objektnode sjekkes mot det diskriminantfeltet den faktisk bærer -- `_type` (Python) eller `type` (ESTree TypeScript/JavaScript).
 - **Full traversering**: egne enumererbare objektverdier og arrayer traverseres rekursivt, og selve `tree`-argumentet er en matchkandidat.
@@ -453,7 +499,7 @@ Rapporter et regelbrudd. Brudd får sjekken til å feile med avslutningskode 1. 
 report.warning(detail: ReportDetail): void;
 ```
 
-Rapporter en advarsel. Advarsler vises i sjekkutdata, men får ikke sjekken til å feile. Bruk for ikke-blokkerende veiledning.
+Rapporter en advarsel. Advarsler vises i sjekkutdata, men får ikke sjekken til å feile -- med mindre `archgate check --strict` brukes, som gjør enhver advarsel til en feil (exit-kode 1). Bruk for ikke-blokkerende veiledning.
 
 #### info
 
@@ -478,16 +524,23 @@ interface ReportDetail {
 }
 ```
 
-| Felt        | Type     | Påkrevd | Beskrivelse                                                                |
-| ----------- | -------- | ------- | -------------------------------------------------------------------------- |
-| `message`   | `string` | Ja      | Lesbar beskrivelse av problemet                                            |
-| `file`      | `string` | Nei     | Filsti der problemet ble funnet                                            |
-| `line`      | `number` | Nei     | Startlinjenummer (1-basert)                                                |
-| `endLine`   | `number` | Nei     | Sluttlinjenummer (1-basert) -- for presis uthevning av område i editoren   |
-| `endColumn` | `number` | Nei     | Sluttkolonnenummer (0-basert) -- for presis uthevning av område i editoren |
-| `fix`       | `string` | Nei     | Foreslått rettelse eller utbedringstiltak                                  |
+| Felt        | Type     | Påkrevd | Beskrivelse                               |
+| ----------- | -------- | ------- | ----------------------------------------- |
+| `message`   | `string` | Ja      | Lesbar beskrivelse av problemet           |
+| `file`      | `string` | Nei     | Filsti der problemet ble funnet           |
+| `line`      | `number` | Nei     | Startlinjenummer (1-basert)               |
+| `endLine`   | `number` | Nei     | Sluttlinjenummer (1-basert)               |
+| `endColumn` | `number` | Nei     | Sluttkolonnenummer (0-basert)             |
+| `fix`       | `string` | Nei     | Foreslått rettelse eller utbedringstiltak |
 
-Når `endLine` og `endColumn` er oppgitt, kan editorer (VS Code, Cursor) utheve det nøyaktige uttrykket som bryter regelen, i stedet for hele linjen. Hvis de utelates, utheves hele linjen ved `line`.
+Hvilken rapportør som viser hvilket felt:
+
+- **Konsollet** skriver ut `message` og `file:line`. Den skriver ut `fix` bare under `--verbose`, og aldri kolonner.
+- **`--output json`** inneholder alle feltene over, slik at agenter og redigeringsintegrasjoner kan utheve det nøyaktige området i stedet for hele linjen.
+- **`--output sarif`** inneholder `message`, `file`, `line` og `endLine` (som en SARIF-`region`). Kolonner og `fix` utelates -- SARIF har ingen `startColumn` å pare `endColumn` med.
+- **`--output github`** sender ut `file`/`line`-annotasjoner med kun `message`.
+
+Legg alt en gjennomgåer må lese i `message`; behandle `fix` som en berikelse for lokal og agent-rettet utdata.
 
 ---
 
@@ -519,8 +572,48 @@ Returnert av `ctx.ast()`. Formen er språknativ og bevisst **ikke** enhetlig på
 
 ```typescript
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
-type AstNode = Record<string, unknown> | unknown[];
+
+/** Bare feltene alle noder deler er typet; gå gjennom resten via indekssignaturen. */
+interface EsTreeNode {
+  type: string;
+  loc?: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  } | null;
+  range?: [number, number];
+  [key: string]: unknown;
+}
+interface EsTreeProgram extends EsTreeNode {
+  type: "Program";
+  sourceType: "module" | "script";
+  body: EsTreeNode[];
+  comments?: CommentToken[];
+}
+
+interface PythonAstNode {
+  _type: string;
+  lineno?: number;
+  col_offset?: number;
+  end_lineno?: number;
+  end_col_offset?: number;
+  [key: string]: unknown;
+}
+interface PythonAstModule extends PythonAstNode {
+  _type: "Module";
+  body: PythonAstNode[];
+  comments?: CommentToken[];
+}
+
+type RubyAstNode = unknown[];
+interface RubyAstProgram extends Array<unknown> {
+  comments?: CommentToken[];
+}
+
+/** Bare returtypen til overloaden for ikke-literal språk. */
+type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 ```
+
+Alle disse navnene er ambiente i `.rules.ts`-filer via `rules.d.ts`-referansen -- ingen import er nødvendig for å annotere en vandrer med `EsTreeNode` eller `PythonAstNode`.
 
 Når parset med [`{ comments: true }`](#ast), bærer rotnoden også en `comments: CommentToken[]`-matrise (alle fire språk; for `ruby` er den en ikke-indeksert egenskap på rot-sexp-matrisen). Den er fraværende ellers.
 
@@ -541,11 +634,13 @@ Se [Strukturelle sjekker med ctx.ast()](/guides/writing-rules/#strukturelle-sjek
 type Severity = "error" | "warning" | "info";
 ```
 
-| Verdi       | Påvirkning på avslutningskode | Beskrivelse                                |
-| ----------- | ----------------------------- | ------------------------------------------ |
-| `"error"`   | Forårsaker avslutningskode 1  | Hard begrensning, blokkerer sammenslåinger |
-| `"warning"` | Ingen påvirkning              | Ikke-blokkerende veiledning                |
-| `"info"`    | Ingen påvirkning              | Informasjon, kun forslag                   |
+| Verdi       | Rapportert av            | Påvirkning på avslutningskode                 | Beskrivelse                                |
+| ----------- | ------------------------ | --------------------------------------------- | ------------------------------------------ |
+| `"error"`   | `ctx.report.violation()` | Forårsaker avslutningskode 1                  | Hard begrensning, blokkerer sammenslåinger |
+| `"warning"` | `ctx.report.warning()`   | Ingen, men avslutningskode 1 under `--strict` | Ikke-blokkerende veiledning                |
+| `"info"`    | `ctx.report.info()`      | Ingen                                         | Informasjon, kun forslag                   |
+
+En regel som kaster en feil (eller overskrider tidsgrensen på 30 sekunder for regler) er en regelkjøringsfeil, som avsluttes med kode 2 i stedet for 1.
 
 ---
 

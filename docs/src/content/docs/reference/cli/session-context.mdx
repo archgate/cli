@@ -9,35 +9,49 @@ Read AI editor session transcripts for the project. Useful for auditing what an 
 archgate session-context [subcommand] [options]
 ```
 
-Reads the **current conversation** — by default for the editor running the command, which Archgate detects from the environment. Two subcommands cover the rest: `list` to discover earlier sessions, and `show <session-id>` to read a specific one.
+With no subcommand it reads the **current conversation** for the editor running the command, which Archgate works out from the environment. Two subcommands cover the rest: `list` to discover earlier sessions, and `show <session-id>` to read a specific one. Every form prints JSON to stdout, and only sessions belonging to the current project are considered.
 
 ## Options
 
 | Option              | Description                                                                                                                       |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--editor <name>`   | Editor to read: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `opencode`, or `pi`. Defaults to the detected editor. |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                                                                                          |
-| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor                                                     |
+| `--max-entries <n>` | Maximum transcript entries to return, most recent first (default: 200). Must be a positive integer.                               |
+| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor. Rejected for any other editor.                     |
 
-## Automatic editor detection
+## Subcommands
 
-Every supported editor sets environment variables on the commands it runs, and Archgate reads them to work out which editor is asking. Pass `--editor` to override the result, or to read a different editor's transcripts.
+### archgate session-context list
 
-| Editor      | Detected by                   | Pins the exact session via                                                              |
-| ----------- | ----------------------------- | --------------------------------------------------------------------------------------- |
-| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`, or `conversationId` inside `ANTIGRAVITY_SOURCE_METADATA` |
-| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`                                                                |
-| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                                                                       |
-| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`                                                              |
-| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`                                                                |
-| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(none — falls back to recency)_                                                        |
-| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                                                                         |
+List available sessions for the project as JSON (`id`, `updatedAt`, and `title` for editors that store one), most recent first. Accepts `--editor`.
 
-Editors that publish their own session id get the **exact** conversation rather than the most recent one. This matters when a project has several sessions open at once, where the most recent may not be the conversation you are part of. A published id that matches no session for the project is ignored and recency applies, so a stale id never turns a working command into an error.
+```bash
+archgate session-context list
+```
 
-A session id only ever pins the editor that published it. Passing `--editor cursor` from inside Claude Code reads Cursor's transcripts by recency and ignores `CLAUDE_CODE_SESSION_ID`.
+### archgate session-context show
 
-Every command reports what it resolved in a `detection` object:
+Read a specific session by ID (from `list`). An explicit ID always wins over the session the environment points at. Accepts `--editor`, `--max-entries`, and `--root`.
+
+```bash
+archgate session-context show <session-id>
+```
+
+## Editor detection
+
+Every supported editor marks the processes it spawns, and Archgate reads those markers to work out which editor is asking. Pass `--editor` to override the result, or to read a different editor's transcripts.
+
+Some editors also publish the ID of the conversation they are currently running. When one does, Archgate reads that **exact** conversation rather than the most recent one. This matters when a project has several sessions open at once, where the most recent may not be the conversation you are part of. A published ID that matches no session for the project is ignored and recency applies, so a stale ID never turns a working command into an error.
+
+A published ID only ever applies to the editor that published it. Passing `--editor cursor` from inside Claude Code reads Cursor's transcripts by recency.
+
+When more than one editor's markers are present — an agent running inside another agent — the winner is decided by a fixed order: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `pi`, then `opencode`. Every match is still reported in the output. That order applies whatever session IDs happen to be published: an empty or unusable ID changes which session is selected, never which editor.
+
+Detection fails when Archgate runs from a plain shell rather than inside an AI editor. The command then exits 1 and asks for `--editor`.
+
+## Output
+
+Every invocation reports what it resolved in a `detection` object alongside the session payload:
 
 ```json
 {
@@ -54,37 +68,25 @@ Every command reports what it resolved in a `detection` object:
 }
 ```
 
-`via` is the environment variable that identified the editor, or `--editor` when you named one. `session` is `pinned` when the editor's own session id was used, `recent` when the most recent session was taken, and `explicit` when a session id was passed on the command line. `candidates` lists every editor whose marker was present — more than one appears when an agent runs inside another agent. The winner then comes from a fixed order — Antigravity, Claude Code, Codex, Copilot, Cursor, Pi, then opencode — which ranks the editors that publish a session id ahead of the one that does not. That order applies whatever the ids happen to be: an empty or unusable id changes which session is selected, never which editor.
+| Field                       | Meaning                                                                                                                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detection.editor`          | Editor whose sessions were read                                                                                                                                                                     |
+| `detection.via`             | Environment variable that identified the editor, or `--editor` when you named one                                                                                                                   |
+| `detection.session`         | `pinned` (the editor's own session ID was used), `recent` (the most recent session was taken), or `explicit` (an ID was passed to `show`). Not reported by `list`, which selects no single session. |
+| `detection.candidates`      | Every editor whose marker was present, in precedence order                                                                                                                                          |
+| `sessionId` / `sessionFile` | Identifies the session that was read; which of the two appears depends on the editor                                                                                                                |
+| `totalEntries`              | Entries in the stored session                                                                                                                                                                       |
+| `relevantEntries`           | Conversational entries left after skipping bookkeeping events and turns with no prose                                                                                                               |
+| `transcript`                | The last `--max-entries` of those entries, each with `role` and `contentPreview`                                                                                                                    |
 
-Detection fails when Archgate runs from a plain shell rather than inside an AI editor. The command then exits 1 and asks for `--editor`.
+`list` replaces the session payload with a `sessions` array. When no session can be read, the reason is written to stderr and the command exits 1.
 
-## Subcommands
+## Editor-specific behavior
 
-### archgate session-context list
-
-List available sessions for the project as JSON (`id`, `updatedAt`, and `title` for editors that store one), most recent first. Accepts `--editor`.
-
-```bash
-archgate session-context list
-```
-
-### archgate session-context show
-
-Read a specific session by ID (from `list`). An explicit ID always wins over the one published by the environment. Accepts `--editor`, `--max-entries`, and `--root`.
-
-```bash
-archgate session-context show <session-id>
-```
-
-## How each editor stores sessions
-
-- **Antigravity** — both the `agy` CLI and the desktop app write conversations as JSONL under `brain/<id>/.system_generated/logs/`, in `~/.gemini/antigravity-cli/` and `~/.gemini/antigravity/` respectively; both are read. The CLI records the workspace in each conversation's own database, the app in a shared summaries index. A conversation the caller is running inside is read even before that index catches up, since the environment names it.
-- **Claude Code** — one JSONL transcript per session, keyed by the encoded project path. Session IDs are the transcript filenames.
-- **Codex** — rollout files under date shards (`sessions/YYYY/MM/DD/`), shared by the Codex CLI and the desktop app. Sessions are matched by the `cwd` recorded in each rollout's `session_meta` line, and the session ID is the thread ID. The CLI and the desktop app record turns in different event shapes and both are read. Rollouts older than a week are zstd-compressed in place; both forms are read. Honors `CODEX_HOME`.
-- **Copilot CLI** — sessions are matched by their workspace `cwd` field.
-- **Cursor** — sessions are matched by the encoded project path; IDs are UUIDs.
-- **Pi** — sessions live under a directory encoding the working directory, and each file's header `cwd` is verified as well, so a relocated session directory still resolves. Honors `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. Pi branches a session in place rather than starting a new file, so only the active branch is read — a forked or rewound turn is left out. Pi publishes its session ID only to commands its agent runs, so a manually typed command is detected but selected by recency.
-- **opencode** — sessions are matched by comparing the session `directory` field to the project root. Sub-agent runs are recorded as child sessions sharing the parent's directory; these are excluded from `list` and from recency selection, so the most recent top-level session is always the main development session. They can still be read by ID with `show`, and `--root` resolves a child session up to its top-level ancestor — useful when a sub-agent knows its own session ID and needs the conversation it belongs to.
+- **Antigravity** and **Codex** each ship a CLI and a desktop app, and conversations from both distributions are read.
+- **Codex** honors `CODEX_HOME`.
+- **Pi** honors `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. Pi branches a session in place rather than starting a new one, so only the active branch is read — a forked or rewound turn is left out. Pi publishes its session ID only to commands its agent runs, so a command you type yourself is still detected as Pi but selected by recency.
+- **opencode** records sub-agent runs as child sessions of the conversation that started them. Child sessions are excluded from `list` and from recency selection, so the most recent top-level session is always the main development session. They can still be read by ID with `show`, and `--root` resolves a child session up to its top-level ancestor — useful when a sub-agent knows its own session ID and needs the conversation it belongs to.
 
 ## Examples
 

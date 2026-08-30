@@ -100,9 +100,9 @@ The loop does not stop at detection. Every mistake can become a new rule or ADR,
 The Archgate CLI works standalone, but **editor plugins** unlock a full AI guardrails workflow. Plugins give AI agents role-based skills so they read your ADRs before coding, validate after, and capture new patterns for your team -- automatically.
 
   
-    The Claude Code plugin adds five skills: developer, architect,
-    quality-manager, adr-author, and onboard. Agents follow a structured
-    read-validate-capture loop on every task.
+    The Claude Code plugin adds a developer agent plus five skills: reviewer,
+    lessons-learned, adr-author, onboard, and cli-reference. The developer agent
+    follows a structured read-validate-capture loop on every task.
   
   
     The Cursor plugin provides pre-built agent rules and skills that give
@@ -275,10 +275,10 @@ Install Archgate using jbang:
 jbang app install archgate@dev.archgate
 ```
 
-Or download the executable JAR from Maven Central (`dev.archgate:archgate-cli`) and run directly:
+Or download the latest executable JAR from [Maven Central](https://central.sonatype.com/artifact/dev.archgate/archgate-cli) (`dev.archgate:archgate-cli`) and run it directly:
 
 ```bash
-java -jar archgate-cli-0.39.0.jar check
+java -jar archgate-cli-<version>.jar check
 ```
 
 Requires Java 11+. The shim downloads the platform binary on first run.
@@ -380,39 +380,38 @@ This creates the `.archgate/` directory with the following structure:
 ```
 .archgate/
   adrs/
-    ARCH-001-example.md          # Example ADR
-    ARCH-001-example.rules.ts    # Example rules file
+    GEN-001-example.md   # Example ADR (rules: false)
   lint/
-    archgate.config.ts           # Archgate configuration
+    README.md            # Conventions for linter-specific rules
+  rules.d.ts              # Type definitions for .rules.ts files
 ```
 
 The generated files give you a working example to build on.
 
 ## 3. Edit the example ADR
 
-Open `.archgate/adrs/ARCH-001-example.md`. Every ADR starts with YAML frontmatter that defines its identity:
+Open `.archgate/adrs/GEN-001-example.md`. Every ADR starts with YAML frontmatter that defines its identity:
 
 ```yaml
 ---
-id: ARCH-001
-title: Example Decision
-domain: architecture
-rules: true
-files: ["src/**/*.ts"]
+id: GEN-001
+title: Example Architecture Decision
+domain: general
+rules: false
 ---
 ```
 
-- **id**: Unique identifier. Convention is `ARCH-NNN` but any string works.
+- **id**: Unique identifier. Convention is `<PREFIX>-NNN` (e.g. `ARCH-001`, `GEN-001`) but any string works.
 - **title**: Human-readable name for the decision.
 - **domain**: Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
-- **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
-- **files**: Optional glob patterns that scope which files the rules apply to.
+- **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks. The generated example ships with `rules: false`.
+- **files**: Optional glob patterns that scope which files the rules apply to. Omit it to scope the whole project.
 
 Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
 
 ## 4. Add a companion rules file
 
-Create a `.rules.ts` file next to your ADR with the same name prefix. Rules are written in TypeScript using the `RuleSet` type:
+Create a `.rules.ts` file next to your ADR with the same name prefix (e.g. `GEN-001-example.rules.ts` for the generated example). Then set `rules: true` in the ADR's frontmatter — `archgate check` only loads a companion rules file when the ADR opts in. Rules are written in TypeScript using the `RuleSet` type:
 
 ```typescript
 /// <reference path="../rules.d.ts" />
@@ -862,7 +861,7 @@ Severity determines what happens when a rule finds a problem:
 | `warning` | 0         | Warning is logged but the check passes    |
 | `info`    | 0         | Informational message, check passes       |
 
-When `archgate check` runs, exit code 1 means at least one `error`-severity violation was found. Exit code 0 means no errors (warnings and info messages are logged but do not block).
+When `archgate check` runs without `--strict`, exit code 1 means at least one `error`-severity violation was found. Exit code 0 means no errors (warnings and info messages are logged but do not block). Under `--strict`, warnings and certain advisory findings can also produce exit code 1 -- see [Configuration -- `strict`](/reference/configuration/#strict).
 
 ## The RuleContext
 
@@ -1306,13 +1305,14 @@ The Archgate Claude Code plugin gives AI agents working in [Claude Code](https:/
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Claude Code. The agent orchestrates the guardrails workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
+The plugin adds agents and role-based skills to Claude Code. The developer agent orchestrates the guardrails workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
 
-### Agent
+### Agents
 
 | Agent                | Purpose                                                                     |
 | -------------------- | --------------------------------------------------------------------------- |
 | `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+| `archgate:planner`   | Planning agent for scoping work and breaking tasks into ADR-compliant steps |
 
 The `archgate:developer` agent is set as the default agent via `.claude/settings.local.json`. It orchestrates the skills below automatically as part of its workflow.
 
@@ -1320,10 +1320,11 @@ The `archgate:developer` agent is set as the default agent via `.claude/settings
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
-| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:reviewer`        | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:lessons-learned` | Captures learnings and proposes new ADRs when patterns emerge                         |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
 | `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+| `archgate:cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide         |
 
 ## Installation
 
@@ -1341,24 +1342,28 @@ This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- op
 
 ### 2. Initialize your project with the plugin
 
-Run `archgate init` in your project. If you are already logged in, the plugin is installed automatically:
+Run `archgate init` with the `--editor claude` flag. If you are already logged in, the plugin is installed automatically:
 
 ```bash
-archgate init
+archgate init --editor claude
 ```
+
+Without `--editor`, an interactive run detects the editors installed on your machine and lets you pick one or more; a non-interactive run (an agent or CI) defaults to Claude Code.
 
 To explicitly request plugin installation:
 
 ```bash
-archgate init --install-plugin
+archgate init --editor claude --install-plugin
 ```
 
 This creates `.claude/settings.local.json` with the `archgate:developer` agent and skill permissions pre-configured.
 
 If the `claude` CLI is on your PATH, the plugin is installed automatically via:
 
-1. `claude plugin marketplace add` (registers the Archgate marketplace)
+1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registers the Archgate marketplace)
 2. `claude plugin install archgate@archgate` (installs the plugin)
+
+The marketplace URL carries no credentials -- git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
 
 If the `claude` CLI is not found, the command prints the manual commands for you to run.
 
@@ -1367,13 +1372,15 @@ If the `claude` CLI is not found, the command prints the manual commands for you
 If your project is already initialized, you can install or reinstall the plugin without re-running `archgate init`:
 
 ```bash
-archgate plugin install
+archgate plugin install --editor claude
 ```
 
-To get the authenticated repository URL for manual configuration:
+Without `--editor`, an interactive run prompts you to select editors and a non-interactive run defaults to Claude Code.
+
+To print the plugin repository URL for manual configuration:
 
 ```bash
-archgate plugin url
+archgate plugin url --editor claude
 ```
 
 ## Initial setup with onboard
@@ -1395,7 +1402,7 @@ The plugin follows a structured workflow for every coding task:
 
 When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
 
-The agent does not write code until it has read the applicable ADRs. This is enforced by the `archgate:developer` skill.
+The agent does not write code until it has read the applicable ADRs. This is part of the `archgate:developer` agent's workflow.
 
 ### 2. Write code following ADR constraints
 
@@ -1405,13 +1412,13 @@ The agent writes code that complies with the constraints from the ADRs. The Do's
 
 After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
 
-### 4. Architect review
+### 4. Review changes
 
-The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch. The architect skill reviews the full context of the changes against all applicable ADRs.
+The agent invokes `archgate:reviewer` to validate structural ADR compliance beyond what automated rules catch. The reviewer skill reviews the full context of the changes against all applicable ADRs.
 
 ### 5. Capture learnings
 
-The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing. The quality manager may propose new ADRs or updates to existing ones when recurring conventions emerge.
+The agent invokes `archgate:lessons-learned` to review the work and identify patterns worth capturing. That skill may propose new ADRs or updates to existing ones when recurring conventions emerge.
 
 ## ADR-driven refusal
 
@@ -1435,7 +1442,7 @@ The plugin uses Archgate CLI commands directly to read ADRs and run compliance c
 - **`archgate adr list`** -- inventory of all ADRs in the project with metadata
 - **`archgate session-context`** -- read session transcripts for context recovery
 
-All commands run locally and read directly from your `.archgate/adrs/` directory. No data leaves your machine.
+All commands run locally and read directly from your `.archgate/adrs/` directory. No ADR or source content leaves your machine.
 
 ## When to use each agent or skill
 
@@ -1443,11 +1450,12 @@ All commands run locally and read directly from your `.archgate/adrs/` directory
 | -------------------------------------------- | -------------------------- |
 | Starting a new project with Archgate         | `archgate:onboard`         |
 | Day-to-day coding tasks                      | `archgate:developer`       |
-| Reviewing a PR for ADR compliance            | `archgate:architect`       |
-| Noticing a recurring pattern worth codifying | `archgate:quality-manager` |
+| Planning and scoping work                    | `archgate:planner`         |
+| Reviewing a PR for ADR compliance            | `archgate:reviewer`        |
+| Noticing a recurring pattern worth codifying | `archgate:lessons-learned` |
 | Creating or editing an ADR                   | `archgate:adr-author`      |
 
-The `archgate:developer` agent orchestrates the skills automatically -- it invokes `archgate:architect` and `archgate:quality-manager` as part of its workflow. Most of the time, you only need to interact with the developer agent directly.
+The `archgate:developer` agent orchestrates the skills automatically -- it invokes `archgate:reviewer` and `archgate:lessons-learned` as part of its workflow. Most of the time, you only need to interact with the developer agent directly.
 
 ---
 
@@ -1603,7 +1611,9 @@ The Cursor plugin is currently in beta. Run `archgate login` to sign up and auth
 
 If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full guardrails workflow.
 
-The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection is needed -- files are written directly to the Cursor user directory.
+The plugin is distributed as an authenticated tarball. The CLI downloads it and extracts only the `agents/` and `skills/` directories into `~/.cursor/`; anything else in the tarball is discarded. Stale `archgate-*` agents and skill directories from a previous install are removed first, so local edits to those files do not survive a reinstall. No CLI detection is needed -- files are written directly to the Cursor user directory.
+
+The `afterFileEdit` hook is not taken from the tarball. The CLI writes it into `~/.cursor/hooks.json` itself, preserving any hooks you already have there and leaving a malformed file untouched.
 
 To explicitly install the plugin:
 
@@ -1622,23 +1632,24 @@ archgate plugin install --editor cursor
 
 **User scope** (`~/.cursor/`):
 
-| File                                           | Purpose                                                             |
-| ---------------------------------------------- | ------------------------------------------------------------------- |
-| `~/.cursor/skills/archgate-reviewer.md`        | Validates code changes against all project ADRs                     |
-| `~/.cursor/skills/archgate-lessons-learned.md` | Captures learnings and proposes new ADRs when patterns emerge       |
-| `~/.cursor/skills/archgate-adr-author.md`      | Creates and edits ADRs following project conventions                |
-| `~/.cursor/skills/archgate-onboard.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
-| `~/.cursor/skills/archgate-cli-reference.md`   | Internal reference for AI agents with the Archgate CLI guide        |
-| `~/.cursor/agents/archgate-developer.md`       | Primary development agent with the full ADR guardrails workflow     |
-| `~/.cursor/agents/archgate-planner.md`         | Planning agent for scoping and breaking down work                   |
+| File                                                 | Purpose                                                             |
+| ---------------------------------------------------- | ------------------------------------------------------------------- |
+| `~/.cursor/skills/archgate-reviewer/SKILL.md`        | Validates code changes against all project ADRs                     |
+| `~/.cursor/skills/archgate-lessons-learned/SKILL.md` | Captures learnings and proposes new ADRs when patterns emerge       |
+| `~/.cursor/skills/archgate-adr-author/SKILL.md`      | Creates and edits ADRs following project conventions                |
+| `~/.cursor/skills/archgate-onboard/SKILL.md`         | One-time setup: explores the codebase, interviews you, creates ADRs |
+| `~/.cursor/skills/archgate-cli-reference/SKILL.md`   | Internal reference for AI agents with the Archgate CLI guide        |
+| `~/.cursor/agents/archgate-developer.md`             | Primary development agent with the full ADR guardrails workflow     |
+| `~/.cursor/agents/archgate-planner.md`               | Planning agent for scoping and breaking down work                   |
+| `~/.cursor/hooks.json`                               | `afterFileEdit` hook, merged into any hooks you already have        |
 
 **Project scope**:
 
-| File                 | Purpose                                                               |
-| -------------------- | --------------------------------------------------------------------- |
-| `.cursor/hooks.json` | `afterFileEdit` hook that runs `archgate check` after every file edit |
+| File                 | Purpose                                                             |
+| -------------------- | ------------------------------------------------------------------- |
+| `.cursor/hooks.json` | `afterFileEdit` hook that runs `archgate check` on each edited file |
 
-The `.cursor/hooks.json` file is the only file written to your project tree. It ensures `archgate check` runs automatically after every file edit, catching ADR violations in real time.
+The `.cursor/hooks.json` file is the only file written to your project tree, and `archgate init` writes it only when it does not already exist -- an existing file is left alone. It ensures `archgate check` runs automatically after every file edit, catching ADR violations in real time.
 
 ## What the plugin provides
 
@@ -1667,11 +1678,11 @@ These are the same roles available in the Claude Code plugin (`archgate:reviewer
 
 ### Hooks
 
-| Hook            | Trigger         | Action                                                     |
-| --------------- | --------------- | ---------------------------------------------------------- |
-| `afterFileEdit` | Every file edit | Runs `archgate check` to catch ADR violations in real time |
+| Hook            | Trigger         | Action                                                           |
+| --------------- | --------------- | ---------------------------------------------------------------- |
+| `afterFileEdit` | Every file edit | Runs `archgate check` on the edited file to catch ADR violations |
 
-The hook is defined in `.cursor/hooks.json` at the project level, so it works both locally and in cloud agent environments.
+The hook is defined in `.cursor/hooks.json` at the project level, so it works both locally and in cloud agent environments. The plugin install additionally registers the same hook in your user-level `~/.cursor/hooks.json`.
 
 ## Initial setup with onboard
 
@@ -1733,10 +1744,12 @@ For full governance in cloud environments, ensure `archgate` is available on the
 
 The `archgate session-context` command reads Cursor agent session transcripts from disk. This allows skills to access the history of the current conversation, which is useful for recovering context that may have been compacted or truncated.
 
-When Cursor is the detected editor, no editor needs to be named. Pass `--editor cursor` to read Cursor's transcripts regardless of what was detected — useful when another agent is running inside Cursor and wins detection. The command accepts two options:
+When Cursor is the detected editor, no editor needs to be named. Pass `--editor cursor` to read Cursor's transcripts regardless of what was detected — useful when another agent is running inside Cursor and wins detection. The two options that matter for Cursor are:
 
-- `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries).
+- `--max-entries <n>` -- Maximum number of entries to return (default: 200, most recent entries). Must be a positive integer.
 - `--editor <name>` -- Read another editor's transcripts instead of the detected one.
+
+(A third option, `--root`, applies to opencode only.)
 
 Use `archgate session-context list` to discover earlier sessions, and `archgate session-context show <session-id>` to read a specific one.
 
@@ -1899,22 +1912,24 @@ archgate init --editor opencode
 
 The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
 
-Unlike the Claude Code or Cursor integrations, the opencode agents are **not written to your project tree**. They are installed at the user scope instead, so they live on your machine, not in your repository, and are available across every project you open with opencode.
+The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes a governance rule and hooks into `.cursor/`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
 
-opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/agents/` when that variable is set, and falls back to `$HOME/.config/opencode/agents/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\agents\`, not under `%APPDATA%`:
+opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/` when that variable is set, and falls back to `$HOME/.config/opencode/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\`, not under `%APPDATA%`:
 
-| Platform      | Install location                               |
-| ------------- | ---------------------------------------------- |
-| Linux / macOS | `~/.config/opencode/agents/`                   |
-| Windows       | `C:\Users\<username>\.config\opencode\agents\` |
+| Platform      | Install location                        |
+| ------------- | --------------------------------------- |
+| Linux / macOS | `~/.config/opencode/`                   |
+| Windows       | `C:\Users\<username>\.config\opencode\` |
+
+Inside that directory, agents are written to `agents/` and skills to `skills/`.
 
 ### Authenticated install
 
-The install step only runs when the `opencode` CLI is on your PATH. Archgate needs to confirm opencode is present before writing files into its user-scope config directory. Otherwise the agents would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
+The install step only runs when Archgate can see opencode on your machine — either the `opencode` CLI on your PATH, or the opencode config directory (`~/.config/opencode/`), which the Desktop app also uses even though it ships no CLI binary. Archgate needs that confirmation before writing files into the user-scope config directory. Otherwise the bundle would sit in a location nothing reads. Install opencode from [opencode.ai](https://opencode.ai/docs/) first, then re-run `archgate init --editor opencode` or `archgate plugin install --editor opencode`.
 
-If you have logged in via `archgate login` **and** `opencode` is on your PATH, the init command downloads and installs the Archgate agent bundle for opencode. The bundle provides a pre-built primary agent and four subagents that give opencode's AI a full guardrails workflow.
+If you have logged in via `archgate login` **and** opencode is detected, the init command downloads and installs the Archgate bundle for opencode. The bundle provides two pre-built primary agents and five skills that give opencode's AI a full guardrails workflow.
 
-To explicitly install the agents:
+To explicitly install the bundle:
 
 ```bash
 archgate login                                  # one-time setup
@@ -1927,46 +1942,53 @@ To install or reinstall on an already-initialized project:
 archgate plugin install --editor opencode
 ```
 
-The install step downloads an authenticated tarball from the Archgate plugins service and extracts the five `archgate-*.md` agent files into the opencode user-scope directory.
+The install step downloads an authenticated tarball from the Archgate plugins service and extracts its `agents/` and `skills/` directories into the opencode user-scope directory. Any `archgate-*` agent files and `archgate-*/` skill directories from a previous install are removed first, so re-running the command replaces the bundle rather than layering on top of it. Files that are not under `agents/` or `skills/` are ignored, so nothing else in your opencode config directory is touched.
 
 ### Generated files (user scope)
 
-| File                                            | Purpose                                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------------------ |
-| `<opencode-agents>/archgate-developer.md`       | Primary agent (selectable with Tab) that runs the full ADR workflow      |
-| `<opencode-agents>/archgate-architect.md`       | Subagent that validates code changes against all project ADRs            |
-| `<opencode-agents>/archgate-quality-manager.md` | Subagent that captures learnings and proposes new ADRs                   |
-| `<opencode-agents>/archgate-adr-author.md`      | Subagent that creates and edits ADRs following project conventions       |
-| `<opencode-agents>/archgate-cli-reference.md`   | Internal reference subagent with the Archgate CLI command guide (hidden) |
+| File                                                         | Purpose                                                                     |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `<opencode-config>/agents/archgate-developer.md`             | Primary agent that runs the full ADR workflow                               |
+| `<opencode-config>/agents/archgate-planner.md`               | Read-only primary agent that designs ADR-compliant implementation plans     |
+| `<opencode-config>/skills/archgate-reviewer/SKILL.md`        | Validates code changes against all project ADRs                             |
+| `<opencode-config>/skills/archgate-lessons-learned/SKILL.md` | Captures learnings and proposes new ADRs                                    |
+| `<opencode-config>/skills/archgate-adr-author/SKILL.md`      | Creates and edits ADRs following project conventions                        |
+| `<opencode-config>/skills/archgate-cli-reference/SKILL.md`   | Internal reference with the Archgate CLI command guide                      |
+| `<opencode-config>/skills/archgate-onboard/SKILL.md`         | One-time setup: explores the codebase, interviews you, creates initial ADRs |
+| `<opencode-config>/opencode.json`                            | User settings — `default_agent` is set to `archgate-developer` if unset     |
 
-`.archgate/adrs/` and `.archgate/lint/` are still created in your project as usual. Only the opencode-specific agent files live outside the project tree.
+The `opencode.json` merge is additive and never overwrites an existing `default_agent`, so your own choice of default agent is preserved.
+
+`.archgate/adrs/` and `.archgate/lint/` are still created in your project as usual. Only the opencode-specific files live outside the project tree.
 
 ## What the bundle provides
 
-The `archgate-` prefix avoids collision with any user-authored opencode agents in the same directory. Subagents are invoked via opencode's `@-mention` syntax.
+The `archgate-` prefix avoids collision with any user-authored opencode agents or skills in the same directories. Skills are invoked via opencode's `@-mention` syntax.
 
-### Primary agent
+### Primary agents
 
-| Name                 | Purpose                                                                     |
-| -------------------- | --------------------------------------------------------------------------- |
-| `archgate-developer` | General development agent that reads ADRs before coding and validates after |
+| Name                 | Purpose                                                                          |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `archgate-developer` | General development agent that reads ADRs before coding and validates after      |
+| `archgate-planner`   | Read-only planning agent that designs ADR-compliant plans without modifying code |
 
-The `archgate-developer` agent orchestrates the subagents below automatically as part of its workflow.
+The `archgate-developer` agent orchestrates the skills below automatically as part of its workflow. Both agents are opencode _primary_ agents, so you switch between them with the Tab key.
 
-### Subagents
+### Skills
 
-| Name                       | Purpose                                                                       |
-| -------------------------- | ----------------------------------------------------------------------------- |
-| `archgate-architect`       | Validates code changes against all project ADRs for structural compliance     |
-| `archgate-quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge              |
-| `archgate-adr-author`      | Creates and edits ADRs following project conventions                          |
-| `archgate-cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide |
+| Name                       | Purpose                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| `archgate-reviewer`        | Validates code changes against all project ADRs for structural compliance             |
+| `archgate-lessons-learned` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate-adr-author`      | Creates and edits ADRs following project conventions                                  |
+| `archgate-cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide         |
+| `archgate-onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
 
-These are the same roles available in the Claude Code plugin, adapted for opencode's native primary/subagent model.
+These are the same roles available in the Claude Code plugin, adapted for opencode's native agent and skill model.
 
 ## How it works in practice
 
-Select `archgate-developer` as your primary agent (use the Tab key in opencode) when starting a coding task. The agent follows a structured workflow for every change:
+The install sets `archgate-developer` as opencode's `default_agent` when you have not already chosen one, so it is usually selected for you; otherwise switch to it with the Tab key when starting a coding task. The agent follows a structured workflow for every change:
 
 1. **Read applicable ADRs** -- The agent runs `archgate review-context` to see which ADRs apply to the files being changed. It does not write code until it has read the applicable ADRs.
 
@@ -1974,9 +1996,9 @@ Select `archgate-developer` as your primary agent (use the Tab key in opencode) 
 
 3. **Run compliance checks** -- The agent runs `archgate check` to execute automated rules. Any violations are fixed before proceeding.
 
-4. **Architect review** -- The agent mentions `@archgate-architect` to validate structural ADR compliance beyond what automated rules catch.
+4. **Reviewer validation** -- The agent mentions `@archgate-reviewer` to validate structural ADR compliance beyond what automated rules catch.
 
-5. **Capture learnings** -- The agent mentions `@archgate-quality-manager` to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
+5. **Capture learnings** -- The agent mentions `@archgate-lessons-learned` to review the work and identify patterns worth capturing as new ADRs or updates to existing ones.
 
 ## ADR-driven refusal
 
@@ -1990,30 +2012,33 @@ For example, if a developer asks the agent to add `chalk` as a dependency in a p
 
 This behavior is consistent regardless of how the developer phrases the request. ADRs are treated as mandatory constraints, not suggestions.
 
-## When to use each agent or subagent
+## When to use each agent or skill
 
-| Scenario                                     | Agent / Subagent               |
-| -------------------------------------------- | ------------------------------ |
-| Day-to-day coding tasks                      | `archgate-developer` (primary) |
-| Reviewing a change for ADR compliance        | `@archgate-architect`          |
-| Noticing a recurring pattern worth codifying | `@archgate-quality-manager`    |
-| Creating or editing an ADR                   | `@archgate-adr-author`         |
+| Scenario                                            | Agent / Skill                  |
+| --------------------------------------------------- | ------------------------------ |
+| Day-to-day coding tasks                             | `archgate-developer` (primary) |
+| Planning a change without writing code              | `archgate-planner` (primary)   |
+| Setting up Archgate in a project for the first time | `@archgate-onboard`            |
+| Reviewing a change for ADR compliance               | `@archgate-reviewer`           |
+| Noticing a recurring pattern worth codifying        | `@archgate-lessons-learned`    |
+| Creating or editing an ADR                          | `@archgate-adr-author`         |
 
-The `archgate-developer` agent orchestrates the subagents automatically -- it mentions `@archgate-architect` and `@archgate-quality-manager` as part of its workflow. Most of the time, you only need to select `archgate-developer` and let it run.
+The `archgate-developer` agent orchestrates the skills automatically -- it mentions `@archgate-reviewer` and `@archgate-lessons-learned` as part of its workflow. Most of the time, you only need to select `archgate-developer` and let it run.
 
 ## User-scope vs project-scope
 
 The opencode bundle lives in your user-scope opencode directory rather than in `.opencode/` inside your project. Consequences:
 
-- **One install per machine.** `archgate plugin install --editor opencode` installs the bundle globally. Every project you open with opencode sees the same `archgate-*` agents.
+- **One install per machine.** `archgate plugin install --editor opencode` installs the bundle globally. Every project you open with opencode sees the same `archgate-*` agents and skills.
 - **Your repo stays clean.** No `.opencode/` folder is ever created by `archgate init`. Team members who want the agents run their own `archgate plugin install --editor opencode`.
-- **Upgrades are global.** Re-running `archgate plugin install --editor opencode` overwrites the existing files with the latest bundle.
+- **Upgrades are global.** Re-running `archgate plugin install --editor opencode` removes the previous `archgate-*` agents and skills and replaces them with the latest bundle.
 
 ## Tips for effective usage
 
+- **Run `@archgate-onboard` once per project** to generate your initial ADRs from your actual codebase.
 - **Select `archgate-developer` at the start of coding sessions.** It orchestrates the full read-validate-capture workflow automatically.
-- **Use `@archgate-architect` for reviews.** It validates structural compliance beyond what automated rules catch.
-- **Use `@archgate-quality-manager` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
+- **Use `@archgate-reviewer` for reviews.** It validates structural compliance beyond what automated rules catch.
+- **Use `@archgate-lessons-learned` after resolving tricky issues.** It captures learnings so the same mistakes are not repeated.
 - **Keep ADR rules files up to date.** The agent enforces what the rules check for -- if a rule is missing, the violation will not be caught.
 - **Re-run `archgate plugin install --editor opencode` to upgrade.** The service returns the latest agent bundle on every authenticated download.
 
@@ -2027,7 +2052,7 @@ Source: https://cli.archgate.dev/guides/pre-commit-hooks/
 
 The `archgate check --staged` command checks only git-staged files against your ADR rules. Because it skips unstaged and untracked files, it runs fast enough to use as a pre-commit hook without slowing down your workflow.
 
-When a check fails, the commit is blocked. Violations are printed to stderr with file paths and line numbers so you can locate and fix them immediately.
+When a check fails, the commit is blocked. Violations are printed to stdout with file paths and line numbers so you can locate and fix them immediately.
 
 ## Lefthook
 
@@ -2085,13 +2110,13 @@ Without `--staged`, `archgate check` scans all files matched by each ADR's `file
 
 ## Useful flags
 
-| Flag         | Purpose                                                                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`   | Only check git-staged files (required for pre-commit)                                                                      |
-| `--verbose`  | Show passing rules and timing information -- helpful when debugging why a check is slow or which rules are being evaluated |
-| `--json`     | Output results as JSON -- useful for piping to other tools or custom reporting scripts                                     |
-| `--adr <id>` | Only check rules from a specific ADR -- useful for isolating a single rule during debugging                                |
-| `--ci`       | Output GitHub Actions annotations -- use this in CI workflows instead of pre-commit hooks                                  |
+| Flag              | Purpose                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`        | Only check git-staged files (required for pre-commit)                                                                      |
+| `--verbose`       | Show passing rules and timing information -- helpful when debugging why a check is slow or which rules are being evaluated |
+| `--output json`   | Output results as JSON -- useful for piping to other tools or custom reporting scripts                                     |
+| `--adr <id>`      | Only check rules from a specific ADR -- useful for isolating a single rule during debugging                                |
+| `--output github` | Output GitHub Actions annotations -- use this in CI workflows instead of pre-commit hooks                                  |
 
 ## Combining with other hooks
 
@@ -2155,7 +2180,7 @@ If any of these is found, the rule file is **not imported or executed** and `arc
 
 Because the scanner works from the parsed syntax tree, it sees through escapes: `await import("\x6e...")` resolves to the same module name the allowlist checks, so string tricks do not slip past it. The one thing a syntax tree cannot see is a character that makes the rendered source differ from the code that runs -- which is why the scanner also rejects bidirectional and invisible Unicode characters outright.
 
-**Imported rules are scanned too.** When you bring in third-party rules with `archgate adr import`, each `.rules.ts` is scanned -- with a stricter check than first-party rules -- **before it is written to disk**, so an imported pack cannot smuggle in code that your next `archgate check` would execute.
+**Imported rules are scanned too.** When you bring in third-party rules with `archgate adr import`, each `.rules.ts` runs through the same scanner as first-party rules -- **before it is written to disk**, so an imported pack cannot smuggle in code that your next `archgate check` would execute.
 
 Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output. When a rule needs language tooling -- parsing Python, or comparing a file against its base git revision -- `ctx.ast()` is the sanctioned door; a rule never needs, and cannot open, a subprocess of its own.
 
@@ -2254,7 +2279,7 @@ When cloning or forking a repository that uses Archgate, the security scanner au
 
 The `archgate login` command stores your authentication token in the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
 
-- Do not share the token in CI logs. Plugin installation commands pass credentials via authenticated URLs to git, which may appear in process listings. Avoid running `archgate plugin install` with verbose logging in shared CI environments.
+- Plugin installation commands never embed the token in a URL or pass it as a command-line argument: git-based installs authenticate through the OS credential manager, and API downloads send the token in an `Authorization` header. Neither is visible in process listings.
 - To revoke access, run `archgate login logout`.
 
 ### Self-update integrity
@@ -2263,7 +2288,7 @@ When you run `archgate upgrade`, the CLI downloads the release binary from GitHu
 
 ## Reporting vulnerabilities
 
-If you discover a security issue in Archgate, please report it responsibly by opening a [GitHub issue](https://github.com/archgate/cli/issues) or contacting the maintainers directly. Do not include exploit code in public issues.
+Please do not report security vulnerabilities through public GitHub issues. If you discover a security issue in Archgate, report it via [GitHub Security Advisories](https://github.com/archgate/cli/security/advisories/new), including a description of the vulnerability, steps to reproduce, affected versions, and any potential impact.
 
 ---
 
@@ -2306,8 +2331,9 @@ archgate init --editor vscode
 If you are already logged in, this command:
 
 1. Creates the `.archgate/` directory with ADRs and lint rules
-2. Adds the authenticated marketplace URL to your VS Code **user settings**
-3. Downloads and installs the Archgate VS Code extension (`.vsix`) if the `code` CLI is available
+2. Adds the marketplace URL to your VS Code **user settings**
+
+`archgate init` does not download the VS Code extension. To install the extension itself, run `archgate plugin install --editor vscode` (see below).
 
 The `chat.plugins.marketplaces` setting is application-scoped in VS Code, so it cannot be set per-workspace. The CLI automatically writes it to your user-level `settings.json`:
 
@@ -2316,47 +2342,48 @@ The `chat.plugins.marketplaces` setting is application-scoped in VS Code, so it 
 | Windows  | `%APPDATA%\Code\User\settings.json`                     |
 | macOS    | `~/Library/Application Support/Code/User/settings.json` |
 | Linux    | `~/.config/Code/User/settings.json`                     |
+| WSL      | The Windows-side path above (VS Code runs on Windows)   |
 
-To explicitly request plugin installation:
+### 3. Install the extension
 
-```bash
-archgate init --editor vscode --install-plugin
-```
-
-To install or reinstall the plugin on an already-initialized project:
+To install or reinstall the extension on an already-initialized project:
 
 ```bash
 archgate plugin install --editor vscode
 ```
 
+Without `--editor`, an interactive run detects the editors installed on your machine and lets you pick; a non-interactive run (an agent or CI) defaults to Claude Code.
+
+This re-writes the marketplace URL into your user settings and, when the `code` CLI is on your PATH, downloads the Archgate VS Code extension from the plugins service and installs it via `code --install-extension`. If the `code` CLI is not available, manual installation instructions are printed. If the install itself fails, the downloaded `.vsix` is kept at `~/.archgate/archgate.vsix` so you can install it by hand.
+
 ### Generated files
 
-The command creates or updates the following:
+The commands create or update the following:
 
-| File                 | Scope       | Purpose                                                |
-| -------------------- | ----------- | ------------------------------------------------------ |
-| User `settings.json` | User        | `chat.plugins.marketplaces` with the authenticated URL |
-| Archgate extension   | Application | VS Code extension installed via `.vsix`                |
+| File                 | Scope       | Purpose                                                                |
+| -------------------- | ----------- | ---------------------------------------------------------------------- |
+| User `settings.json` | User        | `chat.plugins.marketplaces` with the Archgate marketplace URL (`init`) |
+| Archgate extension   | Application | VS Code extension installed via `.vsix` (`archgate plugin install`)    |
 
 The user settings file is merged additively -- existing settings are never overwritten. VS Code's built-in default marketplaces (`github/copilot-plugins`, `github/awesome-copilot`) are preserved when the key is set for the first time.
-
-The VS Code extension is downloaded from the Archgate plugins service and installed via `code --install-extension`. If the `code` CLI is not available, manual installation instructions are printed.
 
 The user-level marketplace setting (added to your `settings.json`):
 
 ```json
 {
   "chat.plugins.marketplaces": [
-    "https://<github-user>:<token>@plugins.archgate.dev/archgate/vscode.git"
+    "https://plugins.archgate.dev/archgate/vscode.git"
   ]
 }
 ```
+
+The URL carries no credentials. Git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
 
 ### Manual setup
 
 If you prefer not to let the CLI modify your user settings, you can set things up manually:
 
-**Marketplace URL:** Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can find your authenticated URL by running `archgate plugin url vscode`.
+**Marketplace URL:** Open VS Code's user settings JSON (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") and add the `chat.plugins.marketplaces` entry shown above. You can print the URL by running `archgate plugin url --editor vscode`.
 
 **Extension:** Download and install the `.vsix` file directly:
 
@@ -2366,17 +2393,18 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Replace `<token>` with your archgate token (retrieve it via `archgate plugin url vscode`).
+Replace `<token>` with the plugin token `archgate login` stored for `plugins.archgate.dev` in your OS credential manager. You can read it back with `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to VS Code's AI. The agent orchestrates the guardrails workflow, invoking skills as needed.
+The plugin adds agents and role-based skills to VS Code's AI. The developer agent orchestrates the guardrails workflow, invoking skills as needed.
 
-### Agent
+### Agents
 
 | Agent                | Purpose                                                                     |
 | -------------------- | --------------------------------------------------------------------------- |
 | `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+| `archgate:planner`   | Planning agent for scoping work and breaking tasks into ADR-compliant steps |
 
 The `archgate:developer` agent is set as the default agent via the plugin settings. It orchestrates the skills below automatically as part of its workflow.
 
@@ -2384,10 +2412,11 @@ The `archgate:developer` agent is set as the default agent via the plugin settin
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
-| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:reviewer`        | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:lessons-learned` | Captures learnings and proposes new ADRs when patterns emerge                         |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
 | `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+| `archgate:cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide         |
 
 ## Initial setup with onboard
 
@@ -2416,17 +2445,17 @@ The agent writes code that complies with the constraints from the ADRs. The Do's
 
 After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
 
-### 4. Architect review
+### 4. Review changes
 
-The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch.
+The agent invokes `archgate:reviewer` to validate structural ADR compliance beyond what automated rules catch.
 
 ### 5. Capture learnings
 
-The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing as new ADRs.
+The agent invokes `archgate:lessons-learned` to review the work and identify patterns worth capturing as new ADRs.
 
 ## Tips
 
-- **Each developer runs `archgate init --editor vscode`** after `archgate login` to configure their user-level marketplace URL.
+- **Each developer runs `archgate init --editor vscode`** after `archgate login` to configure their user-level marketplace URL, then `archgate plugin install --editor vscode` to install the extension.
 - **Run onboard once per project** to generate your initial ADRs from your actual codebase.
 - **Keep ADR rule files up to date** -- the agent enforces what the rules check for.
 
@@ -2471,9 +2500,12 @@ Available flags:
 | `--title <title>` | ADR title (required for non-interactive mode)                         |
 | `--domain <name>` | Domain name (built-in or [custom](/concepts/domains/#custom-domains)) |
 | `--files <globs>` | Comma-separated file patterns for rule scoping                        |
-| `--rules`         | Set `rules: true` in frontmatter                                      |
+| `--rules`         | Scaffold a companion `.rules.ts` file next to the ADR                 |
 | `--body <md>`     | Full ADR body markdown (skip template)                                |
 | `--json`          | Output the result as JSON                                             |
+
+:::note
+`--rules` always writes the companion `.rules.ts` stub. It sets `rules: true` in the frontmatter only when you also pass `--body`; the generated template (no `--body`) is always written with `rules: false`, so flip that field by hand once the companion file contains real checks -- `archgate check` only loads companions for ADRs whose frontmatter says `rules: true`.
 
 ## The generated template
 
@@ -2769,6 +2801,8 @@ Rules are TypeScript checks that lint your codebase against your team's decision
   ARCH-001-command-structure.rules.ts    # The automated checks
 ```
 
+The companion file must share the ADR file's base name, and the ADR's frontmatter must set `rules: true` -- `archgate check` loads companions only for ADRs that declare it. An ADR with `rules: true` and no companion file is reported as a rule error (exit code 2).
+
 ## Basic setup
 
 Every rules file exports a default plain object typed with `satisfies RuleSet`. Each key in the `rules` object becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
@@ -2884,11 +2918,15 @@ const content = await ctx.readFile("src/cli.ts");
 
 ### ctx.readJSON(path)
 
-Read and parse a JSON file. Returns `unknown` -- cast it to the expected shape.
+Read and parse a JSON file. Returns `unknown` for an arbitrary path -- cast it to the expected shape. The literal path `"package.json"` has a dedicated overload that returns a typed `PackageJson`, so no cast is needed there.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+// Typed by the overload -- pkg.dependencies is Record<string, string> | undefined
+const pkg = await ctx.readJSON("package.json");
+
+// Any other path returns unknown
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -2941,13 +2979,13 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 An optional third argument covers two more needs:
 
 - `{ rev: "base" }` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
-- `{ comments: true }` attaches a structured `comments` array to the tree (`typescript`/`javascript`/`python`), so comment-governance rules can work against comment tokens instead of regex.
+- `{ comments: true }` attaches a structured `comments` array to the tree (all four languages), so comment-governance rules can work against comment tokens instead of regex.
 
 See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language and the full options.
 
 ### ctx.fileAtBase(path)
 
-Read a file's source at the **base git revision** -- the merge base of the `--base` ref and `HEAD`. Returns `null` when no base is resolved (no `--base`) or the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
+Read a file's source at the **base git revision** -- the merge base of the base ref and `HEAD`. `archgate check` resolves that ref itself (`--base <ref>`, then the configured base branch, then auto-detection), so a base is normally available without passing any flag. Returns `null` when no base could be resolved (a `--staged` run, a project that is not a git repository, no detectable base branch, or unrelated histories) or when the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -2966,12 +3004,14 @@ The reporting interface with three severity methods:
 
 Each method accepts an object with:
 
-| Field     | Type     | Required | Description                            |
-| --------- | -------- | -------- | -------------------------------------- |
-| `message` | `string` | Yes      | What the violation is                  |
-| `file`    | `string` | No       | Path to the offending file             |
-| `line`    | `number` | No       | Line number of the violation           |
-| `fix`     | `string` | No       | Suggested fix (shown to the developer) |
+| Field       | Type     | Required | Description                                                     |
+| ----------- | -------- | -------- | --------------------------------------------------------------- |
+| `message`   | `string` | Yes      | What the violation is                                           |
+| `file`      | `string` | No       | Path to the offending file                                      |
+| `line`      | `number` | No       | Line number of the violation                                    |
+| `endLine`   | `number` | No       | End line of the offending range (`--output json` and SARIF)     |
+| `endColumn` | `number` | No       | End column of the offending range (`--output json` only)        |
+| `fix`       | `string` | No       | Suggested fix (`--output json`; console only under `--verbose`) |
 
 ```typescript
 ctx.report.violation({
@@ -3255,7 +3295,7 @@ export default {
 
 ### Governing comments
 
-`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for `typescript`, `javascript`, and `python`.
+`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for all four languages -- for `ruby`, where the tree is a `Ripper.sexp` array, the `comments` array rides on that array as a non-index property.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });
@@ -3275,34 +3315,36 @@ Rule files may import only `node:path`, `node:url`, `node:util`, and `node:crypt
 
 ## Severity levels
 
-Each rule can set a default severity in its configuration. The severity determines how violations are treated:
+A finding's severity is decided by the `ctx.report.*` method that produced it -- there is no separate severity setting to keep in sync:
 
-| Severity  | Exit code | Behavior                             |
-| --------- | --------- | ------------------------------------ |
-| `error`   | 1         | Blocks CI, must be fixed             |
-| `warning` | 0         | Logged but does not block            |
-| `info`    | 0         | Informational, logged for visibility |
+| Report method            | Severity  | Exit code | Behavior                             |
+| ------------------------ | --------- | --------- | ------------------------------------ |
+| `ctx.report.violation()` | `error`   | 1         | Blocks CI, must be fixed             |
+| `ctx.report.warning()`   | `warning` | 0         | Logged but does not block            |
+| `ctx.report.info()`      | `info`    | 0         | Informational, logged for visibility |
 
-Set the severity in the rule definition:
+So a rule that should never block CI reports through `warning()`:
 
 ```typescript
 export default {
   rules: {
     "my-rule": {
       description: "...",
-      severity: "warning",
       async check(ctx) {
-        // Violations from this rule are warnings, not errors
-        ctx.report.violation({ message: "..." });
+        // Reported as a warning -- the check still exits 0
+        ctx.report.warning({ message: "..." });
       },
     },
   },
 } satisfies RuleSet;
 ```
 
-If `severity` is omitted, it defaults to `error`.
+A single rule can mix all three, reporting some findings as errors and others as warnings or notes.
 
-You can also report at different severities within the same rule using `ctx.report.violation()`, `ctx.report.warning()`, and `ctx.report.info()` directly.
+:::caution
+`RuleConfig` also accepts an optional `severity` field. It is validated when the rule file loads, but it does **not** change the severity of anything the rule reports -- `ctx.report.violation()` is always an error even in a rule declared `severity: "warning"`. Choose the report method, not the field.
+
+Under `archgate check --strict`, any `warning`-severity finding fails the run (exit 1) instead of merely being logged. `info` findings never affect the exit code.
 
 ## Rule timeout
 
@@ -3316,7 +3358,7 @@ Keep rules fast by:
 
 ## The `fix` field
 
-The `fix` field is an optional string shown to the developer alongside the violation message. It describes what action to take to resolve the issue. Fixes are not auto-applied -- they are guidance.
+The `fix` field is an optional string that describes what action to take to resolve the issue. Fixes are not auto-applied -- they are guidance.
 
 ```typescript
 ctx.report.violation({
@@ -3326,14 +3368,15 @@ ctx.report.violation({
 });
 ```
 
-When displayed, the fix appears below the violation message:
+The console reporter prints the fix under the violation **only with `--verbose`**; otherwise it shows the message and `file:line` alone:
 
 ```
-ARCH-006/no-unapproved-deps
-  package.json
-    Unapproved dependency: "chalk"
-    Fix: Use styleText() from node:util instead of chalk
+  x ARCH-006/no-unapproved-deps Only approved dependencies may be added
+    [error] Unapproved dependency: "chalk" package.json
+           fix: Use styleText() from node:util instead of chalk
 ```
+
+`--output json` always carries the `fix` string, so agents and editor integrations see it regardless of `--verbose`. The GitHub Actions and SARIF reporters emit the message only -- put anything a reviewer must read into `message`, not `fix`.
 
 ## Tips for writing rules
 
@@ -3755,7 +3798,7 @@ If a required field is missing, the ADR fails to parse:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - domain: Required
+  - domain: Invalid input: expected string, received undefined
 ```
 
 ### Invalid domain format
@@ -3775,7 +3818,7 @@ If `rules` is a string instead of a boolean:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - rules: Expected boolean, received string
+  - rules: Invalid input: expected boolean, received string
 ```
 
 ADRs that fail validation are skipped by `archgate check` and reported as errors.
@@ -3976,8 +4019,8 @@ archgate adr domain add <name> <prefix>
 
 Naming rules:
 
-- `<name>`: lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
-- `<prefix>`: uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
+- `<name>`: lowercase kebab-case, 2–32 chars, must start with a lowercase letter (e.g., `security`, `ml-ops`)
+- `<prefix>`: uppercase letters, digits, or underscores, 2–10 chars, must start with an uppercase letter (e.g., `SEC`, `MLOPS`)
 - Custom names and prefixes cannot collide with built-ins or with any other custom entry.
 
 Example:
@@ -4008,9 +4051,9 @@ The command clones the source, reads ADR files, remaps IDs to fit the local proj
 
 ### Arguments
 
-| Argument      | Description                                      |
-| ------------- | ------------------------------------------------ |
-| `<source...>` | Registry path(s), `org/repo/path`, or git URL(s) |
+| Argument      | Description                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `<source...>` | Registry path(s), `org/repo/path`, or git URL(s). Required by the command even with `--list`, which ignores the value. |
 
 ### Options
 
@@ -4047,10 +4090,10 @@ Import non-interactively (skip confirmation):
 archgate adr import archgate/packs/typescript --yes
 ```
 
-List previously imported ADRs:
+List previously imported ADRs (the `<source...>` argument is still required by the parser, but its value is ignored with `--list`):
 
 ```bash
-archgate adr import --list
+archgate adr import archgate/packs/typescript --list
 ```
 
 ---
@@ -4394,7 +4437,9 @@ Remove the CLI cache directory.
 archgate clean
 ```
 
-Removes `~/.archgate/`, which stores cached data such as update check timestamps. Safe to run at any time -- the directory is recreated automatically when needed.
+Removes `~/.archgate/`, which stores the CLI's config, cache, and (for binary installs) the downloaded `archgate` executable. Safe to run at any time -- the directory is recreated automatically when needed.
+
+If the running binary was installed to `~/.archgate/bin/`, `clean` preserves that `bin/` directory so it does not delete the executable it is currently running as, and removes everything else. If `~/.archgate/` does not exist, it prints `Nothing to clean.` and exits without error.
 
 ## Example
 
@@ -4404,6 +4449,12 @@ archgate clean
 
 ```
 /home/user/.archgate cleaned up
+```
+
+When the running binary lives under `~/.archgate/bin/`, the message notes that `bin/` was kept:
+
+```
+/home/user/.archgate cleaned up (bin/ preserved)
 ```
 
 ---
@@ -4430,7 +4481,7 @@ archgate doctor [options]
 - **Archgate** -- CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
 - **Project** -- Whether an `.archgate/` project exists, ADR count, domains
 - **Editor CLIs** -- Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
-- **Project Integrations** -- Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+- **Project Integrations** -- Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.vscode/settings.json`, `.github/copilot/instructions.md`); for Cursor, whether the `cursor` CLI is available, since the Cursor plugin is embedded in a VSIX extension rather than a project file
 
 ## Example
 
@@ -4465,7 +4516,7 @@ Editor CLIs
 
 Project Integrations
   Claude:       OK (.claude/settings.local.json)
-  Cursor:       MISSING (.cursor/rules/archgate-governance.mdc)
+  Cursor:       MISSING (VSIX extension with embedded plugin)
   VS Code:      OK (.vscode/settings.json)
   Copilot:      MISSING (.github/copilot/instructions.md)
 ```
@@ -4480,14 +4531,16 @@ Source: https://cli.archgate.dev/reference/cli/
 
 These options are available on all commands:
 
-| Option            | Description                |
-| ----------------- | -------------------------- |
-| `--version`, `-V` | Print the Archgate version |
-| `--help`, `-h`    | Show help for any command  |
+| Option                | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `--version`, `-V`     | Print the Archgate version                                       |
+| `--help`, `-h`        | Show help for any command                                        |
+| `--log-level <level>` | Set log verbosity: `error`, `warn`, `info` (default), or `debug` |
 
 ```bash
 archgate --version
 archgate check --help
+archgate --log-level debug check
 ```
 
 ## Commands
@@ -4504,6 +4557,7 @@ archgate check --help
 | [`archgate upgrade`](./upgrade/)                 | Upgrade Archgate to the latest version                |
 | [`archgate doctor`](./doctor/)                   | Check system environment and editor integrations      |
 | [`archgate clean`](./clean/)                     | Remove the CLI cache directory                        |
+| [`archgate telemetry`](./telemetry/)             | Manage anonymous usage data collection                |
 
 ---
 
@@ -4517,7 +4571,7 @@ Set up Archgate linting and rules enforcement in the current project.
 archgate init [options]
 ```
 
-Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
+Creates the `.archgate/` directory with an example ADR and a linter rules directory. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
 
 ## Options
 
@@ -4562,8 +4616,7 @@ Re-running `archgate init` does **not** overwrite a manually configured `baseBra
 ```
 .archgate/
   adrs/
-    GEN-001-example.md           # Example ADR
-    GEN-001-example.rules.ts     # Example rules file
+    GEN-001-example.md           # Example ADR (rules: false — no companion rules file)
   lint/
     README.md                    # Linter rules guide
 ```
@@ -4574,7 +4627,7 @@ Re-running `archgate init` does **not** overwrite a manually configured `baseBra
 
 Source: https://cli.archgate.dev/reference/cli/login/
 
-Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, VS Code, GitHub Copilot, or Cursor), and use case, then registers you before completing the login.
+Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, Cursor, VS Code, GitHub Copilot, or opencode), and use case, then registers you before completing the login.
 
 ```bash
 archgate login
@@ -4606,25 +4659,30 @@ archgate login
 ```
 
 ```
-Authenticating with GitHub...
+By signing up, you agree to the Archgate Terms of Service:
+https://archgate.dev/terms-of-service
+
+info: Authenticating with GitHub...
 
 Open https://github.com/login/device in your browser
 and enter the code: ABCD-1234
 
 Waiting for authorization...
-GitHub user: yourname
+info: GitHub user: yourname
+info: Claiming archgate plugin token...
 
 Your GitHub account yourname is not yet registered.
 Let's sign you up now.
 
-Email: you@example.com
-Editor: Claude Code
-Use case: Enforcing ADRs in our monorepo
+? Email address: you@example.com
+? Which editor will you use with archgate? Claude Code
+? How do you plan to use archgate? Enforcing ADRs in our monorepo
+? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
 
-Submitting signup request...
-Claiming archgate plugin token...
+info: Submitting signup request...
+info: Claiming archgate plugin token...
 
-Authenticated as yourname. Plugin access is now available.
+info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
 
@@ -4677,7 +4735,7 @@ archgate login status
 ```
 
 ```
-Logged in as yourname (since 2026-02-28)
+Logged in as yourname.
 ```
 
 Log out:
@@ -4749,9 +4807,9 @@ Installation behavior varies by editor:
 
 - **Claude Code:** Auto-installs via `claude` CLI if available; prints manual commands otherwise.
 - **GitHub Copilot:** Declares the Archgate marketplace and plugin in Copilot's `settings.json` (`~/.copilot/` by default, honoring `COPILOT_HOME`), which both the Copilot CLI and the Copilot desktop app read. When the `copilot` CLI is on PATH the plugin is also installed immediately; otherwise Copilot installs it automatically on next launch. Prints manual commands when no `copilot` CLI or Copilot settings directory is detected.
-- **Cursor:** Downloads an authenticated tarball and extracts skills, agents, and hooks into `~/.cursor/`. No CLI detection needed. Files are written directly to the Cursor user directory.
+- **Cursor:** Downloads an authenticated tarball and extracts skills and agents into `~/.cursor/`; also merges an archgate entry into `~/.cursor/hooks.json` (written locally by the CLI, not part of the downloaded bundle, and any pre-existing hooks are preserved). No CLI detection needed. Files are written directly to the Cursor user directory.
 - **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
-- **opencode:** Requires the `opencode` CLI to be on PATH, and skips the install with a clear message otherwise. When present, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" because opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
+- **opencode:** Detects opencode via the `opencode` CLI on PATH, or (if the CLI is absent) the presence of opencode's shared user-scope config directory, which the Desktop app also uses. Skips the install with a clear message when neither is found. When detected, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" because opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Examples
 
@@ -4808,6 +4866,19 @@ archgate review-context [options]
 archgate review-context --staged
 ```
 
+## Which files count as changed
+
+Even with no flags, this command works against a base ref rather than the working tree alone: the changed-file set is the branch diff (`git diff <base>...HEAD`) unioned with staged, unstaged, and untracked non-ignored files. The base ref resolves the same way as for [`archgate check`](/reference/cli/check/):
+
+| Priority | Source                               | Changed files                                           |
+| -------- | ------------------------------------ | ------------------------------------------------------- |
+| 1        | `--staged`                           | Staged files only — no base ref is resolved             |
+| 2        | `--base <ref>`                       | `git diff <ref>...HEAD` + working-tree changes          |
+| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + working-tree changes |
+| 4        | Auto-detection                       | `git diff <detected-ref>...HEAD` + working-tree changes |
+
+Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, and local `master`, and the result is persisted to `.archgate/config.json` so later runs skip the probe. `--base` with no value is the same as omitting it: config first, then auto-detection. When no base ref can be resolved at all, only working-tree changes are used.
+
 ## Strict mode
 
 Pass `--strict` to make this command fail (exit 1) rather than just report: it fails when `truncatedBriefings` is non-empty (requires `--verbose` to have anything to truncate), or, with `--run-checks`, when the reused `checkSummary.warningsExceeded` or `checkSummary.strictAdvisoryExceeded` is true. `--strict` does **not** fail on ordinary rule violations (`checkSummary.failed`/`ruleErrors`) — this command stays a context generator for agents, not a second compliance gate; use [`archgate check`](/reference/cli/check/) to gate on rule violations. A `--strict` failure prints the full JSON payload first, then logs the reason to stderr before exiting.
@@ -4847,35 +4918,49 @@ Read AI editor session transcripts for the project. Useful for auditing what an 
 archgate session-context [subcommand] [options]
 ```
 
-Reads the **current conversation** — by default for the editor running the command, which Archgate detects from the environment. Two subcommands cover the rest: `list` to discover earlier sessions, and `show <session-id>` to read a specific one.
+With no subcommand it reads the **current conversation** for the editor running the command, which Archgate works out from the environment. Two subcommands cover the rest: `list` to discover earlier sessions, and `show <session-id>` to read a specific one. Every form prints JSON to stdout, and only sessions belonging to the current project are considered.
 
 ## Options
 
 | Option              | Description                                                                                                                       |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--editor <name>`   | Editor to read: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `opencode`, or `pi`. Defaults to the detected editor. |
-| `--max-entries <n>` | Maximum entries to return (default: 200)                                                                                          |
-| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor                                                     |
+| `--max-entries <n>` | Maximum transcript entries to return, most recent first (default: 200). Must be a positive integer.                               |
+| `--root`            | opencode only: resolve a sub-agent child session up to its top-level ancestor. Rejected for any other editor.                     |
 
-## Automatic editor detection
+## Subcommands
 
-Every supported editor sets environment variables on the commands it runs, and Archgate reads them to work out which editor is asking. Pass `--editor` to override the result, or to read a different editor's transcripts.
+### archgate session-context list
 
-| Editor      | Detected by                   | Pins the exact session via                                                              |
-| ----------- | ----------------------------- | --------------------------------------------------------------------------------------- |
-| Antigravity | `ANTIGRAVITY_AGENT`           | `ANTIGRAVITY_CONVERSATION_ID`, or `conversationId` inside `ANTIGRAVITY_SOURCE_METADATA` |
-| Claude Code | `CLAUDECODE`                  | `CLAUDE_CODE_SESSION_ID`                                                                |
-| Codex       | `CODEX_THREAD_ID`             | `CODEX_THREAD_ID`                                                                       |
-| Copilot CLI | `COPILOT_CLI`                 | `COPILOT_AGENT_SESSION_ID`                                                              |
-| Cursor      | `CURSOR_AGENT`                | `CURSOR_CONVERSATION_ID`                                                                |
-| opencode    | `OPENCODE`, `OPENCODE_CLIENT` | _(none — falls back to recency)_                                                        |
-| Pi          | `PI_CODING_AGENT`             | `PI_SESSION_ID`                                                                         |
+List available sessions for the project as JSON (`id`, `updatedAt`, and `title` for editors that store one), most recent first. Accepts `--editor`.
 
-Editors that publish their own session id get the **exact** conversation rather than the most recent one. This matters when a project has several sessions open at once, where the most recent may not be the conversation you are part of. A published id that matches no session for the project is ignored and recency applies, so a stale id never turns a working command into an error.
+```bash
+archgate session-context list
+```
 
-A session id only ever pins the editor that published it. Passing `--editor cursor` from inside Claude Code reads Cursor's transcripts by recency and ignores `CLAUDE_CODE_SESSION_ID`.
+### archgate session-context show
 
-Every command reports what it resolved in a `detection` object:
+Read a specific session by ID (from `list`). An explicit ID always wins over the session the environment points at. Accepts `--editor`, `--max-entries`, and `--root`.
+
+```bash
+archgate session-context show <session-id>
+```
+
+## Editor detection
+
+Every supported editor marks the processes it spawns, and Archgate reads those markers to work out which editor is asking. Pass `--editor` to override the result, or to read a different editor's transcripts.
+
+Some editors also publish the ID of the conversation they are currently running. When one does, Archgate reads that **exact** conversation rather than the most recent one. This matters when a project has several sessions open at once, where the most recent may not be the conversation you are part of. A published ID that matches no session for the project is ignored and recency applies, so a stale ID never turns a working command into an error.
+
+A published ID only ever applies to the editor that published it. Passing `--editor cursor` from inside Claude Code reads Cursor's transcripts by recency.
+
+When more than one editor's markers are present — an agent running inside another agent — the winner is decided by a fixed order: `antigravity`, `claude-code`, `codex`, `copilot`, `cursor`, `pi`, then `opencode`. Every match is still reported in the output. That order applies whatever session IDs happen to be published: an empty or unusable ID changes which session is selected, never which editor.
+
+Detection fails when Archgate runs from a plain shell rather than inside an AI editor. The command then exits 1 and asks for `--editor`.
+
+## Output
+
+Every invocation reports what it resolved in a `detection` object alongside the session payload:
 
 ```json
 {
@@ -4892,37 +4977,25 @@ Every command reports what it resolved in a `detection` object:
 }
 ```
 
-`via` is the environment variable that identified the editor, or `--editor` when you named one. `session` is `pinned` when the editor's own session id was used, `recent` when the most recent session was taken, and `explicit` when a session id was passed on the command line. `candidates` lists every editor whose marker was present — more than one appears when an agent runs inside another agent. The winner then comes from a fixed order — Antigravity, Claude Code, Codex, Copilot, Cursor, Pi, then opencode — which ranks the editors that publish a session id ahead of the one that does not. That order applies whatever the ids happen to be: an empty or unusable id changes which session is selected, never which editor.
+| Field                       | Meaning                                                                                                                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detection.editor`          | Editor whose sessions were read                                                                                                                                                                     |
+| `detection.via`             | Environment variable that identified the editor, or `--editor` when you named one                                                                                                                   |
+| `detection.session`         | `pinned` (the editor's own session ID was used), `recent` (the most recent session was taken), or `explicit` (an ID was passed to `show`). Not reported by `list`, which selects no single session. |
+| `detection.candidates`      | Every editor whose marker was present, in precedence order                                                                                                                                          |
+| `sessionId` / `sessionFile` | Identifies the session that was read; which of the two appears depends on the editor                                                                                                                |
+| `totalEntries`              | Entries in the stored session                                                                                                                                                                       |
+| `relevantEntries`           | Conversational entries left after skipping bookkeeping events and turns with no prose                                                                                                               |
+| `transcript`                | The last `--max-entries` of those entries, each with `role` and `contentPreview`                                                                                                                    |
 
-Detection fails when Archgate runs from a plain shell rather than inside an AI editor. The command then exits 1 and asks for `--editor`.
+`list` replaces the session payload with a `sessions` array. When no session can be read, the reason is written to stderr and the command exits 1.
 
-## Subcommands
+## Editor-specific behavior
 
-### archgate session-context list
-
-List available sessions for the project as JSON (`id`, `updatedAt`, and `title` for editors that store one), most recent first. Accepts `--editor`.
-
-```bash
-archgate session-context list
-```
-
-### archgate session-context show
-
-Read a specific session by ID (from `list`). An explicit ID always wins over the one published by the environment. Accepts `--editor`, `--max-entries`, and `--root`.
-
-```bash
-archgate session-context show <session-id>
-```
-
-## How each editor stores sessions
-
-- **Antigravity** — both the `agy` CLI and the desktop app write conversations as JSONL under `brain/<id>/.system_generated/logs/`, in `~/.gemini/antigravity-cli/` and `~/.gemini/antigravity/` respectively; both are read. The CLI records the workspace in each conversation's own database, the app in a shared summaries index. A conversation the caller is running inside is read even before that index catches up, since the environment names it.
-- **Claude Code** — one JSONL transcript per session, keyed by the encoded project path. Session IDs are the transcript filenames.
-- **Codex** — rollout files under date shards (`sessions/YYYY/MM/DD/`), shared by the Codex CLI and the desktop app. Sessions are matched by the `cwd` recorded in each rollout's `session_meta` line, and the session ID is the thread ID. The CLI and the desktop app record turns in different event shapes and both are read. Rollouts older than a week are zstd-compressed in place; both forms are read. Honors `CODEX_HOME`.
-- **Copilot CLI** — sessions are matched by their workspace `cwd` field.
-- **Cursor** — sessions are matched by the encoded project path; IDs are UUIDs.
-- **Pi** — sessions live under a directory encoding the working directory, and each file's header `cwd` is verified as well, so a relocated session directory still resolves. Honors `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. Pi branches a session in place rather than starting a new file, so only the active branch is read — a forked or rewound turn is left out. Pi publishes its session ID only to commands its agent runs, so a manually typed command is detected but selected by recency.
-- **opencode** — sessions are matched by comparing the session `directory` field to the project root. Sub-agent runs are recorded as child sessions sharing the parent's directory; these are excluded from `list` and from recency selection, so the most recent top-level session is always the main development session. They can still be read by ID with `show`, and `--root` resolves a child session up to its top-level ancestor — useful when a sub-agent knows its own session ID and needs the conversation it belongs to.
+- **Antigravity** and **Codex** each ship a CLI and a desktop app, and conversations from both distributions are read.
+- **Codex** honors `CODEX_HOME`.
+- **Pi** honors `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR`. Pi branches a session in place rather than starting a new one, so only the active branch is read — a forked or rewound turn is left out. Pi publishes its session ID only to commands its agent runs, so a command you type yourself is still detected as Pi but selected by recency.
+- **opencode** records sub-agent runs as child sessions of the conversation that started them. Child sessions are excluded from `list` and from recency selection, so the most recent top-level session is always the main development session. They can still be read by ID with `show`, and `--root` resolves a child session up to its top-level ancestor — useful when a sub-agent knows its own session ID and needs the conversation it belongs to.
 
 ## Examples
 
@@ -4993,6 +5066,8 @@ Telemetry is enabled.
 Anonymous usage data helps improve Archgate. No personal information is collected.
 
 To disable: `archgate telemetry disable` or set ARCHGATE_TELEMETRY=0
+
+Legal basis: https://archgate.dev/legitimate-interest-assessment
 Learn more: https://cli.archgate.dev/reference/telemetry
 ```
 
@@ -5314,9 +5389,9 @@ export default {
   rules: {
     "my-rule-id": {
       description: "Human-readable description of what this rule checks",
-      severity: "error", // optional, defaults to "error"
       async check(ctx) {
-        // Rule logic here
+        // Rule logic here -- the report method decides the severity
+        ctx.report.violation({ message: "..." });
       },
     },
   },
@@ -5343,11 +5418,14 @@ interface RuleConfig {
 }
 ```
 
-| Field         | Type                                  | Required | Description                                            |
-| ------------- | ------------------------------------- | -------- | ------------------------------------------------------ |
-| `description` | `string`                              | Yes      | Human-readable description shown in check output       |
-| `severity`    | `Severity`                            | No       | Default severity for violations. Defaults to `"error"` |
-| `check`       | `(ctx: RuleContext) => Promise<void>` | Yes      | Async function containing the rule logic               |
+| Field         | Type                                  | Required | Description                                      |
+| ------------- | ------------------------------------- | -------- | ------------------------------------------------ |
+| `description` | `string`                              | Yes      | Human-readable description shown in check output |
+| `severity`    | `Severity`                            | No       | Accepted and validated, but inert -- see below   |
+| `check`       | `(ctx: RuleContext) => Promise<void>` | Yes      | Async function containing the rule logic         |
+
+:::caution
+`severity` does **not** set the severity of the rule's findings. Each finding takes its severity from the `ctx.report.*` method that produced it: `violation()` is always `error`, `warning()` is `warning`, `info()` is `info` -- even inside a rule declared `severity: "warning"`. To report non-blocking findings, call `ctx.report.warning()`.
 
 ---
 
@@ -5365,10 +5443,31 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
+  readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   readYAML(path: string): Promise<ReadYamlResult>;
+  ast(
+    path: string,
+    language: "typescript" | "javascript",
+    opts?: AstOptions
+  ): Promise<EsTreeProgram>;
+  ast(
+    path: string,
+    language: "python",
+    opts?: AstOptions
+  ): Promise<PythonAstModule>;
+  ast(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
-  findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+  findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+  findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+  findAstNodes(
+    tree: unknown,
+    ...types: string[]
+  ): (EsTreeNode | PythonAstNode)[];
   checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
@@ -5464,11 +5563,13 @@ const content = await ctx.readFile("src/config.ts");
 fileAtBase(path: string): Promise<string | null>;
 ```
 
-Read a file's source at the **comparison base revision** -- the merge base of the `--base` ref and `HEAD`, the same commit `changedFiles` is computed against. Use it to compare the working tree against the point the change set diverged from.
+Read a file's source at the **comparison base revision** -- the merge base of the base ref and `HEAD`, the same commit `changedFiles` is computed against. Use it to compare the working tree against the point the change set diverged from.
+
+`archgate check` resolves the base ref itself, in this order: `--base <ref>`, then the base branch stored in `.archgate/config.json`, then auto-detection (`origin/HEAD`, `origin/main`/`origin/master`, then local `main`/`master`). A base is therefore normally available without passing any flag.
 
 Returns `null` in the two "nothing to compare against" cases, so a single null check covers both:
 
-- **No base is resolved** -- the check ran without `--base` (or the histories are unrelated).
+- **No base is resolved** -- a `--staged` run, a project that is not a git repository, no base branch could be detected, or the histories are unrelated.
 - **The file did not exist at the base** -- an added file.
 
 ```typescript
@@ -5485,14 +5586,20 @@ For a **structural** comparison (ignoring comments and formatting) prefer `ast(p
 #### readJSON
 
 ```typescript
+readJSON(path: "package.json"): Promise<PackageJson>;
 readJSON(path: string): Promise<unknown>;
 ```
 
-Read and parse a JSON file. The path is relative to the project root. Returns the parsed value as `unknown` -- cast to the expected type in your rule.
+Read and parse a JSON file. The path is relative to the project root. Returns the parsed value as `unknown` -- cast to the expected type in your rule. The literal path `"package.json"` matches a dedicated overload that returns the ambient `PackageJson` interface (`name`, `version`, `scripts`, `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, `workspaces`, `engines`, ... plus an index signature), so the common case needs no cast.
+
+Unlike `glob`, `readFile`, and `ast`, the parsed value is **not** cached across rules: each call returns a fresh object, so mutating it cannot leak into another rule.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+const pkg = await ctx.readJSON("package.json");
+const deps = pkg.dependencies ?? {};
+
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -5554,9 +5661,20 @@ for (const file of await ctx.glob("docs/**/*.md")) {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby",
+  language: "typescript" | "javascript",
   opts?: AstOptions
-): Promise<AstNode>;
+): Promise<EsTreeProgram>;
+ast(
+  path: string,
+  language: "python",
+  opts?: AstOptions
+): Promise<PythonAstModule>;
+ast(
+  path: string,
+  language: "ruby",
+  opts?: AstOptions
+): Promise<RubyAstProgram>;
+ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
 
 interface AstOptions {
   rev?: "base";
@@ -5564,7 +5682,7 @@ interface AstOptions {
 }
 ```
 
-Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
+Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. Passing the language as a string literal selects a per-language overload, so the return type is already narrowed -- `program.body` is typed without a cast, and only a non-literal `AstLanguage` falls back to the `AstNode` union. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
 
 Parse results are cached for the lifetime of a single `archgate check` run, keyed on `(path, language, rev, comments)`: repeated -- even concurrent -- identical calls across rules cost one parse (one interpreter spawn for Python/Ruby), and a failed parse rethrows the same error to every caller. Treat the returned tree as read-only -- it may be shared with other rules.
 
@@ -5634,8 +5752,8 @@ Comment positions are accurate against the **original source**, even for TypeScr
 
 - **Parse failure**: the file does not parse as the requested language. The error message includes the parser's diagnostic.
 - **Missing interpreter** (`python`/`ruby` only): no suitable interpreter was found on `PATH`.
-- **Implausible input**: the file's extension does not match the requested language (e.g. `ctx.ast("config.json", "python")` throws before any interpreter is invoked).
-- **No base revision** (`{ rev: "base" }` only): the check ran without `--base`, so there is no base to parse. Use `fileAtBase()` to detect this as `null` instead.
+- **Implausible input**: the file's name does not match the requested language (e.g. `ctx.ast("config.json", "python")` throws before any interpreter is invoked). Accepted names are `.ts`/`.tsx`/`.mts`/`.cts` for `typescript`, `.js`/`.jsx`/`.mjs`/`.cjs` for `javascript`, `.py`/`.pyi` for `python`, and `.rb`/`.rake`/`.gemspec` plus the bare basenames `Rakefile` and `Gemfile` for `ruby`.
+- **No base revision** (`{ rev: "base" }` only): no base ref resolved for this run (see [fileAtBase](#fileatbase)), so there is nothing to parse. Use `fileAtBase()` to detect this as `null` instead.
 - **File absent at base** (`{ rev: "base" }` only): the path was added since the base and did not exist there.
 
 A thrown error is isolated to the failing rule: other rules and ADRs in the same check run continue normally, and the failure surfaces as a rule execution error with exit code 2 (distinct from exit code 1 for violations). The throw cases are distinguishable by message text, so check output tells "this environment cannot run this rule" apart from "this file has a syntax error" or "there is no base revision".
@@ -5646,10 +5764,12 @@ Python and Ruby rules require the corresponding interpreter (`python3`/`python`,
 #### findAstNodes
 
 ```typescript
-findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+findAstNodes(tree: unknown, ...types: string[]): (EsTreeNode | PythonAstNode)[];
 ```
 
-Recursively collect every node in a parsed AST whose type-discriminant field matches one of `types`. This is the built-in replacement for the recursive walker AST rules used to hand-roll: `ctx.ast()` deliberately returns language-native shapes, but finding nodes by type name only depends on the discriminant field, so one helper covers all languages. Synchronous -- no `await` needed.
+Recursively collect every node in a parsed AST whose type-discriminant field matches one of `types`, in preorder (empty when nothing matches). This is the built-in replacement for the recursive walker AST rules used to hand-roll: `ctx.ast()` deliberately returns language-native shapes, but finding nodes by type name only depends on the discriminant field, so one helper covers all languages. Synchronous -- no `await` needed.
 
 - **Language-agnostic**: each object node is checked against whichever discriminant field it carries -- `_type` (Python) or `type` (ESTree TypeScript/JavaScript).
 - **Full traversal**: own-enumerable object values and arrays are recursed, and the `tree` argument itself is a match candidate.
@@ -5752,7 +5872,7 @@ Report a rule violation. Violations cause the check to fail with exit code 1. Us
 report.warning(detail: ReportDetail): void;
 ```
 
-Report a warning. Warnings appear in check output but do not cause the check to fail. Use for non-blocking guidance.
+Report a warning. Warnings appear in check output but do not cause the check to fail -- unless `archgate check --strict` is used, which turns any warning into a failure (exit 1). Use for non-blocking guidance.
 
 #### info
 
@@ -5777,16 +5897,23 @@ interface ReportDetail {
 }
 ```
 
-| Field       | Type     | Required | Description                                                        |
-| ----------- | -------- | -------- | ------------------------------------------------------------------ |
-| `message`   | `string` | Yes      | Human-readable description of the issue                            |
-| `file`      | `string` | No       | File path where the issue was found                                |
-| `line`      | `number` | No       | Start line number (1-based)                                        |
-| `endLine`   | `number` | No       | End line number (1-based), for precise editor range highlighting   |
-| `endColumn` | `number` | No       | End column number (0-based), for precise editor range highlighting |
-| `fix`       | `string` | No       | Suggested fix or remediation action                                |
+| Field       | Type     | Required | Description                                         |
+| ----------- | -------- | -------- | --------------------------------------------------- |
+| `message`   | `string` | Yes      | Human-readable description of the issue             |
+| `file`      | `string` | No       | File path where the issue was found                 |
+| `line`      | `number` | No       | Start line number (1-based)                         |
+| `endLine`   | `number` | No       | End line number (1-based), for range highlighting   |
+| `endColumn` | `number` | No       | End column number (0-based), for range highlighting |
+| `fix`       | `string` | No       | Suggested fix or remediation action                 |
 
-When `endLine` and `endColumn` are provided, editors (VS Code, Cursor) can highlight the exact expression that violates the rule, rather than the entire line. If omitted, the full line at `line` is highlighted.
+Which reporter surfaces which field:
+
+- **Console** prints `message` and `file:line`. It prints `fix` only under `--verbose`, and never columns.
+- **`--output json`** carries every field above, so agents and editor integrations can highlight the exact range instead of the whole line.
+- **`--output sarif`** carries `message`, `file`, `line`, and `endLine` (as a SARIF `region`). Columns and `fix` are omitted -- SARIF has no `startColumn` to pair `endColumn` with.
+- **`--output github`** emits `file`/`line` annotations with `message` only.
+
+Put anything a reviewer must read in `message`; treat `fix` as an enrichment for local and agent-facing output.
 
 ---
 
@@ -5818,8 +5945,48 @@ Returned by `ctx.ast()`. The shape is language-native and deliberately **not** u
 
 ```typescript
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
-type AstNode = Record<string, unknown> | unknown[];
+
+/** Only the fields every node shares are typed; walk the rest through the index signature. */
+interface EsTreeNode {
+  type: string;
+  loc?: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  } | null;
+  range?: [number, number];
+  [key: string]: unknown;
+}
+interface EsTreeProgram extends EsTreeNode {
+  type: "Program";
+  sourceType: "module" | "script";
+  body: EsTreeNode[];
+  comments?: CommentToken[];
+}
+
+interface PythonAstNode {
+  _type: string;
+  lineno?: number;
+  col_offset?: number;
+  end_lineno?: number;
+  end_col_offset?: number;
+  [key: string]: unknown;
+}
+interface PythonAstModule extends PythonAstNode {
+  _type: "Module";
+  body: PythonAstNode[];
+  comments?: CommentToken[];
+}
+
+type RubyAstNode = unknown[];
+interface RubyAstProgram extends Array<unknown> {
+  comments?: CommentToken[];
+}
+
+/** Only the return type of the non-literal-language overload. */
+type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 ```
+
+All of these names are ambient in `.rules.ts` files through the `rules.d.ts` reference -- no import is needed to annotate a walker with `EsTreeNode` or `PythonAstNode`.
 
 When parsed with [`{ comments: true }`](#ast), the root node also carries a `comments: CommentToken[]` array (all four languages; for `ruby` it is a non-index property on the root sexp array). It is absent otherwise.
 
@@ -5840,11 +6007,13 @@ See [Structural checks with ctx.ast()](/guides/writing-rules/#structural-checks-
 type Severity = "error" | "warning" | "info";
 ```
 
-| Value       | Exit code impact | Description                     |
-| ----------- | ---------------- | ------------------------------- |
-| `"error"`   | Causes exit 1    | Hard constraint, blocks merges  |
-| `"warning"` | No impact        | Non-blocking guidance           |
-| `"info"`    | No impact        | Informational, suggestions only |
+| Value       | Reported by              | Exit code impact                  | Description                     |
+| ----------- | ------------------------ | --------------------------------- | ------------------------------- |
+| `"error"`   | `ctx.report.violation()` | Causes exit 1                     | Hard constraint, blocks merges  |
+| `"warning"` | `ctx.report.warning()`   | None, but exit 1 under `--strict` | Non-blocking guidance           |
+| `"info"`    | `ctx.report.info()`      | None                              | Informational, suggestions only |
+
+A rule that throws (or exceeds the 30-second rule timeout) is a rule execution error, which exits 2 rather than 1.
 
 ---
 
@@ -5916,7 +6085,7 @@ When you run an Archgate command, we record:
 
 In addition to the general command lifecycle events (`command_executed` / `command_completed`), specific commands send enriched outcome events:
 
-- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration. No file paths or violation content
+- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration, and detected project languages/runtimes/frameworks (matched against a fixed list of known dependency and config-file signals, e.g. `typescript`, `bun`, `nextjs`). No file paths or violation content
 - **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket / Azure DevOps, this event also carries the remote URL, owner, and repo name. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **`upgrade`**: version transition (from → to), install method, success/failure, and an optional failure reason
 - **`login`**: subcommand used (login, logout, refresh, status), success/failure, and a failure bucket (`network`, `tls`, `denied`, `other`) when it fails
@@ -5950,14 +6119,15 @@ See [How to opt out](#how-to-opt-out) below for the full details.
 
 When the CLI crashes (exit code 2), we send:
 
-- **Error type, message, and stack trace** (file paths are stripped to relative paths like `src/cli.ts`)
-- **Runtime context**: OS, architecture, Bun version, Archgate version
+- **Error type, message, and stack trace**, including the file paths from the crash location. For the compiled binary (the default install), these are Bun's internal bundle paths (e.g. `/$bunfs/root/cli.js`), not paths from your filesystem. For a `local` (dev dependency) or `global-pm` install, stack frames can include the real absolute path to the installed CLI file on your machine
+- **Install path**: the absolute path to the installed `archgate` executable or entry script, sent as a Sentry tag on every crash report
+- **Runtime context**: OS, architecture, Bun version, Archgate version, install method
 - **Anonymous install ID** (same random UUID as analytics)
 
 ## What we do NOT collect
 
 - **No personal information**: no emails, passwords, secrets, or IP addresses. The one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
-- **No file content**: no ADR content or source code. Crash reports (Sentry) may include relative file paths in stack traces, but never absolute paths or file contents.
+- **No file content**: no ADR content or source code. Crash reports (Sentry) include the file paths from the crash location in the stack trace and the absolute install path of the `archgate` executable (see [Error tracking](#error-tracking-sentry) for exactly what that looks like across install methods), but never file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No free-form flag values**: the one exception is `--output`'s selected format (a fixed enum: `console`/`json`/`github`/`sarif`); we never record user-provided values or what the output contained
 - **No network activity**: no URLs, API keys, or tokens
@@ -6642,8 +6812,8 @@ export default {
 ## Customization
 
 - **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
-- **Check only production deps**: Remove `devDependencies` from `allDeps` if you only care about bundled/shipped code.
-- **Scan transitives**: Use `ctx.glob("node_modules/{*,@*/*}/package.json")` to scan all installed packages (including scoped) recursively, not just direct dependencies.
+- **Scan transitives (the default here)**: `ctx.glob("node_modules/{*,@*/*}/package.json")` already walks every installed package — direct and transitive, including scoped packages via the `@*/*` branch.
+- **Check only production deps**: Read the root `package.json` with `ctx.readJSON("package.json")` and filter `pkgFiles` down to names present in its `dependencies` field if you only want to gate bundled/shipped code, not `devDependencies`.
 
 ## When to use it
 
@@ -7760,8 +7930,6 @@ export default {
         );
 
         for (const { file, content } of results) {
-          if (content === null) continue;
-
           // Check first 5 lines for the SPDX identifier (allows for shebang)
           const lines = content.split("\n").slice(0, 5);
           const hasSpdx = lines.some((line) =>

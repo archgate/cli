@@ -9,7 +9,7 @@ Set up Archgate linting and rules enforcement in the current project.
 archgate init [options]
 ```
 
-Creates the `.archgate/` directory with an example ADR, companion rules file, and linter configuration. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
+Creates the `.archgate/` directory with an example ADR and a linter rules directory. Optionally configures editor integration for AI agent workflows and installs the Archgate editor plugin.
 
 ## Options
 
@@ -54,8 +54,7 @@ Re-running `archgate init` does **not** overwrite a manually configured `baseBra
 ```
 .archgate/
   adrs/
-    GEN-001-example.md           # Example ADR
-    GEN-001-example.rules.ts     # Example rules file
+    GEN-001-example.md           # Example ADR (rules: false — no companion rules file)
   lint/
     README.md                    # Linter rules guide
 ```

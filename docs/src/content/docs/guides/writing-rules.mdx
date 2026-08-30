@@ -11,6 +11,8 @@ Rules are TypeScript checks that lint your codebase against your team's decision
   ARCH-001-command-structure.rules.ts    # The automated checks
 ```
 
+The companion file must share the ADR file's base name, and the ADR's frontmatter must set `rules: true` -- `archgate check` loads companions only for ADRs that declare it. An ADR with `rules: true` and no companion file is reported as a rule error (exit code 2).
+
 ## Basic setup
 
 Every rules file exports a default plain object typed with `satisfies RuleSet`. Each key in the `rules` object becomes a rule ID, and each rule has a `description` and an async `check` function that receives a context object.
@@ -128,11 +130,15 @@ const content = await ctx.readFile("src/cli.ts");
 
 ### ctx.readJSON(path)
 
-Read and parse a JSON file. Returns `unknown` -- cast it to the expected shape.
+Read and parse a JSON file. Returns `unknown` for an arbitrary path -- cast it to the expected shape. The literal path `"package.json"` has a dedicated overload that returns a typed `PackageJson`, so no cast is needed there.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+// Typed by the overload -- pkg.dependencies is Record<string, string> | undefined
+const pkg = await ctx.readJSON("package.json");
+
+// Any other path returns unknown
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -185,13 +191,13 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 An optional third argument covers two more needs:
 
 - `{ rev: "base" }` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
-- `{ comments: true }` attaches a structured `comments` array to the tree (`typescript`/`javascript`/`python`), so comment-governance rules can work against comment tokens instead of regex.
+- `{ comments: true }` attaches a structured `comments` array to the tree (all four languages), so comment-governance rules can work against comment tokens instead of regex.
 
 See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language and the full options.
 
 ### ctx.fileAtBase(path)
 
-Read a file's source at the **base git revision** -- the merge base of the `--base` ref and `HEAD`. Returns `null` when no base is resolved (no `--base`) or the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
+Read a file's source at the **base git revision** -- the merge base of the base ref and `HEAD`. `archgate check` resolves that ref itself (`--base <ref>`, then the configured base branch, then auto-detection), so a base is normally available without passing any flag. Returns `null` when no base could be resolved (a `--staged` run, a project that is not a git repository, no detectable base branch, or unrelated histories) or when the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -210,12 +216,14 @@ The reporting interface with three severity methods:
 
 Each method accepts an object with:
 
-| Field     | Type     | Required | Description                            |
-| --------- | -------- | -------- | -------------------------------------- |
-| `message` | `string` | Yes      | What the violation is                  |
-| `file`    | `string` | No       | Path to the offending file             |
-| `line`    | `number` | No       | Line number of the violation           |
-| `fix`     | `string` | No       | Suggested fix (shown to the developer) |
+| Field       | Type     | Required | Description                                                     |
+| ----------- | -------- | -------- | --------------------------------------------------------------- |
+| `message`   | `string` | Yes      | What the violation is                                           |
+| `file`      | `string` | No       | Path to the offending file                                      |
+| `line`      | `number` | No       | Line number of the violation                                    |
+| `endLine`   | `number` | No       | End line of the offending range (`--output json` and SARIF)     |
+| `endColumn` | `number` | No       | End column of the offending range (`--output json` only)        |
+| `fix`       | `string` | No       | Suggested fix (`--output json`; console only under `--verbose`) |
 
 ```typescript
 ctx.report.violation({
@@ -500,7 +508,7 @@ export default {
 
 ### Governing comments
 
-`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for `typescript`, `javascript`, and `python`.
+`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for all four languages -- for `ruby`, where the tree is a `Ripper.sexp` array, the `comments` array rides on that array as a non-index property.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });
@@ -521,34 +529,37 @@ Rule files may import only `node:path`, `node:url`, `node:util`, and `node:crypt
 
 ## Severity levels
 
-Each rule can set a default severity in its configuration. The severity determines how violations are treated:
+A finding's severity is decided by the `ctx.report.*` method that produced it -- there is no separate severity setting to keep in sync:
 
-| Severity  | Exit code | Behavior                             |
-| --------- | --------- | ------------------------------------ |
-| `error`   | 1         | Blocks CI, must be fixed             |
-| `warning` | 0         | Logged but does not block            |
-| `info`    | 0         | Informational, logged for visibility |
+| Report method            | Severity  | Exit code | Behavior                             |
+| ------------------------ | --------- | --------- | ------------------------------------ |
+| `ctx.report.violation()` | `error`   | 1         | Blocks CI, must be fixed             |
+| `ctx.report.warning()`   | `warning` | 0         | Logged but does not block            |
+| `ctx.report.info()`      | `info`    | 0         | Informational, logged for visibility |
 
-Set the severity in the rule definition:
+So a rule that should never block CI reports through `warning()`:
 
 ```typescript
 export default {
   rules: {
     "my-rule": {
       description: "...",
-      severity: "warning",
       async check(ctx) {
-        // Violations from this rule are warnings, not errors
-        ctx.report.violation({ message: "..." });
+        // Reported as a warning -- the check still exits 0
+        ctx.report.warning({ message: "..." });
       },
     },
   },
 } satisfies RuleSet;
 ```
 
-If `severity` is omitted, it defaults to `error`.
+A single rule can mix all three, reporting some findings as errors and others as warnings or notes.
 
-You can also report at different severities within the same rule using `ctx.report.violation()`, `ctx.report.warning()`, and `ctx.report.info()` directly.
+:::caution
+`RuleConfig` also accepts an optional `severity` field. It is validated when the rule file loads, but it does **not** change the severity of anything the rule reports -- `ctx.report.violation()` is always an error even in a rule declared `severity: "warning"`. Choose the report method, not the field.
+:::
+
+Under `archgate check --strict`, any `warning`-severity finding fails the run (exit 1) instead of merely being logged. `info` findings never affect the exit code.
 
 ## Rule timeout
 
@@ -562,7 +573,7 @@ Keep rules fast by:
 
 ## The `fix` field
 
-The `fix` field is an optional string shown to the developer alongside the violation message. It describes what action to take to resolve the issue. Fixes are not auto-applied -- they are guidance.
+The `fix` field is an optional string that describes what action to take to resolve the issue. Fixes are not auto-applied -- they are guidance.
 
 ```typescript
 ctx.report.violation({
@@ -572,14 +583,15 @@ ctx.report.violation({
 });
 ```
 
-When displayed, the fix appears below the violation message:
+The console reporter prints the fix under the violation **only with `--verbose`**; otherwise it shows the message and `file:line` alone:
 
 ```
-ARCH-006/no-unapproved-deps
-  package.json
-    Unapproved dependency: "chalk"
-    Fix: Use styleText() from node:util instead of chalk
+  x ARCH-006/no-unapproved-deps Only approved dependencies may be added
+    [error] Unapproved dependency: "chalk" package.json
+           fix: Use styleText() from node:util instead of chalk
 ```
+
+`--output json` always carries the `fix` string, so agents and editor integrations see it regardless of `--verbose`. The GitHub Actions and SARIF reporters emit the message only -- put anything a reviewer must read into `message`, not `fix`.
 
 ## Tips for writing rules
 

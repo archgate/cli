@@ -123,8 +123,8 @@ export default {
 ## Tilpasning
 
 - **Endre tillatt-listen**: Legg til eller fjern lisensidentifikatorer basert på prosjektets lisens. GPL-prosjekter kan tillate GPL-avhengigheter; Apache-2.0-prosjekter bør blokkere dem.
-- **Sjekk kun produksjonsavhengigheter**: Fjern `devDependencies` fra `allDeps` hvis du bare bryr deg om bundlet/levert kode.
-- **Skann transitive avhengigheter**: Bruk `ctx.glob("node_modules/{*,@*/*}/package.json")` for å skanne alle installerte pakker (inkludert scoped) rekursivt, ikke bare direkte avhengigheter.
+- **Skann transitive avhengigheter (standard her)**: `ctx.glob("node_modules/{*,@*/*}/package.json")` går allerede gjennom hver installerte pakke — direkte og transitiv, inkludert scoped pakker via `@*/*`-grenen.
+- **Sjekk kun produksjonsavhengigheter**: Les rot-`package.json` med `ctx.readJSON("package.json")` og filtrer `pkgFiles` ned til navnene som finnes i dens `dependencies`-felt hvis du bare vil beskytte bundlet/levert kode, ikke `devDependencies`.
 
 ## Når bør du bruke den
 

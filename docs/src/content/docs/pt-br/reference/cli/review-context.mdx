@@ -26,6 +26,19 @@ archgate review-context [options]
 archgate review-context --staged
 ```
 
+## Quais arquivos contam como alterados
+
+Mesmo sem nenhuma flag, este comando funciona em relação a uma ref base, e não apenas à árvore de trabalho: o conjunto de arquivos alterados é a diferença do branch (`git diff <base>...HEAD`) unida aos arquivos staged, unstaged e não rastreados (não ignorados). A ref base é resolvida da mesma forma que em [`archgate check`](/reference/cli/check/):
+
+| Prioridade | Origem                                  | Arquivos alterados                                                  |
+| ---------- | --------------------------------------- | ------------------------------------------------------------------- |
+| 1          | `--staged`                              | Apenas arquivos staged — nenhuma ref base é resolvida               |
+| 2          | `--base <ref>`                          | `git diff <ref>...HEAD` + alterações na árvore de trabalho          |
+| 3          | `baseBranch` em `.archgate/config.json` | `git diff <resolved-ref>...HEAD` + alterações na árvore de trabalho |
+| 4          | Auto-detecção                           | `git diff <detected-ref>...HEAD` + alterações na árvore de trabalho |
+
+A auto-detecção tenta `origin/HEAD`, depois `origin/main`, `origin/master`, `main` local e, por fim, `master` local, e o resultado é persistido em `.archgate/config.json` para que execuções futuras pulem essa sondagem. `--base` sem valor se comporta da mesma forma que omiti-lo: primeiro a configuração, depois a auto-detecção. Quando nenhuma ref base pode ser resolvida, apenas as alterações na árvore de trabalho são usadas.
+
 ## Modo estrito
 
 Passe `--strict` para que este comando falhe (código de saída 1) em vez de apenas relatar: ele falha quando `truncatedBriefings` não está vazio (requer `--verbose` para haver algo a truncar), ou, com `--run-checks`, quando o `checkSummary.warningsExceeded` ou `checkSummary.strictAdvisoryExceeded` reaproveitado é `true`. `--strict` **não** falha em violações de regra comuns (`checkSummary.failed`/`ruleErrors`) — este comando permanece um gerador de contexto para agentes, não um segundo portão de conformidade; use [`archgate check`](/reference/cli/check/) para bloquear em violações de regra. Uma falha de `--strict` imprime o payload JSON completo primeiro, depois registra o motivo em stderr antes de sair.

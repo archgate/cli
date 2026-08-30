@@ -31,39 +31,38 @@ Dette oppretter `.archgate/`-mappen med følgende struktur:
 ```
 .archgate/
   adrs/
-    ARCH-001-example.md          # Example ADR
-    ARCH-001-example.rules.ts    # Example rules file
+    GEN-001-example.md   # Example ADR (rules: false)
   lint/
-    archgate.config.ts           # Archgate configuration
+    README.md            # Conventions for linter-specific rules
+  rules.d.ts              # Type definitions for .rules.ts files
 ```
 
 De genererte filene gir deg et fungerende eksempel å bygge videre på.
 
 ## 3. Rediger eksempel-ADR-en
 
-Åpne `.archgate/adrs/ARCH-001-example.md`. Hver ADR starter med YAML frontmatter som definerer identiteten:
+Åpne `.archgate/adrs/GEN-001-example.md`. Hver ADR starter med YAML frontmatter som definerer identiteten:
 
 ```yaml
 ---
-id: ARCH-001
-title: Example Decision
-domain: architecture
-rules: true
-files: ["src/**/*.ts"]
+id: GEN-001
+title: Example Architecture Decision
+domain: general
+rules: false
 ---
 ```
 
-- **id**: Unik identifikator. Konvensjonen er `ARCH-NNN`, men enhver streng fungerer.
+- **id**: Unik identifikator. Konvensjonen er `<PREFIX>-NNN` (f.eks. `ARCH-001`, `GEN-001`), men enhver streng fungerer.
 - **title**: Lesbart navn for beslutningen.
 - **domain**: Grupperer relaterte ADR-er (`architecture`, `backend`, `frontend`, `data` eller `general`).
-- **rules**: Sett til `true` hvis denne ADR-en har en tilhørende `.rules.ts`-fil med automatiserte sjekker.
-- **files**: Valgfrie glob-mønstre som begrenser hvilke filer reglene gjelder for.
+- **rules**: Sett til `true` hvis denne ADR-en har en tilhørende `.rules.ts`-fil med automatiserte sjekker. Det genererte eksemplet leveres med `rules: false`.
+- **files**: Valgfrie glob-mønstre som begrenser hvilke filer reglene gjelder for. Utelates den, gjelder reglene hele prosjektet.
 
 Under frontmatter skriver du beslutningen i markdown. Archgate pålegger ikke en bestemt seksjonsstruktur, men de anbefalte seksjonene er: Context, Decision, Do's and Don'ts, Consequences, Compliance og References.
 
 ## 4. Legg til en tilhørende regelfil
 
-Opprett en `.rules.ts`-fil ved siden av ADR-en med samme navneprefiks. Regler skrives i TypeScript med `RuleSet`-typen:
+Opprett en `.rules.ts`-fil ved siden av ADR-en med samme navneprefiks (f.eks. `GEN-001-example.rules.ts` for det genererte eksemplet). Sett deretter `rules: true` i ADR-ens frontmatter -- `archgate check` laster kun inn en tilhørende regelfil når ADR-en aktiverer det. Regler skrives i TypeScript med `RuleSet`-typen:
 
 ```typescript
 /// <reference path="../rules.d.ts" />

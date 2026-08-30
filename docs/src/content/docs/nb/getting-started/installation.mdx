@@ -109,6 +109,66 @@ yarn check:adrs
 pnpm check:adrs
 ```
 
+## Installer via pip (Python)
+
+Installer Archgate globalt med pip eller pipx:
+
+```bash
+# pip
+pip install archgate
+
+# pipx (anbefalt for CLI-verktøy)
+pipx install archgate
+```
+
+Dette installerer en lettvekts Python-wrapper som delegerer til en plattformspesifikk binærfil. Python 3.8+ kreves.
+
+## Installer via dotnet
+
+Installer Archgate som et globalt .NET-verktøy:
+
+```bash
+dotnet tool install -g archgate
+```
+
+Krever .NET 8.0+ SDK. Verktøyet laster ned plattformbinæren ved første kjøring.
+
+## Installer via Go
+
+Installer Archgate med `go install`:
+
+```bash
+go install github.com/archgate/cli/shims/go/cmd/archgate@latest
+```
+
+Krever Go 1.21+. Den kompilerte Go-wrapperen laster ned plattformbinæren ved første kjøring.
+
+## Installer via RubyGems
+
+Installer Archgate som en Ruby-gem:
+
+```bash
+gem install archgate
+```
+
+Krever Ruby 2.7+. Gem-en laster ned plattformbinæren ved første kjøring.
+
+## Installer via Maven / jbang (Java)
+
+Installer Archgate med jbang:
+
+```bash
+jbang app install archgate@dev.archgate
+```
+
+Eller last ned den nyeste kjørbare JAR-en fra [Maven Central](https://central.sonatype.com/artifact/dev.archgate/archgate-cli) (`dev.archgate:archgate-cli`) og kjør den direkte:
+
+```bash
+java -jar archgate-cli-<version>.jar check
+```
+
+Krever Java 11+. Shimen laster ned plattformbinæren ved første kjøring.
+
 ## Plattformstøtte
 
 Archgate leverer forhåndskompilerte binærfiler for følgende plattformer:

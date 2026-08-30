@@ -11,6 +11,8 @@ Regler er TypeScript-kontroller som linter kodebasen din mot teamets beslutninge
   ARCH-001-command-structure.rules.ts    # De automatiserte sjekkene
 ```
 
+Den tilhørende filen må ha samme grunnleggende filnavn som ADR-filen, og ADR-ens frontmatter må sette `rules: true` -- `archgate check` laster tilhørende filer bare for ADR-er som erklærer det. En ADR med `rules: true` og ingen tilhørende fil rapporteres som en regelfeil (exit-kode 2).
+
 ## Grunnleggende oppsett
 
 Hver regelfil eksporterer et standard-objekt typet med `satisfies RuleSet`. Hver nøkkel i `rules`-objektet blir en regel-ID, og hver regel har en `description` og en asynkron `check`-funksjon som mottar et kontekstobjekt.
@@ -128,11 +130,15 @@ const content = await ctx.readFile("src/cli.ts");
 
 ### ctx.readJSON(path)
 
-Les og parse en JSON-fil. Returnerer `unknown` -- cast den til forventet form.
+Les og parse en JSON-fil. Returnerer `unknown` for en vilkårlig sti -- cast den til forventet form. Den bokstavelige stien `"package.json"` har en dedikert overload som returnerer en typet `PackageJson`, så ingen cast er nødvendig der.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+// Typet av overloaden -- pkg.dependencies er Record<string, string> | undefined
+const pkg = await ctx.readJSON("package.json");
+
+// Enhver annen sti returnerer unknown
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -185,13 +191,13 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 Et valgfritt tredje argument dekker to flere behov:
 
 - `{ rev: "base" }` parser filen ved den **grunnleggende git-revisjonen** i stedet for arbeidstreet -- kombiner den med en parsing av arbeidstreet for å oppdage om den kjørbare strukturen har endret seg (se nedenfor).
-- `{ comments: true }` fester en strukturert `comments`-matrise til treet (`typescript`/`javascript`/`python`), slik at kommentarstyringsregler kan jobbe mot kommentar-tokener i stedet for regulære uttrykk.
+- `{ comments: true }` fester en strukturert `comments`-matrise til treet (alle fire språkene), slik at kommentarstyringsregler kan jobbe mot kommentar-tokener i stedet for regulære uttrykk.
 
 Se [Strukturelle sjekker med ctx.ast()](#strukturelle-sjekker-med-ctxast) nedenfor for komplette eksempler, og [Regel-API-referansen](/reference/rule-api/#ast) for den returnerte formen per språk og de fullstendige alternativene.
 
 ### ctx.fileAtBase(path)
 
-Les en fils kildekode ved den **grunnleggende git-revisjonen** -- fellespunktet (merge base) mellom `--base`-referansen og `HEAD`. Returnerer `null` når ingen basis er løst (ingen `--base`) eller filen ikke fantes ved basisen (en lagt-til fil), slik at en enkelt null-sjekk dekker begge tilfellene. For en strukturell sammenligning, foretrekk `ctx.ast(path, language, { rev: "base" })`.
+Les en fils kildekode ved den **grunnleggende git-revisjonen** -- fellespunktet (merge base) mellom grunnreferansen og `HEAD`. `archgate check` løser selv denne referansen (`--base <ref>`, deretter den konfigurerte grunngrenen, deretter automatisk deteksjon), så en basis er normalt tilgjengelig uten å sende noe flagg. Returnerer `null` når ingen basis kunne løses (en `--staged`-kjøring, et prosjekt som ikke er et git-repository, ingen grunngren kunne oppdages, eller urelaterte historikker) eller når filen ikke fantes ved basisen (en lagt-til fil), slik at en enkelt null-sjekk dekker begge tilfellene. For en strukturell sammenligning, foretrekk `ctx.ast(path, language, { rev: "base" })`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -210,12 +216,14 @@ Rapporteringsgrensesnittet med tre alvorlighetsgradsmetoder:
 
 Hver metode aksepterer et objekt med:
 
-| Felt      | Type     | Påkrevd | Beskrivelse                              |
-| --------- | -------- | ------- | ---------------------------------------- |
-| `message` | `string` | Ja      | Hva bruddet er                           |
-| `file`    | `string` | Nei     | Sti til den problematiske filen          |
-| `line`    | `number` | Nei     | Linjenummer for bruddet                  |
-| `fix`     | `string` | Nei     | Foreslått løsning (vises til utvikleren) |
+| Felt        | Type     | Påkrevd | Beskrivelse                                                          |
+| ----------- | -------- | ------- | -------------------------------------------------------------------- |
+| `message`   | `string` | Ja      | Hva bruddet er                                                       |
+| `file`      | `string` | Nei     | Sti til den problematiske filen                                      |
+| `line`      | `number` | Nei     | Linjenummer for bruddet                                              |
+| `endLine`   | `number` | Nei     | Sluttlinje for det problematiske området (`--output json` og SARIF)  |
+| `endColumn` | `number` | Nei     | Sluttkolonne for det problematiske området (kun `--output json`)     |
+| `fix`       | `string` | Nei     | Foreslått løsning (`--output json`; i konsollet kun med `--verbose`) |
 
 ```typescript
 ctx.report.violation({
@@ -500,7 +508,7 @@ export default {
 
 ### Styre kommentarer
 
-`ctx.ast(path, language, { comments: true })` fester en `comments`-matrise til treet, slik at kommentarpolicy-regler jobber mot strukturerte tokener (`type`, `value`, `loc`) i stedet for linje-for-linje regulære uttrykk. Kommentarposisjoner er nøyaktige mot originalkilden selv for TypeScript. Støttet for `typescript`, `javascript` og `python`.
+`ctx.ast(path, language, { comments: true })` fester en `comments`-matrise til treet, slik at kommentarpolicy-regler jobber mot strukturerte tokener (`type`, `value`, `loc`) i stedet for linje-for-linje regulære uttrykk. Kommentarposisjoner er nøyaktige mot originalkilden selv for TypeScript. Støttet for alle fire språkene -- for `ruby`, der treet er en `Ripper.sexp`-matrise, følger `comments`-matrisen med på den matrisen som en ikke-indeksert egenskap.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });
@@ -521,34 +529,37 @@ Regelfiler kan bare importere `node:path`, `node:url`, `node:util` og `node:cryp
 
 ## Alvorlighetsgrader
 
-Hver regel kan sette en standard alvorlighetsgrad i konfigurasjonen sin. Alvorlighetsgraden bestemmer hvordan brudd behandles:
+En finnings alvorlighetsgrad bestemmes av `ctx.report.*`-metoden som produserte den -- det finnes ingen separat alvorlighetsgrad-innstilling å holde synkronisert:
 
-| Alvorlighetsgrad | Exit-kode | Oppførsel                         |
-| ---------------- | --------- | --------------------------------- |
-| `error`          | 1         | Blokkerer CI, må fikses           |
-| `warning`        | 0         | Logges, men blokkerer ikke        |
-| `info`           | 0         | Informasjon, logges for synlighet |
+| Rapporteringsmetode      | Alvorlighetsgrad | Exit-kode | Oppførsel                         |
+| ------------------------ | ---------------- | --------- | --------------------------------- |
+| `ctx.report.violation()` | `error`          | 1         | Blokkerer CI, må fikses           |
+| `ctx.report.warning()`   | `warning`        | 0         | Logges, men blokkerer ikke        |
+| `ctx.report.info()`      | `info`           | 0         | Informasjon, logges for synlighet |
 
-Sett alvorlighetsgraden i regeldefinisjonen:
+En regel som aldri skal blokkere CI, rapporterer altså gjennom `warning()`:
 
 ```typescript
 export default {
   rules: {
     "my-rule": {
       description: "...",
-      severity: "warning",
       async check(ctx) {
-        // Violations from this rule are warnings, not errors
-        ctx.report.violation({ message: "..." });
+        // Reported as a warning -- the check still exits 0
+        ctx.report.warning({ message: "..." });
       },
     },
   },
 } satisfies RuleSet;
 ```
 
-Hvis `severity` utelates, er standardverdien `error`.
+En enkelt regel kan blande alle tre, og rapportere noen funn som feil og andre som advarsler eller notater.
 
-Du kan også rapportere med ulike alvorlighetsgrader innenfor samme regel ved å bruke `ctx.report.violation()`, `ctx.report.warning()` og `ctx.report.info()` direkte.
+:::caution
+`RuleConfig` godtar også et valgfritt `severity`-felt. Det valideres når regelfilen lastes, men det endrer **ikke** alvorlighetsgraden til noe regelen rapporterer -- `ctx.report.violation()` er alltid en feil, selv i en regel erklært med `severity: "warning"`. Velg rapporteringsmetoden, ikke feltet.
+:::
+
+Under `archgate check --strict` feiler ethvert funn med `warning`-alvorlighetsgrad kjøringen (exit 1) i stedet for bare å bli logget. `info`-funn påvirker aldri exit-koden.
 
 ## Tidsgrense for regler
 
@@ -562,7 +573,7 @@ Hold reglene raske ved å:
 
 ## `fix`-feltet
 
-`fix`-feltet er en valgfri streng som vises til utvikleren sammen med bruddmeldingen. Den beskriver hvilken handling som må utføres for å løse problemet. Fikser brukes ikke automatisk -- de er veiledning.
+`fix`-feltet er en valgfri streng som beskriver hvilken handling som må utføres for å løse problemet. Fikser brukes ikke automatisk -- de er veiledning.
 
 ```typescript
 ctx.report.violation({
@@ -572,14 +583,15 @@ ctx.report.violation({
 });
 ```
 
-Når den vises, kommer fiksen under bruddmeldingen:
+Konsollrapportøren skriver ut fiksen under bruddet **bare med `--verbose`**; ellers viser den kun meldingen og `file:line`:
 
 ```
-ARCH-006/no-unapproved-deps
-  package.json
-    Unapproved dependency: "chalk"
-    Fix: Use styleText() from node:util instead of chalk
+  x ARCH-006/no-unapproved-deps Only approved dependencies may be added
+    [error] Unapproved dependency: "chalk" package.json
+           fix: Use styleText() from node:util instead of chalk
 ```
+
+`--output json` inneholder alltid `fix`-strengen, slik at agenter og redigeringsintegrasjoner ser den uavhengig av `--verbose`. GitHub Actions- og SARIF-rapportørene sender bare meldingen -- legg alt en gjennomgåer må lese i `message`, ikke i `fix`.
 
 ## Tips for å skrive regler
 

@@ -9,7 +9,7 @@ Sett opp Archgate-linting og regelhåndhevelse i det gjeldende prosjektet.
 archgate init [options]
 ```
 
-Oppretter `.archgate/`-katalogen med en eksempel-ADR, tilhørende regelfil og linter-konfigurasjon. Kan valgfritt konfigurere editor-integrasjon for AI-agentarbeidsflyter og installere Archgate editor-pluginen.
+Oppretter `.archgate/`-katalogen med en eksempel-ADR og en linter-regelkatalog. Kan valgfritt konfigurere editor-integrasjon for AI-agentarbeidsflyter og installere Archgate editor-pluginen.
 
 ## Valg
 
@@ -54,8 +54,7 @@ Deteksjonen prøver `origin/HEAD`, `origin/main`, `origin/master`, lokal `main` 
 ```
 .archgate/
   adrs/
-    GEN-001-example.md           # Example ADR
-    GEN-001-example.rules.ts     # Example rules file
+    GEN-001-example.md           # Example ADR (rules: false — no companion rules file)
   lint/
     README.md                    # Linter rules guide
 ```

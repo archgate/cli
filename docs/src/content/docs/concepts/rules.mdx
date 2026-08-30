@@ -49,7 +49,7 @@ Severity determines what happens when a rule finds a problem:
 | `warning` | 0         | Warning is logged but the check passes    |
 | `info`    | 0         | Informational message, check passes       |
 
-When `archgate check` runs, exit code 1 means at least one `error`-severity violation was found. Exit code 0 means no errors (warnings and info messages are logged but do not block).
+When `archgate check` runs without `--strict`, exit code 1 means at least one `error`-severity violation was found. Exit code 0 means no errors (warnings and info messages are logged but do not block). Under `--strict`, warnings and certain advisory findings can also produce exit code 1 -- see [Configuration -- `strict`](/reference/configuration/#strict).
 
 ## The RuleContext
 

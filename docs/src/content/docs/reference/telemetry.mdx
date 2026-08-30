@@ -22,7 +22,7 @@ When you run an Archgate command, we record:
 
 In addition to the general command lifecycle events (`command_executed` / `command_completed`), specific commands send enriched outcome events:
 
-- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration. No file paths or violation content
+- **`check`**: aggregate rule counts (total, passed, failed, warnings, errors), output format used, whether filters were applied, files scanned, load duration, check duration, and detected project languages/runtimes/frameworks (matched against a fixed list of known dependency and config-file signals, e.g. `typescript`, `bun`, `nextjs`). No file paths or violation content
 - **`init`**: editor choice, whether the plugin was installed, whether the project already existed. A separate one-time `project_initialized` event is emitted with the repo host bucket, `repo_is_git`, and a `repo_public` flag. For repos confirmed public on GitHub / GitLab / Bitbucket / Azure DevOps, this event also carries the remote URL, owner, and repo name. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
 - **`upgrade`**: version transition (from → to), install method, success/failure, and an optional failure reason
 - **`login`**: subcommand used (login, logout, refresh, status), success/failure, and a failure bucket (`network`, `tls`, `denied`, `other`) when it fails
@@ -56,14 +56,15 @@ See [How to opt out](#how-to-opt-out) below for the full details.
 
 When the CLI crashes (exit code 2), we send:
 
-- **Error type, message, and stack trace** (file paths are stripped to relative paths like `src/cli.ts`)
-- **Runtime context**: OS, architecture, Bun version, Archgate version
+- **Error type, message, and stack trace**, including the file paths from the crash location. For the compiled binary (the default install), these are Bun's internal bundle paths (e.g. `/$bunfs/root/cli.js`), not paths from your filesystem. For a `local` (dev dependency) or `global-pm` install, stack frames can include the real absolute path to the installed CLI file on your machine
+- **Install path**: the absolute path to the installed `archgate` executable or entry script, sent as a Sentry tag on every crash report
+- **Runtime context**: OS, architecture, Bun version, Archgate version, install method
 - **Anonymous install ID** (same random UUID as analytics)
 
 ## What we do NOT collect
 
 - **No personal information**: no emails, passwords, secrets, or IP addresses. The one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
-- **No file content**: no ADR content or source code. Crash reports (Sentry) may include relative file paths in stack traces, but never absolute paths or file contents.
+- **No file content**: no ADR content or source code. Crash reports (Sentry) include the file paths from the crash location in the stack trace and the absolute install path of the `archgate` executable (see [Error tracking](#error-tracking-sentry) for exactly what that looks like across install methods), but never file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No free-form flag values**: the one exception is `--output`'s selected format (a fixed enum: `console`/`json`/`github`/`sarif`); we never record user-provided values or what the output contained
 - **No network activity**: no URLs, API keys, or tokens

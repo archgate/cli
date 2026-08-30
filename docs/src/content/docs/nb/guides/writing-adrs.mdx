@@ -38,9 +38,13 @@ Tilgjengelige flagg:
 | `--title <title>` | ADR-tittel (påkrevd i ikke-interaktiv modus)                                  |
 | `--domain <name>` | Domenenavn (innebygd eller [egendefinert](/concepts/domains/#custom-domains)) |
 | `--files <globs>` | Kommaseparerte filmønstre for regelavgrensning                                |
-| `--rules`         | Setter `rules: true` i frontmatter                                            |
+| `--rules`         | Genererer en tilhørende `.rules.ts`-fil ved siden av ADR-en                   |
 | `--body <md>`     | Fullstendig ADR-innhold i markdown (hopper over malen)                        |
 | `--json`          | Skriv resultatet som JSON                                                     |
+
+:::note
+`--rules` skriver alltid ut den tilhørende `.rules.ts`-stubben. Den setter `rules: true` i frontmatter bare når du også sender `--body`; den genererte malen (uten `--body`) skrives alltid med `rules: false`, så du må endre feltet for hånd når den tilhørende filen inneholder ekte sjekker -- `archgate check` laster bare inn tilhørende filer for ADR-er der frontmatter sier `rules: true`.
+:::
 
 ## Den genererte malen
 

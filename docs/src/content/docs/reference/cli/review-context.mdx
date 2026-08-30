@@ -26,6 +26,19 @@ archgate review-context [options]
 archgate review-context --staged
 ```
 
+## Which files count as changed
+
+Even with no flags, this command works against a base ref rather than the working tree alone: the changed-file set is the branch diff (`git diff <base>...HEAD`) unioned with staged, unstaged, and untracked non-ignored files. The base ref resolves the same way as for [`archgate check`](/reference/cli/check/):
+
+| Priority | Source                               | Changed files                                           |
+| -------- | ------------------------------------ | ------------------------------------------------------- |
+| 1        | `--staged`                           | Staged files only — no base ref is resolved             |
+| 2        | `--base <ref>`                       | `git diff <ref>...HEAD` + working-tree changes          |
+| 3        | `.archgate/config.json` `baseBranch` | `git diff <resolved-ref>...HEAD` + working-tree changes |
+| 4        | Auto-detection                       | `git diff <detected-ref>...HEAD` + working-tree changes |
+
+Auto-detection tries `origin/HEAD`, then `origin/main`, `origin/master`, local `main`, and local `master`, and the result is persisted to `.archgate/config.json` so later runs skip the probe. `--base` with no value is the same as omitting it: config first, then auto-detection. When no base ref can be resolved at all, only working-tree changes are used.
+
 ## Strict mode
 
 Pass `--strict` to make this command fail (exit 1) rather than just report: it fails when `truncatedBriefings` is non-empty (requires `--verbose` to have anything to truncate), or, with `--run-checks`, when the reused `checkSummary.warningsExceeded` or `checkSummary.strictAdvisoryExceeded` is true. `--strict` does **not** fail on ordinary rule violations (`checkSummary.failed`/`ruleErrors`) — this command stays a context generator for agents, not a second compliance gate; use [`archgate check`](/reference/cli/check/) to gate on rule violations. A `--strict` failure prints the full JSON payload first, then logs the reason to stderr before exiting.

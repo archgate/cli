@@ -42,57 +42,59 @@ archgate init --editor vscode
 Hvis du allerede er logget inn, vil denne kommandoen:
 
 1. Opprette `.archgate/`-mappen med ADR-er og lint-regler
-2. Legge til den autentiserte markedsplassens URL i VS Code-**brukerinnstillingene** dine
-3. Laste ned og installere Archgate VS Code-utvidelsen (`.vsix`) hvis `code`-CLI-en er tilgjengelig
+2. Legge til markedsplassens URL i VS Code-**brukerinnstillingene** dine
+
+`archgate init` laster ikke ned VS Code-utvidelsen. For å installere selve utvidelsen, kjør `archgate plugin install --editor vscode` (se nedenfor).
 
 Innstillingen `chat.plugins.marketplaces` er applikasjonsscopet i VS Code, så den kan ikke settes per arbeidsområde. CLI-en skriver den automatisk til `settings.json` på brukernivå:
 
-| Plattform | Sti til brukerinnstillinger                             |
-| --------- | ------------------------------------------------------- |
-| Windows   | `%APPDATA%\Code\User\settings.json`                     |
-| macOS     | `~/Library/Application Support/Code/User/settings.json` |
-| Linux     | `~/.config/Code/User/settings.json`                     |
+| Plattform | Sti til brukerinnstillinger                                |
+| --------- | ---------------------------------------------------------- |
+| Windows   | `%APPDATA%\Code\User\settings.json`                        |
+| macOS     | `~/Library/Application Support/Code/User/settings.json`    |
+| Linux     | `~/.config/Code/User/settings.json`                        |
+| WSL       | Stien på Windows-siden ovenfor (VS Code kjører på Windows) |
 
-For å eksplisitt be om plugin-installasjon:
+### 3. Installer utvidelsen
 
-```bash
-archgate init --editor vscode --install-plugin
-```
-
-For å installere eller reinstallere pluginet på et allerede initialisert prosjekt:
+For å installere eller reinstallere utvidelsen på et allerede initialisert prosjekt:
 
 ```bash
 archgate plugin install --editor vscode
 ```
 
+Uten `--editor` oppdager en interaktiv kjøring hvilke editorer som er installert på maskinen din og lar deg velge; en ikke-interaktiv kjøring (en agent eller CI) faller tilbake til Claude Code.
+
+Dette skriver markedsplassens URL på nytt inn i brukerinnstillingene dine, og når `code`-CLI-en er på PATH, laster den ned Archgate VS Code-utvidelsen fra plugins-tjenesten og installerer den via `code --install-extension`. Hvis `code`-CLI-en ikke er tilgjengelig, skrives instruksjoner for manuell installasjon ut. Hvis selve installasjonen feiler, beholdes den nedlastede `.vsix`-filen på `~/.archgate/archgate.vsix` slik at du kan installere den for hånd.
+
 ### Genererte filer
 
-Kommandoen oppretter eller oppdaterer følgende:
+Kommandoene oppretter eller oppdaterer følgende:
 
-| Fil                    | Omfang      | Formål                                                  |
-| ---------------------- | ----------- | ------------------------------------------------------- |
-| Bruker `settings.json` | Bruker      | `chat.plugins.marketplaces` med den autentiserte URL-en |
-| Archgate-utvidelse     | Applikasjon | VS Code-utvidelse installert via `.vsix`                |
+| Fil                    | Omfang      | Formål                                                                |
+| ---------------------- | ----------- | --------------------------------------------------------------------- |
+| Bruker `settings.json` | Bruker      | `chat.plugins.marketplaces` med Archgate-markedsplassens URL (`init`) |
+| Archgate-utvidelse     | Applikasjon | VS Code-utvidelse installert via `.vsix` (`archgate plugin install`)  |
 
 Brukerinnstillingsfilen flettes additivt -- eksisterende innstillinger overskrives aldri. VS Codes innebygde standardmarkedsplasser (`github/copilot-plugins`, `github/awesome-copilot`) bevares når nøkkelen settes for første gang.
-
-VS Code-utvidelsen lastes ned fra Archgate plugins-tjenesten og installeres via `code --install-extension`. Hvis `code`-CLI-en ikke er tilgjengelig, skrives instruksjoner for manuell installasjon ut.
 
 Markedsplassinnstillingen på brukernivå (lagt til i `settings.json`):
 
 ```json
 {
   "chat.plugins.marketplaces": [
-    "https://<github-user>:<token>@plugins.archgate.dev/archgate/vscode.git"
+    "https://plugins.archgate.dev/archgate/vscode.git"
   ]
 }
 ```
+
+URL-en inneholder ingen legitimasjon. Git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` lagret i operativsystemets legitimasjonsbehandler.
 
 ### Manuelt oppsett
 
 Hvis du foretrekker at CLI-en ikke endrer brukerinnstillingene dine, kan du sette opp ting manuelt:
 
-**Markedsplassens URL:** Åpne VS Codes brukerinnstillinger-JSON (`Ctrl+Shift+P` -> "Preferences: Open User Settings (JSON)") og legg til `chat.plugins.marketplaces`-oppføringen vist ovenfor. Du kan finne den autentiserte URL-en din ved å kjøre `archgate plugin url vscode`.
+**Markedsplassens URL:** Åpne VS Codes brukerinnstillinger-JSON (`Ctrl+Shift+P` -> "Preferences: Open User Settings (JSON)") og legg til `chat.plugins.marketplaces`-oppføringen vist ovenfor. Du kan skrive ut URL-en ved å kjøre `archgate plugin url --editor vscode`.
 
 **Utvidelse:** Last ned og installer `.vsix`-filen direkte:
 
@@ -102,17 +104,18 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Erstatt `<token>` med archgate-tokenet ditt (hent det via `archgate plugin url vscode`).
+Erstatt `<token>` med plugin-tokenet `archgate login` lagret for `plugins.archgate.dev` i operativsystemets legitimasjonsbehandler. Du kan lese det tilbake med `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
 
 ## Hva pluginet tilbyr
 
-Pluginet legger til en agent og rollebaserte ferdigheter i VS Codes AI. Agenten orkestrerer guardrails-arbeidsflyten og aktiverer ferdigheter etter behov.
+Pluginet legger til agenter og rollebaserte ferdigheter i VS Codes AI. Utvikleragenten orkestrerer guardrails-arbeidsflyten og aktiverer ferdigheter etter behov.
 
-### Agent
+### Agenter
 
-| Agent                | Formål                                                                    |
-| -------------------- | ------------------------------------------------------------------------- |
-| `archgate:developer` | Generell utviklingsagent som leser ADR-er før koding og validerer etterpå |
+| Agent                | Formål                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| `archgate:developer` | Generell utviklingsagent som leser ADR-er før koding og validerer etterpå            |
+| `archgate:planner`   | Planleggingsagent for å avgrense arbeid og bryte oppgaver ned i ADR-samsvarende steg |
 
 `archgate:developer`-agenten er satt som standardagent via plugin-innstillingene. Den orkestrerer ferdighetene nedenfor automatisk som en del av arbeidsflyten.
 
@@ -120,10 +123,11 @@ Pluginet legger til en agent og rollebaserte ferdigheter i VS Codes AI. Agenten 
 
 | Ferdighet                  | Formål                                                                                  |
 | -------------------------- | --------------------------------------------------------------------------------------- |
-| `archgate:architect`       | Validerer kodeendringer mot alle prosjektets ADR-er for strukturell samsvar             |
-| `archgate:quality-manager` | Gjennomgår regeldekning og foreslår nye ADR-er når mønstre dukker opp                   |
+| `archgate:reviewer`        | Validerer kodeendringer mot alle prosjektets ADR-er for strukturelt samsvar             |
+| `archgate:lessons-learned` | Fanger opp lærdommer og foreslår nye ADR-er når mønstre dukker opp                      |
 | `archgate:adr-author`      | Oppretter og redigerer ADR-er i henhold til prosjektets konvensjoner                    |
 | `archgate:onboard`         | Engangsoppsett: utforsker kodebasen, intervjuer utvikleren, oppretter innledende ADR-er |
+| `archgate:cli-reference`   | Intern referanse for AI-agenter med den komplette kommandoguiden for Archgate CLI       |
 
 ## Første oppsett med onboard
 
@@ -152,16 +156,16 @@ Agenten skriver kode som samsvarer med begrensningene fra ADR-ene. Do's and Don'
 
 Etter å ha skrevet kode, kjører agenten `archgate check` for å utføre automatiserte regler mot endringene. Eventuelle brudd utbedres før man går videre.
 
-### 4. Arkitektgjennomgang
+### 4. Gjennomgå endringer
 
-Agenten aktiverer `archgate:architect` for å validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp.
+Agenten aktiverer `archgate:reviewer` for å validere strukturelt ADR-samsvar utover det automatiserte regler fanger opp.
 
 ### 5. Fang opp læringer
 
-Agenten aktiverer `archgate:quality-manager` for å gjennomgå arbeidet og identifisere mønstre som er verdt å fange opp som nye ADR-er.
+Agenten aktiverer `archgate:lessons-learned` for å gjennomgå arbeidet og identifisere mønstre som er verdt å fange opp som nye ADR-er.
 
 ## Tips
 
-- **Hver utvikler kjører `archgate init --editor vscode`** etter `archgate login` for å konfigurere markedsplassens URL på brukernivå.
+- **Hver utvikler kjører `archgate init --editor vscode`** etter `archgate login` for å konfigurere markedsplassens URL på brukernivå, deretter `archgate plugin install --editor vscode` for å installere utvidelsen.
 - **Kjør onboard en gang per prosjekt** for å generere de innledende ADR-ene fra den faktiske kodebasen din.
 - **Hold ADR-regelfiler oppdatert** -- agenten håndterer det reglene sjekker for.

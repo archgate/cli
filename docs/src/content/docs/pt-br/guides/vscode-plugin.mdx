@@ -42,57 +42,59 @@ archgate init --editor vscode
 Se você já estiver logado, este comando:
 
 1. Cria o diretório `.archgate/` com ADRs e regras de lint
-2. Adiciona a URL autenticada do marketplace nas suas **configurações de usuário** do VS Code
-3. Baixa e instala a extensão Archgate para VS Code (`.vsix`) se o CLI `code` estiver disponível
+2. Adiciona a URL do marketplace nas suas **configurações de usuário** do VS Code
+
+O `archgate init` não baixa a extensão do VS Code. Para instalar a extensão em si, execute `archgate plugin install --editor vscode` (veja abaixo).
 
 A configuração `chat.plugins.marketplaces` tem escopo de aplicação no VS Code, então não pode ser definida por workspace. O CLI escreve automaticamente no seu `settings.json` de nível de usuário:
 
-| Plataforma | Caminho das configurações de usuário                    |
-| ---------- | ------------------------------------------------------- |
-| Windows    | `%APPDATA%\Code\User\settings.json`                     |
-| macOS      | `~/Library/Application Support/Code/User/settings.json` |
-| Linux      | `~/.config/Code/User/settings.json`                     |
+| Plataforma | Caminho das configurações de usuário                        |
+| ---------- | ----------------------------------------------------------- |
+| Windows    | `%APPDATA%\Code\User\settings.json`                         |
+| macOS      | `~/Library/Application Support/Code/User/settings.json`     |
+| Linux      | `~/.config/Code/User/settings.json`                         |
+| WSL        | O caminho do lado Windows acima (o VS Code roda no Windows) |
 
-Para solicitar explicitamente a instalação do plugin:
+### 3. Instale a extensão
 
-```bash
-archgate init --editor vscode --install-plugin
-```
-
-Para instalar ou reinstalar o plugin em um projeto já inicializado:
+Para instalar ou reinstalar a extensão em um projeto já inicializado:
 
 ```bash
 archgate plugin install --editor vscode
 ```
 
+Sem `--editor`, uma execução interativa detecta os editores instalados na sua máquina e permite escolher; uma execução não interativa (um agente ou CI) usa Claude Code como padrão.
+
+Isso reescreve a URL do marketplace nas suas configurações de usuário e, quando o CLI `code` está no seu PATH, baixa a extensão Archgate para VS Code a partir do serviço de plugins e a instala via `code --install-extension`. Se o CLI `code` não estiver disponível, instruções de instalação manual são exibidas. Se a instalação em si falhar, o `.vsix` baixado é mantido em `~/.archgate/archgate.vsix` para que você possa instalá-lo manualmente.
+
 ### Arquivos gerados
 
-O comando cria ou atualiza o seguinte:
+Os comandos criam ou atualizam o seguinte:
 
-| Arquivo                    | Escopo    | Propósito                                         |
-| -------------------------- | --------- | ------------------------------------------------- |
-| `settings.json` do usuário | Usuário   | `chat.plugins.marketplaces` com a URL autenticada |
-| Extensão Archgate          | Aplicação | Extensão VS Code instalada via `.vsix`            |
+| Arquivo                    | Escopo    | Propósito                                                              |
+| -------------------------- | --------- | ---------------------------------------------------------------------- |
+| `settings.json` do usuário | Usuário   | `chat.plugins.marketplaces` com a URL do marketplace Archgate (`init`) |
+| Extensão Archgate          | Aplicação | Extensão VS Code instalada via `.vsix` (`archgate plugin install`)     |
 
 O arquivo de configurações de usuário é mesclado de forma aditiva -- configurações existentes nunca são sobrescritas. Os marketplaces padrão do VS Code (`github/copilot-plugins`, `github/awesome-copilot`) são preservados quando a chave é definida pela primeira vez.
-
-A extensão do VS Code é baixada do serviço de plugins do Archgate e instalada via `code --install-extension`. Se o CLI `code` não estiver disponível, instruções de instalação manual são exibidas.
 
 A configuração do marketplace no nível de usuário (adicionada ao seu `settings.json`):
 
 ```json
 {
   "chat.plugins.marketplaces": [
-    "https://<github-user>:<token>@plugins.archgate.dev/archgate/vscode.git"
+    "https://plugins.archgate.dev/archgate/vscode.git"
   ]
 }
 ```
+
+A URL não contém credenciais. O git se autentica em `plugins.archgate.dev` usando o token que o `archgate login` armazena no gerenciador de credenciais do sistema operacional.
 
 ### Configuração manual
 
 Se preferir não deixar o CLI modificar suas configurações, você pode configurar manualmente:
 
-**URL do marketplace:** Abra o JSON de configurações de usuário do VS Code (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") e adicione a entrada `chat.plugins.marketplaces` mostrada acima. Você pode encontrar sua URL autenticada executando `archgate plugin url vscode`.
+**URL do marketplace:** Abra o JSON de configurações de usuário do VS Code (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)") e adicione a entrada `chat.plugins.marketplaces` mostrada acima. Você pode imprimir a URL executando `archgate plugin url --editor vscode`.
 
 **Extensão:** Baixe e instale o arquivo `.vsix` diretamente:
 
@@ -102,17 +104,18 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Substitua `<token>` pelo seu token archgate (obtenha-o via `archgate plugin url vscode`).
+Substitua `<token>` pelo token de plugin que o `archgate login` armazena para `plugins.archgate.dev` no gerenciador de credenciais do sistema operacional. Você pode lê-lo de volta com `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
 
 ## O que o plugin oferece
 
-O plugin adiciona um agente e skills baseadas em papéis ao VS Code. O agente orquestra o fluxo de guardrails, invocando skills conforme necessário.
+O plugin adiciona agentes e skills baseadas em papéis ao VS Code. O agente developer orquestra o fluxo de guardrails, invocando skills conforme necessário.
 
-### Agente
+### Agentes
 
-| Agente               | Propósito                                                                      |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois |
+| Agente               | Propósito                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------- |
+| `archgate:developer` | Agente de desenvolvimento geral que lê ADRs antes de codificar e valida depois                |
+| `archgate:planner`   | Agente de planejamento para escopar trabalho e dividir tarefas em passos compatíveis com ADRs |
 
 O agente `archgate:developer` é definido como agente padrão via as configurações do plugin. Ele orquestra as skills abaixo automaticamente como parte do seu fluxo.
 
@@ -120,10 +123,11 @@ O agente `archgate:developer` é definido como agente padrão via as configuraç
 
 | Skill                      | Propósito                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------ |
-| `archgate:architect`       | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
-| `archgate:quality-manager` | Revisa a cobertura de regras e propõe novos ADRs quando padrões emergem                    |
+| `archgate:reviewer`        | Valida alterações de código contra todos os ADRs do projeto para conformidade estrutural   |
+| `archgate:lessons-learned` | Captura aprendizados e propõe novos ADRs quando padrões emergem                            |
 | `archgate:adr-author`      | Cria e edita ADRs seguindo as convenções do projeto                                        |
 | `archgate:onboard`         | Configuração única: explora o codebase, entrevista o desenvolvedor e cria os ADRs iniciais |
+| `archgate:cli-reference`   | Referência interna para agentes de IA com o guia completo de comandos do CLI Archgate      |
 
 ## Configuração inicial com onboard
 
@@ -152,16 +156,16 @@ O agente escreve código que cumpre as restrições dos ADRs. As seções Do's a
 
 Após escrever o código, o agente executa `archgate check` para rodar as regras automatizadas contra as alterações. Qualquer violação é corrigida antes de prosseguir.
 
-### 4. Revisão do arquiteto
+### 4. Revisão das alterações
 
-O agente invoca `archgate:architect` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
+O agente invoca `archgate:reviewer` para validar a conformidade estrutural com os ADRs além do que as regras automatizadas capturam.
 
 ### 5. Capturar aprendizados
 
-O agente invoca `archgate:quality-manager` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs.
+O agente invoca `archgate:lessons-learned` para revisar o trabalho e identificar padrões que valem ser capturados como novos ADRs.
 
 ## Dicas
 
-- **Cada desenvolvedor executa `archgate init --editor vscode`** após `archgate login` para configurar a URL do marketplace no nível de usuário.
+- **Cada desenvolvedor executa `archgate init --editor vscode`** após `archgate login` para configurar a URL do marketplace no nível de usuário, depois `archgate plugin install --editor vscode` para instalar a extensão.
 - **Execute o onboard uma vez por projeto** para gerar seus ADRs iniciais a partir do seu codebase real.
 - **Mantenha os arquivos de regras dos ADRs atualizados** -- o agente aplica o que as regras verificam.

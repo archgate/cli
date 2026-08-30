@@ -22,7 +22,7 @@ Når du kjører en Archgate-kommando, registrerer vi:
 
 I tillegg til de generelle livssyklushendelsene for kommandoer (`command_executed` / `command_completed`), sender spesifikke kommandoer berikede utfallshendelser:
 
-- **`check`**: aggregerte regeltellinger (totalt, bestått, feilet, advarsler, feil), brukt utdataformat, om filtre ble brukt, skannede filer, lastetid, sjekktid -- ingen filstier eller bruddinnhold
+- **`check`**: aggregerte regeltellinger (totalt, bestått, feilet, advarsler, feil), brukt utdataformat, om filtre ble brukt, skannede filer, lastetid, sjekktid, og oppdagede prosjektspråk/kjøretider/rammeverk (matchet mot en fast liste over kjente avhengighets- og konfigurasjonsfilsignaler, f.eks. `typescript`, `bun`, `nextjs`) -- ingen filstier eller bruddinnhold
 - **`init`**: editorvalg, om pluginen ble installert, om prosjektet allerede eksisterte. En separat engangshendelse `project_initialized` sendes med repovertsboksen, `repo_is_git` og et `repo_public`-flagg. For repoer bekreftet som offentlige på GitHub / GitLab / Bitbucket, inneholder denne hendelsen også fjern-URL, eier og reponavn -- se [Repoidentitet](#repoidentitet). Private og selvhostede repoer får aldri identitet delt.
 - **`upgrade`**: versjonsovergang (fra -> til), installasjonsmetode, suksess/feil og en valgfri feilårsak
 - **`login`**: underkommando brukt (login, logout, refresh, status), suksess/feil og en feilboks (`network`, `tls`, `denied`, `other`) når det feiler
@@ -56,14 +56,15 @@ Se [Slik reserverer du deg](#slik-reserverer-du-deg) nedenfor for fullstendige d
 
 Når CLI-en krasjer (avslutningskode 2), sender vi:
 
-- **Feiltype, melding og stacktrace** (filstier strippes til relative stier som `src/cli.ts`)
-- **Kjøretidskontekst**: OS, arkitektur, Bun-versjon, Archgate-versjon
+- **Feiltype, melding og stacktrace**, inkludert filstiene fra krasjstedet. For den kompilerte binæren (standardinstallasjonen) er dette Buns interne bundle-stier (f.eks. `/$bunfs/root/cli.js`), ikke stier fra filsystemet ditt. For en `local`-installasjon (utviklingsavhengighet) eller `global-pm`-installasjon kan stackrammer inkludere den faktiske absolutte stien til den installerte CLI-filen på maskinen din
+- **Installasjonssti**: den absolutte stien til den installerte `archgate`-kjørbare filen eller inngangsskriptet, sendt som en Sentry-tag på hver krasjrapport
+- **Kjøretidskontekst**: OS, arkitektur, Bun-versjon, Archgate-versjon, installasjonsmetode
 - **Anonym installasjons-ID** (samme tilfeldige UUID som analyse)
 
 ## Hva vi IKKE samler inn
 
 - **Ingen personopplysninger**: ingen e-postadresser, passord, hemmeligheter eller IP-adresser. Engangshendelsen `project_initialized` kan inkludere `repo_owner` og `repo_name` for repositorier som er bekreftet offentlige av verten sin; se [Repoidentitet](#repoidentitet). Private og selvhostede repoer får aldri identitet delt.
-- **Intet filinnhold**: ingen ADR-innhold eller kildekode. Feilrapporter (Sentry) kan inkludere relative filstier i stakkspor, men aldri absolutte stier eller filinnhold.
+- **Intet filinnhold**: ingen ADR-innhold eller kildekode. Feilrapporter (Sentry) inkluderer filstiene fra krasjstedet i stacktracen og den absolutte installasjonsstien til den `archgate`-kjørbare filen (se [Feilsporing](#feilsporing-sentry) for nøyaktig hvordan dette ser ut på tvers av installasjonsmetoder), men aldri filinnhold.
 - **Ingen prompt- eller AI-kontekst**: ingenting fra agentinteraksjoner, prompter eller AI-generert innhold
 - **Ingen frie flaggverdier**: det ene unntaket er det valgte `--output`-formatet (en fast enum: `console`/`json`/`github`/`sarif`); vi registrerer aldri brukeroppgitte verdier eller hva utdataene inneholdt
 - **Ingen nettverksaktivitet**: ingen URL-er, API-nøkler eller tokener

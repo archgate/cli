@@ -7,7 +7,7 @@ description: Configure hooks de pre-commit do Archgate para verificar conformida
 
 O comando `archgate check --staged` verifica apenas os arquivos staged no git em relação às suas regras de ADR. Como ele ignora arquivos não-staged e não-rastreados, ele executa rápido o suficiente para ser usado como hook de pre-commit sem desacelerar seu fluxo de trabalho.
 
-Quando uma verificação falha, o commit é bloqueado. As violações são impressas em stderr com caminhos de arquivo e números de linha para que você possa localizá-las e corrigi-las imediatamente.
+Quando uma verificação falha, o commit é bloqueado. As violações são impressas em stdout com caminhos de arquivo e números de linha para que você possa localizá-las e corrigi-las imediatamente.
 
 ## Lefthook
 
@@ -65,13 +65,13 @@ Sem `--staged`, `archgate check` escaneia todos os arquivos correspondentes ao p
 
 ## Flags úteis
 
-| Flag         | Finalidade                                                                                                                                   |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`   | Verifica apenas arquivos staged no git (obrigatório para pre-commit)                                                                         |
-| `--verbose`  | Mostra regras aprovadas e informações de tempo -- útil para debugar por que uma verificação está lenta ou quais regras estão sendo avaliadas |
-| `--json`     | Exibe resultados como JSON -- útil para encaminhar a outras ferramentas ou scripts de relatório personalizados                               |
-| `--adr <id>` | Verifica apenas regras de um ADR específico -- útil para isolar uma única regra durante o debug                                              |
-| `--ci`       | Exibe anotações do GitHub Actions -- use em workflows de CI ao invés de hooks de pre-commit                                                  |
+| Flag              | Finalidade                                                                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`        | Verifica apenas arquivos staged no git (obrigatório para pre-commit)                                                                         |
+| `--verbose`       | Mostra regras aprovadas e informações de tempo -- útil para debugar por que uma verificação está lenta ou quais regras estão sendo avaliadas |
+| `--output json`   | Exibe resultados como JSON -- útil para encaminhar a outras ferramentas ou scripts de relatório personalizados                               |
+| `--adr <id>`      | Verifica apenas regras de um ADR específico -- útil para isolar uma única regra durante o debug                                              |
+| `--output github` | Exibe anotações do GitHub Actions -- use em workflows de CI ao invés de hooks de pre-commit                                                  |
 
 ## Combinando com outros hooks
 
