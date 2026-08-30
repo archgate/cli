@@ -63,11 +63,11 @@ When the CLI crashes (exit code 2), we send:
 
 ## What we do NOT collect
 
-- **No personal information**: no emails, passwords, secrets, or IP addresses. Two qualified exceptions: the one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host (see [Repo identity](#repo-identity); private and self-hosted repos never have identity shared), and crash reports include the absolute install path of the `archgate` executable, which can contain your OS account name (see [Error tracking](#error-tracking-sentry)).
+- **No personal information**: no emails, passwords, secrets, or IP addresses. Two qualified exceptions: the one-time `project_initialized` event can include the remote URL, `repo_owner`, and `repo_name` for repositories confirmed public by their host (see [Repo identity](#repo-identity); private and self-hosted repos never have identity shared), and crash reports include the absolute install path of the `archgate` executable, which can contain your OS account name (see [Error tracking](#error-tracking-sentry)).
 - **No file content**: no ADR content or source code. Crash reports (Sentry) include the file paths from the crash location in the stack trace and the absolute install path of the `archgate` executable (see [Error tracking](#error-tracking-sentry) for exactly what that looks like across install methods), but never file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No free-form flag values**: the one exception is `--output`'s selected format (a fixed enum: `console`/`json`/`github`/`sarif`); we never record user-provided values or what the output contained
-- **No network activity**: no URLs, API keys, or tokens
+- **No network activity**: no API keys or tokens, and no URLs — with one exception: the remote URL of a repository confirmed public by its host, in the one-time `project_initialized` event (see [Repo identity](#repo-identity))
 
 ## IP anonymization
 

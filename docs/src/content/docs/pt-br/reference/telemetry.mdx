@@ -63,11 +63,11 @@ Quando a CLI falha (código de saída 2), enviamos:
 
 ## O que NÃO coletamos
 
-- **Nenhuma informação pessoal**: nenhum email, senha, segredo ou endereço IP. Duas exceções qualificadas: o evento único `project_initialized` pode incluir `repo_owner` e `repo_name` para repositórios confirmados como públicos pelo host (veja [Identidade do repositório](#identidade-do-repositório); repositórios privados e auto-hospedados nunca têm identidade compartilhada), e relatórios de falha incluem o caminho absoluto de instalação do executável `archgate`, que pode conter o nome da sua conta no sistema operacional (veja [Rastreamento de erros](#rastreamento-de-erros-sentry)).
+- **Nenhuma informação pessoal**: nenhum email, senha, segredo ou endereço IP. Duas exceções qualificadas: o evento único `project_initialized` pode incluir a URL remota, `repo_owner` e `repo_name` para repositórios confirmados como públicos pelo host (veja [Identidade do repositório](#identidade-do-repositório); repositórios privados e auto-hospedados nunca têm identidade compartilhada), e relatórios de falha incluem o caminho absoluto de instalação do executável `archgate`, que pode conter o nome da sua conta no sistema operacional (veja [Rastreamento de erros](#rastreamento-de-erros-sentry)).
 - **Nenhum conteúdo de arquivo**: nenhum conteúdo de ADR ou código-fonte. Relatórios de erro (Sentry) incluem os caminhos de arquivo do local da falha no stack trace e o caminho absoluto de instalação do executável `archgate` (veja [Rastreamento de erros](#rastreamento-de-erros-sentry) para saber exatamente como isso aparece em cada método de instalação), mas nunca conteúdos de arquivo.
 - **Nenhum contexto de IA**: nada de interações com agentes, prompts ou conteúdo gerado por IA
 - **Nenhum valor livre de flag**: a única exceção é o formato selecionado em `--output` (um enum fixo: `console`/`json`/`github`/`sarif`); nunca registramos valores fornecidos pelo usuário nem o conteúdo da saída
-- **Nenhuma atividade de rede**: nenhuma URL, chave de API ou token
+- **Nenhuma atividade de rede**: nenhuma chave de API ou token, e nenhuma URL — com uma exceção: a URL remota de um repositório confirmado como público pelo host, no evento único `project_initialized` (veja [Identidade do repositório](#identidade-do-repositório))
 
 ## Anonimização de IP
 

@@ -63,11 +63,11 @@ Når CLI-en krasjer (avslutningskode 2), sender vi:
 
 ## Hva vi IKKE samler inn
 
-- **Ingen personopplysninger**: ingen e-postadresser, passord, hemmeligheter eller IP-adresser. To kvalifiserte unntak: engangshendelsen `project_initialized` kan inkludere `repo_owner` og `repo_name` for repositorier som er bekreftet offentlige av verten sin (se [Repoidentitet](#repoidentitet); private og selvhostede repoer får aldri identitet delt), og krasjrapporter inkluderer den absolutte installasjonsstien til den `archgate`-kjørbare filen, som kan inneholde OS-kontonavnet ditt (se [Feilsporing](#feilsporing-sentry)).
+- **Ingen personopplysninger**: ingen e-postadresser, passord, hemmeligheter eller IP-adresser. To kvalifiserte unntak: engangshendelsen `project_initialized` kan inkludere fjern-URL-en, `repo_owner` og `repo_name` for repositorier som er bekreftet offentlige av verten sin (se [Repoidentitet](#repoidentitet); private og selvhostede repoer får aldri identitet delt), og krasjrapporter inkluderer den absolutte installasjonsstien til den `archgate`-kjørbare filen, som kan inneholde OS-kontonavnet ditt (se [Feilsporing](#feilsporing-sentry)).
 - **Intet filinnhold**: ingen ADR-innhold eller kildekode. Feilrapporter (Sentry) inkluderer filstiene fra krasjstedet i stacktracen og den absolutte installasjonsstien til den `archgate`-kjørbare filen (se [Feilsporing](#feilsporing-sentry) for nøyaktig hvordan dette ser ut på tvers av installasjonsmetoder), men aldri filinnhold.
 - **Ingen prompt- eller AI-kontekst**: ingenting fra agentinteraksjoner, prompter eller AI-generert innhold
 - **Ingen frie flaggverdier**: det ene unntaket er det valgte `--output`-formatet (en fast enum: `console`/`json`/`github`/`sarif`); vi registrerer aldri brukeroppgitte verdier eller hva utdataene inneholdt
-- **Ingen nettverksaktivitet**: ingen URL-er, API-nøkler eller tokener
+- **Ingen nettverksaktivitet**: ingen API-nøkler eller tokener, og ingen URL-er — med ett unntak: fjern-URL-en til et repositorium bekreftet offentlig av verten sin, i engangshendelsen `project_initialized` (se [Repoidentitet](#repoidentitet))
 
 ## IP-anonymisering
 
