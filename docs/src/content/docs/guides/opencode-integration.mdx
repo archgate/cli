@@ -17,14 +17,14 @@ archgate init --editor opencode
 The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
 :::
 
-The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes a governance rule and hooks into `.cursor/`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
+The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes its `afterFileEdit` hook into the project's `.cursor/hooks.json`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
 
 opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/` when that variable is set, and falls back to `$HOME/.config/opencode/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\`, not under `%APPDATA%`:
 
-| Platform      | Install location                        |
-| ------------- | --------------------------------------- |
-| Linux / macOS | `~/.config/opencode/`                   |
-| Windows       | `C:\Users\<username>\.config\opencode\` |
+| Platform      | Install location                                                    |
+| ------------- | ------------------------------------------------------------------- |
+| Linux / macOS | `$XDG_CONFIG_HOME/opencode/`, falling back to `~/.config/opencode/` |
+| Windows       | `C:\Users\<username>\.config\opencode\` (same fallback rule)        |
 
 Inside that directory, agents are written to `agents/` and skills to `skills/`.
 

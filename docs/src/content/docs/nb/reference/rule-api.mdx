@@ -537,7 +537,7 @@ Hvilken rapportør som viser hvilket felt:
 
 - **Konsollet** skriver ut `message` og `file:line`. Den skriver ut `fix` bare under `--verbose`, og aldri kolonner.
 - **`--output json`** inneholder alle feltene over, slik at agenter og redigeringsintegrasjoner kan utheve det nøyaktige området i stedet for hele linjen.
-- **`--output sarif`** inneholder `message`, `file`, `line` og `endLine` (som en SARIF-`region`). Kolonner og `fix` utelates -- SARIF har ingen `startColumn` å pare `endColumn` med.
+- **`--output sarif`** inneholder `message`, `file`, `line` og `endLine` (som en SARIF-`region`). Kolonner og `fix` utelates -- Archgates report-detalj bærer en `endColumn` men ingen `startColumn` å forankre den til, så serialisereren sender bare linjefeltene.
 - **`--output github`** sender ut `file`/`line`-annotasjoner med kun `message`.
 
 Legg alt en gjennomgåer må lese i `message`; behandle `fix` som en berikelse for lokal og agent-rettet utdata.

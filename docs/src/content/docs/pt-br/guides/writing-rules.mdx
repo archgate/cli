@@ -190,14 +190,14 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 
 Um terceiro argumento opcional cobre mais duas necessidades:
 
-- `{ rev: "base" }` faz o parse do arquivo na **revisão base do git** em vez da árvore de trabalho -- combine com um parse da árvore de trabalho para detectar se a estrutura executável mudou (veja abaixo).
-- `{ comments: true }` anexa um array `comments` estruturado à árvore (todas as quatro linguagens), para que regras de governança de comentários trabalhem com tokens de comentário estruturados em vez de regex.
+- `rev: "base"` faz o parse do arquivo na **revisão base do git** em vez da árvore de trabalho -- combine com um parse da árvore de trabalho para detectar se a estrutura executável mudou (veja abaixo).
+- `comments: true` anexa um array `comments` estruturado à árvore (todas as quatro linguagens), para que regras de governança de comentários trabalhem com tokens de comentário estruturados em vez de regex.
 
 Veja [Verificações estruturais com ctx.ast()](#verificações-estruturais-com-ctxast) abaixo para exemplos completos, e a [Referência da API de Regras](/reference/rule-api/#ast) para o formato retornado por linguagem e as opções completas.
 
 ### ctx.fileAtBase(path)
 
-Lê o código-fonte de um arquivo na **revisão base do git** -- a base de merge entre a ref base e `HEAD`. `archgate check` resolve essa ref por conta própria (`--base <ref>`, depois a branch base configurada, depois auto-detecção), então uma base normalmente está disponível sem passar nenhuma flag. Retorna `null` quando nenhuma base pôde ser resolvida (uma execução com `--staged`, um projeto que não é um repositório git, nenhuma branch base detectável, ou históricos não relacionados) ou quando o arquivo não existia na base (um arquivo adicionado), então uma única verificação de null cobre ambos os casos. Para uma comparação estrutural, prefira `ctx.ast(path, language, { rev: "base" })`.
+Lê o código-fonte de um arquivo na **revisão base do git** -- a base de merge entre a ref base e `HEAD`. `archgate check` resolve essa ref por conta própria (`--base <ref>`, depois a branch base configurada, depois auto-detecção), então uma base normalmente está disponível sem passar nenhuma flag. Retorna `null` quando nenhuma base pôde ser resolvida (uma execução com `--staged`, um projeto que não é um repositório git, nenhuma branch base detectável, ou históricos não relacionados) ou quando o arquivo não existia na base (um arquivo adicionado), então uma única verificação de null cobre ambos os casos. Para uma comparação estrutural, prefira `ctx.ast()` com `rev: "base"`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -457,7 +457,7 @@ O Ripper usa um formato de nó diferente para a forma com parênteses -- `puts("
 
 ### Comparando com a revisão base
 
-Algumas regras não se importam com o estado atual de um arquivo, mas com **o que mudou**. Um caso comum: dispensar uma exigência (um bump de versão, uma entrada no changelog) quando uma alteração é apenas de documentação -- a estrutura executável permanece intocada e só comentários ou formatação se moveram. `ctx.ast(path, language, { rev: "base" })` faz o parse do arquivo na revisão base do git, para que você possa compará-lo com o parse da árvore de trabalho. Comentários estão ausentes dos formatos ESTree e `ast` do Python -- mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele, então uma serialização crua difere mesmo em uma edição apenas de documentação. Compare uma **projeção sem posições** das duas árvores. (Docstrings do Python são nós de string comuns na árvore `ast`, então uma docstring editada é uma mudança real da árvore -- remova-as também se sua regra deve tratar edições de documentação como neutras.)
+Algumas regras não se importam com o estado atual de um arquivo, mas com **o que mudou**. Um caso comum: dispensar uma exigência (um bump de versão, uma entrada no changelog) quando uma alteração é apenas de documentação -- a estrutura executável permanece intocada e só comentários ou formatação se moveram. Chamar `ctx.ast()` com `rev: "base"` faz o parse do arquivo na revisão base do git, para que você possa compará-lo com o parse da árvore de trabalho. Comentários estão ausentes dos formatos ESTree e `ast` do Python -- mas as **posições** dos nós não estão: os campos `loc` / `lineno` se deslocam quando um comentário ou linha em branco move as linhas abaixo dele, então uma serialização crua difere mesmo em uma edição apenas de documentação. Compare uma **projeção sem posições** das duas árvores. (Docstrings do Python são nós de string comuns na árvore `ast`, então uma docstring editada é uma mudança real da árvore -- remova-as também se sua regra deve tratar edições de documentação como neutras.)
 
 ```typescript
 export default {
@@ -508,7 +508,7 @@ O `archgate check` resolve uma base automaticamente (ou aceita um `--base <ref>`
 
 ### Governando comentários
 
-`ctx.ast(path, language, { comments: true })` anexa um array `comments` à árvore, para que regras de política de comentários trabalhem com tokens estruturados (`type`, `value`, `loc`) em vez de regex linha a linha. As posições dos comentários são precisas em relação ao código-fonte original mesmo para TypeScript. Suportado para todas as quatro linguagens -- para `ruby`, onde a árvore é um array `Ripper.sexp`, o array `comments` fica pendurado nesse array como uma propriedade não indexada.
+Chamar `ctx.ast()` com `comments: true` anexa um array `comments` à árvore, para que regras de política de comentários trabalhem com tokens estruturados (`type`, `value`, `loc`) em vez de regex linha a linha. As posições dos comentários são precisas em relação ao código-fonte original mesmo para TypeScript. Suportado para todas as quatro linguagens -- para `ruby`, onde a árvore é um array `Ripper.sexp`, o array `comments` fica pendurado nesse array como uma propriedade não indexada.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });

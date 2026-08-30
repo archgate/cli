@@ -190,14 +190,14 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 
 Et valgfritt tredje argument dekker to flere behov:
 
-- `{ rev: "base" }` parser filen ved den **grunnleggende git-revisjonen** i stedet for arbeidstreet -- kombiner den med en parsing av arbeidstreet for å oppdage om den kjørbare strukturen har endret seg (se nedenfor).
-- `{ comments: true }` fester en strukturert `comments`-matrise til treet (alle fire språkene), slik at kommentarstyringsregler kan jobbe mot kommentar-tokener i stedet for regulære uttrykk.
+- `rev: "base"` parser filen ved den **grunnleggende git-revisjonen** i stedet for arbeidstreet -- kombiner den med en parsing av arbeidstreet for å oppdage om den kjørbare strukturen har endret seg (se nedenfor).
+- `comments: true` fester en strukturert `comments`-matrise til treet (alle fire språkene), slik at kommentarstyringsregler kan jobbe mot kommentar-tokener i stedet for regulære uttrykk.
 
 Se [Strukturelle sjekker med ctx.ast()](#strukturelle-sjekker-med-ctxast) nedenfor for komplette eksempler, og [Regel-API-referansen](/reference/rule-api/#ast) for den returnerte formen per språk og de fullstendige alternativene.
 
 ### ctx.fileAtBase(path)
 
-Les en fils kildekode ved den **grunnleggende git-revisjonen** -- fellespunktet (merge base) mellom grunnreferansen og `HEAD`. `archgate check` løser selv denne referansen (`--base <ref>`, deretter den konfigurerte grunngrenen, deretter automatisk deteksjon), så en basis er normalt tilgjengelig uten å sende noe flagg. Returnerer `null` når ingen basis kunne løses (en `--staged`-kjøring, et prosjekt som ikke er et git-repository, ingen grunngren kunne oppdages, eller urelaterte historikker) eller når filen ikke fantes ved basisen (en lagt-til fil), slik at en enkelt null-sjekk dekker begge tilfellene. For en strukturell sammenligning, foretrekk `ctx.ast(path, language, { rev: "base" })`.
+Les en fils kildekode ved den **grunnleggende git-revisjonen** -- fellespunktet (merge base) mellom grunnreferansen og `HEAD`. `archgate check` løser selv denne referansen (`--base <ref>`, deretter den konfigurerte grunngrenen, deretter automatisk deteksjon), så en basis er normalt tilgjengelig uten å sende noe flagg. Returnerer `null` når ingen basis kunne løses (en `--staged`-kjøring, et prosjekt som ikke er et git-repository, ingen grunngren kunne oppdages, eller urelaterte historikker) eller når filen ikke fantes ved basisen (en lagt-til fil), slik at en enkelt null-sjekk dekker begge tilfellene. For en strukturell sammenligning, foretrekk `ctx.ast()` med `rev: "base"`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -457,7 +457,7 @@ Ripper bruker en annen nodeform for varianten med parenteser -- `puts("hello")` 
 
 ### Sammenligne mot basisrevisjonen
 
-Noen regler bryr seg ikke om en fils nåværende tilstand, men om **hva som har endret seg**. Et vanlig tilfelle: frafalle et krav (en versjonsheving, en endringsloggoppføring) når en endring bare gjelder dokumentasjon -- den kjørbare strukturen er urørt, og bare kommentarer eller formatering har flyttet seg. `ctx.ast(path, language, { rev: "base" })` parser filen ved den grunnleggende git-revisjonen, slik at du kan sammenligne den mot parsingen av arbeidstreet. Kommentarer er fraværende fra ESTree- og Python-`ast`-formene -- men det er ikke node**posisjonene**: `loc`- / `lineno`-feltene forskyves når en kommentar eller tom linje flytter linjene under seg, så en rå serialisering skiller seg selv for en ren dokumentasjonsendring. Sammenlign en **posisjonsfri projeksjon** av de to trærne i stedet. (Python-dokstrenger er vanlige strengnoder i `ast`-treet, så en endret dokstreng er en reell treendring -- fjern dem også hvis regelen din skal behandle dokumentasjonsendringer som nøytrale.)
+Noen regler bryr seg ikke om en fils nåværende tilstand, men om **hva som har endret seg**. Et vanlig tilfelle: frafalle et krav (en versjonsheving, en endringsloggoppføring) når en endring bare gjelder dokumentasjon -- den kjørbare strukturen er urørt, og bare kommentarer eller formatering har flyttet seg. Å kalle `ctx.ast()` med `rev: "base"` parser filen ved den grunnleggende git-revisjonen, slik at du kan sammenligne den mot parsingen av arbeidstreet. Kommentarer er fraværende fra ESTree- og Python-`ast`-formene -- men det er ikke node**posisjonene**: `loc`- / `lineno`-feltene forskyves når en kommentar eller tom linje flytter linjene under seg, så en rå serialisering skiller seg selv for en ren dokumentasjonsendring. Sammenlign en **posisjonsfri projeksjon** av de to trærne i stedet. (Python-dokstrenger er vanlige strengnoder i `ast`-treet, så en endret dokstreng er en reell treendring -- fjern dem også hvis regelen din skal behandle dokumentasjonsendringer som nøytrale.)
 
 ```typescript
 export default {
@@ -508,7 +508,7 @@ export default {
 
 ### Styre kommentarer
 
-`ctx.ast(path, language, { comments: true })` fester en `comments`-matrise til treet, slik at kommentarpolicy-regler jobber mot strukturerte tokener (`type`, `value`, `loc`) i stedet for linje-for-linje regulære uttrykk. Kommentarposisjoner er nøyaktige mot originalkilden selv for TypeScript. Støttet for alle fire språkene -- for `ruby`, der treet er en `Ripper.sexp`-matrise, følger `comments`-matrisen med på den matrisen som en ikke-indeksert egenskap.
+Å kalle `ctx.ast()` med `comments: true` fester en `comments`-matrise til treet, slik at kommentarpolicy-regler jobber mot strukturerte tokener (`type`, `value`, `loc`) i stedet for linje-for-linje regulære uttrykk. Kommentarposisjoner er nøyaktige mot originalkilden selv for TypeScript. Støttet for alle fire språkene -- for `ruby`, der treet er en `Ripper.sexp`-matrise, følger `comments`-matrisen med på den matrisen som en ikke-indeksert egenskap.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });

@@ -537,7 +537,7 @@ Which reporter surfaces which field:
 
 - **Console** prints `message` and `file:line`. It prints `fix` only under `--verbose`, and never columns.
 - **`--output json`** carries every field above, so agents and editor integrations can highlight the exact range instead of the whole line.
-- **`--output sarif`** carries `message`, `file`, `line`, and `endLine` (as a SARIF `region`). Columns and `fix` are omitted -- SARIF has no `startColumn` to pair `endColumn` with.
+- **`--output sarif`** carries `message`, `file`, `line`, and `endLine` (as a SARIF `region`). Columns and `fix` are omitted -- Archgate's report detail carries an `endColumn` but no `startColumn` to anchor it to, so the serializer emits only the line fields.
 - **`--output github`** emits `file`/`line` annotations with `message` only.
 
 Put anything a reviewer must read in `message`; treat `fix` as an enrichment for local and agent-facing output.

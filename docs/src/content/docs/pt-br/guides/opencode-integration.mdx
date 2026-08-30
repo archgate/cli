@@ -17,14 +17,14 @@ archgate init --editor opencode
 O bundle de agentes do opencode está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
 :::
 
-Os agentes e skills do opencode **não são gravados na árvore do seu projeto** -- diferente do Cursor, que também instala seus agentes e skills no escopo do usuário, mas ainda assim grava uma regra de governança e hooks em `.cursor/`. No opencode nada específico do editor chega ao repositório: tudo vive na sua máquina e fica disponível em todos os projetos que você abrir com o opencode.
+Os agentes e skills do opencode **não são gravados na árvore do seu projeto** -- diferente do Cursor, que também instala seus agentes e skills no escopo do usuário, mas ainda assim grava seu hook `afterFileEdit` no `.cursor/hooks.json` do projeto. No opencode nada específico do editor chega ao repositório: tudo vive na sua máquina e fica disponível em todos os projetos que você abrir com o opencode.
 
 O opencode usa a convenção XDG Base Directory em todas as plataformas (via o pacote `xdg-basedir`), então o local de instalação é `$XDG_CONFIG_HOME/opencode/` quando essa variável está definida, com fallback para `$HOME/.config/opencode/` caso contrário. Isso significa que instalações no Windows ficam em `C:\Users\<usuario>\.config\opencode\`, não em `%APPDATA%`:
 
-| Plataforma    | Local de instalação                    |
-| ------------- | -------------------------------------- |
-| Linux / macOS | `~/.config/opencode/`                  |
-| Windows       | `C:\Users\<usuario>\.config\opencode\` |
+| Plataforma    | Local de instalação                                              |
+| ------------- | ---------------------------------------------------------------- |
+| Linux / macOS | `$XDG_CONFIG_HOME/opencode/`, com fallback `~/.config/opencode/` |
+| Windows       | `C:\Users\<usuario>\.config\opencode\` (mesma regra de fallback) |
 
 Dentro desse diretório, os agentes são gravados em `agents/` e as skills em `skills/`.
 

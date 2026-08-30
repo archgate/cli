@@ -123,8 +123,8 @@ export default {
 ## Personalização
 
 - **Alterar a allowlist**: Adicione ou remova identificadores de licença baseado na licença do seu projeto. Projetos GPL podem permitir dependências GPL; projetos Apache-2.0 devem bloqueá-las.
-- **Escanear transitivas (já é o padrão aqui)**: `ctx.glob("node_modules/{*,@*/*}/package.json")` já percorre todo pacote instalado — direto e transitivo, incluindo pacotes escopados via o branch `@*/*`.
-- **Verificar apenas deps de produção**: Leia o `package.json` raiz com `ctx.readJSON("package.json")` e filtre `pkgFiles` para os nomes presentes no campo `dependencies` dele, caso você só queira bloquear código empacotado/distribuído, e não `devDependencies`.
+- **Escanear transitivas (já é o padrão aqui)**: o glob acima percorre todo pacote instalado no nível superior de `node_modules/`, incluindo pacotes escopados — com o layout plano do npm ou do Bun, isso também cobre as dependências transitivas içadas (hoisted). Dois requisitos: o ADR que contém a regra precisa definir `respectGitignore: false`, porque `node_modules/` normalmente está no gitignore e `ctx.glob` respeita o `.gitignore` por padrão; e árvores `node_modules` aninhadas (layouts do pnpm, conflitos de versão) não são atravessadas — troque o padrão para `node_modules/**/package.json` para incluí-las, ao custo de também casar arquivos `package.json` distribuídos dentro de pacotes.
+- **Verificar apenas deps de produção**: Leia o `package.json` raiz com `ctx.readJSON("package.json")` e filtre `pkgFiles` para os nomes presentes no campo `dependencies` dele, caso você só queira bloquear código empacotado/distribuído, e não `devDependencies`. Note que isso mantém apenas as dependências de produção **diretas** — os pacotes transitivos que elas trazem saem do escaneamento; cobrir o grafo de produção completo exige uma resolução baseada no lockfile.
 
 ## Quando usar
 

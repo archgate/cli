@@ -123,8 +123,8 @@ export default {
 ## Tilpasning
 
 - **Endre tillatt-listen**: Legg til eller fjern lisensidentifikatorer basert på prosjektets lisens. GPL-prosjekter kan tillate GPL-avhengigheter; Apache-2.0-prosjekter bør blokkere dem.
-- **Skann transitive avhengigheter (standard her)**: `ctx.glob("node_modules/{*,@*/*}/package.json")` går allerede gjennom hver installerte pakke — direkte og transitiv, inkludert scoped pakker via `@*/*`-grenen.
-- **Sjekk kun produksjonsavhengigheter**: Les rot-`package.json` med `ctx.readJSON("package.json")` og filtrer `pkgFiles` ned til navnene som finnes i dens `dependencies`-felt hvis du bare vil beskytte bundlet/levert kode, ikke `devDependencies`.
+- **Skann transitive avhengigheter (standard her)**: globben ovenfor går gjennom hver pakke installert på toppnivået av `node_modules/`, inkludert scoped pakker — med npms eller Buns flate layout dekker det også transitive avhengigheter som er heist opp. To krav: ADR-en som inneholder regelen må sette `respectGitignore: false`, fordi `node_modules/` normalt er gitignorert og `ctx.glob` respekterer `.gitignore` som standard; og nestede `node_modules`-trær (pnpm-layouter, versjonskonflikter) krysses ikke — bytt mønsteret til `node_modules/**/package.json` for å inkludere dem, på bekostning av at `package.json`-filer som leveres inne i pakker også matches.
+- **Sjekk kun produksjonsavhengigheter**: Les rot-`package.json` med `ctx.readJSON("package.json")` og filtrer `pkgFiles` ned til navnene som finnes i dens `dependencies`-felt hvis du bare vil beskytte bundlet/levert kode, ikke `devDependencies`. Merk at dette bare beholder **direkte** produksjonsavhengigheter — de transitive pakkene de drar inn faller ut av skanningen; å dekke hele produksjonsgrafen krever en lockfile-basert oppløsning.
 
 ## Når bør du bruke den
 

@@ -190,14 +190,14 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 
 An optional third argument covers two more needs:
 
-- `{ rev: "base" }` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
-- `{ comments: true }` attaches a structured `comments` array to the tree (all four languages), so comment-governance rules can work against comment tokens instead of regex.
+- `rev: "base"` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
+- `comments: true` attaches a structured `comments` array to the tree (all four languages), so comment-governance rules can work against comment tokens instead of regex.
 
 See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language and the full options.
 
 ### ctx.fileAtBase(path)
 
-Read a file's source at the **base git revision** -- the merge base of the base ref and `HEAD`. `archgate check` resolves that ref itself (`--base <ref>`, then the configured base branch, then auto-detection), so a base is normally available without passing any flag. Returns `null` when no base could be resolved (a `--staged` run, a project that is not a git repository, no detectable base branch, or unrelated histories) or when the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
+Read a file's source at the **base git revision** -- the merge base of the base ref and `HEAD`. `archgate check` resolves that ref itself (`--base <ref>`, then the configured base branch, then auto-detection), so a base is normally available without passing any flag. Returns `null` when no base could be resolved (a `--staged` run, a project that is not a git repository, no detectable base branch, or unrelated histories) or when the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast()` with `rev: "base"`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -457,7 +457,7 @@ Ripper uses a different node shape for the parenthesized form -- `puts("hello")`
 
 ### Comparing against the base revision
 
-Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
+Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. Calling `ctx.ast()` with `rev: "base"` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
 
 ```typescript
 export default {
@@ -508,7 +508,7 @@ export default {
 
 ### Governing comments
 
-`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for all four languages -- for `ruby`, where the tree is a `Ripper.sexp` array, the `comments` array rides on that array as a non-index property.
+Calling `ctx.ast()` with `comments: true` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for all four languages -- for `ruby`, where the tree is a `Ripper.sexp` array, the `comments` array rides on that array as a non-index property.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });

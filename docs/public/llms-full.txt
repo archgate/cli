@@ -407,7 +407,7 @@ rules: false
 - **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks. The generated example ships with `rules: false`.
 - **files**: Optional glob patterns that scope which files the rules apply to. Omit it to scope the whole project.
 
-Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
+Below the frontmatter, write the decision in Markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
 
 ## 4. Add a companion rules file
 
@@ -1912,14 +1912,14 @@ archgate init --editor opencode
 
 The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
 
-The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes a governance rule and hooks into `.cursor/`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
+The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes its `afterFileEdit` hook into the project's `.cursor/hooks.json`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
 
 opencode uses the XDG Base Directory convention on every platform (via the `xdg-basedir` package), so the install location resolves to `$XDG_CONFIG_HOME/opencode/` when that variable is set, and falls back to `$HOME/.config/opencode/` otherwise. That means Windows installs land under `C:\Users\<username>\.config\opencode\`, not under `%APPDATA%`:
 
-| Platform      | Install location                        |
-| ------------- | --------------------------------------- |
-| Linux / macOS | `~/.config/opencode/`                   |
-| Windows       | `C:\Users\<username>\.config\opencode\` |
+| Platform      | Install location                                                    |
+| ------------- | ------------------------------------------------------------------- |
+| Linux / macOS | `$XDG_CONFIG_HOME/opencode/`, falling back to `~/.config/opencode/` |
+| Windows       | `C:\Users\<username>\.config\opencode\` (same fallback rule)        |
 
 Inside that directory, agents are written to `agents/` and skills to `skills/`.
 
@@ -2978,14 +2978,14 @@ const program = await ctx.ast("src/cli.ts", "typescript");
 
 An optional third argument covers two more needs:
 
-- `{ rev: "base" }` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
-- `{ comments: true }` attaches a structured `comments` array to the tree (all four languages), so comment-governance rules can work against comment tokens instead of regex.
+- `rev: "base"` parses the file at the **base git revision** instead of the working tree -- pair it with a working-tree parse to detect whether the executable structure changed (see below).
+- `comments: true` attaches a structured `comments` array to the tree (all four languages), so comment-governance rules can work against comment tokens instead of regex.
 
 See [Structural checks with ctx.ast()](#structural-checks-with-ctxast) below for complete examples, and the [Rule API Reference](/reference/rule-api/#ast) for the returned shape per language and the full options.
 
 ### ctx.fileAtBase(path)
 
-Read a file's source at the **base git revision** -- the merge base of the base ref and `HEAD`. `archgate check` resolves that ref itself (`--base <ref>`, then the configured base branch, then auto-detection), so a base is normally available without passing any flag. Returns `null` when no base could be resolved (a `--staged` run, a project that is not a git repository, no detectable base branch, or unrelated histories) or when the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast(path, language, { rev: "base" })`.
+Read a file's source at the **base git revision** -- the merge base of the base ref and `HEAD`. `archgate check` resolves that ref itself (`--base <ref>`, then the configured base branch, then auto-detection), so a base is normally available without passing any flag. Returns `null` when no base could be resolved (a `--staged` run, a project that is not a git repository, no detectable base branch, or unrelated histories) or when the file did not exist at the base (an added file), so a single null check covers both. For a structural comparison, prefer `ctx.ast()` with `rev: "base"`.
 
 ```typescript
 const before = await ctx.fileAtBase("src/config.ts");
@@ -3244,7 +3244,7 @@ Ripper uses a different node shape for the parenthesized form -- `puts("hello")`
 
 ### Comparing against the base revision
 
-Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. `ctx.ast(path, language, { rev: "base" })` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
+Some rules care not about a file's current state but about **what changed**. A common one: waive a requirement (a version bump, a changelog entry) when a change is documentation-only -- the executable structure is untouched and only comments or formatting moved. Calling `ctx.ast()` with `rev: "base"` parses the file at the base git revision, so you can compare it against the working-tree parse. Comments are absent from the ESTree and Python `ast` shapes -- but node **positions are not**: `loc` / `lineno` fields shift when a comment or blank line moves the lines below it, so a raw serialization differs even for a doc-only edit. Compare a **location-free projection** of the two trees instead. (Python docstrings are ordinary string nodes in the `ast`, so an edited docstring is a genuine tree change -- strip them too if your rule should treat doc edits as neutral.)
 
 ```typescript
 export default {
@@ -3295,7 +3295,7 @@ export default {
 
 ### Governing comments
 
-`ctx.ast(path, language, { comments: true })` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for all four languages -- for `ruby`, where the tree is a `Ripper.sexp` array, the `comments` array rides on that array as a non-index property.
+Calling `ctx.ast()` with `comments: true` attaches a `comments` array to the tree so comment-policy rules work against structured tokens (`type`, `value`, `loc`) instead of line-by-line regex. Comment positions are accurate against the original source even for TypeScript. Supported for all four languages -- for `ruby`, where the tree is a `Ripper.sexp` array, the `comments` array rides on that array as a non-index property.
 
 ```typescript
 const tree = await ctx.ast(file, "typescript", { comments: true });
@@ -4588,7 +4588,7 @@ When `--install-plugin` is passed, the CLI installs the Archgate plugin for the 
 
 **Cursor:** Downloads an authenticated tarball of skills, agents, and hooks into `~/.cursor/`. Also writes `.cursor/hooks.json` to the project for cloud agent compatibility. No CLI detection needed.
 
-**opencode:** Requires the `opencode` CLI to be on your PATH. If it's not, the install is skipped and a message prompts you to install opencode first. When present, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows; opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
+**opencode:** Requires opencode to be detected -- either the `opencode` CLI on your PATH, or opencode's user-scope config directory existing (the Desktop app ships no CLI binary). If neither is found, the install is skipped and a message prompts you to install opencode first. When detected, the CLI downloads an authenticated tarball of agent files from the Archgate plugins service and extracts it into the user-scope opencode agents directory (`$XDG_CONFIG_HOME/opencode/agents/`, falling back to `$HOME/.config/opencode/agents/` on every platform including Windows; opencode uses XDG paths via `xdg-basedir` and does not read `%APPDATA%`). No files are written to the project tree. See the [opencode integration guide](/guides/opencode-integration/) for details.
 
 ## Output
 
@@ -5910,7 +5910,7 @@ Which reporter surfaces which field:
 
 - **Console** prints `message` and `file:line`. It prints `fix` only under `--verbose`, and never columns.
 - **`--output json`** carries every field above, so agents and editor integrations can highlight the exact range instead of the whole line.
-- **`--output sarif`** carries `message`, `file`, `line`, and `endLine` (as a SARIF `region`). Columns and `fix` are omitted -- SARIF has no `startColumn` to pair `endColumn` with.
+- **`--output sarif`** carries `message`, `file`, `line`, and `endLine` (as a SARIF `region`). Columns and `fix` are omitted -- Archgate's report detail carries an `endColumn` but no `startColumn` to anchor it to, so the serializer emits only the line fields.
 - **`--output github`** emits `file`/`line` annotations with `message` only.
 
 Put anything a reviewer must read in `message`; treat `fix` as an enrichment for local and agent-facing output.
@@ -6126,7 +6126,7 @@ When the CLI crashes (exit code 2), we send:
 
 ## What we do NOT collect
 
-- **No personal information**: no emails, passwords, secrets, or IP addresses. The one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host. See [Repo identity](#repo-identity). Private and self-hosted repos never have identity shared.
+- **No personal information**: no emails, passwords, secrets, or IP addresses. Two qualified exceptions: the one-time `project_initialized` event can include `repo_owner` and `repo_name` for repositories confirmed public by their host (see [Repo identity](#repo-identity); private and self-hosted repos never have identity shared), and crash reports include the absolute install path of the `archgate` executable, which can contain your OS account name (see [Error tracking](#error-tracking-sentry)).
 - **No file content**: no ADR content or source code. Crash reports (Sentry) include the file paths from the crash location in the stack trace and the absolute install path of the `archgate` executable (see [Error tracking](#error-tracking-sentry) for exactly what that looks like across install methods), but never file contents.
 - **No prompt or AI context**: nothing from agent interactions, prompts, or AI-generated content
 - **No free-form flag values**: the one exception is `--output`'s selected format (a fixed enum: `console`/`json`/`github`/`sarif`); we never record user-provided values or what the output contained
@@ -6812,8 +6812,8 @@ export default {
 ## Customization
 
 - **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
-- **Scan transitives (the default here)**: `ctx.glob("node_modules/{*,@*/*}/package.json")` already walks every installed package — direct and transitive, including scoped packages via the `@*/*` branch.
-- **Check only production deps**: Read the root `package.json` with `ctx.readJSON("package.json")` and filter `pkgFiles` down to names present in its `dependencies` field if you only want to gate bundled/shipped code, not `devDependencies`.
+- **Scan transitives (the default here)**: the glob above walks every package installed at the top level of `node_modules/`, scoped packages included — with npm's or Bun's flat layout that covers hoisted transitive dependencies too. Two requirements: the containing ADR must set `respectGitignore: false`, because `node_modules/` is normally gitignored and `ctx.glob` honors `.gitignore` by default; and nested `node_modules` trees (pnpm layouts, version conflicts) are not crossed — switch the pattern to `node_modules/**/package.json` to include them, at the cost of also matching `package.json` files that ship inside packages.
+- **Check only production deps**: Read the root `package.json` with `ctx.readJSON("package.json")` and filter `pkgFiles` down to names present in its `dependencies` field if you only want to gate bundled/shipped code, not `devDependencies`. Note this keeps **direct** production dependencies only — the transitive packages they pull in are dropped from the scan; covering the full production graph needs a lockfile-aware resolution.
 
 ## When to use it
 

@@ -17,14 +17,14 @@ archgate init --editor opencode
 opencode-agentpakken er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere.
 :::
 
-opencode-agentene og -ferdighetene skrives **ikke til prosjekttreet ditt** -- i motsetning til Cursor, som også installerer sine agenter og ferdigheter på brukernivå, men likevel skriver en styringsregel og kroker seg inn i `.cursor/`. For opencode havner ingenting editorspesifikt i repositoriet: alt bor på maskinen din og er tilgjengelig på tvers av alle prosjekter du åpner med opencode.
+opencode-agentene og -ferdighetene skrives **ikke til prosjekttreet ditt** -- i motsetning til Cursor, som også installerer sine agenter og ferdigheter på brukernivå, men likevel skriver `afterFileEdit`-hooken sin i prosjektets `.cursor/hooks.json`. For opencode havner ingenting editorspesifikt i repositoriet: alt bor på maskinen din og er tilgjengelig på tvers av alle prosjekter du åpner med opencode.
 
-opencode bruker XDG Base Directory-konvensjonen på alle plattformer (via `xdg-basedir`-pakken), så installasjonsplasseringen resolves til `$XDG_CONFIG_HOME/opencode/` når den variabelen er satt, og faller tilbake til `$HOME/.config/opencode/` ellers. Det betyr at Windows-installasjoner havner under `C:\Users\<brukernavn>\.config\opencode\`, ikke under `%APPDATA%`:
+opencode bruker XDG Base Directory-konvensjonen på alle plattformer (via `xdg-basedir`-pakken), så installasjonsplasseringen løses opp til `$XDG_CONFIG_HOME/opencode/` når den variabelen er satt, og faller tilbake til `$HOME/.config/opencode/` ellers. Det betyr at Windows-installasjoner havner under `C:\Users\<brukernavn>\.config\opencode\`, ikke under `%APPDATA%`:
 
-| Plattform     | Installasjonsplassering                   |
-| ------------- | ----------------------------------------- |
-| Linux / macOS | `~/.config/opencode/`                     |
-| Windows       | `C:\Users\<brukernavn>\.config\opencode\` |
+| Plattform     | Installasjonsplassering                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| Linux / macOS | `$XDG_CONFIG_HOME/opencode/`, med tilbakefall til `~/.config/opencode/` |
+| Windows       | `C:\Users\<brukernavn>\.config\opencode\` (samme tilbakefallsregel)     |
 
 Inne i den katalogen skrives agenter til `agents/` og ferdigheter til `skills/`.
 

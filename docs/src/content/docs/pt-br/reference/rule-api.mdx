@@ -537,7 +537,7 @@ Qual reporter expõe qual campo:
 
 - **Console** imprime `message` e `file:line`. Só imprime `fix` com `--verbose`, e nunca imprime colunas.
 - **`--output json`** carrega todos os campos acima, para que agentes e integrações de editor possam destacar o intervalo exato em vez da linha inteira.
-- **`--output sarif`** carrega `message`, `file`, `line` e `endLine` (como uma `region` do SARIF). Colunas e `fix` são omitidos -- o SARIF não tem `startColumn` para parear com `endColumn`.
+- **`--output sarif`** carrega `message`, `file`, `line` e `endLine` (como uma `region` do SARIF). Colunas e `fix` são omitidos -- o detalhe de report do Archgate carrega um `endColumn` mas nenhum `startColumn` para ancorá-lo, então o serializador emite apenas os campos de linha.
 - **`--output github`** emite anotações `file`/`line` apenas com `message`.
 
 Coloque qualquer coisa que um revisor precise ler em `message`; trate `fix` como um enriquecimento para a saída local e voltada a agentes.
