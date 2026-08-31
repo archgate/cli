@@ -413,10 +413,10 @@ export async function installCopilotPlugin(): Promise<CopilotInstallResult> {
     "archgate@archgate",
   ]);
   if (installResult.exitCode !== 0) {
-    const detail = (installResult.stdout + installResult.stderr).trim();
+    // Exit code only: this message reaches logError, which feeds Sentry
+    // breadcrumbs, and the CLI's output can carry auth state and local paths.
     throw new UserError(
-      `copilot plugin install failed (exit ${installResult.exitCode})` +
-        (detail ? `\n${detail}` : "")
+      `copilot plugin install failed (exit ${installResult.exitCode})`
     );
   }
   return { mode: "cli" };

@@ -192,14 +192,24 @@ describe("installCopilotPlugin", () => {
     expect(settings.theme).toBe("dark");
   });
 
-  test("throws with exit code and captured output when the CLI install fails", async () => {
+  test("throws with the exit code but never the CLI's own output", async () => {
     mockResolveCommand.mockImplementation(async () => "copilot");
     mkdirSync(copilotConfigDir(), { recursive: true });
-    spawnSpy.mockImplementation(() => fakeSpawnResult(1, "", "boom"));
-
-    expect(installCopilotPlugin()).rejects.toThrow(
-      /plugin install failed \(exit 1\)[\s\S]*boom/u
+    spawnSpy.mockImplementation(() =>
+      fakeSpawnResult(1, "token=ghp_stdoutsecret", "token=ghp_stderrsecret")
     );
+
+    // The message reaches logError, which feeds Sentry breadcrumbs, so the
+    // subprocess output must not ride along with it.
+    const err = await installCopilotPlugin().then(
+      () => null,
+      (e: unknown) => e
+    );
+    expect(err).toBeInstanceOf(Error);
+    const message = err instanceof Error ? err.message : String(err);
+    expect(message).toMatch(/plugin install failed \(exit 1\)/u);
+    expect(message).not.toContain("ghp_stdoutsecret");
+    expect(message).not.toContain("ghp_stderrsecret");
   });
 
   test("resolves the settings path via COPILOT_HOME when set", async () => {
