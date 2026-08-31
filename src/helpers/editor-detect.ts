@@ -82,7 +82,7 @@ export async function promptEditorSelection(
     },
   ];
   const { selected } = await withPromptFix<{ selected: EditorTarget[] }>(
-    async () => inquirer.prompt(questions)
+    async () => inquirer.prompt<{ selected: EditorTarget[] }>(questions)
   );
   return selected;
 }
@@ -111,7 +111,7 @@ export async function promptSingleEditorSelection(
     },
   ];
   const { selected } = await withPromptFix<{ selected: EditorTarget }>(
-    async () => inquirer.prompt(questions)
+    async () => inquirer.prompt<{ selected: EditorTarget }>(questions)
   );
   return selected;
 }
