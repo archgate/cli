@@ -193,8 +193,8 @@ archgate adr domain add <name> <prefix>
 
 Naming rules:
 
-- `<name>`: lowercase kebab-case, 2–32 chars (e.g., `security`, `ml-ops`)
-- `<prefix>`: uppercase letters, digits, or underscores, 2–10 chars (e.g., `SEC`, `MLOPS`)
+- `<name>`: lowercase kebab-case, 2–32 chars, must start with a lowercase letter (e.g., `security`, `ml-ops`)
+- `<prefix>`: uppercase letters, digits, or underscores, 2–10 chars, must start with an uppercase letter (e.g., `SEC`, `MLOPS`)
 - Custom names and prefixes cannot collide with built-ins or with any other custom entry.
 
 Example:
@@ -225,9 +225,9 @@ The command clones the source, reads ADR files, remaps IDs to fit the local proj
 
 ### Arguments
 
-| Argument      | Description                                      |
-| ------------- | ------------------------------------------------ |
-| `<source...>` | Registry path(s), `org/repo/path`, or git URL(s) |
+| Argument      | Description                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `<source...>` | Registry path(s), `org/repo/path`, or git URL(s). Required by the command even with `--list`, which ignores the value. |
 
 ### Options
 
@@ -264,10 +264,10 @@ Import non-interactively (skip confirmation):
 archgate adr import archgate/packs/typescript --yes
 ```
 
-List previously imported ADRs:
+List previously imported ADRs (the `<source...>` argument is still required by the parser, but its value is ignored with `--list`):
 
 ```bash
-archgate adr import --list
+archgate adr import archgate/packs/typescript --list
 ```
 
 ---

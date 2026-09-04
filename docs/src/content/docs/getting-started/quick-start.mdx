@@ -31,39 +31,38 @@ This creates the `.archgate/` directory with the following structure:
 ```
 .archgate/
   adrs/
-    ARCH-001-example.md          # Example ADR
-    ARCH-001-example.rules.ts    # Example rules file
+    GEN-001-example.md   # Example ADR (rules: false)
   lint/
-    archgate.config.ts           # Archgate configuration
+    README.md            # Conventions for linter-specific rules
+  rules.d.ts              # Type definitions for .rules.ts files
 ```
 
 The generated files give you a working example to build on.
 
 ## 3. Edit the example ADR
 
-Open `.archgate/adrs/ARCH-001-example.md`. Every ADR starts with YAML frontmatter that defines its identity:
+Open `.archgate/adrs/GEN-001-example.md`. Every ADR starts with YAML frontmatter that defines its identity:
 
 ```yaml
 ---
-id: ARCH-001
-title: Example Decision
-domain: architecture
-rules: true
-files: ["src/**/*.ts"]
+id: GEN-001
+title: Example Architecture Decision
+domain: general
+rules: false
 ---
 ```
 
-- **id**: Unique identifier. Convention is `ARCH-NNN` but any string works.
+- **id**: Unique identifier. Convention is `<PREFIX>-NNN` (e.g. `ARCH-001`, `GEN-001`) but any string works.
 - **title**: Human-readable name for the decision.
 - **domain**: Groups related ADRs together (`architecture`, `backend`, `frontend`, `data`, or `general`).
-- **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks.
-- **files**: Optional glob patterns that scope which files the rules apply to.
+- **rules**: Set to `true` if this ADR has a companion `.rules.ts` file with automated checks. The generated example ships with `rules: false`.
+- **files**: Optional glob patterns that scope which files the rules apply to. Omit it to scope the whole project.
 
-Below the frontmatter, write the decision in markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
+Below the frontmatter, write the decision in Markdown. Archgate does not enforce a specific section structure, but the recommended sections are: Context, Decision, Do's and Don'ts, Consequences, Compliance, and References.
 
 ## 4. Add a companion rules file
 
-Create a `.rules.ts` file next to your ADR with the same name prefix. Rules are written in TypeScript using the `RuleSet` type:
+Create a `.rules.ts` file next to your ADR with the same name prefix (e.g. `GEN-001-example.rules.ts` for the generated example). Then set `rules: true` in the ADR's frontmatter — `archgate check` only loads a companion rules file when the ADR opts in. Rules are written in TypeScript using the `RuleSet` type:
 
 ```typescript
 /// <reference path="../rules.d.ts" />

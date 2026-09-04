@@ -123,8 +123,8 @@ export default {
 ## Customization
 
 - **Change the allowlist**: Add or remove license identifiers based on your project's license. GPL projects can allow GPL dependencies; Apache-2.0 projects should block them.
-- **Check only production deps**: Remove `devDependencies` from `allDeps` if you only care about bundled/shipped code.
-- **Scan transitives**: Use `ctx.glob("node_modules/{*,@*/*}/package.json")` to scan all installed packages (including scoped) recursively, not just direct dependencies.
+- **Scan transitives (the default here)**: the glob above walks every package installed at the top level of `node_modules/`, scoped packages included — with npm's or Bun's flat layout that covers hoisted transitive dependencies too. Two requirements: the containing ADR must set `respectGitignore: false`, because `node_modules/` is normally gitignored and `ctx.glob` honors `.gitignore` by default; and nested `node_modules` trees (pnpm layouts, version conflicts) are not crossed — switch the pattern to `node_modules/**/package.json` to include them, at the cost of also matching `package.json` files that ship inside packages.
+- **Check only production deps**: Read the root `package.json` with `ctx.readJSON("package.json")` and filter `pkgFiles` down to names present in its `dependencies` field if you only want to gate bundled/shipped code, not `devDependencies`. Note this keeps **direct** production dependencies only — the transitive packages they pull in are dropped from the scan; covering the full production graph needs a lockfile-aware resolution.
 
 ## When to use it
 

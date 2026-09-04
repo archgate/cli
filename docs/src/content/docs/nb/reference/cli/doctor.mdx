@@ -21,7 +21,7 @@ archgate doctor [options]
 - **Archgate** -- CLI-versjon, installasjonsmetode (binary, proto, local, global-pm), konfigurasjonskatalog, telemetri- og innloggingsstatus
 - **Project** -- Om et `.archgate/`-prosjekt finnes, antall ADR-er, domener
 - **Editor CLIs** -- Om `claude`, `cursor`, `code` (VS Code), `copilot` og `git` er tilgjengelige på PATH
-- **Project Integrations** -- Om editor-spesifikke plugin-filer finnes i det gjeldende prosjektet (`.claude/settings.local.json`, `.cursor/rules/archgate-governance.mdc`, `.vscode/settings.json`, `.github/copilot/instructions.md`)
+- **Project Integrations** -- Om editor-spesifikke plugin-filer finnes i det gjeldende prosjektet (`.claude/settings.local.json`, `.vscode/settings.json`, `.github/copilot/instructions.md`); for Cursor, om `cursor`-CLI-en er tilgjengelig, siden Cursor-pluginet er innebygd i en VSIX-utvidelse i stedet for en prosjektfil
 
 ## Eksempel
 
@@ -56,7 +56,7 @@ Editor CLIs
 
 Project Integrations
   Claude:       OK (.claude/settings.local.json)
-  Cursor:       MISSING (.cursor/rules/archgate-governance.mdc)
+  Cursor:       MISSING (VSIX extension with embedded plugin)
   VS Code:      OK (.vscode/settings.json)
   Copilot:      MISSING (.github/copilot/instructions.md)
 ```

@@ -7,7 +7,7 @@ description: Sett opp Archgate pre-commit-hooks for å automatisk sjekke ADR-sam
 
 Kommandoen `archgate check --staged` sjekker bare git-stagede filer mot ADR-reglene dine. Fordi den hopper over ustagede og usporede filer, kjører den raskt nok til å brukes som en pre-commit-hook uten å bremse arbeidsflyten din.
 
-Når en sjekk feiler, blokkeres committen. Brudd skrives ut til stderr med filstier og linjenumre slik at du kan finne og fikse dem umiddelbart.
+Når en sjekk feiler, blokkeres committen. Brudd skrives ut til stdout med filstier og linjenumre slik at du kan finne og fikse dem umiddelbart.
 
 ## Lefthook
 
@@ -65,13 +65,13 @@ Uten `--staged` skanner `archgate check` alle filer som matcher hver ADRs `files
 
 ## Nyttige flagg
 
-| Flagg        | Formål                                                                                                                     |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `--staged`   | Sjekk bare git-stagede filer (påkrevd for pre-commit)                                                                      |
-| `--verbose`  | Vis beståtte regler og tidsinformasjon -- nyttig for å feilsøke hvorfor en sjekk er treg eller hvilke regler som evalueres |
-| `--json`     | Skriv ut resultater som JSON -- nyttig for å pipe til andre verktøy eller egendefinerte rapporteringsskript                |
-| `--adr <id>` | Sjekk bare regler fra en spesifikk ADR -- nyttig for å isolere en enkelt regel under feilsøking                            |
-| `--ci`       | Skriv ut GitHub Actions-annotasjoner -- bruk dette i CI-arbeidsflyter i stedet for pre-commit-hooks                        |
+| Flagg             | Formål                                                                                                                     |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--staged`        | Sjekk bare git-stagede filer (påkrevd for pre-commit)                                                                      |
+| `--verbose`       | Vis beståtte regler og tidsinformasjon -- nyttig for å feilsøke hvorfor en sjekk er treg eller hvilke regler som evalueres |
+| `--output json`   | Skriv ut resultater som JSON -- nyttig for å pipe til andre verktøy eller egendefinerte rapporteringsskript                |
+| `--adr <id>`      | Sjekk bare regler fra en spesifikk ADR -- nyttig for å isolere en enkelt regel under feilsøking                            |
+| `--output github` | Skriv ut GitHub Actions-annotasjoner -- bruk dette i CI-arbeidsflyter i stedet for pre-commit-hooks                        |
 
 ## Kombinere med andre hooks
 

@@ -7,14 +7,16 @@ description: "Complete reference for all Archgate CLI commands: init, check, adr
 
 These options are available on all commands:
 
-| Option            | Description                |
-| ----------------- | -------------------------- |
-| `--version`, `-V` | Print the Archgate version |
-| `--help`, `-h`    | Show help for any command  |
+| Option                | Description                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `--version`, `-V`     | Print the Archgate version                                       |
+| `--help`, `-h`        | Show help for any command                                        |
+| `--log-level <level>` | Set log verbosity: `error`, `warn`, `info` (default), or `debug` |
 
 ```bash
 archgate --version
 archgate check --help
+archgate --log-level debug check
 ```
 
 ## Commands
@@ -31,3 +33,4 @@ archgate check --help
 | [`archgate upgrade`](./upgrade/)                 | Upgrade Archgate to the latest version                |
 | [`archgate doctor`](./doctor/)                   | Check system environment and editor integrations      |
 | [`archgate clean`](./clean/)                     | Remove the CLI cache directory                        |
+| [`archgate telemetry`](./telemetry/)             | Manage anonymous usage data collection                |

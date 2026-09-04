@@ -61,8 +61,6 @@ export default {
         );
 
         for (const { file, content } of results) {
-          if (content === null) continue;
-
           // Check first 5 lines for the SPDX identifier (allows for shebang)
           const lines = content.split("\n").slice(0, 5);
           const hasSpdx = lines.some((line) =>

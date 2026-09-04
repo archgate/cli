@@ -41,7 +41,7 @@ Hvis noe av dette finnes, blir regelfilen **ikke importert eller kjørt**, og `a
 
 Fordi skanneren jobber ut fra det parsede syntakstreet, ser den gjennom escape-sekvenser: `await import("\x6e...")` løses til det samme modulnavnet som tillatelseslisten sjekker, så strengtriks slipper ikke forbi. Det ene en syntakstre ikke kan se, er et tegn som gjør at den viste kildekoden avviker fra koden som faktisk kjøres -- derfor avviser skanneren også bidireksjonale og usynlige Unicode-tegn direkte.
 
-**Importerte regler skannes også.** Når du henter inn tredjeparts regler med `archgate adr import`, skannes hver `.rules.ts` -- med en strengere sjekk enn førsteparts regler -- **før den skrives til disk**, slik at en importert pakke ikke kan smugle inn kode som din neste `archgate check` ville kjørt.
+**Importerte regler skannes også.** Når du henter inn tredjeparts regler med `archgate adr import`, kjører hver `.rules.ts` gjennom den samme skanneren som førsteparts regler -- **før den skrives til disk**, slik at en importert pakke ikke kan smugle inn kode som din neste `archgate check` ville kjørt.
 
 Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, osv.) og `ctx.report` for utskrift. Når en regel trenger språkverktøy -- parsing av Python, eller sammenligning av en fil mot dens grunnleggende git-revisjon -- er `ctx.ast()` den godkjente døren; en regel trenger aldri, og kan ikke åpne, en egen underprosess.
 
@@ -140,7 +140,7 @@ Når du kloner eller forker et repositorium som bruker Archgate, håndhever sikk
 
 Kommandoen `archgate login` lagrer autentiseringstokenet ditt i operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) via `git credential approve`. Ingen legitimasjon skrives til disk som klartekstfiler. Tokenet brukes for plugin-installasjon og sendes aldri til tredjeparter utover Archgate plugins-tjenesten.
 
-- Del ikke tokenet i CI-logger. Plugin-installasjonskommandoer sender legitimasjon via autentiserte URL-er til git, som kan dukke opp i prosesslister. Unngå å kjøre `archgate plugin install` med detaljert logging i delte CI-miljøer.
+- Plugin-installasjonskommandoer legger aldri tokenet inn i en URL eller sender det som et kommandolinjeargument: git-baserte installasjoner autentiserer gjennom OS-legitimasjonsbehandleren, og API-nedlastinger sender tokenet i en `Authorization`-header. Ingen av delene er synlige i prosesslister.
 - For å tilbakekalle tilgang, kjør `archgate login logout`.
 
 ### Selvoppdateringsintegritet
@@ -149,4 +149,4 @@ Når du kjører `archgate upgrade`, laster CLI-en ned utgivelsesbinæren fra Git
 
 ## Rapportere sårbarheter
 
-Hvis du oppdager et sikkerhetsproblem i Archgate, vennligst rapporter det ansvarlig ved å åpne en [GitHub-sak](https://github.com/archgate/cli/issues) eller kontakte vedlikeholderne direkte. Ikke inkluder utnyttelseskode i offentlige saker.
+Ikke rapporter sikkerhetssårbarheter gjennom offentlige GitHub-saker. Hvis du oppdager et sikkerhetsproblem i Archgate, rapporter det via [GitHub Security Advisories](https://github.com/archgate/cli/security/advisories/new), inkludert en beskrivelse av sårbarheten, trinn for å reprodusere den, berørte versjoner og eventuell potensiell innvirkning.

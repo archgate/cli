@@ -41,7 +41,7 @@ If any of these is found, the rule file is **not imported or executed** and `arc
 
 Because the scanner works from the parsed syntax tree, it sees through escapes: `await import("\x6e...")` resolves to the same module name the allowlist checks, so string tricks do not slip past it. The one thing a syntax tree cannot see is a character that makes the rendered source differ from the code that runs -- which is why the scanner also rejects bidirectional and invisible Unicode characters outright.
 
-**Imported rules are scanned too.** When you bring in third-party rules with `archgate adr import`, each `.rules.ts` is scanned -- with a stricter check than first-party rules -- **before it is written to disk**, so an imported pack cannot smuggle in code that your next `archgate check` would execute.
+**Imported rules are scanned too.** When you bring in third-party rules with `archgate adr import`, each `.rules.ts` runs through the same scanner as first-party rules -- **before it is written to disk**, so an imported pack cannot smuggle in code that your next `archgate check` would execute.
 
 Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep`, `ctx.glob`, `ctx.ast`, etc.) and `ctx.report` for output. When a rule needs language tooling -- parsing Python, or comparing a file against its base git revision -- `ctx.ast()` is the sanctioned door; a rule never needs, and cannot open, a subprocess of its own.
 
@@ -140,7 +140,7 @@ When cloning or forking a repository that uses Archgate, the security scanner au
 
 The `archgate login` command stores your authentication token in the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
 
-- Do not share the token in CI logs. Plugin installation commands pass credentials via authenticated URLs to git, which may appear in process listings. Avoid running `archgate plugin install` with verbose logging in shared CI environments.
+- Plugin installation commands never embed the token in a URL or pass it as a command-line argument: git-based installs authenticate through the OS credential manager, and API downloads send the token in an `Authorization` header. Neither is visible in process listings.
 - To revoke access, run `archgate login logout`.
 
 ### Self-update integrity
@@ -149,4 +149,4 @@ When you run `archgate upgrade`, the CLI downloads the release binary from GitHu
 
 ## Reporting vulnerabilities
 
-If you discover a security issue in Archgate, please report it responsibly by opening a [GitHub issue](https://github.com/archgate/cli/issues) or contacting the maintainers directly. Do not include exploit code in public issues.
+Please do not report security vulnerabilities through public GitHub issues. If you discover a security issue in Archgate, report it via [GitHub Security Advisories](https://github.com/archgate/cli/security/advisories/new), including a description of the vulnerability, steps to reproduce, affected versions, and any potential impact.

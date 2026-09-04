@@ -3,7 +3,7 @@ title: archgate login
 description: "Autentique-se com o GitHub para acessar os plugins de editor do Archgate."
 ---
 
-Autentique-se com o GitHub para acessar os plugins de editor do Archgate. Se você ainda não possui cadastro, a CLI cuida do registro automaticamente -- solicita seu email, preferência de editor (Claude Code, VS Code, GitHub Copilot ou Cursor) e caso de uso, e então realiza o cadastro antes de concluir o login.
+Autentique-se com o GitHub para acessar os plugins de editor do Archgate. Se você ainda não possui cadastro, a CLI cuida do registro automaticamente -- solicita seu email, preferência de editor (Claude Code, Cursor, VS Code, GitHub Copilot ou opencode) e caso de uso, e então realiza o cadastro antes de concluir o login.
 
 ```bash
 archgate login
@@ -37,23 +37,30 @@ archgate login
 ```
 
 ```
-Authenticating with GitHub...
+By signing up, you agree to the Archgate Terms of Service:
+https://archgate.dev/terms-of-service
+
+info: Authenticating with GitHub...
 
 Open https://github.com/login/device in your browser
 and enter the code: ABCD-1234
 
 Waiting for authorization...
-GitHub user: yourname
+info: GitHub user: yourname
+info: Claiming archgate plugin token...
 
-No account found. Let's get you signed up.
-Email: you@example.com
-Editor: Claude Code
-Use case: Enforcing ADRs in our monorepo
+Your GitHub account yourname is not yet registered.
+Let's sign you up now.
 
-Registering...
-Claiming archgate plugin token...
+? Email address: you@example.com
+? Which editor will you use with archgate? Claude Code
+? How do you plan to use archgate? Enforcing ADRs in our monorepo
+? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
 
-Authenticated as yourname. Plugin access is now available.
+info: Submitting signup request...
+info: Claiming archgate plugin token...
+
+info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
 
@@ -106,7 +113,7 @@ archgate login status
 ```
 
 ```
-Logged in as yourname (since 2026-02-28)
+Logged in as yourname.
 ```
 
 Fazer logout:

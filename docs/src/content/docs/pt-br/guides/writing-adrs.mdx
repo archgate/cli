@@ -38,9 +38,13 @@ Flags disponíveis:
 | `--title <title>` | Título do ADR (obrigatório no modo não-interativo)                                         |
 | `--domain <name>` | Nome do domínio (integrado ou [personalizado](/concepts/domains/#domínios-personalizados)) |
 | `--files <globs>` | Padrões de arquivo separados por vírgula para escopo de regras                             |
-| `--rules`         | Define `rules: true` no frontmatter                                                        |
+| `--rules`         | Cria um arquivo `.rules.ts` complementar junto ao ADR                                      |
 | `--body <md>`     | Corpo completo do ADR em markdown (pula o template)                                        |
 | `--json`          | Exibe o resultado como JSON                                                                |
+
+:::note
+`--rules` sempre grava o stub `.rules.ts` complementar. Ele define `rules: true` no frontmatter apenas quando você também passa `--body`; o template gerado (sem `--body`) é sempre gravado com `rules: false`, então altere esse campo manualmente assim que o arquivo complementar contiver verificações reais -- `archgate check` só carrega arquivos complementares de ADRs cujo frontmatter declara `rules: true`.
+:::
 
 ## O template gerado
 

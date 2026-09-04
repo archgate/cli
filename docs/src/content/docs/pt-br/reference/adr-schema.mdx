@@ -283,7 +283,7 @@ Se um campo obrigatório estiver ausente, o ADR falha no parse:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - domain: Required
+  - domain: Invalid input: expected string, received undefined
 ```
 
 ### Formato de domain inválido
@@ -303,7 +303,7 @@ Se `rules` for uma string em vez de um booleano:
 
 ```
 Invalid ADR frontmatter in ARCH-001-example.md:
-  - rules: Expected boolean, received string
+  - rules: Invalid input: expected boolean, received string
 ```
 
 ADRs que falham na validação são ignorados por `archgate check` e reportados como erros.

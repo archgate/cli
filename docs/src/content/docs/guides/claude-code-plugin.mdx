@@ -7,13 +7,14 @@ The Archgate Claude Code plugin gives AI agents working in [Claude Code](https:/
 
 ## What the plugin provides
 
-The plugin adds an agent and role-based skills to Claude Code. The agent orchestrates the guardrails workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
+The plugin adds agents and role-based skills to Claude Code. The developer agent orchestrates the guardrails workflow, invoking skills as needed -- read decisions before coding, validate after, and capture new patterns for the team.
 
-### Agent
+### Agents
 
 | Agent                | Purpose                                                                     |
 | -------------------- | --------------------------------------------------------------------------- |
 | `archgate:developer` | General development agent that reads ADRs before coding and validates after |
+| `archgate:planner`   | Planning agent for scoping work and breaking tasks into ADR-compliant steps |
 
 The `archgate:developer` agent is set as the default agent via `.claude/settings.local.json`. It orchestrates the skills below automatically as part of its workflow.
 
@@ -21,10 +22,11 @@ The `archgate:developer` agent is set as the default agent via `.claude/settings
 
 | Skill                      | Purpose                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------- |
-| `archgate:architect`       | Validates code changes against all project ADRs for structural compliance             |
-| `archgate:quality-manager` | Reviews rule coverage and proposes new ADRs when patterns emerge                      |
+| `archgate:reviewer`        | Validates code changes against all project ADRs for structural compliance             |
+| `archgate:lessons-learned` | Captures learnings and proposes new ADRs when patterns emerge                         |
 | `archgate:adr-author`      | Creates and edits ADRs following project conventions                                  |
 | `archgate:onboard`         | One-time setup: explores the codebase, interviews the developer, creates initial ADRs |
+| `archgate:cli-reference`   | Internal reference for AI agents with the complete Archgate CLI command guide         |
 
 ## Installation
 
@@ -44,24 +46,28 @@ This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- op
 
 ### 2. Initialize your project with the plugin
 
-Run `archgate init` in your project. If you are already logged in, the plugin is installed automatically:
+Run `archgate init` with the `--editor claude` flag. If you are already logged in, the plugin is installed automatically:
 
 ```bash
-archgate init
+archgate init --editor claude
 ```
+
+Without `--editor`, an interactive run detects the editors installed on your machine and lets you pick one or more; a non-interactive run (an agent or CI) defaults to Claude Code.
 
 To explicitly request plugin installation:
 
 ```bash
-archgate init --install-plugin
+archgate init --editor claude --install-plugin
 ```
 
 This creates `.claude/settings.local.json` with the `archgate:developer` agent and skill permissions pre-configured.
 
 If the `claude` CLI is on your PATH, the plugin is installed automatically via:
 
-1. `claude plugin marketplace add` (registers the Archgate marketplace)
+1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registers the Archgate marketplace)
 2. `claude plugin install archgate@archgate` (installs the plugin)
+
+The marketplace URL carries no credentials -- git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
 
 If the `claude` CLI is not found, the command prints the manual commands for you to run.
 
@@ -70,13 +76,15 @@ If the `claude` CLI is not found, the command prints the manual commands for you
 If your project is already initialized, you can install or reinstall the plugin without re-running `archgate init`:
 
 ```bash
-archgate plugin install
+archgate plugin install --editor claude
 ```
 
-To get the authenticated repository URL for manual configuration:
+Without `--editor`, an interactive run prompts you to select editors and a non-interactive run defaults to Claude Code.
+
+To print the plugin repository URL for manual configuration:
 
 ```bash
-archgate plugin url
+archgate plugin url --editor claude
 ```
 
 ## Initial setup with onboard
@@ -98,7 +106,7 @@ The plugin follows a structured workflow for every coding task:
 
 When the developer gives a coding task, the agent runs `archgate review-context` to read all ADRs that apply to the files being changed. This provides a condensed briefing with the **Decision** and **Do's and Don'ts** sections from each relevant ADR.
 
-The agent does not write code until it has read the applicable ADRs. This is enforced by the `archgate:developer` skill.
+The agent does not write code until it has read the applicable ADRs. This is part of the `archgate:developer` agent's workflow.
 
 ### 2. Write code following ADR constraints
 
@@ -108,13 +116,13 @@ The agent writes code that complies with the constraints from the ADRs. The Do's
 
 After writing code, the agent runs `archgate check` to execute automated rules against the changes. Any violations are fixed before proceeding.
 
-### 4. Architect review
+### 4. Review changes
 
-The agent invokes `archgate:architect` to validate structural ADR compliance beyond what automated rules catch. The architect skill reviews the full context of the changes against all applicable ADRs.
+The agent invokes `archgate:reviewer` to validate structural ADR compliance beyond what automated rules catch. The reviewer skill reviews the full context of the changes against all applicable ADRs.
 
 ### 5. Capture learnings
 
-The agent invokes `archgate:quality-manager` to review the work and identify patterns worth capturing. The quality manager may propose new ADRs or updates to existing ones when recurring conventions emerge.
+The agent invokes `archgate:lessons-learned` to review the work and identify patterns worth capturing. That skill may propose new ADRs or updates to existing ones when recurring conventions emerge.
 
 ## ADR-driven refusal
 
@@ -138,7 +146,7 @@ The plugin uses Archgate CLI commands directly to read ADRs and run compliance c
 - **`archgate adr list`** -- inventory of all ADRs in the project with metadata
 - **`archgate session-context`** -- read session transcripts for context recovery
 
-All commands run locally and read directly from your `.archgate/adrs/` directory. No data leaves your machine.
+All commands run locally and read directly from your `.archgate/adrs/` directory. No ADR or source content leaves your machine.
 
 ## When to use each agent or skill
 
@@ -146,8 +154,9 @@ All commands run locally and read directly from your `.archgate/adrs/` directory
 | -------------------------------------------- | -------------------------- |
 | Starting a new project with Archgate         | `archgate:onboard`         |
 | Day-to-day coding tasks                      | `archgate:developer`       |
-| Reviewing a PR for ADR compliance            | `archgate:architect`       |
-| Noticing a recurring pattern worth codifying | `archgate:quality-manager` |
+| Planning and scoping work                    | `archgate:planner`         |
+| Reviewing a PR for ADR compliance            | `archgate:reviewer`        |
+| Noticing a recurring pattern worth codifying | `archgate:lessons-learned` |
 | Creating or editing an ADR                   | `archgate:adr-author`      |
 
-The `archgate:developer` agent orchestrates the skills automatically -- it invokes `archgate:architect` and `archgate:quality-manager` as part of its workflow. Most of the time, you only need to interact with the developer agent directly.
+The `archgate:developer` agent orchestrates the skills automatically -- it invokes `archgate:reviewer` and `archgate:lessons-learned` as part of its workflow. Most of the time, you only need to interact with the developer agent directly.

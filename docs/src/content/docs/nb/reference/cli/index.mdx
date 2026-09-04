@@ -7,14 +7,16 @@ description: "Komplett referanse for alle Archgate CLI-kommandoer: init, check, 
 
 Disse valgene er tilgjengelige for alle kommandoer:
 
-| Valg              | Beskrivelse                 |
-| ----------------- | --------------------------- |
-| `--version`, `-V` | Skriv ut Archgate-versjonen |
-| `--help`, `-h`    | Vis hjelp for en kommando   |
+| Valg                  | Beskrivelse                                                      |
+| --------------------- | ---------------------------------------------------------------- |
+| `--version`, `-V`     | Skriv ut Archgate-versjonen                                      |
+| `--help`, `-h`        | Vis hjelp for en kommando                                        |
+| `--log-level <level>` | Sett loggnivå: `error`, `warn`, `info` (standard), eller `debug` |
 
 ```bash
 archgate --version
 archgate check --help
+archgate --log-level debug check
 ```
 
 ## Kommandoer
@@ -31,3 +33,4 @@ archgate check --help
 | [`archgate upgrade`](./upgrade/)                 | Oppgrader Archgate til nyeste versjon                           |
 | [`archgate doctor`](./doctor/)                   | Sjekk systemmiljø og editor-integrasjoner                       |
 | [`archgate clean`](./clean/)                     | Fjern CLI-hurtigbufferkatalogen                                 |
+| [`archgate telemetry`](./telemetry/)             | Administrer anonym bruksdatainnsamling                          |

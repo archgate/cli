@@ -3,7 +3,7 @@ title: archgate login
 description: "Autentiser med GitHub for å få tilgang til Archgate editor-plugins."
 ---
 
-Autentiser med GitHub for å få tilgang til Archgate editor-plugins. Hvis du ikke er registrert ennå, håndterer CLI-en registrering automatisk -- den ber om e-postadressen din, foretrukket editor (Claude Code, VS Code, GitHub Copilot eller Cursor) og bruksområde, og registrerer deg før innloggingen fullføres.
+Autentiser med GitHub for å få tilgang til Archgate editor-plugins. Hvis du ikke er registrert ennå, håndterer CLI-en registrering automatisk -- den ber om e-postadressen din, foretrukket editor (Claude Code, Cursor, VS Code, GitHub Copilot eller opencode) og bruksområde, og registrerer deg før innloggingen fullføres.
 
 ```bash
 archgate login
@@ -37,25 +37,30 @@ archgate login
 ```
 
 ```
-Authenticating with GitHub...
+By signing up, you agree to the Archgate Terms of Service:
+https://archgate.dev/terms-of-service
+
+info: Authenticating with GitHub...
 
 Open https://github.com/login/device in your browser
 and enter the code: ABCD-1234
 
 Waiting for authorization...
-GitHub user: yourname
+info: GitHub user: yourname
+info: Claiming archgate plugin token...
 
 Your GitHub account yourname is not yet registered.
 Let's sign you up now.
 
-Email: you@example.com
-Editor: Claude Code
-Use case: Enforcing ADRs in our monorepo
+? Email address: you@example.com
+? Which editor will you use with archgate? Claude Code
+? How do you plan to use archgate? Enforcing ADRs in our monorepo
+? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
 
-Submitting signup request...
-Claiming archgate plugin token...
+info: Submitting signup request...
+info: Claiming archgate plugin token...
 
-Authenticated as yourname. Plugin access is now available.
+info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
 
@@ -108,7 +113,7 @@ archgate login status
 ```
 
 ```
-Logged in as yourname (since 2026-02-28)
+Logged in as yourname.
 ```
 
 Logg ut:

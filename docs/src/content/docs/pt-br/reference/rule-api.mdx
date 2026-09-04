@@ -14,9 +14,9 @@ export default {
   rules: {
     "my-rule-id": {
       description: "Human-readable description of what this rule checks",
-      severity: "error", // optional, defaults to "error"
       async check(ctx) {
-        // Rule logic here
+        // Rule logic here -- the report method decides the severity
+        ctx.report.violation({ message: "..." });
       },
     },
   },
@@ -43,11 +43,15 @@ interface RuleConfig {
 }
 ```
 
-| Campo         | Tipo                                  | Obrigatório | Descrição                                           |
-| ------------- | ------------------------------------- | ----------- | --------------------------------------------------- |
-| `description` | `string`                              | Sim         | Descrição legível exibida na saída de verificação   |
-| `severity`    | `Severity`                            | Não         | Severidade padrão para violações. Padrão: `"error"` |
-| `check`       | `(ctx: RuleContext) => Promise<void>` | Sim         | Função assíncrona contendo a lógica da regra        |
+| Campo         | Tipo                                  | Obrigatório | Descrição                                         |
+| ------------- | ------------------------------------- | ----------- | ------------------------------------------------- |
+| `description` | `string`                              | Sim         | Descrição legível exibida na saída de verificação |
+| `severity`    | `Severity`                            | Não         | Aceito e validado, mas inerte -- veja abaixo      |
+| `check`       | `(ctx: RuleContext) => Promise<void>` | Sim         | Função assíncrona contendo a lógica da regra      |
+
+:::caution
+`severity` **não** define a severidade dos resultados da regra. Cada resultado toma sua severidade do método `ctx.report.*` que o produziu: `violation()` é sempre `error`, `warning()` é `warning`, `info()` é `info` -- mesmo dentro de uma regra declarada com `severity: "warning"`. Para reportar resultados não bloqueantes, chame `ctx.report.warning()`.
+:::
 
 ---
 
@@ -65,10 +69,31 @@ interface RuleContext {
   grepFiles(pattern: RegExp, fileGlob: string): Promise<GrepMatch[]>;
   readFile(path: string): Promise<string>;
   fileAtBase(path: string): Promise<string | null>;
+  readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   readYAML(path: string): Promise<ReadYamlResult>;
+  ast(
+    path: string,
+    language: "typescript" | "javascript",
+    opts?: AstOptions
+  ): Promise<EsTreeProgram>;
+  ast(
+    path: string,
+    language: "python",
+    opts?: AstOptions
+  ): Promise<PythonAstModule>;
+  ast(
+    path: string,
+    language: "ruby",
+    opts?: AstOptions
+  ): Promise<RubyAstProgram>;
   ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
-  findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+  findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+  findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+  findAstNodes(
+    tree: unknown,
+    ...types: string[]
+  ): (EsTreeNode | PythonAstNode)[];
   checkCase(value: string, scheme: CaseScheme): boolean;
   report: RuleReport;
 }
@@ -164,11 +189,13 @@ const content = await ctx.readFile("src/config.ts");
 fileAtBase(path: string): Promise<string | null>;
 ```
 
-Lê o código-fonte de um arquivo na **revisão base de comparação** -- a base de merge entre a ref `--base` e `HEAD`, o mesmo commit contra o qual `changedFiles` é calculado. Use para comparar a árvore de trabalho com o ponto em que o conjunto de alterações divergiu da base.
+Lê o código-fonte de um arquivo na **revisão base de comparação** -- a base de merge entre a ref base e `HEAD`, o mesmo commit contra o qual `changedFiles` é calculado. Use para comparar a árvore de trabalho com o ponto em que o conjunto de alterações divergiu da base.
+
+`archgate check` resolve a ref base por conta própria, nesta ordem: `--base <ref>`, depois a branch base armazenada em `.archgate/config.json`, depois auto-detecção (`origin/HEAD`, `origin/main`/`origin/master`, depois `main`/`master` locais). Uma base, portanto, normalmente está disponível sem passar nenhuma flag.
 
 Retorna `null` nos dois casos de "nada para comparar", então uma única verificação de null cobre ambos:
 
-- **Nenhuma base é resolvida** -- a verificação rodou sem `--base` (ou os históricos não têm relação).
+- **Nenhuma base é resolvida** -- uma execução com `--staged`, um projeto que não é um repositório git, nenhuma branch base pôde ser detectada, ou os históricos não têm relação.
 - **O arquivo não existia na base** -- um arquivo adicionado.
 
 ```typescript
@@ -185,14 +212,20 @@ Para uma comparação **estrutural** (ignorando comentários e formatação) pre
 #### readJSON
 
 ```typescript
+readJSON(path: "package.json"): Promise<PackageJson>;
 readJSON(path: string): Promise<unknown>;
 ```
 
-Lê e faz o parse de um arquivo JSON. O caminho é relativo à raiz do projeto. Retorna o valor parseado como `unknown` -- faça o cast para o tipo esperado na sua regra.
+Lê e faz o parse de um arquivo JSON. O caminho é relativo à raiz do projeto. Retorna o valor parseado como `unknown` -- faça o cast para o tipo esperado na sua regra. O caminho literal `"package.json"` corresponde a uma sobrecarga dedicada que retorna a interface ambiente `PackageJson` (`name`, `version`, `scripts`, `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, `workspaces`, `engines`, ... mais uma assinatura de índice), então o caso comum não precisa de cast.
+
+Diferente de `glob`, `readFile` e `ast`, o valor parseado **não** é cacheado entre regras: cada chamada retorna um objeto novo, então mutá-lo não pode vazar para outra regra.
 
 ```typescript
-const pkg = (await ctx.readJSON("package.json")) as {
-  dependencies?: Record<string, string>;
+const pkg = await ctx.readJSON("package.json");
+const deps = pkg.dependencies ?? {};
+
+const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
+  compilerOptions?: Record<string, unknown>;
 };
 ```
 
@@ -254,9 +287,20 @@ for (const file of await ctx.glob("docs/**/*.md")) {
 ```typescript
 ast(
   path: string,
-  language: "typescript" | "javascript" | "python" | "ruby",
+  language: "typescript" | "javascript",
   opts?: AstOptions
-): Promise<AstNode>;
+): Promise<EsTreeProgram>;
+ast(
+  path: string,
+  language: "python",
+  opts?: AstOptions
+): Promise<PythonAstModule>;
+ast(
+  path: string,
+  language: "ruby",
+  opts?: AstOptions
+): Promise<RubyAstProgram>;
+ast(path: string, language: AstLanguage, opts?: AstOptions): Promise<AstNode>;
 
 interface AstOptions {
   rev?: "base";
@@ -264,7 +308,7 @@ interface AstOptions {
 }
 ```
 
-Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. O caminho é relativo à raiz do projeto e passa pelo mesmo sandbox de `readFile`. TypeScript e JavaScript são parseados in-process; Python e Ruby são parseados invocando como subprocesso o recurso de AST da biblioteca padrão do próprio interpretador do sistema. O formato da árvore retornada difere por linguagem -- veja [AstNode](#astnode).
+Faz o parse de um arquivo-fonte para sua AST nativa da linguagem. O caminho é relativo à raiz do projeto e passa pelo mesmo sandbox de `readFile`. Passar a linguagem como um literal de string seleciona uma sobrecarga por linguagem, então o tipo de retorno já vem estreitado -- `program.body` é tipado sem cast, e apenas uma `AstLanguage` não literal recai na união `AstNode`. TypeScript e JavaScript são parseados in-process; Python e Ruby são parseados invocando como subprocesso o recurso de AST da biblioteca padrão do próprio interpretador do sistema. O formato da árvore retornada difere por linguagem -- veja [AstNode](#astnode).
 
 Os resultados de parse são cacheados durante uma única execução de `archgate check`, com chave `(path, language, rev, comments)`: chamadas idênticas repetidas -- até mesmo concorrentes -- entre regras custam um único parse (uma única inicialização do interpretador para Python/Ruby), e um parse que falhou relança o mesmo erro para todos os chamadores. Trate a árvore retornada como somente leitura -- ela pode ser compartilhada com outras regras.
 
@@ -334,8 +378,8 @@ As posições dos comentários são precisas em relação ao **código-fonte ori
 
 - **Falha de parse**: o arquivo não parseia como a linguagem solicitada. A mensagem de erro inclui o diagnóstico do parser.
 - **Interpretador ausente** (apenas `python`/`ruby`): nenhum interpretador adequado foi encontrado no `PATH`.
-- **Entrada implausível**: a extensão do arquivo não corresponde à linguagem solicitada (ex.: `ctx.ast("config.json", "python")` lança a exceção antes de qualquer interpretador ser invocado).
-- **Sem revisão base** (apenas `{ rev: "base" }`): a verificação rodou sem `--base`, então não há base para parsear. Use `fileAtBase()` para detectar isso como `null` em vez disso.
+- **Entrada implausível**: o _nome_ do arquivo (não apenas a extensão) não corresponde à linguagem solicitada (ex.: `ctx.ast("config.json", "python")` lança a exceção antes de qualquer interpretador ser invocado). Os nomes aceitos são `.ts`/`.tsx`/`.mts`/`.cts` para `typescript`, `.js`/`.jsx`/`.mjs`/`.cjs` para `javascript`, `.py`/`.pyi` para `python`, e `.rb`/`.rake`/`.gemspec` mais os basenames `Rakefile` e `Gemfile` para `ruby`.
+- **Sem revisão base** (apenas `{ rev: "base" }`): nenhuma ref base foi resolvida para esta execução (veja [fileAtBase](#fileatbase)), então não há base para parsear. Use `fileAtBase()` para detectar isso como `null` em vez disso.
 - **Arquivo ausente na base** (apenas `{ rev: "base" }`): o caminho foi adicionado desde a base e não existia ali.
 
 Um erro lançado é isolado à regra que falhou: as demais regras e ADRs da mesma execução de verificação continuam normalmente, e a falha aparece como um erro de execução de regra com código de saída 2 (distinto do código de saída 1 para violações). Os casos de exceção são distinguíveis pelo texto da mensagem, então a saída da verificação diferencia "este ambiente não consegue executar esta regra" de "este arquivo tem um erro de sintaxe" ou "não há revisão base".
@@ -347,10 +391,12 @@ Regras de Python e Ruby exigem o interpretador correspondente (`python3`/`python
 #### findAstNodes
 
 ```typescript
-findAstNodes(tree: AstNode, ...types: string[]): AstNode[];
+findAstNodes(tree: EsTreeNode, ...types: string[]): EsTreeNode[];
+findAstNodes(tree: PythonAstNode, ...types: string[]): PythonAstNode[];
+findAstNodes(tree: unknown, ...types: string[]): (EsTreeNode | PythonAstNode)[];
 ```
 
-Coleta recursivamente cada nó de uma AST parseada cujo campo discriminante de tipo corresponde a um dos `types`. É a substituição embutida para o caminhador recursivo que as regras de AST precisavam escrever à mão: `ctx.ast()` retorna deliberadamente formatos nativos da linguagem, mas encontrar nós por nome de tipo depende apenas do campo discriminante, então um único helper cobre todas as linguagens. Síncrono -- não precisa de `await`.
+Coleta recursivamente cada nó de uma AST parseada cujo campo discriminante de tipo corresponde a um dos `types`, em pré-ordem (vazio quando nada corresponde). É a substituição embutida para o caminhador recursivo que as regras de AST precisavam escrever à mão: `ctx.ast()` retorna deliberadamente formatos nativos da linguagem, mas encontrar nós por nome de tipo depende apenas do campo discriminante, então um único helper cobre todas as linguagens. Síncrono -- não precisa de `await`.
 
 - **Agnóstico de linguagem**: cada nó-objeto é verificado contra o campo discriminante que ele carrega -- `_type` (Python) ou `type` (ESTree TypeScript/JavaScript).
 - **Travessia completa**: valores de objeto enumeráveis próprios e arrays são percorridos recursivamente, e o próprio argumento `tree` é um candidato a correspondência.
@@ -453,7 +499,7 @@ Reporta uma violação de regra. Violações fazem a verificação falhar com c�
 report.warning(detail: ReportDetail): void;
 ```
 
-Reporta um aviso. Avisos aparecem na saída de verificação mas não fazem a verificação falhar. Use para orientações não bloqueantes.
+Reporta um aviso. Avisos aparecem na saída de verificação mas não fazem a verificação falhar -- exceto quando `archgate check --strict` é usado, que transforma qualquer aviso em uma falha (saída 1). Use para orientações não bloqueantes.
 
 #### info
 
@@ -478,16 +524,23 @@ interface ReportDetail {
 }
 ```
 
-| Campo       | Tipo     | Obrigatório | Descrição                                                        |
-| ----------- | -------- | ----------- | ---------------------------------------------------------------- |
-| `message`   | `string` | Sim         | Descrição legível do problema                                    |
-| `file`      | `string` | Não         | Caminho do arquivo onde o problema foi encontrado                |
-| `line`      | `number` | Não         | Número da linha inicial (base 1)                                 |
-| `endLine`   | `number` | Não         | Número da linha final (base 1), para destaque preciso no editor  |
-| `endColumn` | `number` | Não         | Número da coluna final (base 0), para destaque preciso no editor |
-| `fix`       | `string` | Não         | Sugestão de correção ou ação de remediação                       |
+| Campo       | Tipo     | Obrigatório | Descrição                                         |
+| ----------- | -------- | ----------- | ------------------------------------------------- |
+| `message`   | `string` | Sim         | Descrição legível do problema                     |
+| `file`      | `string` | Não         | Caminho do arquivo onde o problema foi encontrado |
+| `line`      | `number` | Não         | Número da linha inicial (base 1)                  |
+| `endLine`   | `number` | Não         | Número da linha final (base 1)                    |
+| `endColumn` | `number` | Não         | Número da coluna final (base 0)                   |
+| `fix`       | `string` | Não         | Sugestão de correção ou ação de remediação        |
 
-Quando `endLine` e `endColumn` são fornecidos, editores (VS Code, Cursor) podem destacar a expressão exata que viola a regra, em vez da linha inteira. Se omitidos, a linha completa em `line` é destacada.
+Qual reporter expõe qual campo:
+
+- **Console** imprime `message` e `file:line`. Só imprime `fix` com `--verbose`, e nunca imprime colunas.
+- **`--output json`** carrega todos os campos acima, para que agentes e integrações de editor possam destacar o intervalo exato em vez da linha inteira.
+- **`--output sarif`** carrega `message`, `file`, `line` e `endLine` (como uma `region` do SARIF). Colunas e `fix` são omitidos -- o detalhe de report do Archgate carrega um `endColumn` mas nenhum `startColumn` para ancorá-lo, então o serializador emite apenas os campos de linha.
+- **`--output github`** emite anotações `file`/`line` apenas com `message`.
+
+Coloque qualquer coisa que um revisor precise ler em `message`; trate `fix` como um enriquecimento para a saída local e voltada a agentes.
 
 ---
 
@@ -519,8 +572,48 @@ Retornado por `ctx.ast()`. O formato é nativo da linguagem e deliberadamente **
 
 ```typescript
 type AstLanguage = "typescript" | "javascript" | "python" | "ruby";
-type AstNode = Record<string, unknown> | unknown[];
+
+/** Apenas os campos que todo nó compartilha são tipados; percorra o resto pela assinatura de índice. */
+interface EsTreeNode {
+  type: string;
+  loc?: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  } | null;
+  range?: [number, number];
+  [key: string]: unknown;
+}
+interface EsTreeProgram extends EsTreeNode {
+  type: "Program";
+  sourceType: "module" | "script";
+  body: EsTreeNode[];
+  comments?: CommentToken[];
+}
+
+interface PythonAstNode {
+  _type: string;
+  lineno?: number;
+  col_offset?: number;
+  end_lineno?: number;
+  end_col_offset?: number;
+  [key: string]: unknown;
+}
+interface PythonAstModule extends PythonAstNode {
+  _type: "Module";
+  body: PythonAstNode[];
+  comments?: CommentToken[];
+}
+
+type RubyAstNode = unknown[];
+interface RubyAstProgram extends Array<unknown> {
+  comments?: CommentToken[];
+}
+
+/** Apenas o tipo de retorno da sobrecarga com linguagem não literal. */
+type AstNode = EsTreeProgram | PythonAstModule | RubyAstProgram;
 ```
+
+Todos esses nomes são ambientes em arquivos `.rules.ts` através da referência a `rules.d.ts` -- nenhum import é necessário para anotar um walker com `EsTreeNode` ou `PythonAstNode`.
 
 Quando parseado com [`{ comments: true }`](#ast), o nó raiz também carrega um array `comments: CommentToken[]` (as quatro linguagens; para `ruby` ele é uma propriedade não indexada no array sexp raiz). Ausente nos demais casos.
 
@@ -541,11 +634,13 @@ Veja [Verificações estruturais com ctx.ast()](/guides/writing-rules/#verifica�
 type Severity = "error" | "warning" | "info";
 ```
 
-| Valor       | Impacto no código de saída | Descrição                         |
-| ----------- | -------------------------- | --------------------------------- |
-| `"error"`   | Causa saída 1              | Restrição rígida, bloqueia merges |
-| `"warning"` | Sem impacto                | Orientação não bloqueante         |
-| `"info"`    | Sem impacto                | Informativo, apenas sugestões     |
+| Valor       | Reportado por            | Impacto no código de saída         | Descrição                         |
+| ----------- | ------------------------ | ---------------------------------- | --------------------------------- |
+| `"error"`   | `ctx.report.violation()` | Causa saída 1                      | Restrição rígida, bloqueia merges |
+| `"warning"` | `ctx.report.warning()`   | Nenhum, mas saída 1 sob `--strict` | Orientação não bloqueante         |
+| `"info"`    | `ctx.report.info()`      | Nenhum                             | Informativo, apenas sugestões     |
+
+Uma regra que lança uma exceção (ou excede o timeout de 30 segundos) é um erro de execução de regra, que sai com código 2 em vez de 1.
 
 ---
 
