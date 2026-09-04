@@ -1,3 +1,9 @@
+## [0.55.1](https://github.com/archgate/cli/compare/v0.55.0...v0.55.1) (2026-09-04)
+
+### Bug Fixes
+
+* **plugin-install:** keep Copilot CLI output out of error logs ([#598](https://github.com/archgate/cli/issues/598)) ([2155ed7](https://github.com/archgate/cli/commit/2155ed7eaf82d63c65d0985a0b61fd3a4edc258b)), closes [#595](https://github.com/archgate/cli/issues/595)
+
 ## [0.55.0](https://github.com/archgate/cli/compare/v0.54.0...v0.55.0) (2026-08-22)
 
 ### Features
