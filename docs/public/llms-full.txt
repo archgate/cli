@@ -4459,6 +4459,86 @@ When the running binary lives under `~/.archgate/bin/`, the message notes that `
 
 ---
 
+## Reference: archgate credential
+
+Source: https://cli.archgate.dev/reference/cli/credential/
+
+Supplies git with a valid access token for Archgate plugin repositories. You do not normally run this command yourself -- git invokes it, and [`archgate login`](/reference/cli/login/) registers it for you.
+
+```bash
+archgate credential get
+```
+
+Plugin repositories are cloned over HTTPS from `plugins.archgate.dev`, and git authenticates those requests itself rather than going through the CLI. Access tokens are short-lived, so a token written once into your credential manager would stop working within the hour. This helper closes that gap: git asks it for credentials on each request, and it answers with a cached access token, renewing it from the stored refresh token only once it has lapsed.
+
+The command speaks git's [credential helper protocol](https://git-scm.com/docs/git-credential) on standard input and output. It answers only for `plugins.archgate.dev` and stays silent for every other host, so credentials for the rest of your remotes keep using whatever helper you already configured.
+
+## Subcommands
+
+| Subcommand                  | Description                                              |
+| --------------------------- | -------------------------------------------------------- |
+| `archgate credential get`   | Print credentials for a plugin repository                |
+| `archgate credential store` | Accept a credential from git (no-op)                     |
+| `archgate credential erase` | Remove stored credentials when git reports them rejected |
+
+`store` is deliberately a no-op: tokens come from `archgate login`, so there is nothing for git to teach the CLI.
+
+## Configuration
+
+`archgate login` writes the following to your global git config:
+
+```ini
+[credential "https://plugins.archgate.dev"]
+	helper =
+	helper = !archgate credential
+```
+
+The empty first entry resets any helper inherited from a broader config scope, so `archgate` is the only helper consulted for this host. `archgate login logout` removes both entries.
+
+## Examples
+
+Inspect what git receives:
+
+```bash
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get
+```
+
+```
+protocol=https
+host=plugins.archgate.dev
+username=yourname
+password=eyJhbGciOiJFUzM4NCIsInR5cCI6ImF0K2p3dCJ9...
+```
+
+When you are signed out, the command prints nothing and exits successfully, which tells git to fall through to its other helpers:
+
+```bash
+archgate login logout
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get
+```
+
+```
+
+```
+
+## Troubleshooting
+
+### `git clone` prompts for a username and password
+
+The helper is not registered. Run `archgate login` again, or check the configuration directly:
+
+```bash
+git config --get-all credential.https://plugins.archgate.dev.helper
+```
+
+The output should list an empty line followed by `!archgate credential`. If it does not, the CLI could not write your global git config -- confirm `git config --global --list` works.
+
+### The helper is registered but credentials are still rejected
+
+Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, `archgate credential get` cannot renew the access token and stays silent; `archgate login` re-establishes it.
+
+---
+
 ## Reference: archgate doctor
 
 Source: https://cli.archgate.dev/reference/cli/doctor/
@@ -4627,19 +4707,21 @@ Re-running `archgate init` does **not** overwrite a manually configured `baseBra
 
 Source: https://cli.archgate.dev/reference/cli/login/
 
-Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, Cursor, VS Code, GitHub Copilot, or opencode), and use case, then registers you before completing the login.
+Sign in to access Archgate editor plugins.
 
 ```bash
 archgate login
 ```
 
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
+Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate identity provider. The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and choose how you want to sign in. Once authorized, the CLI stores the resulting tokens in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
 
-If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
+Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is enough.
+
+Signing in also registers `archgate credential` as a git credential helper for `plugins.archgate.dev`, which is what lets `git clone` of a plugin repository authenticate without prompting. See [`archgate credential`](/reference/cli/credential/).
 
 Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
 
-Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate.
+Editor plugins are currently in beta. Run `archgate login` to sign in.
 
 ## Subcommands
 
@@ -4648,7 +4730,7 @@ Editor plugins are currently in beta. Run `archgate login` to sign up and authen
 | `archgate login`         | Authenticate (skips if already logged in) |
 | `archgate login status`  | Show current authentication status        |
 | `archgate login logout`  | Remove stored credentials                 |
-| `archgate login refresh` | Re-authenticate and claim a new token     |
+| `archgate login refresh` | Sign in again, replacing stored tokens    |
 
 ## Examples
 
@@ -4659,29 +4741,13 @@ archgate login
 ```
 
 ```
-By signing up, you agree to the Archgate Terms of Service:
+By signing in, you agree to the Archgate Terms of Service:
 https://archgate.dev/terms-of-service
 
-info: Authenticating with GitHub...
-
-Open https://github.com/login/device in your browser
-and enter the code: ABCD-1234
+Open https://auth.archgate.dev/device in your browser
+and enter the code: HZML-HXLB
 
 Waiting for authorization...
-info: GitHub user: yourname
-info: Claiming archgate plugin token...
-
-Your GitHub account yourname is not yet registered.
-Let's sign you up now.
-
-? Email address: you@example.com
-? Which editor will you use with archgate? Claude Code
-? How do you plan to use archgate? Enforcing ADRs in our monorepo
-? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
-
-info: Submitting signup request...
-info: Claiming archgate plugin token...
-
 info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
