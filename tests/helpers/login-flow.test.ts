@@ -5,473 +5,137 @@ import {
   beforeEach,
   describe,
   expect,
-  mock,
   type Mock,
   spyOn,
   test,
 } from "bun:test";
 
-// ---------------------------------------------------------------------------
-// Module mocks — must be declared before imports that use them.
-// ---------------------------------------------------------------------------
+import * as credMod from "../../src/helpers/credential-store";
+import * as gitConfigMod from "../../src/helpers/git-credential-config";
+import { runLoginFlow } from "../../src/helpers/login-flow";
+import * as logtoMod from "../../src/helpers/logto-auth";
+import { rejectionMessage } from "../test-utils";
 
-// Auth + credential-store stubs are installed per-test via spyOn (see
-// beforeEach), NOT mock.module. spyOn is auto-restored and scoped to this
-// file; mock.module is process-global and would leak mocked implementations
-// into auth.test.ts and credential-store.test.ts.
-let mockRequestDeviceCode: Mock<typeof authMod.requestDeviceCode>;
-let mockPollForAccessToken: Mock<typeof authMod.pollForAccessToken>;
-let mockGetGitHubUser: Mock<typeof authMod.getGitHubUser>;
-let mockClaimArchgateToken: Mock<typeof authMod.claimArchgateToken>;
-let mockSaveCredentials: Mock<typeof credMod.saveCredentials>;
+// Stubs are installed per-test via spyOn, which is auto-restored and scoped to
+// this file; mock.module is process-global and would leak into sibling suites.
+let mockRequestDeviceCode: Mock<typeof logtoMod.requestDeviceCode>;
+let mockPollForTokens: Mock<typeof logtoMod.pollForTokens>;
+let mockSaveTokenSet: Mock<typeof credMod.saveTokenSet>;
+let mockRegisterHelper: Mock<typeof gitConfigMod.registerGitCredentialHelper>;
+let logSpy: Mock<typeof console.log>;
 
-// Mock inquirer for the signup flow prompts (lazy-loaded via dynamic import).
-// Use Record<string, unknown> as return type so mockImplementation can return
-// different shapes for different prompts (email, editor, useCase, confirmed).
-/**
- * The subset of each signup question the tests read back. Declaring it lets
- * the validator assertions below index the recorded call without a cast.
- */
-interface SignupQuestion {
-  name?: string;
-  validate?: (value: string) => boolean | string;
+const DEVICE_CODE = {
+  device_code: "device-abc",
+  user_code: "HZML-HXLB",
+  verification_uri: "https://auth.archgate.dev/device",
+  expires_in: 600,
+  interval: 5,
+};
+
+const TOKENS = {
+  accessToken: "ey.access.token",
+  refreshToken: "refresh-abc",
+  expiresAt: 1_800_000_000_000,
+};
+
+/** An ID token whose payload carries the given claims. */
+function idTokenFor(claims: Record<string, string>): string {
+  const payload = Buffer.from(JSON.stringify(claims)).toString("base64url");
+  return `header.${payload}.signature`;
 }
 
-const mockInquirerPrompt = mock(
-  async (_question: SignupQuestion): Promise<Record<string, unknown>> => ({
-    email: "test@example.com",
-  })
-);
-void mock.module("inquirer", () => ({
-  default: { prompt: mockInquirerPrompt },
-}));
-
-// ---------------------------------------------------------------------------
-// Import SignupRequiredError BEFORE mocking — we need the real class so
-// instanceof checks in login-flow.ts work correctly.
-// Note: we do NOT mock signup.ts to avoid cross-test contamination with
-// signup.test.ts (which uses static imports).
-// ---------------------------------------------------------------------------
-
-import * as authMod from "../../src/helpers/auth";
-import * as credMod from "../../src/helpers/credential-store";
-import { runLoginFlow } from "../../src/helpers/login-flow";
-// ---------------------------------------------------------------------------
-// Imports under test — loaded AFTER mocks are registered.
-// ---------------------------------------------------------------------------
-import type {
-  LoginFlowOptions,
-  LoginFlowResult,
-} from "../../src/helpers/login-flow";
-import { SignupRequiredError } from "../../src/helpers/signup";
-
-// ---------------------------------------------------------------------------
-// Fetch mock for signup endpoint — requestSignup() uses globalThis.fetch.
-// Per ARCH-005: assign globalThis.fetch directly, don't use mock.module.
-// ---------------------------------------------------------------------------
-
-let originalFetch: typeof globalThis.fetch;
-
-describe("login-flow", () => {
-  beforeEach(() => {
-    // Silence console output (restored via mock.restore() in afterEach).
-    spyOn(console, "log").mockImplementation(() => {});
-    spyOn(console, "error").mockImplementation(() => {});
-
-    // Save original fetch — only needed for signup tests that go through
-    // the real requestSignup function.
-    originalFetch = globalThis.fetch;
-
-    // Install fresh per-test spies with default implementations.
-    mockRequestDeviceCode = spyOn(
-      authMod,
-      "requestDeviceCode"
-    ).mockResolvedValue({
-      device_code: "dc-test-123",
-      user_code: "ABCD-1234",
-      verification_uri: "https://github.com/login/device",
-      expires_in: 900,
-      interval: 5,
-    });
-    mockPollForAccessToken = spyOn(
-      authMod,
-      "pollForAccessToken"
-    ).mockResolvedValue("gh-token-test-456");
-    mockGetGitHubUser = spyOn(authMod, "getGitHubUser").mockResolvedValue({
-      login: "octocat",
-      email: "octocat@github.com",
-    });
-    mockClaimArchgateToken = spyOn(
-      authMod,
-      "claimArchgateToken"
-    ).mockResolvedValue("archgate-token-789");
-    mockSaveCredentials = spyOn(credMod, "saveCredentials").mockImplementation(
-      async () => {}
-    );
-
-    mockInquirerPrompt.mockClear();
-    mockInquirerPrompt.mockImplementation(async () => ({
-      email: "test@example.com",
-    }));
+beforeEach(() => {
+  mockRequestDeviceCode = spyOn(
+    logtoMod,
+    "requestDeviceCode"
+  ).mockResolvedValue(DEVICE_CODE);
+  mockPollForTokens = spyOn(logtoMod, "pollForTokens").mockResolvedValue({
+    tokens: TOKENS,
+    idToken: idTokenFor({ sub: "usr_1", username: "octocat" }),
   });
+  mockSaveTokenSet = spyOn(credMod, "saveTokenSet").mockResolvedValue();
+  mockRegisterHelper = spyOn(
+    gitConfigMod,
+    "registerGitCredentialHelper"
+  ).mockResolvedValue(true);
+  logSpy = spyOn(console, "log").mockImplementation(() => {});
+});
 
-  afterEach(() => {
-    // Restore all spyOn spies (console + auth + credential-store).
-    mock.restore();
-    globalThis.fetch = originalFetch;
-  });
+afterEach(() => {
+  mockRequestDeviceCode.mockRestore();
+  mockPollForTokens.mockRestore();
+  mockSaveTokenSet.mockRestore();
+  mockRegisterHelper.mockRestore();
+  logSpy.mockRestore();
+});
 
-  // -----------------------------------------------------------------------
-  // Type exports
-  // -----------------------------------------------------------------------
-
-  test("runLoginFlow is exported as a function", () => {
-    expect(typeof runLoginFlow).toBe("function");
-  });
-
-  test("LoginFlowOptions accepts editor field", () => {
-    const opts: LoginFlowOptions = { editor: "claude-code" };
-    expect(opts.editor).toBe("claude-code");
-  });
-
-  test("LoginFlowResult shape", () => {
-    const success: LoginFlowResult = { ok: true, githubUser: "octocat" };
-    expect(success.ok).toBe(true);
-    expect(success.githubUser).toBe("octocat");
-
-    const failure: LoginFlowResult = { ok: false };
-    expect(failure.ok).toBe(false);
-    expect(failure.githubUser).toBeUndefined();
-  });
-
-  test("successful login: device code -> poll -> claim -> save", async () => {
+describe("runLoginFlow", () => {
+  test("stores the token set under the signed-in identity", async () => {
     const result = await runLoginFlow();
 
-    expect(result.ok).toBe(true);
-    expect(result.githubUser).toBe("octocat");
-
-    // Verify the full auth chain was called
-    expect(mockRequestDeviceCode).toHaveBeenCalledTimes(1);
-    expect(mockPollForAccessToken).toHaveBeenCalledTimes(1);
-    expect(mockPollForAccessToken).toHaveBeenCalledWith("dc-test-123", 5, 900);
-    expect(mockGetGitHubUser).toHaveBeenCalledTimes(1);
-    expect(mockGetGitHubUser).toHaveBeenCalledWith("gh-token-test-456");
-    expect(mockClaimArchgateToken).toHaveBeenCalledTimes(1);
-    expect(mockClaimArchgateToken).toHaveBeenCalledWith("gh-token-test-456");
-    expect(mockSaveCredentials).toHaveBeenCalledTimes(1);
-    expect(mockSaveCredentials).toHaveBeenCalledWith({
-      token: "archgate-token-789",
-      github_user: "octocat",
-    });
+    expect(result).toEqual({ ok: true, githubUser: "octocat" });
+    expect(mockSaveTokenSet).toHaveBeenCalledWith("octocat", TOKENS);
   });
 
-  test("requestDeviceCode throws -> propagates error", async () => {
-    mockRequestDeviceCode.mockImplementation(async () => {
-      throw new Error("GitHub device code request failed (HTTP 500)");
-    });
+  test("shows the verification URI and user code", async () => {
+    await runLoginFlow();
 
-    expect(runLoginFlow()).rejects.toThrow("GitHub device code request failed");
-    expect(mockPollForAccessToken).not.toHaveBeenCalled();
-    expect(mockSaveCredentials).not.toHaveBeenCalled();
+    const printed = logSpy.mock.calls.flat().join("\n");
+    expect(printed).toContain("https://auth.archgate.dev/device");
+    expect(printed).toContain("HZML-HXLB");
   });
 
-  test("pollForAccessToken throws -> propagates error", async () => {
-    mockPollForAccessToken.mockImplementation(async () => {
-      throw new Error("Device code expired");
-    });
+  test("polls with the device code and server-supplied interval", async () => {
+    await runLoginFlow();
 
-    expect(runLoginFlow()).rejects.toThrow("Device code expired");
-    expect(mockClaimArchgateToken).not.toHaveBeenCalled();
-    expect(mockSaveCredentials).not.toHaveBeenCalled();
+    expect(mockPollForTokens).toHaveBeenCalledWith("device-abc", 5, 600);
   });
 
-  test("getGitHubUser throws -> propagates error", async () => {
-    mockGetGitHubUser.mockImplementation(async () => {
-      throw new Error("Failed to fetch GitHub user (HTTP 401)");
-    });
+  test("registers archgate as git's credential helper", async () => {
+    await runLoginFlow();
 
-    expect(runLoginFlow()).rejects.toThrow("Failed to fetch GitHub user");
-    expect(mockClaimArchgateToken).not.toHaveBeenCalled();
-    expect(mockSaveCredentials).not.toHaveBeenCalled();
+    expect(mockRegisterHelper).toHaveBeenCalled();
   });
 
-  // -----------------------------------------------------------------------
-  // claimArchgateToken throws SignupRequiredError -> enters signup flow
-  // -----------------------------------------------------------------------
-
-  test("signup required: auto-approved token returned from signup", async () => {
-    // First call to claimArchgateToken throws SignupRequiredError
-    mockClaimArchgateToken.mockImplementation(async () => {
-      throw new SignupRequiredError();
-    });
-
-    // Mock fetch for the signup endpoint — requestSignup uses globalThis.fetch
-    // Deliberately incomplete fake: only the call signature fetch invokes
-    // matters for this test.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    globalThis.fetch = (async (url: string | URL | Request) => {
-      const urlStr =
-        typeof url === "string"
-          ? url
-          : url instanceof URL
-            ? url.toString()
-            : url.url;
-      if (urlStr.includes("/api/signup")) {
-        return Response.json({ token: "auto-approved-token" }, { status: 201 });
-      }
-      return originalFetch(url);
-    }) as unknown as typeof fetch;
-
-    // Mock the sequence of inquirer prompts:
-    // 1. email -> 2. editor -> 3. useCase -> 4. confirmed
-    let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(async () => {
-      promptCallCount++;
-      switch (promptCallCount) {
-        case 1:
-          return { email: "test@example.com" };
-        case 2:
-          return { editor: "vscode" };
-        case 3:
-          return { useCase: "governance" };
-        case 4:
-          return { confirmed: true };
-        default:
-          return {};
-      }
-    });
+  // Downloads use the Bearer token directly, so a failed git config write must
+  // not fail the login — only clones lose their non-interactive credentials.
+  test("still succeeds when the git config write fails", async () => {
+    mockRegisterHelper.mockResolvedValue(false);
 
     const result = await runLoginFlow();
 
     expect(result.ok).toBe(true);
-    expect(result.githubUser).toBe("octocat");
-    expect(mockSaveCredentials).toHaveBeenCalledWith({
-      token: "auto-approved-token",
-      github_user: "octocat",
-    });
+    expect(mockSaveTokenSet).toHaveBeenCalled();
   });
 
-  test("signup without auto-token falls back to second claim call", async () => {
-    // First claimArchgateToken call throws, second succeeds
-    let claimCallCount = 0;
-    mockClaimArchgateToken.mockImplementation(async () => {
-      claimCallCount++;
-      if (claimCallCount === 1) {
-        throw new SignupRequiredError();
-      }
-      return "fallback-token-xyz";
-    });
-
-    // Mock fetch for the signup endpoint — no token returned
-    // Deliberately incomplete fake: only the call signature fetch invokes
-    // matters for this test.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    globalThis.fetch = (async (url: string | URL | Request) => {
-      const urlStr =
-        typeof url === "string"
-          ? url
-          : url instanceof URL
-            ? url.toString()
-            : url.url;
-      if (urlStr.includes("/api/signup")) {
-        return Response.json({}, { status: 201 });
-      }
-      return originalFetch(url);
-    }) as unknown as typeof fetch;
-
-    let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(async () => {
-      promptCallCount++;
-      switch (promptCallCount) {
-        case 1:
-          return { email: "test@example.com" };
-        case 2:
-          return { editor: "cursor" };
-        case 3:
-          return { useCase: "testing" };
-        case 4:
-          return { confirmed: true };
-        default:
-          return {};
-      }
+  test.each([
+    [{ sub: "usr_1", username: "octocat" }, "octocat"],
+    [{ sub: "usr_1", name: "Octo Cat" }, "Octo Cat"],
+    [{ sub: "usr_1", email: "octo@example.com" }, "octo@example.com"],
+    [{ sub: "usr_1" }, "usr_1"],
+  ])("names the account from %o", async (claims, expected) => {
+    mockPollForTokens.mockResolvedValue({
+      tokens: TOKENS,
+      idToken: idTokenFor(claims),
     });
 
     const result = await runLoginFlow();
 
-    expect(result.ok).toBe(true);
-    expect(claimCallCount).toBe(2);
-    expect(mockSaveCredentials).toHaveBeenCalledWith({
-      token: "fallback-token-xyz",
-      github_user: "octocat",
-    });
+    expect(result.githubUser).toBe(expected);
   });
 
-  test("signup cancelled (confirmed=false) -> returns ok:false", async () => {
-    mockClaimArchgateToken.mockImplementation(async () => {
-      throw new SignupRequiredError();
-    });
-
-    let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(async () => {
-      promptCallCount++;
-      switch (promptCallCount) {
-        case 1:
-          return { email: "test@example.com" };
-        case 2:
-          return { editor: "vscode" };
-        case 3:
-          return { useCase: "testing" };
-        case 4:
-          return { confirmed: false };
-        default:
-          return {};
-      }
-    });
+  test("falls back to a generic name when no ID token is returned", async () => {
+    mockPollForTokens.mockResolvedValue({ tokens: TOKENS, idToken: undefined });
 
     const result = await runLoginFlow();
 
-    expect(result.ok).toBe(false);
-    expect(result.githubUser).toBeUndefined();
-    expect(mockSaveCredentials).not.toHaveBeenCalled();
+    expect(result.githubUser).toBe("archgate");
   });
 
-  test("signup request fails -> returns ok:false", async () => {
-    mockClaimArchgateToken.mockImplementation(async () => {
-      throw new SignupRequiredError();
-    });
+  test("propagates a failure from the device authorization request", async () => {
+    mockRequestDeviceCode.mockRejectedValue(new Error("network down"));
 
-    // Mock fetch for the signup endpoint — returns failure
-    // Deliberately incomplete fake: only the call signature fetch invokes
-    // matters for this test.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    globalThis.fetch = (async (url: string | URL | Request) => {
-      const urlStr =
-        typeof url === "string"
-          ? url
-          : url instanceof URL
-            ? url.toString()
-            : url.url;
-      if (urlStr.includes("/api/signup")) {
-        return new Response("Conflict", { status: 409 });
-      }
-      return originalFetch(url);
-    }) as unknown as typeof fetch;
-
-    let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(async () => {
-      promptCallCount++;
-      switch (promptCallCount) {
-        case 1:
-          return { email: "test@example.com" };
-        case 2:
-          return { editor: "vscode" };
-        case 3:
-          return { useCase: "testing" };
-        case 4:
-          return { confirmed: true };
-        default:
-          return {};
-      }
-    });
-
-    const result = await runLoginFlow();
-
-    expect(result.ok).toBe(false);
-    expect(mockSaveCredentials).not.toHaveBeenCalled();
-  });
-
-  test("pre-selected editor skips editor prompt in signup flow", async () => {
-    mockClaimArchgateToken.mockImplementation(async () => {
-      throw new SignupRequiredError();
-    });
-
-    let signupBody: Record<string, string> | null = null;
-    // Deliberately incomplete fake: only the call signature fetch invokes
-    // matters for this test.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    globalThis.fetch = (async (
-      _url: string | URL | Request,
-      init?: RequestInit
-    ) => {
-      const rawBody = typeof init?.body === "string" ? init.body : "{}";
-      // Test-only signup request body; no schema exists for it.
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-      signupBody = JSON.parse(rawBody) as Record<string, string>;
-      return Response.json({ token: "editor-preset-token" }, { status: 201 });
-    }) as unknown as typeof fetch;
-
-    // With preselected editor, only 3 prompts: email, useCase, confirmed
-    let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(async () => {
-      promptCallCount++;
-      switch (promptCallCount) {
-        case 1:
-          return { email: "test@example.com" };
-        case 2:
-          return { useCase: "governance" };
-        case 3:
-          return { confirmed: true };
-        default:
-          return {};
-      }
-    });
-
-    const result = await runLoginFlow({ editor: "claude-code" });
-
-    expect(result.ok).toBe(true);
-    // The pre-selected editor "claude-code" should be passed to requestSignup
-    expect(signupBody).not.toBeNull();
-    expect(signupBody!.editor).toBe("claude-code");
-    // Only 3 prompts (no editor prompt)
-    expect(promptCallCount).toBe(3);
-  });
-
-  test("signup prompts validate the email and use-case answers", async () => {
-    mockClaimArchgateToken.mockImplementation(async () => {
-      throw new SignupRequiredError();
-    });
-
-    // Deliberately incomplete fake: only the call signature fetch invokes
-    // matters for this test.
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-    globalThis.fetch = (async () =>
-      Response.json(
-        { token: "validated-token" },
-        { status: 201 }
-      )) as unknown as typeof fetch;
-
-    // A pre-selected editor drops the editor prompt, so the recorded calls
-    // are email, useCase, confirm — in that order.
-    let promptCallCount = 0;
-    mockInquirerPrompt.mockImplementation(async () => {
-      promptCallCount++;
-      switch (promptCallCount) {
-        case 1:
-          return { email: "test@example.com" };
-        case 2:
-          return { useCase: "governance" };
-        default:
-          return { confirmed: true };
-      }
-    });
-
-    await runLoginFlow({ editor: "claude-code" });
-
-    const emailValidate = mockInquirerPrompt.mock.calls[0][0].validate;
-    expect(emailValidate?.("not-an-email")).toBe("Enter a valid email address");
-    expect(emailValidate?.("dev@example.com")).toBe(true);
-
-    const useCaseValidate = mockInquirerPrompt.mock.calls[1][0].validate;
-    expect(useCaseValidate?.("   ")).toBe("Please describe your use case");
-    expect(useCaseValidate?.("governance")).toBe(true);
-  });
-
-  test("claimArchgateToken throws non-signup error -> propagates", async () => {
-    mockClaimArchgateToken.mockImplementation(async () => {
-      throw new Error("Token claim failed (HTTP 500)");
-    });
-
-    expect(runLoginFlow()).rejects.toThrow("Token claim failed");
-    expect(mockSaveCredentials).not.toHaveBeenCalled();
+    expect(await rejectionMessage(runLoginFlow())).toContain("network down");
+    expect(mockSaveTokenSet).not.toHaveBeenCalled();
   });
 });

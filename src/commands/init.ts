@@ -13,7 +13,6 @@ import { exitWith, handleCommandError } from "../helpers/exit";
 import {
   EDITOR_LABELS,
   EDITOR_TARGETS,
-  SIGNUP_EDITORS,
   initProject,
 } from "../helpers/init-project";
 import type { EditorTarget } from "../helpers/init-project";
@@ -102,9 +101,7 @@ export function registerInitCommand(program: Command) {
           );
 
           if (wantPlugin) {
-            const result = await runLoginFlow({
-              editor: SIGNUP_EDITORS[editors[0]],
-            });
+            const result = await runLoginFlow();
             hasCredentials = result.ok;
           }
         }

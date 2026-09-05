@@ -12,9 +12,25 @@
 import { unlinkSync } from "node:fs";
 
 import { logDebug, logWarn } from "./log";
+import {
+  isExpired,
+  refreshAccessToken,
+  type TokenSet,
+  TokenSetSchema,
+} from "./logto-auth";
 import { internalPath } from "./paths";
 
-const CREDENTIAL_HOST = "plugins.archgate.dev";
+/** Host git itself authenticates against for plugin repositories. */
+export const PLUGINS_HOST = "plugins.archgate.dev";
+
+/**
+ * Host the Logto token set is filed under.
+ *
+ * archgate registers itself as git's credential helper for {@link PLUGINS_HOST},
+ * so storing its own tokens there would make every read re-enter this process.
+ */
+export const AUTH_HOST = "auth.archgate.dev";
+
 const CREDENTIAL_TIMEOUT_MS = 3_000;
 
 /**
@@ -43,8 +59,12 @@ export interface StoredCredentials {
 // Git credential protocol helpers
 // ---------------------------------------------------------------------------
 
-function credentialInput(username?: string, password?: string): string {
-  const lines = ["protocol=https", `host=${CREDENTIAL_HOST}`];
+function credentialInput(
+  host: string,
+  username?: string,
+  password?: string
+): string {
+  const lines = ["protocol=https", `host=${host}`];
   if (username !== undefined && username !== "")
     lines.push(`username=${username}`);
   if (password !== undefined && password !== "")
@@ -54,11 +74,12 @@ function credentialInput(username?: string, password?: string): string {
 }
 
 async function gitCredentialApprove(
+  host: string,
   username: string,
   password: string
 ): Promise<boolean> {
   const proc = Bun.spawn(["git", "credential", "approve"], {
-    stdin: new Blob([credentialInput(username, password)]),
+    stdin: new Blob([credentialInput(host, username, password)]),
     stdout: "pipe",
     stderr: "pipe",
     env: gitCredentialEnv(),
@@ -66,13 +87,12 @@ async function gitCredentialApprove(
   return (await proc.exited) === 0;
 }
 
-async function gitCredentialFill(): Promise<{
-  username: string;
-  password: string;
-} | null> {
+async function gitCredentialFill(
+  host: string
+): Promise<{ username: string; password: string } | null> {
   try {
     const proc = Bun.spawn(["git", "credential", "fill"], {
-      stdin: new Blob([credentialInput()]),
+      stdin: new Blob([credentialInput(host)]),
       stdout: "pipe",
       stderr: "pipe",
       env: gitCredentialEnv(),
@@ -114,11 +134,12 @@ async function gitCredentialFill(): Promise<{
 }
 
 async function gitCredentialReject(
+  host: string,
   username: string,
   password: string
 ): Promise<void> {
   const proc = Bun.spawn(["git", "credential", "reject"], {
-    stdin: new Blob([credentialInput(username, password)]),
+    stdin: new Blob([credentialInput(host, username, password)]),
     stdout: "pipe",
     stderr: "pipe",
     env: gitCredentialEnv(),
@@ -158,47 +179,91 @@ const CREDENTIAL_HELPER_HINT =
   "Run `git config --global credential.helper` to check your configuration.";
 
 /**
- * Persist archgate credentials in the OS credential manager.
+ * Persist a Logto token set in the OS credential manager.
  *
- * A verification round-trip (`git credential fill`) confirms the token was
+ * A verification round-trip (`git credential fill`) confirms the blob was
  * actually persisted — `git credential approve` exits 0 even without a
  * configured helper, silently storing nothing.
+ *
+ * @param user - Display name shown by `archgate login status`.
+ * @param tokens - Access token, refresh token and absolute expiry.
  */
-export async function saveCredentials(
-  credentials: StoredCredentials
+export async function saveTokenSet(
+  user: string,
+  tokens: TokenSet
 ): Promise<void> {
   await cleanupLegacyMetadata();
 
   const stored = await gitCredentialApprove(
-    credentials.github_user,
-    credentials.token
+    AUTH_HOST,
+    user,
+    JSON.stringify(tokens)
   );
 
-  if (stored) {
-    const verified = await gitCredentialFill();
-    if (verified) {
-      logDebug("Token verified in git credential manager");
-    } else {
-      logWarn(
-        "Token could not be verified in git credential manager.",
-        "Your credential helper may not persist credentials.",
-        CREDENTIAL_HELPER_HINT,
-        "Without a working credential helper, you will need to re-login after each session."
-      );
-    }
-  } else {
+  if (!stored) {
     logWarn(
       "git credential approve failed.",
       "Your git credential helper may not be configured.",
       CREDENTIAL_HELPER_HINT
     );
+    return;
+  }
+
+  if (await gitCredentialFill(AUTH_HOST)) {
+    logDebug("Token set verified in git credential manager");
+  } else {
+    logWarn(
+      "Token could not be verified in git credential manager.",
+      "Your credential helper may not persist credentials.",
+      CREDENTIAL_HELPER_HINT,
+      "Without a working credential helper, you will need to re-login after each session."
+    );
   }
 }
 
 /**
- * Load stored archgate credentials from the OS credential manager. A legacy
- * `~/.archgate/credentials` file is deleted on sight and the user is asked
- * to re-login.
+ * Read the stored Logto token set without renewing it.
+ *
+ * @returns The token set and the user it belongs to, or `null` when absent.
+ */
+export async function loadTokenSet(): Promise<{
+  user: string;
+  tokens: TokenSet;
+} | null> {
+  const stored = await gitCredentialFill(AUTH_HOST);
+  if (!stored) return null;
+
+  const parsed = TokenSetSchema.safeParse(safeJsonParse(stored.password));
+  if (!parsed.success) {
+    logDebug("Stored token set is unreadable");
+    return null;
+  }
+  return { user: stored.username, tokens: parsed.data };
+}
+
+/**
+ * Return a usable access token, renewing it when it has lapsed.
+ *
+ * @returns Credentials ready to send, or `null` when the user is signed out.
+ */
+export async function resolveAccessToken(): Promise<StoredCredentials | null> {
+  const stored = await loadTokenSet();
+  if (!stored) return null;
+
+  if (!isExpired(stored.tokens.expiresAt)) {
+    return { token: stored.tokens.accessToken, github_user: stored.user };
+  }
+
+  const renewed = await refreshAccessToken(stored.tokens.refreshToken);
+  await saveTokenSet(stored.user, renewed);
+  return { token: renewed.accessToken, github_user: stored.user };
+}
+
+/**
+ * Load archgate credentials, renewing a lapsed access token on the way.
+ *
+ * Tokens issued before Logto sign-in are filed under {@link PLUGINS_HOST} and
+ * are returned unchanged; they keep working until the user signs in again.
  *
  * @returns The stored credentials, or `null` when none are stored.
  */
@@ -213,22 +278,38 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     return null;
   }
 
-  const gitCreds = await gitCredentialFill();
-  if (gitCreds) {
-    return { token: gitCreds.password, github_user: gitCreds.username };
+  const resolved = await resolveAccessToken();
+  if (resolved) return resolved;
+
+  const legacy = await gitCredentialFill(PLUGINS_HOST);
+  if (legacy) {
+    return { token: legacy.password, github_user: legacy.username };
   }
   return null;
 }
 
 /**
  * Remove stored credentials (logout).
- * Clears the OS credential manager and any legacy metadata file.
+ * Clears both credential entries and any legacy metadata file.
  */
 export async function clearCredentials(): Promise<void> {
-  const gitCreds = await gitCredentialFill();
-  if (gitCreds) {
-    await gitCredentialReject(gitCreds.username, gitCreds.password);
-    logDebug("Token removed from git credential manager");
+  /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */
+  for (const host of [AUTH_HOST, PLUGINS_HOST]) {
+    const stored = await gitCredentialFill(host);
+    if (stored) {
+      await gitCredentialReject(host, stored.username, stored.password);
+      logDebug("Credentials removed from git credential manager");
+    }
   }
+  /* oxlint-enable no-await-in-loop */
   await cleanupLegacyMetadata();
+}
+
+/** Parse JSON, returning `null` rather than throwing on malformed input. */
+function safeJsonParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }

@@ -6,8 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  saveCredentials,
+  saveTokenSet,
   loadCredentials,
+  loadTokenSet,
   clearCredentials,
 } from "../../src/helpers/credential-store";
 import { restoreEnv } from "../test-utils";
@@ -46,11 +47,12 @@ describe("credential-store", () => {
     }
   });
 
-  describe("saveCredentials", () => {
+  describe("saveTokenSet", () => {
     test("does not write any metadata file to disk", async () => {
-      await saveCredentials({
-        token: "ag_beta_abc123",
-        github_user: "testuser",
+      await saveTokenSet("testuser", {
+        accessToken: "ey.access",
+        refreshToken: "refresh-abc",
+        expiresAt: Date.now() + 3_600_000,
       });
 
       // No credentials file should be written — everything is in git credential manager.
@@ -71,9 +73,10 @@ describe("credential-store", () => {
           JSON.stringify({ github_user: "old", created_at: "2025-01-01" })
         );
 
-        await saveCredentials({
-          token: "ag_beta_abc123",
-          github_user: "testuser",
+        await saveTokenSet("testuser", {
+          accessToken: "ag_beta_abc123",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
         });
 
         expect(await Bun.file(credPath).exists()).toBe(false);
@@ -89,9 +92,10 @@ describe("credential-store", () => {
         // fill returns nothing — triggers the verification warning path.
         const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
         try {
-          await saveCredentials({
-            token: "ag_beta_test",
-            github_user: "testuser",
+          await saveTokenSet("testuser", {
+            accessToken: "ag_beta_test",
+            refreshToken: "refresh-abc",
+            expiresAt: Date.now() + 3_600_000,
           });
 
           // The warning is printed because fill cannot verify the stored token.
@@ -185,9 +189,10 @@ describe("credential-store", () => {
 
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        await saveCredentials({
-          token: "ag_beta_roundtrip",
-          github_user: "rounduser",
+        await saveTokenSet("rounduser", {
+          accessToken: "ag_beta_roundtrip",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
         });
 
         // With a working helper, verification succeeds — no warning about
@@ -272,7 +277,11 @@ describe("credential-store", () => {
       });
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        await saveCredentials({ token: "ag_beta_x", github_user: "u" });
+        await saveTokenSet("u", {
+          accessToken: "ag_beta_x",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
+        });
 
         expect(warnSpy.mock.calls.flat().join(" ")).toContain(
           "git credential approve failed."
@@ -284,9 +293,10 @@ describe("credential-store", () => {
     });
   });
 
-  describe("StoredCredentials type", () => {
-    test("interface has expected shape", () => {
-      expect(typeof saveCredentials).toBe("function");
+  describe("public surface", () => {
+    test("exposes the store, load and clear entry points", () => {
+      expect(typeof saveTokenSet).toBe("function");
+      expect(typeof loadTokenSet).toBe("function");
       expect(typeof loadCredentials).toBe("function");
       expect(typeof clearCredentials).toBe("function");
     });

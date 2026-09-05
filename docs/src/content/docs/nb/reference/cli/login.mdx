@@ -1,17 +1,19 @@
 ---
 title: archgate login
-description: "Autentiser med GitHub for å få tilgang til Archgate editor-plugins."
+description: "Logg inn for å få tilgang til Archgate editor-plugins."
 ---
 
-Autentiser med GitHub for å få tilgang til Archgate editor-plugins. Hvis du ikke er registrert ennå, håndterer CLI-en registrering automatisk -- den ber om e-postadressen din, foretrukket editor (Claude Code, Cursor, VS Code, GitHub Copilot eller opencode) og bruksområde, og registrerer deg før innloggingen fullføres.
+Logg inn for å få tilgang til Archgate editor-plugins.
 
 ```bash
 archgate login
 ```
 
-Starter en GitHub Device Flow (OAuth). CLI-en viser en engangskode og en URL. Åpne URL-en i nettleseren din, skriv inn koden og autoriser Archgate GitHub OAuth-appen. Når autorisasjonen er fullført, veksler CLI-en GitHub-identiteten din mot et Archgate plugin-token og lagrer det sikkert i operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) via `git credential approve`. Ingen legitimasjon skrives til disk som klartekstfiler.
+Starter en OAuth 2.0 Device Authorization Grant (RFC 8628) mot Archgates identitetsleverandør. CLI-en viser en engangskode og en URL. Åpne URL-en i nettleseren din, skriv inn koden og velg hvordan du vil logge inn. Når autorisasjonen er fullført, lagrer CLI-en tokenene i operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) via `git credential approve`. Ingen legitimasjon skrives til disk som klartekstfiler.
 
-Hvis GitHub-kontoen din ikke er registrert ennå, ber CLI-en om e-postadressen din, foretrukket editor og bruksområde, og registrerer deg automatisk.
+Tilgangstokener er kortlivede. CLI-en beholder et refresh-token ved siden av dem og fornyer tilgangstokenet automatisk, så det holder å logge inn én gang.
+
+Innlogging registrerer også `archgate credential` som en git credential helper for `plugins.archgate.dev`, som er det som lar `git clone` av et plugin-repositorium autentisere uten å spørre. Se [`archgate credential`](/reference/cli/credential/).
 
 Legitimasjon kreves for å installere editor-plugins via `archgate init --install-plugin`. Selve CLI-en (check, init osv.) fungerer uten innlogging.
 
@@ -37,29 +39,13 @@ archgate login
 ```
 
 ```
-By signing up, you agree to the Archgate Terms of Service:
+By signing in, you agree to the Archgate Terms of Service:
 https://archgate.dev/terms-of-service
 
-info: Authenticating with GitHub...
-
-Open https://github.com/login/device in your browser
-and enter the code: ABCD-1234
+Open https://auth.archgate.dev/device in your browser
+and enter the code: HZML-HXLB
 
 Waiting for authorization...
-info: GitHub user: yourname
-info: Claiming archgate plugin token...
-
-Your GitHub account yourname is not yet registered.
-Let's sign you up now.
-
-? Email address: you@example.com
-? Which editor will you use with archgate? Claude Code
-? How do you plan to use archgate? Enforcing ADRs in our monorepo
-? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
-
-info: Submitting signup request...
-info: Claiming archgate plugin token...
-
 info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```

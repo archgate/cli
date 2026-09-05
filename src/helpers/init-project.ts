@@ -38,22 +38,6 @@ export const EDITOR_LABELS: Record<EditorTarget, string> = {
   opencode: "opencode",
 };
 
-/** Values sent to the signup API — one per EditorTarget. */
-export type SignupEditor =
-  | "claude-code"
-  | "vscode"
-  | "copilot-cli"
-  | "cursor"
-  | "opencode";
-
-export const SIGNUP_EDITORS: Record<EditorTarget, SignupEditor> = {
-  claude: "claude-code",
-  cursor: "cursor",
-  vscode: "vscode",
-  copilot: "copilot-cli",
-  opencode: "opencode",
-};
-
 interface InitOptions {
   editor?: EditorTarget;
   /** When true, attempt to install the archgate plugin using stored credentials. */

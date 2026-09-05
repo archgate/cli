@@ -1,22 +1,24 @@
 ---
 title: archgate login
-description: "Autentique-se com o GitHub para acessar os plugins de editor do Archgate."
+description: "Entre para acessar os plugins de editor do Archgate."
 ---
 
-Autentique-se com o GitHub para acessar os plugins de editor do Archgate. Se você ainda não possui cadastro, a CLI cuida do registro automaticamente -- solicita seu email, preferência de editor (Claude Code, Cursor, VS Code, GitHub Copilot ou opencode) e caso de uso, e então realiza o cadastro antes de concluir o login.
+Entre para acessar os plugins de editor do Archgate.
 
 ```bash
 archgate login
 ```
 
-Inicia um GitHub Device Flow (OAuth). A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e autorize o Archgate GitHub OAuth App. Após a autorização, a CLI troca sua identidade do GitHub por um token de plugin do Archgate e armazena-o de forma segura no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager ou libsecret no Linux) via `git credential approve`. Nenhuma credencial é gravada em disco como arquivo de texto.
+Inicia um OAuth 2.0 Device Authorization Grant (RFC 8628) no provedor de identidade do Archgate. A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e escolha como deseja entrar. Após a autorização, a CLI armazena os tokens resultantes no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager ou libsecret no Linux) via `git credential approve`. Nenhuma credencial é gravada em disco como arquivo de texto.
 
-Se sua conta do GitHub ainda não estiver cadastrada, a CLI solicita seu email, editor preferido e caso de uso, e realiza o cadastro automaticamente.
+Os tokens de acesso têm vida curta. A CLI mantém um refresh token junto deles e renova o token de acesso automaticamente, então basta entrar uma vez.
+
+Entrar também registra `archgate credential` como um credential helper do git para `plugins.archgate.dev`, que é o que permite ao `git clone` de um repositório de plugin autenticar sem solicitar credenciais. Veja [`archgate credential`](/reference/cli/credential/).
 
 As credenciais são necessárias para instalar plugins de editor via `archgate init --install-plugin`. A CLI em si (check, init, etc.) funciona sem login.
 
 :::tip[Plugin em beta]
-Os plugins de editor estão atualmente em beta. Execute `archgate login` para se cadastrar e autenticar.
+Os plugins de editor estão atualmente em beta. Execute `archgate login` para entrar.
 :::
 
 ## Subcomandos
@@ -37,29 +39,13 @@ archgate login
 ```
 
 ```
-By signing up, you agree to the Archgate Terms of Service:
+By signing in, you agree to the Archgate Terms of Service:
 https://archgate.dev/terms-of-service
 
-info: Authenticating with GitHub...
-
-Open https://github.com/login/device in your browser
-and enter the code: ABCD-1234
+Open https://auth.archgate.dev/device in your browser
+and enter the code: HZML-HXLB
 
 Waiting for authorization...
-info: GitHub user: yourname
-info: Claiming archgate plugin token...
-
-Your GitHub account yourname is not yet registered.
-Let's sign you up now.
-
-? Email address: you@example.com
-? Which editor will you use with archgate? Claude Code
-? How do you plan to use archgate? Enforcing ADRs in our monorepo
-? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
-
-info: Submitting signup request...
-info: Claiming archgate plugin token...
-
 info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```

@@ -12,6 +12,7 @@ import packageJson from "../package.json";
 import { registerAdrCommand } from "./commands/adr/index";
 import { registerCheckCommand } from "./commands/check";
 import { registerCleanCommand } from "./commands/clean";
+import { registerCredentialCommand } from "./commands/credential";
 import { registerDoctorCommand } from "./commands/doctor";
 import { registerInitCommand } from "./commands/init";
 import { registerLoginCommand } from "./commands/login";
@@ -156,6 +157,7 @@ async function main() {
   registerCleanCommand(program);
   registerDoctorCommand(program);
   registerTelemetryCommand(program);
+  registerCredentialCommand(program);
 
   const updateCheckPromise = maybeCheckForUpdates(packageJson.version);
   await program.parseAsync(process.argv);

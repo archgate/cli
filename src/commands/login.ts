@@ -6,6 +6,7 @@ import type { Command } from "@commander-js/extra-typings";
 
 import { loadCredentials, clearCredentials } from "../helpers/credential-store";
 import { exitWith, handleCommandError } from "../helpers/exit";
+import { unregisterGitCredentialHelper } from "../helpers/git-credential-config";
 import { logError, logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
@@ -23,7 +24,7 @@ export function registerLoginCommand(program: Command) {
       if (existing) {
         logInfo(
           `Already logged in as ${styleText("bold", existing.github_user)}.`,
-          "Run `archgate login refresh` to re-authenticate."
+          "Run `archgate login refresh` to sign in again."
         );
         return;
       }
@@ -75,6 +76,7 @@ export function registerLoginCommand(program: Command) {
     .action(async () => {
       try {
         await clearCredentials();
+        await unregisterGitCredentialHelper();
         trackLoginResult({ subcommand: "logout", success: true });
         console.log("Logged out successfully.");
       } catch (err) {

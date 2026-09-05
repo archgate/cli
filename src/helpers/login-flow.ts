@@ -1,68 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * login-flow.ts — Shared GitHub device flow + signup logic
- * used by both `login` and `init` commands.
+ * login-flow.ts — Shared Logto device flow used by `login` and `init`.
  */
 
 import { styleText } from "node:util";
 
+import { saveTokenSet } from "./credential-store";
+import { registerGitCredentialHelper } from "./git-credential-config";
+import { logDebug, logInfo, logWarn } from "./log";
 import {
+  identityFromIdToken,
+  pollForTokens,
   requestDeviceCode,
-  pollForAccessToken,
-  getGitHubUser,
-  claimArchgateToken,
-} from "./auth";
-import { saveCredentials } from "./credential-store";
-import {
-  EDITOR_LABELS,
-  EDITOR_TARGETS,
-  SIGNUP_EDITORS,
-  type SignupEditor,
-} from "./init-project";
-import { logDebug, logError, logInfo } from "./log";
-import { withPromptFix } from "./prompt";
-import { SignupRequiredError, requestSignup } from "./signup";
-
-export type { SignupEditor } from "./init-project";
-
-export interface LoginFlowOptions {
-  /**
-   * Pre-selected editor for signup (skip the editor prompt).
-   * When omitted, the user is prompted to choose.
-   */
-  editor?: SignupEditor;
-}
+} from "./logto-auth";
 
 export interface LoginFlowResult {
   /** Whether credentials were obtained. */
   ok: boolean;
-  /** GitHub username, if login succeeded. */
+  /** Signed-in account name, if login succeeded. */
   githubUser?: string;
 }
 
 /**
- * Run the full GitHub device flow: authenticate, claim token (or sign up
- * if the user is unregistered), and store credentials.
+ * Run the Logto device authorization flow and store the resulting tokens.
  *
- * @param options - Flow overrides, such as a pre-selected editor target.
- * @returns `{ ok: true }` once credentials are stored, or `{ ok: false }` on
- * failure — the error is printed before returning, so callers exit quietly.
+ * Registers archgate as git's credential helper for the plugins host so that
+ * `git clone` of a plugin repository gets a freshly minted access token.
+ *
+ * @returns `{ ok: true }` once credentials are stored.
  */
-export async function runLoginFlow(
-  options?: LoginFlowOptions
-): Promise<LoginFlowResult> {
-  console.log("By signing up, you agree to the Archgate Terms of Service:");
+export async function runLoginFlow(): Promise<LoginFlowResult> {
+  console.log("By signing in, you agree to the Archgate Terms of Service:");
   console.log("https://archgate.dev/terms-of-service\n");
 
-  logInfo("Authenticating with GitHub...\n");
-
-  logDebug("Starting login flow");
+  logDebug("Starting Logto device flow");
   const deviceCode = await requestDeviceCode();
-  logDebug(
-    "Device code received, verification URI:",
-    deviceCode.verification_uri
-  );
+
   console.log(
     `Open ${styleText("bold", deviceCode.verification_uri)} in your browser`
   );
@@ -71,132 +45,24 @@ export async function runLoginFlow(
   );
   console.log("Waiting for authorization...");
 
-  const githubToken = await pollForAccessToken(
+  const { tokens, idToken } = await pollForTokens(
     deviceCode.device_code,
     deviceCode.interval,
     deviceCode.expires_in
   );
 
-  const { login: githubUser, email: githubEmail } =
-    await getGitHubUser(githubToken);
-  logInfo(`GitHub user: ${styleText("bold", githubUser)}`);
+  const user = identityFromIdToken(idToken);
+  await saveTokenSet(user, tokens);
 
-  logInfo("Claiming archgate plugin token...");
-  let archgateToken: string;
-  try {
-    archgateToken = await claimArchgateToken(githubToken);
-    logDebug("Token claimed successfully");
-  } catch (err) {
-    if (!(err instanceof SignupRequiredError)) throw err;
-    logDebug("Signup required — starting signup flow");
-
-    console.log(
-      `\nYour GitHub account ${styleText("bold", githubUser)} is not yet registered.`
+  if (!(await registerGitCredentialHelper())) {
+    logWarn(
+      "Could not register archgate as a git credential helper.",
+      "Plugin downloads still work; `git clone` of a plugin repository may prompt for credentials."
     );
-    console.log("Let's sign you up now.\n");
-
-    const result = await runSignupPrompt(
-      githubUser,
-      githubToken,
-      githubEmail,
-      options?.editor
-    );
-    if (result === null || result === "") return { ok: false };
-    archgateToken = result;
   }
-
-  await saveCredentials({ token: archgateToken, github_user: githubUser });
 
   logInfo(
-    `Authenticated as ${styleText("bold", githubUser)}. Plugin access is now available.`
+    `Authenticated as ${styleText("bold", user)}. Plugin access is now available.`
   );
-  return { ok: true, githubUser };
-}
-
-/**
- * Prompt for signup details and submit the registration request.
- *
- * @param githubUser - GitHub login of the authenticated user.
- * @param githubToken - GitHub access token proving that identity.
- * @param githubEmail - Email from GitHub, or `null` to prompt for one.
- * @param preselectedEditor - Skips the editor prompt when supplied.
- * @returns The archgate token, or `null` on failure — the error is printed
- * before returning.
- */
-async function runSignupPrompt(
-  githubUser: string,
-  githubToken: string,
-  githubEmail: string | null,
-  preselectedEditor?: SignupEditor
-): Promise<string | null> {
-  // Lazy-load inquirer — it costs ~200ms to parse and is only needed for
-  // interactive signup prompts, not on every CLI startup.
-  const { default: inquirer } = await import("inquirer");
-  const { email } = await withPromptFix(async () =>
-    inquirer.prompt<{ email: string }>({
-      type: "input",
-      name: "email",
-      message: "Email address:",
-      default: githubEmail ?? undefined,
-      validate: (v: string) =>
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(v) || "Enter a valid email address",
-    })
-  );
-
-  let editor: SignupEditor = preselectedEditor ?? "claude-code";
-  if (!preselectedEditor) {
-    // Build choices from the canonical EDITOR_LABELS + SIGNUP_EDITORS maps
-    // so adding a new editor in init-project.ts propagates here automatically.
-    const choices = EDITOR_TARGETS.map((key) => ({
-      name: EDITOR_LABELS[key],
-      value: SIGNUP_EDITORS[key],
-    }));
-    const ans = await withPromptFix(async () =>
-      inquirer.prompt<{ editor: SignupEditor }>({
-        type: "select",
-        name: "editor",
-        message: "Which editor will you use with archgate?",
-        choices,
-      })
-    );
-    editor = ans.editor;
-  }
-
-  const { useCase } = await withPromptFix(async () =>
-    inquirer.prompt<{ useCase: string }>({
-      type: "input",
-      name: "useCase",
-      message: "How do you plan to use archgate?",
-      validate: (v: string) =>
-        v.trim().length > 0 || "Please describe your use case",
-    })
-  );
-
-  const { confirmed } = await withPromptFix(async () =>
-    inquirer.prompt<{ confirmed: boolean }>({
-      type: "confirm",
-      name: "confirmed",
-      message:
-        "I agree to be contacted by the Archgate team to provide feedback during the beta period.",
-      default: true,
-    })
-  );
-
-  if (!confirmed) {
-    logInfo("Signup cancelled.");
-    return null;
-  }
-
-  logInfo("\nSubmitting signup request...");
-  const result = await requestSignup(githubUser, email, useCase, editor);
-
-  if (!result.ok) {
-    logError("Signup request failed. Please try again with `archgate login`.");
-    return null;
-  }
-
-  if (result.token !== null && result.token !== "") return result.token;
-
-  logInfo("Claiming archgate plugin token...");
-  return claimArchgateToken(githubToken);
+  return { ok: true, githubUser: user };
 }
