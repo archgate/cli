@@ -3,7 +3,7 @@
 /**
  * logto-auth.ts — Logto device authorization and token refresh.
  *
- * Implements RFC 8628 against the Archgate identity provider. Access tokens
+ * Implements RFC 8628 against the Archgate platform. Access tokens
  * are short-lived; the refresh token obtained via `offline_access` is what
  * survives, and {@link refreshAccessToken} trades it for a new pair.
  */
@@ -96,7 +96,7 @@ export type TokenSetWithIdentity = z.infer<typeof TokenSetWithIdentitySchema>;
  * Start a device authorization request.
  *
  * @returns The user code and verification URI to show the user.
- * @throws {UserError} When the identity provider rejects the request.
+ * @throws {UserError} When the Archgate platform rejects the request.
  */
 export async function requestDeviceCode(): Promise<DeviceCode> {
   logDebug("Requesting Logto device code from:", DEVICE_AUTH_URL);
@@ -271,7 +271,7 @@ export function isExpired(expiresAt: number): boolean {
 /**
  * Read a JSON body without letting a non-JSON one escape as an internal error.
  *
- * An identity-provider outage answers with an HTML error page from a proxy,
+ * An Archgate platform outage answers with an HTML error page from a proxy,
  * where `response.json()` rejects with a `SyntaxError` — not a `UserError`, so
  * it would surface as an internal fault and reach Sentry.
  *

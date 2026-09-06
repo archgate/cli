@@ -17,7 +17,7 @@ import { UserError } from "../helpers/user-error";
 export function registerLoginCommand(program: Command) {
   const login = program
     .command("login")
-    .description("Sign in to access archgate plugins");
+    .description("Log in to the Archgate platform");
 
   login.action(async () => {
     try {
