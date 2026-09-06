@@ -4480,10 +4480,10 @@ The command speaks git's [credential helper protocol](https://git-scm.com/docs/g
 
 ## Subcommands
 
-| Subcommand                  | Description                                              |
-| --------------------------- | -------------------------------------------------------- |
-| `archgate credential get`   | Print credentials for a plugin repository                |
-| `archgate credential store` | Accept a credential from git (no-op)                     |
+| Subcommand                  | Description                                               |
+| --------------------------- | --------------------------------------------------------- |
+| `archgate credential get`   | Print credentials for a plugin repository                 |
+| `archgate credential store` | Accept a credential from git (no-op)                      |
 | `archgate credential erase` | Drop the cached access token when git reports it rejected |
 
 `store` is deliberately a no-op: tokens come from `archgate login`, so there is nothing for git to teach the CLI.
