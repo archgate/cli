@@ -7,6 +7,7 @@
 import { styleText } from "node:util";
 
 import { saveTokenSet } from "./credential-store";
+import { copyToClipboard, openBrowser } from "./desktop";
 import { registerGitCredentialHelper } from "./git-credential-config";
 import { logDebug, logInfo, logWarn } from "./log";
 import {
@@ -38,12 +39,28 @@ export async function runLoginFlow(): Promise<LoginFlowResult> {
   logDebug("Starting Logto device flow");
   const deviceCode = await requestDeviceCode();
 
-  console.log(
-    `Open ${styleText("bold", deviceCode.verification_uri)} in your browser`
-  );
-  console.log(
-    `and enter the code: ${styleText(["bold", "green"], deviceCode.user_code)}\n`
-  );
+  const code = styleText(["bold", "green"], deviceCode.user_code);
+  const copied = await copyToClipboard(deviceCode.user_code);
+
+  // The complete URI carries the code as a query parameter, so a browser that
+  // opens it leaves nothing to type. It is always printed as well: the browser
+  // may not open, and the user may be reading this on another machine.
+  const target =
+    deviceCode.verification_uri_complete ?? deviceCode.verification_uri;
+  const opened = await openBrowser(target);
+
+  if (opened) {
+    console.log(`Opened ${styleText("bold", target)} in your browser.`);
+    console.log(
+      `If it asks for a code, enter: ${code}${copied ? " (copied to your clipboard)" : ""}\n`
+    );
+  } else {
+    console.log(`Open ${styleText("bold", target)} in your browser`);
+    console.log(
+      `and enter the code: ${code}${copied ? " (copied to your clipboard)" : ""}\n`
+    );
+  }
+
   console.log("Waiting for authorization...");
 
   const { tokens, idToken } = await pollForTokens(

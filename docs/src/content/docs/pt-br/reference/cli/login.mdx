@@ -9,7 +9,9 @@ Entre na plataforma Archgate. É o login que concede acesso aos plugins de edito
 archgate login
 ```
 
-Inicia um OAuth 2.0 Device Authorization Grant (RFC 8628) na plataforma Archgate. A CLI exibe um código de uso único e uma URL. Abra a URL no seu navegador, insira o código e escolha como deseja entrar. Após a autorização, a CLI entrega os tokens ao git via `git credential approve`, então onde eles ficam depende do credential helper que você tem configurado. Um helper apoiado no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager, libsecret no Linux) os mantém criptografados; o helper `store` embutido do git os grava em `~/.git-credentials` em texto puro. Verifique o seu com `git config --global credential.helper`.
+Inicia um OAuth 2.0 Device Authorization Grant (RFC 8628) na plataforma Archgate. A CLI abre seu navegador em uma URL que já contém o código de uso único e copia esse código para a área de transferência, caso a página o solicite. A URL e o código também são exibidos, então você pode concluir em outra máquina ou colá-los manualmente.
+
+Nenhuma das duas etapas é obrigatória. Em CI, via SSH ou em uma máquina sem servidor gráfico, a CLI pula ambas e apenas os exibe. Após a autorização, a CLI entrega os tokens ao git via `git credential approve`, então onde eles ficam depende do credential helper que você tem configurado. Um helper apoiado no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager, libsecret no Linux) os mantém criptografados; o helper `store` embutido do git os grava em `~/.git-credentials` em texto puro. Verifique o seu com `git config --global credential.helper`.
 
 Os tokens de acesso têm vida curta. A CLI mantém um refresh token junto deles e renova o token de acesso automaticamente, então normalmente basta entrar uma vez. Se o próprio refresh token expirar ou for revogado, a CLI recorre a um token emitido antes deste fluxo existir; se não houver nenhum, informa que a sessão expirou, e o `archgate login` a restabelece.
 
@@ -42,8 +44,8 @@ archgate login
 By signing in, you agree to the Archgate Terms of Service:
 https://archgate.dev/terms-of-service
 
-Open https://auth.archgate.dev/device in your browser
-and enter the code: HZML-HXLB
+Opened https://auth.archgate.dev/device?user_code=HZML-HXLB in your browser.
+If it asks for a code, enter: HZML-HXLB (copied to your clipboard)
 
 Waiting for authorization...
 info: Authenticated as yourname. Plugin access is now available.

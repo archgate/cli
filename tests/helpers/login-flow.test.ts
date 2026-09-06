@@ -11,6 +11,7 @@ import {
 } from "bun:test";
 
 import * as credMod from "../../src/helpers/credential-store";
+import * as desktopMod from "../../src/helpers/desktop";
 import * as gitConfigMod from "../../src/helpers/git-credential-config";
 import { runLoginFlow } from "../../src/helpers/login-flow";
 import * as logtoMod from "../../src/helpers/logto-auth";
@@ -22,6 +23,8 @@ let mockRequestDeviceCode: Mock<typeof logtoMod.requestDeviceCode>;
 let mockPollForTokens: Mock<typeof logtoMod.pollForTokens>;
 let mockSaveTokenSet: Mock<typeof credMod.saveTokenSet>;
 let mockRegisterHelper: Mock<typeof gitConfigMod.registerGitCredentialHelper>;
+let mockOpenBrowser: Mock<typeof desktopMod.openBrowser>;
+let mockCopyToClipboard: Mock<typeof desktopMod.copyToClipboard>;
 let logSpy: Mock<typeof console.log>;
 
 const DEVICE_CODE = {
@@ -58,6 +61,10 @@ beforeEach(() => {
     gitConfigMod,
     "registerGitCredentialHelper"
   ).mockResolvedValue(true);
+  mockOpenBrowser = spyOn(desktopMod, "openBrowser").mockResolvedValue(false);
+  mockCopyToClipboard = spyOn(desktopMod, "copyToClipboard").mockResolvedValue(
+    false
+  );
   logSpy = spyOn(console, "log").mockImplementation(() => {});
 });
 
@@ -66,6 +73,8 @@ afterEach(() => {
   mockPollForTokens.mockRestore();
   mockSaveTokenSet.mockRestore();
   mockRegisterHelper.mockRestore();
+  mockOpenBrowser.mockRestore();
+  mockCopyToClipboard.mockRestore();
   logSpy.mockRestore();
 });
 
@@ -138,6 +147,69 @@ describe("runLoginFlow", () => {
     expect(await rejectionMessage(runLoginFlow())).toContain(
       "credentials could not be stored"
     );
+  });
+
+  test("opens the URL that already carries the code", async () => {
+    mockPollForTokens.mockResolvedValue({
+      tokens: TOKENS,
+      idToken: idTokenFor({ sub: "usr_1", username: "octocat" }),
+    });
+    mockRequestDeviceCode.mockResolvedValue({
+      ...DEVICE_CODE,
+      verification_uri_complete:
+        "https://auth.archgate.dev/device?user_code=HZML-HXLB",
+    });
+
+    await runLoginFlow();
+
+    expect(mockOpenBrowser).toHaveBeenCalledWith(
+      "https://auth.archgate.dev/device?user_code=HZML-HXLB"
+    );
+  });
+
+  test("falls back to the plain URL when the provider omits the complete one", async () => {
+    await runLoginFlow();
+
+    expect(mockOpenBrowser).toHaveBeenCalledWith(
+      "https://auth.archgate.dev/device"
+    );
+  });
+
+  test("copies the user code to the clipboard", async () => {
+    await runLoginFlow();
+
+    expect(mockCopyToClipboard).toHaveBeenCalledWith("HZML-HXLB");
+  });
+
+  // The URL and code are printed either way: the browser may not have opened,
+  // and the user may be reading this on a different machine.
+  test.each([true, false])(
+    "prints the URL and code when opened=%p",
+    async (opened) => {
+      mockOpenBrowser.mockResolvedValue(opened);
+
+      await runLoginFlow();
+
+      const printed = logSpy.mock.calls.flat().join("\n");
+      expect(printed).toContain("https://auth.archgate.dev/device");
+      expect(printed).toContain("HZML-HXLB");
+    }
+  );
+
+  test("mentions the clipboard only when the copy succeeded", async () => {
+    mockCopyToClipboard.mockResolvedValue(true);
+
+    await runLoginFlow();
+
+    expect(logSpy.mock.calls.flat().join("\n")).toContain(
+      "copied to your clipboard"
+    );
+  });
+
+  test("says nothing about the clipboard when the copy failed", async () => {
+    await runLoginFlow();
+
+    expect(logSpy.mock.calls.flat().join("\n")).not.toContain("clipboard");
   });
 
   test("propagates a failure from the device authorization request", async () => {
