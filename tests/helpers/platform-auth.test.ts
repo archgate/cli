@@ -6,8 +6,8 @@ import {
   AUTH_HOST,
   isExpired,
   platformAuth,
-  PLUGINS_HOST,
 } from "../../src/helpers/platform-auth";
+import { PLUGINS_HOST } from "../../src/helpers/plugin-install";
 import {
   type RecordedRequest,
   recordingFetch,

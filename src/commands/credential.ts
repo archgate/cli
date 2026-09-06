@@ -13,7 +13,7 @@ import {
   parseCredentialRequest,
 } from "../helpers/git-credential-protocol";
 import { logDebug } from "../helpers/log";
-import { PLUGINS_HOST } from "../helpers/platform-auth";
+import { PLUGINS_HOST } from "../helpers/plugin-install";
 
 /**
  * Read the credential request git writes to stdin.

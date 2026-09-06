@@ -12,12 +12,10 @@
 import { z } from "zod";
 
 import { deviceFlowAuth } from "./oauth-device-flow";
+import { PLUGINS_HOST } from "./plugin-install";
 
 /** Host of the platform's sign-in service. */
 export const AUTH_HOST = "auth.archgate.dev";
-
-/** Host git authenticates against for plugin repositories. */
-export const PLUGINS_HOST = "plugins.archgate.dev";
 
 /** Renew this long before expiry so a token cannot lapse mid-request. */
 const EXPIRY_SKEW_SECONDS = 60;

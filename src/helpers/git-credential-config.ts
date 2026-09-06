@@ -8,7 +8,7 @@
  */
 
 import { logDebug } from "./log";
-import { PLUGINS_HOST } from "./platform-auth";
+import { PLUGINS_HOST } from "./plugin-install";
 
 /** Config key holding the helper list for the plugins host. */
 const HELPER_KEY = `credential.https://${PLUGINS_HOST}.helper`;

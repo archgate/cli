@@ -19,12 +19,12 @@ import { internalPath } from "./paths";
 import {
   AUTH_HOST,
   isExpired,
-  PLUGINS_HOST,
   platformAuth,
   type Session,
   type TokenSet,
   TokenSetSchema,
 } from "./platform-auth";
+import { PLUGINS_HOST } from "./plugin-install";
 import { UserError } from "./user-error";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
