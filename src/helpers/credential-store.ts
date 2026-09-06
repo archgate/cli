@@ -3,8 +3,9 @@
 /**
  * Secure credential storage in the OS credential manager (macOS Keychain,
  * Windows Credential Manager, libsecret) via `git credential
- * approve/fill/reject` — nothing is written to disk. In the protocol,
- * `username` carries the GitHub username and `password` the plugin token.
+ * approve/fill/reject` — nothing is written to disk. The platform token set
+ * is filed under {@link AUTH_HOST} as a JSON `password`; a token issued
+ * before platform sign-in sits under {@link PLUGINS_HOST} as-is.
  *
  * @see https://git-scm.com/docs/git-credential
  */
@@ -14,25 +15,17 @@ import { unlinkSync } from "node:fs";
 import { z } from "zod";
 
 import { logDebug, logWarn } from "./log";
+import { internalPath } from "./paths";
 import {
+  AUTH_HOST,
   isExpired,
-  refreshAccessToken,
+  PLUGINS_HOST,
+  platformAuth,
+  type Session,
   type TokenSet,
   TokenSetSchema,
-} from "./logto-auth";
-import { internalPath } from "./paths";
+} from "./platform-auth";
 import { UserError } from "./user-error";
-
-/** Host git itself authenticates against for plugin repositories. */
-export const PLUGINS_HOST = "plugins.archgate.dev";
-
-/**
- * Host the Logto token set is filed under.
- *
- * archgate registers itself as git's credential helper for {@link PLUGINS_HOST},
- * so storing its own tokens there would make every read re-enter this process.
- */
-export const AUTH_HOST = "auth.archgate.dev";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
 
@@ -76,15 +69,22 @@ function credentialInput(
   return lines.join("\n");
 }
 
-async function gitCredentialApprove(
+/**
+ * Run `git credential approve` or `reject` for one record.
+ *
+ * @returns `true` when git exited 0. Output is ignored: nothing reads it, and
+ * an unread pipe can fill and block git (ARCH-007).
+ */
+async function gitCredential(
+  action: "approve" | "reject",
   host: string,
   username: string,
   password: string
 ): Promise<boolean> {
-  const proc = Bun.spawn(["git", "credential", "approve"], {
+  const proc = Bun.spawn(["git", "credential", action], {
     stdin: new Blob([credentialInput(host, username, password)]),
-    stdout: "pipe",
-    stderr: "pipe",
+    stdout: "ignore",
+    stderr: "ignore",
     env: gitCredentialEnv(),
   });
   return (await proc.exited) === 0;
@@ -108,17 +108,18 @@ function noCredentials(timedOut: boolean): FillResult {
 
 async function gitCredentialFill(host: string): Promise<FillResult> {
   try {
+    // stderr is ignored rather than piped: nothing reads it, and an unread
+    // pipe can fill and block the helper (ARCH-007).
     const proc = Bun.spawn(["git", "credential", "fill"], {
       stdin: new Blob([credentialInput(host)]),
       stdout: "pipe",
-      stderr: "pipe",
+      stderr: "ignore",
       env: gitCredentialEnv(),
     });
 
-    // The timeout MUST be cancelled when the spawn wins the race —
-    // `Bun.sleep` / `setTimeout` both keep the event loop alive for their
-    // full duration, adding 3s of latency to every `loadCredentials()`
-    // caller (e.g. `archgate doctor`) if left running.
+    // The timer is cleared when git answers first: a pending `setTimeout`
+    // keeps the event loop alive for its full duration, which would add 3s of
+    // latency to every caller.
     let timer: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race([
       (async () => {
@@ -157,28 +158,9 @@ async function gitCredentialFill(host: string): Promise<FillResult> {
   }
 }
 
-async function gitCredentialReject(
-  host: string,
-  username: string,
-  password: string
-): Promise<void> {
-  const proc = Bun.spawn(["git", "credential", "reject"], {
-    stdin: new Blob([credentialInput(host, username, password)]),
-    stdout: "pipe",
-    stderr: "pipe",
-    env: gitCredentialEnv(),
-  });
-  await proc.exited;
-}
-
 // ---------------------------------------------------------------------------
 // Legacy metadata file cleanup
 // ---------------------------------------------------------------------------
-
-/** Path to the legacy metadata file (~/.archgate/credentials). */
-function legacyMetadataPath(): string {
-  return internalPath("credentials");
-}
 
 /**
  * Delete the legacy `~/.archgate/credentials` file if it exists.
@@ -186,13 +168,11 @@ function legacyMetadataPath(): string {
  * @returns `true` when a file was found and deleted, `false` when none existed.
  */
 async function cleanupLegacyMetadata(): Promise<boolean> {
-  const file = Bun.file(legacyMetadataPath());
-  if (await file.exists()) {
-    unlinkSync(legacyMetadataPath());
-    logDebug("Legacy credentials metadata file removed");
-    return true;
-  }
-  return false;
+  const path = internalPath("credentials");
+  if (!(await Bun.file(path).exists())) return false;
+  unlinkSync(path);
+  logDebug("Legacy credentials metadata file removed");
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,7 +183,7 @@ const CREDENTIAL_HELPER_HINT =
   "Run `git config --global credential.helper` to check your configuration.";
 
 /**
- * Persist a Logto token set in the OS credential manager.
+ * Persist a platform token set in the OS credential manager.
  *
  * A verification round-trip (`git credential fill`) confirms the blob was
  * actually persisted — `git credential approve` exits 0 even without a
@@ -219,12 +199,12 @@ export async function saveTokenSet(
 ): Promise<boolean> {
   await cleanupLegacyMetadata();
 
-  const stored = await gitCredentialApprove(
+  const stored = await gitCredential(
+    "approve",
     AUTH_HOST,
     user,
     JSON.stringify(tokens)
   );
-
   if (!stored) {
     logWarn(
       "git credential approve failed.",
@@ -249,32 +229,29 @@ export async function saveTokenSet(
 }
 
 /**
- * Read the stored Logto token set without renewing it.
+ * Read the stored platform session without renewing it.
  *
- * @returns The token set and the user it belongs to, or `null` when absent.
+ * @returns The session, or `null` when none is stored.
  */
-export async function loadTokenSet(): Promise<{
-  user: string;
-  tokens: TokenSet;
-} | null> {
-  return (await readTokenSet()).stored;
+export async function loadTokenSet(): Promise<Session | null> {
+  return (await readSession()).session;
 }
 
 /** {@link loadTokenSet}, also reporting whether the helper timed out. */
-async function readTokenSet(): Promise<{
-  stored: { user: string; tokens: TokenSet } | null;
+async function readSession(): Promise<{
+  session: Session | null;
   timedOut: boolean;
 }> {
   const { credentials, timedOut } = await gitCredentialFill(AUTH_HOST);
-  if (!credentials) return { stored: null, timedOut };
+  if (!credentials) return { session: null, timedOut };
 
   const parsed = TokenSetSchema.safeParse(safeJsonParse(credentials.password));
   if (!parsed.success) {
     logDebug("Stored token set is unreadable");
-    return { stored: null, timedOut: false };
+    return { session: null, timedOut: false };
   }
   return {
-    stored: { user: credentials.username, tokens: parsed.data },
+    session: { user: credentials.username, tokens: parsed.data },
     timedOut: false,
   };
 }
@@ -293,63 +270,50 @@ async function resolveWithStatus(): Promise<{
   credentials: StoredCredentials | null;
   timedOut: boolean;
 }> {
-  const { stored, timedOut } = await readTokenSet();
-  if (!stored) return { credentials: null, timedOut };
+  const { session, timedOut } = await readSession();
+  if (!session) return { credentials: null, timedOut };
 
-  if (!isExpired(stored.tokens.expiresAt)) {
-    return {
-      credentials: {
-        token: stored.tokens.accessToken,
-        github_user: stored.user,
-      },
-      timedOut: false,
-    };
-  }
-
-  return {
-    credentials: await renew(stored.user, stored.tokens.refreshToken),
-    timedOut: false,
-  };
+  const credentials = isExpired(session.tokens.expiresAt)
+    ? await renew(session)
+    : { token: session.tokens.accessToken, github_user: session.user };
+  return { credentials, timedOut: false };
 }
 
 /**
  * Exchange a refresh token, tolerating a sibling process having rotated it.
  *
  * Git invokes the credential helper many times for one operation, so several
- * processes can read the same expired token set and refresh concurrently.
- * Logto rotates the refresh token, which makes every exchange after the first
- * fail. Re-reading the store recovers the token the winner just saved.
+ * processes can read the same expired session and refresh concurrently. The
+ * platform rotates the refresh token, which makes every exchange after the
+ * first fail; re-reading the store recovers the token the winner saved.
  *
- * @param user - Account the token set belongs to.
- * @param refreshToken - The refresh token read before renewal.
+ * @param stale - The expired session as read before renewal.
  * @returns Credentials from this renewal, or from whichever process won.
- * @throws {UserError} When no usable token set exists afterwards.
+ * @throws {UserError} When no usable session exists afterwards.
  */
-async function renew(
-  user: string,
-  refreshToken: string
-): Promise<StoredCredentials> {
+async function renew(stale: Session): Promise<StoredCredentials> {
   try {
-    const renewed = await refreshAccessToken(refreshToken);
-    if (!(await saveTokenSet(user, renewed))) {
-      // The exchange rotated the refresh token, so the one still on disk is
-      // already dead. This request can finish with the token in hand, but the
-      // session cannot be renewed again.
+    const renewed = await platformAuth.refreshAccessToken(
+      stale.tokens.refreshToken
+    );
+    if (!(await saveTokenSet(stale.user, renewed))) {
+      // The exchange rotated the refresh token, so the stored one is already
+      // dead: this request can finish, but the session cannot be renewed again.
       logWarn(
         "Renewed credentials could not be stored.",
         "Run `archgate login` to sign in again."
       );
     }
-    return { token: renewed.accessToken, github_user: user };
+    return { token: renewed.accessToken, github_user: stale.user };
   } catch (error) {
-    const { stored } = await readTokenSet();
+    const { session } = await readSession();
     if (
-      stored &&
-      stored.tokens.refreshToken !== refreshToken &&
-      !isExpired(stored.tokens.expiresAt)
+      session &&
+      session.tokens.refreshToken !== stale.tokens.refreshToken &&
+      !isExpired(session.tokens.expiresAt)
     ) {
       logDebug("token set was renewed by another process");
-      return { token: stored.tokens.accessToken, github_user: stored.user };
+      return { token: session.tokens.accessToken, github_user: session.user };
     }
     throw error;
   }
@@ -358,15 +322,15 @@ async function renew(
 /**
  * Load archgate credentials, renewing a lapsed access token on the way.
  *
- * Tokens issued before Logto sign-in are filed under {@link PLUGINS_HOST} and
- * are returned unchanged; they keep working until the user signs in again.
+ * Tokens issued before platform sign-in are filed under {@link PLUGINS_HOST}
+ * and are returned unchanged; they keep working until the user signs in again.
  *
  * @returns The stored credentials, or `null` when none are stored.
  */
 export async function loadCredentials(): Promise<StoredCredentials | null> {
-  // Delete legacy metadata file — force re-login for a clean slate.
-  const hadLegacy = await cleanupLegacyMetadata();
-  if (hadLegacy) {
+  // A legacy metadata file means a pre-platform install: remove it and
+  // require a fresh sign-in.
+  if (await cleanupLegacyMetadata()) {
     logWarn(
       "Legacy credentials file removed.",
       "Run `archgate login` to re-authenticate."
@@ -394,10 +358,9 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
   if (authLookupTimedOut) return null;
 
   const { credentials: legacy } = await gitCredentialFill(PLUGINS_HOST);
-  if (legacy) {
-    return { token: legacy.password, github_user: legacy.username };
-  }
-  return null;
+  return legacy
+    ? { token: legacy.password, github_user: legacy.username }
+    : null;
 }
 
 /**
@@ -407,9 +370,14 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
 export async function clearCredentials(): Promise<void> {
   /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */
   for (const host of [AUTH_HOST, PLUGINS_HOST]) {
-    const { credentials: stored } = await gitCredentialFill(host);
-    if (stored) {
-      await gitCredentialReject(host, stored.username, stored.password);
+    const { credentials } = await gitCredentialFill(host);
+    if (credentials) {
+      await gitCredential(
+        "reject",
+        host,
+        credentials.username,
+        credentials.password
+      );
       logDebug("Credentials removed from git credential manager");
     }
   }
@@ -423,13 +391,21 @@ export async function clearCredentials(): Promise<void> {
  * Git erases credentials on any rejection, so discarding the refresh token
  * here would turn a single recoverable 401 into a full device-flow login.
  * The next lookup renews instead.
+ *
+ * @returns `true` when the lapsed token set was persisted; `false` when there
+ * was nothing stored or the store could not be updated, in which case
+ * {@link saveTokenSet} has already warned.
  */
-export async function invalidateAccessToken(): Promise<void> {
-  const stored = await loadTokenSet();
-  if (!stored) return;
+export async function invalidateAccessToken(): Promise<boolean> {
+  const session = await loadTokenSet();
+  if (!session) return false;
 
-  await saveTokenSet(stored.user, { ...stored.tokens, expiresAt: 0 });
-  logDebug("access token marked for renewal");
+  const saved = await saveTokenSet(session.user, {
+    ...session.tokens,
+    expiresAt: 0,
+  });
+  if (saved) logDebug("access token marked for renewal");
+  return saved;
 }
 
 /** Parse JSON, returning `null` rather than throwing on malformed input. */

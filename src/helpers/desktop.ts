@@ -108,6 +108,21 @@ function clipboardCommands(): string[][] {
   ];
 }
 
+/** Try each command in order, stopping at the first that succeeds. */
+async function firstThatWorks(
+  commands: string[][],
+  stdin?: string
+): Promise<boolean> {
+  if (isHeadless()) return false;
+
+  /* oxlint-disable no-await-in-loop -- candidates are tried in order */
+  for (const command of commands) {
+    if (await run(command, stdin)) return true;
+  }
+  /* oxlint-enable no-await-in-loop */
+  return false;
+}
+
 /**
  * Open a URL in the user's browser.
  *
@@ -116,14 +131,7 @@ function clipboardCommands(): string[][] {
  * of the platform's launchers are installed.
  */
 export async function openBrowser(url: string): Promise<boolean> {
-  if (isHeadless()) return false;
-
-  /* oxlint-disable no-await-in-loop -- launchers are tried in order */
-  for (const command of browserCommands(url)) {
-    if (await run(command)) return true;
-  }
-  /* oxlint-enable no-await-in-loop */
-  return false;
+  return firstThatWorks(browserCommands(url));
 }
 
 /**
@@ -133,12 +141,5 @@ export async function openBrowser(url: string): Promise<boolean> {
  * @returns `true` when a clipboard tool accepted it.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  if (isHeadless()) return false;
-
-  /* oxlint-disable no-await-in-loop -- writers are tried in order */
-  for (const command of clipboardCommands()) {
-    if (await run(command, text)) return true;
-  }
-  /* oxlint-enable no-await-in-loop */
-  return false;
+  return firstThatWorks(clipboardCommands(), text);
 }

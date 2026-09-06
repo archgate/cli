@@ -7,8 +7,8 @@
  * using whatever helper the user already configured.
  */
 
-import { PLUGINS_HOST } from "./credential-store";
 import { logDebug } from "./log";
+import { PLUGINS_HOST } from "./platform-auth";
 
 /** Config key holding the helper list for the plugins host. */
 const HELPER_KEY = `credential.https://${PLUGINS_HOST}.helper`;
@@ -44,23 +44,15 @@ async function git(args: string[]): Promise<number> {
  * @returns `true` when both config writes succeed.
  */
 export async function registerGitCredentialHelper(): Promise<boolean> {
-  const reset = await git([
-    "config",
-    "--global",
-    "--replace-all",
-    HELPER_KEY,
-    "",
-  ]);
-  if (reset !== 0) return false;
-
-  const added = await git([
-    "config",
-    "--global",
-    "--add",
-    HELPER_KEY,
-    HELPER_VALUE,
-  ]);
-  if (added !== 0) return false;
+  const writes = [
+    ["config", "--global", "--replace-all", HELPER_KEY, ""],
+    ["config", "--global", "--add", HELPER_KEY, HELPER_VALUE],
+  ];
+  /* oxlint-disable no-await-in-loop -- the reset must land before the add */
+  for (const args of writes) {
+    if ((await git(args)) !== 0) return false;
+  }
+  /* oxlint-enable no-await-in-loop */
 
   logDebug("Registered archgate as git credential helper for", PLUGINS_HOST);
   return true;

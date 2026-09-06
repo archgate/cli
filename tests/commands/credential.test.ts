@@ -44,7 +44,9 @@ beforeEach(() => {
     token: "ey.access",
     github_user: "octocat",
   });
-  invalidateSpy = spyOn(credMod, "invalidateAccessToken").mockResolvedValue();
+  invalidateSpy = spyOn(credMod, "invalidateAccessToken").mockResolvedValue(
+    true
+  );
 });
 
 afterEach(() => {

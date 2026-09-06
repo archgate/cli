@@ -8,7 +8,7 @@ import {
   resolveAccessToken,
 } from "../../src/helpers/credential-store";
 import * as logMod from "../../src/helpers/log";
-import * as logtoMod from "../../src/helpers/logto-auth";
+import { platformAuth } from "../../src/helpers/platform-auth";
 
 /** A `Bun.spawn` stand-in that answers `git credential fill` with one record. */
 function gitCredentialStub(username: string, password: string) {
@@ -37,7 +37,7 @@ describe("credential renewal", () => {
         gitCredentialStub("octocat", JSON.stringify(tokens))
       );
       try {
-        await invalidateAccessToken();
+        expect(await invalidateAccessToken()).toBe(true);
 
         const approved = spawnSpy.mock.calls
           .filter((call) => [...call[0]].includes("approve"))
@@ -58,13 +58,30 @@ describe("credential renewal", () => {
         gitCredentialStub("", "")
       );
       try {
-        await invalidateAccessToken();
+        expect(await invalidateAccessToken()).toBe(false);
 
         const approvals = spawnSpy.mock.calls.filter((call) =>
           [...call[0]].includes("approve")
         );
         expect(approvals).toHaveLength(0);
       } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+
+    // A store that cannot take the lapsed token set would hand git the same
+    // rejected access token on the next lookup, so the failure is reported.
+    test("reports when the lapsed token set cannot be stored", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(tokens))
+      );
+      const saveSpy = spyOn(credentialStore, "saveTokenSet").mockResolvedValue(
+        false
+      );
+      try {
+        expect(await invalidateAccessToken()).toBe(false);
+      } finally {
+        saveSpy.mockRestore();
         spawnSpy.mockRestore();
       }
     });
@@ -84,7 +101,10 @@ describe("credential renewal", () => {
     const saveSpy = spyOn(credentialStore, "saveTokenSet").mockResolvedValue(
       false
     );
-    const refreshSpy = spyOn(logtoMod, "refreshAccessToken").mockResolvedValue({
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockResolvedValue({
       accessToken: "ey.fresh",
       refreshToken: "refresh-new",
       expiresAt: Date.now() + 3_600_000,

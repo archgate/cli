@@ -12,7 +12,7 @@ import {
   resolveAccessToken,
   clearCredentials,
 } from "../../src/helpers/credential-store";
-import * as logtoMod from "../../src/helpers/logto-auth";
+import { platformAuth } from "../../src/helpers/platform-auth";
 import { UserError } from "../../src/helpers/user-error";
 import { rejectionMessage, restoreEnv } from "../test-utils";
 
@@ -367,7 +367,7 @@ describe("credential-store", () => {
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
         gitCredentialStub("octocat", JSON.stringify(tokens))
       );
-      const refreshSpy = spyOn(logtoMod, "refreshAccessToken");
+      const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
       try {
         expect(await resolveAccessToken()).toEqual({
           token: "ey.valid",
@@ -390,7 +390,7 @@ describe("credential-store", () => {
         gitCredentialStub("octocat", JSON.stringify(stale))
       );
       const refreshSpy = spyOn(
-        logtoMod,
+        platformAuth,
         "refreshAccessToken"
       ).mockResolvedValue({
         accessToken: "ey.fresh",
@@ -428,7 +428,7 @@ describe("credential-store", () => {
           : gitCredentialStub("octocat", "ag_beta_legacy");
       });
       const refreshSpy = spyOn(
-        logtoMod,
+        platformAuth,
         "refreshAccessToken"
       ).mockRejectedValue(new UserError("Your session has expired."));
       try {
@@ -452,7 +452,7 @@ describe("credential-store", () => {
         gitCredentialStub("octocat", JSON.stringify(stale))
       );
       const refreshSpy = spyOn(
-        logtoMod,
+        platformAuth,
         "refreshAccessToken"
       ).mockRejectedValue(new TypeError("boom"));
       try {
@@ -465,8 +465,8 @@ describe("credential-store", () => {
   });
 
   // Git runs the helper many times per operation, so processes can race to
-  // refresh the same expired token set. Logto rotates the refresh token, so
-  // every exchange after the first fails.
+  // refresh the same expired token set. The platform rotates the refresh
+  // token, so every exchange after the first fails.
   describe("concurrent renewal", () => {
     const expired = {
       accessToken: "ey.stale",
@@ -489,7 +489,7 @@ describe("credential-store", () => {
         );
       });
       const refreshSpy = spyOn(
-        logtoMod,
+        platformAuth,
         "refreshAccessToken"
       ).mockRejectedValue(new UserError("Your session has expired."));
       try {
@@ -508,7 +508,7 @@ describe("credential-store", () => {
         gitCredentialStub("octocat", JSON.stringify(expired))
       );
       const refreshSpy = spyOn(
-        logtoMod,
+        platformAuth,
         "refreshAccessToken"
       ).mockRejectedValue(new UserError("Your session has expired."));
       try {

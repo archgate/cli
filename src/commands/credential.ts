@@ -4,24 +4,35 @@ import type { Command } from "@commander-js/extra-typings";
 
 import {
   invalidateAccessToken,
-  PLUGINS_HOST,
   resolveAccessToken,
 } from "../helpers/credential-store";
 import { handleCommandError } from "../helpers/exit";
 import {
+  type CredentialRequest,
   formatCredentialResponse,
   parseCredentialRequest,
 } from "../helpers/git-credential-protocol";
 import { logDebug } from "../helpers/log";
+import { PLUGINS_HOST } from "../helpers/platform-auth";
 
 /**
  * Read the credential request git writes to stdin.
  *
  * @returns The parsed request, or an empty one when stdin is closed.
  */
-async function readRequest(): Promise<Record<string, string>> {
-  const raw = await Bun.stdin.text();
-  return parseCredentialRequest(raw);
+async function readRequest(): Promise<CredentialRequest> {
+  return parseCredentialRequest(await Bun.stdin.text());
+}
+
+/**
+ * True for a request this helper answers.
+ *
+ * Git uses the requested protocol for the exchange itself, so an `http://`
+ * request would carry the token in cleartext; only `https` to the plugins
+ * host qualifies, and the response cannot upgrade the protocol.
+ */
+function isPluginsRequest(request: CredentialRequest): boolean {
+  return request.protocol === "https" && request.host === PLUGINS_HOST;
 }
 
 export function registerCredentialCommand(program: Command) {
@@ -35,10 +46,7 @@ export function registerCredentialCommand(program: Command) {
     .action(async () => {
       try {
         const request = await readRequest();
-        // Git uses the requested protocol for the exchange itself, so an
-        // http:// request would carry the token in cleartext. Answering only
-        // https keeps that from happening; the response cannot upgrade it.
-        if (request.protocol !== "https" || request.host !== PLUGINS_HOST) {
+        if (!isPluginsRequest(request)) {
           logDebug(
             "Ignoring credential request for:",
             `${request.protocol}://${request.host}`
@@ -82,11 +90,9 @@ export function registerCredentialCommand(program: Command) {
     .description("Drop the cached access token when git reports it rejected")
     .action(async () => {
       try {
-        const request = await readRequest();
-        if (request.protocol !== "https" || request.host !== PLUGINS_HOST) {
-          return;
+        if (isPluginsRequest(await readRequest())) {
+          await invalidateAccessToken();
         }
-        await invalidateAccessToken();
       } catch (err) {
         await handleCommandError(err);
       }

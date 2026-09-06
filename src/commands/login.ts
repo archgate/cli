@@ -29,28 +29,9 @@ export function registerLoginCommand(program: Command) {
         );
         return;
       }
-
-      const result = await runLoginFlow();
-      trackLoginResult({ subcommand: "login", success: result.ok });
-      if (result.ok) {
-        printNextStep();
-      } else {
-        await exitWith(1);
-      }
+      await signIn("login");
     } catch (err) {
-      if (err instanceof Error && err.name === "ExitPromptError") throw err;
-      const failureReason = isTlsError(err) ? "tls" : "other";
-      trackLoginResult({
-        subcommand: "login",
-        success: false,
-        failure_reason: failureReason,
-      });
-      if (isTlsError(err)) {
-        logError(tlsHintMessage());
-        await exitWith(1);
-        return;
-      }
-      await handleCommandError(err);
+      await handleSignInError("login", err);
     }
   });
 
@@ -96,29 +77,51 @@ export function registerLoginCommand(program: Command) {
     .action(async () => {
       try {
         await clearCredentials();
-        const result = await runLoginFlow();
-        trackLoginResult({ subcommand: "refresh", success: result.ok });
-        if (result.ok) {
-          printNextStep();
-        } else {
-          await exitWith(1);
-        }
+        await signIn("refresh");
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        const failureReason = isTlsError(err) ? "tls" : "other";
-        trackLoginResult({
-          subcommand: "refresh",
-          success: false,
-          failure_reason: failureReason,
-        });
-        if (isTlsError(err)) {
-          logError(tlsHintMessage());
-          await exitWith(1);
-          return;
-        }
-        await handleCommandError(err);
+        await handleSignInError("refresh", err);
       }
     });
+}
+
+/**
+ * Run the sign-in flow and report its outcome.
+ *
+ * @param subcommand - Reported to telemetry with the outcome.
+ */
+async function signIn(subcommand: "login" | "refresh"): Promise<void> {
+  const result = await runLoginFlow();
+  trackLoginResult({ subcommand, success: result.ok });
+  if (result.ok) {
+    printNextStep();
+  } else {
+    await exitWith(1);
+  }
+}
+
+/**
+ * Report a failed sign-in, with a dedicated hint for TLS interception.
+ *
+ * @param subcommand - Reported to telemetry with the failure.
+ * @param err - Whatever the action threw; prompt cancellations propagate.
+ */
+async function handleSignInError(
+  subcommand: "login" | "refresh",
+  err: unknown
+): Promise<void> {
+  if (err instanceof Error && err.name === "ExitPromptError") throw err;
+  const tls = isTlsError(err);
+  trackLoginResult({
+    subcommand,
+    success: false,
+    failure_reason: tls ? "tls" : "other",
+  });
+  if (tls) {
+    logError(tlsHintMessage());
+    await exitWith(1);
+    return;
+  }
+  await handleCommandError(err);
 }
 
 function printNextStep(): void {
