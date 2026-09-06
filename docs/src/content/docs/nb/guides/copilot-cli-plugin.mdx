@@ -27,7 +27,7 @@ Logg inn for å få tilgang til pluginene:
 archgate login
 ```
 
-Dette starter en OAuth 2.0 Device Authorization Grant mot Archgate-plattformen. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+Dette starter en OAuth 2.0 Device Authorization Grant mot Archgate-plattformen. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, gis tokenene til den git credential-helperen du har konfigurert via `git credential approve`; en helper som bruker operativsystemet holder dem krypterte, mens gits innebygde `store`-helper skriver dem i klartekst.
 
 ### 2. Initialiser prosjektet ditt med pluginet
 

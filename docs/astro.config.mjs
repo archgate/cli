@@ -255,6 +255,10 @@ export default defineConfig({
               items: [
                 { label: "Overview", slug: "reference/cli" },
                 { label: "archgate login", slug: "reference/cli/login" },
+                {
+                  label: "archgate credential",
+                  slug: "reference/cli/credential",
+                },
                 { label: "archgate init", slug: "reference/cli/init" },
                 { label: "archgate plugin", slug: "reference/cli/plugin" },
                 { label: "archgate check", slug: "reference/cli/check" },

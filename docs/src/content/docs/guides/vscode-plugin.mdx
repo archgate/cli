@@ -29,7 +29,7 @@ Log in to obtain plugin access:
 archgate login
 ```
 
-This starts an OAuth 2.0 Device Authorization Grant against the Archgate platform. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts an OAuth 2.0 Device Authorization Grant against the Archgate platform. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, the resulting tokens are handed to your configured git credential helper via `git credential approve`; an OS-backed helper keeps them encrypted, while git's built-in `store` helper writes them in plain text.
 
 ### 2. Initialize your project with the plugin
 
@@ -102,12 +102,12 @@ If you prefer not to let the CLI modify your user settings, you can set things u
 printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
   archgate credential get |
   sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
-  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode
-code --install-extension archgate.vsix
-rm archgate.vsix
+  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode &&
+  code --install-extension archgate.vsix
+rm -f archgate.vsix
 ```
 
-`archgate credential get` emits a git credential response, so the `password=` line is reshaped into a `curl --config` directive and piped in. The token never reaches the command line, where it would be visible in the process list and your shell history. `--fail` makes curl exit non-zero on a 401 rather than writing the error body over `archgate.vsix`.
+`archgate credential get` emits a git credential response, so the `password=` line is reshaped into a `curl --config` directive and piped in. The token never reaches the command line, where it would be visible in the process list and your shell history. `--fail` makes curl exit non-zero on a 401 rather than writing the error body over `archgate.vsix`, and `&&` keeps `code` from installing anything curl did not finish downloading; the final `rm -f` cleans up either way.
 
 Prefer the marketplace setup above where you can: it lets git ask the helper on every request, so no token is handled by hand at all.
 

@@ -29,7 +29,7 @@ Entre para obter acesso aos plugins:
 archgate login
 ```
 
-Isso inicia um OAuth 2.0 Device Authorization Grant na plataforma Archgate. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas de forma segura no gerenciador de credenciais do sistema operacional via `git credential approve`.
+Isso inicia um OAuth 2.0 Device Authorization Grant na plataforma Archgate. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, os tokens resultantes são entregues ao credential helper do git que você configurou via `git credential approve`; um helper apoiado no sistema operacional os mantém criptografados, enquanto o helper `store` embutido do git os grava em texto puro.
 
 ### 2. Inicialize seu projeto com o plugin
 
@@ -102,12 +102,12 @@ Se preferir não deixar o CLI modificar suas configurações, você pode configu
 printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
   archgate credential get |
   sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
-  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode
-code --install-extension archgate.vsix
-rm archgate.vsix
+  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode &&
+  code --install-extension archgate.vsix
+rm -f archgate.vsix
 ```
 
-O `archgate credential get` emite uma resposta de credencial do git, então a linha `password=` é convertida em uma diretiva `curl --config` e enviada por pipe. O token nunca chega à linha de comando, onde ficaria visível na lista de processos e no histórico do shell. O `--fail` faz o curl sair com erro em um 401, em vez de gravar o corpo do erro por cima de `archgate.vsix`.
+O `archgate credential get` emite uma resposta de credencial do git, então a linha `password=` é convertida em uma diretiva `curl --config` e enviada por pipe. O token nunca chega à linha de comando, onde ficaria visível na lista de processos e no histórico do shell. O `--fail` faz o curl sair com erro em um 401, em vez de gravar o corpo do erro por cima de `archgate.vsix`, e o `&&` impede que o `code` instale algo que o curl não terminou de baixar; o `rm -f` final limpa em qualquer caso.
 
 Prefira a configuração de marketplace acima quando possível: assim o git consulta o helper a cada requisição e nenhum token é manipulado à mão.
 
