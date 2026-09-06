@@ -111,10 +111,13 @@ export function deviceFlowAuth(config: DeviceFlowConfig): PlatformAuth {
       while (Date.now() < deadline) {
         await Bun.sleep(interval * 1000);
 
+        // The resource is repeated here (RFC 8707 §2.2) so the first access
+        // token is minted for the plugins audience, not only the refreshed ones.
         const response = await postForm(config.tokenEndpoint, {
           client_id: config.clientId,
           grant_type: DEVICE_GRANT,
           device_code: authorization.deviceCode,
+          resource: config.resource,
         });
         const body = await jsonBody(response);
 

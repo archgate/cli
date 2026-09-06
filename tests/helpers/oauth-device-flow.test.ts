@@ -170,7 +170,9 @@ describe("requestDeviceCode", () => {
 });
 
 describe("pollForTokens", () => {
-  test("polls the token endpoint with the device grant", async () => {
+  // The first access token must already carry the plugins audience; the
+  // resource is not implied by the device authorization alone.
+  test("polls the token endpoint with the device grant for the resource", async () => {
     responses.push(grantResponse());
 
     await auth.pollForTokens(PENDING);
@@ -180,6 +182,7 @@ describe("pollForTokens", () => {
       client_id: "client-1",
       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
       device_code: "device-abc",
+      resource: "https://api.example.test",
     });
   });
 

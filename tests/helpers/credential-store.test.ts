@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,7 +14,7 @@ import {
 } from "../../src/helpers/credential-store";
 import { platformAuth } from "../../src/helpers/platform-auth";
 import { UserError } from "../../src/helpers/user-error";
-import { rejectionMessage, restoreEnv } from "../test-utils";
+import { rejectionMessage, restoreEnv, safeRmSync } from "../test-utils";
 
 /**
  * A `Bun.spawn` stand-in that answers `git credential fill` with one record.
@@ -63,11 +63,7 @@ describe("credential-store", () => {
     restoreEnv("HOME", originalHome);
     restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
     restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
-    try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      /* temp dir cleanup best-effort */
-    }
+    safeRmSync(tempDir);
   });
 
   describe("saveTokenSet", () => {

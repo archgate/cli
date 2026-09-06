@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,7 +9,7 @@ import {
   registerGitCredentialHelper,
   unregisterGitCredentialHelper,
 } from "../../src/helpers/git-credential-config";
-import { restoreEnv } from "../test-utils";
+import { restoreEnv, safeRmSync } from "../test-utils";
 
 const HELPER_KEY = "credential.https://plugins.archgate.dev.helper";
 
@@ -71,11 +71,7 @@ afterEach(() => {
   restoreEnv("GIT_CONFIG_NOSYSTEM", originalNoSystem);
   restoreEnv("GIT_CONFIG_SYSTEM", originalSystem);
   restoreEnv("GIT_CONFIG_GLOBAL", originalGlobal);
-  try {
-    rmSync(tempDir, { recursive: true, force: true });
-  } catch {
-    /* temp dir cleanup best-effort */
-  }
+  safeRmSync(tempDir);
 });
 
 describe("registerGitCredentialHelper", () => {
