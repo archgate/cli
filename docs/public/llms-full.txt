@@ -2377,7 +2377,7 @@ The user-level marketplace setting (added to your `settings.json`):
 }
 ```
 
-The URL carries no credentials. `archgate credential` is the credential helper; `archgate login` registers it for `plugins.archgate.dev`. Git asks it on each request and receives a freshly renewed access token.
+The URL carries no credentials. `archgate credential` is the credential helper; `archgate login` registers it for `plugins.archgate.dev`. Git asks it on each request and receives a valid access token, renewed only when the cached one has lapsed.
 
 ### Manual setup
 
@@ -2388,18 +2388,17 @@ If you prefer not to let the CLI modify your user settings, you can set things u
 **Extension:** Download and install the `.vsix` file directly:
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
+  archgate credential get |
+  sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
+  curl --config - --output archgate.vsix https://plugins.archgate.dev/api/vscode
 code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Replace `<token>` with a current access token. `archgate credential get` emits a git credential response rather than a bare token, so take the `password=` line:
+`archgate credential get` emits a git credential response, so the `password=` line is reshaped into a `curl --config` directive and piped in. The token never reaches the command line, where it would be visible in the process list and your shell history.
 
-```bash
-printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get | sed -n 's/^password=//p'
-```
-
-Access tokens are short-lived, so a value pasted here stops working within the hour — prefer the marketplace setup above, where git asks the helper on every request.
+Prefer the marketplace setup above where you can: it lets git ask the helper on every request, so no token is handled by hand at all.
 
 ## What the plugin provides
 
@@ -4541,7 +4540,7 @@ The output should list an empty line followed by `!archgate credential`. If it d
 
 ### The helper is registered but credentials are still rejected
 
-Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, the helper falls back to any token issued before this flow existed; when none remains it returns no credentials and reports the error rather than staying silent. Run `archgate login` again.
+Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, the helper returns no credentials and reports the error rather than staying silent. It reads only the token set stored by `archgate login`, so the legacy-token fallback other commands have does not apply here. Run `archgate login` again.
 
 ---
 

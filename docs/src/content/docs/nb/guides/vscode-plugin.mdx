@@ -88,7 +88,7 @@ Markedsplassinnstillingen på brukernivå (lagt til i `settings.json`):
 }
 ```
 
-URL-en inneholder ingen legitimasjon. `archgate credential` er credential-helperen; `archgate login` registrerer den for `plugins.archgate.dev`. Git spør den ved hver forespørsel og får et nylig fornyet tilgangstoken.
+URL-en inneholder ingen legitimasjon. `archgate credential` er credential-helperen; `archgate login` registrerer den for `plugins.archgate.dev`. Git spør den ved hver forespørsel og får et gyldig tilgangstoken, fornyet bare når det mellomlagrede har utløpt.
 
 ### Manuelt oppsett
 
@@ -99,18 +99,17 @@ Hvis du foretrekker at CLI-en ikke endrer brukerinnstillingene dine, kan du sett
 **Utvidelse:** Last ned og installer `.vsix`-filen direkte:
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
+  archgate credential get |
+  sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
+  curl --config - --output archgate.vsix https://plugins.archgate.dev/api/vscode
 code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Erstatt `<token>` med et gyldig tilgangstoken. `archgate credential get` skriver ut et git credential-svar, ikke et bart token, så ta `password=`-linjen:
+`archgate credential get` skriver ut et git credential-svar, så `password=`-linjen formes om til et `curl --config`-direktiv og sendes inn via pipe. Tokenet havner aldri på kommandolinjen, der det ville vært synlig i prosesslisten og i shell-historikken.
 
-```bash
-printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get | sed -n 's/^password=//p'
-```
-
-Tilgangstokener er kortlivede, så en verdi som limes inn her slutter å virke innen en time — bruk heller marketplace-oppsettet over, der git spør helperen ved hver forespørsel.
+Bruk heller marketplace-oppsettet over når du kan: da spør git helperen ved hver forespørsel, og du håndterer ikke noe token manuelt.
 
 ## Hva pluginet tilbyr
 

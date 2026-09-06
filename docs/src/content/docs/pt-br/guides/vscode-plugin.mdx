@@ -88,7 +88,7 @@ A configuração do marketplace no nível de usuário (adicionada ao seu `settin
 }
 ```
 
-A URL não contém credenciais. O `archgate credential` é o credential helper; o `archgate login` o registra para `plugins.archgate.dev`. O git o consulta a cada requisição e recebe um token de acesso recém-renovado.
+A URL não contém credenciais. O `archgate credential` é o credential helper; o `archgate login` o registra para `plugins.archgate.dev`. O git o consulta a cada requisição e recebe um token de acesso válido, renovado apenas quando o token em cache expira.
 
 ### Configuração manual
 
@@ -99,18 +99,17 @@ Se preferir não deixar o CLI modificar suas configurações, você pode configu
 **Extensão:** Baixe e instale o arquivo `.vsix` diretamente:
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
+  archgate credential get |
+  sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
+  curl --config - --output archgate.vsix https://plugins.archgate.dev/api/vscode
 code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Substitua `<token>` por um token de acesso atual. O `archgate credential get` emite uma resposta de credencial do git, não um token puro, então use a linha `password=`:
+O `archgate credential get` emite uma resposta de credencial do git, então a linha `password=` é convertida em uma diretiva `curl --config` e enviada por pipe. O token nunca chega à linha de comando, onde ficaria visível na lista de processos e no histórico do shell.
 
-```bash
-printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get | sed -n 's/^password=//p'
-```
-
-Tokens de acesso têm vida curta, então um valor colado aqui deixa de funcionar em menos de uma hora — prefira a configuração de marketplace acima, em que o git consulta o helper a cada requisição.
+Prefira a configuração de marketplace acima quando possível: assim o git consulta o helper a cada requisição e nenhum token é manipulado à mão.
 
 ## O que o plugin oferece
 
