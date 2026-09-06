@@ -382,7 +382,11 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
 
 /**
  * Remove stored credentials (logout).
- * Clears both credential entries and any legacy metadata file.
+ *
+ * Clears both credential entries and any legacy metadata file. Callers
+ * unregister the git credential helper first: while archgate answers for the
+ * plugins host, the lookup for that host reaches archgate itself rather than
+ * the store holding a legacy token, which would then outlive the logout.
  */
 export async function clearCredentials(): Promise<void> {
   /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */

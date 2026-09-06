@@ -26,6 +26,7 @@ import * as gitCredentialConfig from "../../src/helpers/git-credential-config";
 import * as loginFlow from "../../src/helpers/login-flow";
 import * as paths from "../../src/helpers/paths";
 import * as telemetry from "../../src/helpers/telemetry";
+import { rejectionMessage } from "../test-utils";
 
 // ---------------------------------------------------------------------------
 // Tests — Registration
@@ -197,6 +198,38 @@ describe("login action handlers", () => {
       expect(allOutput).toContain("Logged out successfully");
     });
 
+    // While archgate is the helper for the plugins host, a legacy token in
+    // the OS store is invisible to clearing and would outlive the logout.
+    test("unregisters the git helper before clearing credentials", async () => {
+      const order: string[] = [];
+      unregisterHelperSpy.mockImplementation(async () => {
+        order.push("unregister");
+        return true;
+      });
+      clearCredentialsSpy.mockImplementation(async () => {
+        order.push("clear");
+      });
+
+      const program = makeProgram();
+      await program.parseAsync(["node", "test", "login", "logout"]);
+
+      expect(order).toEqual(["unregister", "clear"]);
+    });
+
+    test("still clears credentials when the helper entry cannot be removed", async () => {
+      clearCredentialsSpy.mockResolvedValueOnce();
+      unregisterHelperSpy.mockResolvedValue(false);
+
+      const program = makeProgram();
+      expect(
+        await rejectionMessage(
+          program.parseAsync(["node", "test", "login", "logout"])
+        )
+      ).toContain("exitWith(1)");
+
+      expect(clearCredentialsSpy).toHaveBeenCalled();
+    });
+
     test("fails when the git credential helper entry cannot be removed", async () => {
       clearCredentialsSpy.mockResolvedValueOnce();
       unregisterHelperSpy.mockResolvedValue(false);
@@ -361,18 +394,24 @@ describe("login action handlers", () => {
   // -------------------------------------------------------------------------
 
   describe("refresh", () => {
-    test("clears credentials then runs login flow", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
-      runLoginFlowSpy.mockResolvedValueOnce({
-        ok: true,
-        accountName: "octocat",
+    test("unregisters the helper, clears credentials, then runs login flow", async () => {
+      const order: string[] = [];
+      unregisterHelperSpy.mockImplementation(async () => {
+        order.push("unregister");
+        return true;
+      });
+      clearCredentialsSpy.mockImplementation(async () => {
+        order.push("clear");
+      });
+      runLoginFlowSpy.mockImplementation(async () => {
+        order.push("login");
+        return { ok: true, accountName: "octocat" };
       });
 
       const program = makeProgram();
       await program.parseAsync(["node", "test", "login", "refresh"]);
 
-      expect(clearCredentialsSpy).toHaveBeenCalled();
-      expect(runLoginFlowSpy).toHaveBeenCalled();
+      expect(order).toEqual(["unregister", "clear", "login"]);
     });
 
     test("exits with code 1 when refresh login flow fails", async () => {

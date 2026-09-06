@@ -57,8 +57,10 @@ export function registerLoginCommand(program: Command) {
     .description("Remove stored credentials")
     .action(async () => {
       try {
-        await clearCredentials();
+        // The helper goes first: while archgate answers for the plugins host,
+        // clearing cannot see a legacy token the OS store holds for it.
         const unregistered = await unregisterGitCredentialHelper();
+        await clearCredentials();
         trackLoginResult({ subcommand: "logout", success: unregistered });
         if (!unregistered) {
           throw new UserError(
@@ -76,6 +78,7 @@ export function registerLoginCommand(program: Command) {
     .description("Re-authenticate and claim a new token")
     .action(async () => {
       try {
+        await unregisterGitCredentialHelper();
         await clearCredentials();
         await signIn("refresh");
       } catch (err) {
