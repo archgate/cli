@@ -11,7 +11,7 @@ archgate login
 
 Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate identity provider. The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and choose how you want to sign in. Once authorized, the CLI stores the resulting tokens in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
 
-Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI reports that the session has expired and `archgate login` re-establishes it.
+Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI falls back to any token issued before this flow existed; when none remains it reports that the session has expired, and `archgate login` re-establishes it.
 
 Signing in also registers `archgate credential` as a git credential helper for `plugins.archgate.dev`, which is what lets `git clone` of a plugin repository authenticate without prompting. See [`archgate credential`](/reference/cli/credential/).
 

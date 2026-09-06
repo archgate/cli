@@ -11,6 +11,8 @@
 
 import { unlinkSync } from "node:fs";
 
+import { z } from "zod";
+
 import { logDebug, logWarn } from "./log";
 import {
   isExpired,
@@ -89,10 +91,19 @@ async function gitCredentialApprove(
 }
 
 /** Outcome of one `git credential fill`, distinguishing absent from unusable. */
-interface FillResult {
-  credentials: { username: string; password: string } | null;
+const FillResultSchema = z.object({
+  credentials: z
+    .object({ username: z.string().min(1), password: z.string().min(1) })
+    .nullable(),
   /** True when the helper had to be killed for exceeding the timeout. */
-  timedOut: boolean;
+  timedOut: z.boolean(),
+});
+
+type FillResult = z.infer<typeof FillResultSchema>;
+
+/** Empty outcome, used for every path that yields no credentials. */
+function noCredentials(timedOut: boolean): FillResult {
+  return { credentials: null, timedOut };
 }
 
 async function gitCredentialFill(host: string): Promise<FillResult> {
@@ -125,8 +136,8 @@ async function gitCredentialFill(host: string): Promise<FillResult> {
       if (timer) clearTimeout(timer);
     });
 
-    if (result === null) return { credentials: null, timedOut: true };
-    if (result.exitCode !== 0) return { credentials: null, timedOut: false };
+    if (result === null) return noCredentials(true);
+    if (result.exitCode !== 0) return noCredentials(false);
 
     let username = "";
     let password = "";
@@ -134,12 +145,15 @@ async function gitCredentialFill(host: string): Promise<FillResult> {
       if (line.startsWith("username=")) username = line.slice(9);
       if (line.startsWith("password=")) password = line.slice(9);
     }
-    return {
-      credentials: username && password ? { username, password } : null,
+
+    // The helper is a subprocess, so its output is validated rather than trusted.
+    const parsed = FillResultSchema.safeParse({
+      credentials: { username, password },
       timedOut: false,
-    };
+    });
+    return parsed.success ? parsed.data : noCredentials(false);
   } catch {
-    return { credentials: null, timedOut: false };
+    return noCredentials(false);
   }
 }
 

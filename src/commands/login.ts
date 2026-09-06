@@ -12,6 +12,7 @@ import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
 import { trackLoginResult } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
+import { UserError } from "../helpers/user-error";
 
 export function registerLoginCommand(program: Command) {
   const login = program
@@ -78,15 +79,12 @@ export function registerLoginCommand(program: Command) {
         await clearCredentials();
         const unregistered = await unregisterGitCredentialHelper();
         trackLoginResult({ subcommand: "logout", success: unregistered });
-        if (unregistered) {
-          console.log("Logged out successfully.");
-        } else {
-          logError(
-            "Credentials removed, but the git credential helper entry could not be.",
-            "Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
+        if (!unregistered) {
+          throw new UserError(
+            "Credentials removed, but the git credential helper entry could not be removed. Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
           );
-          await exitWith(1);
         }
+        console.log("Logged out successfully.");
       } catch (err) {
         await handleCommandError(err);
       }

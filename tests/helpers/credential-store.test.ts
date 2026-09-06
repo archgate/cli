@@ -326,20 +326,12 @@ describe("credential-store", () => {
   });
 
   describe("loadTokenSet", () => {
-    test("returns null when the stored blob is not a token set", async () => {
+    test.each([
+      ["not JSON at all", "not-json"],
+      ["JSON without token fields", JSON.stringify({ a: 1 })],
+    ])("returns null when the stored blob is %s", async (_label, stored) => {
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("archgate", "not-json")
-      );
-      try {
-        expect(await loadTokenSet()).toBeNull();
-      } finally {
-        fillSpy.mockRestore();
-      }
-    });
-
-    test("returns null when the JSON is missing token fields", async () => {
-      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("archgate", JSON.stringify({ a: 1 }))
+        gitCredentialStub("archgate", stored)
       );
       try {
         expect(await loadTokenSet()).toBeNull();
@@ -418,9 +410,8 @@ describe("credential-store", () => {
     });
   });
 
-  // The regression the review caught: a rejected refresh token is a signed-out
-  // state, so loadCredentials must keep its null contract and still reach the
-  // legacy lookup rather than throwing at every caller.
+  // A rejected refresh token is a signed-out state, so loadCredentials keeps
+  // its null contract and still reaches the legacy lookup.
   describe("loadCredentials with an unrenewable session", () => {
     test("falls through to a legacy token", async () => {
       const stale = {

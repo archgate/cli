@@ -21,9 +21,9 @@ Plugins de agente requerem **VS Code 1.110 (lançamento de fevereiro de 2026) ou
 O plugin para VS Code está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar antes de seguir os passos abaixo.
 :::
 
-### 1. Faça login com o GitHub
+### 1. Entre
 
-Autentique-se com sua conta do GitHub para obter um token do plugin:
+Entre para obter acesso aos plugins:
 
 ```bash
 archgate login
@@ -88,7 +88,7 @@ A configuração do marketplace no nível de usuário (adicionada ao seu `settin
 }
 ```
 
-A URL não contém credenciais. O git se autentica em `plugins.archgate.dev` consultando o `archgate credential`, o credential helper que o `archgate login` registra para esse host, que fornece um token de acesso recém-renovado.
+A URL não contém credenciais. O `archgate credential` é o credential helper; o `archgate login` o registra para `plugins.archgate.dev`. O git o consulta a cada requisição e recebe um token de acesso recém-renovado.
 
 ### Configuração manual
 
@@ -104,7 +104,13 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Substitua `<token>` por um token de acesso atual. Imprima um com `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get`, que o renova se necessário. Tokens de acesso têm vida curta, então um valor colado aqui deixa de funcionar em menos de uma hora — prefira a configuração de marketplace acima, em que o git consulta o helper a cada requisição.
+Substitua `<token>` por um token de acesso atual. O `archgate credential get` emite uma resposta de credencial do git, não um token puro, então use a linha `password=`:
+
+```bash
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get | sed -n 's/^password=//p'
+```
+
+Tokens de acesso têm vida curta, então um valor colado aqui deixa de funcionar em menos de uma hora — prefira a configuração de marketplace acima, em que o git consulta o helper a cada requisição.
 
 ## O que o plugin oferece
 
