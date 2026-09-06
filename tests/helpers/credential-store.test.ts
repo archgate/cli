@@ -463,4 +463,62 @@ describe("credential-store", () => {
       }
     });
   });
+
+  // Git runs the helper many times per operation, so processes can race to
+  // refresh the same expired token set. Logto rotates the refresh token, so
+  // every exchange after the first fails.
+  describe("concurrent renewal", () => {
+    const expired = {
+      accessToken: "ey.stale",
+      refreshToken: "refresh-old",
+      expiresAt: Date.now() - 1_000,
+    };
+    const rotated = {
+      accessToken: "ey.fromWinner",
+      refreshToken: "refresh-rotated",
+      expiresAt: Date.now() + 3_600_000,
+    };
+
+    test("uses the token another process already saved", async () => {
+      let read = 0;
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        read += 1;
+        return gitCredentialStub(
+          "octocat",
+          JSON.stringify(read === 1 ? expired : rotated)
+        );
+      });
+      const refreshSpy = spyOn(
+        logtoMod,
+        "refreshAccessToken"
+      ).mockRejectedValue(new UserError("Your session has expired."));
+      try {
+        expect(await resolveAccessToken()).toEqual({
+          token: "ey.fromWinner",
+          github_user: "octocat",
+        });
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("rethrows when the stored token set did not change", async () => {
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(expired))
+      );
+      const refreshSpy = spyOn(
+        logtoMod,
+        "refreshAccessToken"
+      ).mockRejectedValue(new UserError("Your session has expired."));
+      try {
+        expect(await rejectionMessage(resolveAccessToken())).toContain(
+          "session has expired"
+        );
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
+    });
+  });
 });

@@ -17,7 +17,7 @@ O Archgate coleta **análises de uso anônimas** (via PostHog) e **relatórios d
 
 ### Serviço de Plugins do Archgate
 
-Quando você entra via `archgate login`, você se autentica com o GitHub através do **provedor de identidade do Archgate** (`auth.archgate.dev`), que recebe o perfil que o GitHub compartilha com ele: seu **nome**, **endereço de email**, **nome de usuário GitHub** e **avatar**. Isso é usado para identificar sua conta e enviar um email de boas-vindas. A própria CLI não pede nada a você. Na sua máquina, os tokens resultantes são mantidos no gerenciador de credenciais do seu sistema operacional (nunca como arquivos de texto simples). Consulte a [política de privacidade completa](https://archgate.dev/privacy-policy) para detalhes completos.
+Quando você entra via `archgate login`, você se autentica com o GitHub através do **provedor de identidade do Archgate** (`auth.archgate.dev`), que recebe o perfil que o GitHub compartilha com ele: seu **nome**, **endereço de email**, **nome de usuário GitHub** e **avatar**. Isso é usado para identificar sua conta e enviar um email de boas-vindas. A própria CLI não pede nada a você. Na sua máquina, os tokens resultantes são entregues ao credential helper do git que você configurou; com um helper apoiado no sistema operacional eles ficam criptografados, enquanto o helper `store` embutido do git os grava em texto puro. Consulte a [política de privacidade completa](https://archgate.dev/privacy-policy) para detalhes completos.
 
 ### Como desativar
 

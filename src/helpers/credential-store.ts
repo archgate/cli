@@ -306,12 +306,45 @@ async function resolveWithStatus(): Promise<{
     };
   }
 
-  const renewed = await refreshAccessToken(stored.tokens.refreshToken);
-  await saveTokenSet(stored.user, renewed);
   return {
-    credentials: { token: renewed.accessToken, github_user: stored.user },
+    credentials: await renew(stored.user, stored.tokens.refreshToken),
     timedOut: false,
   };
+}
+
+/**
+ * Exchange a refresh token, tolerating a sibling process having rotated it.
+ *
+ * Git invokes the credential helper many times for one operation, so several
+ * processes can read the same expired token set and refresh concurrently.
+ * Logto rotates the refresh token, which makes every exchange after the first
+ * fail. Re-reading the store recovers the token the winner just saved.
+ *
+ * @param user - Account the token set belongs to.
+ * @param refreshToken - The refresh token read before renewal.
+ * @returns Credentials from this renewal, or from whichever process won.
+ * @throws {UserError} When no usable token set exists afterwards.
+ */
+async function renew(
+  user: string,
+  refreshToken: string
+): Promise<StoredCredentials> {
+  try {
+    const renewed = await refreshAccessToken(refreshToken);
+    await saveTokenSet(user, renewed);
+    return { token: renewed.accessToken, github_user: user };
+  } catch (error) {
+    const { stored } = await readTokenSet();
+    if (
+      stored &&
+      stored.tokens.refreshToken !== refreshToken &&
+      !isExpired(stored.tokens.expiresAt)
+    ) {
+      logDebug("token set was renewed by another process");
+      return { token: stored.tokens.accessToken, github_user: stored.user };
+    }
+    throw error;
+  }
 }
 
 /**

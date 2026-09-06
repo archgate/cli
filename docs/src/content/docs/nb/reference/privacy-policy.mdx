@@ -31,7 +31,7 @@ Data overføres via reverseproksier på `n.archgate.dev` (analyse) og `s.archgat
 
 ### Archgate Plugins Service
 
-Når du logger inn via `archgate login`, autentiserer du med GitHub gjennom **Archgates identitetsleverandør** (`auth.archgate.dev`), som mottar profilen GitHub deler med den: ditt **navn**, din **e-postadresse**, ditt **GitHub-brukernavn** og din **avatar**. Dette brukes til å identifisere kontoen din og sende en velkomst-e-post. CLI-en spør deg selv om ingenting. På din maskin oppbevares tokenene i operativsystemets legitimasjonsbehandler (aldri som ren tekstfiler).
+Når du logger inn via `archgate login`, autentiserer du med GitHub gjennom **Archgates identitetsleverandør** (`auth.archgate.dev`), som mottar profilen GitHub deler med den: ditt **navn**, din **e-postadresse**, ditt **GitHub-brukernavn** og din **avatar**. Dette brukes til å identifisere kontoen din og sende en velkomst-e-post. CLI-en spør deg selv om ingenting. På din maskin gis tokenene til den credential-helperen du har konfigurert; med en helper som bruker operativsystemet holdes de krypterte, mens gits innebygde `store`-helper skriver dem i klartekst.
 
 Ved å opprette en konto godtar du [tjenestevilkårene](https://archgate.dev/terms-of-service). Se den [fullstendige personvernerklæringen](https://archgate.dev/privacy-policy) for komplette detaljer.
 

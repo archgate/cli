@@ -4718,7 +4718,7 @@ Sign in to access Archgate editor plugins.
 archgate login
 ```
 
-Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate identity provider. The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and choose how you want to sign in. Once authorized, the CLI stores the resulting tokens in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
+Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate identity provider. The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and choose how you want to sign in. Once authorized, the CLI hands the resulting tokens to git via `git credential approve`, so where they end up depends on the credential helper you have configured. A helper backed by your OS credential manager (macOS Keychain, Windows Credential Manager, Linux libsecret) keeps them encrypted; git's built-in `store` helper writes them to `~/.git-credentials` in plain text. Check yours with `git config --global credential.helper`.
 
 Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI falls back to any token issued before this flow existed; when none remains it reports that the session has expired, and `archgate login` re-establishes it.
 
@@ -5413,7 +5413,7 @@ Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.a
 
 ### Archgate Plugins Service
 
-When you sign in via `archgate login`, you authenticate with GitHub through the **Archgate identity provider** (`auth.archgate.dev`), which receives the profile GitHub shares with it: your **name**, **email address**, **GitHub username**, and **avatar**. This is used to identify your account and send a welcome email. The CLI itself asks you for nothing. On your machine, the resulting tokens are kept in your OS credential manager (never as plain-text files).
+When you sign in via `archgate login`, you authenticate with GitHub through the **Archgate identity provider** (`auth.archgate.dev`), which receives the profile GitHub shares with it: your **name**, **email address**, **GitHub username**, and **avatar**. This is used to identify your account and send a welcome email. The CLI itself asks you for nothing. On your machine, the resulting tokens are handed to your configured git credential helper; with an OS-backed helper they are kept encrypted, while git's built-in `store` helper writes them in plain text.
 
 By creating an account, you agree to the [Terms of Service](https://archgate.dev/terms-of-service). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
 

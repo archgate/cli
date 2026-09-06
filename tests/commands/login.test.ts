@@ -22,6 +22,7 @@ import { Command } from "@commander-js/extra-typings";
 import { registerLoginCommand } from "../../src/commands/login";
 import * as credentialStore from "../../src/helpers/credential-store";
 import * as exitMod from "../../src/helpers/exit";
+import * as gitCredentialConfig from "../../src/helpers/git-credential-config";
 import * as loginFlow from "../../src/helpers/login-flow";
 import * as paths from "../../src/helpers/paths";
 import * as telemetry from "../../src/helpers/telemetry";
@@ -79,6 +80,11 @@ describe("login action handlers", () => {
   let errorSpy: Mock<typeof console.error>;
   let loadCredentialsSpy: Mock<typeof credentialStore.loadCredentials>;
   let clearCredentialsSpy: Mock<typeof credentialStore.clearCredentials>;
+  // Stubbed so logout does not run `git config --global` against the real
+  // machine's configuration.
+  let unregisterHelperSpy: Mock<
+    typeof gitCredentialConfig.unregisterGitCredentialHelper
+  >;
   let runLoginFlowSpy: Mock<typeof loginFlow.runLoginFlow>;
   let exitWithSpy: Mock<typeof exitMod.exitWith>;
   let trackLoginSpy: Mock<typeof telemetry.trackLoginResult>;
@@ -88,6 +94,10 @@ describe("login action handlers", () => {
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     loadCredentialsSpy = spyOn(credentialStore, "loadCredentials");
     clearCredentialsSpy = spyOn(credentialStore, "clearCredentials");
+    unregisterHelperSpy = spyOn(
+      gitCredentialConfig,
+      "unregisterGitCredentialHelper"
+    ).mockResolvedValue(true);
     runLoginFlowSpy = spyOn(loginFlow, "runLoginFlow");
     trackLoginSpy = spyOn(telemetry, "trackLoginResult").mockImplementation(
       () => {}
@@ -106,6 +116,7 @@ describe("login action handlers", () => {
     errorSpy.mockRestore();
     loadCredentialsSpy.mockRestore();
     clearCredentialsSpy.mockRestore();
+    unregisterHelperSpy.mockRestore();
     runLoginFlowSpy.mockRestore();
     exitWithSpy.mockRestore();
     trackLoginSpy.mockRestore();
@@ -184,6 +195,16 @@ describe("login action handlers", () => {
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
       expect(allOutput).toContain("Logged out successfully");
+    });
+
+    test("fails when the git credential helper entry cannot be removed", async () => {
+      clearCredentialsSpy.mockResolvedValueOnce();
+      unregisterHelperSpy.mockResolvedValue(false);
+
+      const program = makeProgram();
+      expect(
+        program.parseAsync(["node", "test", "login", "logout"])
+      ).rejects.toThrow("exitWith(1)");
     });
 
     test("exits with code 2 when clearCredentials throws (unexpected)", async () => {

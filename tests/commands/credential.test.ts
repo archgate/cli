@@ -14,6 +14,8 @@ import { Command } from "@commander-js/extra-typings";
 
 import { registerCredentialCommand } from "../../src/commands/credential";
 import * as credMod from "../../src/helpers/credential-store";
+import * as exitModule from "../../src/helpers/exit";
+import { rejectionMessage } from "../test-utils";
 
 let stdinSpy: Mock<typeof Bun.stdin.text>;
 let stdoutSpy: Mock<typeof process.stdout.write>;
@@ -111,4 +113,33 @@ describe("archgate credential store", () => {
     expect(clearSpy).not.toHaveBeenCalled();
     expect(resolveSpy).not.toHaveBeenCalled();
   });
+});
+
+// Each action wraps its body in the command error boundary; a failure there
+// must be routed through handleCommandError rather than escaping the process.
+describe("error boundaries", () => {
+  test.each(["get", "store", "erase"])(
+    "%s routes a stdin failure to the error handler",
+    async (subcommand) => {
+      stdinSpy = spyOn(Bun.stdin, "text").mockRejectedValue(
+        new Error("stdin closed")
+      );
+      const exitSpy = spyOn(exitModule, "exitWith").mockImplementation(() => {
+        throw new Error("process.exit");
+      });
+      const program = new Command();
+      program.exitOverride();
+      registerCredentialCommand(program);
+
+      try {
+        expect(
+          await rejectionMessage(
+            program.parseAsync(["node", "archgate", "credential", subcommand])
+          )
+        ).toContain("process.exit");
+      } finally {
+        exitSpy.mockRestore();
+      }
+    }
+  );
 });

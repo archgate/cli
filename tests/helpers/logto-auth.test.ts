@@ -175,6 +175,77 @@ describe("isExpired", () => {
   });
 });
 
+describe("malformed provider responses", () => {
+  test("rejects a device-code response that is not the expected shape", async () => {
+    responses.push(Response.json({ nope: true }));
+
+    expect(await rejectionMessage(requestDeviceCode())).toContain(
+      "unexpected response"
+    );
+  });
+
+  test("rejects a poll error body that is not the expected shape", async () => {
+    responses.push(Response.json({ nope: true }, { status: 400 }));
+
+    expect(
+      await rejectionMessage(pollForTokens("device-abc", 0, 60))
+    ).toContain("unexpected response");
+  });
+
+  test("backs off when the provider answers slow_down", async () => {
+    responses.push(
+      errorResponse("slow_down"),
+      Response.json({
+        access_token: "ey.access",
+        refresh_token: "refresh-abc",
+        expires_in: 3600,
+      })
+    );
+
+    const result = await pollForTokens("device-abc", 0, 60);
+
+    expect(result.tokens.accessToken).toBe("ey.access");
+  });
+
+  test("surfaces an unrecognised error with its description", async () => {
+    responses.push(
+      Response.json(
+        { error: "invalid_client", error_description: "unknown client" },
+        { status: 400 }
+      )
+    );
+
+    expect(
+      await rejectionMessage(pollForTokens("device-abc", 0, 60))
+    ).toContain("unknown client");
+  });
+
+  test("falls back to the error code when no description is given", async () => {
+    responses.push(Response.json({ error: "invalid_client" }, { status: 400 }));
+
+    expect(
+      await rejectionMessage(pollForTokens("device-abc", 0, 60))
+    ).toContain("invalid_client");
+  });
+
+  // A proxy's HTML error page must not escape as a SyntaxError.
+  test("treats a non-JSON success body as an unexpected response", async () => {
+    responses.push(new Response("<html>gateway</html>", { status: 200 }));
+
+    expect(
+      await rejectionMessage(pollForTokens("device-abc", 0, 60))
+    ).toContain("unexpected response");
+  });
+
+  test("rejects a refresh response that is not the expected shape", async () => {
+    responses.push(Response.json({ nope: true }));
+
+    expect(await rejectionMessage(refreshAccessToken("refresh-old"))).toContain(
+      "unexpected response"
+    );
+  });
+});
+
 describe("identityFromIdToken", () => {
   test.each([
     [{ sub: "usr_1", username: "octocat" }, "octocat"],
