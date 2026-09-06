@@ -7,14 +7,38 @@
  * using whatever helper the user already configured.
  */
 
+import { selfInvokeArgv } from "./install-info";
 import { logDebug } from "./log";
 import { PLUGINS_HOST } from "./plugin-install";
 
 /** Config key holding the helper list for the plugins host. */
 const HELPER_KEY = `credential.https://${PLUGINS_HOST}.helper`;
 
-/** Shell form git invokes; `!` marks it as a command rather than a suffix. */
-const HELPER_VALUE = "!archgate credential";
+/**
+ * Quote one argument for the POSIX shell git runs `!` helpers through.
+ *
+ * Backslashes become forward slashes: Git for Windows runs helpers through
+ * its bundled `sh`, which treats a backslash inside quotes as an escape.
+ *
+ * @param arg - Executable path or argument.
+ */
+export function quoteForGitShell(arg: string): string {
+  const slashed = arg.replaceAll("\\", "/");
+  if (/^[\w./:@%+=-]+$/u.test(slashed)) return slashed;
+  return `'${slashed.replaceAll("'", "'\\''")}'`;
+}
+
+/**
+ * Shell form git invokes; `!` marks it as a command rather than a helper name.
+ *
+ * The executable is recorded by absolute path: git started by an editor or a
+ * GUI client rarely inherits the shell PATH that holds `archgate`.
+ */
+export function helperCommand(): string {
+  return `!${selfInvokeArgv(["credential"])
+    .map((arg) => quoteForGitShell(arg))
+    .join(" ")}`;
+}
 
 /**
  * Run a git command, resolving to its exit code; 1 when git cannot start.
@@ -50,7 +74,7 @@ async function git(args: string[]): Promise<number> {
 export async function registerGitCredentialHelper(): Promise<boolean> {
   const writes = [
     ["config", "--global", "--replace-all", HELPER_KEY, ""],
-    ["config", "--global", "--add", HELPER_KEY, HELPER_VALUE],
+    ["config", "--global", "--add", HELPER_KEY, helperCommand()],
   ];
   /* oxlint-disable no-await-in-loop -- the reset must land before the add */
   for (const args of writes) {

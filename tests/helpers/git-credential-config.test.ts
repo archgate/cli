@@ -6,6 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  helperCommand,
+  quoteForGitShell,
   registerGitCredentialHelper,
   unregisterGitCredentialHelper,
 } from "../../src/helpers/git-credential-config";
@@ -74,11 +76,44 @@ afterEach(() => {
   safeRmSync(tempDir);
 });
 
+// Git started by an editor rarely inherits the shell PATH, so the helper
+// must name the executable by absolute path rather than as `archgate`.
+describe("helperCommand", () => {
+  test("invokes this executable by absolute path", () => {
+    const command = helperCommand();
+
+    expect(command.startsWith("!")).toBe(true);
+    expect(command.endsWith(" credential")).toBe(true);
+    expect(command).toContain(
+      quoteForGitShell(process.execPath).replaceAll(/^'|'$/gu, "")
+    );
+  });
+});
+
+describe("quoteForGitShell", () => {
+  test.each([
+    ["a plain path", "/usr/local/bin/archgate", "/usr/local/bin/archgate"],
+    [
+      "a path with spaces",
+      "/Users/Octo Cat/bin/archgate",
+      "'/Users/Octo Cat/bin/archgate'",
+    ],
+    [
+      "a Windows path",
+      "C:\\Users\\octo\\.archgate\\bin\\archgate.exe",
+      "C:/Users/octo/.archgate/bin/archgate.exe",
+    ],
+    ["an embedded quote", "/tmp/o'neil/archgate", "'/tmp/o'\\''neil/archgate'"],
+  ])("handles %s", (_label, input, expected) => {
+    expect(quoteForGitShell(input)).toBe(expected);
+  });
+});
+
 describe("registerGitCredentialHelper", () => {
   test("records the helper for the plugins host", async () => {
     expect(await registerGitCredentialHelper()).toBe(true);
 
-    expect(await configuredHelpers()).toEqual(["", "!archgate credential"]);
+    expect(await configuredHelpers()).toEqual(["", helperCommand()]);
   });
 
   test("replaces an entry already in the global scope", async () => {
@@ -89,7 +124,7 @@ describe("registerGitCredentialHelper", () => {
 
     await registerGitCredentialHelper();
 
-    expect(await configuredHelpers()).toEqual(["", "!archgate credential"]);
+    expect(await configuredHelpers()).toEqual(["", helperCommand()]);
   });
 
   // Git accumulates helpers across scopes and an empty entry discards the
@@ -109,7 +144,7 @@ describe("registerGitCredentialHelper", () => {
     expect(await configuredHelpers("merged")).toEqual([
       "store",
       "",
-      "!archgate credential",
+      helperCommand(),
     ]);
   });
 
@@ -117,7 +152,7 @@ describe("registerGitCredentialHelper", () => {
     await registerGitCredentialHelper();
     await registerGitCredentialHelper();
 
-    expect(await configuredHelpers()).toEqual(["", "!archgate credential"]);
+    expect(await configuredHelpers()).toEqual(["", helperCommand()]);
   });
 
   test("scopes the entry to the plugins host alone", async () => {
