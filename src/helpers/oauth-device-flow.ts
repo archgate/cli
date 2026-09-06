@@ -91,7 +91,7 @@ export function deviceFlowAuth(config: DeviceFlowConfig): PlatformAuth {
         );
       }
 
-      const parsed = DeviceCodeSchema.safeParse(await response.json());
+      const parsed = DeviceCodeSchema.safeParse(await jsonBody(response));
       if (!parsed.success) throw unexpectedResponse();
       return {
         deviceCode: parsed.data.device_code,

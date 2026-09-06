@@ -17,21 +17,25 @@ const HELPER_KEY = `credential.https://${PLUGINS_HOST}.helper`;
 const HELPER_VALUE = "!archgate credential";
 
 /**
- * Run a git command, resolving to its exit code.
+ * Run a git command, resolving to its exit code; 1 when git cannot start.
  *
  * The environment is passed explicitly: `Bun.spawn` snapshots the environment
  * at startup, so a later `Bun.env` assignment — which is how tests redirect
  * `GIT_CONFIG_GLOBAL` — would otherwise not reach git.
  */
 async function git(args: string[]): Promise<number> {
-  // Only the exit code matters; unread pipes can block git once it writes
-  // enough diagnostic output to fill them.
-  const proc = Bun.spawn(["git", ...args], {
-    stdout: "ignore",
-    stderr: "ignore",
-    env: { ...Bun.env },
-  });
-  return proc.exited;
+  try {
+    // Only the exit code matters; unread pipes can block git once it writes
+    // enough diagnostic output to fill them.
+    const proc = Bun.spawn(["git", ...args], {
+      stdout: "ignore",
+      stderr: "ignore",
+      env: { ...Bun.env },
+    });
+    return await proc.exited;
+  } catch {
+    return 1;
+  }
 }
 
 /**

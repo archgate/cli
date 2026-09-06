@@ -158,6 +158,15 @@ describe("requestDeviceCode", () => {
       "unexpected response"
     );
   });
+
+  // A proxy's HTML error page must not escape as a SyntaxError.
+  test("treats a non-JSON body as an unexpected response", async () => {
+    responses.push(new Response("<html>gateway</html>", { status: 200 }));
+
+    expect(await rejectionMessage(auth.requestDeviceCode())).toContain(
+      "unexpected response"
+    );
+  });
 });
 
 describe("pollForTokens", () => {

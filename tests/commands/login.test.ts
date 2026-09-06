@@ -263,7 +263,7 @@ describe("login action handlers", () => {
       loadCredentialsSpy.mockResolvedValueOnce(null);
       runLoginFlowSpy.mockResolvedValueOnce({
         ok: true,
-        githubUser: "octocat",
+        accountName: "octocat",
       });
 
       const program = makeProgram();
@@ -280,7 +280,7 @@ describe("login action handlers", () => {
       loadCredentialsSpy.mockResolvedValueOnce(null);
       runLoginFlowSpy.mockResolvedValueOnce({
         ok: true,
-        githubUser: "octocat",
+        accountName: "octocat",
       });
       const rootSpy = spyOn(paths, "findProjectRoot").mockReturnValue(
         "/fake/project"
@@ -303,7 +303,7 @@ describe("login action handlers", () => {
       loadCredentialsSpy.mockResolvedValueOnce(null);
       runLoginFlowSpy.mockResolvedValueOnce({
         ok: true,
-        githubUser: "octocat",
+        accountName: "octocat",
       });
       const rootSpy = spyOn(paths, "findProjectRoot").mockReturnValue(null);
 
@@ -365,7 +365,7 @@ describe("login action handlers", () => {
       clearCredentialsSpy.mockResolvedValueOnce();
       runLoginFlowSpy.mockResolvedValueOnce({
         ok: true,
-        githubUser: "octocat",
+        accountName: "octocat",
       });
 
       const program = makeProgram();

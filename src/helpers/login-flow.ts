@@ -17,7 +17,7 @@ export interface LoginFlowResult {
   /** Whether credentials were obtained. */
   ok: boolean;
   /** Signed-in account name, if login succeeded. */
-  githubUser?: string;
+  accountName?: string;
 }
 
 /**
@@ -73,5 +73,5 @@ export async function runLoginFlow(): Promise<LoginFlowResult> {
   logInfo(
     `Authenticated as ${styleText("bold", user)}. Plugin access is now available.`
   );
-  return { ok: true, githubUser: user };
+  return { ok: true, accountName: user };
 }

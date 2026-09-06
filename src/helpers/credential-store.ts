@@ -55,16 +55,33 @@ export interface StoredCredentials {
 // Git credential protocol helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Refuse a value that could forge protocol lines or truncate the record.
+ *
+ * A newline inside an account name would add a second `host=` line, and git
+ * takes the later one, so the token set would be filed under that host.
+ *
+ * @throws {UserError} When the value holds a line break or NUL.
+ */
+function protocolValue(field: string, value: string): string {
+  if (value.includes("\n") || value.includes("\r") || value.includes("\0")) {
+    throw new UserError(
+      `The credential ${field} contains a line break and cannot be stored.`
+    );
+  }
+  return value;
+}
+
 function credentialInput(
   host: string,
   username?: string,
   password?: string
 ): string {
-  const lines = ["protocol=https", `host=${host}`];
+  const lines = ["protocol=https", `host=${protocolValue("host", host)}`];
   if (username !== undefined && username !== "")
-    lines.push(`username=${username}`);
+    lines.push(`username=${protocolValue("username", username)}`);
   if (password !== undefined && password !== "")
-    lines.push(`password=${password}`);
+    lines.push(`password=${protocolValue("password", password)}`);
   lines.push("", "");
   return lines.join("\n");
 }

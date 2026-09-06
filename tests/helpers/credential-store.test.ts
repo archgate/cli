@@ -133,6 +133,34 @@ describe("credential-store", () => {
     );
   });
 
+  // A newline in an account name would add a second `host=` line, and git
+  // takes the later one, so the token set would be filed under that host.
+  describe("credential protocol values", () => {
+    test.each([
+      ["a line feed", "octo\nhost=evil.example.com"],
+      ["a carriage return", "octo\rhost=evil.example.com"],
+      ["a NUL", "octo\0cat"],
+    ])("refuses an account name holding %s", async (_label, user) => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        throw new Error("git must not be spawned");
+      });
+      try {
+        expect(
+          await rejectionMessage(
+            saveTokenSet(user, {
+              accessToken: "ey.access",
+              refreshToken: "refresh-abc",
+              expiresAt: Date.now() + 3_600_000,
+            })
+          )
+        ).toContain("line break");
+        expect(spawnSpy).not.toHaveBeenCalled();
+      } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+  });
+
   describe("loadCredentials", () => {
     test("returns null when no credentials exist anywhere", async () => {
       const result = await loadCredentials();
@@ -313,15 +341,6 @@ describe("credential-store", () => {
         warnSpy.mockRestore();
         spawnSpy.mockRestore();
       }
-    });
-  });
-
-  describe("public surface", () => {
-    test("exposes the store, load and clear entry points", () => {
-      expect(typeof saveTokenSet).toBe("function");
-      expect(typeof loadTokenSet).toBe("function");
-      expect(typeof loadCredentials).toBe("function");
-      expect(typeof clearCredentials).toBe("function");
     });
   });
 

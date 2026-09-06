@@ -76,7 +76,7 @@ describe("runLoginFlow", () => {
   test("stores the token set under the signed-in identity", async () => {
     const result = await runLoginFlow();
 
-    expect(result).toEqual({ ok: true, githubUser: "octocat" });
+    expect(result).toEqual({ ok: true, accountName: "octocat" });
     expect(mockSaveTokenSet).toHaveBeenCalledWith("octocat", TOKENS);
   });
 
@@ -116,7 +116,7 @@ describe("runLoginFlow", () => {
 
     const result = await runLoginFlow();
 
-    expect(result.githubUser).toBe("Octo Cat");
+    expect(result.accountName).toBe("Octo Cat");
   });
 
   test("fails the login when the token set cannot be persisted", async () => {
