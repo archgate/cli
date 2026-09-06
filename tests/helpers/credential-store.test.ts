@@ -9,9 +9,32 @@ import {
   saveTokenSet,
   loadCredentials,
   loadTokenSet,
+  resolveAccessToken,
   clearCredentials,
 } from "../../src/helpers/credential-store";
-import { restoreEnv } from "../test-utils";
+import * as logtoMod from "../../src/helpers/logto-auth";
+import { UserError } from "../../src/helpers/user-error";
+import { rejectionMessage, restoreEnv } from "../test-utils";
+
+/**
+ * A `Bun.spawn` stand-in that answers `git credential fill` with one record.
+ *
+ * @param username - Value returned in the `username` field.
+ * @param password - Value returned in the `password` field.
+ */
+function gitCredentialStub(
+  username: string,
+  password: string
+): ReturnType<typeof Bun.spawn> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return {
+    stdout: new Response(`username=${username}\npassword=${password}\n`).body,
+    exited: Promise.resolve(0),
+    kill: () => {
+      // Nothing to kill: the stub has already settled.
+    },
+  } as unknown as ReturnType<typeof Bun.spawn>;
+}
 
 describe("credential-store", () => {
   let tempDir: string;
@@ -299,6 +322,154 @@ describe("credential-store", () => {
       expect(typeof loadTokenSet).toBe("function");
       expect(typeof loadCredentials).toBe("function");
       expect(typeof clearCredentials).toBe("function");
+    });
+  });
+
+  describe("loadTokenSet", () => {
+    test("returns null when the stored blob is not a token set", async () => {
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("archgate", "not-json")
+      );
+      try {
+        expect(await loadTokenSet()).toBeNull();
+      } finally {
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("returns null when the JSON is missing token fields", async () => {
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("archgate", JSON.stringify({ a: 1 }))
+      );
+      try {
+        expect(await loadTokenSet()).toBeNull();
+      } finally {
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("returns the stored token set and its user", async () => {
+      const tokens = {
+        accessToken: "ey.access",
+        refreshToken: "refresh-abc",
+        expiresAt: Date.now() + 3_600_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(tokens))
+      );
+      try {
+        expect(await loadTokenSet()).toEqual({ user: "octocat", tokens });
+      } finally {
+        fillSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("resolveAccessToken", () => {
+    test("returns the cached token while it is still valid", async () => {
+      const tokens = {
+        accessToken: "ey.valid",
+        refreshToken: "refresh-abc",
+        expiresAt: Date.now() + 3_600_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(tokens))
+      );
+      const refreshSpy = spyOn(logtoMod, "refreshAccessToken");
+      try {
+        expect(await resolveAccessToken()).toEqual({
+          token: "ey.valid",
+          github_user: "octocat",
+        });
+        expect(refreshSpy).not.toHaveBeenCalled();
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("renews an expired token and hands back the new one", async () => {
+      const stale = {
+        accessToken: "ey.stale",
+        refreshToken: "refresh-old",
+        expiresAt: Date.now() - 1_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(stale))
+      );
+      const refreshSpy = spyOn(
+        logtoMod,
+        "refreshAccessToken"
+      ).mockResolvedValue({
+        accessToken: "ey.fresh",
+        refreshToken: "refresh-new",
+        expiresAt: Date.now() + 3_600_000,
+      });
+      try {
+        expect(await resolveAccessToken()).toEqual({
+          token: "ey.fresh",
+          github_user: "octocat",
+        });
+        expect(refreshSpy).toHaveBeenCalledWith("refresh-old");
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
+    });
+  });
+
+  // The regression the review caught: a rejected refresh token is a signed-out
+  // state, so loadCredentials must keep its null contract and still reach the
+  // legacy lookup rather than throwing at every caller.
+  describe("loadCredentials with an unrenewable session", () => {
+    test("falls through to a legacy token", async () => {
+      const stale = {
+        accessToken: "ey.stale",
+        refreshToken: "refresh-old",
+        expiresAt: Date.now() - 1_000,
+      };
+      let call = 0;
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        call += 1;
+        // First fill answers for AUTH_HOST, the second for PLUGINS_HOST.
+        return call === 1
+          ? gitCredentialStub("octocat", JSON.stringify(stale))
+          : gitCredentialStub("octocat", "ag_beta_legacy");
+      });
+      const refreshSpy = spyOn(
+        logtoMod,
+        "refreshAccessToken"
+      ).mockRejectedValue(new UserError("Your session has expired."));
+      try {
+        expect(await loadCredentials()).toEqual({
+          token: "ag_beta_legacy",
+          github_user: "octocat",
+        });
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("propagates a fault that is not a signed-out state", async () => {
+      const stale = {
+        accessToken: "ey.stale",
+        refreshToken: "refresh-old",
+        expiresAt: Date.now() - 1_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(stale))
+      );
+      const refreshSpy = spyOn(
+        logtoMod,
+        "refreshAccessToken"
+      ).mockRejectedValue(new TypeError("boom"));
+      try {
+        expect(await rejectionMessage(loadCredentials())).toContain("boom");
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
     });
   });
 });

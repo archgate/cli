@@ -29,7 +29,7 @@ Autentiser med GitHub-kontoen din for å få et plugin-token:
 archgate login
 ```
 
-Dette starter en GitHub Device Flow. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+Dette starter en OAuth 2.0 Device Authorization Grant mot Archgates identitetsleverandør. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
 
 ### 2. Initialiser prosjektet ditt med pluginet
 
@@ -88,7 +88,7 @@ Markedsplassinnstillingen på brukernivå (lagt til i `settings.json`):
 }
 ```
 
-URL-en inneholder ingen legitimasjon. Git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` lagret i operativsystemets legitimasjonsbehandler.
+URL-en inneholder ingen legitimasjon. Git autentiserer mot `plugins.archgate.dev` ved å spørre `archgate credential`, credential-helperen `archgate login` registrerer for den verten, som leverer et nylig fornyet tilgangstoken.
 
 ### Manuelt oppsett
 
@@ -104,7 +104,7 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Erstatt `<token>` med plugin-tokenet `archgate login` lagret for `plugins.archgate.dev` i operativsystemets legitimasjonsbehandler. Du kan lese det tilbake med `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+Erstatt `<token>` med et gyldig tilgangstoken. Skriv ut ett med `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get`, som fornyer det ved behov. Tilgangstokener er kortlivede, så en verdi som limes inn her slutter å virke innen en time — bruk heller marketplace-oppsettet over, der git spør helperen ved hver forespørsel.
 
 ## Hva pluginet tilbyr
 

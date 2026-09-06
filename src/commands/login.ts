@@ -16,7 +16,7 @@ import { isTlsError, tlsHintMessage } from "../helpers/tls";
 export function registerLoginCommand(program: Command) {
   const login = program
     .command("login")
-    .description("Authenticate with GitHub to access archgate plugins");
+    .description("Sign in to access archgate plugins");
 
   login.action(async () => {
     try {
@@ -76,9 +76,17 @@ export function registerLoginCommand(program: Command) {
     .action(async () => {
       try {
         await clearCredentials();
-        await unregisterGitCredentialHelper();
-        trackLoginResult({ subcommand: "logout", success: true });
-        console.log("Logged out successfully.");
+        const unregistered = await unregisterGitCredentialHelper();
+        trackLoginResult({ subcommand: "logout", success: unregistered });
+        if (unregistered) {
+          console.log("Logged out successfully.");
+        } else {
+          logError(
+            "Credentials removed, but the git credential helper entry could not be.",
+            "Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
+          );
+          await exitWith(1);
+        }
       } catch (err) {
         await handleCommandError(err);
       }

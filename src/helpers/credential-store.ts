@@ -19,6 +19,7 @@ import {
   TokenSetSchema,
 } from "./logto-auth";
 import { internalPath } from "./paths";
+import { UserError } from "./user-error";
 
 /** Host git itself authenticates against for plugin repositories. */
 export const PLUGINS_HOST = "plugins.archgate.dev";
@@ -87,9 +88,14 @@ async function gitCredentialApprove(
   return (await proc.exited) === 0;
 }
 
-async function gitCredentialFill(
-  host: string
-): Promise<{ username: string; password: string } | null> {
+/** Outcome of one `git credential fill`, distinguishing absent from unusable. */
+interface FillResult {
+  credentials: { username: string; password: string } | null;
+  /** True when the helper had to be killed for exceeding the timeout. */
+  timedOut: boolean;
+}
+
+async function gitCredentialFill(host: string): Promise<FillResult> {
   try {
     const proc = Bun.spawn(["git", "credential", "fill"], {
       stdin: new Blob([credentialInput(host)]),
@@ -119,7 +125,8 @@ async function gitCredentialFill(
       if (timer) clearTimeout(timer);
     });
 
-    if (result?.exitCode !== 0) return null;
+    if (result === null) return { credentials: null, timedOut: true };
+    if (result.exitCode !== 0) return { credentials: null, timedOut: false };
 
     let username = "";
     let password = "";
@@ -127,9 +134,12 @@ async function gitCredentialFill(
       if (line.startsWith("username=")) username = line.slice(9);
       if (line.startsWith("password=")) password = line.slice(9);
     }
-    return username && password ? { username, password } : null;
+    return {
+      credentials: username && password ? { username, password } : null,
+      timedOut: false,
+    };
   } catch {
-    return null;
+    return { credentials: null, timedOut: false };
   }
 }
 
@@ -187,11 +197,12 @@ const CREDENTIAL_HELPER_HINT =
  *
  * @param user - Display name shown by `archgate login status`.
  * @param tokens - Access token, refresh token and absolute expiry.
+ * @returns `true` when the token set is retrievable afterwards.
  */
 export async function saveTokenSet(
   user: string,
   tokens: TokenSet
-): Promise<void> {
+): Promise<boolean> {
   await cleanupLegacyMetadata();
 
   const stored = await gitCredentialApprove(
@@ -206,19 +217,21 @@ export async function saveTokenSet(
       "Your git credential helper may not be configured.",
       CREDENTIAL_HELPER_HINT
     );
-    return;
+    return false;
   }
 
-  if (await gitCredentialFill(AUTH_HOST)) {
+  if ((await gitCredentialFill(AUTH_HOST)).credentials) {
     logDebug("Token set verified in git credential manager");
-  } else {
-    logWarn(
-      "Token could not be verified in git credential manager.",
-      "Your credential helper may not persist credentials.",
-      CREDENTIAL_HELPER_HINT,
-      "Without a working credential helper, you will need to re-login after each session."
-    );
+    return true;
   }
+
+  logWarn(
+    "Token could not be verified in git credential manager.",
+    "Your credential helper may not persist credentials.",
+    CREDENTIAL_HELPER_HINT,
+    "Without a working credential helper, you will need to re-login after each session."
+  );
+  return false;
 }
 
 /**
@@ -230,15 +243,26 @@ export async function loadTokenSet(): Promise<{
   user: string;
   tokens: TokenSet;
 } | null> {
-  const stored = await gitCredentialFill(AUTH_HOST);
-  if (!stored) return null;
+  return (await readTokenSet()).stored;
+}
 
-  const parsed = TokenSetSchema.safeParse(safeJsonParse(stored.password));
+/** {@link loadTokenSet}, also reporting whether the helper timed out. */
+async function readTokenSet(): Promise<{
+  stored: { user: string; tokens: TokenSet } | null;
+  timedOut: boolean;
+}> {
+  const { credentials, timedOut } = await gitCredentialFill(AUTH_HOST);
+  if (!credentials) return { stored: null, timedOut };
+
+  const parsed = TokenSetSchema.safeParse(safeJsonParse(credentials.password));
   if (!parsed.success) {
     logDebug("Stored token set is unreadable");
-    return null;
+    return { stored: null, timedOut: false };
   }
-  return { user: stored.username, tokens: parsed.data };
+  return {
+    stored: { user: credentials.username, tokens: parsed.data },
+    timedOut: false,
+  };
 }
 
 /**
@@ -247,16 +271,33 @@ export async function loadTokenSet(): Promise<{
  * @returns Credentials ready to send, or `null` when the user is signed out.
  */
 export async function resolveAccessToken(): Promise<StoredCredentials | null> {
-  const stored = await loadTokenSet();
-  if (!stored) return null;
+  return (await resolveWithStatus()).credentials;
+}
+
+/** {@link resolveAccessToken}, also reporting whether the helper timed out. */
+async function resolveWithStatus(): Promise<{
+  credentials: StoredCredentials | null;
+  timedOut: boolean;
+}> {
+  const { stored, timedOut } = await readTokenSet();
+  if (!stored) return { credentials: null, timedOut };
 
   if (!isExpired(stored.tokens.expiresAt)) {
-    return { token: stored.tokens.accessToken, github_user: stored.user };
+    return {
+      credentials: {
+        token: stored.tokens.accessToken,
+        github_user: stored.user,
+      },
+      timedOut: false,
+    };
   }
 
   const renewed = await refreshAccessToken(stored.tokens.refreshToken);
   await saveTokenSet(stored.user, renewed);
-  return { token: renewed.accessToken, github_user: stored.user };
+  return {
+    credentials: { token: renewed.accessToken, github_user: stored.user },
+    timedOut: false,
+  };
 }
 
 /**
@@ -278,10 +319,26 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     return null;
   }
 
-  const resolved = await resolveAccessToken();
+  // A rejected refresh token is an expected signed-out state, not a failure:
+  // swallowing it here keeps the documented null contract and lets the legacy
+  // lookup below still answer. Anything else is a real fault and propagates.
+  let resolved: StoredCredentials | null = null;
+  let authLookupTimedOut = false;
+  try {
+    const outcome = await resolveWithStatus();
+    resolved = outcome.credentials;
+    authLookupTimedOut = outcome.timedOut;
+  } catch (error) {
+    if (!(error instanceof UserError)) throw error;
+    logDebug("stored session could not be renewed", { reason: error.message });
+  }
   if (resolved) return resolved;
 
-  const legacy = await gitCredentialFill(PLUGINS_HOST);
+  // A helper that timed out on the first host will time out on the second too,
+  // so skip it rather than making every signed-out call wait twice over.
+  if (authLookupTimedOut) return null;
+
+  const { credentials: legacy } = await gitCredentialFill(PLUGINS_HOST);
   if (legacy) {
     return { token: legacy.password, github_user: legacy.username };
   }
@@ -295,7 +352,7 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
 export async function clearCredentials(): Promise<void> {
   /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */
   for (const host of [AUTH_HOST, PLUGINS_HOST]) {
-    const stored = await gitCredentialFill(host);
+    const { credentials: stored } = await gitCredentialFill(host);
     if (stored) {
       await gitCredentialReject(host, stored.username, stored.password);
       logDebug("Credentials removed from git credential manager");

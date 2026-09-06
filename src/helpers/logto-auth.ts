@@ -81,10 +81,12 @@ export const TokenSetSchema = z.object({
 export type TokenSet = z.infer<typeof TokenSetSchema>;
 
 /** A token set plus the ID token from the exchange that produced it. */
-export interface TokenSetWithIdentity {
-  tokens: TokenSet;
-  idToken: string | undefined;
-}
+export const TokenSetWithIdentitySchema = z.object({
+  tokens: TokenSetSchema,
+  idToken: z.string().optional(),
+});
+
+export type TokenSetWithIdentity = z.infer<typeof TokenSetWithIdentitySchema>;
 
 // ---------------------------------------------------------------------------
 // Device authorization
@@ -155,7 +157,7 @@ export async function pollForTokens(
       signal: AbortSignal.timeout(15_000),
     });
 
-    const body: unknown = await response.json();
+    const body: unknown = await jsonBody(response);
 
     if (response.ok) {
       return { tokens: toTokenSet(body), idToken: idTokenFrom(body) };
@@ -218,14 +220,14 @@ export async function refreshAccessToken(
     signal: AbortSignal.timeout(15_000),
   });
 
-  const body: unknown = await response.json();
   if (!response.ok) {
+    await response.body?.cancel();
     throw new UserError(
       "Your session has expired. Run `archgate login` to sign in again."
     );
   }
 
-  return toTokenSet(body, refreshToken);
+  return toTokenSet(await jsonBody(response), refreshToken);
 }
 
 /**
@@ -264,6 +266,23 @@ export function identityFromIdToken(idToken: string | undefined): string {
 /** True when `expiresAt` is in the past or close enough to treat as lapsed. */
 export function isExpired(expiresAt: number): boolean {
   return Date.now() >= expiresAt - EXPIRY_SKEW_SECONDS * 1000;
+}
+
+/**
+ * Read a JSON body without letting a non-JSON one escape as an internal error.
+ *
+ * An identity-provider outage answers with an HTML error page from a proxy,
+ * where `response.json()` rejects with a `SyntaxError` — not a `UserError`, so
+ * it would surface as an internal fault and reach Sentry.
+ *
+ * @returns The parsed body, or `null` when it is not JSON.
+ */
+async function jsonBody(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 /** Pull the raw ID token out of a token response, when present. */

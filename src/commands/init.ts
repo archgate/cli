@@ -94,7 +94,7 @@ export function registerInitCommand(program: Command) {
                 type: "confirm",
                 name: "wantPlugin",
                 message:
-                  "Would you like to install the Archgate editor plugin? (requires GitHub login)",
+                  "Would you like to install the Archgate editor plugin? (requires sign-in)",
                 default: true,
               },
             ])

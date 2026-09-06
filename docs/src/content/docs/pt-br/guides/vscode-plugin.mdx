@@ -29,7 +29,7 @@ Autentique-se com sua conta do GitHub para obter um token do plugin:
 archgate login
 ```
 
-Isso inicia um GitHub Device Flow. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas de forma segura no gerenciador de credenciais do sistema operacional via `git credential approve`.
+Isso inicia um OAuth 2.0 Device Authorization Grant no provedor de identidade do Archgate. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas de forma segura no gerenciador de credenciais do sistema operacional via `git credential approve`.
 
 ### 2. Inicialize seu projeto com o plugin
 
@@ -88,7 +88,7 @@ A configuração do marketplace no nível de usuário (adicionada ao seu `settin
 }
 ```
 
-A URL não contém credenciais. O git se autentica em `plugins.archgate.dev` usando o token que o `archgate login` armazena no gerenciador de credenciais do sistema operacional.
+A URL não contém credenciais. O git se autentica em `plugins.archgate.dev` consultando o `archgate credential`, o credential helper que o `archgate login` registra para esse host, que fornece um token de acesso recém-renovado.
 
 ### Configuração manual
 
@@ -104,7 +104,7 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Substitua `<token>` pelo token de plugin que o `archgate login` armazena para `plugins.archgate.dev` no gerenciador de credenciais do sistema operacional. Você pode lê-lo de volta com `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+Substitua `<token>` por um token de acesso atual. Imprima um com `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get`, que o renova se necessário. Tokens de acesso têm vida curta, então um valor colado aqui deixa de funcionar em menos de uma hora — prefira a configuração de marketplace acima, em que o git consulta o helper a cada requisição.
 
 ## O que o plugin oferece
 

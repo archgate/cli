@@ -70,10 +70,14 @@ describe("archgate credential get", () => {
     expect(written()).toBe("");
   });
 
+  // Git uses the requested protocol for the exchange, so answering a plain
+  // http request would hand the token over in cleartext.
   test.each([
     "protocol=https\nhost=github.com\n\n",
     "protocol=https\nhost=evil.example.com\n\n",
     "protocol=https\n\n",
+    "protocol=http\nhost=plugins.archgate.dev\n\n",
+    "host=plugins.archgate.dev\n\n",
   ])("stays silent for a request that is not ours (%p)", async (request) => {
     await run("get", request);
 
@@ -89,8 +93,11 @@ describe("archgate credential erase", () => {
     expect(clearSpy).toHaveBeenCalled();
   });
 
-  test("leaves credentials alone for another host", async () => {
-    await run("erase", "protocol=https\nhost=github.com\n\n");
+  test.each([
+    "protocol=https\nhost=github.com\n\n",
+    "protocol=http\nhost=plugins.archgate.dev\n\n",
+  ])("leaves credentials alone for %p", async (request) => {
+    await run("erase", request);
 
     expect(clearSpy).not.toHaveBeenCalled();
   });

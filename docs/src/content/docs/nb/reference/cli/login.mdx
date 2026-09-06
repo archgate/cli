@@ -11,7 +11,7 @@ archgate login
 
 Starter en OAuth 2.0 Device Authorization Grant (RFC 8628) mot Archgates identitetsleverandør. CLI-en viser en engangskode og en URL. Åpne URL-en i nettleseren din, skriv inn koden og velg hvordan du vil logge inn. Når autorisasjonen er fullført, lagrer CLI-en tokenene i operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) via `git credential approve`. Ingen legitimasjon skrives til disk som klartekstfiler.
 
-Tilgangstokener er kortlivede. CLI-en beholder et refresh-token ved siden av dem og fornyer tilgangstokenet automatisk, så det holder å logge inn én gang.
+Tilgangstokener er kortlivede. CLI-en beholder et refresh-token ved siden av dem og fornyer tilgangstokenet automatisk, så det holder normalt å logge inn én gang. Hvis selve refresh-tokenet utløper eller blir tilbakekalt, melder CLI-en at økten er utløpt, og `archgate login` gjenoppretter den.
 
 Innlogging registrerer også `archgate credential` som en git credential helper for `plugins.archgate.dev`, som er det som lar `git clone` av et plugin-repositorium autentisere uten å spørre. Se [`archgate credential`](/reference/cli/credential/).
 

@@ -24,9 +24,11 @@ const HELPER_VALUE = "!archgate credential";
  * `GIT_CONFIG_GLOBAL` — would otherwise not reach git.
  */
 async function git(args: string[]): Promise<number> {
+  // Only the exit code matters; unread pipes can block git once it writes
+  // enough diagnostic output to fill them.
   const proc = Bun.spawn(["git", ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
+    stdout: "ignore",
+    stderr: "ignore",
     env: { ...Bun.env },
   });
   return proc.exited;

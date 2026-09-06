@@ -14,6 +14,7 @@ import {
   pollForTokens,
   requestDeviceCode,
 } from "./logto-auth";
+import { UserError } from "./user-error";
 
 export interface LoginFlowResult {
   /** Whether credentials were obtained. */
@@ -52,7 +53,11 @@ export async function runLoginFlow(): Promise<LoginFlowResult> {
   );
 
   const user = identityFromIdToken(idToken);
-  await saveTokenSet(user, tokens);
+  if (!(await saveTokenSet(user, tokens))) {
+    throw new UserError(
+      "Signed in, but the credentials could not be stored. Configure a git credential helper and run `archgate login` again."
+    );
+  }
 
   if (!(await registerGitCredentialHelper())) {
     logWarn(

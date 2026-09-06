@@ -35,8 +35,14 @@ export function registerCredentialCommand(program: Command) {
     .action(async () => {
       try {
         const request = await readRequest();
-        if (request.host !== PLUGINS_HOST) {
-          logDebug("Ignoring credential request for host:", request.host);
+        // Git uses the requested protocol for the exchange itself, so an
+        // http:// request would carry the token in cleartext. Answering only
+        // https keeps that from happening; the response cannot upgrade it.
+        if (request.protocol !== "https" || request.host !== PLUGINS_HOST) {
+          logDebug(
+            "Ignoring credential request for:",
+            `${request.protocol}://${request.host}`
+          );
           return;
         }
 
@@ -77,7 +83,9 @@ export function registerCredentialCommand(program: Command) {
     .action(async () => {
       try {
         const request = await readRequest();
-        if (request.host !== PLUGINS_HOST) return;
+        if (request.protocol !== "https" || request.host !== PLUGINS_HOST) {
+          return;
+        }
         await clearCredentials();
       } catch (err) {
         await handleCommandError(err);

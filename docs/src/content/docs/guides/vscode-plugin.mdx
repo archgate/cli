@@ -29,7 +29,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts a OAuth 2.0 Device Authorization Grant against the Archgate identity provider. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -88,7 +88,7 @@ The user-level marketplace setting (added to your `settings.json`):
 }
 ```
 
-The URL carries no credentials. Git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
+The URL carries no credentials. Git authenticates against `plugins.archgate.dev` by asking `archgate credential`, the credential helper `archgate login` registers for that host, which supplies a freshly renewed access token.
 
 ### Manual setup
 
@@ -104,7 +104,7 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Replace `<token>` with the plugin token `archgate login` stored for `plugins.archgate.dev` in your OS credential manager. You can read it back with `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+Replace `<token>` with a current access token. Print one with `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get`, which renews it if needed. Access tokens are short-lived, so a value pasted here stops working within the hour — prefer the marketplace setup above, where git asks the helper on every request.
 
 ## What the plugin provides
 

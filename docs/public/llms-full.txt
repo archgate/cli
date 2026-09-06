@@ -1338,7 +1338,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts a OAuth 2.0 Device Authorization Grant against the Archgate identity provider. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -1485,7 +1485,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts a OAuth 2.0 Device Authorization Grant against the Archgate identity provider. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -2318,7 +2318,7 @@ Authenticate with your GitHub account to obtain a plugin token:
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts a OAuth 2.0 Device Authorization Grant against the Archgate identity provider. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
 
 ### 2. Initialize your project with the plugin
 
@@ -2377,7 +2377,7 @@ The user-level marketplace setting (added to your `settings.json`):
 }
 ```
 
-The URL carries no credentials. Git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
+The URL carries no credentials. Git authenticates against `plugins.archgate.dev` by asking `archgate credential`, the credential helper `archgate login` registers for that host, which supplies a freshly renewed access token.
 
 ### Manual setup
 
@@ -2393,7 +2393,7 @@ code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-Replace `<token>` with the plugin token `archgate login` stored for `plugins.archgate.dev` in your OS credential manager. You can read it back with `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+Replace `<token>` with a current access token. Print one with `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get`, which renews it if needed. Access tokens are short-lived, so a value pasted here stops working within the hour — prefer the marketplace setup above, where git asks the helper on every request.
 
 ## What the plugin provides
 
@@ -4535,7 +4535,7 @@ The output should list an empty line followed by `!archgate credential`. If it d
 
 ### The helper is registered but credentials are still rejected
 
-Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, `archgate credential get` cannot renew the access token and stays silent; `archgate login` re-establishes it.
+Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, `archgate credential get` returns no credentials and reports the error rather than staying silent. Run `archgate login` again.
 
 ---
 
@@ -4627,7 +4627,7 @@ archgate --log-level debug check
 
 | Command                                          | Description                                           |
 | ------------------------------------------------ | ----------------------------------------------------- |
-| [`archgate login`](./login/)                     | Authenticate with GitHub                              |
+| [`archgate login`](./login/)                     | Sign in to access editor plugins                      |
 | [`archgate init`](./init/)                       | Set up linting and rules enforcement                  |
 | [`archgate plugin`](./plugin/)                   | Manage editor plugins                                 |
 | [`archgate check`](./check/)                     | Run ADR compliance checks                             |
@@ -4715,7 +4715,7 @@ archgate login
 
 Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate identity provider. The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and choose how you want to sign in. Once authorized, the CLI stores the resulting tokens in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
 
-Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is enough.
+Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI reports that the session has expired and `archgate login` re-establishes it.
 
 Signing in also registers `archgate credential` as a git credential helper for `plugins.archgate.dev`, which is what lets `git clone` of a plugin repository authenticate without prompting. See [`archgate credential`](/reference/cli/credential/).
 
@@ -5408,7 +5408,7 @@ Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.a
 
 ### Archgate Plugins Service
 
-When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files).
+When you sign in via `archgate login`, you authenticate with GitHub through the **Archgate identity provider** (`auth.archgate.dev`), which receives the profile GitHub shares with it: your **name**, **email address**, **GitHub username**, and **avatar**. This is used to identify your account and send a welcome email. The CLI itself asks you for nothing. On your machine, the resulting tokens are kept in your OS credential manager (never as plain-text files).
 
 By creating an account, you agree to the [Terms of Service](https://archgate.dev/terms-of-service). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
 

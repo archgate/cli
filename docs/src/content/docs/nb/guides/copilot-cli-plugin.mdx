@@ -27,7 +27,7 @@ Autentiser med GitHub-kontoen din for å få et plugin-token:
 archgate login
 ```
 
-Dette starter en GitHub Device Flow. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+Dette starter en OAuth 2.0 Device Authorization Grant mot Archgates identitetsleverandør. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
 
 ### 2. Initialiser prosjektet ditt med pluginet
 

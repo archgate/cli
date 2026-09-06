@@ -53,7 +53,7 @@ beforeEach(() => {
     tokens: TOKENS,
     idToken: idTokenFor({ sub: "usr_1", username: "octocat" }),
   });
-  mockSaveTokenSet = spyOn(credMod, "saveTokenSet").mockResolvedValue();
+  mockSaveTokenSet = spyOn(credMod, "saveTokenSet").mockResolvedValue(true);
   mockRegisterHelper = spyOn(
     gitConfigMod,
     "registerGitCredentialHelper"
@@ -130,6 +130,14 @@ describe("runLoginFlow", () => {
     const result = await runLoginFlow();
 
     expect(result.githubUser).toBe("archgate");
+  });
+
+  test("fails the login when the token set cannot be persisted", async () => {
+    mockSaveTokenSet.mockResolvedValue(false);
+
+    expect(await rejectionMessage(runLoginFlow())).toContain(
+      "credentials could not be stored"
+    );
   });
 
   test("propagates a failure from the device authorization request", async () => {
