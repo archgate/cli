@@ -102,12 +102,12 @@ Se preferir não deixar o CLI modificar suas configurações, você pode configu
 printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
   archgate credential get |
   sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
-  curl --config - --output archgate.vsix https://plugins.archgate.dev/api/vscode
+  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode
 code --install-extension archgate.vsix
 rm archgate.vsix
 ```
 
-O `archgate credential get` emite uma resposta de credencial do git, então a linha `password=` é convertida em uma diretiva `curl --config` e enviada por pipe. O token nunca chega à linha de comando, onde ficaria visível na lista de processos e no histórico do shell.
+O `archgate credential get` emite uma resposta de credencial do git, então a linha `password=` é convertida em uma diretiva `curl --config` e enviada por pipe. O token nunca chega à linha de comando, onde ficaria visível na lista de processos e no histórico do shell. O `--fail` faz o curl sair com erro em um 401, em vez de gravar o corpo do erro por cima de `archgate.vsix`.
 
 Prefira a configuração de marketplace acima quando possível: assim o git consulta o helper a cada requisição e nenhum token é manipulado à mão.
 

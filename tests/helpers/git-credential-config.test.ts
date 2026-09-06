@@ -18,14 +18,29 @@ let gitConfigPath: string;
 let originalNoSystem: string | undefined;
 let originalGlobal: string | undefined;
 
-/** Read the helper entries git has recorded, in order. */
+/**
+ * Read the helper entries git has recorded, in order.
+ *
+ * Both piped streams are drained concurrently so neither can fill and block
+ * git, and the exit code is checked before the output is trusted (ARCH-007).
+ * Exit code 1 means the key is unset, which is an empty list rather than a
+ * failure.
+ */
 async function configuredHelpers(): Promise<string[]> {
   const proc = Bun.spawn(
     ["git", "config", "--global", "--get-all", HELPER_KEY],
     { stdout: "pipe", stderr: "pipe", env: { ...Bun.env } }
   );
-  const stdout = await new Response(proc.stdout).text();
-  await proc.exited;
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+
+  if (exitCode === 1) return [];
+  if (exitCode !== 0) {
+    throw new Error(`git config exited ${exitCode}: ${stderr.trim()}`);
+  }
   return stdout.split("\n").slice(0, -1);
 }
 
