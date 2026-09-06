@@ -3,7 +3,7 @@
 import type { Command } from "@commander-js/extra-typings";
 
 import {
-  clearCredentials,
+  invalidateAccessToken,
   PLUGINS_HOST,
   resolveAccessToken,
 } from "../helpers/credential-store";
@@ -79,14 +79,14 @@ export function registerCredentialCommand(program: Command) {
 
   credential
     .command("erase")
-    .description("Remove stored credentials when git reports them rejected")
+    .description("Drop the cached access token when git reports it rejected")
     .action(async () => {
       try {
         const request = await readRequest();
         if (request.protocol !== "https" || request.host !== PLUGINS_HOST) {
           return;
         }
-        await clearCredentials();
+        await invalidateAccessToken();
       } catch (err) {
         await handleCommandError(err);
       }

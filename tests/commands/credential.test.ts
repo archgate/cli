@@ -20,7 +20,7 @@ import { rejectionMessage } from "../test-utils";
 let stdinSpy: Mock<typeof Bun.stdin.text>;
 let stdoutSpy: Mock<typeof process.stdout.write>;
 let resolveSpy: Mock<typeof credMod.resolveAccessToken>;
-let clearSpy: Mock<typeof credMod.clearCredentials>;
+let invalidateSpy: Mock<typeof credMod.invalidateAccessToken>;
 
 /** Everything the command wrote to stdout during one run. */
 function written(): string {
@@ -44,14 +44,14 @@ beforeEach(() => {
     token: "ey.access",
     github_user: "octocat",
   });
-  clearSpy = spyOn(credMod, "clearCredentials").mockResolvedValue();
+  invalidateSpy = spyOn(credMod, "invalidateAccessToken").mockResolvedValue();
 });
 
 afterEach(() => {
   stdinSpy.mockRestore();
   stdoutSpy.mockRestore();
   resolveSpy.mockRestore();
-  clearSpy.mockRestore();
+  invalidateSpy.mockRestore();
 });
 
 describe("archgate credential get", () => {
@@ -89,10 +89,12 @@ describe("archgate credential get", () => {
 });
 
 describe("archgate credential erase", () => {
-  test("clears stored credentials for the plugins host", async () => {
+  // Git erases on any rejection, so this must cost the access token only —
+  // dropping the refresh token would turn a 401 into a full re-login.
+  test("drops only the access token, keeping the session", async () => {
     await run("erase", PLUGIN_REQUEST);
 
-    expect(clearSpy).toHaveBeenCalled();
+    expect(invalidateSpy).toHaveBeenCalled();
   });
 
   test.each([
@@ -101,7 +103,7 @@ describe("archgate credential erase", () => {
   ])("leaves credentials alone for %p", async (request) => {
     await run("erase", request);
 
-    expect(clearSpy).not.toHaveBeenCalled();
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -110,7 +112,7 @@ describe("archgate credential store", () => {
     await run("store", PLUGIN_REQUEST);
 
     expect(written()).toBe("");
-    expect(clearSpy).not.toHaveBeenCalled();
+    expect(invalidateSpy).not.toHaveBeenCalled();
     expect(resolveSpy).not.toHaveBeenCalled();
   });
 });

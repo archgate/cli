@@ -331,7 +331,15 @@ async function renew(
 ): Promise<StoredCredentials> {
   try {
     const renewed = await refreshAccessToken(refreshToken);
-    await saveTokenSet(user, renewed);
+    if (!(await saveTokenSet(user, renewed))) {
+      // The exchange rotated the refresh token, so the one still on disk is
+      // already dead. This request can finish with the token in hand, but the
+      // session cannot be renewed again.
+      logWarn(
+        "Renewed credentials could not be stored.",
+        "Run `archgate login` to sign in again."
+      );
+    }
     return { token: renewed.accessToken, github_user: user };
   } catch (error) {
     const { stored } = await readTokenSet();
@@ -407,6 +415,21 @@ export async function clearCredentials(): Promise<void> {
   }
   /* oxlint-enable no-await-in-loop */
   await cleanupLegacyMetadata();
+}
+
+/**
+ * Mark the stored access token as lapsed, keeping the refresh token.
+ *
+ * Git erases credentials on any rejection, so discarding the refresh token
+ * here would turn a single recoverable 401 into a full device-flow login.
+ * The next lookup renews instead.
+ */
+export async function invalidateAccessToken(): Promise<void> {
+  const stored = await loadTokenSet();
+  if (!stored) return;
+
+  await saveTokenSet(stored.user, { ...stored.tokens, expiresAt: 0 });
+  logDebug("access token marked for renewal");
 }
 
 /** Parse JSON, returning `null` rather than throwing on malformed input. */
