@@ -16,6 +16,7 @@ import {
   opencodeConfigDir,
 } from "./paths";
 import { resolveCommand } from "./platform";
+import { fetchWithUserAgent, gitUserAgentEnv } from "./user-agent";
 import { UserError } from "./user-error";
 
 /** Host serving plugin downloads and plugin git repositories. */
@@ -45,6 +46,7 @@ async function run(
     cwd: opts?.cwd,
     stdout: "pipe",
     stderr: "pipe",
+    env: gitUserAgentEnv(),
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
@@ -224,8 +226,8 @@ async function downloadPluginAsset(
   path: string,
   token: string
 ): Promise<ArrayBuffer> {
-  const response = await fetch(`${PLUGINS_API}${path}`, {
-    headers: { Authorization: `Bearer ${token}`, "User-Agent": "archgate-cli" },
+  const response = await fetchWithUserAgent(`${PLUGINS_API}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(30_000),
     redirect: "error",
   });

@@ -18,6 +18,7 @@ import type {
   TokenSet,
 } from "./platform-auth";
 import { SessionExpiredError } from "./session-expired-error";
+import { fetchWithUserAgent } from "./user-agent";
 import { UserError } from "./user-error";
 
 /** Where and as whom to sign in. */
@@ -208,7 +209,7 @@ async function postForm(
   url: string,
   fields: Record<string, string>
 ): Promise<Response> {
-  return fetch(url, {
+  return fetchWithUserAgent(url, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(fields),

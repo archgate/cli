@@ -13,6 +13,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import type { PackMetadata } from "../formats/pack";
 import { parsePackMetadata } from "../formats/pack";
 import { logDebug } from "./log";
+import { gitUserAgentEnv } from "./user-agent";
 import { UserError } from "./user-error";
 
 // ---------- Source resolution ----------
@@ -129,6 +130,7 @@ async function run(
     cwd: opts?.cwd,
     stdout: "pipe",
     stderr: "pipe",
+    env: gitUserAgentEnv(),
   });
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),
