@@ -75,42 +75,32 @@ async function medianDurationMs(
 }
 
 describe("CLI performance — exit tail regression guard", () => {
-  test(
-    "`--version` finishes within budget (no leaked exit-path timer)",
-    async () => {
-      // 3 runs + median smooths out a single slow cold-start without
-      // letting a genuine regression slip through.
-      const { median, all } = await medianDurationMs(["--version"], 3);
-      if (median >= FAST_COMMAND_MAX_MS) {
-        // Rich failure message — makes debugging fast when CI flakes.
-        throw new Error(
-          `\`archgate --version\` took ${Math.round(median)}ms (median of ${all.map((m) => Math.round(m)).join(", ")}ms). ` +
-            `Budget is ${FAST_COMMAND_MAX_MS}ms. ` +
-            `This usually means a new un-cancelled \`setTimeout\` / \`Bun.sleep\` is keeping the event loop alive after the command completes. ` +
-            `Grep for \`Promise.race\` + \`setTimeout\` and make sure every timer id is captured and \`clearTimeout\`'d in a \`.finally\`.`
-        );
-      }
-      expect(median).toBeLessThan(FAST_COMMAND_MAX_MS);
-    },
-    // Per-test timeout: allow 4× budget so we report a clean failure
-    // rather than a timeout if something is badly wrong.
-    FAST_COMMAND_MAX_MS * 4
-  );
+  test("`--version` finishes within budget (no leaked exit-path timer)", async () => {
+    // 3 runs + median smooths out a single slow cold-start without
+    // letting a genuine regression slip through.
+    const { median, all } = await medianDurationMs(["--version"], 3);
+    if (median >= FAST_COMMAND_MAX_MS) {
+      // Rich failure message — makes debugging fast when CI flakes.
+      throw new Error(
+        `\`archgate --version\` took ${Math.round(median)}ms (median of ${all.map((m) => Math.round(m)).join(", ")}ms). ` +
+          `Budget is ${FAST_COMMAND_MAX_MS}ms. ` +
+          `This usually means a new un-cancelled \`setTimeout\` / \`Bun.sleep\` is keeping the event loop alive after the command completes. ` +
+          `Grep for \`Promise.race\` + \`setTimeout\` and make sure every timer id is captured and \`clearTimeout\`'d in a \`.finally\`.`
+      );
+    }
+    expect(median).toBeLessThan(FAST_COMMAND_MAX_MS);
+  });
 
-  test(
-    "`--help` finishes within budget (no leaked exit-path timer)",
-    async () => {
-      const { median, all } = await medianDurationMs(["--help"], 3);
-      if (median >= FAST_COMMAND_MAX_MS) {
-        throw new Error(
-          `\`archgate --help\` took ${Math.round(median)}ms (median of ${all.map((m) => Math.round(m)).join(", ")}ms). ` +
-            `Budget is ${FAST_COMMAND_MAX_MS}ms. See the \`--version\` test failure message for the likely cause.`
-        );
-      }
-      expect(median).toBeLessThan(FAST_COMMAND_MAX_MS);
-    },
-    FAST_COMMAND_MAX_MS * 4
-  );
+  test("`--help` finishes within budget (no leaked exit-path timer)", async () => {
+    const { median, all } = await medianDurationMs(["--help"], 3);
+    if (median >= FAST_COMMAND_MAX_MS) {
+      throw new Error(
+        `\`archgate --help\` took ${Math.round(median)}ms (median of ${all.map((m) => Math.round(m)).join(", ")}ms). ` +
+          `Budget is ${FAST_COMMAND_MAX_MS}ms. See the \`--version\` test failure message for the likely cause.`
+      );
+    }
+    expect(median).toBeLessThan(FAST_COMMAND_MAX_MS);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -118,9 +108,9 @@ describe("CLI performance — exit tail regression guard", () => {
 // ---------------------------------------------------------------------------
 //
 // Tighter than the exit-tail guard above, these protect against import-time
-// cost: a static `import inquirer` (~200ms), blocking telemetry init (~150ms),
-// or a heavy dependency entering the top-level import chain. Each sits at
-// ~3-4x its measured baseline so CI variance cannot mask a real regression.
+// cost: a static `import inquirer` (~200ms) or a heavy dependency entering the
+// top-level import chain. Each sits at ~5x its idle-machine baseline: under
+// `bun run test`'s parallel load one `check` sample reaches ~3.5x.
 
 /**
  * Budget for commands that do zero project I/O — pure startup + parse +
@@ -135,9 +125,9 @@ const LIGHT_COMMAND_MAX_MS = 1500;
 
 /**
  * Budget for commands that do heavy project I/O (load rules, scan files,
- * run checks).
+ * run checks). `check` runs in ~750ms on an idle machine.
  */
-const HEAVY_COMMAND_MAX_MS = 2500;
+const HEAVY_COMMAND_MAX_MS = 4000;
 
 function startupBudgetError(
   label: string,
@@ -157,79 +147,53 @@ function startupBudgetError(
 }
 
 describe("CLI performance — startup latency budget", () => {
-  test(
-    "`--help` stays within startup budget",
-    async () => {
-      const { median, all } = await medianDurationMs(["--help"], 3);
-      if (median >= STARTUP_ONLY_MAX_MS) {
-        throw new Error(
-          startupBudgetError(
-            "archgate --help",
-            median,
-            all,
-            STARTUP_ONLY_MAX_MS
-          )
-        );
-      }
-      expect(median).toBeLessThan(STARTUP_ONLY_MAX_MS);
-    },
-    STARTUP_ONLY_MAX_MS * 5
-  );
+  test("`--help` stays within startup budget", async () => {
+    const { median, all } = await medianDurationMs(["--help"], 3);
+    if (median >= STARTUP_ONLY_MAX_MS) {
+      throw new Error(
+        startupBudgetError("archgate --help", median, all, STARTUP_ONLY_MAX_MS)
+      );
+    }
+    expect(median).toBeLessThan(STARTUP_ONLY_MAX_MS);
+  });
 
-  test(
-    "`--version` stays within startup budget",
-    async () => {
-      const { median, all } = await medianDurationMs(["--version"], 3);
-      if (median >= STARTUP_ONLY_MAX_MS) {
-        throw new Error(
-          startupBudgetError(
-            "archgate --version",
-            median,
-            all,
-            STARTUP_ONLY_MAX_MS
-          )
-        );
-      }
-      expect(median).toBeLessThan(STARTUP_ONLY_MAX_MS);
-    },
-    STARTUP_ONLY_MAX_MS * 5
-  );
+  test("`--version` stays within startup budget", async () => {
+    const { median, all } = await medianDurationMs(["--version"], 3);
+    if (median >= STARTUP_ONLY_MAX_MS) {
+      throw new Error(
+        startupBudgetError(
+          "archgate --version",
+          median,
+          all,
+          STARTUP_ONLY_MAX_MS
+        )
+      );
+    }
+    expect(median).toBeLessThan(STARTUP_ONLY_MAX_MS);
+  });
 
-  test(
-    "`adr list` stays within light-command budget",
-    async () => {
-      const { median, all } = await medianDurationMs(["adr", "list"], 3);
-      if (median >= LIGHT_COMMAND_MAX_MS) {
-        throw new Error(
-          startupBudgetError(
-            "archgate adr list",
-            median,
-            all,
-            LIGHT_COMMAND_MAX_MS
-          )
-        );
-      }
-      expect(median).toBeLessThan(LIGHT_COMMAND_MAX_MS);
-    },
-    LIGHT_COMMAND_MAX_MS * 5
-  );
+  test("`adr list` stays within light-command budget", async () => {
+    const { median, all } = await medianDurationMs(["adr", "list"], 3);
+    if (median >= LIGHT_COMMAND_MAX_MS) {
+      throw new Error(
+        startupBudgetError(
+          "archgate adr list",
+          median,
+          all,
+          LIGHT_COMMAND_MAX_MS
+        )
+      );
+    }
+    expect(median).toBeLessThan(LIGHT_COMMAND_MAX_MS);
+  });
 
-  test(
-    "`check` stays within heavy-command budget",
-    async () => {
-      const { median, all } = await medianDurationMs(["check"], 3);
-      if (median >= HEAVY_COMMAND_MAX_MS) {
-        throw new Error(
-          startupBudgetError(
-            "archgate check",
-            median,
-            all,
-            HEAVY_COMMAND_MAX_MS
-          )
-        );
-      }
-      expect(median).toBeLessThan(HEAVY_COMMAND_MAX_MS);
-    },
-    HEAVY_COMMAND_MAX_MS * 5
-  );
+  test("`check` stays within heavy-command budget", async () => {
+    const { median, all } = await medianDurationMs(["check"], 3);
+    if (median >= HEAVY_COMMAND_MAX_MS) {
+      throw new Error(
+        startupBudgetError("archgate check", median, all, HEAVY_COMMAND_MAX_MS)
+      );
+    }
+    expect(median).toBeLessThan(HEAVY_COMMAND_MAX_MS);
+  });
 });
