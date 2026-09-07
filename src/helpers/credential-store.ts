@@ -124,12 +124,22 @@ function noCredentials(timedOut: boolean): FillResult {
   return { credentials: null, timedOut };
 }
 
-async function gitCredentialFill(host: string): Promise<FillResult> {
+/**
+ * Ask git for the record filed under a host.
+ *
+ * @param host - Host the record is filed under.
+ * @param account - When given, selects that account's record rather than
+ * whichever the helper answers first.
+ */
+async function gitCredentialFill(
+  host: string,
+  account?: string
+): Promise<FillResult> {
   try {
     // stderr is ignored rather than piped: nothing reads it, and an unread
     // pipe can fill and block the helper (ARCH-007).
     const proc = Bun.spawn(["git", "credential", "fill"], {
-      stdin: new Blob([credentialInput(host)]),
+      stdin: new Blob([credentialInput(host, account)]),
       stdout: "pipe",
       stderr: "ignore",
       env: gitCredentialEnv(),
@@ -217,12 +227,8 @@ export async function saveTokenSet(
 ): Promise<boolean> {
   await cleanupLegacyMetadata();
 
-  const stored = await gitCredential(
-    "approve",
-    AUTH_HOST,
-    user,
-    JSON.stringify(tokens)
-  );
+  const serialized = JSON.stringify(tokens);
+  const stored = await gitCredential("approve", AUTH_HOST, user, serialized);
   if (!stored) {
     logWarn(
       "git credential approve failed.",
@@ -232,7 +238,10 @@ export async function saveTokenSet(
     return false;
   }
 
-  if ((await gitCredentialFill(AUTH_HOST)).credentials) {
+  // The read-back asks for this account and must return this very blob: a
+  // helper may otherwise answer with an older record or another user's.
+  const { credentials } = await gitCredentialFill(AUTH_HOST, user);
+  if (credentials?.password === serialized) {
     logDebug("Token set verified in git credential manager");
     return true;
   }
@@ -340,8 +349,9 @@ async function renew(stale: Session): Promise<StoredCredentials> {
 /**
  * Load archgate credentials, renewing a lapsed access token on the way.
  *
- * Tokens issued before platform sign-in are filed under {@link PLUGINS_HOST}
- * and are returned unchanged; they keep working until the user signs in again.
+ * A token issued before platform sign-in is filed under {@link PLUGINS_HOST}
+ * and is returned unchanged, but only while no platform session is stored:
+ * once the user has signed in, that session alone decides.
  *
  * @returns The stored credentials, or `null` when none are stored.
  */
@@ -356,10 +366,11 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     return null;
   }
 
-  // A refused refresh token is an expected signed-out state, not a failure:
-  // swallowing it here keeps the documented null contract and lets the legacy
-  // lookup below still answer. Anything else — the service unreachable or
-  // failing — propagates, so the user is not told to sign in again for it.
+  // A refused refresh token is an expected signed-out state, not a failure,
+  // and it ends the lookup: the legacy store is not consulted for a user who
+  // has signed in to the platform, and while archgate is git's helper for
+  // the plugins host that lookup would only reach archgate itself. Anything
+  // else — the service unreachable or failing — propagates.
   let resolved: StoredCredentials | null = null;
   let authLookupTimedOut = false;
   try {
@@ -369,6 +380,7 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
   } catch (error) {
     if (!(error instanceof SessionExpiredError)) throw error;
     logDebug("stored session is signed out", { reason: error.message });
+    return null;
   }
   if (resolved) return resolved;
 
@@ -389,23 +401,31 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
  * unregister the git credential helper first: while archgate answers for the
  * plugins host, the lookup for that host reaches archgate itself rather than
  * the store holding a legacy token, which would then outlive the logout.
+ *
+ * @returns `true` when every record found was removed.
  */
-export async function clearCredentials(): Promise<void> {
+export async function clearCredentials(): Promise<boolean> {
+  let cleared = true;
   /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */
   for (const host of [AUTH_HOST, PLUGINS_HOST]) {
     const { credentials } = await gitCredentialFill(host);
-    if (credentials) {
-      await gitCredential(
-        "reject",
-        host,
-        credentials.username,
-        credentials.password
-      );
-      logDebug("Credentials removed from git credential manager");
+    if (!credentials) continue;
+    const rejected = await gitCredential(
+      "reject",
+      host,
+      credentials.username,
+      credentials.password
+    );
+    if (rejected) {
+      logDebug("Credentials removed from git credential manager", { host });
+    } else {
+      logDebug("git credential reject failed", { host });
+      cleared = false;
     }
   }
   /* oxlint-enable no-await-in-loop */
   await cleanupLegacyMetadata();
+  return cleared;
 }
 
 /**

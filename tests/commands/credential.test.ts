@@ -5,6 +5,7 @@ import {
   beforeEach,
   describe,
   expect,
+  mock,
   type Mock,
   spyOn,
   test,
@@ -17,7 +18,6 @@ import * as credMod from "../../src/helpers/credential-store";
 import * as exitModule from "../../src/helpers/exit";
 import { rejectionMessage } from "../test-utils";
 
-let stdinSpy: Mock<typeof Bun.stdin.text>;
 let stdoutSpy: Mock<typeof process.stdout.write>;
 let resolveSpy: Mock<typeof credMod.resolveAccessToken>;
 let invalidateSpy: Mock<typeof credMod.invalidateAccessToken>;
@@ -29,7 +29,7 @@ function written(): string {
 
 /** Run a `credential` subcommand with the given request on stdin. */
 async function run(subcommand: string, request: string): Promise<void> {
-  stdinSpy = spyOn(Bun.stdin, "text").mockResolvedValue(request);
+  spyOn(Bun.stdin, "text").mockResolvedValue(request);
   const program = new Command();
   program.exitOverride();
   registerCredentialCommand(program);
@@ -50,10 +50,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  stdinSpy.mockRestore();
-  stdoutSpy.mockRestore();
-  resolveSpy.mockRestore();
-  invalidateSpy.mockRestore();
+  mock.restore();
 });
 
 describe("archgate credential get", () => {
@@ -125,9 +122,7 @@ describe("error boundaries", () => {
   test.each(["get", "store", "erase"])(
     "%s routes a stdin failure to the error handler",
     async (subcommand) => {
-      stdinSpy = spyOn(Bun.stdin, "text").mockRejectedValue(
-        new Error("stdin closed")
-      );
+      spyOn(Bun.stdin, "text").mockRejectedValue(new Error("stdin closed"));
       const exitSpy = spyOn(exitModule, "exitWith").mockImplementation(() => {
         throw new Error("process.exit");
       });

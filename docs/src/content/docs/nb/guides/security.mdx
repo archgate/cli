@@ -138,9 +138,9 @@ Når du kloner eller forker et repositorium som bruker Archgate, håndhever sikk
 
 ### Legitimasjon
 
-Kommandoen `archgate login` lagrer autentiseringstokenet ditt i operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) via `git credential approve`. Ingen legitimasjon skrives til disk som klartekstfiler. Tokenet brukes for plugin-installasjon og sendes aldri til tredjeparter utover Archgate plugins-tjenesten.
+Kommandoen `archgate login` gir tokenene dine til den git credential-helperen du har konfigurert, via `git credential approve`. En helper som bruker operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager eller Linux libsecret) holder dem krypterte; gits innebygde `store`-helper skriver dem til `~/.git-credentials` i klartekst, så sjekk din med `git config --global credential.helper`. Tokenet brukes for plugin-installasjon og sendes aldri til tredjeparter utover Archgate plugins-tjenesten.
 
-- Plugin-installasjonskommandoer legger aldri tokenet inn i en URL eller sender det som et kommandolinjeargument: git-baserte installasjoner autentiserer gjennom OS-legitimasjonsbehandleren, og API-nedlastinger sender tokenet i en `Authorization`-header. Ingen av delene er synlige i prosesslister.
+- Plugin-installasjonskommandoer legger aldri tokenet inn i en URL eller sender det som et kommandolinjeargument: git-baserte installasjoner autentiserer gjennom git credential-helperen din, og API-nedlastinger sender tokenet i en `Authorization`-header. Ingen av delene er synlige i prosesslister.
 - For å tilbakekalle tilgang, kjør `archgate login logout`.
 
 ### Selvoppdateringsintegritet

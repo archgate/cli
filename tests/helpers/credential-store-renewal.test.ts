@@ -37,9 +37,16 @@ describe("credential renewal", () => {
     // The refresh token must survive: git erases on any rejection, and losing
     // it would turn a recoverable 401 into a full device-flow login.
     test("expires the access token but keeps the refresh token", async () => {
-      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(tokens))
-      );
+      // Calls run load-fill, approve, verify-fill; the verification must see
+      // the blob that was just approved.
+      let call = 0;
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        call += 1;
+        return gitCredentialStub(
+          "octocat",
+          JSON.stringify(call >= 3 ? { ...tokens, expiresAt: 0 } : tokens)
+        );
+      });
       try {
         expect(await invalidateAccessToken()).toBe(true);
 
@@ -131,32 +138,34 @@ describe("credential renewal", () => {
   });
 });
 
-// A rejected refresh token is a signed-out state, so loadCredentials keeps
-// its null contract and still reaches the legacy lookup.
+// A refused refresh token is a signed-out state, and it ends the lookup: the
+// legacy store is not consulted for a user who has signed in to the platform.
 describe("loadCredentials with an unrenewable session", () => {
-  test("falls through to a legacy token", async () => {
+  test("reports signed out without consulting the legacy store", async () => {
     const stale = {
       accessToken: "ey.stale",
       refreshToken: "refresh-old",
       expiresAt: Date.now() - 1_000,
     };
-    let call = 0;
-    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
-      call += 1;
-      // First fill answers for AUTH_HOST, the second for PLUGINS_HOST.
-      return call === 1
-        ? gitCredentialStub("octocat", JSON.stringify(stale))
-        : gitCredentialStub("octocat", "ag_beta_legacy");
-    });
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+      gitCredentialStub("octocat", JSON.stringify(stale))
+    );
     const refreshSpy = spyOn(
       platformAuth,
       "refreshAccessToken"
     ).mockRejectedValue(new SessionExpiredError());
     try {
-      expect(await loadCredentials()).toEqual({
-        token: "ag_beta_legacy",
-        github_user: "octocat",
-      });
+      expect(await loadCredentials()).toBeNull();
+
+      const hosts = await Promise.all(
+        fillSpy.mock.calls
+          .filter((call) => [...call[0]].includes("fill"))
+          .map(async (call) => {
+            const stdin = (call[1] as { stdin?: unknown } | undefined)?.stdin;
+            return stdin instanceof Blob ? stdin.text() : "";
+          })
+      );
+      expect(hosts.join("")).not.toContain("plugins.archgate.dev");
     } finally {
       refreshSpy.mockRestore();
       fillSpy.mockRestore();

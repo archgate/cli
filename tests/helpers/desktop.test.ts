@@ -5,6 +5,7 @@ import {
   beforeEach,
   describe,
   expect,
+  mock,
   type Mock,
   spyOn,
   test,
@@ -85,8 +86,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  for (const spy of platformSpies) spy.mockRestore();
-  spawnSpy.mockRestore();
+  mock.restore();
   for (const key of ENV_KEYS) restoreEnv(key, originalEnv[key]);
 });
 
@@ -154,22 +154,31 @@ describe("openBrowser", () => {
     expect(captured()[0]).toEqual([...expected]);
   });
 
-  // `start`'s first quoted argument is the window title, so it must be empty
-  // or the URL is consumed as a title and no browser opens.
-  test("passes an empty title to Windows start", async () => {
+  // `cmd /c start` and PowerShell parse `?` and `&` out of a URL, so the
+  // complete verification URL would be truncated before the browser saw it.
+  test("hands Windows the URL without a shell in between", async () => {
     for (const spy of platformSpies) spy.mockRestore();
     onPlatform("windows");
     spawnExits(0);
 
-    await openBrowser("https://auth.archgate.dev/device");
+    await openBrowser(
+      "https://auth.archgate.dev/device?user_code=HZML-HXLB&x=1"
+    );
 
     expect(captured()[0]).toEqual([
-      "cmd",
-      "/c",
-      "start",
-      "",
-      "https://auth.archgate.dev/device",
+      "rundll32",
+      "url.dll,FileProtocolHandler",
+      "https://auth.archgate.dev/device?user_code=HZML-HXLB&x=1",
     ]);
+  });
+
+  test("falls back to rundll32 on WSL without wslview", async () => {
+    for (const spy of platformSpies) spy.mockRestore();
+    onPlatform("wsl");
+    spawnExits(1, 0);
+
+    expect(await openBrowser("https://auth.archgate.dev/device")).toBe(true);
+    expect(captured()[1]?.[0]).toBe("rundll32.exe");
   });
 
   test("falls through to the next launcher when the first is missing", async () => {

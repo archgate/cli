@@ -199,7 +199,7 @@ describe("login action handlers", () => {
 
   describe("logout", () => {
     test("calls clearCredentials and prints success", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
+      clearCredentialsSpy.mockResolvedValueOnce(true);
 
       const program = makeProgram();
       await program.parseAsync(["node", "test", "login", "logout"]);
@@ -221,6 +221,7 @@ describe("login action handlers", () => {
       });
       clearCredentialsSpy.mockImplementation(async () => {
         order.push("clear");
+        return true;
       });
 
       const program = makeProgram();
@@ -229,8 +230,24 @@ describe("login action handlers", () => {
       expect(order).toEqual(["unregister", "clear"]);
     });
 
+    test("reports a partial logout when a record cannot be removed", async () => {
+      clearCredentialsSpy.mockResolvedValueOnce(false);
+
+      const program = makeProgram();
+      expect(
+        await rejectionMessage(
+          program.parseAsync(["node", "test", "login", "logout"])
+        )
+      ).toContain("exitWith(1)");
+
+      const allErrors = errorSpy.mock.calls
+        .map((c: unknown[]) => c.map(String).join(" "))
+        .join("\n");
+      expect(allErrors).toContain("could not be removed");
+    });
+
     test("still clears credentials when the helper entry cannot be removed", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
+      clearCredentialsSpy.mockResolvedValueOnce(true);
       unregisterHelperSpy.mockResolvedValue(false);
 
       const program = makeProgram();
@@ -244,7 +261,7 @@ describe("login action handlers", () => {
     });
 
     test("fails when the git credential helper entry cannot be removed", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
+      clearCredentialsSpy.mockResolvedValueOnce(true);
       unregisterHelperSpy.mockResolvedValue(false);
 
       const program = makeProgram();
@@ -414,7 +431,7 @@ describe("login action handlers", () => {
         "exitWith(1)"
       );
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -451,6 +468,7 @@ describe("login action handlers", () => {
       });
       clearCredentialsSpy.mockImplementation(async () => {
         order.push("clear");
+        return true;
       });
       runLoginFlowSpy.mockImplementation(async () => {
         order.push("login");
@@ -464,7 +482,7 @@ describe("login action handlers", () => {
     });
 
     test("exits with code 1 when refresh login flow fails", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
+      clearCredentialsSpy.mockResolvedValueOnce(true);
       runLoginFlowSpy.mockResolvedValueOnce({ ok: false });
 
       const program = makeProgram();
@@ -477,7 +495,7 @@ describe("login action handlers", () => {
     });
 
     test("exits with code 1 and prints TLS hint on TLS error during refresh", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
+      clearCredentialsSpy.mockResolvedValueOnce(true);
       runLoginFlowSpy.mockRejectedValueOnce(
         new Error("unable to verify the first certificate")
       );
@@ -487,7 +505,7 @@ describe("login action handlers", () => {
         program.parseAsync(["node", "test", "login", "refresh"])
       ).rejects.toThrow("exitWith(1)");
 
-      expect(exitWithSpy).toHaveBeenCalledWith(1);
+      expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
       const allErrors = errorSpy.mock.calls
         .map((c: unknown[]) => c.map(String).join(" "))
         .join("\n");
@@ -495,7 +513,7 @@ describe("login action handlers", () => {
     });
 
     test("exits with code 2 on non-TLS unexpected error during refresh", async () => {
-      clearCredentialsSpy.mockResolvedValueOnce();
+      clearCredentialsSpy.mockResolvedValueOnce(true);
       runLoginFlowSpy.mockRejectedValueOnce(new Error("server unreachable"));
 
       const program = makeProgram();

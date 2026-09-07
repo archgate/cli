@@ -5,6 +5,7 @@ import {
   beforeEach,
   describe,
   expect,
+  mock,
   type Mock,
   spyOn,
   test,
@@ -63,13 +64,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  mockRequestDeviceCode.mockRestore();
-  mockPollForTokens.mockRestore();
-  mockSaveTokenSet.mockRestore();
-  mockEnsureHelper.mockRestore();
-  mockOpenBrowser.mockRestore();
-  mockCopyToClipboard.mockRestore();
-  logSpy.mockRestore();
+  mock.restore();
 });
 
 describe("runLoginFlow", () => {

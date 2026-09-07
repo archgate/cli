@@ -14,7 +14,7 @@ import {
   ensureGitCredentialHelper,
   unregisterGitCredentialHelper,
 } from "../helpers/git-credential-config";
-import { logError, logInfo } from "../helpers/log";
+import { logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
 import { trackLoginResult } from "../helpers/telemetry";
@@ -70,8 +70,17 @@ export function registerLoginCommand(program: Command) {
         // The helper goes first: while archgate answers for the plugins host,
         // clearing cannot see a legacy token the OS store holds for it.
         const unregistered = await unregisterGitCredentialHelper();
-        await clearCredentials();
-        trackLoginResult({ subcommand: "logout", success: unregistered });
+        const cleared = await clearCredentials();
+        trackLoginResult({
+          subcommand: "logout",
+          success: unregistered && cleared,
+        });
+        if (!cleared) {
+          throw new UserError(
+            "Some credentials could not be removed from your git credential manager.",
+            "Check `git config --global credential.helper` and run `archgate login logout` again."
+          );
+        }
         if (!unregistered) {
           throw new UserError(
             "Credentials removed, but the git credential helper entry could not be removed. Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
@@ -129,12 +138,9 @@ async function handleSignInError(
     success: false,
     failure_reason: tls ? "tls" : "other",
   });
-  if (tls) {
-    logError(tlsHintMessage());
-    await exitWith(1);
-    return;
-  }
-  await handleCommandError(err);
+  // The hint replaces the raw error; as a UserError it keeps exit code 1 and
+  // the handler's expected-error classification.
+  await handleCommandError(tls ? new UserError(tlsHintMessage()) : err);
 }
 
 function printNextStep(): void {

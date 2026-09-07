@@ -67,7 +67,7 @@ Hvis `claude`-CLI-et er på PATH, installeres pluginen automatisk via:
 1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registrerer Archgate-markedsplassen)
 2. `claude plugin install archgate@archgate` (installerer pluginen)
 
-Markedsplass-URL-en inneholder ingen legitimasjon -- git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` lagret i operativsystemets legitimasjonsbehandler.
+Markedsplass-URL-en inneholder ingen legitimasjon -- git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` ga til git credential-helperen din.
 
 Hvis `claude`-CLI-et ikke finnes, skriver kommandoen ut de manuelle kommandoene du må kjøre.
 

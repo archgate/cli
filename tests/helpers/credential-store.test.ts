@@ -189,8 +189,29 @@ describe("credential-store", () => {
   });
 
   describe("clearCredentials", () => {
+    // A record the helper refuses to drop must not let logout report success.
+    test("reports failure when git cannot reject a record", async () => {
+      let call = 0;
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        call += 1;
+        // Odd calls are fills answering a record; even calls are rejects.
+        const stub = gitCredentialStub("octocat", "ey.access");
+        return call % 2 === 0
+          ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+            ({ ...stub, exited: Promise.resolve(1) } as unknown as ReturnType<
+              typeof Bun.spawn
+            >)
+          : stub;
+      });
+      try {
+        expect(await clearCredentials()).toBe(false);
+      } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+
     test("does not throw when no credentials exist", async () => {
-      expect(clearCredentials()).resolves.toBeUndefined();
+      expect(await clearCredentials()).toBe(true);
     });
 
     test("cleans up legacy metadata file", async () => {
@@ -217,6 +238,51 @@ describe("credential-store", () => {
 
       await clearCredentials();
       expect(await Bun.file(credPath).exists()).toBe(false);
+    });
+  });
+
+  // `git credential approve` exits 0 even when nothing was stored, so the
+  // read-back must return this very blob for this account.
+  describe("saveTokenSet verification", () => {
+    const tokens = {
+      accessToken: "ey.access",
+      refreshToken: "refresh-abc",
+      expiresAt: 1_800_000_000_000,
+    };
+
+    test("asks for the account it wrote and rejects a different blob", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", "stale-blob")
+      );
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        expect(await saveTokenSet("octocat", tokens)).toBe(false);
+
+        const fill = spawnSpy.mock.calls.find((call) =>
+          [...call[0]].includes("fill")
+        );
+        const stdin = (fill?.[1] as { stdin?: unknown } | undefined)?.stdin;
+        expect(stdin instanceof Blob ? await stdin.text() : "").toContain(
+          "username=octocat"
+        );
+        expect(warnSpy.mock.calls.flat().join(" ")).toContain(
+          "could not be verified"
+        );
+      } finally {
+        warnSpy.mockRestore();
+        spawnSpy.mockRestore();
+      }
+    });
+
+    test("accepts the read-back when it matches", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", JSON.stringify(tokens))
+      );
+      try {
+        expect(await saveTokenSet("octocat", tokens)).toBe(true);
+      } finally {
+        spawnSpy.mockRestore();
+      }
     });
   });
 

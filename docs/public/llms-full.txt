@@ -1363,7 +1363,7 @@ If the `claude` CLI is on your PATH, the plugin is installed automatically via:
 1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registers the Archgate marketplace)
 2. `claude plugin install archgate@archgate` (installs the plugin)
 
-The marketplace URL carries no credentials -- git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
+The marketplace URL carries no credentials -- git authenticates against `plugins.archgate.dev` using the token `archgate login` handed to your git credential helper.
 
 If the `claude` CLI is not found, the command prints the manual commands for you to run.
 
@@ -2277,9 +2277,9 @@ When cloning or forking a repository that uses Archgate, the security scanner au
 
 ### Credentials
 
-The `archgate login` command stores your authentication token in the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
+The `archgate login` command hands your tokens to the git credential helper you have configured, via `git credential approve`. A helper backed by the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) keeps them encrypted; git's built-in `store` helper writes them to `~/.git-credentials` in plain text, so check yours with `git config --global credential.helper`. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
 
-- Plugin installation commands never embed the token in a URL or pass it as a command-line argument: git-based installs authenticate through the OS credential manager, and API downloads send the token in an `Authorization` header. Neither is visible in process listings.
+- Plugin installation commands never embed the token in a URL or pass it as a command-line argument: git-based installs authenticate through your git credential helper, and API downloads send the token in an `Authorization` header. Neither is visible in process listings.
 - To revoke access, run `archgate login logout`.
 
 ### Self-update integrity
@@ -4542,7 +4542,7 @@ The output should list an empty line followed by `!`, the absolute path of the a
 
 ### The helper is registered but credentials are still rejected
 
-Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, the helper returns no credentials and reports the error rather than staying silent. It reads only the token set stored by `archgate login`, so the legacy-token fallback other commands have does not apply here. Run `archgate login` again.
+Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, the helper returns no credentials and reports the error rather than staying silent. It reads only the token set stored by `archgate login`; a token issued before this flow existed is never served to git. Run `archgate login` again.
 
 ---
 
@@ -4723,9 +4723,9 @@ archgate login
 
 Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate platform. The CLI opens your browser at a URL that already carries the one-time code, and copies that code to your clipboard in case the page asks for it. Both the URL and the code are printed as well, so you can finish on another machine or paste them yourself.
 
-Neither step is required. In CI, over SSH, or on a host with no display server the CLI skips both and just prints them. Once authorized, the CLI hands the resulting tokens to git via `git credential approve`, so where they end up depends on the credential helper you have configured. A helper backed by your OS credential manager (macOS Keychain, Windows Credential Manager, Linux libsecret) keeps them encrypted; git's built-in `store` helper writes them to `~/.git-credentials` in plain text. Check yours with `git config --global credential.helper`.
+Neither step is required. In CI, over SSH, or on a native Linux host with no display server (WSL reaches the Windows desktop) the CLI skips both and just prints them. Once authorized, the CLI hands the resulting tokens to git via `git credential approve`, so where they end up depends on the credential helper you have configured. A helper backed by your OS credential manager (macOS Keychain, Windows Credential Manager, Linux libsecret) keeps them encrypted; git's built-in `store` helper writes them to `~/.git-credentials` in plain text. Check yours with `git config --global credential.helper`.
 
-Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI falls back to any token issued before this flow existed; when none remains it reports that the session has expired, and `archgate login` re-establishes it.
+Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI reports that the session has expired, and `archgate login` re-establishes it. A token issued before this flow existed keeps working only until you sign in to the platform; from then on the platform session alone decides.
 
 Signing in also registers `archgate credential` as a git credential helper for `plugins.archgate.dev`, which is what lets `git clone` of a plugin repository authenticate without prompting. See [`archgate credential`](/reference/cli/credential/).
 

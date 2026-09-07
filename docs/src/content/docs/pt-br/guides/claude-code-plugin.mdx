@@ -67,7 +67,7 @@ Se o CLI `claude` estiver no seu PATH, o plugin é instalado automaticamente via
 1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registra o marketplace do Archgate)
 2. `claude plugin install archgate@archgate` (instala o plugin)
 
-A URL do marketplace não contém credenciais -- o git se autentica em `plugins.archgate.dev` usando o token que o `archgate login` armazena no gerenciador de credenciais do sistema operacional.
+A URL do marketplace não contém credenciais -- o git se autentica em `plugins.archgate.dev` usando o token que o `archgate login` entregou ao seu credential helper do git.
 
 Se o CLI `claude` não for encontrado, o comando exibe os comandos manuais para você executar.
 

@@ -77,20 +77,18 @@ async function run(command: string[], stdin?: string): Promise<boolean> {
 /** Browser launchers to try, in order, for the current platform. */
 function browserCommands(url: string): string[][] {
   if (isMacOS()) return [["open", url]];
-  // WSL reaches the Windows desktop; wslview ships with wslu, and the two
-  // PowerShell binaries cover distributions that lack it.
+  // rundll32 hands the URL to the default browser without a shell in
+  // between: `cmd /c start` and PowerShell both parse `&` and `?` out of it.
+  const windowsHandler = ["url.dll,FileProtocolHandler", url];
+  // WSL reaches the Windows desktop; wslview ships with wslu, and rundll32
+  // covers distributions that lack it.
   if (isWSL()) {
     return [
       ["wslview", url],
-      ["powershell.exe", "-NoProfile", "-Command", "Start-Process", url],
-      ["cmd.exe", "/c", "start", "", url],
+      ["rundll32.exe", ...windowsHandler],
     ];
   }
-  if (isWindows()) {
-    // The empty string is `start`'s title argument; without it a quoted URL
-    // is taken as the window title and no browser opens.
-    return [["cmd", "/c", "start", "", url]];
-  }
+  if (isWindows()) return [["rundll32", ...windowsHandler]];
   return [
     ["xdg-open", url],
     ["gio", "open", url],
