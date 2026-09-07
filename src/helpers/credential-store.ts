@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 /**
- * Secure credential storage in the OS credential manager (macOS Keychain,
- * Windows Credential Manager, libsecret) via `git credential
- * approve/fill/reject` — nothing is written to disk. The platform token set
- * is filed under {@link AUTH_HOST} as a JSON `password`; a token issued
- * before platform sign-in sits under {@link PLUGINS_HOST} as-is.
+ * Credential storage through `git credential approve/fill/reject`, so the
+ * configured helper decides where records live. The platform session is
+ * filed under {@link AUTH_HOST} for {@link SESSION_ACCOUNT} as a JSON
+ * password; a pre-platform token sits under {@link PLUGINS_HOST} as-is.
  *
  * @see https://git-scm.com/docs/git-credential
  */
@@ -21,14 +20,23 @@ import {
   isExpired,
   platformAuth,
   type Session,
+  SessionSchema,
   type TokenSet,
-  TokenSetSchema,
 } from "./platform-auth";
 import { PLUGINS_HOST } from "./plugin-install";
 import { SessionExpiredError } from "./session-expired-error";
-import { UserError } from "./user-error";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
+
+/**
+ * Account the platform session is filed under.
+ *
+ * One fixed name, so signing in as another user replaces the record instead
+ * of leaving the old one beside it, and every read selects this record rather
+ * than whichever the helper answers first. The display name lives inside the
+ * JSON payload.
+ */
+const SESSION_ACCOUNT = "archgate";
 
 /**
  * Build env for git credential commands at call time (not import time),
@@ -57,32 +65,22 @@ export interface StoredCredentials {
 // ---------------------------------------------------------------------------
 
 /**
- * Refuse a value that could forge protocol lines or truncate the record.
+ * One record in git's credential protocol.
  *
- * A newline inside an account name would add a second `host=` line, and git
- * takes the later one, so the token set would be filed under that host.
- *
- * @throws {UserError} When the value holds a line break or NUL.
+ * No value here can forge a protocol line: hosts and the session account are
+ * constants, and the session payload is JSON, which escapes line breaks and
+ * NUL. Legacy records only ever carry values git itself produced.
  */
-function protocolValue(field: string, value: string): string {
-  if (value.includes("\n") || value.includes("\r") || value.includes("\0")) {
-    throw new UserError(
-      `The credential ${field} contains a line break and cannot be stored.`
-    );
-  }
-  return value;
-}
-
 function credentialInput(
   host: string,
   username?: string,
   password?: string
 ): string {
-  const lines = ["protocol=https", `host=${protocolValue("host", host)}`];
+  const lines = ["protocol=https", `host=${host}`];
   if (username !== undefined && username !== "")
-    lines.push(`username=${protocolValue("username", username)}`);
+    lines.push(`username=${username}`);
   if (password !== undefined && password !== "")
-    lines.push(`password=${protocolValue("password", password)}`);
+    lines.push(`password=${password}`);
   lines.push("", "");
   return lines.join("\n");
 }
@@ -211,7 +209,7 @@ const CREDENTIAL_HELPER_HINT =
   "Run `git config --global credential.helper` to check your configuration.";
 
 /**
- * Persist a platform token set in the OS credential manager.
+ * Persist a platform session in the OS credential manager.
  *
  * A verification round-trip (`git credential fill`) confirms the blob was
  * actually persisted — `git credential approve` exits 0 even without a
@@ -219,7 +217,7 @@ const CREDENTIAL_HELPER_HINT =
  *
  * @param user - Display name shown by `archgate login status`.
  * @param tokens - Access token, refresh token and absolute expiry.
- * @returns `true` when the token set is retrievable afterwards.
+ * @returns `true` when the session is retrievable afterwards.
  */
 export async function saveTokenSet(
   user: string,
@@ -227,8 +225,13 @@ export async function saveTokenSet(
 ): Promise<boolean> {
   await cleanupLegacyMetadata();
 
-  const serialized = JSON.stringify(tokens);
-  const stored = await gitCredential("approve", AUTH_HOST, user, serialized);
+  const serialized = JSON.stringify({ user, tokens } satisfies Session);
+  const stored = await gitCredential(
+    "approve",
+    AUTH_HOST,
+    SESSION_ACCOUNT,
+    serialized
+  );
   if (!stored) {
     logWarn(
       "git credential approve failed.",
@@ -238,9 +241,9 @@ export async function saveTokenSet(
     return false;
   }
 
-  // The read-back asks for this account and must return this very blob: a
-  // helper may otherwise answer with an older record or another user's.
-  const { credentials } = await gitCredentialFill(AUTH_HOST, user);
+  // The read-back must return this very blob, not whatever else the helper
+  // may hold for the host.
+  const { credentials } = await gitCredentialFill(AUTH_HOST, SESSION_ACCOUNT);
   if (credentials?.password === serialized) {
     logDebug("Token set verified in git credential manager");
     return true;
@@ -269,18 +272,18 @@ async function readSession(): Promise<{
   session: Session | null;
   timedOut: boolean;
 }> {
-  const { credentials, timedOut } = await gitCredentialFill(AUTH_HOST);
+  const { credentials, timedOut } = await gitCredentialFill(
+    AUTH_HOST,
+    SESSION_ACCOUNT
+  );
   if (!credentials) return { session: null, timedOut };
 
-  const parsed = TokenSetSchema.safeParse(safeJsonParse(credentials.password));
+  const parsed = SessionSchema.safeParse(safeJsonParse(credentials.password));
   if (!parsed.success) {
-    logDebug("Stored token set is unreadable");
+    logDebug("Stored session is unreadable");
     return { session: null, timedOut: false };
   }
-  return {
-    session: { user: credentials.username, tokens: parsed.data },
-    timedOut: false,
-  };
+  return { session: parsed.data, timedOut: false };
 }
 
 /**
@@ -408,7 +411,10 @@ export async function clearCredentials(): Promise<boolean> {
   let cleared = true;
   /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */
   for (const host of [AUTH_HOST, PLUGINS_HOST]) {
-    const { credentials, timedOut } = await gitCredentialFill(host);
+    const { credentials, timedOut } = await gitCredentialFill(
+      host,
+      host === AUTH_HOST ? SESSION_ACCOUNT : undefined
+    );
     if (timedOut) {
       // Nothing is known about this host, so nothing can be called removed.
       logDebug("git credential fill timed out", { host });

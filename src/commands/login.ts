@@ -97,7 +97,7 @@ export function registerLoginCommand(program: Command) {
 
   login
     .command("refresh")
-    .description("Re-authenticate and claim a new token")
+    .description("Sign in again, replacing stored tokens")
     .action(async () => {
       try {
         await unregisterGitCredentialHelper();

@@ -27,6 +27,14 @@ function gitCredentialStub(username: string, password: string) {
   } as unknown as ReturnType<typeof Bun.spawn>;
 }
 
+/** The record `saveTokenSet` files: one fixed account, the session as JSON. */
+function sessionRecord(
+  user: string,
+  tokens: { accessToken: string; refreshToken: string; expiresAt: number }
+): ReturnType<typeof Bun.spawn> {
+  return gitCredentialStub("archgate", JSON.stringify({ user, tokens }));
+}
+
 describe("credential renewal", () => {
   describe("invalidateAccessToken", () => {
     const tokens = {
@@ -43,9 +51,9 @@ describe("credential renewal", () => {
       let call = 0;
       const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
         call += 1;
-        return gitCredentialStub(
+        return sessionRecord(
           "octocat",
-          JSON.stringify(call >= 3 ? { ...tokens, expiresAt: 0 } : tokens)
+          call >= 3 ? { ...tokens, expiresAt: 0 } : tokens
         );
       });
       try {
@@ -85,7 +93,7 @@ describe("credential renewal", () => {
     // rejected access token on the next lookup, so the failure is reported.
     test("reports when the lapsed token set cannot be stored", async () => {
       const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(tokens))
+        sessionRecord("octocat", tokens)
       );
       const saveSpy = spyOn(credentialStore, "saveTokenSet").mockResolvedValue(
         false
@@ -108,7 +116,7 @@ describe("credential renewal", () => {
       expiresAt: Date.now() - 1_000,
     };
     const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-      gitCredentialStub("octocat", JSON.stringify(stale))
+      sessionRecord("octocat", stale)
     );
     const saveSpy = spyOn(credentialStore, "saveTokenSet").mockResolvedValue(
       false
@@ -149,7 +157,7 @@ describe("loadCredentials with an unrenewable session", () => {
       expiresAt: Date.now() - 1_000,
     };
     const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-      gitCredentialStub("octocat", JSON.stringify(stale))
+      sessionRecord("octocat", stale)
     );
     const refreshSpy = spyOn(
       platformAuth,
@@ -181,7 +189,7 @@ describe("loadCredentials with an unrenewable session", () => {
       expiresAt: Date.now() - 1_000,
     };
     const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-      gitCredentialStub("octocat", JSON.stringify(stale))
+      sessionRecord("octocat", stale)
     );
     const refreshSpy = spyOn(
       platformAuth,
@@ -204,7 +212,7 @@ describe("loadCredentials with an unrenewable session", () => {
       expiresAt: Date.now() - 1_000,
     };
     const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-      gitCredentialStub("octocat", JSON.stringify(stale))
+      sessionRecord("octocat", stale)
     );
     const refreshSpy = spyOn(
       platformAuth,

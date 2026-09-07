@@ -12,9 +12,10 @@ import {
   beforeEach,
   describe,
   expect,
+  mock,
+  type Mock,
   spyOn,
   test,
-  type Mock,
 } from "bun:test";
 
 import { Command } from "@commander-js/extra-typings";
@@ -99,7 +100,6 @@ describe("login action handlers", () => {
   >;
   let runLoginFlowSpy: Mock<typeof loginFlow.runLoginFlow>;
   let exitWithSpy: Mock<typeof exitMod.exitWith>;
-  let trackLoginSpy: Mock<typeof telemetry.trackLoginResult>;
 
   beforeEach(() => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});
@@ -118,9 +118,7 @@ describe("login action handlers", () => {
       "unregisterGitCredentialHelper"
     ).mockResolvedValue(true);
     runLoginFlowSpy = spyOn(loginFlow, "runLoginFlow");
-    trackLoginSpy = spyOn(telemetry, "trackLoginResult").mockImplementation(
-      () => {}
-    );
+    spyOn(telemetry, "trackLoginResult").mockImplementation(() => {});
     // Stub exitWith to throw instead of calling process.exit — avoids
     // needing to mock telemetry flush / sentry flush internals.
     exitWithSpy = spyOn(exitMod, "exitWith").mockImplementation(
@@ -131,16 +129,7 @@ describe("login action handlers", () => {
   });
 
   afterEach(() => {
-    logSpy.mockRestore();
-    errorSpy.mockRestore();
-    loadCredentialsSpy.mockRestore();
-    loadTokenSetSpy.mockRestore();
-    clearCredentialsSpy.mockRestore();
-    ensureHelperSpy.mockRestore();
-    unregisterHelperSpy.mockRestore();
-    runLoginFlowSpy.mockRestore();
-    exitWithSpy.mockRestore();
-    trackLoginSpy.mockRestore();
+    mock.restore();
   });
 
   function makeProgram(): Command {

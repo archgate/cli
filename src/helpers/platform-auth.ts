@@ -30,11 +30,13 @@ export const TokenSetSchema = z.object({
 export type TokenSet = z.infer<typeof TokenSetSchema>;
 
 /** A signed-in account and the tokens that prove it. */
-export interface Session {
+export const SessionSchema = z.object({
   /** Display name of the account, shown by `archgate login status`. */
-  user: string;
-  tokens: TokenSet;
-}
+  user: z.string().min(1),
+  tokens: TokenSetSchema,
+});
+
+export type Session = z.infer<typeof SessionSchema>;
 
 /** What the user must do to approve a sign-in started on this device. */
 export interface DeviceAuthorization {

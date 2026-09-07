@@ -36,6 +36,14 @@ function gitCredentialStub(
   } as unknown as ReturnType<typeof Bun.spawn>;
 }
 
+/** The record `saveTokenSet` files: one fixed account, the session as JSON. */
+function sessionRecord(
+  user: string,
+  tokens: { accessToken: string; refreshToken: string; expiresAt: number }
+): ReturnType<typeof Bun.spawn> {
+  return gitCredentialStub("archgate", JSON.stringify({ user, tokens }));
+}
+
 describe("credential-store", () => {
   let tempDir: string;
   let originalHome: string | undefined;
@@ -127,34 +135,6 @@ describe("credential-store", () => {
         }
       }
     );
-  });
-
-  // A newline in an account name would add a second `host=` line, and git
-  // takes the later one, so the token set would be filed under that host.
-  describe("credential protocol values", () => {
-    test.each([
-      ["a line feed", "octo\nhost=evil.example.com"],
-      ["a carriage return", "octo\rhost=evil.example.com"],
-      ["a NUL", "octo\0cat"],
-    ])("refuses an account name holding %s", async (_label, user) => {
-      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
-        throw new Error("git must not be spawned");
-      });
-      try {
-        expect(
-          await rejectionMessage(
-            saveTokenSet(user, {
-              accessToken: "ey.access",
-              refreshToken: "refresh-abc",
-              expiresAt: Date.now() + 3_600_000,
-            })
-          )
-        ).toContain("line break");
-        expect(spawnSpy).not.toHaveBeenCalled();
-      } finally {
-        spawnSpy.mockRestore();
-      }
-    });
   });
 
   describe("loadCredentials", () => {
@@ -263,7 +243,7 @@ describe("credential-store", () => {
         );
         const stdin = (fill?.[1] as { stdin?: unknown } | undefined)?.stdin;
         expect(stdin instanceof Blob ? await stdin.text() : "").toContain(
-          "username=octocat"
+          "username=archgate"
         );
         expect(warnSpy.mock.calls.flat().join(" ")).toContain(
           "could not be verified"
@@ -276,10 +256,18 @@ describe("credential-store", () => {
 
     test("accepts the read-back when it matches", async () => {
       const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(tokens))
+        sessionRecord("octocat", tokens)
       );
       try {
         expect(await saveTokenSet("octocat", tokens)).toBe(true);
+        const approve = spawnSpy.mock.calls.find((call) =>
+          [...call[0]].includes("approve")
+        );
+        const stdin = (approve?.[1] as { stdin?: unknown } | undefined)?.stdin;
+        // One fixed account; the display name travels inside the payload.
+        expect(stdin instanceof Blob ? await stdin.text() : "").toContain(
+          "username=archgate"
+        );
       } finally {
         spawnSpy.mockRestore();
       }
@@ -428,7 +416,7 @@ describe("credential-store", () => {
         expiresAt: Date.now() + 3_600_000,
       };
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(tokens))
+        sessionRecord("octocat", tokens)
       );
       try {
         expect(await loadTokenSet()).toEqual({ user: "octocat", tokens });
@@ -446,7 +434,7 @@ describe("credential-store", () => {
         expiresAt: Date.now() + 3_600_000,
       };
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(tokens))
+        sessionRecord("octocat", tokens)
       );
       const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
       try {
@@ -468,7 +456,7 @@ describe("credential-store", () => {
         expiresAt: Date.now() - 1_000,
       };
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(stale))
+        sessionRecord("octocat", stale)
       );
       const refreshSpy = spyOn(
         platformAuth,
@@ -510,10 +498,7 @@ describe("credential-store", () => {
       let read = 0;
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
         read += 1;
-        return gitCredentialStub(
-          "octocat",
-          JSON.stringify(read === 1 ? expired : rotated)
-        );
+        return sessionRecord("octocat", read === 1 ? expired : rotated);
       });
       const refreshSpy = spyOn(
         platformAuth,
@@ -532,7 +517,7 @@ describe("credential-store", () => {
 
     test("rethrows when the stored token set did not change", async () => {
       const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(expired))
+        sessionRecord("octocat", expired)
       );
       const refreshSpy = spyOn(
         platformAuth,

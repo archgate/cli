@@ -109,7 +109,7 @@ The Archgate CLI works standalone, but **editor plugins** unlock a full AI guard
     Cursor's AI agent the same guardrails workflow as Claude Code.
   
 
-Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate, then `archgate init --install-plugin` to set up the plugin.
+Editor plugins are currently in beta. Run `archgate login` to sign in, then `archgate init --install-plugin` to set up the plugin.
 
 ## Learn more
 
@@ -489,7 +489,7 @@ Now that you have a working setup, dive deeper:
 - [Claude Code Plugin](/guides/claude-code-plugin/): Give AI agents architecture-aware guardrails with role-based skills.
 - [Cursor Integration](/guides/cursor-integration/): Use Archgate with Cursor IDE for AI-assisted development.
 
-Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign up and authenticate, then run `archgate init --install-plugin` to set up the plugin.
+Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign in, then run `archgate init --install-plugin` to set up the plugin.
 
 ---
 
@@ -1328,7 +1328,7 @@ The `archgate:developer` agent is set as the default agent via `.claude/settings
 
 ## Installation
 
-The Claude Code plugin is currently in beta. Run `archgate login` to sign up and authenticate.
+The Claude Code plugin is currently in beta. Run `archgate login` to sign in.
 
 ### 1. Log in to the Archgate platform
 
@@ -1475,7 +1475,7 @@ Installation is declarative: the CLI writes the marketplace and plugin declarati
 
 ## Installation
 
-The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
+The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign in before following the steps below.
 
 ### 1. Log in to the Archgate platform
 
@@ -1607,7 +1607,7 @@ Run `archgate init` with the `--editor cursor` flag to configure Cursor integrat
 archgate init --editor cursor
 ```
 
-The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
+The Cursor plugin is currently in beta. Run `archgate login` to sign in.
 
 If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full guardrails workflow.
 
@@ -1910,7 +1910,7 @@ Run `archgate init` with the `--editor opencode` flag to configure opencode inte
 archgate init --editor opencode
 ```
 
-The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
+The opencode agent bundle is currently in beta. Run `archgate login` to sign in.
 
 The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes its `afterFileEdit` hook into the project's `.cursor/hooks.json`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
 
@@ -2308,7 +2308,7 @@ The plugin is served in VS Code Copilot's native `.github/plugin/` manifest form
 
 Agent plugins require **VS Code 1.110 (February 2026 release) or later**. Earlier versions do not support git-based agent plugin marketplaces. Check your version with `code --version`.
 
-The VS Code plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
+The VS Code plugin is currently in beta. Run `archgate login` to sign in before following the steps below.
 
 ### 1. Log in to the Archgate platform
 

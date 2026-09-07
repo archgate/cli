@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  spyOn,
+  test,
+} from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -72,6 +80,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  mock.restore();
   restoreEnv("GIT_CONFIG_NOSYSTEM", originalNoSystem);
   restoreEnv("GIT_CONFIG_SYSTEM", originalSystem);
   restoreEnv("GIT_CONFIG_GLOBAL", originalGlobal);
@@ -173,14 +182,11 @@ describe("registerGitCredentialHelper", () => {
 
   // Login must degrade to a warning, not an internal fault, without git.
   test("reports failure when git cannot be started", async () => {
-    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+    spyOn(Bun, "spawn").mockImplementation(() => {
       throw new Error("spawn git ENOENT");
     });
-    try {
-      expect(await registerGitCredentialHelper()).toBe(false);
-    } finally {
-      spawnSpy.mockRestore();
-    }
+
+    expect(await registerGitCredentialHelper()).toBe(false);
   });
 });
 
@@ -189,28 +195,22 @@ describe("registerGitCredentialHelper", () => {
 describe("ensureGitCredentialHelper", () => {
   test("stays quiet when the helper is registered", async () => {
     const warnSpy = spyOn(logMod, "logWarn").mockImplementation(() => {});
-    try {
-      await ensureGitCredentialHelper();
 
-      expect(warnSpy).not.toHaveBeenCalled();
-      expect(await configuredHelpers()).toEqual(["", helperCommand()]);
-    } finally {
-      warnSpy.mockRestore();
-    }
+    await ensureGitCredentialHelper();
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(await configuredHelpers()).toEqual(["", helperCommand()]);
   });
 
   test("warns instead of failing when git cannot write the config", async () => {
     Bun.env.GIT_CONFIG_GLOBAL = tempDir;
     const warnSpy = spyOn(logMod, "logWarn").mockImplementation(() => {});
-    try {
-      await ensureGitCredentialHelper();
 
-      expect(warnSpy.mock.calls.flat().join(" ")).toContain(
-        "Could not register archgate"
-      );
-    } finally {
-      warnSpy.mockRestore();
-    }
+    await ensureGitCredentialHelper();
+
+    expect(warnSpy.mock.calls.flat().join(" ")).toContain(
+      "Could not register archgate"
+    );
   });
 });
 
@@ -228,13 +228,10 @@ describe("unregisterGitCredentialHelper", () => {
   });
 
   test("reports failure when git cannot be started", async () => {
-    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+    spyOn(Bun, "spawn").mockImplementation(() => {
       throw new Error("spawn git ENOENT");
     });
-    try {
-      expect(await unregisterGitCredentialHelper()).toBe(false);
-    } finally {
-      spawnSpy.mockRestore();
-    }
+
+    expect(await unregisterGitCredentialHelper()).toBe(false);
   });
 });
