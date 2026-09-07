@@ -17,6 +17,45 @@ function bool(value: boolean, trueLabel = CHECK, falseLabel = CROSS): string {
   return value ? trueLabel : falseLabel;
 }
 
+/** Console label and remedy for the git credential helper entry. */
+function helperStatus(archgate: DoctorReport["archgate"]): {
+  label: string;
+  hint?: string;
+} {
+  const { session, credential_helper: helper } = archgate;
+  if (!helper.registered) {
+    if (session === "platform") {
+      return { label: CROSS, hint: "Run `archgate login` to register it." };
+    }
+    if (session === "legacy") {
+      return {
+        label: styleText("dim", "not registered"),
+        hint: "Run `archgate login refresh` to sign in to the platform.",
+      };
+    }
+    return { label: styleText("dim", "not registered") };
+  }
+  if (!helper.current) {
+    return {
+      label: styleText("yellow", "STALE"),
+      hint: "It names another archgate binary. Run `archgate login` to re-register it.",
+    };
+  }
+  if (!helper.resets_inherited) {
+    return {
+      label: styleText("yellow", "SHARED"),
+      hint: "Another helper may answer first. Run `archgate login` to re-register it.",
+    };
+  }
+  if (session !== "platform") {
+    return {
+      label: styleText("yellow", "NO SESSION"),
+      hint: "The helper has nothing to serve. Run `archgate login`.",
+    };
+  }
+  return { label: CHECK };
+}
+
 function printConsole(report: DoctorReport): void {
   const { system, archgate, project, editors, integrations } = report;
 
@@ -39,6 +78,14 @@ function printConsole(report: DoctorReport): void {
     `  Telemetry:    ${archgate.telemetry_enabled ? "enabled" : "disabled"}`
   );
   console.log(`  Logged in:    ${bool(archgate.logged_in, "yes", WARN)}`);
+  console.log(`  Session:      ${archgate.session}`);
+  const helper = helperStatus(archgate);
+  console.log(
+    `  Git helper:   ${helper.label} (credential.https://plugins.archgate.dev.helper)`
+  );
+  if (helper.hint !== undefined) {
+    console.log(`                ${helper.hint}`);
+  }
 
   console.log(styleText("bold", "\nProject"));
   if (project.has_project) {

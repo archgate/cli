@@ -11,8 +11,10 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 import packageJson from "../../package.json";
-import { loadCredentials } from "./credential-store";
+import { loadCredentials, loadTokenSet } from "./credential-store";
 import { detectEditors } from "./editor-detect";
+import type { CredentialHelperStatus } from "./git-credential-config";
+import { inspectGitCredentialHelper } from "./git-credential-config";
 import { detectInstallMethod, getProjectContext } from "./install-info";
 import { internalPath } from "./paths";
 import { getPlatformInfo, resolveCommand } from "./platform";
@@ -39,6 +41,10 @@ export interface DoctorReport {
     config_dir_exists: boolean;
     telemetry_enabled: boolean;
     logged_in: boolean;
+    /** Which kind of credential is stored; a legacy token predates sign-in. */
+    session: "platform" | "legacy" | "none";
+    /** The git credential helper entry `archgate login` writes. */
+    credential_helper: CredentialHelperStatus;
   };
   project: {
     has_project: boolean;
@@ -88,6 +94,21 @@ function detectIntegrations(): IntegrationInfo {
   };
 }
 
+/**
+ * Name the stored credential.
+ *
+ * A stored platform session counts even when it could not be renewed: the
+ * record is still there for `archgate login refresh` to replace. A legacy
+ * token is whatever `loadCredentials` returned without a session behind it.
+ */
+function sessionKind(
+  hasSession: boolean,
+  hasCredentials: boolean
+): DoctorReport["archgate"]["session"] {
+  if (hasSession) return "platform";
+  return hasCredentials ? "legacy" : "none";
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -98,11 +119,14 @@ export async function runDoctor(): Promise<DoctorReport> {
   const integrations = detectIntegrations();
   const configDir = internalPath();
 
-  const [editors, gitCmd, credentials] = await Promise.all([
-    detectEditors(),
-    resolveCommand("git").then((r) => r !== null),
-    loadCredentials(),
-  ]);
+  const [editors, gitCmd, credentials, session, credentialHelper] =
+    await Promise.all([
+      detectEditors(),
+      resolveCommand("git").then((r) => r !== null),
+      loadCredentials(),
+      loadTokenSet(),
+      inspectGitCredentialHelper(),
+    ]);
 
   const editorMap = Object.fromEntries(editors.map((e) => [e.id, e.available]));
 
@@ -127,6 +151,8 @@ export async function runDoctor(): Promise<DoctorReport> {
       config_dir_exists: existsSync(configDir),
       telemetry_enabled: isTelemetryEnabled(),
       logged_in: credentials !== null,
+      session: sessionKind(session !== null, credentials !== null),
+      credential_helper: credentialHelper,
     },
     project: {
       has_project: projectCtx.hasProject,

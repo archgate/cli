@@ -18,10 +18,12 @@ archgate doctor [options]
 ## Utdataseksjoner
 
 - **System** -- OS, arkitektur, WSL-deteksjon, Bun- og Node-versjoner
-- **Archgate** -- CLI-versjon, installasjonsmetode (binary, proto, local, global-pm), konfigurasjonskatalog, telemetri- og innloggingsstatus
+- **Archgate** -- CLI-versjon, installasjonsmetode (binary, proto, local, global-pm), konfigurasjonskatalog, telemetri- og innloggingsstatus, hvilken type økt som er lagret (`platform`, `legacy` eller `none`), og tilstanden til git-credential-helper-oppføringen som `archgate login` skriver for plugin-verten
 - **Project** -- Om et `.archgate/`-prosjekt finnes, antall ADR-er, domener
 - **Editor CLIs** -- Om `claude`, `cursor`, `code` (VS Code), `copilot` og `git` er tilgjengelige på PATH
 - **Project Integrations** -- Om editor-spesifikke plugin-filer finnes i det gjeldende prosjektet (`.claude/settings.local.json`, `.vscode/settings.json`, `.github/copilot/instructions.md`); for Cursor, om `cursor`-CLI-en er tilgjengelig, siden Cursor-pluginet er innebygd i en VSIX-utvidelse i stedet for en prosjektfil
+
+Linjen **Git helper** viser `OK` når oppføringen peker på archgate-binæren som kjører og har en tilbakestillingsoppføring foran seg som hindrer andre hjelpere i å svare først. `MISSING` betyr at en plattformøkt er lagret, men oppføringen mangler; `STALE` betyr at den peker på en annen archgate-binær, typisk etter en oppgradering eller reinstallasjon; `SHARED` betyr at tilbakestillingsoppføringen er borte og en annen hjelper kan svare først; `NO SESSION` betyr at oppføringen finnes, men ingenting er lagret som den kan levere. Hver tilstand følges av kommandoen som reparerer den. En `git clone` av et plugin som ber om passord skyldes som regel en av disse.
 
 ## Eksempel
 
@@ -42,6 +44,8 @@ Archgate
   Config dir:   /home/user/.archgate OK
   Telemetry:    enabled
   Logged in:    yes
+  Session:      platform
+  Git helper:   OK (credential.https://plugins.archgate.dev.helper)
 
 Project
   ADRs:         5 (3 with rules)

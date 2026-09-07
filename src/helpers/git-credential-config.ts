@@ -100,6 +100,67 @@ export async function ensureGitCredentialHelper(): Promise<void> {
   );
 }
 
+/** What `archgate doctor` reports about the helper entry. */
+export interface CredentialHelperStatus {
+  /** An archgate helper entry exists for the plugins host. */
+  registered: boolean;
+  /** The entry names this executable, not one from an earlier install. */
+  current: boolean;
+  /** An empty entry precedes it, so inherited helpers are not consulted. */
+  resets_inherited: boolean;
+}
+
+/**
+ * Inspect the helper entries git holds for the plugins host.
+ *
+ * Every scope is read in the order git consults them, since a system or
+ * worktree entry ahead of archgate would answer first regardless of what the
+ * global file says. A git that cannot start reads as nothing registered.
+ */
+export async function inspectGitCredentialHelper(): Promise<CredentialHelperStatus> {
+  const entries = await gitConfigValues(HELPER_KEY);
+  const archgateIndex = entries.findIndex((entry) =>
+    entry.endsWith(" credential")
+  );
+  const registered = archgateIndex !== -1;
+  const resetIndex = entries.lastIndexOf("");
+  return {
+    registered,
+    current: registered && entries[archgateIndex] === helperCommand(),
+    // An empty entry only resets what came before it, so one after archgate
+    // would drop archgate too.
+    resets_inherited:
+      registered && resetIndex !== -1 && resetIndex < archgateIndex,
+  };
+}
+
+/**
+ * Read every value of a multi-valued config key across all scopes, in order.
+ *
+ * Both streams are drained while git runs so neither can fill and block it;
+ * the exit code is checked before the output is trusted. Exit code 1 means
+ * the key is unset, which is an empty list rather than a failure.
+ *
+ * @returns The values, or an empty list when git cannot start or fails.
+ */
+async function gitConfigValues(key: string): Promise<string[]> {
+  try {
+    const proc = Bun.spawn(["git", "config", "--get-all", key], {
+      stdout: "pipe",
+      stderr: "ignore",
+      env: { ...Bun.env },
+    });
+    const [stdout, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      proc.exited,
+    ]);
+    if (exitCode !== 0) return [];
+    return stdout.split("\n").slice(0, -1);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Remove archgate from git's credential configuration for the plugins host.
  *
