@@ -307,6 +307,10 @@ describe("pollForTokens", () => {
       [{ sub: "usr_1", name: "Octo Cat" }, "Octo Cat"],
       [{ sub: "usr_1", email: "octo@example.com" }, "octo@example.com"],
       [{ sub: "usr_1" }, "usr_1"],
+      // An empty claim must not win over a filled one: the stored session
+      // requires a non-empty name and would be dropped on the next read.
+      [{ sub: "usr_1", username: "", name: "Octo Cat" }, "Octo Cat"],
+      [{ sub: "usr_1", username: "", name: "", email: "" }, "usr_1"],
     ])("from the most specific claim in %o", async (claims, expected) => {
       responses.push(grantResponse({ id_token: idTokenFor(claims) }));
 
@@ -320,6 +324,7 @@ describe("pollForTokens", () => {
       ["a token with an empty payload", "header..sig"],
       ["a payload that is not base64", "header.!!!notbase64!!!.sig"],
       ["claims without a subject", idTokenFor({ name: "nobody" })],
+      ["claims that are all empty", idTokenFor({ sub: "", username: "" })],
     ])("generically given %s", async (_label, idToken) => {
       responses.push(grantResponse({ id_token: idToken }));
 

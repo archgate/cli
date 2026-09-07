@@ -316,12 +316,13 @@ function userFromIdToken(idToken: string | undefined): string {
       JSON.parse(Buffer.from(payload, "base64url").toString("utf8"))
     );
     if (!claims.success) return FALLBACK_USER;
-    return (
-      claims.data.username ??
-      claims.data.name ??
-      claims.data.email ??
-      claims.data.sub
+    // An empty claim is skipped like an absent one: the stored session
+    // requires a non-empty name, so an empty one would be dropped on read.
+    const { username, name, email, sub } = claims.data;
+    const first = [username, name, email, sub].find(
+      (claim): claim is string => typeof claim === "string" && claim !== ""
     );
+    return first ?? FALLBACK_USER;
   } catch {
     return FALLBACK_USER;
   }
