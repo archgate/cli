@@ -106,8 +106,8 @@ describe("gitUserAgentEnv", () => {
   test("defaults to the process environment without mutating it", () => {
     const before = Bun.env.GIT_HTTP_USER_AGENT;
     const env = gitUserAgentEnv();
-    expect(env.PATH).toBe(Bun.env.PATH);
-    expect(env.GIT_HTTP_USER_AGENT).toBe(USER_AGENT);
+    // Compared as a whole: the PATH variable is spelled `Path` on Windows.
+    expect(env).toEqual({ ...Bun.env, GIT_HTTP_USER_AGENT: USER_AGENT });
     expect(Bun.env.GIT_HTTP_USER_AGENT).toBe(before);
   });
 });
