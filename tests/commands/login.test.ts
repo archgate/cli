@@ -453,6 +453,25 @@ describe("login action handlers", () => {
       expect(order).toEqual(["unregister", "clear", "login"]);
     });
 
+    // While the helper still answers for the plugins host, clearing cannot
+    // see a legacy token behind it, so nothing may be touched.
+    test("stops before clearing when the helper entry cannot be removed", async () => {
+      unregisterHelperSpy.mockResolvedValue(false);
+
+      const program = makeProgram();
+      expect(
+        await rejectionMessage(
+          program.parseAsync(["node", "test", "login", "refresh"])
+        )
+      ).toContain("exitWith(1)");
+
+      expect(clearCredentialsSpy).not.toHaveBeenCalled();
+      expect(runLoginFlowSpy).not.toHaveBeenCalled();
+      expect(printed(errorSpy)).toContain(
+        "git config --global --unset-all credential.https://plugins.archgate.dev.helper"
+      );
+    });
+
     // A leftover record would keep answering for the old account.
     test("stops when credentials could not be cleared", async () => {
       clearCredentialsSpy.mockResolvedValueOnce(false);

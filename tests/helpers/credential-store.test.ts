@@ -13,6 +13,7 @@ import {
   clearCredentials,
 } from "../../src/helpers/credential-store";
 import { platformAuth } from "../../src/helpers/platform-auth";
+import type { TokenSet } from "../../src/helpers/platform-auth";
 import { restoreEnv, safeRmSync } from "../test-utils";
 
 /**
@@ -38,7 +39,7 @@ function gitCredentialStub(
 /** The record `saveTokenSet` files: one fixed account, the session as JSON. */
 function sessionRecord(
   user: string,
-  tokens: { accessToken: string; refreshToken: string; expiresAt: number }
+  tokens: TokenSet
 ): ReturnType<typeof Bun.spawn> {
   return gitCredentialStub("archgate", JSON.stringify({ user, tokens }));
 }

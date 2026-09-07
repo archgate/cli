@@ -29,6 +29,19 @@ function credentialsLeftBehind(): UserError {
   );
 }
 
+/**
+ * Raised when the helper entry survives an unregister; logout and refresh
+ * share it.
+ *
+ * @param prefix - What already happened before the helper removal failed.
+ */
+function helperLeftBehind(prefix: string): UserError {
+  return new UserError(
+    `${prefix}, but the git credential helper entry could not be removed.`,
+    "Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
+  );
+}
+
 export function registerLoginCommand(program: Command) {
   const login = program
     .command("login")
@@ -84,11 +97,7 @@ export function registerLoginCommand(program: Command) {
           success: unregistered && cleared,
         });
         if (!cleared) throw credentialsLeftBehind();
-        if (!unregistered) {
-          throw new UserError(
-            "Credentials removed, but the git credential helper entry could not be removed. Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
-          );
-        }
+        if (!unregistered) throw helperLeftBehind("Credentials removed");
         console.log("Logged out successfully.");
       } catch (err) {
         await handleCommandError(err);
@@ -100,7 +109,11 @@ export function registerLoginCommand(program: Command) {
     .description("Sign in again, replacing stored tokens")
     .action(async () => {
       try {
-        await unregisterGitCredentialHelper();
+        // While the helper still answers for the plugins host, clearing cannot
+        // see a legacy token behind it, so a failed unregister stops here.
+        if (!(await unregisterGitCredentialHelper())) {
+          throw helperLeftBehind("Nothing changed");
+        }
         // A leftover record would keep answering for the old account, so a
         // failed clear stops the refresh rather than signing in over it.
         if (!(await clearCredentials())) throw credentialsLeftBehind();

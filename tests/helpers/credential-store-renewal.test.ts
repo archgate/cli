@@ -11,6 +11,7 @@ import {
 } from "../../src/helpers/credential-store";
 import * as logMod from "../../src/helpers/log";
 import { platformAuth } from "../../src/helpers/platform-auth";
+import type { TokenSet } from "../../src/helpers/platform-auth";
 import { SessionExpiredError } from "../../src/helpers/session-expired-error";
 import { UserError } from "../../src/helpers/user-error";
 import { rejectionMessage } from "../test-utils";
@@ -30,7 +31,7 @@ function gitCredentialStub(username: string, password: string) {
 /** The record `saveTokenSet` files: one fixed account, the session as JSON. */
 function sessionRecord(
   user: string,
-  tokens: { accessToken: string; refreshToken: string; expiresAt: number }
+  tokens: TokenSet
 ): ReturnType<typeof Bun.spawn> {
   return gitCredentialStub("archgate", JSON.stringify({ user, tokens }));
 }
