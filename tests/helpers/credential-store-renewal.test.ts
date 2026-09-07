@@ -4,6 +4,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 
 import * as credentialStore from "../../src/helpers/credential-store";
 import {
+  clearCredentials,
   invalidateAccessToken,
   loadCredentials,
   resolveAccessToken,
@@ -216,4 +217,27 @@ describe("loadCredentials with an unrenewable session", () => {
       fillSpy.mockRestore();
     }
   });
+});
+
+// A helper that never answers leaves the host's records unknown, so logout
+// must not report them as removed.
+describe("clearCredentials with an unresponsive helper", () => {
+  test("reports failure when the fill times out", async () => {
+    let call = 0;
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      call += 1;
+      if (call > 1) return gitCredentialStub("", "");
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
+        stdout: new ReadableStream<Uint8Array>({ start() {} }),
+        exited: new Promise<number>(() => {}),
+        kill: () => {},
+      } as unknown as ReturnType<typeof Bun.spawn>;
+    });
+    try {
+      expect(await clearCredentials()).toBe(false);
+    } finally {
+      spawnSpy.mockRestore();
+    }
+  }, 20_000);
 });

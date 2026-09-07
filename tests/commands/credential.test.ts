@@ -13,7 +13,10 @@ import {
 
 import { Command } from "@commander-js/extra-typings";
 
-import { registerCredentialCommand } from "../../src/commands/credential";
+import {
+  isCredentialHelperInvocation,
+  registerCredentialCommand,
+} from "../../src/commands/credential";
 import * as credMod from "../../src/helpers/credential-store";
 import * as exitModule from "../../src/helpers/exit";
 import { rejectionMessage } from "../test-utils";
@@ -51,6 +54,19 @@ beforeEach(() => {
 
 afterEach(() => {
   mock.restore();
+});
+
+// Git starts the helper with stdout as the protocol channel, so startup must
+// not run the git install check, which logs and may spawn an installer.
+describe("isCredentialHelperInvocation", () => {
+  test.each([
+    [["bun", "archgate", "credential", "get"], true],
+    [["bun", "archgate", "--log-level", "debug", "credential", "get"], true],
+    [["bun", "archgate", "login"], false],
+    [["bun", "archgate"], false],
+  ])("%p → %p", (argv, expected) => {
+    expect(isCredentialHelperInvocation(argv)).toBe(expected);
+  });
 });
 
 describe("archgate credential get", () => {

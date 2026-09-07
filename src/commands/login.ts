@@ -21,6 +21,14 @@ import { trackLoginResult } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
 import { UserError } from "../helpers/user-error";
 
+/** Raised when a stored record survives a clear; logout and refresh share it. */
+function credentialsLeftBehind(): UserError {
+  return new UserError(
+    "Some credentials could not be removed from your git credential manager.",
+    "Check `git config --global credential.helper` and run `archgate login logout` again."
+  );
+}
+
 export function registerLoginCommand(program: Command) {
   const login = program
     .command("login")
@@ -75,12 +83,7 @@ export function registerLoginCommand(program: Command) {
           subcommand: "logout",
           success: unregistered && cleared,
         });
-        if (!cleared) {
-          throw new UserError(
-            "Some credentials could not be removed from your git credential manager.",
-            "Check `git config --global credential.helper` and run `archgate login logout` again."
-          );
-        }
+        if (!cleared) throw credentialsLeftBehind();
         if (!unregistered) {
           throw new UserError(
             "Credentials removed, but the git credential helper entry could not be removed. Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
@@ -98,7 +101,9 @@ export function registerLoginCommand(program: Command) {
     .action(async () => {
       try {
         await unregisterGitCredentialHelper();
-        await clearCredentials();
+        // A leftover record would keep answering for the old account, so a
+        // failed clear stops the refresh rather than signing in over it.
+        if (!(await clearCredentials())) throw credentialsLeftBehind();
         await signIn("refresh");
       } catch (err) {
         await handleSignInError("refresh", err);

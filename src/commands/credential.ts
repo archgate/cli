@@ -35,6 +35,19 @@ function isPluginsRequest(request: CredentialRequest): boolean {
   return request.protocol === "https" && request.host === PLUGINS_HOST;
 }
 
+/**
+ * True when this process was started by git as its credential helper.
+ *
+ * Startup must then stay silent and quick: stdout is the protocol channel,
+ * and git is blocked waiting for it. Any argument list naming `credential`
+ * qualifies; skipping the git install check for a false positive is harmless.
+ *
+ * @param argv - `process.argv` or an equivalent.
+ */
+export function isCredentialHelperInvocation(argv: readonly string[]): boolean {
+  return argv.slice(2).includes("credential");
+}
+
 export function registerCredentialCommand(program: Command) {
   const credential = program
     .command("credential")

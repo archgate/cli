@@ -12,7 +12,10 @@ import packageJson from "../package.json";
 import { registerAdrCommand } from "./commands/adr/index";
 import { registerCheckCommand } from "./commands/check";
 import { registerCleanCommand } from "./commands/clean";
-import { registerCredentialCommand } from "./commands/credential";
+import {
+  isCredentialHelperInvocation,
+  registerCredentialCommand,
+} from "./commands/credential";
 import { registerDoctorCommand } from "./commands/doctor";
 import { registerInitCommand } from "./commands/init";
 import { registerLoginCommand } from "./commands/login";
@@ -86,7 +89,9 @@ createPathIfNotExists(paths.cacheFolder);
 void cleanupStaleBinary();
 
 async function main() {
-  await installGit();
+  // The credential helper is started by git itself, with stdout as the
+  // protocol channel: the install check must not log or spawn there.
+  if (!isCredentialHelperInvocation(process.argv)) await installGit();
 
   // Start error tracking and telemetry initialization concurrently without
   // awaiting: the preAction hook awaits this promise right before the first

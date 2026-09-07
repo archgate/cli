@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 
+import { logDebug } from "./log";
 import type {
   DeviceAuthorization,
   PlatformAuth,
@@ -81,11 +82,15 @@ const IdTokenClaimsSchema = z.object({
 export function deviceFlowAuth(config: DeviceFlowConfig): PlatformAuth {
   return {
     async requestDeviceCode(): Promise<DeviceAuthorization> {
-      const response = await postForm(config.deviceAuthorizationEndpoint, {
-        client_id: config.clientId,
-        scope: config.scope,
-        resource: config.resource,
-      });
+      const response = await postFormReachable(
+        config.deviceAuthorizationEndpoint,
+        {
+          client_id: config.clientId,
+          scope: config.scope,
+          resource: config.resource,
+        },
+        "to start sign-in"
+      );
       if (!response.ok) {
         throw new UserError(
           `Could not start sign-in (HTTP ${response.status}). Please try again.`
@@ -114,12 +119,20 @@ export function deviceFlowAuth(config: DeviceFlowConfig): PlatformAuth {
 
         // The resource is repeated here (RFC 8707 §2.2) so the first access
         // token is minted for the plugins audience, not only the refreshed ones.
-        const response = await postForm(config.tokenEndpoint, {
-          client_id: config.clientId,
-          grant_type: DEVICE_GRANT,
-          device_code: authorization.deviceCode,
-          resource: config.resource,
-        });
+        let response: Response;
+        try {
+          response = await postForm(config.tokenEndpoint, {
+            client_id: config.clientId,
+            grant_type: DEVICE_GRANT,
+            device_code: authorization.deviceCode,
+            resource: config.resource,
+          });
+        } catch (error) {
+          // A blip while the user is still at the browser is not a verdict;
+          // the next poll retries until the code itself expires.
+          logDebug("poll failed, retrying", { reason: errorMessage(error) });
+          continue;
+        }
         const body = await jsonBody(response);
 
         if (response.ok) {
@@ -156,22 +169,16 @@ export function deviceFlowAuth(config: DeviceFlowConfig): PlatformAuth {
     },
 
     async refreshAccessToken(refreshToken: string): Promise<TokenSet> {
-      let response: Response;
-      try {
-        response = await postForm(config.tokenEndpoint, {
+      const response = await postFormReachable(
+        config.tokenEndpoint,
+        {
           client_id: config.clientId,
           grant_type: "refresh_token",
           refresh_token: refreshToken,
           resource: config.resource,
-        });
-      } catch (error) {
-        // The cause is kept in the message: TLS interception is detected by
-        // matching it, and the hint depends on that.
-        throw new UserError(
-          "Could not reach the sign-in service to renew your session.",
-          `Check your connection and try again. (${errorMessage(error)})`
-        );
-      }
+        },
+        "to renew your session"
+      );
       const body = await jsonBody(response);
       if (response.ok)
         return toTokenSet(parseTokenResponse(body), refreshToken);
@@ -208,6 +215,30 @@ async function postForm(
     redirect: "error",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
+}
+
+/**
+ * {@link postForm}, turning a transport failure into a user-facing error.
+ *
+ * The cause is kept in the message: TLS interception is detected by matching
+ * it, and the hint the user gets depends on that.
+ *
+ * @param purpose - Completes "Could not reach the sign-in service …".
+ * @throws {UserError} When the request could not be sent or answered.
+ */
+async function postFormReachable(
+  url: string,
+  fields: Record<string, string>,
+  purpose: string
+): Promise<Response> {
+  try {
+    return await postForm(url, fields);
+  } catch (error) {
+    throw new UserError(
+      `Could not reach the sign-in service ${purpose}.`,
+      `Check your connection and try again. (${errorMessage(error)})`
+    );
+  }
 }
 
 /**

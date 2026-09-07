@@ -159,6 +159,17 @@ describe("requestDeviceCode", () => {
     );
   });
 
+  test("reports an unreachable service with the underlying cause", async () => {
+    globalThis.fetch = recordingFetch(requests, () => {
+      throw new TypeError("getaddrinfo ENOTFOUND");
+    });
+
+    const message = await rejectionMessage(auth.requestDeviceCode());
+
+    expect(message).toContain("Could not reach the sign-in service");
+    expect(message).toContain("ENOTFOUND");
+  });
+
   // A proxy's HTML error page must not escape as a SyntaxError.
   test("treats a non-JSON body as an unexpected response", async () => {
     responses.push(new Response("<html>gateway</html>", { status: 200 }));
@@ -184,6 +195,22 @@ describe("pollForTokens", () => {
       device_code: "device-abc",
       resource: "https://api.example.test",
     });
+  });
+
+  // A dropped connection while the user is still at the browser must not
+  // abort the sign-in; the next poll tries again.
+  test("rides out a transport failure between polls", async () => {
+    let call = 0;
+    globalThis.fetch = recordingFetch(requests, () => {
+      call += 1;
+      if (call === 1) throw new TypeError("connection reset");
+      return grantResponse();
+    });
+
+    expect((await auth.pollForTokens(PENDING)).tokens.accessToken).toBe(
+      "ey.access"
+    );
+    expect(requests).toHaveLength(2);
   });
 
   test("keeps polling while authorization is pending", async () => {

@@ -32,6 +32,13 @@ import { rejectionMessage } from "../test-utils";
 // Tests — Registration
 // ---------------------------------------------------------------------------
 
+/** Everything a console spy received, one line per call. */
+function printed(spy: Mock<(...args: unknown[]) => void>): string {
+  return spy.mock.calls
+    .map((c: unknown[]) => c.map(String).join(" "))
+    .join("\n");
+}
+
 describe("registerLoginCommand", () => {
   test("registers 'login' as a subcommand", () => {
     const program = new Command();
@@ -156,9 +163,7 @@ describe("login action handlers", () => {
       const program = makeProgram();
       await program.parseAsync(["node", "test", "login", "status"]);
 
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allOutput = printed(logSpy);
       expect(allOutput).toContain("Logged in as");
       expect(allOutput).toContain("octocat");
     });
@@ -169,9 +174,7 @@ describe("login action handlers", () => {
       const program = makeProgram();
       await program.parseAsync(["node", "test", "login", "status"]);
 
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allOutput = printed(logSpy);
       expect(allOutput).toContain("Not logged in");
     });
 
@@ -186,9 +189,7 @@ describe("login action handlers", () => {
       ).rejects.toThrow("exitWith(2)");
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("credential store unavailable");
     });
   });
@@ -205,9 +206,7 @@ describe("login action handlers", () => {
       await program.parseAsync(["node", "test", "login", "logout"]);
 
       expect(clearCredentialsSpy).toHaveBeenCalled();
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allOutput = printed(logSpy);
       expect(allOutput).toContain("Logged out successfully");
     });
 
@@ -240,9 +239,7 @@ describe("login action handlers", () => {
         )
       ).toContain("exitWith(1)");
 
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("could not be removed");
     });
 
@@ -279,9 +276,7 @@ describe("login action handlers", () => {
       ).rejects.toThrow("exitWith(2)");
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("clear failed");
     });
   });
@@ -301,9 +296,7 @@ describe("login action handlers", () => {
       await program.parseAsync(["node", "test", "login"]);
 
       // logInfo writes to console.log with "info:" prefix
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allOutput = printed(logSpy);
       expect(allOutput).toContain("Already logged in");
       expect(allOutput).toContain("octocat");
       expect(runLoginFlowSpy).not.toHaveBeenCalled();
@@ -368,9 +361,7 @@ describe("login action handlers", () => {
       const program = makeProgram();
       await program.parseAsync(["node", "test", "login"]);
 
-      const allOutput = logSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allOutput = printed(logSpy);
       // printNextStep prints either "archgate check" or "archgate init"
       expect(allOutput).toMatch(/archgate (check|init)/u);
     });
@@ -389,9 +380,7 @@ describe("login action handlers", () => {
         const program = makeProgram();
         await program.parseAsync(["node", "test", "login"]);
 
-        const allOutput = logSpy.mock.calls
-          .map((c: unknown[]) => c.map(String).join(" "))
-          .join("\n");
+        const allOutput = printed(logSpy);
         expect(allOutput).toContain("archgate check");
       } finally {
         rootSpy.mockRestore();
@@ -410,9 +399,7 @@ describe("login action handlers", () => {
         const program = makeProgram();
         await program.parseAsync(["node", "test", "login"]);
 
-        const allOutput = logSpy.mock.calls
-          .map((c: unknown[]) => c.map(String).join(" "))
-          .join("\n");
+        const allOutput = printed(logSpy);
         expect(allOutput).toContain("archgate init");
         expect(allOutput).not.toContain("archgate check");
       } finally {
@@ -432,9 +419,7 @@ describe("login action handlers", () => {
       );
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("TLS certificate verification failed");
     });
 
@@ -448,9 +433,7 @@ describe("login action handlers", () => {
       );
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("network timeout");
     });
   });
@@ -481,6 +464,20 @@ describe("login action handlers", () => {
       expect(order).toEqual(["unregister", "clear", "login"]);
     });
 
+    // A leftover record would keep answering for the old account.
+    test("stops when credentials could not be cleared", async () => {
+      clearCredentialsSpy.mockResolvedValueOnce(false);
+
+      const program = makeProgram();
+      expect(
+        await rejectionMessage(
+          program.parseAsync(["node", "test", "login", "refresh"])
+        )
+      ).toContain("exitWith(1)");
+
+      expect(runLoginFlowSpy).not.toHaveBeenCalled();
+    });
+
     test("exits with code 1 when refresh login flow fails", async () => {
       clearCredentialsSpy.mockResolvedValueOnce(true);
       runLoginFlowSpy.mockResolvedValueOnce({ ok: false });
@@ -506,9 +503,7 @@ describe("login action handlers", () => {
       ).rejects.toThrow("exitWith(1)");
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(1);
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("TLS certificate verification failed");
     });
 
@@ -522,9 +517,7 @@ describe("login action handlers", () => {
       ).rejects.toThrow("exitWith(2)");
 
       expect(exitWithSpy.mock.calls.at(-1)?.[0]).toBe(2);
-      const allErrors = errorSpy.mock.calls
-        .map((c: unknown[]) => c.map(String).join(" "))
-        .join("\n");
+      const allErrors = printed(errorSpy);
       expect(allErrors).toContain("server unreachable");
     });
   });

@@ -408,7 +408,13 @@ export async function clearCredentials(): Promise<boolean> {
   let cleared = true;
   /* oxlint-disable no-await-in-loop -- two fixed hosts, cleared in order */
   for (const host of [AUTH_HOST, PLUGINS_HOST]) {
-    const { credentials } = await gitCredentialFill(host);
+    const { credentials, timedOut } = await gitCredentialFill(host);
+    if (timedOut) {
+      // Nothing is known about this host, so nothing can be called removed.
+      logDebug("git credential fill timed out", { host });
+      cleared = false;
+      continue;
+    }
     if (!credentials) continue;
     const rejected = await gitCredential(
       "reject",
