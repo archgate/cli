@@ -30,6 +30,15 @@ describe("readStdinText", () => {
     ).toBe("user=Zoë\n");
   });
 
+  test("keeps byte and string chunks in order", async () => {
+    const bytes = new TextEncoder().encode("é");
+    expect(
+      await readStdinText(chunks(bytes.slice(0, 1), "x", bytes.slice(1), "y"))
+    ).toBe(
+      `${new TextDecoder().decode(bytes.slice(0, 1))}x${new TextDecoder().decode(bytes.slice(1))}y`
+    );
+  });
+
   test("returns an empty string for a closed stream", async () => {
     expect(await readStdinText(chunks())).toBe("");
   });

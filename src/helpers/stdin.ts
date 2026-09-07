@@ -17,9 +17,11 @@ export async function readStdinText(
   const decoder = new TextDecoder();
   let text = "";
   for await (const chunk of source) {
+    // A string chunk is complete text, so any partial sequence the decoder
+    // holds from the preceding bytes ends before it.
     text +=
       typeof chunk === "string"
-        ? chunk
+        ? decoder.decode() + chunk
         : decoder.decode(chunk, { stream: true });
   }
   return text + decoder.decode();
