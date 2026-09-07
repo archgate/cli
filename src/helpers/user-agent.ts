@@ -3,10 +3,10 @@
 /**
  * user-agent.ts — one versioned identity for every outbound request.
  *
- * Services attribute traffic by this header, and the version is what tells an
- * install that never upgraded from one that did. `fetchWithUserAgent` is the
- * only `fetch` production code may call (`http/no-bare-fetch` enforces it);
- * `gitUserAgentEnv` covers git subprocesses via `GIT_HTTP_USER_AGENT`.
+ * Services attribute each request to the installed CLI version through this
+ * header. `fetchWithUserAgent` is the only `fetch` production code may call
+ * (`http/no-bare-fetch` enforces it); `gitUserAgentEnv` covers git
+ * subprocesses via `GIT_HTTP_USER_AGENT`.
  */
 import packageJson from "../../package.json";
 import { getPlatformInfo } from "./platform";
