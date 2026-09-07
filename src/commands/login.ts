@@ -4,9 +4,16 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { loadCredentials, clearCredentials } from "../helpers/credential-store";
+import {
+  clearCredentials,
+  loadCredentials,
+  loadTokenSet,
+} from "../helpers/credential-store";
 import { exitWith, handleCommandError } from "../helpers/exit";
-import { unregisterGitCredentialHelper } from "../helpers/git-credential-config";
+import {
+  ensureGitCredentialHelper,
+  unregisterGitCredentialHelper,
+} from "../helpers/git-credential-config";
 import { logError, logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
@@ -27,6 +34,9 @@ export function registerLoginCommand(program: Command) {
           `Already logged in as ${styleText("bold", existing.github_user)}.`,
           "Run `archgate login refresh` to sign in again."
         );
+        // A platform session may have been stored while the helper write
+        // failed; a legacy token must not get the helper, which cannot serve it.
+        if (await loadTokenSet()) await ensureGitCredentialHelper();
         return;
       }
       await signIn("login");

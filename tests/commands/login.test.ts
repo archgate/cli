@@ -80,7 +80,11 @@ describe("login action handlers", () => {
   let logSpy: Mock<typeof console.log>;
   let errorSpy: Mock<typeof console.error>;
   let loadCredentialsSpy: Mock<typeof credentialStore.loadCredentials>;
+  let loadTokenSetSpy: Mock<typeof credentialStore.loadTokenSet>;
   let clearCredentialsSpy: Mock<typeof credentialStore.clearCredentials>;
+  let ensureHelperSpy: Mock<
+    typeof gitCredentialConfig.ensureGitCredentialHelper
+  >;
   // Stubbed so logout does not run `git config --global` against the real
   // machine's configuration.
   let unregisterHelperSpy: Mock<
@@ -94,7 +98,14 @@ describe("login action handlers", () => {
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     errorSpy = spyOn(console, "error").mockImplementation(() => {});
     loadCredentialsSpy = spyOn(credentialStore, "loadCredentials");
+    loadTokenSetSpy = spyOn(credentialStore, "loadTokenSet").mockResolvedValue(
+      null
+    );
     clearCredentialsSpy = spyOn(credentialStore, "clearCredentials");
+    ensureHelperSpy = spyOn(
+      gitCredentialConfig,
+      "ensureGitCredentialHelper"
+    ).mockResolvedValue();
     unregisterHelperSpy = spyOn(
       gitCredentialConfig,
       "unregisterGitCredentialHelper"
@@ -116,7 +127,9 @@ describe("login action handlers", () => {
     logSpy.mockRestore();
     errorSpy.mockRestore();
     loadCredentialsSpy.mockRestore();
+    loadTokenSetSpy.mockRestore();
     clearCredentialsSpy.mockRestore();
+    ensureHelperSpy.mockRestore();
     unregisterHelperSpy.mockRestore();
     runLoginFlowSpy.mockRestore();
     exitWithSpy.mockRestore();
@@ -277,6 +290,42 @@ describe("login action handlers", () => {
       expect(allOutput).toContain("Already logged in");
       expect(allOutput).toContain("octocat");
       expect(runLoginFlowSpy).not.toHaveBeenCalled();
+    });
+
+    // A first sign-in can store the session yet fail the git config write, so
+    // a repeat login re-registers the helper instead of being a no-op.
+    test("re-registers the git helper for a stored platform session", async () => {
+      loadCredentialsSpy.mockResolvedValueOnce({
+        token: "ey.access",
+        github_user: "octocat",
+      });
+      loadTokenSetSpy.mockResolvedValueOnce({
+        user: "octocat",
+        tokens: {
+          accessToken: "ey.access",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
+        },
+      });
+
+      const program = makeProgram();
+      await program.parseAsync(["node", "test", "login"]);
+
+      expect(ensureHelperSpy).toHaveBeenCalled();
+    });
+
+    // The helper serves platform sessions only; registering it for a legacy
+    // token would hide that token from git.
+    test("leaves the git helper alone for a legacy token", async () => {
+      loadCredentialsSpy.mockResolvedValueOnce({
+        token: "ag_beta_legacy",
+        github_user: "octocat",
+      });
+
+      const program = makeProgram();
+      await program.parseAsync(["node", "test", "login"]);
+
+      expect(ensureHelperSpy).not.toHaveBeenCalled();
     });
 
     test("exits with code 1 when login flow fails", async () => {

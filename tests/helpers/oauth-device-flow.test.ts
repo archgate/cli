@@ -336,12 +336,44 @@ describe("refreshAccessToken", () => {
     );
   });
 
-  test("asks the user to sign in again when the grant is rejected", async () => {
+  test("asks the user to sign in again when the grant is refused", async () => {
     responses.push(errorResponse("invalid_grant"));
 
     expect(
       await rejectionMessage(auth.refreshAccessToken("refresh-old"))
     ).toContain("Your session has expired");
+  });
+
+  // A failing service is not a sign-out: the user must not be told to log in
+  // again for a 5xx, and a network fault must stay a user-facing error.
+  test.each([
+    ["a server error", new Response("bad gateway", { status: 502 })],
+    ["a non-JSON client error", new Response("nope", { status: 400 })],
+  ])(
+    "reports %s as the service failing, not as a sign-out",
+    async (_label, response) => {
+      responses.push(response);
+
+      const message = await rejectionMessage(
+        auth.refreshAccessToken("refresh-old")
+      );
+
+      expect(message).toContain("could not renew your session");
+      expect(message).not.toContain("sign in again");
+    }
+  );
+
+  test("reports an unreachable service with the underlying cause", async () => {
+    globalThis.fetch = recordingFetch(requests, () => {
+      throw new TypeError("unable to connect: CERT_HAS_EXPIRED");
+    });
+
+    const message = await rejectionMessage(
+      auth.refreshAccessToken("refresh-old")
+    );
+
+    expect(message).toContain("Could not reach the sign-in service");
+    expect(message).toContain("CERT_HAS_EXPIRED");
   });
 
   test("rejects a response that is not the expected shape", async () => {

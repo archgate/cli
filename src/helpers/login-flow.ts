@@ -8,8 +8,8 @@ import { styleText } from "node:util";
 
 import { saveTokenSet } from "./credential-store";
 import { copyToClipboard, openBrowser } from "./desktop";
-import { registerGitCredentialHelper } from "./git-credential-config";
-import { logDebug, logInfo, logWarn } from "./log";
+import { ensureGitCredentialHelper } from "./git-credential-config";
+import { logDebug, logInfo } from "./log";
 import { platformAuth } from "./platform-auth";
 import { UserError } from "./user-error";
 
@@ -63,12 +63,7 @@ export async function runLoginFlow(): Promise<LoginFlowResult> {
     );
   }
 
-  if (!(await registerGitCredentialHelper())) {
-    logWarn(
-      "Could not register archgate as a git credential helper.",
-      "Plugin downloads still work; `git clone` of a plugin repository may prompt for credentials."
-    );
-  }
+  await ensureGitCredentialHelper();
 
   logInfo(
     `Authenticated as ${styleText("bold", user)}. Plugin access is now available.`

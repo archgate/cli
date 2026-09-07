@@ -13,7 +13,7 @@ import {
   clearCredentials,
 } from "../../src/helpers/credential-store";
 import { platformAuth } from "../../src/helpers/platform-auth";
-import { UserError } from "../../src/helpers/user-error";
+import { SessionExpiredError } from "../../src/helpers/session-expired-error";
 import { rejectionMessage, restoreEnv, safeRmSync } from "../test-utils";
 
 /**
@@ -425,60 +425,6 @@ describe("credential-store", () => {
     });
   });
 
-  // A rejected refresh token is a signed-out state, so loadCredentials keeps
-  // its null contract and still reaches the legacy lookup.
-  describe("loadCredentials with an unrenewable session", () => {
-    test("falls through to a legacy token", async () => {
-      const stale = {
-        accessToken: "ey.stale",
-        refreshToken: "refresh-old",
-        expiresAt: Date.now() - 1_000,
-      };
-      let call = 0;
-      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
-        call += 1;
-        // First fill answers for AUTH_HOST, the second for PLUGINS_HOST.
-        return call === 1
-          ? gitCredentialStub("octocat", JSON.stringify(stale))
-          : gitCredentialStub("octocat", "ag_beta_legacy");
-      });
-      const refreshSpy = spyOn(
-        platformAuth,
-        "refreshAccessToken"
-      ).mockRejectedValue(new UserError("Your session has expired."));
-      try {
-        expect(await loadCredentials()).toEqual({
-          token: "ag_beta_legacy",
-          github_user: "octocat",
-        });
-      } finally {
-        refreshSpy.mockRestore();
-        fillSpy.mockRestore();
-      }
-    });
-
-    test("propagates a fault that is not a signed-out state", async () => {
-      const stale = {
-        accessToken: "ey.stale",
-        refreshToken: "refresh-old",
-        expiresAt: Date.now() - 1_000,
-      };
-      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
-        gitCredentialStub("octocat", JSON.stringify(stale))
-      );
-      const refreshSpy = spyOn(
-        platformAuth,
-        "refreshAccessToken"
-      ).mockRejectedValue(new TypeError("boom"));
-      try {
-        expect(await rejectionMessage(loadCredentials())).toContain("boom");
-      } finally {
-        refreshSpy.mockRestore();
-        fillSpy.mockRestore();
-      }
-    });
-  });
-
   // Git runs the helper many times per operation, so processes can race to
   // refresh the same expired token set. The platform rotates the refresh
   // token, so every exchange after the first fails.
@@ -506,7 +452,7 @@ describe("credential-store", () => {
       const refreshSpy = spyOn(
         platformAuth,
         "refreshAccessToken"
-      ).mockRejectedValue(new UserError("Your session has expired."));
+      ).mockRejectedValue(new SessionExpiredError());
       try {
         expect(await resolveAccessToken()).toEqual({
           token: "ey.fromWinner",
@@ -525,7 +471,7 @@ describe("credential-store", () => {
       const refreshSpy = spyOn(
         platformAuth,
         "refreshAccessToken"
-      ).mockRejectedValue(new UserError("Your session has expired."));
+      ).mockRejectedValue(new SessionExpiredError());
       try {
         expect(await rejectionMessage(resolveAccessToken())).toContain(
           "session has expired"

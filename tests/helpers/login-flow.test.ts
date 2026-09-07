@@ -22,7 +22,7 @@ import { rejectionMessage } from "../test-utils";
 let mockRequestDeviceCode: Mock<typeof platformAuth.requestDeviceCode>;
 let mockPollForTokens: Mock<typeof platformAuth.pollForTokens>;
 let mockSaveTokenSet: Mock<typeof credMod.saveTokenSet>;
-let mockRegisterHelper: Mock<typeof gitConfigMod.registerGitCredentialHelper>;
+let mockEnsureHelper: Mock<typeof gitConfigMod.ensureGitCredentialHelper>;
 let mockOpenBrowser: Mock<typeof desktopMod.openBrowser>;
 let mockCopyToClipboard: Mock<typeof desktopMod.copyToClipboard>;
 let logSpy: Mock<typeof console.log>;
@@ -51,10 +51,10 @@ beforeEach(() => {
     tokens: TOKENS,
   });
   mockSaveTokenSet = spyOn(credMod, "saveTokenSet").mockResolvedValue(true);
-  mockRegisterHelper = spyOn(
+  mockEnsureHelper = spyOn(
     gitConfigMod,
-    "registerGitCredentialHelper"
-  ).mockResolvedValue(true);
+    "ensureGitCredentialHelper"
+  ).mockResolvedValue();
   mockOpenBrowser = spyOn(desktopMod, "openBrowser").mockResolvedValue(false);
   mockCopyToClipboard = spyOn(desktopMod, "copyToClipboard").mockResolvedValue(
     false
@@ -66,7 +66,7 @@ afterEach(() => {
   mockRequestDeviceCode.mockRestore();
   mockPollForTokens.mockRestore();
   mockSaveTokenSet.mockRestore();
-  mockRegisterHelper.mockRestore();
+  mockEnsureHelper.mockRestore();
   mockOpenBrowser.mockRestore();
   mockCopyToClipboard.mockRestore();
   logSpy.mockRestore();
@@ -97,18 +97,7 @@ describe("runLoginFlow", () => {
   test("registers archgate as git's credential helper", async () => {
     await runLoginFlow();
 
-    expect(mockRegisterHelper).toHaveBeenCalled();
-  });
-
-  // Downloads use the Bearer token directly, so a failed git config write must
-  // not fail the login — only clones lose their non-interactive credentials.
-  test("still succeeds when the git config write fails", async () => {
-    mockRegisterHelper.mockResolvedValue(false);
-
-    const result = await runLoginFlow();
-
-    expect(result.ok).toBe(true);
-    expect(mockSaveTokenSet).toHaveBeenCalled();
+    expect(mockEnsureHelper).toHaveBeenCalled();
   });
 
   test("reports the account name the platform resolved", async () => {

@@ -6,11 +6,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  ensureGitCredentialHelper,
   helperCommand,
   quoteForGitShell,
   registerGitCredentialHelper,
   unregisterGitCredentialHelper,
 } from "../../src/helpers/git-credential-config";
+import * as logMod from "../../src/helpers/log";
 import { restoreEnv, safeRmSync } from "../test-utils";
 
 const HELPER_KEY = "credential.https://plugins.archgate.dev.helper";
@@ -178,6 +180,36 @@ describe("registerGitCredentialHelper", () => {
       expect(await registerGitCredentialHelper()).toBe(false);
     } finally {
       spawnSpy.mockRestore();
+    }
+  });
+});
+
+// Downloads use the access token directly, so a failed git config write must
+// not fail the login — only clones lose their non-interactive credentials.
+describe("ensureGitCredentialHelper", () => {
+  test("stays quiet when the helper is registered", async () => {
+    const warnSpy = spyOn(logMod, "logWarn").mockImplementation(() => {});
+    try {
+      await ensureGitCredentialHelper();
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(await configuredHelpers()).toEqual(["", helperCommand()]);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test("warns instead of failing when git cannot write the config", async () => {
+    Bun.env.GIT_CONFIG_GLOBAL = tempDir;
+    const warnSpy = spyOn(logMod, "logWarn").mockImplementation(() => {});
+    try {
+      await ensureGitCredentialHelper();
+
+      expect(warnSpy.mock.calls.flat().join(" ")).toContain(
+        "Could not register archgate"
+      );
+    } finally {
+      warnSpy.mockRestore();
     }
   });
 });

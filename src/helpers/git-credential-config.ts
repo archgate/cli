@@ -8,7 +8,7 @@
  */
 
 import { selfInvokeArgv } from "./install-info";
-import { logDebug } from "./log";
+import { logDebug, logWarn } from "./log";
 import { PLUGINS_HOST } from "./plugin-install";
 
 /** Config key holding the helper list for the plugins host. */
@@ -84,6 +84,20 @@ export async function registerGitCredentialHelper(): Promise<boolean> {
 
   logDebug("Registered archgate as git credential helper for", PLUGINS_HOST);
   return true;
+}
+
+/**
+ * Register the helper, warning rather than failing when git refuses.
+ *
+ * Downloads use the access token directly, so a missing helper entry costs
+ * only non-interactive `git clone` of plugin repositories.
+ */
+export async function ensureGitCredentialHelper(): Promise<void> {
+  if (await registerGitCredentialHelper()) return;
+  logWarn(
+    "Could not register archgate as a git credential helper.",
+    "Plugin downloads still work; `git clone` of a plugin repository may prompt for credentials."
+  );
 }
 
 /**

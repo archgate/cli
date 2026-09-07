@@ -16,6 +16,7 @@ import type {
   Session,
   TokenSet,
 } from "./platform-auth";
+import { SessionExpiredError } from "./session-expired-error";
 import { UserError } from "./user-error";
 
 /** Where and as whom to sign in. */
@@ -155,21 +156,36 @@ export function deviceFlowAuth(config: DeviceFlowConfig): PlatformAuth {
     },
 
     async refreshAccessToken(refreshToken: string): Promise<TokenSet> {
-      const response = await postForm(config.tokenEndpoint, {
-        client_id: config.clientId,
-        grant_type: "refresh_token",
-        refresh_token: refreshToken,
-        resource: config.resource,
-      });
-      if (!response.ok) {
-        await response.body?.cancel();
+      let response: Response;
+      try {
+        response = await postForm(config.tokenEndpoint, {
+          client_id: config.clientId,
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+          resource: config.resource,
+        });
+      } catch (error) {
+        // The cause is kept in the message: TLS interception is detected by
+        // matching it, and the hint depends on that.
         throw new UserError(
-          "Your session has expired. Run `archgate login` to sign in again."
+          "Could not reach the sign-in service to renew your session.",
+          `Check your connection and try again. (${errorMessage(error)})`
         );
       }
-      return toTokenSet(
-        parseTokenResponse(await jsonBody(response)),
-        refreshToken
+      const body = await jsonBody(response);
+      if (response.ok)
+        return toTokenSet(parseTokenResponse(body), refreshToken);
+
+      // Only a refused grant means the session is over; anything else is the
+      // service failing to answer, which the caller should not treat as a
+      // sign-out.
+      const error = TokenErrorSchema.safeParse(body);
+      if (error.success && error.data.error === "invalid_grant") {
+        throw new SessionExpiredError();
+      }
+      throw new UserError(
+        `The sign-in service could not renew your session (HTTP ${response.status}).`,
+        "Try again later."
       );
     },
   };
@@ -207,6 +223,10 @@ async function jsonBody(response: Response): Promise<unknown> {
   } catch {
     return null;
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function unexpectedResponse(): UserError {

@@ -25,6 +25,7 @@ import {
   TokenSetSchema,
 } from "./platform-auth";
 import { PLUGINS_HOST } from "./plugin-install";
+import { SessionExpiredError } from "./session-expired-error";
 import { UserError } from "./user-error";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
@@ -355,9 +356,10 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     return null;
   }
 
-  // A rejected refresh token is an expected signed-out state, not a failure:
+  // A refused refresh token is an expected signed-out state, not a failure:
   // swallowing it here keeps the documented null contract and lets the legacy
-  // lookup below still answer. Anything else is a real fault and propagates.
+  // lookup below still answer. Anything else — the service unreachable or
+  // failing — propagates, so the user is not told to sign in again for it.
   let resolved: StoredCredentials | null = null;
   let authLookupTimedOut = false;
   try {
@@ -365,8 +367,8 @@ export async function loadCredentials(): Promise<StoredCredentials | null> {
     resolved = outcome.credentials;
     authLookupTimedOut = outcome.timedOut;
   } catch (error) {
-    if (!(error instanceof UserError)) throw error;
-    logDebug("stored session could not be renewed", { reason: error.message });
+    if (!(error instanceof SessionExpiredError)) throw error;
+    logDebug("stored session is signed out", { reason: error.message });
   }
   if (resolved) return resolved;
 

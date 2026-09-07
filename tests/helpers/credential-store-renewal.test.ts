@@ -5,10 +5,14 @@ import { describe, expect, spyOn, test } from "bun:test";
 import * as credentialStore from "../../src/helpers/credential-store";
 import {
   invalidateAccessToken,
+  loadCredentials,
   resolveAccessToken,
 } from "../../src/helpers/credential-store";
 import * as logMod from "../../src/helpers/log";
 import { platformAuth } from "../../src/helpers/platform-auth";
+import { SessionExpiredError } from "../../src/helpers/session-expired-error";
+import { UserError } from "../../src/helpers/user-error";
+import { rejectionMessage } from "../test-utils";
 
 /** A `Bun.spawn` stand-in that answers `git credential fill` with one record. */
 function gitCredentialStub(username: string, password: string) {
@@ -122,6 +126,84 @@ describe("credential renewal", () => {
       warnSpy.mockRestore();
       refreshSpy.mockRestore();
       saveSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+});
+
+// A rejected refresh token is a signed-out state, so loadCredentials keeps
+// its null contract and still reaches the legacy lookup.
+describe("loadCredentials with an unrenewable session", () => {
+  test("falls through to a legacy token", async () => {
+    const stale = {
+      accessToken: "ey.stale",
+      refreshToken: "refresh-old",
+      expiresAt: Date.now() - 1_000,
+    };
+    let call = 0;
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      call += 1;
+      // First fill answers for AUTH_HOST, the second for PLUGINS_HOST.
+      return call === 1
+        ? gitCredentialStub("octocat", JSON.stringify(stale))
+        : gitCredentialStub("octocat", "ag_beta_legacy");
+    });
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await loadCredentials()).toEqual({
+        token: "ag_beta_legacy",
+        github_user: "octocat",
+      });
+    } finally {
+      refreshSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+
+  // The service being down must not read as "not logged in".
+  test("propagates a renewal failure that is not a sign-out", async () => {
+    const stale = {
+      accessToken: "ey.stale",
+      refreshToken: "refresh-old",
+      expiresAt: Date.now() - 1_000,
+    };
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+      gitCredentialStub("octocat", JSON.stringify(stale))
+    );
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new UserError("Could not reach the sign-in service."));
+    try {
+      expect(await rejectionMessage(loadCredentials())).toContain(
+        "Could not reach"
+      );
+    } finally {
+      refreshSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+
+  test("propagates a fault that is not a signed-out state", async () => {
+    const stale = {
+      accessToken: "ey.stale",
+      refreshToken: "refresh-old",
+      expiresAt: Date.now() - 1_000,
+    };
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+      gitCredentialStub("octocat", JSON.stringify(stale))
+    );
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new TypeError("boom"));
+    try {
+      expect(await rejectionMessage(loadCredentials())).toContain("boom");
+    } finally {
+      refreshSpy.mockRestore();
       fillSpy.mockRestore();
     }
   });
