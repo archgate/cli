@@ -1,3 +1,41 @@
+## [0.56.0](https://github.com/archgate/cli/compare/v0.55.0...v0.56.0) (2026-09-07)
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** `archgate login` authenticates against the Archgate
+  platform
+  via the OAuth device flow instead of GitHub's, so every user signs in
+  again
+  to obtain a platform session.
+
+  - Signup no longer happens in the CLI. The email, editor and use-case
+  prompts
+  are gone; registration is whatever the Archgate platform's sign-in
+  offers.
+  - Credentials are stored as an access/refresh token set under
+    `auth.archgate.dev`, not a single token under `plugins.archgate.dev`.
+  - `archgate login` writes a
+  `credential.https://plugins.archgate.dev.helper`
+  entry to the user's global git config, and `archgate login logout`
+  removes it.
+  - `archgate credential` is a new command, invoked by git rather than by
+  users.
+
+  Tokens issued before this change keep working: they remain under
+  `plugins.archgate.dev` and are still returned, so existing sessions are
+  not
+  invalidated until the user signs in again.
+
+  ---------
+
+### Features
+
+* **auth:** log in to the Archgate platform and serve git credentials ([#602](https://github.com/archgate/cli/issues/602)) ([ec154b1](https://github.com/archgate/cli/commit/ec154b197d682febb3c3d541c8ae3a259c75f4d0))
+
+### Bug Fixes
+
+* **plugin-install:** keep Copilot CLI output out of error logs ([#598](https://github.com/archgate/cli/issues/598)) ([2155ed7](https://github.com/archgate/cli/commit/2155ed7eaf82d63c65d0985a0b61fd3a4edc258b)), closes [#595](https://github.com/archgate/cli/issues/595)
+
 ## [0.55.0](https://github.com/archgate/cli/compare/v0.54.0...v0.55.0) (2026-08-22)
 
 ### Features
