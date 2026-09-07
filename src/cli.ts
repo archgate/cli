@@ -89,16 +89,21 @@ createPathIfNotExists(paths.cacheFolder);
 void cleanupStaleBinary();
 
 async function main() {
-  // The credential helper is started by git itself, with stdout as the
-  // protocol channel: the install check must not log or spawn there.
-  if (!isCredentialHelperInvocation(process.argv)) await installGit();
+  // Started by git as its credential helper, stdout is the protocol channel
+  // and git waits for this process to exit: startup skips everything that
+  // could write there or wait on the network — the git install check,
+  // telemetry, and the update notice.
+  const helper = isCredentialHelperInvocation(process.argv);
+  if (!helper) await installGit();
 
   // Start error tracking and telemetry initialization concurrently without
   // awaiting: the preAction hook awaits this promise right before the first
   // telemetry event fires, so `repo_id` is always present on `command_executed`
   // events, while paths that never reach preAction (--help, --version) leave
   // the ~150ms of SDK parse and repo_id resolution off the critical path.
-  const telemetryReady = Promise.all([initSentry(), initTelemetry()]);
+  const telemetryReady: Promise<unknown> = helper
+    ? Promise.resolve()
+    : Promise.all([initSentry(), initTelemetry()]);
 
   const logLevelOption = new Option("--log-level <level>", "Set log verbosity")
     .choices(["error", "warn", "info", "debug"] as const)
@@ -164,12 +169,14 @@ async function main() {
   registerTelemetryCommand(program);
   registerCredentialCommand(program);
 
-  const updateCheckPromise = maybeCheckForUpdates(packageJson.version);
+  const updateCheckPromise = helper
+    ? Promise.resolve(null)
+    : maybeCheckForUpdates(packageJson.version);
   await program.parseAsync(process.argv);
   const notice = await updateCheckPromise;
   if (notice !== null && notice !== "") console.log(notice);
 
-  await Promise.all([flushTelemetry(), flushSentry()]);
+  if (!helper) await Promise.all([flushTelemetry(), flushSentry()]);
 
   // Belt-and-braces: force exit so any stray handle left by a third-party
   // SDK (posthog-node, @sentry/node-core, etc.) can't linger and make the

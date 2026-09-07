@@ -249,3 +249,81 @@ describe("clearCredentials with an unresponsive helper", () => {
     }
   }, 20_000);
 });
+
+// Git runs the helper many times per operation, so processes can race to
+// refresh the same expired token set. The platform rotates the refresh
+// token, so every exchange after the first fails.
+describe("concurrent renewal", () => {
+  const expired = {
+    accessToken: "ey.stale",
+    refreshToken: "refresh-old",
+    expiresAt: Date.now() - 1_000,
+  };
+  const rotated = {
+    accessToken: "ey.fromWinner",
+    refreshToken: "refresh-rotated",
+    expiresAt: Date.now() + 3_600_000,
+  };
+
+  test("uses the token another process already saved", async () => {
+    let read = 0;
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      read += 1;
+      return sessionRecord("octocat", read === 1 ? expired : rotated);
+    });
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await resolveAccessToken()).toEqual({
+        token: "ey.fromWinner",
+        github_user: "octocat",
+      });
+    } finally {
+      refreshSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+
+  // The winner's write lands after its own exchange, so the loser may have
+  // to look more than once before the rotated record is there.
+  test("waits for a winner whose write lands late", async () => {
+    let read = 0;
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      read += 1;
+      return sessionRecord("octocat", read >= 3 ? rotated : expired);
+    });
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await resolveAccessToken()).toEqual({
+        token: "ey.fromWinner",
+        github_user: "octocat",
+      });
+    } finally {
+      refreshSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+
+  test("rethrows when the stored token set did not change", async () => {
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+      sessionRecord("octocat", expired)
+    );
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await rejectionMessage(resolveAccessToken())).toContain(
+        "session has expired"
+      );
+    } finally {
+      refreshSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+});

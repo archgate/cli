@@ -51,8 +51,9 @@ describe("formatCredentialResponse", () => {
       password: "ey.token",
     });
 
+    // The trailing blank line is the protocol's terminator.
     expect(output).toBe(
-      "protocol=https\nhost=plugins.archgate.dev\nusername=octocat\npassword=ey.token\n"
+      "protocol=https\nhost=plugins.archgate.dev\nusername=octocat\npassword=ey.token\n\n"
     );
   });
 
@@ -64,6 +65,6 @@ describe("formatCredentialResponse", () => {
   ])("drops %s when the value can forge protocol lines", (key, value) => {
     const output = formatCredentialResponse({ host: "h", [key]: value });
 
-    expect(output).toBe("host=h\n");
+    expect(output).toBe("host=h\n\n");
   });
 });

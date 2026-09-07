@@ -74,7 +74,7 @@ describe("archgate credential get", () => {
     await run("get", PLUGIN_REQUEST);
 
     expect(written()).toBe(
-      "protocol=https\nhost=plugins.archgate.dev\nusername=octocat\npassword=ey.access\n"
+      "protocol=https\nhost=plugins.archgate.dev\nusername=octocat\npassword=ey.access\n\n"
     );
   });
 

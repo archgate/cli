@@ -28,6 +28,10 @@ import { SessionExpiredError } from "./session-expired-error";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
 
+/** How often, and how far apart, a losing renewal re-reads the store. */
+const RENEWAL_REREADS = 4;
+const RENEWAL_REREAD_DELAY_MS = 250;
+
 /**
  * Account the platform session is filed under.
  *
@@ -336,15 +340,22 @@ async function renew(stale: Session): Promise<StoredCredentials> {
     }
     return { token: renewed.accessToken, github_user: stale.user };
   } catch (error) {
-    const { session } = await readSession();
-    if (
-      session &&
-      session.tokens.refreshToken !== stale.tokens.refreshToken &&
-      !isExpired(session.tokens.expiresAt)
-    ) {
-      logDebug("token set was renewed by another process");
-      return { token: session.tokens.accessToken, github_user: session.user };
+    // The winner stores its result only after its own exchange, so a loser
+    // can be refused before that write lands: re-read a few times first.
+    /* oxlint-disable no-await-in-loop -- bounded re-reads, in order */
+    for (let attempt = 0; attempt < RENEWAL_REREADS; attempt += 1) {
+      if (attempt > 0) await Bun.sleep(RENEWAL_REREAD_DELAY_MS);
+      const { session } = await readSession();
+      if (
+        session &&
+        session.tokens.refreshToken !== stale.tokens.refreshToken &&
+        !isExpired(session.tokens.expiresAt)
+      ) {
+        logDebug("token set was renewed by another process", { attempt });
+        return { token: session.tokens.accessToken, github_user: session.user };
+      }
     }
+    /* oxlint-enable no-await-in-loop */
     throw error;
   }
 }

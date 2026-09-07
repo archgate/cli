@@ -29,12 +29,16 @@ export function parseCredentialRequest(input: string): CredentialRequest {
 /**
  * Render a credential answer in the format git expects on stdout.
  *
+ * The answer ends with a blank line, the protocol's terminator, so git can
+ * stop reading without waiting for end-of-file.
+ *
  * @param fields - Pairs to emit; values containing a newline are dropped,
  * since a newline would let a value forge additional protocol lines.
  */
 export function formatCredentialResponse(fields: CredentialRequest): string {
-  return Object.entries(fields)
+  const lines = Object.entries(fields)
     .filter(([, value]) => !value.includes("\n") && !value.includes("\0"))
     .map(([key, value]) => `${key}=${value}\n`)
     .join("");
+  return `${lines}\n`;
 }
