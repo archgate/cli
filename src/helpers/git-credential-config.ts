@@ -7,6 +7,8 @@
  * using whatever helper the user already configured.
  */
 
+import { z } from "zod";
+
 import { selfInvokeArgv } from "./install-info";
 import { logDebug, logWarn } from "./log";
 import { PLUGINS_HOST } from "./plugin-install";
@@ -101,14 +103,18 @@ export async function ensureGitCredentialHelper(): Promise<void> {
 }
 
 /** What `archgate doctor` reports about the helper entry. */
-export interface CredentialHelperStatus {
+const CredentialHelperStatusSchema = z.object({
   /** Git consults an archgate helper entry for the plugins host. */
-  registered: boolean;
+  registered: z.boolean(),
   /** The entry names this executable, not one from an earlier install. */
-  current: boolean;
+  current: z.boolean(),
   /** No other helper is consulted ahead of archgate. */
-  exclusive: boolean;
-}
+  exclusive: z.boolean(),
+});
+
+export type CredentialHelperStatus = z.infer<
+  typeof CredentialHelperStatusSchema
+>;
 
 /**
  * Inspect the helper entries git consults for the plugins host.
