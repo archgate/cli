@@ -12,7 +12,7 @@ Verify any change to `archgate credential` (or to how the CLI reads stdin) by ru
 **How to apply:**
 
 - Direct probe (proves the read and the token lookup): `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | bun run src/cli.ts credential get` must print `username=`/`password=` lines.
-- Through git (proves the pipe shape git uses): `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | GCM_INTERACTIVE=never git -c "credential.https://plugins.archgate.dev.helper=!bun run <abs path>/src/cli.ts credential" credential fill`, then `git -c ... ls-remote https://plugins.archgate.dev/archgate.git`.
+- Through git (proves the pipe shape git uses): `printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | GCM_INTERACTIVE=never git -c "credential.https://plugins.archgate.dev.helper=!bun run <abs path>/src/cli.ts credential" credential fill`, then `GCM_INTERACTIVE=never git -c "credential.https://plugins.archgate.dev.helper=!bun run <abs path>/src/cli.ts credential" ls-remote https://plugins.archgate.dev/archgate.git`.
 - Never clear the global helper list in that probe (`-c credential.helper=`): git exports every `-c` to the helper via `GIT_CONFIG_PARAMETERS`, so the helper's own nested `git credential fill` for `auth.archgate.dev` loses Git Credential Manager and reports no stored session — a harness artifact that looks like a real failure.
 - Always set `GCM_INTERACTIVE=never` on probes: Git Credential Manager runs first in the global chain and opens a GUI password dialog on the user's desktop when asked for the plugins host without it.
 - The installed `~/.archgate/bin/archgate.exe` is what git actually runs for the user; a fix in `src/` reaches them only after a release and `archgate upgrade`.
