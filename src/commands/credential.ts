@@ -14,6 +14,7 @@ import {
 } from "../helpers/git-credential-protocol";
 import { logDebug } from "../helpers/log";
 import { PLUGINS_HOST } from "../helpers/plugin-install";
+import { readStdinText } from "../helpers/stdin";
 
 /**
  * Read the credential request git writes to stdin.
@@ -21,7 +22,7 @@ import { PLUGINS_HOST } from "../helpers/plugin-install";
  * @returns The parsed request, or an empty one when stdin is closed.
  */
 async function readRequest(): Promise<CredentialRequest> {
-  return parseCredentialRequest(await Bun.stdin.text());
+  return parseCredentialRequest(await readStdinText());
 }
 
 /**

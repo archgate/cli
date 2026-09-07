@@ -19,6 +19,7 @@ import {
 } from "../../src/commands/credential";
 import * as credMod from "../../src/helpers/credential-store";
 import * as exitModule from "../../src/helpers/exit";
+import * as stdinMod from "../../src/helpers/stdin";
 import { rejectionMessage } from "../test-utils";
 
 let stdoutSpy: Mock<typeof process.stdout.write>;
@@ -32,7 +33,7 @@ function written(): string {
 
 /** Run a `credential` subcommand with the given request on stdin. */
 async function run(subcommand: string, request: string): Promise<void> {
-  spyOn(Bun.stdin, "text").mockResolvedValue(request);
+  spyOn(stdinMod, "readStdinText").mockResolvedValue(request);
   const program = new Command();
   program.exitOverride();
   registerCredentialCommand(program);
@@ -138,7 +139,9 @@ describe("error boundaries", () => {
   test.each(["get", "store", "erase"])(
     "%s routes a stdin failure to the error handler",
     async (subcommand) => {
-      spyOn(Bun.stdin, "text").mockRejectedValue(new Error("stdin closed"));
+      spyOn(stdinMod, "readStdinText").mockRejectedValue(
+        new Error("stdin closed")
+      );
       const exitSpy = spyOn(exitModule, "exitWith").mockImplementation(() => {
         throw new Error("process.exit");
       });
