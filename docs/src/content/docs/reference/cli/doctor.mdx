@@ -18,10 +18,12 @@ archgate doctor [options]
 ## Output sections
 
 - **System** -- OS, architecture, WSL detection, Bun and Node versions
-- **Archgate** -- CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status
+- **Archgate** -- CLI version, install method (binary, proto, local, global-pm), config directory, telemetry and login status, which kind of session is stored (`platform`, `legacy`, or `none`), and the state of the git credential helper entry that `archgate login` writes for the plugins host
 - **Project** -- Whether an `.archgate/` project exists, ADR count, domains
 - **Editor CLIs** -- Whether `claude`, `cursor`, `code` (VS Code), `copilot`, and `git` are available on PATH
 - **Project Integrations** -- Whether editor-specific plugin files exist in the current project (`.claude/settings.local.json`, `.vscode/settings.json`, `.github/copilot/instructions.md`); for Cursor, whether the `cursor` CLI is available, since the Cursor plugin is embedded in a VSIX extension rather than a project file
+
+The **Git helper** line reports `OK` when the entry names the running archgate binary and no other helper is consulted ahead of it. `MISSING` means a platform session is stored but the entry is absent; `STALE` means it names another archgate binary, typically after an upgrade or a reinstall; `SHARED` means another helper is consulted ahead of it; `NO SESSION` means the entry exists but nothing is stored for it to serve; `not registered` means there is no entry and no platform session to serve, which is the expected state after `archgate login logout`. Every state except `OK` and `not registered` while signed out is followed by the command that repairs it, and a legacy token gets a pointer to `archgate login refresh`, since the helper cannot serve it. A plugin `git clone` that prompts for a password usually traces back to one of these.
 
 ## Example
 
@@ -42,6 +44,8 @@ Archgate
   Config dir:   /home/user/.archgate OK
   Telemetry:    enabled
   Logged in:    yes
+  Session:      platform
+  Git helper:   OK (credential.https://plugins.archgate.dev.helper)
 
 Project
   ADRs:         5 (3 with rules)

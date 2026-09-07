@@ -16,6 +16,7 @@ import { join } from "node:path";
 import {
   ensureGitCredentialHelper,
   helperCommand,
+  inspectGitCredentialHelper,
   quoteForGitShell,
   registerGitCredentialHelper,
   unregisterGitCredentialHelper,
@@ -233,5 +234,113 @@ describe("unregisterGitCredentialHelper", () => {
     });
 
     expect(await unregisterGitCredentialHelper()).toBe(false);
+  });
+});
+
+describe("inspectGitCredentialHelper", () => {
+  test("reports nothing registered on a clean config", async () => {
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: false,
+      current: false,
+      exclusive: false,
+    });
+  });
+
+  test("reports a healthy entry after login registers it", async () => {
+    await registerGitCredentialHelper();
+
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: true,
+      current: true,
+      exclusive: true,
+    });
+  });
+
+  // The entry records an absolute path, so after an upgrade or a reinstall
+  // elsewhere git runs a binary that is gone.
+  test("flags an entry that names another archgate binary", async () => {
+    await Bun.write(
+      gitConfigPath,
+      `[credential "https://plugins.archgate.dev"]\n\thelper = \n\thelper = !/old/archgate credential\n`
+    );
+
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: true,
+      current: false,
+      exclusive: true,
+    });
+  });
+
+  test("flags a helper consulted ahead of archgate", async () => {
+    await Bun.write(
+      gitConfigPath,
+      `[credential "https://plugins.archgate.dev"]\n\thelper = store\n\thelper = ${helperCommand()}\n`
+    );
+
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: true,
+      current: true,
+      exclusive: false,
+    });
+  });
+
+  // An empty entry discards every helper before it, archgate included.
+  test("ignores an archgate entry that a later reset discards", async () => {
+    await Bun.write(
+      gitConfigPath,
+      `[credential "https://plugins.archgate.dev"]\n\thelper = ${helperCommand()}\n\thelper = \n`
+    );
+
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: false,
+      current: false,
+      exclusive: false,
+    });
+  });
+
+  test("reads the system scope git consults ahead of the global one", async () => {
+    const systemConfigPath = join(tempDir, "system.gitconfig");
+    await Bun.write(
+      systemConfigPath,
+      `[credential "https://plugins.archgate.dev"]\n\thelper = \n\thelper = !/old/archgate credential\n`
+    );
+    delete Bun.env.GIT_CONFIG_NOSYSTEM;
+    Bun.env.GIT_CONFIG_SYSTEM = systemConfigPath;
+
+    expect(await inspectGitCredentialHelper()).toMatchObject({
+      registered: true,
+      current: false,
+    });
+  });
+
+  // Login's reset entry in the global scope discards a stale system entry,
+  // so the report must judge the entry git actually consults.
+  test("judges the entry that survives a reset across scopes", async () => {
+    const systemConfigPath = join(tempDir, "system.gitconfig");
+    await Bun.write(
+      systemConfigPath,
+      `[credential "https://plugins.archgate.dev"]\n\thelper = !/old/archgate credential\n`
+    );
+    delete Bun.env.GIT_CONFIG_NOSYSTEM;
+    Bun.env.GIT_CONFIG_SYSTEM = systemConfigPath;
+    await registerGitCredentialHelper();
+
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: true,
+      current: true,
+      exclusive: true,
+    });
+  });
+
+  test("reports nothing registered when git cannot be started", async () => {
+    spyOn(Bun, "spawn").mockImplementation(() => {
+      throw new Error("spawn git ENOENT");
+    });
+
+    expect(await inspectGitCredentialHelper()).toEqual({
+      registered: false,
+      current: false,
+      exclusive: false,
+    });
   });
 });

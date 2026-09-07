@@ -25,6 +25,14 @@ describe("doctor", () => {
       expect(typeof report.archgate.exec_path).toBe("string");
       expect(typeof report.archgate.telemetry_enabled).toBe("boolean");
       expect(typeof report.archgate.logged_in).toBe("boolean");
+      expect(["platform", "legacy", "none"]).toContain(report.archgate.session);
+      expect(typeof report.archgate.credential_helper.registered).toBe(
+        "boolean"
+      );
+      expect(typeof report.archgate.credential_helper.current).toBe("boolean");
+      expect(typeof report.archgate.credential_helper.exclusive).toBe(
+        "boolean"
+      );
 
       expect(report.project).toBeDefined();
       expect(typeof report.project.has_project).toBe("boolean");

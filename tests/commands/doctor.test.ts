@@ -37,6 +37,8 @@ const MOCK_REPORT: DoctorReport = {
     config_dir_exists: true,
     telemetry_enabled: false,
     logged_in: true,
+    session: "platform",
+    credential_helper: { registered: true, current: true, exclusive: true },
   },
   project: {
     has_project: true,
@@ -196,6 +198,101 @@ describe("doctor action handler", () => {
       });
     }
   });
+
+  // Each helper state names the remedy, since the symptom — a plugin clone
+  // asking for a password — says nothing about which entry is wrong.
+  test.each([
+    [
+      "healthy",
+      "platform",
+      { registered: true, current: true, exclusive: true },
+      "OK",
+      null,
+    ],
+    [
+      "missing with a platform session",
+      "platform",
+      { registered: false, current: false, exclusive: false },
+      "MISSING",
+      "Run `archgate login` to register it.",
+    ],
+    [
+      "missing with a legacy token",
+      "legacy",
+      { registered: false, current: false, exclusive: false },
+      "not registered",
+      "Run `archgate login refresh`",
+    ],
+    [
+      "missing while signed out",
+      "none",
+      { registered: false, current: false, exclusive: false },
+      "not registered",
+      null,
+    ],
+    [
+      "naming another binary",
+      "platform",
+      { registered: true, current: false, exclusive: true },
+      "STALE",
+      "another archgate binary",
+    ],
+    [
+      "behind another helper",
+      "platform",
+      { registered: true, current: true, exclusive: false },
+      "SHARED",
+      "Another helper answers first",
+    ],
+    [
+      "registered with nothing to serve",
+      "none",
+      { registered: true, current: true, exclusive: true },
+      "NO SESSION",
+      "nothing to serve",
+    ],
+  ] as const)(
+    "default output describes a git helper that is %s",
+    async (_label, session, credentialHelper, expectedLabel, expectedHint) => {
+      doctorSpy.mockResolvedValue({
+        ...MOCK_REPORT,
+        archgate: {
+          ...MOCK_REPORT.archgate,
+          session,
+          credential_helper: credentialHelper,
+        },
+      });
+      const originalIsTTY = process.stdout.isTTY;
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: true,
+        configurable: true,
+      });
+
+      try {
+        const program = makeProgram();
+        await program.parseAsync(["node", "test", "doctor"]);
+
+        const output = logSpy.mock.calls
+          .map((c: unknown[]) => String(c[0]))
+          .join("\n");
+        expect(output).toContain(`Session:      ${session}`);
+        const helperLine = output
+          .split("\n")
+          .find((line) => line.includes("Git helper:"));
+        expect(helperLine).toContain(expectedLabel);
+        if (expectedHint === null) {
+          expect(output).not.toContain("Run `archgate login");
+        } else {
+          expect(output).toContain(expectedHint);
+        }
+      } finally {
+        Object.defineProperty(process.stdout, "isTTY", {
+          value: originalIsTTY,
+          configurable: true,
+        });
+      }
+    }
+  );
 
   test("default output shows WSL distro when is_wsl is true", async () => {
     const wslReport: DoctorReport = {

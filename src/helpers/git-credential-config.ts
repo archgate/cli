@@ -7,6 +7,8 @@
  * using whatever helper the user already configured.
  */
 
+import { z } from "zod";
+
 import { selfInvokeArgv } from "./install-info";
 import { logDebug, logWarn } from "./log";
 import { PLUGINS_HOST } from "./plugin-install";
@@ -98,6 +100,69 @@ export async function ensureGitCredentialHelper(): Promise<void> {
     "Could not register archgate as a git credential helper.",
     "Plugin downloads still work; `git clone` of a plugin repository may prompt for credentials."
   );
+}
+
+/** What `archgate doctor` reports about the helper entry. */
+const CredentialHelperStatusSchema = z.object({
+  /** Git consults an archgate helper entry for the plugins host. */
+  registered: z.boolean(),
+  /** The entry names this executable, not one from an earlier install. */
+  current: z.boolean(),
+  /** No other helper is consulted ahead of archgate. */
+  exclusive: z.boolean(),
+});
+
+export type CredentialHelperStatus = z.infer<
+  typeof CredentialHelperStatusSchema
+>;
+
+/**
+ * Inspect the helper entries git consults for the plugins host.
+ *
+ * Every scope is read in the order git consults them, since a system entry
+ * ahead of archgate answers first regardless of what the global file says.
+ * An empty entry discards every helper before it, so only the entries after
+ * the last one count. A git that cannot start reads as nothing registered.
+ */
+export async function inspectGitCredentialHelper(): Promise<CredentialHelperStatus> {
+  const entries = await gitConfigValues(HELPER_KEY);
+  const effective = entries.slice(entries.lastIndexOf("") + 1);
+  const archgateIndex = effective.findIndex((entry) =>
+    entry.endsWith(" credential")
+  );
+  const registered = archgateIndex !== -1;
+  return {
+    registered,
+    current: registered && effective[archgateIndex] === helperCommand(),
+    exclusive: archgateIndex === 0,
+  };
+}
+
+/**
+ * Read every value of a multi-valued config key across all scopes, in order.
+ *
+ * Both streams are drained while git runs so neither can fill and block it;
+ * the exit code is checked before the output is trusted. Exit code 1 means
+ * the key is unset, which is an empty list rather than a failure.
+ *
+ * @returns The values, or an empty list when git cannot start or fails.
+ */
+async function gitConfigValues(key: string): Promise<string[]> {
+  try {
+    const proc = Bun.spawn(["git", "config", "--get-all", key], {
+      stdout: "pipe",
+      stderr: "ignore",
+      env: { ...Bun.env },
+    });
+    const [stdout, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      proc.exited,
+    ]);
+    if (exitCode !== 0) return [];
+    return stdout.split("\n").slice(0, -1);
+  } catch {
+    return [];
+  }
 }
 
 /**
