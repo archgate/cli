@@ -26,6 +26,7 @@ import {
   getConfiguredStrict,
 } from "../helpers/project-config";
 import { detectStack } from "../helpers/stack-detect";
+import { readStdinText } from "../helpers/stdin";
 import { trackCheckResult } from "../helpers/telemetry";
 
 const outputOption = new Option(
@@ -133,7 +134,7 @@ export function registerCheckCommand(program: Command) {
         if (!process.stdin.isTTY) {
           try {
             const stdin = await Promise.race([
-              Bun.stdin.text(),
+              readStdinText(),
               Bun.sleep(100).then(() => ""),
             ]);
             const piped = stdin.trim().split(/\r?\n/u).filter(Boolean);
