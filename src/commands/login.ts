@@ -4,18 +4,48 @@ import { styleText } from "node:util";
 
 import type { Command } from "@commander-js/extra-typings";
 
-import { loadCredentials, clearCredentials } from "../helpers/credential-store";
+import {
+  clearCredentials,
+  loadCredentials,
+  loadTokenSet,
+} from "../helpers/credential-store";
 import { exitWith, handleCommandError } from "../helpers/exit";
-import { logError, logInfo } from "../helpers/log";
+import {
+  ensureGitCredentialHelper,
+  unregisterGitCredentialHelper,
+} from "../helpers/git-credential-config";
+import { logInfo } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
 import { findProjectRoot } from "../helpers/paths";
 import { trackLoginResult } from "../helpers/telemetry";
 import { isTlsError, tlsHintMessage } from "../helpers/tls";
+import { UserError } from "../helpers/user-error";
+
+/** Raised when a stored record survives a clear; logout and refresh share it. */
+function credentialsLeftBehind(): UserError {
+  return new UserError(
+    "Some credentials could not be removed from your git credential manager.",
+    "Check `git config --global credential.helper` and run `archgate login logout` again."
+  );
+}
+
+/**
+ * Raised when the helper entry survives an unregister; logout and refresh
+ * share it.
+ *
+ * @param prefix - What already happened before the helper removal failed.
+ */
+function helperLeftBehind(prefix: string): UserError {
+  return new UserError(
+    `${prefix}, but the git credential helper entry could not be removed.`,
+    "Remove it with `git config --global --unset-all credential.https://plugins.archgate.dev.helper`."
+  );
+}
 
 export function registerLoginCommand(program: Command) {
   const login = program
     .command("login")
-    .description("Authenticate with GitHub to access archgate plugins");
+    .description("Log in to the Archgate platform");
 
   login.action(async () => {
     try {
@@ -23,32 +53,16 @@ export function registerLoginCommand(program: Command) {
       if (existing) {
         logInfo(
           `Already logged in as ${styleText("bold", existing.github_user)}.`,
-          "Run `archgate login refresh` to re-authenticate."
+          "Run `archgate login refresh` to sign in again."
         );
+        // A platform session may have been stored while the helper write
+        // failed; a legacy token must not get the helper, which cannot serve it.
+        if (await loadTokenSet()) await ensureGitCredentialHelper();
         return;
       }
-
-      const result = await runLoginFlow();
-      trackLoginResult({ subcommand: "login", success: result.ok });
-      if (result.ok) {
-        printNextStep();
-      } else {
-        await exitWith(1);
-      }
+      await signIn("login");
     } catch (err) {
-      if (err instanceof Error && err.name === "ExitPromptError") throw err;
-      const failureReason = isTlsError(err) ? "tls" : "other";
-      trackLoginResult({
-        subcommand: "login",
-        success: false,
-        failure_reason: failureReason,
-      });
-      if (isTlsError(err)) {
-        logError(tlsHintMessage());
-        await exitWith(1);
-        return;
-      }
-      await handleCommandError(err);
+      await handleSignInError("login", err);
     }
   });
 
@@ -74,8 +88,16 @@ export function registerLoginCommand(program: Command) {
     .description("Remove stored credentials")
     .action(async () => {
       try {
-        await clearCredentials();
-        trackLoginResult({ subcommand: "logout", success: true });
+        // The helper goes first: while archgate answers for the plugins host,
+        // clearing cannot see a legacy token the OS store holds for it.
+        const unregistered = await unregisterGitCredentialHelper();
+        const cleared = await clearCredentials();
+        trackLoginResult({
+          subcommand: "logout",
+          success: unregistered && cleared,
+        });
+        if (!cleared) throw credentialsLeftBehind();
+        if (!unregistered) throw helperLeftBehind("Credentials removed");
         console.log("Logged out successfully.");
       } catch (err) {
         await handleCommandError(err);
@@ -84,33 +106,59 @@ export function registerLoginCommand(program: Command) {
 
   login
     .command("refresh")
-    .description("Re-authenticate and claim a new token")
+    .description("Sign in again, replacing stored tokens")
     .action(async () => {
       try {
-        await clearCredentials();
-        const result = await runLoginFlow();
-        trackLoginResult({ subcommand: "refresh", success: result.ok });
-        if (result.ok) {
-          printNextStep();
-        } else {
-          await exitWith(1);
+        // While the helper still answers for the plugins host, clearing cannot
+        // see a legacy token behind it, so a failed unregister stops here.
+        if (!(await unregisterGitCredentialHelper())) {
+          throw helperLeftBehind("Nothing changed");
         }
+        // A leftover record would keep answering for the old account, so a
+        // failed clear stops the refresh rather than signing in over it.
+        if (!(await clearCredentials())) throw credentialsLeftBehind();
+        await signIn("refresh");
       } catch (err) {
-        if (err instanceof Error && err.name === "ExitPromptError") throw err;
-        const failureReason = isTlsError(err) ? "tls" : "other";
-        trackLoginResult({
-          subcommand: "refresh",
-          success: false,
-          failure_reason: failureReason,
-        });
-        if (isTlsError(err)) {
-          logError(tlsHintMessage());
-          await exitWith(1);
-          return;
-        }
-        await handleCommandError(err);
+        await handleSignInError("refresh", err);
       }
     });
+}
+
+/**
+ * Run the sign-in flow and report its outcome.
+ *
+ * @param subcommand - Reported to telemetry with the outcome.
+ */
+async function signIn(subcommand: "login" | "refresh"): Promise<void> {
+  const result = await runLoginFlow();
+  trackLoginResult({ subcommand, success: result.ok });
+  if (result.ok) {
+    printNextStep();
+  } else {
+    await exitWith(1);
+  }
+}
+
+/**
+ * Report a failed sign-in, with a dedicated hint for TLS interception.
+ *
+ * @param subcommand - Reported to telemetry with the failure.
+ * @param err - Whatever the action threw; prompt cancellations propagate.
+ */
+async function handleSignInError(
+  subcommand: "login" | "refresh",
+  err: unknown
+): Promise<void> {
+  if (err instanceof Error && err.name === "ExitPromptError") throw err;
+  const tls = isTlsError(err);
+  trackLoginResult({
+    subcommand,
+    success: false,
+    failure_reason: tls ? "tls" : "other",
+  });
+  // The hint replaces the raw error; as a UserError it keeps exit code 1 and
+  // the handler's expected-error classification.
+  await handleCommandError(tls ? new UserError(tlsHintMessage()) : err);
 }
 
 function printNextStep(): void {

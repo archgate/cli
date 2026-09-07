@@ -31,18 +31,18 @@ Pluginen legger til agenter og rollebaserte ferdigheter i Claude Code. Utviklera
 ## Installasjon
 
 :::note[Beta-tilgang kreves]
-Claude Code-pluginen er for tiden i beta. Kjør `archgate login` for å registrere deg og autentisere.
+Claude Code-pluginen er for tiden i beta. Kjør `archgate login` for å logge inn.
 :::
 
-### 1. Logg inn med GitHub
+### 1. Logg inn på Archgate-plattformen
 
-Autentiser med GitHub-kontoen din for å få et plugin-token:
+Logg inn for å få tilgang til pluginene:
 
 ```bash
 archgate login
 ```
 
-Dette starter en GitHub Device Flow. CLI-et viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden og autoriser. Når det er ferdig, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+Dette starter en OAuth 2.0 Device Authorization Grant mot Archgate-plattformen. CLI-et viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden og autoriser. Når det er ferdig, gis tokenene til den git credential-helperen du har konfigurert via `git credential approve`; en helper som bruker operativsystemet holder dem krypterte, mens gits innebygde `store`-helper skriver dem i klartekst.
 
 ### 2. Initialiser prosjektet ditt med pluginen
 
@@ -67,7 +67,7 @@ Hvis `claude`-CLI-et er på PATH, installeres pluginen automatisk via:
 1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registrerer Archgate-markedsplassen)
 2. `claude plugin install archgate@archgate` (installerer pluginen)
 
-Markedsplass-URL-en inneholder ingen legitimasjon -- git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` lagret i operativsystemets legitimasjonsbehandler.
+Markedsplass-URL-en inneholder ingen legitimasjon -- git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` ga til git credential-helperen din.
 
 Hvis `claude`-CLI-et ikke finnes, skriver kommandoen ut de manuelle kommandoene du må kjøre.
 

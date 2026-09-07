@@ -16,18 +16,18 @@ Installation is declarative: the CLI writes the marketplace and plugin declarati
 ## Installation
 
 :::note[Beta access required]
-The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
+The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign in before following the steps below.
 :::
 
-### 1. Log in with GitHub
+### 1. Log in to the Archgate platform
 
-Authenticate with your GitHub account to obtain a plugin token:
+Log in to obtain plugin access:
 
 ```bash
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts an OAuth 2.0 Device Authorization Grant against the Archgate platform. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, the resulting tokens are handed to your configured git credential helper via `git credential approve`; an OS-backed helper keeps them encrypted, while git's built-in `store` helper writes them in plain text.
 
 ### 2. Initialize your project with the plugin
 

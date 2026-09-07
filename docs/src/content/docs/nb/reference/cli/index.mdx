@@ -1,6 +1,6 @@
 ---
 title: CLI-kommandoer
-description: "Komplett referanse for alle Archgate CLI-kommandoer: init, check, adr, login, plugin, review-context, session-context, upgrade, doctor, clean og telemetry."
+description: "Komplett referanse for alle Archgate CLI-kommandoer: init, check, adr, login, credential, plugin, review-context, session-context, upgrade, doctor, clean og telemetry."
 ---
 
 ## Globale valg
@@ -23,7 +23,8 @@ archgate --log-level debug check
 
 | Kommando                                         | Beskrivelse                                                     |
 | ------------------------------------------------ | --------------------------------------------------------------- |
-| [`archgate login`](./login/)                     | Autentiser med GitHub                                           |
+| [`archgate login`](./login/)                     | Logg inn på Archgate-plattformen                                |
+| [`archgate credential`](./credential/)           | Git credential-helper for archgate-plugin-repositorier          |
 | [`archgate init`](./init/)                       | Sett opp linting og regelhåndhevelse                            |
 | [`archgate plugin`](./plugin/)                   | Administrer editor-plugins                                      |
 | [`archgate check`](./check/)                     | Kjør ADR-samsvarskontroller                                     |

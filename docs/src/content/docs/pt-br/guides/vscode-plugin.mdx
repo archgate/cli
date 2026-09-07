@@ -18,18 +18,18 @@ Plugins de agente requerem **VS Code 1.110 (lançamento de fevereiro de 2026) ou
 :::
 
 :::note[Acesso beta necessário]
-O plugin para VS Code está atualmente em beta. Execute `archgate login` para se cadastrar e autenticar antes de seguir os passos abaixo.
+O plugin para VS Code está atualmente em beta. Execute `archgate login` para entrar antes de seguir os passos abaixo.
 :::
 
-### 1. Faça login com o GitHub
+### 1. Entre na plataforma Archgate
 
-Autentique-se com sua conta do GitHub para obter um token do plugin:
+Entre para obter acesso aos plugins:
 
 ```bash
 archgate login
 ```
 
-Isso inicia um GitHub Device Flow. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, as credenciais são armazenadas de forma segura no gerenciador de credenciais do sistema operacional via `git credential approve`.
+Isso inicia um OAuth 2.0 Device Authorization Grant na plataforma Archgate. O CLI exibe um código único e uma URL -- abra a URL no seu navegador, insira o código e autorize. Ao concluir, os tokens resultantes são entregues ao credential helper do git que você configurou via `git credential approve`; um helper apoiado no sistema operacional os mantém criptografados, enquanto o helper `store` embutido do git os grava em texto puro.
 
 ### 2. Inicialize seu projeto com o plugin
 
@@ -88,7 +88,7 @@ A configuração do marketplace no nível de usuário (adicionada ao seu `settin
 }
 ```
 
-A URL não contém credenciais. O git se autentica em `plugins.archgate.dev` usando o token que o `archgate login` armazena no gerenciador de credenciais do sistema operacional.
+A URL não contém credenciais. O `archgate credential` é o credential helper; o `archgate login` o registra para `plugins.archgate.dev`. O git o consulta a cada requisição e recebe um token de acesso válido, renovado apenas quando o token em cache expira.
 
 ### Configuração manual
 
@@ -99,12 +99,17 @@ Se preferir não deixar o CLI modificar suas configurações, você pode configu
 **Extensão:** Baixe e instale o arquivo `.vsix` diretamente:
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
-code --install-extension archgate.vsix
-rm archgate.vsix
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
+  archgate credential get |
+  sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
+  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode &&
+  code --install-extension archgate.vsix
+rm -f archgate.vsix
 ```
 
-Substitua `<token>` pelo token de plugin que o `archgate login` armazena para `plugins.archgate.dev` no gerenciador de credenciais do sistema operacional. Você pode lê-lo de volta com `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+O `archgate credential get` emite uma resposta de credencial do git, então a linha `password=` é convertida em uma diretiva `curl --config` e enviada por pipe. O token nunca chega à linha de comando, onde ficaria visível na lista de processos e no histórico do shell. O `--fail` faz o curl sair com erro em um 401, em vez de gravar o corpo do erro por cima de `archgate.vsix`, e o `&&` impede que o `code` instale algo que o curl não terminou de baixar; o `rm -f` final limpa em qualquer caso.
+
+Prefira a configuração de marketplace acima quando possível: assim o git consulta o helper a cada requisição e nenhum token é manipulado à mão.
 
 ## O que o plugin oferece
 

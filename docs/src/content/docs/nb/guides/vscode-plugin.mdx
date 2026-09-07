@@ -18,18 +18,18 @@ Agent-plugins krever **VS Code 1.110 (februar 2026-utgivelsen) eller nyere**. Ti
 :::
 
 :::note[Betatilgang kreves]
-VS Code-pluginet er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere før du følger trinnene nedenfor.
+VS Code-pluginet er for øyeblikket i beta. Kjør `archgate login` for å logge inn før du følger trinnene nedenfor.
 :::
 
-### 1. Logg inn med GitHub
+### 1. Logg inn på Archgate-plattformen
 
-Autentiser med GitHub-kontoen din for å få et plugin-token:
+Logg inn for å få tilgang til pluginene:
 
 ```bash
 archgate login
 ```
 
-Dette starter en GitHub Device Flow. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, lagres legitimasjonen sikkert i operativsystemets legitimasjonsbehandler via `git credential approve`.
+Dette starter en OAuth 2.0 Device Authorization Grant mot Archgate-plattformen. CLI-en viser en engangskode og URL -- åpne URL-en i nettleseren din, skriv inn koden, og autoriser. Når det er fullført, gis tokenene til den git credential-helperen du har konfigurert via `git credential approve`; en helper som bruker operativsystemet holder dem krypterte, mens gits innebygde `store`-helper skriver dem i klartekst.
 
 ### 2. Initialiser prosjektet ditt med pluginet
 
@@ -88,7 +88,7 @@ Markedsplassinnstillingen på brukernivå (lagt til i `settings.json`):
 }
 ```
 
-URL-en inneholder ingen legitimasjon. Git autentiserer mot `plugins.archgate.dev` med tokenet `archgate login` lagret i operativsystemets legitimasjonsbehandler.
+URL-en inneholder ingen legitimasjon. `archgate credential` er credential-helperen; `archgate login` registrerer den for `plugins.archgate.dev`. Git spør den ved hver forespørsel og får et gyldig tilgangstoken, fornyet bare når det mellomlagrede har utløpt.
 
 ### Manuelt oppsett
 
@@ -99,12 +99,17 @@ Hvis du foretrekker at CLI-en ikke endrer brukerinnstillingene dine, kan du sett
 **Utvidelse:** Last ned og installer `.vsix`-filen direkte:
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
-code --install-extension archgate.vsix
-rm archgate.vsix
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
+  archgate credential get |
+  sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
+  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode &&
+  code --install-extension archgate.vsix
+rm -f archgate.vsix
 ```
 
-Erstatt `<token>` med plugin-tokenet `archgate login` lagret for `plugins.archgate.dev` i operativsystemets legitimasjonsbehandler. Du kan lese det tilbake med `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+`archgate credential get` skriver ut et git credential-svar, så `password=`-linjen formes om til et `curl --config`-direktiv og sendes inn via pipe. Tokenet havner aldri på kommandolinjen, der det ville vært synlig i prosesslisten og i shell-historikken. `--fail` gjør at curl avslutter med feilkode ved 401 i stedet for å skrive feilmeldingen over `archgate.vsix`, og `&&` hindrer `code` i å installere noe curl ikke lastet ferdig; den avsluttende `rm -f` rydder opp uansett.
+
+Bruk heller marketplace-oppsettet over når du kan: da spør git helperen ved hver forespørsel, og du håndterer ikke noe token manuelt.
 
 ## Hva pluginet tilbyr
 

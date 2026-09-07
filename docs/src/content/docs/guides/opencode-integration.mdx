@@ -14,7 +14,7 @@ archgate init --editor opencode
 ```
 
 :::note[Beta access required]
-The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
+The opencode agent bundle is currently in beta. Run `archgate login` to sign in.
 :::
 
 The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes its `afterFileEdit` hook into the project's `.cursor/hooks.json`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.

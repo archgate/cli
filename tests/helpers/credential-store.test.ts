@@ -1,16 +1,48 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
-  saveCredentials,
+  saveTokenSet,
   loadCredentials,
+  loadTokenSet,
+  resolveAccessToken,
   clearCredentials,
 } from "../../src/helpers/credential-store";
-import { restoreEnv } from "../test-utils";
+import { platformAuth } from "../../src/helpers/platform-auth";
+import type { TokenSet } from "../../src/helpers/platform-auth";
+import { restoreEnv, safeRmSync } from "../test-utils";
+
+/**
+ * A `Bun.spawn` stand-in that answers `git credential fill` with one record.
+ *
+ * @param username - Value returned in the `username` field.
+ * @param password - Value returned in the `password` field.
+ */
+function gitCredentialStub(
+  username: string,
+  password: string
+): ReturnType<typeof Bun.spawn> {
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return {
+    stdout: new Response(`username=${username}\npassword=${password}\n`).body,
+    exited: Promise.resolve(0),
+    kill: () => {
+      // Nothing to kill: the stub has already settled.
+    },
+  } as unknown as ReturnType<typeof Bun.spawn>;
+}
+
+/** The record `saveTokenSet` files: one fixed account, the session as JSON. */
+function sessionRecord(
+  user: string,
+  tokens: TokenSet
+): ReturnType<typeof Bun.spawn> {
+  return gitCredentialStub("archgate", JSON.stringify({ user, tokens }));
+}
 
 describe("credential-store", () => {
   let tempDir: string;
@@ -39,18 +71,15 @@ describe("credential-store", () => {
     restoreEnv("HOME", originalHome);
     restoreEnv("GIT_CONFIG_NOSYSTEM", originalGitConfigNoSystem);
     restoreEnv("GIT_CONFIG_GLOBAL", originalGitConfigGlobal);
-    try {
-      rmSync(tempDir, { recursive: true, force: true });
-    } catch {
-      /* temp dir cleanup best-effort */
-    }
+    safeRmSync(tempDir);
   });
 
-  describe("saveCredentials", () => {
+  describe("saveTokenSet", () => {
     test("does not write any metadata file to disk", async () => {
-      await saveCredentials({
-        token: "ag_beta_abc123",
-        github_user: "testuser",
+      await saveTokenSet("testuser", {
+        accessToken: "ey.access",
+        refreshToken: "refresh-abc",
+        expiresAt: Date.now() + 3_600_000,
       });
 
       // No credentials file should be written — everything is in git credential manager.
@@ -71,9 +100,10 @@ describe("credential-store", () => {
           JSON.stringify({ github_user: "old", created_at: "2025-01-01" })
         );
 
-        await saveCredentials({
-          token: "ag_beta_abc123",
-          github_user: "testuser",
+        await saveTokenSet("testuser", {
+          accessToken: "ag_beta_abc123",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
         });
 
         expect(await Bun.file(credPath).exists()).toBe(false);
@@ -89,9 +119,10 @@ describe("credential-store", () => {
         // fill returns nothing — triggers the verification warning path.
         const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
         try {
-          await saveCredentials({
-            token: "ag_beta_test",
-            github_user: "testuser",
+          await saveTokenSet("testuser", {
+            accessToken: "ag_beta_test",
+            refreshToken: "refresh-abc",
+            expiresAt: Date.now() + 3_600_000,
           });
 
           // The warning is printed because fill cannot verify the stored token.
@@ -138,8 +169,29 @@ describe("credential-store", () => {
   });
 
   describe("clearCredentials", () => {
+    // A record the helper refuses to drop must not let logout report success.
+    test("reports failure when git cannot reject a record", async () => {
+      let call = 0;
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+        call += 1;
+        // Odd calls are fills answering a record; even calls are rejects.
+        const stub = gitCredentialStub("octocat", "ey.access");
+        return call % 2 === 0
+          ? // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+            ({ ...stub, exited: Promise.resolve(1) } as unknown as ReturnType<
+              typeof Bun.spawn
+            >)
+          : stub;
+      });
+      try {
+        expect(await clearCredentials()).toBe(false);
+      } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+
     test("does not throw when no credentials exist", async () => {
-      expect(clearCredentials()).resolves.toBeUndefined();
+      expect(await clearCredentials()).toBe(true);
     });
 
     test("cleans up legacy metadata file", async () => {
@@ -169,6 +221,59 @@ describe("credential-store", () => {
     });
   });
 
+  // `git credential approve` exits 0 even when nothing was stored, so the
+  // read-back must return this very blob for this account.
+  describe("saveTokenSet verification", () => {
+    const tokens = {
+      accessToken: "ey.access",
+      refreshToken: "refresh-abc",
+      expiresAt: 1_800_000_000_000,
+    };
+
+    test("asks for the account it wrote and rejects a different blob", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("octocat", "stale-blob")
+      );
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        expect(await saveTokenSet("octocat", tokens)).toBe(false);
+
+        const fill = spawnSpy.mock.calls.find((call) =>
+          [...call[0]].includes("fill")
+        );
+        const stdin = (fill?.[1] as { stdin?: unknown } | undefined)?.stdin;
+        expect(stdin instanceof Blob ? await stdin.text() : "").toContain(
+          "username=archgate"
+        );
+        expect(warnSpy.mock.calls.flat().join(" ")).toContain(
+          "could not be verified"
+        );
+      } finally {
+        warnSpy.mockRestore();
+        spawnSpy.mockRestore();
+      }
+    });
+
+    test("accepts the read-back when it matches", async () => {
+      const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        sessionRecord("octocat", tokens)
+      );
+      try {
+        expect(await saveTokenSet("octocat", tokens)).toBe(true);
+        const approve = spawnSpy.mock.calls.find((call) =>
+          [...call[0]].includes("approve")
+        );
+        const stdin = (approve?.[1] as { stdin?: unknown } | undefined)?.stdin;
+        // One fixed account; the display name travels inside the payload.
+        expect(stdin instanceof Blob ? await stdin.text() : "").toContain(
+          "username=archgate"
+        );
+      } finally {
+        spawnSpy.mockRestore();
+      }
+    });
+  });
+
   describe("credential fill with store helper", () => {
     test("round-trips credentials through a file-based credential helper", async () => {
       // A store-based helper persists to a plain file, exercising the
@@ -185,9 +290,10 @@ describe("credential-store", () => {
 
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        await saveCredentials({
-          token: "ag_beta_roundtrip",
-          github_user: "rounduser",
+        await saveTokenSet("rounduser", {
+          accessToken: "ag_beta_roundtrip",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
         });
 
         // With a working helper, verification succeeds — no warning about
@@ -272,7 +378,11 @@ describe("credential-store", () => {
       });
       const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
       try {
-        await saveCredentials({ token: "ag_beta_x", github_user: "u" });
+        await saveTokenSet("u", {
+          accessToken: "ag_beta_x",
+          refreshToken: "refresh-abc",
+          expiresAt: Date.now() + 3_600_000,
+        });
 
         expect(warnSpy.mock.calls.flat().join(" ")).toContain(
           "git credential approve failed."
@@ -284,11 +394,88 @@ describe("credential-store", () => {
     });
   });
 
-  describe("StoredCredentials type", () => {
-    test("interface has expected shape", () => {
-      expect(typeof saveCredentials).toBe("function");
-      expect(typeof loadCredentials).toBe("function");
-      expect(typeof clearCredentials).toBe("function");
+  describe("loadTokenSet", () => {
+    test.each([
+      ["not JSON at all", "not-json"],
+      ["JSON without token fields", JSON.stringify({ a: 1 })],
+    ])("returns null when the stored blob is %s", async (_label, stored) => {
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        gitCredentialStub("archgate", stored)
+      );
+      try {
+        expect(await loadTokenSet()).toBeNull();
+      } finally {
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("returns the stored token set and its user", async () => {
+      const tokens = {
+        accessToken: "ey.access",
+        refreshToken: "refresh-abc",
+        expiresAt: Date.now() + 3_600_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        sessionRecord("octocat", tokens)
+      );
+      try {
+        expect(await loadTokenSet()).toEqual({ user: "octocat", tokens });
+      } finally {
+        fillSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("resolveAccessToken", () => {
+    test("returns the cached token while it is still valid", async () => {
+      const tokens = {
+        accessToken: "ey.valid",
+        refreshToken: "refresh-abc",
+        expiresAt: Date.now() + 3_600_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        sessionRecord("octocat", tokens)
+      );
+      const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
+      try {
+        expect(await resolveAccessToken()).toEqual({
+          token: "ey.valid",
+          github_user: "octocat",
+        });
+        expect(refreshSpy).not.toHaveBeenCalled();
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
+    });
+
+    test("renews an expired token and hands back the new one", async () => {
+      const stale = {
+        accessToken: "ey.stale",
+        refreshToken: "refresh-old",
+        expiresAt: Date.now() - 1_000,
+      };
+      const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+        sessionRecord("octocat", stale)
+      );
+      const refreshSpy = spyOn(
+        platformAuth,
+        "refreshAccessToken"
+      ).mockResolvedValue({
+        accessToken: "ey.fresh",
+        refreshToken: "refresh-new",
+        expiresAt: Date.now() + 3_600_000,
+      });
+      try {
+        expect(await resolveAccessToken()).toEqual({
+          token: "ey.fresh",
+          github_user: "octocat",
+        });
+        expect(refreshSpy).toHaveBeenCalledWith("refresh-old");
+      } finally {
+        refreshSpy.mockRestore();
+        fillSpy.mockRestore();
+      }
     });
   });
 });

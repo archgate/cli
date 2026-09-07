@@ -18,16 +18,17 @@ import {
 import { resolveCommand } from "./platform";
 import { UserError } from "./user-error";
 
-const PLUGINS_API = "https://plugins.archgate.dev";
+/** Host serving plugin downloads and plugin git repositories. */
+export const PLUGINS_HOST = "plugins.archgate.dev";
+
+const PLUGINS_API = `https://${PLUGINS_HOST}`;
 
 /** Base marketplace URL — credentials are provided by the git credential manager. */
-const MARKETPLACE_URL = "https://plugins.archgate.dev/archgate.git";
+const MARKETPLACE_URL = `${PLUGINS_API}/archgate.git`;
 /** Base VS Code marketplace URL — credentials are provided by the git credential manager. */
-const VSCODE_MARKETPLACE_URL =
-  "https://plugins.archgate.dev/archgate/vscode.git";
+const VSCODE_MARKETPLACE_URL = `${PLUGINS_API}/archgate/vscode.git`;
 /** Cursor Team Marketplace URL — credentials are provided by the git credential manager. */
-const CURSOR_MARKETPLACE_URL =
-  "https://plugins.archgate.dev/archgate/cursor.git";
+const CURSOR_MARKETPLACE_URL = `${PLUGINS_API}/archgate/cursor.git`;
 
 /**
  * Run a command using `Bun.spawn` (cross-platform, no shell — ARCH-007).

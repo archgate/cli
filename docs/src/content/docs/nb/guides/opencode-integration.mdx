@@ -14,7 +14,7 @@ archgate init --editor opencode
 ```
 
 :::note[Betatilgang kreves]
-opencode-agentpakken er for øyeblikket i beta. Kjør `archgate login` for å registrere deg og autentisere.
+opencode-agentpakken er for øyeblikket i beta. Kjør `archgate login` for å logge inn.
 :::
 
 opencode-agentene og -ferdighetene skrives **ikke til prosjekttreet ditt** -- i motsetning til Cursor, som også installerer sine agenter og ferdigheter på brukernivå, men likevel skriver `afterFileEdit`-hooken sin i prosjektets `.cursor/hooks.json`. For opencode havner ingenting editorspesifikt i repositoriet: alt bor på maskinen din og er tilgjengelig på tvers av alle prosjekter du åpner med opencode.

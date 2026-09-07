@@ -109,7 +109,7 @@ The Archgate CLI works standalone, but **editor plugins** unlock a full AI guard
     Cursor's AI agent the same guardrails workflow as Claude Code.
   
 
-Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate, then `archgate init --install-plugin` to set up the plugin.
+Editor plugins are currently in beta. Run `archgate login` to sign in, then `archgate init --install-plugin` to set up the plugin.
 
 ## Learn more
 
@@ -344,7 +344,7 @@ If you prefer `npm install -g archgate` instead of the proto plugin, you need to
 
 Once installed, run `archgate init` in your project to set up linting and guardrails. See the [Quick Start](/getting-started/quick-start/) guide for a walkthrough.
 
-Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full guardrails workflow on top of the CLI. Run `archgate login` to sign up and get started.
+Want your AI agent to read ADRs before coding and validate after? The editor plugins for [Claude Code](/guides/claude-code-plugin/) and [Cursor](/guides/cursor-integration/) add a full guardrails workflow on top of the CLI. Run `archgate login` to sign in and get started.
 
 ---
 
@@ -489,7 +489,7 @@ Now that you have a working setup, dive deeper:
 - [Claude Code Plugin](/guides/claude-code-plugin/): Give AI agents architecture-aware guardrails with role-based skills.
 - [Cursor Integration](/guides/cursor-integration/): Use Archgate with Cursor IDE for AI-assisted development.
 
-Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign up and authenticate, then run `archgate init --install-plugin` to set up the plugin.
+Want AI agents that automatically read your ADRs before coding? Run `archgate login` to sign in, then run `archgate init --install-plugin` to set up the plugin.
 
 ---
 
@@ -1328,17 +1328,17 @@ The `archgate:developer` agent is set as the default agent via `.claude/settings
 
 ## Installation
 
-The Claude Code plugin is currently in beta. Run `archgate login` to sign up and authenticate.
+The Claude Code plugin is currently in beta. Run `archgate login` to sign in.
 
-### 1. Log in with GitHub
+### 1. Log in to the Archgate platform
 
-Authenticate with your GitHub account to obtain a plugin token:
+Log in to obtain plugin access:
 
 ```bash
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts an OAuth 2.0 Device Authorization Grant against the Archgate platform. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, the resulting tokens are handed to your configured git credential helper via `git credential approve`; an OS-backed helper keeps them encrypted, while git's built-in `store` helper writes them in plain text.
 
 ### 2. Initialize your project with the plugin
 
@@ -1363,7 +1363,7 @@ If the `claude` CLI is on your PATH, the plugin is installed automatically via:
 1. `claude plugin marketplace add https://plugins.archgate.dev/archgate.git` (registers the Archgate marketplace)
 2. `claude plugin install archgate@archgate` (installs the plugin)
 
-The marketplace URL carries no credentials -- git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
+The marketplace URL carries no credentials -- git authenticates against `plugins.archgate.dev` using the token `archgate login` handed to your git credential helper.
 
 If the `claude` CLI is not found, the command prints the manual commands for you to run.
 
@@ -1475,17 +1475,17 @@ Installation is declarative: the CLI writes the marketplace and plugin declarati
 
 ## Installation
 
-The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
+The GitHub Copilot plugin is currently in beta. Run `archgate login` to sign in before following the steps below.
 
-### 1. Log in with GitHub
+### 1. Log in to the Archgate platform
 
-Authenticate with your GitHub account to obtain a plugin token:
+Log in to obtain plugin access:
 
 ```bash
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts an OAuth 2.0 Device Authorization Grant against the Archgate platform. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, the resulting tokens are handed to your configured git credential helper via `git credential approve`; an OS-backed helper keeps them encrypted, while git's built-in `store` helper writes them in plain text.
 
 ### 2. Initialize your project with the plugin
 
@@ -1607,7 +1607,7 @@ Run `archgate init` with the `--editor cursor` flag to configure Cursor integrat
 archgate init --editor cursor
 ```
 
-The Cursor plugin is currently in beta. Run `archgate login` to sign up and authenticate.
+The Cursor plugin is currently in beta. Run `archgate login` to sign in.
 
 If you have logged in via `archgate login`, the init command also installs the Archgate plugin for Cursor. The plugin provides pre-built agents, skills, and hooks that give Cursor's AI agent a full guardrails workflow.
 
@@ -1910,7 +1910,7 @@ Run `archgate init` with the `--editor opencode` flag to configure opencode inte
 archgate init --editor opencode
 ```
 
-The opencode agent bundle is currently in beta. Run `archgate login` to sign up and authenticate.
+The opencode agent bundle is currently in beta. Run `archgate login` to sign in.
 
 The opencode agents and skills are **not written to your project tree** — unlike Cursor, which also installs its agents and skills at the user scope but still writes its `afterFileEdit` hook into the project's `.cursor/hooks.json`. For opencode nothing editor-specific lands in the repository: everything lives on your machine and is available across every project you open with opencode.
 
@@ -2277,9 +2277,9 @@ When cloning or forking a repository that uses Archgate, the security scanner au
 
 ### Credentials
 
-The `archgate login` command stores your authentication token in the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
+The `archgate login` command hands your tokens to the git credential helper you have configured, via `git credential approve`. A helper backed by the operating system's credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) keeps them encrypted; git's built-in `store` helper writes them to `~/.git-credentials` in plain text, so check yours with `git config --global credential.helper`. The token is used for plugin installation and is never sent to third parties beyond the Archgate plugins service.
 
-- Plugin installation commands never embed the token in a URL or pass it as a command-line argument: git-based installs authenticate through the OS credential manager, and API downloads send the token in an `Authorization` header. Neither is visible in process listings.
+- Plugin installation commands never embed the token in a URL or pass it as a command-line argument: git-based installs authenticate through your git credential helper, and API downloads send the token in an `Authorization` header. Neither is visible in process listings.
 - To revoke access, run `archgate login logout`.
 
 ### Self-update integrity
@@ -2308,17 +2308,17 @@ The plugin is served in VS Code Copilot's native `.github/plugin/` manifest form
 
 Agent plugins require **VS Code 1.110 (February 2026 release) or later**. Earlier versions do not support git-based agent plugin marketplaces. Check your version with `code --version`.
 
-The VS Code plugin is currently in beta. Run `archgate login` to sign up and authenticate before following the steps below.
+The VS Code plugin is currently in beta. Run `archgate login` to sign in before following the steps below.
 
-### 1. Log in with GitHub
+### 1. Log in to the Archgate platform
 
-Authenticate with your GitHub account to obtain a plugin token:
+Log in to obtain plugin access:
 
 ```bash
 archgate login
 ```
 
-This starts a GitHub Device Flow. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, credentials are stored securely in your OS credential manager via `git credential approve`.
+This starts an OAuth 2.0 Device Authorization Grant against the Archgate platform. The CLI displays a one-time code and URL -- open the URL in your browser, enter the code, and authorize. Once complete, the resulting tokens are handed to your configured git credential helper via `git credential approve`; an OS-backed helper keeps them encrypted, while git's built-in `store` helper writes them in plain text.
 
 ### 2. Initialize your project with the plugin
 
@@ -2377,7 +2377,7 @@ The user-level marketplace setting (added to your `settings.json`):
 }
 ```
 
-The URL carries no credentials. Git authenticates against `plugins.archgate.dev` using the token `archgate login` stored in your OS credential manager.
+The URL carries no credentials. `archgate credential` is the credential helper; `archgate login` registers it for `plugins.archgate.dev`. Git asks it on each request and receives a valid access token, renewed only when the cached one has lapsed.
 
 ### Manual setup
 
@@ -2388,12 +2388,17 @@ If you prefer not to let the CLI modify your user settings, you can set things u
 **Extension:** Download and install the `.vsix` file directly:
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://plugins.archgate.dev/api/vscode -o archgate.vsix
-code --install-extension archgate.vsix
-rm archgate.vsix
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' |
+  archgate credential get |
+  sed -n 's|^password=\(.*\)|header = "Authorization: Bearer \1"|p' |
+  curl --config - --fail --silent --show-error --output archgate.vsix https://plugins.archgate.dev/api/vscode &&
+  code --install-extension archgate.vsix
+rm -f archgate.vsix
 ```
 
-Replace `<token>` with the plugin token `archgate login` stored for `plugins.archgate.dev` in your OS credential manager. You can read it back with `git credential fill` (`printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | git credential fill`).
+`archgate credential get` emits a git credential response, so the `password=` line is reshaped into a `curl --config` directive and piped in. The token never reaches the command line, where it would be visible in the process list and your shell history. `--fail` makes curl exit non-zero on a 401 rather than writing the error body over `archgate.vsix`, and `&&` keeps `code` from installing anything curl did not finish downloading; the final `rm -f` cleans up either way.
+
+Prefer the marketplace setup above where you can: it lets git ask the helper on every request, so no token is handled by hand at all.
 
 ## What the plugin provides
 
@@ -4459,6 +4464,88 @@ When the running binary lives under `~/.archgate/bin/`, the message notes that `
 
 ---
 
+## Reference: archgate credential
+
+Source: https://cli.archgate.dev/reference/cli/credential/
+
+Supplies git with a valid access token for Archgate plugin repositories. You do not normally run this command yourself -- git invokes it, and [`archgate login`](/reference/cli/login/) registers it for you.
+
+```bash
+archgate credential get
+```
+
+Plugin repositories are cloned over HTTPS from `plugins.archgate.dev`, and git authenticates those requests itself rather than going through the CLI. Access tokens are short-lived, so a token written once into your credential manager would stop working within the hour. This helper closes that gap: git asks it for credentials on each request, and it answers with a cached access token, renewing it from the stored refresh token only once it has lapsed.
+
+The command speaks git's [credential helper protocol](https://git-scm.com/docs/git-credential) on standard input and output. It answers only for `plugins.archgate.dev` and stays silent for every other host, so credentials for the rest of your remotes keep using whatever helper you already configured.
+
+## Subcommands
+
+| Subcommand                  | Description                                               |
+| --------------------------- | --------------------------------------------------------- |
+| `archgate credential get`   | Print credentials for a plugin repository                 |
+| `archgate credential store` | Accept a credential from git (no-op)                      |
+| `archgate credential erase` | Drop the cached access token when git reports it rejected |
+
+`store` is deliberately a no-op: tokens come from `archgate login`, so there is nothing for git to teach the CLI.
+
+`erase` drops only the cached access token and keeps your session. Git erases whenever the credentials it was given are rejected, and a single 401 — an access token that slipped past the renewal window, or a transient error from the plugins host — should not cost you a full sign-in. The next request renews from the refresh token.
+
+## Configuration
+
+`archgate login` writes the following to your global git config:
+
+```ini
+[credential "https://plugins.archgate.dev"]
+	helper =
+	helper = !/home/you/.archgate/bin/archgate credential
+```
+
+The empty first entry resets any helper inherited from a broader config scope, so `archgate` is the only helper consulted for this host. The executable is recorded by absolute path, so git started by an editor or a GUI client finds it without your shell's PATH. `archgate login logout` removes both entries.
+
+## Examples
+
+Inspect what git receives:
+
+```bash
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get
+```
+
+```
+protocol=https
+host=plugins.archgate.dev
+username=yourname
+password=eyJhbGciOiJFUzM4NCIsInR5cCI6ImF0K2p3dCJ9...
+```
+
+When you are signed out, the command prints nothing and exits successfully, which tells git to fall through to its other helpers:
+
+```bash
+archgate login logout
+printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get
+```
+
+```
+
+```
+
+## Troubleshooting
+
+### `git clone` prompts for a username and password
+
+The helper is not registered. Run `archgate login` again, or check the configuration directly:
+
+```bash
+git config --get-all credential.https://plugins.archgate.dev.helper
+```
+
+The output should list an empty line followed by `!`, the absolute path of the archgate executable, and `credential`. If it does not, the CLI could not write your global git config -- confirm `git config --global --list` works.
+
+### The helper is registered but credentials are still rejected
+
+Confirm you are signed in with `archgate login status`. If the refresh token has expired or been revoked, the helper returns no credentials and reports the error rather than staying silent. It reads only the token set stored by `archgate login`; a token issued before this flow existed is never served to git. Run `archgate login` again.
+
+---
+
 ## Reference: archgate doctor
 
 Source: https://cli.archgate.dev/reference/cli/doctor/
@@ -4545,19 +4632,20 @@ archgate --log-level debug check
 
 ## Commands
 
-| Command                                          | Description                                           |
-| ------------------------------------------------ | ----------------------------------------------------- |
-| [`archgate login`](./login/)                     | Authenticate with GitHub                              |
-| [`archgate init`](./init/)                       | Set up linting and rules enforcement                  |
-| [`archgate plugin`](./plugin/)                   | Manage editor plugins                                 |
-| [`archgate check`](./check/)                     | Run ADR compliance checks                             |
-| [`archgate adr`](./adr/)                         | Create, list, show, and update ADRs                   |
-| [`archgate review-context`](./review-context/)   | Pre-compute review context for CI/editor integrations |
-| [`archgate session-context`](./session-context/) | Read AI editor session transcripts                    |
-| [`archgate upgrade`](./upgrade/)                 | Upgrade Archgate to the latest version                |
-| [`archgate doctor`](./doctor/)                   | Check system environment and editor integrations      |
-| [`archgate clean`](./clean/)                     | Remove the CLI cache directory                        |
-| [`archgate telemetry`](./telemetry/)             | Manage anonymous usage data collection                |
+| Command                                          | Description                                            |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| [`archgate login`](./login/)                     | Log in to the Archgate platform                        |
+| [`archgate credential`](./credential/)           | Git credential helper for archgate plugin repositories |
+| [`archgate init`](./init/)                       | Set up linting and rules enforcement                   |
+| [`archgate plugin`](./plugin/)                   | Manage editor plugins                                  |
+| [`archgate check`](./check/)                     | Run ADR compliance checks                              |
+| [`archgate adr`](./adr/)                         | Create, list, show, and update ADRs                    |
+| [`archgate review-context`](./review-context/)   | Pre-compute review context for CI/editor integrations  |
+| [`archgate session-context`](./session-context/) | Read AI editor session transcripts                     |
+| [`archgate upgrade`](./upgrade/)                 | Upgrade Archgate to the latest version                 |
+| [`archgate doctor`](./doctor/)                   | Check system environment and editor integrations       |
+| [`archgate clean`](./clean/)                     | Remove the CLI cache directory                         |
+| [`archgate telemetry`](./telemetry/)             | Manage anonymous usage data collection                 |
 
 ---
 
@@ -4627,19 +4715,23 @@ Re-running `archgate init` does **not** overwrite a manually configured `baseBra
 
 Source: https://cli.archgate.dev/reference/cli/login/
 
-Authenticate with GitHub to access Archgate editor plugins. If you are not registered yet, the CLI handles signup automatically -- it prompts for your email, editor preference (Claude Code, Cursor, VS Code, GitHub Copilot, or opencode), and use case, then registers you before completing the login.
+Log in to the Archgate platform. Logging in is what grants access to the editor plugins.
 
 ```bash
 archgate login
 ```
 
-Starts a GitHub Device Flow (OAuth). The CLI displays a one-time code and a URL. Open the URL in your browser, enter the code, and authorize the Archgate GitHub OAuth App. Once authorized, the CLI exchanges your GitHub identity for an Archgate plugin token and stores it securely in your OS credential manager (macOS Keychain, Windows Credential Manager, or Linux libsecret) via `git credential approve`. No credentials are written to disk as plain-text files.
+Starts an OAuth 2.0 Device Authorization Grant (RFC 8628) against the Archgate platform. The CLI opens your browser at a URL that already carries the one-time code, and copies that code to your clipboard in case the page asks for it. Both the URL and the code are printed as well, so you can finish on another machine or paste them yourself.
 
-If your GitHub account is not yet registered, the CLI prompts for your email, preferred editor, and use case, then signs you up automatically.
+Neither step is required. In CI, over SSH, or on a native Linux host with no display server (WSL reaches the Windows desktop) the CLI skips both and just prints them. Once authorized, the CLI hands the resulting tokens to git via `git credential approve`, so where they end up depends on the credential helper you have configured. A helper backed by your OS credential manager (macOS Keychain, Windows Credential Manager, Linux libsecret) keeps them encrypted; git's built-in `store` helper writes them to `~/.git-credentials` in plain text. Check yours with `git config --global credential.helper`.
+
+Access tokens are short-lived. The CLI keeps a refresh token alongside them and renews the access token automatically, so signing in once is normally enough. If the refresh token itself expires or is revoked, the CLI reports that the session has expired, and `archgate login` re-establishes it. A token issued before this flow existed keeps working only until you sign in to the platform; from then on the platform session alone decides.
+
+Signing in also registers `archgate credential` as a git credential helper for `plugins.archgate.dev`, which is what lets `git clone` of a plugin repository authenticate without prompting. See [`archgate credential`](/reference/cli/credential/).
 
 Credentials are required to install editor plugins via `archgate init --install-plugin`. The CLI itself (check, init, etc.) works without login.
 
-Editor plugins are currently in beta. Run `archgate login` to sign up and authenticate.
+Editor plugins are currently in beta. Run `archgate login` to sign in.
 
 ## Subcommands
 
@@ -4648,7 +4740,7 @@ Editor plugins are currently in beta. Run `archgate login` to sign up and authen
 | `archgate login`         | Authenticate (skips if already logged in) |
 | `archgate login status`  | Show current authentication status        |
 | `archgate login logout`  | Remove stored credentials                 |
-| `archgate login refresh` | Re-authenticate and claim a new token     |
+| `archgate login refresh` | Sign in again, replacing stored tokens    |
 
 ## Examples
 
@@ -4659,29 +4751,13 @@ archgate login
 ```
 
 ```
-By signing up, you agree to the Archgate Terms of Service:
+By signing in, you agree to the Archgate Terms of Service:
 https://archgate.dev/terms-of-service
 
-info: Authenticating with GitHub...
-
-Open https://github.com/login/device in your browser
-and enter the code: ABCD-1234
+Opened https://auth.archgate.dev/device?user_code=HZML-HXLB in your browser.
+If it asks for a code, enter: HZML-HXLB (copied to your clipboard)
 
 Waiting for authorization...
-info: GitHub user: yourname
-info: Claiming archgate plugin token...
-
-Your GitHub account yourname is not yet registered.
-Let's sign you up now.
-
-? Email address: you@example.com
-? Which editor will you use with archgate? Claude Code
-? How do you plan to use archgate? Enforcing ADRs in our monorepo
-? I agree to be contacted by the Archgate team to provide feedback during the beta period. Yes
-
-info: Submitting signup request...
-info: Claiming archgate plugin token...
-
 info: Authenticated as yourname. Plugin access is now available.
 Run `archgate init` to set up a project with the archgate plugin.
 ```
@@ -5342,7 +5418,7 @@ Data is transmitted via reverse proxies at `n.archgate.dev` (analytics) and `s.a
 
 ### Archgate Plugins Service
 
-When you sign up via `archgate login`, the **Plugins Service** (`plugins.archgate.dev`) collects personal information: your **email address**, **GitHub username**, **editor choice**, and a **use case description**. This data is used to provision your account and send a welcome email. Authentication tokens are stored as SHA-256 hashes on our servers; on your machine, credentials are kept in your OS credential manager (never as plain-text files).
+When you sign in via `archgate login`, you authenticate with GitHub through the **Archgate platform** (`auth.archgate.dev`), which receives the profile GitHub shares with it: your **name**, **email address**, **GitHub username**, and **avatar**. This is used to identify your account and send a welcome email. The CLI itself asks you for nothing, and reads only your username, name or email from the sign-in result to label the session. On your machine, the resulting tokens are handed to your configured git credential helper; with an OS-backed helper they are kept encrypted, while git's built-in `store` helper writes them in plain text.
 
 By creating an account, you agree to the [Terms of Service](https://archgate.dev/terms-of-service). See the [full privacy policy](https://archgate.dev/privacy-policy) for complete details.
 

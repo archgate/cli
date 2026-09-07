@@ -122,3 +122,43 @@ export async function tarballOf(
     bytes.byteOffset + bytes.byteLength
   );
 }
+
+/** One request captured by {@link recordingFetch}. */
+export interface RecordedRequest {
+  url: string;
+  /** Form fields of the body, empty for a body that is not form-encoded. */
+  fields: URLSearchParams;
+  init: RequestInit | undefined;
+}
+
+/**
+ * A `globalThis.fetch` stand-in that records each call and answers with
+ * whatever `respond` returns or throws.
+ *
+ * @param requests - Receives one entry per call, in order.
+ * @param respond - Produces the response for the next call.
+ */
+export function recordingFetch(
+  requests: RecordedRequest[],
+  respond: () => Response
+): typeof globalThis.fetch {
+  const impl = async (
+    input: string | URL | Request,
+    init?: RequestInit
+  ): Promise<Response> => {
+    requests.push({
+      url: input instanceof Request ? input.url : input.toString(),
+      fields:
+        init?.body instanceof URLSearchParams
+          ? init.body
+          : new URLSearchParams(),
+      init,
+    });
+    return respond();
+  };
+  return Object.assign(impl, {
+    preconnect: () => {
+      // Present only to satisfy the fetch type; no test calls it.
+    },
+  });
+}
