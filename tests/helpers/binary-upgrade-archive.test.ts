@@ -9,8 +9,9 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
-import { readdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import * as os from "node:os";
+import { join } from "node:path";
 
 import {
   type ArtifactInfo,
@@ -123,20 +124,22 @@ function mockArchiveDownload(archive: Uint8Array): void {
   }) as unknown as typeof fetch;
 }
 
-/** Names of the extraction directories `downloadReleaseBinary` currently owns. */
-function upgradeTempDirs(): Set<string> {
-  return new Set(
-    readdirSync(tmpdir()).filter((name) => name.startsWith("archgate-upgrade-"))
-  );
-}
+/**
+ * The directory `os.tmpdir()` answers with while a test runs, so every
+ * extraction root `downloadReleaseBinary` creates lands here. The real temp
+ * directory is shared with the other test workers, whose own
+ * `archgate-upgrade-*` directories come and go mid-test; a private sandbox
+ * makes any entry left behind attributable to the call under test.
+ */
+let sandbox: string;
 
 /**
  * Names an escaping member would create beside the extraction directory, if
- * any are present. Named rather than diffed against a snapshot of `tmpdir()`,
- * whose other entries come and go while sibling test workers run.
+ * any are present. Read after the extraction directory is gone, so a
+ * successful confinement leaves the sandbox empty.
  */
 function escapedSiblings(): string[] {
-  return readdirSync(tmpdir()).filter(
+  return readdirSync(sandbox).filter(
     (name) => name === "evil" || name === "..evil"
   );
 }
@@ -147,9 +150,10 @@ function escapedSiblings(): string[] {
  * @returns The rejection message, for the caller's own assertions.
  */
 async function rejectionWithoutLeak(run: Promise<unknown>): Promise<string> {
-  const before = upgradeTempDirs();
   const message = await rejectionMessage(run);
-  const leaked = [...upgradeTempDirs()].filter((name) => !before.has(name));
+  const leaked = readdirSync(sandbox).filter((name) =>
+    name.startsWith("archgate-upgrade-")
+  );
   expect(leaked).toEqual([]);
   return message;
 }
@@ -190,12 +194,15 @@ describe("downloadReleaseBinary archive handling", () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    sandbox = mkdtempSync(join(os.tmpdir(), "archgate-upgrade-archive-"));
+    spyOn(os, "tmpdir").mockReturnValue(sandbox);
   });
 
   afterEach(() => {
     // mock.restore() does not undo a direct assignment to globalThis.fetch.
     globalThis.fetch = originalFetch;
     mock.restore();
+    rmSync(sandbox, { recursive: true, force: true });
   });
 
   // Entries listed verbatim by tar, so the message quotes them unchanged.
@@ -249,6 +256,9 @@ describe("downloadReleaseBinary archive handling", () => {
     try {
       expect(binaryPath).toEndWith("archgate");
       expect(binaryPath).toStartWith(tmpDir);
+      // The extraction root resolves through `os.tmpdir()`, so it lands in the
+      // sandbox — the property every leak assertion in this file relies on.
+      expect(tmpDir).toStartWith(sandbox);
     } finally {
       rmSync(tmpDir, { recursive: true, force: true });
     }

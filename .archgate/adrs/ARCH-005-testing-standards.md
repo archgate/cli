@@ -42,20 +42,19 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 - **DO** restore env vars with `restoreEnv(key, original)` (`tests/test-utils.ts`) for every capture.
 - **DO** close external SDK instances with `await server.close()` in hooks, not test bodies.
 - **DO** set `git config user.email`/`user.name` locally after `git init`, before any commit.
-- **DO** assert with `expect()` — `bun-test/expect-expect` fails lint otherwise; use `test.skip`/`test.todo` for placeholders.
+- **DO** assert with `expect()` — `bun-test/expect-expect` fails lint otherwise.
 - **DO** save `globalThis.fetch` before assigning a mock, restore it in `afterEach` — `mock.restore()` doesn't undo a direct assignment.
 - **DO** wrap inline `spyOn`/`mockImplementation` in `try/finally` so `mockRestore()` runs on failure, or manage spies in hooks.
 - **DO** make thresholds injectable, e.g. `resolveScopedFiles(root, globs, { fileWarnThreshold })` — inject `5`, never materialize 1000+ files (Consequences).
-- **DO** mock first-party modules and `os.homedir()` via `import * as mod` + `spyOn(mod, "fn")`, restored by `mock.restore()`.
+- **DO** mock first-party modules and `os.*` via `import * as mod` + `spyOn(mod, "fn")`, restored by `mock.restore()`.
 
 ### Don't
 
 - **DON'T** hit the network, import `node:test` (use `bun:test`), or `mock.module("node:fetch")` — it silently no-ops.
 - **DON'T** `mock.module()` a first-party module or `node:` builtin — `inquirer` is OK; never dodge via an `-impl` file split.
 - **DON'T** restore an env var with bare `Bun.env.X = original` — `undefined` becomes the string `"undefined"`, not a clear.
-- **DON'T** leave temp files or SDK instances open post-test.
 - **DON'T** rely on global git identity in a temp repo — passes locally, fails only in CI (`ShellPromise` error).
-- **DON'T** touch real state — no real user-scope paths, no unset `NODE_ENV` before Sentry init; spy or mock `os.homedir()`.
+- **DON'T** touch real state — no real user-scope paths, no unset `NODE_ENV` before Sentry init; spy `os.homedir()`, and `os.tmpdir()` onto a `mkdtemp` sandbox for code resolving its own temp root; never read the real temp dir's listing.
 - **DON'T** write assertion-less tests or skip silently (bare `return`, empty callback) — use `test.skipIf`/`skip`/`todo` with an issue.
 
 ## Implementation Pattern
@@ -226,7 +225,8 @@ describe.each([
 - **oxlint plugin** `bun-test/expect-expect` (`lint/expect-expect.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any runnable `test()`/`it()` (including `test.skipIf(...)()` and `test.each(...)()`) whose body contains no `expect()` call, while ignoring `test.skip` and `test.todo`. oxlint's built-in `jest/expect-expect` recognizes only `jest`/`vitest` imports, so it does not cover `bun:test` — this plugin fills that gap.
 - **oxlint plugin** `test-isolation/no-bare-env-restore` (`lint/no-bare-env-restore.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any `Bun.env.NAME = <identifier>` or `process.env.NAME = <identifier>` assignment whose identifier was itself captured from an env read earlier in the same file (e.g. `const originalHome = Bun.env.HOME`). Tracking the capture rather than a naming convention such as `original*` is what separates a restore from an override — both are spelled alike, so `Bun.env.HOME = tempDir` is deliberately left alone, as is computed access (`Bun.env[key]`), which is the shape of the `restoreEnv` helper itself.
 - **oxlint plugin** `test-mocking/no-shared-module-mock` (`lint/no-shared-module-mock.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any `mock.module()` whose specifier is relative and carries a `src` path segment, or begins with `node:`. Those are the two families every file in the run resolves to a single shared instance, so a stub of either corrupts files that never mention it; ordinary third-party specifiers (`inquirer`) stay allowed. A builtin stub is the subtler half: Bun patches only the keys the factory returns, leaving the rest real, so `mock.module("node:readline", () => ({ cursorTo }))` keeps `clearLine` working while `cursorTo` silently no-ops for every module loaded afterwards. Observe a builtin's effect by spying the object it writes through instead. oxlint is the right layer for this Don't: the call is syntax-detectable from its specifier, and the damage lands in files no reviewer would think to open. Each plugin file MUST declare a `meta.name` no other plugin uses; a duplicate name silently drops the later file's rules, and oxlint then rejects the config with "Rule not found in plugin".
-- All three plugins are registered via `jsPlugins` in `.oxlintrc.json` and run as part of `bun run lint` (and therefore `bun run validate` and CI).
+- **oxlint plugin** `test-timeout/no-lowered-test-timeout` (`lint/no-lowered-test-timeout.ts`): enabled for `tests/**/*.test.ts`, it fails the build for any `test()`/`it()` call (including `test.skip`, `test.skipIf(...)()`, and `test.each(...)()`) whose third argument — a bare number or an options object's `timeout` — is below the 60000ms global. It folds `const` numerics declared in the same file, so `test("x", fn, BUDGET_MS * 5)` is judged by its value; a `let` binding or a call result is left alone. The plugin hard-codes the global as `GLOBAL_TEST_TIMEOUT_MS`, and `tests/lint/no-lowered-test-timeout.test.ts` asserts it matches the `--timeout` every `test*` script in `package.json` passes.
+- Every plugin under `lint/` is registered via `jsPlugins` in `.oxlintrc.json` and runs as part of `bun run lint` (and therefore `bun run validate` and CI).
 - **CI pipeline**: every pull request runs `bun run validate:coverage`, which reaches the suite through the `test:coverage` script (`bun test --timeout 60000 --coverage`). Invoke the suite by script name (GEN-003) — a bare `bun test` applies Bun's 5-second default instead of the 60-second global and reports timeouts that the gate never sees. Test failures and per-test timeouts block merge, and all workflow jobs set `timeout-minutes` to prevent indefinite hangs.
 - **Coverage threshold**: the `Coverage Report` job enforces a 99.9% minimum line coverage; below that it fails and the `Validate Code` gate blocks the PR. The threshold is declared once as the job's `MIN_COVERAGE` env value; `.github/actions/coverage-report/action.yml` performs the comparison and returns the verdict as its `threshold-met` output. It rounds the merged figure to one decimal (`printf "%.1f"`) before comparing, so the gate admits anything from 99.85% upward.
 
