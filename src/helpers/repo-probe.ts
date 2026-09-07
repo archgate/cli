@@ -14,6 +14,7 @@ import { logDebug } from "./log";
 // `import type` is erased at compile time, so there's no runtime circularity
 // with `repo.ts` even though `repo.ts` imports the probe's runtime bindings.
 import type { RepoContext } from "./repo";
+import { fetchWithUserAgent } from "./user-agent";
 
 // Zod schemas for external API responses
 const GitHubRepoSchema = z.object({ private: z.boolean().optional() });
@@ -97,9 +98,8 @@ const PROBE_TIMEOUT_MS = 3000;
 
 async function fetchWithTimeout(url: string): Promise<Response | null> {
   try {
-    return await fetch(url, {
+    return await fetchWithUserAgent(url, {
       headers: {
-        "User-Agent": "archgate-cli",
         Accept: "application/vnd.github+json, application/json;q=0.9",
       },
       signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),

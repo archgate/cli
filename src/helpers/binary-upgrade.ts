@@ -19,6 +19,7 @@ import { z } from "zod";
 import { logDebug } from "./log";
 import { internalPath } from "./paths";
 import { isWindows } from "./platform";
+import { fetchWithUserAgent } from "./user-agent";
 import { UserError } from "./user-error";
 
 const GITHUB_REPO = "archgate/cli";
@@ -86,8 +87,7 @@ export async function fetchLatestGitHubVersion(
   timeoutMs = 15_000
 ): Promise<string | null> {
   logDebug("Fetching latest release from:", GITHUB_RELEASES_API);
-  const response = await fetch(GITHUB_RELEASES_API, {
-    headers: { "User-Agent": "archgate-cli" },
+  const response = await fetchWithUserAgent(GITHUB_RELEASES_API, {
     signal: AbortSignal.timeout(timeoutMs),
   });
 
@@ -169,8 +169,7 @@ export async function downloadReleaseBinary(
   const checksumUrl = `${baseUrl}/${artifact.name}${artifact.ext}.sha256`;
 
   logDebug("Downloading binary from:", archiveUrl);
-  const response = await fetch(archiveUrl, {
-    headers: { "User-Agent": "archgate-cli" },
+  const response = await fetchWithUserAgent(archiveUrl, {
     // 5 minutes — release binaries can exceed 100 MB, which takes a while
     // on slower connections.
     signal: AbortSignal.timeout(300_000),
@@ -229,8 +228,7 @@ export async function downloadReleaseBinary(
 
   // Verify the SHA256 checksum when the release publishes one
   try {
-    const checksumResponse = await fetch(checksumUrl, {
-      headers: { "User-Agent": "archgate-cli" },
+    const checksumResponse = await fetchWithUserAgent(checksumUrl, {
       signal: AbortSignal.timeout(15000),
     });
     if (checksumResponse.ok) {

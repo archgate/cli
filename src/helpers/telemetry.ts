@@ -20,6 +20,7 @@ import type { RepoContext } from "./repo";
 import { getRepoContext } from "./repo";
 import { captureException } from "./sentry";
 import { getInstallId, isTelemetryEnabled } from "./telemetry-config";
+import { fetchWithUserAgent } from "./user-agent";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -223,7 +224,7 @@ export async function initTelemetry(): Promise<void> {
       // printing unactionable proxy/TLS errors.
       fetch: async (url, options) => {
         try {
-          return await fetch(url, options);
+          return await fetchWithUserAgent(url, options);
         } catch (err) {
           logDebug("Telemetry fetch failed (silently ignored):", String(err));
           // Report to Sentry so we can track how often users hit TLS /
