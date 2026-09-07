@@ -1,3 +1,13 @@
+## [0.57.0](https://github.com/archgate/cli/compare/v0.56.0...v0.57.0) (2026-09-07)
+
+### Features
+
+* **doctor:** diagnose the git credential helper entry ([#603](https://github.com/archgate/cli/issues/603)) ([91d8a1d](https://github.com/archgate/cli/commit/91d8a1d5a75b4dd75e4821c2809a71b20ca0d8b5)), references [#602](https://github.com/archgate/cli/issues/602)
+
+### Bug Fixes
+
+* **credential:** read git's request through the Node stdin stream ([#604](https://github.com/archgate/cli/issues/604)) ([add40a5](https://github.com/archgate/cli/commit/add40a51e8c04dbc2ae9b28f9676f991e9dfc807))
+
 ## [0.56.0](https://github.com/archgate/cli/compare/v0.55.0...v0.56.0) (2026-09-07)
 
 ### ⚠ BREAKING CHANGES
