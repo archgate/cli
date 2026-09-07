@@ -60,3 +60,4 @@ Exceptions: minor follow-up tweaks after validation already passed, and non-code
 - [Rules engine follow-up](project_rules_engine_internals.md) — the one pending perf item no rule tracks
 - [Parallel agents share one git index](feedback_parallel_agents_shared_worktree.md) — a stray stash/rebase from any one agent wipes every other agent's uncommitted work
 - [Validate from a fresh clone before pushing](feedback_validate_from_fresh_clone.md) — a long-lived working dir masks generated-file ordering bugs CI will hit immediately
+- [No concurrent load probes](feedback_no_concurrent_load_probes.md) — a CLI-spawning probe beside a full-suite run fails unrelated integration tests; idle CLI latency baselines

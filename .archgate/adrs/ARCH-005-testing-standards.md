@@ -42,20 +42,19 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 - **DO** restore env vars with `restoreEnv(key, original)` (`tests/test-utils.ts`) for every capture.
 - **DO** close external SDK instances with `await server.close()` in hooks, not test bodies.
 - **DO** set `git config user.email`/`user.name` locally after `git init`, before any commit.
-- **DO** assert with `expect()` — `bun-test/expect-expect` fails lint otherwise; use `test.skip`/`test.todo` for placeholders.
+- **DO** assert with `expect()` — `bun-test/expect-expect` fails lint otherwise.
 - **DO** save `globalThis.fetch` before assigning a mock, restore it in `afterEach` — `mock.restore()` doesn't undo a direct assignment.
 - **DO** wrap inline `spyOn`/`mockImplementation` in `try/finally` so `mockRestore()` runs on failure, or manage spies in hooks.
 - **DO** make thresholds injectable, e.g. `resolveScopedFiles(root, globs, { fileWarnThreshold })` — inject `5`, never materialize 1000+ files (Consequences).
-- **DO** mock first-party modules and `os.homedir()` via `import * as mod` + `spyOn(mod, "fn")`, restored by `mock.restore()`.
+- **DO** mock first-party modules and `os.*` via `import * as mod` + `spyOn(mod, "fn")`, restored by `mock.restore()`.
 
 ### Don't
 
 - **DON'T** hit the network, import `node:test` (use `bun:test`), or `mock.module("node:fetch")` — it silently no-ops.
 - **DON'T** `mock.module()` a first-party module or `node:` builtin — `inquirer` is OK; never dodge via an `-impl` file split.
 - **DON'T** restore an env var with bare `Bun.env.X = original` — `undefined` becomes the string `"undefined"`, not a clear.
-- **DON'T** leave temp files or SDK instances open post-test.
 - **DON'T** rely on global git identity in a temp repo — passes locally, fails only in CI (`ShellPromise` error).
-- **DON'T** touch real state — no real user-scope paths, no unset `NODE_ENV` before Sentry init; spy or mock `os.homedir()`.
+- **DON'T** touch real state — no real user-scope paths, no unset `NODE_ENV` before Sentry init; spy `os.homedir()`, and `os.tmpdir()` onto a `mkdtemp` sandbox for code resolving its own temp root; never read the real temp dir's listing.
 - **DON'T** write assertion-less tests or skip silently (bare `return`, empty callback) — use `test.skipIf`/`skip`/`todo` with an issue.
 
 ## Implementation Pattern
