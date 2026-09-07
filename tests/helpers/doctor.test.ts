@@ -30,7 +30,7 @@ describe("doctor", () => {
         "boolean"
       );
       expect(typeof report.archgate.credential_helper.current).toBe("boolean");
-      expect(typeof report.archgate.credential_helper.resets_inherited).toBe(
+      expect(typeof report.archgate.credential_helper.exclusive).toBe(
         "boolean"
       );
 

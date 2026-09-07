@@ -41,10 +41,10 @@ function helperStatus(archgate: DoctorReport["archgate"]): {
       hint: "It names another archgate binary. Run `archgate login` to re-register it.",
     };
   }
-  if (!helper.resets_inherited) {
+  if (!helper.exclusive) {
     return {
       label: styleText("yellow", "SHARED"),
-      hint: "Another helper may answer first. Run `archgate login` to re-register it.",
+      hint: "Another helper answers first. Run `archgate login` to re-register it.",
     };
   }
   if (session !== "platform") {

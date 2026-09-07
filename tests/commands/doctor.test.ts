@@ -38,11 +38,7 @@ const MOCK_REPORT: DoctorReport = {
     telemetry_enabled: false,
     logged_in: true,
     session: "platform",
-    credential_helper: {
-      registered: true,
-      current: true,
-      resets_inherited: true,
-    },
+    credential_helper: { registered: true, current: true, exclusive: true },
   },
   project: {
     has_project: true,
@@ -209,49 +205,49 @@ describe("doctor action handler", () => {
     [
       "healthy",
       "platform",
-      { registered: true, current: true, resets_inherited: true },
+      { registered: true, current: true, exclusive: true },
       "OK",
       null,
     ],
     [
       "missing with a platform session",
       "platform",
-      { registered: false, current: false, resets_inherited: false },
+      { registered: false, current: false, exclusive: false },
       "MISSING",
       "Run `archgate login` to register it.",
     ],
     [
       "missing with a legacy token",
       "legacy",
-      { registered: false, current: false, resets_inherited: false },
+      { registered: false, current: false, exclusive: false },
       "not registered",
       "Run `archgate login refresh`",
     ],
     [
       "missing while signed out",
       "none",
-      { registered: false, current: false, resets_inherited: false },
+      { registered: false, current: false, exclusive: false },
       "not registered",
       null,
     ],
     [
       "naming another binary",
       "platform",
-      { registered: true, current: false, resets_inherited: true },
+      { registered: true, current: false, exclusive: true },
       "STALE",
       "another archgate binary",
     ],
     [
-      "without a reset entry",
+      "behind another helper",
       "platform",
-      { registered: true, current: true, resets_inherited: false },
+      { registered: true, current: true, exclusive: false },
       "SHARED",
-      "Another helper may answer first",
+      "Another helper answers first",
     ],
     [
       "registered with nothing to serve",
       "none",
-      { registered: true, current: true, resets_inherited: true },
+      { registered: true, current: true, exclusive: true },
       "NO SESSION",
       "nothing to serve",
     ],
@@ -280,7 +276,10 @@ describe("doctor action handler", () => {
           .map((c: unknown[]) => String(c[0]))
           .join("\n");
         expect(output).toContain(`Session:      ${session}`);
-        expect(output).toContain(expectedLabel);
+        const helperLine = output
+          .split("\n")
+          .find((line) => line.includes("Git helper:"));
+        expect(helperLine).toContain(expectedLabel);
         if (expectedHint === null) {
           expect(output).not.toContain("Run `archgate login");
         } else {
