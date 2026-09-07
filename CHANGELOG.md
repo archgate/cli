@@ -1,3 +1,9 @@
+## [0.58.0](https://github.com/archgate/cli/compare/v0.57.0...v0.58.0) (2026-09-07)
+
+### Features
+
+* **http:** send a versioned User-Agent on every outbound request ([#608](https://github.com/archgate/cli/issues/608)) ([2638198](https://github.com/archgate/cli/commit/26381987d4e2a61469016e911c0bddbee6b0a81a))
+
 ## [0.57.0](https://github.com/archgate/cli/compare/v0.56.0...v0.57.0) (2026-09-07)
 
 ### Features
