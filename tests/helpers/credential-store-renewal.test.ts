@@ -248,7 +248,7 @@ describe("clearCredentials with an unresponsive helper", () => {
     } finally {
       spawnSpy.mockRestore();
     }
-  }, 20_000);
+  });
 });
 
 // Git runs the helper many times per operation, so processes can race to

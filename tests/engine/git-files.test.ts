@@ -80,7 +80,7 @@ describe("git-files", () => {
       const files = await getChangedFiles(tempDir);
       expect(files).toContain("a.ts");
       expect(files).toContain("b.ts");
-    }, 15_000);
+    });
   });
 
   describe("detectBaseRef", () => {
@@ -173,7 +173,7 @@ describe("git-files", () => {
       test("falls back to detectBaseRef and returns detected branch", async () => {
         const ref = await resolveBaseRef(tempDir, {});
         expect(ref).toBe("main");
-      }, 15_000);
+      });
 
       test("lazy-saves detected base branch to config.json", async () => {
         // No configBase — triggers detectBaseRef + lazy-save
@@ -185,7 +185,7 @@ describe("git-files", () => {
           JSON.parse(await Bun.file(configPath).text())
         );
         expect(config.baseBranch).toBe("main");
-      }, 15_000);
+      });
 
       test("does not overwrite existing baseBranch on lazy-save", async () => {
         mkdirSync(join(tempDir, ".archgate"), { recursive: true });
@@ -203,7 +203,7 @@ describe("git-files", () => {
           )
         );
         expect(config.baseBranch).toBe("develop");
-      }, 15_000);
+      });
     });
   });
 
@@ -231,7 +231,7 @@ describe("git-files", () => {
         const files = await getFilesChangedSinceRef(tempDir, "main");
         expect(files).toContain("new-file.ts");
         expect(files).not.toContain("base.ts");
-      }, 15_000);
+      });
 
       test("returns empty when on the base branch with no new commits", async () => {
         const files = await getFilesChangedSinceRef(tempDir, "main");
@@ -251,7 +251,7 @@ describe("git-files", () => {
         const files = await getFilesChangedSinceRef(tempDir, "main");
         expect(files).toContain("committed.ts");
         expect(files).toContain("base.ts");
-      }, 15_000);
+      });
 
       test("includes staged-but-uncommitted files", async () => {
         await git(["checkout", "-b", "feature"], tempDir);
@@ -259,7 +259,7 @@ describe("git-files", () => {
         await git(["add", "staged.ts"], tempDir);
         const files = await getFilesChangedSinceRef(tempDir, "main");
         expect(files).toContain("staged.ts");
-      }, 15_000);
+      });
 
       test("includes untracked files but not gitignored ones", async () => {
         // Committed separately from the base.ts hook commit — .gitignore
@@ -276,7 +276,7 @@ describe("git-files", () => {
         const files = await getFilesChangedSinceRef(tempDir, "main");
         expect(files).toContain("untracked.ts");
         expect(files).not.toContain("dist/out.js");
-      }, 15_000);
+      });
 
       test("returns multiple changed files sorted", async () => {
         await git(["checkout", "-b", "feature"], tempDir);
@@ -286,7 +286,7 @@ describe("git-files", () => {
         await git(["commit", "-m", "add files"], tempDir);
         const files = await getFilesChangedSinceRef(tempDir, "main");
         expect(files).toEqual(["a-file.ts", "z-file.ts"]);
-      }, 15_000);
+      });
     });
   });
 

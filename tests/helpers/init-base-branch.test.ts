@@ -38,7 +38,7 @@ describe("initProject — baseBranch auto-detection", () => {
     expect(existsSync(configPath)).toBe(true);
     const config = loadProjectConfig(tempDir);
     expect(config.baseBranch).toBe("main");
-  }, 15_000);
+  });
 
   test("does not overwrite existing baseBranch on re-init", async () => {
     await initGitRepoWithCommit(tempDir);
@@ -54,7 +54,7 @@ describe("initProject — baseBranch auto-detection", () => {
 
     const updatedConfig = loadProjectConfig(tempDir);
     expect(updatedConfig.baseBranch).toBe("develop");
-  }, 15_000);
+  });
 
   test("does not save baseBranch when not in a git repo", async () => {
     await initProject(tempDir);

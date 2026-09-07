@@ -222,7 +222,7 @@ describe("openBrowser", () => {
 
     expect(await openBrowser("https://auth.archgate.dev/device")).toBe(false);
     expect(killed).toBe(true);
-  }, 20_000);
+  });
 
   test("returns false when spawning throws", async () => {
     // The default stub from beforeEach already throws.

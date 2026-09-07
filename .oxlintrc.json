@@ -3,6 +3,7 @@
     "./lint/expect-expect.ts",
     "./lint/no-bare-env-restore.ts",
     "./lint/no-shared-module-mock.ts",
+    "./lint/no-lowered-test-timeout.ts",
     "./.archgate/lint/oxlint.ts"
   ],
   "options": { "typeAware": true },
@@ -123,7 +124,8 @@
       "rules": {
         "bun-test/expect-expect": "error",
         "test-mocking/no-shared-module-mock": "error",
-        "test-isolation/no-bare-env-restore": "error"
+        "test-isolation/no-bare-env-restore": "error",
+        "test-timeout/no-lowered-test-timeout": "error"
       }
     },
     {
