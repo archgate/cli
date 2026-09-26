@@ -176,9 +176,9 @@ jobs:
       # --- RubyGem ---
       - name: Setup Ruby
         if: matrix.shim == 'rubygem'
-        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        uses: ruby/setup-ruby@a0102e0972be65f351c307e2d64b9314a57c8073 # v1.324.0
         with:
-          ruby-version: "4.0.6"
+          ruby-version: "4.0.7"
       - name: Test RubyGem shim
         if: matrix.shim == 'rubygem'
         working-directory: shims/rubygem
@@ -257,7 +257,7 @@ jobs:
         # `permissions:` above, so SARIF upload would fail — fall back to
         # console-only output and don't let that (or the pre-existing
         # findings backlog) fail the gate for external contributors.
-        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054 # v0.6.2
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
         with:
           config: zizmor.yml
@@ -326,7 +326,7 @@ jobs:
         # contributors.
         if: success() || failure()
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
-        uses: github/codeql-action/upload-sarif@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4.37.8
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd # v4.38.1
         with:
           sarif_file: ${{ runner.temp }}/archgate.sarif
           # Distinct category keeps these results from overwriting the other
