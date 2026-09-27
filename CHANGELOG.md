@@ -1,3 +1,9 @@
+## [0.58.1](https://github.com/archgate/cli/compare/v0.58.0...v0.58.1) (2026-09-27)
+
+### Bug Fixes
+
+* **deps:** update dependency @astrojs/starlight to ^0.42.0 ([#616](https://github.com/archgate/cli/issues/616)) ([2adffae](https://github.com/archgate/cli/commit/2adffaeed418b626bafa63a6c39e52ba0a0eac41)), references [#8203](https://github.com/archgate/cli/issues/8203)
+
 ## [0.58.0](https://github.com/archgate/cli/compare/v0.57.0...v0.58.0) (2026-09-07)
 
 ### Features
