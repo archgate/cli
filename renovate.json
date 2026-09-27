@@ -7,6 +7,11 @@
       "matchManagers": ["maven"],
       "matchPackageNames": ["org.junit.jupiter:junit-jupiter"],
       "allowedVersions": "<6"
+    },
+    {
+      "description": "oxlint-tsgolint 7.0.2003 anchors no-unsafe-type-assertion on the `as` keyword, so `oxlint-disable-next-line` above a multi-line assertion no longer suppresses it (59 sites). Skip that release; later ones are still proposed.",
+      "matchPackageNames": ["oxlint-tsgolint"],
+      "allowedVersions": "!/^7\\.0\\.2003$/"
     }
   ]
 }
