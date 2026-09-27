@@ -81,7 +81,7 @@
     "meriyah": "7.3.3",
     "oxfmt": "0.70.0",
     "oxlint": "1.85.0",
-    "oxlint-tsgolint": "7.0.2003",
+    "oxlint-tsgolint": "7.0.2001",
     "posthog-node": "5.53.0",
     "typescript": "7.0.2",
     "zod": "4.6.5"
