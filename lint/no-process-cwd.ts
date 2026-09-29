@@ -19,13 +19,19 @@ function isAstNode(value: unknown): value is AstNode {
   );
 }
 
-/** The identifier name of a non-computed member property. */
+/**
+ * The statically known name of a member property: an identifier
+ * (`process.cwd`) or a string literal in brackets (`process["cwd"]`).
+ */
 function staticPropertyName(node: AstNode): string | undefined {
-  if (node.computed === true) return undefined;
   const property = node.property;
-  return isAstNode(property) &&
-    property.type === "Identifier" &&
-    typeof property.name === "string"
+  if (!isAstNode(property)) return undefined;
+  if (node.computed === true) {
+    return property.type === "Literal" && typeof property.value === "string"
+      ? property.value
+      : undefined;
+  }
+  return property.type === "Identifier" && typeof property.name === "string"
     ? property.name
     : undefined;
 }

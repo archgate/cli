@@ -86,10 +86,8 @@ export async function getRepoContext(): Promise<RepoContext> {
   if (cached) return cached;
 
   const cwd = tryCurrentDir();
-  if (cwd === null) {
-    cached = emptyContext(false);
-    return cached;
-  }
+  // Not cached: a later call from an existing directory can still resolve.
+  if (cwd === null) return emptyContext(false);
 
   // Fire all four git probes concurrently. On Windows each subprocess costs
   // ~25ms, so running them in parallel instead of gating on

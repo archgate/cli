@@ -305,6 +305,9 @@ describe("repo helper", () => {
         _resetRepoContextCache();
 
         expect(await getRepoContext()).toEqual(EMPTY_CONTEXT);
+        cwdSpy.mockRestore();
+        // The failed lookup is not cached, so an existing cwd resolves again.
+        expect((await getRepoContext()).isGit).toBe(true);
       } finally {
         cwdSpy.mockRestore();
         _resetRepoContextCache();

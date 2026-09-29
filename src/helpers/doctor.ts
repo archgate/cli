@@ -78,8 +78,7 @@ interface IntegrationInfo {
   copilotSettings: boolean;
 }
 
-function detectIntegrations(): IntegrationInfo {
-  const cwd = tryCurrentDir();
+function detectIntegrations(cwd: string | null): IntegrationInfo {
   if (cwd === null) {
     return {
       claudePlugin: false,
@@ -124,7 +123,8 @@ function sessionKind(
 export async function runDoctor(): Promise<DoctorReport> {
   const platform = getPlatformInfo();
   const projectCtx = getProjectContext();
-  const integrations = detectIntegrations();
+  const cwd = tryCurrentDir();
+  const integrations = detectIntegrations(cwd);
   const configDir = internalPath();
 
   const [editors, gitCmd, credentials, session, credentialHelper] =
@@ -140,7 +140,8 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   // Cursor plugin is embedded in the VSIX — no project file to detect.
   // Use cursor CLI availability as a proxy (prerequisite for install).
-  integrations.cursorPlugin = editorMap.cursor;
+  // Without a working directory no integration is checked, Cursor included.
+  integrations.cursorPlugin = cwd !== null && editorMap.cursor;
 
   return {
     system: {

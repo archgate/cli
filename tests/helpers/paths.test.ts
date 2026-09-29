@@ -193,6 +193,36 @@ describe("currentDir", () => {
     }
   });
 
+  test("a relative project ceiling surfaces the UserError, not ENOENT", () => {
+    const saved = Bun.env.ARCHGATE_PROJECT_CEILING;
+    Bun.env.ARCHGATE_PROJECT_CEILING = "relative-ceiling";
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw deletedCwdError();
+    });
+    try {
+      expect(() => findProjectRoot(tmpdir())).toThrow(UserError);
+    } finally {
+      cwdSpy.mockRestore();
+      restoreEnv("ARCHGATE_PROJECT_CEILING", saved);
+    }
+  });
+
+  test("an explicit start dir and absolute ceiling need no working directory", () => {
+    const saved = Bun.env.ARCHGATE_PROJECT_CEILING;
+    const root = mkdtempSync(join(tmpdir(), "archgate-paths-test-"));
+    Bun.env.ARCHGATE_PROJECT_CEILING = root;
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw deletedCwdError();
+    });
+    try {
+      expect(findProjectRoot(root)).toBeNull();
+    } finally {
+      cwdSpy.mockRestore();
+      restoreEnv("ARCHGATE_PROJECT_CEILING", saved);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("findProjectRoot and requireProjectRoot surface the UserError", () => {
     const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
       throw deletedCwdError();

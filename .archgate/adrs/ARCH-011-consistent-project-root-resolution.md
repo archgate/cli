@@ -29,7 +29,7 @@ All commands that operate on `.archgate/` project resources MUST use `findProjec
 
 **Exceptions:**
 
-- `archgate init` — Creates the `.archgate/` directory; uses `process.cwd()` because no project root exists yet
+- `archgate init` — Creates the `.archgate/` directory; uses `currentDir()` because no project root exists yet
 - `archgate upgrade` — Operates on the binary, not on a project; its `findPackageRoot()` walks up from the binary path to find `package.json` for local install detection (a different concern than project root)
 - Commands that don't require a project (e.g., `clean`, `login`) are not affected
 

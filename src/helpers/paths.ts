@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname, isAbsolute, resolve } from "node:path";
 
 import { logDebug } from "./log";
 import { UserError } from "./user-error";
@@ -264,10 +264,16 @@ export function createPathIfNotExists(path: string) {
 const MAX_ANCESTOR_DEPTH = 1000;
 
 export function findProjectRoot(startDir?: string): string | null {
-  const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
-  const ceiling =
-    ceilingEnv !== undefined && ceilingEnv !== "" ? resolve(ceilingEnv) : null;
   let dir = startDir ?? currentDir();
+  const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
+  let ceiling: string | null = null;
+  if (ceilingEnv !== undefined && ceilingEnv !== "") {
+    // A relative ceiling resolves against cwd; go through currentDir() so a
+    // deleted cwd still surfaces as a UserError, not a raw ENOENT.
+    ceiling = isAbsolute(ceilingEnv)
+      ? resolve(ceilingEnv)
+      : resolve(currentDir(), ceilingEnv);
+  }
 
   for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
     const adrsDir = join(dir, ".archgate", "adrs");

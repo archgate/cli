@@ -52,6 +52,7 @@ describe("no-process-cwd", () => {
     ["a direct call", "const dir = process.cwd();"],
     ["a fallback", "const dir = root ?? process.cwd();"],
     ["a bare reference", "const getDir = process.cwd;"],
+    ["a string-literal computed property", 'const dir = process["cwd"]();'],
   ])("reports %s", (_label, source) => {
     const messages = lint(source);
     expect(messages).toHaveLength(1);
@@ -63,7 +64,11 @@ describe("no-process-cwd", () => {
     ["the non-throwing helper", "const dir = tryCurrentDir();"],
     ["another process member", "const argv = process.argv;"],
     ["cwd off another object", "const dir = proc.cwd();"],
-    ["a computed property", 'const dir = process["cwd"]();'],
+    ["a dynamic computed property", "const dir = process[key]();"],
+    [
+      "a private member named cwd",
+      "class C { #cwd = 1; get(o) { return o.#cwd; } }",
+    ],
   ])("permits %s", (_label, source) => {
     expect(lint(source)).toEqual([]);
   });
