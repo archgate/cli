@@ -4,7 +4,7 @@ import { Database } from "bun:sqlite";
 import { existsSync } from "node:fs";
 
 import { logDebug } from "./log";
-import { opencodeDbPath } from "./paths";
+import { currentDir, opencodeDbPath } from "./paths";
 import {
   RELEVANT_ROLES,
   type ReadSessionOptions,
@@ -69,7 +69,7 @@ export function listOpencodeSessions(
   projectRoot: string | null
 ): SessionListResult {
   const dbPath = opencodeDbPath();
-  const normalizedProjectRoot = normalizePath(projectRoot ?? process.cwd());
+  const normalizedProjectRoot = normalizePath(projectRoot ?? currentDir());
 
   if (!existsSync(dbPath)) {
     return { ok: false, error: "No opencode database found", path: dbPath };
@@ -128,7 +128,7 @@ export function readOpencodeSession(
 ): OpencodeSessionResult {
   const limit = options?.maxEntries ?? 200;
   const dbPath = opencodeDbPath();
-  const normalizedProjectRoot = normalizePath(projectRoot ?? process.cwd());
+  const normalizedProjectRoot = normalizePath(projectRoot ?? currentDir());
 
   if (!existsSync(dbPath)) {
     return { ok: false, error: "No opencode database found", path: dbPath };

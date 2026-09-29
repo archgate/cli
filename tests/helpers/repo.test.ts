@@ -294,6 +294,26 @@ describe("repo helper", () => {
       }
     });
 
+    test("returns an empty context when the working directory was deleted", async () => {
+      const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+        throw Object.assign(new Error("ENOENT: process.cwd failed"), {
+          code: "ENOENT",
+          syscall: "uv_cwd",
+        });
+      });
+      try {
+        _resetRepoContextCache();
+
+        expect(await getRepoContext()).toEqual(EMPTY_CONTEXT);
+        cwdSpy.mockRestore();
+        // The failed lookup is not cached, so an existing cwd resolves again.
+        expect((await getRepoContext()).isGit).toBe(true);
+      } finally {
+        cwdSpy.mockRestore();
+        _resetRepoContextCache();
+      }
+    });
+
     test("populates host/repoId when the CWD is a git repo with a remote", async () => {
       // Using the CLI's own repo — it has a github.com/archgate/cli remote.
       _resetRepoContextCache();

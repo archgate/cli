@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { readTextIfExists } from "./fs-read";
 import type { EditorTarget } from "./init-project";
+import { currentDir } from "./paths";
 import { isWindows, isWSL, toWindowsPath } from "./platform";
 
 /**
@@ -199,7 +200,7 @@ interface ReadCursorSessionOptions extends ReadSessionOptions {
 }
 
 async function claudeProjectsDir(projectRoot: string | null): Promise<string> {
-  const encodedPath = await encodeProjectPath(projectRoot ?? process.cwd());
+  const encodedPath = await encodeProjectPath(projectRoot ?? currentDir());
   return join(homedir(), ".claude", "projects", encodedPath);
 }
 
@@ -332,7 +333,7 @@ async function cursorTranscriptsDir(
   projectRoot: string | null
 ): Promise<string> {
   const encodedPath = await encodeProjectPath(
-    projectRoot ?? process.cwd(),
+    projectRoot ?? currentDir(),
     "cursor"
   );
   return join(

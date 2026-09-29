@@ -2,7 +2,7 @@
 // Copyright 2026 Archgate
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname, isAbsolute, resolve } from "node:path";
 
 import { logDebug } from "./log";
 import { UserError } from "./user-error";
@@ -22,6 +22,54 @@ function userHomeDir(): string {
     return fromEnv;
   }
   return homedir();
+}
+
+/**
+ * True when `process.cwd()` failed because the working directory was deleted
+ * out from under the process (libuv reports `ENOENT` from `uv_cwd`).
+ */
+function isDeletedCwdError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    "code" in err &&
+    err.code === "ENOENT" &&
+    (!("syscall" in err) || err.syscall === "uv_cwd")
+  );
+}
+
+/**
+ * Resolve the current working directory. Prefer it over `process.cwd()`,
+ * which throws a raw `ENOENT` when the launch directory has been deleted — a
+ * caller environment problem, not a CLI bug.
+ *
+ * @throws {UserError} When the working directory has been deleted, so the
+ * ARCH-012 boundary exits 1 without reporting it to Sentry.
+ */
+export function currentDir(): string {
+  try {
+    return process.cwd();
+  } catch (err) {
+    if (isDeletedCwdError(err)) {
+      throw new UserError(
+        "The current working directory no longer exists.",
+        "Change to an existing directory and run the command again."
+      );
+    }
+    throw err;
+  }
+}
+
+/**
+ * Like {@link currentDir}, but returns `null` instead of throwing. For
+ * telemetry and diagnostics, which must never fail the command that invoked
+ * them.
+ */
+export function tryCurrentDir(): string | null {
+  try {
+    return process.cwd();
+  } catch {
+    return null;
+  }
 }
 
 export function internalPath(...path: string[]) {
@@ -216,10 +264,16 @@ export function createPathIfNotExists(path: string) {
 const MAX_ANCESTOR_DEPTH = 1000;
 
 export function findProjectRoot(startDir?: string): string | null {
+  let dir = startDir ?? currentDir();
   const ceilingEnv = Bun.env.ARCHGATE_PROJECT_CEILING;
-  const ceiling =
-    ceilingEnv !== undefined && ceilingEnv !== "" ? resolve(ceilingEnv) : null;
-  let dir = startDir ?? process.cwd();
+  let ceiling: string | null = null;
+  if (ceilingEnv !== undefined && ceilingEnv !== "") {
+    // A relative ceiling resolves against cwd; go through currentDir() so a
+    // deleted cwd still surfaces as a UserError, not a raw ENOENT.
+    ceiling = isAbsolute(ceilingEnv)
+      ? resolve(ceilingEnv)
+      : resolve(currentDir(), ceilingEnv);
+  }
 
   for (let i = 0; i < MAX_ANCESTOR_DEPTH; i++) {
     const adrsDir = join(dir, ".archgate", "adrs");

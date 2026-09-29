@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { readTextIfExists } from "./fs-read";
 import { logDebug } from "./log";
-import { copilotSessionStateDir } from "./paths";
+import { copilotSessionStateDir, currentDir } from "./paths";
 import {
   MessageContentSchema,
   type ReadSessionOptions,
@@ -65,7 +65,7 @@ async function findMatchingCopilotSessions(
   projectRoot: string | null
 ): Promise<CopilotMatchResult> {
   const stateDir = copilotSessionStateDir();
-  const normalizedProjectRoot = normalizePath(projectRoot ?? process.cwd());
+  const normalizedProjectRoot = normalizePath(projectRoot ?? currentDir());
 
   // 1. List all session UUID directories
   let allDirs: Array<{ name: string; mtime: number }>;

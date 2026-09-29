@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -247,6 +247,25 @@ describe("install-info", () => {
       const first = getProjectContext();
       const second = getProjectContext();
       expect(first).toEqual(second);
+    });
+
+    test("reports no project when the working directory was deleted", () => {
+      const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+        throw Object.assign(new Error("ENOENT: process.cwd failed"), {
+          code: "ENOENT",
+          syscall: "uv_cwd",
+        });
+      });
+      try {
+        expect(getProjectContext()).toEqual({
+          hasProject: false,
+          adrCount: 0,
+          adrWithRulesCount: 0,
+          domains: [],
+        });
+      } finally {
+        cwdSpy.mockRestore();
+      }
     });
 
     test("domains are sorted alphabetically", () => {

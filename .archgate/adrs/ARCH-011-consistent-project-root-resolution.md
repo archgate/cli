@@ -29,7 +29,7 @@ All commands that operate on `.archgate/` project resources MUST use `findProjec
 
 **Exceptions:**
 
-- `archgate init` — Creates the `.archgate/` directory; uses `process.cwd()` because no project root exists yet
+- `archgate init` — Creates the `.archgate/` directory; uses `currentDir()` because no project root exists yet
 - `archgate upgrade` — Operates on the binary, not on a project; its `findPackageRoot()` walks up from the binary path to find `package.json` for local install detection (a different concern than project root)
 - Commands that don't require a project (e.g., `clean`, `login`) are not affected
 
@@ -41,10 +41,11 @@ All commands that operate on `.archgate/` project resources MUST use `findProjec
 - **Commands that REQUIRE a project MUST use `requireProjectRoot()`** from `src/helpers/paths.ts` — it throws a `UserError` with the message "No .archgate/ directory found. Run `archgate init` first.", which the command's ARCH-012 error boundary turns into exit 1 with no Sentry capture. Commands that can operate without a project (e.g. `session-context` with its cwd fallback) keep `findProjectRoot()` and handle `null` themselves
 - Check the return value for `null` and exit with a helpful error message (only when using `findProjectRoot()` directly)
 - Pass the resolved `projectRoot` to `projectPaths()` for derived paths
+- When the working directory itself is needed (`init`, a `findProjectRoot() ?? cwd` fallback), use `currentDir()` from `src/helpers/paths.ts` — it turns the `ENOENT` that `process.cwd()` throws in a deleted directory into a `UserError` (exit 1, no Sentry). Telemetry and diagnostics use `tryCurrentDir()`, which returns `null` instead of throwing
 
 ### Don't
 
-- Don't use `process.cwd()` to locate `.archgate/` in command files (except `init`)
+- Don't call `process.cwd()` anywhere in `src/` outside `src/helpers/paths.ts`
 - Don't define local `findProjectRoot()` variants — use the shared implementation
 - Don't hand-roll the `if (!projectRoot) { logError(...); await exitWith(1); return; }` guard in commands that require a project — `requireProjectRoot()` is the single implementation of it
 - Don't assume the user is running from the project root
@@ -65,6 +66,7 @@ All commands that operate on `.archgate/` project resources MUST use `findProjec
 ### Automated Enforcement
 
 - **Archgate rule** `ARCH-011/no-process-cwd-for-project-root`: Scans command files for `process.cwd()` usage and flags violations. The `init` command is exempt. Severity: `error`.
+- **Oxlint rule** `cwd/no-process-cwd` (`lint/no-process-cwd.ts`): Flags any `process.cwd` reference in `src/` outside `src/helpers/paths.ts`. Severity: `error`.
 
 ### Manual Enforcement
 

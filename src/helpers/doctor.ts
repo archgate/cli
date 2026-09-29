@@ -16,7 +16,7 @@ import { detectEditors } from "./editor-detect";
 import type { CredentialHelperStatus } from "./git-credential-config";
 import { inspectGitCredentialHelper } from "./git-credential-config";
 import { detectInstallMethod, getProjectContext } from "./install-info";
-import { internalPath } from "./paths";
+import { internalPath, tryCurrentDir } from "./paths";
 import { getPlatformInfo, resolveCommand } from "./platform";
 import { isTelemetryEnabled } from "./telemetry-config";
 
@@ -78,8 +78,15 @@ interface IntegrationInfo {
   copilotSettings: boolean;
 }
 
-function detectIntegrations(): IntegrationInfo {
-  const cwd = process.cwd();
+function detectIntegrations(cwd: string | null): IntegrationInfo {
+  if (cwd === null) {
+    return {
+      claudePlugin: false,
+      cursorPlugin: false,
+      vscodeSettings: false,
+      copilotSettings: false,
+    };
+  }
   return {
     claudePlugin: existsSync(join(cwd, ".claude", "settings.local.json")),
     // The Cursor plugin is embedded inside the archgate VS Code extension
@@ -116,7 +123,8 @@ function sessionKind(
 export async function runDoctor(): Promise<DoctorReport> {
   const platform = getPlatformInfo();
   const projectCtx = getProjectContext();
-  const integrations = detectIntegrations();
+  const cwd = tryCurrentDir();
+  const integrations = detectIntegrations(cwd);
   const configDir = internalPath();
 
   const [editors, gitCmd, credentials, session, credentialHelper] =
@@ -132,7 +140,8 @@ export async function runDoctor(): Promise<DoctorReport> {
 
   // Cursor plugin is embedded in the VSIX — no project file to detect.
   // Use cursor CLI availability as a proxy (prerequisite for install).
-  integrations.cursorPlugin = editorMap.cursor;
+  // Without a working directory no integration is checked, Cursor included.
+  integrations.cursorPlugin = cwd !== null && editorMap.cursor;
 
   return {
     system: {
