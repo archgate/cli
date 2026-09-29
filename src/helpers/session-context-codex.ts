@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { readIfExists } from "./fs-read";
 import { logDebug } from "./log";
-import { codexSessionsDir } from "./paths";
+import { codexSessionsDir, currentDir } from "./paths";
 import {
   type ReadSessionOptions,
   type SessionListEntry,
@@ -294,7 +294,7 @@ async function findCodexRollouts(
   const sessionsDir = codexSessionsDir();
   if (!existsSync(sessionsDir)) return null;
 
-  const target = normalizePath(projectRoot ?? process.cwd());
+  const target = normalizePath(projectRoot ?? currentDir());
   const files = enumerateRolloutFiles(sessionsDir);
 
   const inspected = await mapBounded(

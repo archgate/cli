@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { readIfExists, readTextIfExists } from "./fs-read";
 import { logDebug } from "./log";
-import { piSessionsDir } from "./paths";
+import { currentDir, piSessionsDir } from "./paths";
 import {
   MessageContentSchema,
   type ReadSessionOptions,
@@ -135,7 +135,7 @@ async function findPiSessions(
   const sessionsDir = piSessionsDir();
   if (!existsSync(sessionsDir)) return null;
 
-  const root = projectRoot ?? process.cwd();
+  const root = projectRoot ?? currentDir();
   const target = normalizePath(root);
   const shard = join(sessionsDir, encodePiProjectDir(root));
   const searchDirs = existsSync(shard)

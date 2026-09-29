@@ -11,6 +11,7 @@
 import { createHash } from "node:crypto";
 
 import { logDebug } from "./log";
+import { tryCurrentDir } from "./paths";
 import { _resetPublicProbeCache, isPublicRepo } from "./repo-probe";
 
 // Re-export the public-visibility probe so commands / telemetry can import
@@ -84,7 +85,11 @@ let cached: RepoContext | null = null;
 export async function getRepoContext(): Promise<RepoContext> {
   if (cached) return cached;
 
-  const cwd = process.cwd();
+  const cwd = tryCurrentDir();
+  if (cwd === null) {
+    cached = emptyContext(false);
+    return cached;
+  }
 
   // Fire all four git probes concurrently. On Windows each subprocess costs
   // ~25ms, so running them in parallel instead of gating on

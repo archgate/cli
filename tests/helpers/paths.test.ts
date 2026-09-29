@@ -6,7 +6,14 @@ import * as os from "node:os";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { findProjectRoot, internalPath } from "../../src/helpers/paths";
+import {
+  currentDir,
+  findProjectRoot,
+  internalPath,
+  requireProjectRoot,
+  tryCurrentDir,
+} from "../../src/helpers/paths";
+import { UserError } from "../../src/helpers/user-error";
 import { restoreEnv } from "../test-utils";
 
 describe("findProjectRoot", () => {
@@ -130,4 +137,77 @@ describe("internalPath", () => {
       }
     }
   );
+});
+
+/** The error libuv raises from `process.cwd()` once the directory is deleted. */
+function deletedCwdError(): Error {
+  return Object.assign(
+    new Error(
+      "ENOENT: process.cwd failed with error no such file or directory, uv_cwd"
+    ),
+    { code: "ENOENT", syscall: "uv_cwd" }
+  );
+}
+
+describe("currentDir", () => {
+  test("returns process.cwd() when the directory exists", () => {
+    expect(currentDir()).toBe(process.cwd());
+  });
+
+  test("throws a UserError when the working directory was deleted", () => {
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw deletedCwdError();
+    });
+    try {
+      expect(() => currentDir()).toThrow(UserError);
+      expect(() => currentDir()).toThrow(
+        "The current working directory no longer exists."
+      );
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
+  test("rethrows unrelated errors unchanged", () => {
+    const failure = Object.assign(new Error("permission denied"), {
+      code: "EACCES",
+    });
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw failure;
+    });
+    try {
+      expect(() => currentDir()).toThrow(failure);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
+  test("findProjectRoot and requireProjectRoot surface the UserError", () => {
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw deletedCwdError();
+    });
+    try {
+      expect(() => findProjectRoot()).toThrow(UserError);
+      expect(() => requireProjectRoot()).toThrow(UserError);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+});
+
+describe("tryCurrentDir", () => {
+  test("returns process.cwd() when the directory exists", () => {
+    expect(tryCurrentDir()).toBe(process.cwd());
+  });
+
+  test("returns null when the working directory was deleted", () => {
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw deletedCwdError();
+    });
+    try {
+      expect(tryCurrentDir()).toBeNull();
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
 });

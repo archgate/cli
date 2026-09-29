@@ -10,7 +10,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { internalPath } from "./paths";
+import { internalPath, tryCurrentDir } from "./paths";
 import { resolvedProjectPaths } from "./project-config";
 
 // ---------------------------------------------------------------------------
@@ -116,7 +116,15 @@ export interface ProjectContext {
  * enough to re-run on every event.
  */
 export function getProjectContext(): ProjectContext {
-  const cwd = process.cwd();
+  const cwd = tryCurrentDir();
+  if (cwd === null) {
+    return {
+      hasProject: false,
+      adrCount: 0,
+      adrWithRulesCount: 0,
+      domains: [],
+    };
+  }
   const archgateDir = join(cwd, ".archgate");
   const hasProject = existsSync(archgateDir);
 

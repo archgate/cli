@@ -22,6 +22,7 @@ import {
   antigravityCliDir,
   antigravityConversationsDir,
   antigravityDataDirs,
+  currentDir,
   usableEnv,
 } from "./paths";
 import {
@@ -262,7 +263,7 @@ function findConversations(
   );
   if (!hasStore) return null;
 
-  const target = normalizePath(projectRoot ?? process.cwd());
+  const target = normalizePath(projectRoot ?? currentDir());
   const current = currentConversationId();
   const summaries = summaryWorkspaces();
 

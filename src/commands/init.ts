@@ -19,6 +19,7 @@ import type { EditorTarget } from "../helpers/init-project";
 import { selfInvokeArgv } from "../helpers/install-info";
 import { logError, logInfo, logWarn } from "../helpers/log";
 import { runLoginFlow } from "../helpers/login-flow";
+import { currentDir } from "../helpers/paths";
 import { withPromptFix } from "../helpers/prompt";
 import {
   getRepoContext,
@@ -74,7 +75,7 @@ export function registerInitCommand(program: Command) {
         }
 
         const hadExistingProject = existsSync(
-          join(process.cwd(), ".archgate", "adrs")
+          join(currentDir(), ".archgate", "adrs")
         );
         let hasCredentials = (await loadCredentials()) !== null;
 
@@ -111,7 +112,7 @@ export function registerInitCommand(program: Command) {
         // Run init for each selected editor (sequential for ordered output)
         for (const editor of editors) {
           // oxlint-disable-next-line no-await-in-loop -- sequential init with per-editor output
-          const result = await initProject(process.cwd(), {
+          const result = await initProject(currentDir(), {
             editor,
             installPlugin,
           });
@@ -188,7 +189,7 @@ export function registerInitCommand(program: Command) {
         });
 
         if (process.stdin.isTTY && !hadExistingProject) {
-          await runGreenfieldWizard(process.cwd());
+          await runGreenfieldWizard(currentDir());
         }
       } catch (err) {
         if (err instanceof Error && err.name === "ExitPromptError") throw err;

@@ -14,7 +14,7 @@ import { exitWith, handleCommandError } from "../../helpers/exit";
 import { EDITOR_LABELS, EDITOR_TARGETS } from "../../helpers/init-project";
 import type { EditorTarget } from "../../helpers/init-project";
 import { logError, logInfo, logWarn } from "../../helpers/log";
-import { findProjectRoot } from "../../helpers/paths";
+import { currentDir, findProjectRoot } from "../../helpers/paths";
 import {
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
@@ -124,7 +124,7 @@ export async function installForEditor(
     }
     case "vscode": {
       const url = buildVscodeMarketplaceUrl();
-      await configureVscodeSettings(findProjectRoot() ?? process.cwd(), url);
+      await configureVscodeSettings(findProjectRoot() ?? currentDir(), url);
       if (await isVscodeCliAvailable()) {
         await installVscodeExtension(token);
         logInfo(`Archgate extension installed for ${label}.`);

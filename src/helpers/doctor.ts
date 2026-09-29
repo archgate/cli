@@ -16,7 +16,7 @@ import { detectEditors } from "./editor-detect";
 import type { CredentialHelperStatus } from "./git-credential-config";
 import { inspectGitCredentialHelper } from "./git-credential-config";
 import { detectInstallMethod, getProjectContext } from "./install-info";
-import { internalPath } from "./paths";
+import { internalPath, tryCurrentDir } from "./paths";
 import { getPlatformInfo, resolveCommand } from "./platform";
 import { isTelemetryEnabled } from "./telemetry-config";
 
@@ -79,7 +79,15 @@ interface IntegrationInfo {
 }
 
 function detectIntegrations(): IntegrationInfo {
-  const cwd = process.cwd();
+  const cwd = tryCurrentDir();
+  if (cwd === null) {
+    return {
+      claudePlugin: false,
+      cursorPlugin: false,
+      vscodeSettings: false,
+      copilotSettings: false,
+    };
+  }
   return {
     claudePlugin: existsSync(join(cwd, ".claude", "settings.local.json")),
     // The Cursor plugin is embedded inside the archgate VS Code extension
