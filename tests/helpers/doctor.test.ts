@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 
 import { runDoctor } from "../../src/helpers/doctor";
 import type { DoctorReport } from "../../src/helpers/doctor";
@@ -53,6 +53,28 @@ describe("doctor", () => {
       expect(report.project.adr_count).toBeGreaterThan(0);
       expect(report.project.adr_with_rules_count).toBeGreaterThan(0);
       expect(report.project.domains.length).toBeGreaterThan(0);
+    });
+
+    test("reports no project or integrations when the working directory was deleted", async () => {
+      const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+        throw Object.assign(new Error("ENOENT: process.cwd failed"), {
+          code: "ENOENT",
+          syscall: "uv_cwd",
+        });
+      });
+      try {
+        const report = await runDoctor();
+
+        expect(report.project.has_project).toBe(false);
+        expect(report.integrations).toEqual({
+          claude_plugin: false,
+          cursor_plugin: false,
+          vscode_settings: false,
+          copilot_settings: false,
+        });
+      } finally {
+        cwdSpy.mockRestore();
+      }
     });
 
     test("report is JSON-serializable", async () => {

@@ -168,6 +168,17 @@ describe("currentDir", () => {
     }
   });
 
+  test("treats an ENOENT without a syscall as a deleted directory", () => {
+    const cwdSpy = spyOn(process, "cwd").mockImplementation(() => {
+      throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+    });
+    try {
+      expect(() => currentDir()).toThrow(UserError);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
   test("rethrows unrelated errors unchanged", () => {
     const failure = Object.assign(new Error("permission denied"), {
       code: "EACCES",
