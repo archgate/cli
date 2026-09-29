@@ -1,3 +1,10 @@
+## [0.58.1](https://github.com/archgate/cli/compare/v0.58.0...v0.58.1) (2026-09-29)
+
+### Bug Fixes
+
+* **deps:** update dependency @astrojs/starlight to ^0.42.0 ([#616](https://github.com/archgate/cli/issues/616)) ([2adffae](https://github.com/archgate/cli/commit/2adffaeed418b626bafa63a6c39e52ba0a0eac41)), references [#8203](https://github.com/archgate/cli/issues/8203)
+* **paths:** report a deleted working directory as a user error ([#621](https://github.com/archgate/cli/issues/621)) ([62254f4](https://github.com/archgate/cli/commit/62254f43455b011b656f6ca31361a9381e42eecd))
+
 ## [0.58.0](https://github.com/archgate/cli/compare/v0.57.0...v0.58.0) (2026-09-07)
 
 ### Features
