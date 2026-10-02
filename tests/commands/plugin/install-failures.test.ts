@@ -76,10 +76,7 @@ beforeEach(() => {
     pluginInstall,
     "installClaudePlugin"
   ).mockResolvedValue();
-  installCodex = spyOn(
-    pluginInstall,
-    "installCodexPlugin"
-  ).mockResolvedValue();
+  installCodex = spyOn(pluginInstall, "installCodexPlugin").mockResolvedValue();
   installCopilot = spyOn(
     pluginInstall,
     "installCopilotPlugin"

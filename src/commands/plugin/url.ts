@@ -57,7 +57,7 @@ export function registerPluginUrlCommand(plugin: Command) {
               ? buildVscodeMarketplaceUrl()
               : editor === "codex"
                 ? buildCodexMarketplaceUrl()
-              : buildMarketplaceUrl();
+                : buildMarketplaceUrl();
 
         console.log(url);
       } catch (err) {

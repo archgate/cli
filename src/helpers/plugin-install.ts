@@ -46,9 +46,13 @@ export async function installCodexPlugin(): Promise<void> {
   const cmd = (await resolveCommand("codex")) ?? "codex";
   const url = buildCodexMarketplaceUrl();
   const add = await run([cmd, "plugin", "marketplace", "add", url]);
-  if (add.exitCode !== 0) throw new UserError(`codex plugin marketplace add failed (exit ${add.exitCode})`);
+  if (add.exitCode !== 0)
+    throw new UserError(
+      `codex plugin marketplace add failed (exit ${add.exitCode})`
+    );
   const install = await run([cmd, "plugin", "add", "archgate@archgate"]);
-  if (install.exitCode !== 0) throw new UserError(`codex plugin add failed (exit ${install.exitCode})`);
+  if (install.exitCode !== 0)
+    throw new UserError(`codex plugin add failed (exit ${install.exitCode})`);
 }
 
 /**

@@ -21,9 +21,9 @@ Skriv ut plugin-repository-URL-en for manuell verktøykonfigurasjon.
 archgate plugin url [options]
 ```
 
-| Valg                | Standard | Beskrivelse                                                     |
-| ------------------- | -------- | --------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Måleditor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| Valg                | Standard | Beskrivelse                                                              |
+| ------------------- | -------- | ------------------------------------------------------------------------ |
+| `--editor <editor>` | `claude` | Måleditor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`, `codex`) |
 
 URL-en kan brukes til å konfigurere editorverktøy manuelt. Legitimasjon leveres automatisk av git-legitimasjonsbehandleren din (lagret under `archgate login`). For eksempel, for å legge til Archgate-markedsplassen i Claude Code:
 
@@ -46,9 +46,9 @@ Installer Archgate-pluginen for den angitte editoren i et allerede initialisert 
 archgate plugin install [options]
 ```
 
-| Valg                | Standard | Beskrivelse                                                     |
-| ------------------- | -------- | --------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Måleditor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| Valg                | Standard | Beskrivelse                                                              |
+| ------------------- | -------- | ------------------------------------------------------------------------ |
+| `--editor <editor>` | `claude` | Måleditor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`, `codex`) |
 
 Installasjonsoppførselen varierer etter editor:
 
@@ -57,6 +57,7 @@ Installasjonsoppførselen varierer etter editor:
 - **Cursor:** Laster ned en autentisert tarball og pakker ut skills og agenter i `~/.cursor/`; fletter også inn en archgate-oppføring i `~/.cursor/hooks.json` (skrevet lokalt av CLI-en, ikke en del av den nedlastede pakken, og eventuelle eksisterende hooks bevares). Ingen CLI-deteksjon nødvendig. Filene skrives direkte til Cursor-brukerkatalogen.
 - **VS Code:** Installerer VS Code-utvidelsen (`.vsix`) via `code`-CLI-en hvis tilgjengelig; skriver ut manuelle instruksjoner ellers.
 - **opencode:** Oppdager opencode via `opencode`-CLI-en på PATH, eller (hvis CLI-en mangler) tilstedeværelsen av opencodes delte konfigurasjonskatalog på brukernivå, som skrivebordsappen også bruker. Hopper over installasjonen med en tydelig melding hvis ingen av delene finnes. Når den er oppdaget, laster den ned en autentisert tarball med agentfiler og pakker den ut i opencodes agentkatalog på brukernivå. `archgate plugin url --editor opencode` skriver ut "N/A" -- opencode har ingen markedsplass-URL. Se [opencode-integrasjonsguiden](/guides/opencode-integration/) for detaljer.
+- **Codex:** Legger til den autentiserte Archgate Codex-markedsplassen og installerer `archgate` via Codex-CLI-en. Markedsplassen serverer Codex-manifestet og skills fra plugin-tjenesten.
 
 ## Eksempler
 
@@ -82,4 +83,10 @@ Installer agentpakken for opencode:
 
 ```bash
 archgate plugin install --editor opencode
+```
+
+Installer Codex-pluginet:
+
+```bash
+archgate plugin install --editor codex
 ```

@@ -344,6 +344,28 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
     }
   }
 
+  if (editor === "codex") {
+    const { isCodexCliAvailable, installCodexPlugin } =
+      await import("./plugin-install");
+
+    // Without the `codex` CLI there is nothing to register the marketplace
+    // with; `printManualInstructions("codex")` prints the manual commands.
+    if (!(await isCodexCliAvailable())) {
+      return { installed: true, detail: "not-found" };
+    }
+
+    try {
+      await installCodexPlugin();
+      return { installed: true, autoInstalled: true };
+    } catch (error) {
+      logDebug("Failed to auto-install Codex plugin:", error);
+      return {
+        installed: true,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
   if (editor === "copilot") {
     const {
       isCopilotAvailable,
