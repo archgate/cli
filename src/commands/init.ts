@@ -46,6 +46,7 @@ const EDITOR_DIRS: Record<EditorTarget, string> = {
   // Shown as a shorthand in the init summary; the resolved absolute path is
   // printed via `result.plugin.detail` when the install succeeds.
   opencode: "(user-scope)",
+  codex: "(user-scope)",
 };
 
 const editorOption = new Option(

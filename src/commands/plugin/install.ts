@@ -17,12 +17,15 @@ import { logError, logInfo, logWarn } from "../../helpers/log";
 import { currentDir, findProjectRoot } from "../../helpers/paths";
 import {
   buildMarketplaceUrl,
+  buildCodexMarketplaceUrl,
   buildVscodeMarketplaceUrl,
   installClaudePlugin,
+  installCodexPlugin,
   installCopilotPlugin,
   installOpencodePlugin,
   installVscodeExtension,
   isClaudeCliAvailable,
+  isCodexCliAvailable,
   isCopilotAvailable,
   isOpencodeAvailable,
   isVscodeCliAvailable,
@@ -122,6 +125,17 @@ export async function installForEditor(
       logInfo(`Archgate plugin installed for ${label}.`);
       break;
     }
+    case "codex": {
+      if (await isCodexCliAvailable()) {
+        await installCodexPlugin();
+        logInfo(`Archgate plugin installed for ${label}.`);
+      } else {
+        logWarn("Codex CLI not found. To install the plugin manually, run:");
+        console.log(`  ${styleText("bold", "codex plugin marketplace add")} ${buildCodexMarketplaceUrl()}`);
+        console.log(`  ${styleText("bold", "codex plugin add")} archgate@archgate`);
+      }
+      break;
+    }
     case "vscode": {
       const url = buildVscodeMarketplaceUrl();
       await configureVscodeSettings(findProjectRoot() ?? currentDir(), url);
@@ -196,6 +210,12 @@ export function printManualInstructions(editor: EditorTarget): void {
       console.log(
         `  ${styleText("bold", "archgate plugin install --editor opencode")}`
       );
+      break;
+    }
+    case "codex": {
+      logInfo("To install the plugin manually, run:");
+      console.log(`  ${styleText("bold", "codex plugin marketplace add")} ${buildCodexMarketplaceUrl()}`);
+      console.log(`  ${styleText("bold", "codex plugin add")} archgate@archgate`);
       break;
     }
   }

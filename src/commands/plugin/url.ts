@@ -11,6 +11,7 @@ import { handleCommandError } from "../../helpers/exit";
 import { EDITOR_TARGETS, type EditorTarget } from "../../helpers/init-project";
 import {
   buildCursorMarketplaceUrl,
+  buildCodexMarketplaceUrl,
   buildMarketplaceUrl,
   buildVscodeMarketplaceUrl,
 } from "../../helpers/plugin-install";
@@ -54,6 +55,8 @@ export function registerPluginUrlCommand(plugin: Command) {
             ? buildCursorMarketplaceUrl()
             : editor === "vscode" || editor === "copilot"
               ? buildVscodeMarketplaceUrl()
+              : editor === "codex"
+                ? buildCodexMarketplaceUrl()
               : buildMarketplaceUrl();
 
         console.log(url);

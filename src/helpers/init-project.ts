@@ -26,6 +26,7 @@ export const EDITOR_TARGETS = [
   "vscode",
   "copilot",
   "opencode",
+  "codex",
 ] as const;
 
 export type EditorTarget = (typeof EDITOR_TARGETS)[number];
@@ -36,6 +37,7 @@ export const EDITOR_LABELS: Record<EditorTarget, string> = {
   vscode: "VS Code",
   copilot: "GitHub Copilot",
   opencode: "opencode",
+  codex: "Codex",
 };
 
 interface InitOptions {
@@ -173,6 +175,8 @@ async function configureEditorSettings(
       // summary has something meaningful to print. The opencode.json config
       // (default_agent) is set inside installOpencodePlugin() itself.
       return opencodeAgentsDir();
+    case "codex":
+      return "(user-scope)";
     case "claude":
       return configureClaudeSettings(projectRoot);
     default: {

@@ -187,6 +187,7 @@ describe("registerPluginInstallCommand", () => {
       "vscode",
       "copilot",
       "opencode",
+      "codex",
     ]);
   });
 });

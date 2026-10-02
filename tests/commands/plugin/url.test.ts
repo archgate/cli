@@ -55,6 +55,7 @@ describe("registerPluginUrlCommand", () => {
       "vscode",
       "copilot",
       "opencode",
+      "codex",
     ]);
   });
 });
