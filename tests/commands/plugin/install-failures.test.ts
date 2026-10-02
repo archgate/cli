@@ -67,6 +67,7 @@ beforeEach(() => {
     "https://plugins.archgate.dev/archgate/vscode.git"
   );
   spyOn(pluginInstall, "isClaudeCliAvailable").mockResolvedValue(true);
+  spyOn(pluginInstall, "isCodexCliAvailable").mockResolvedValue(true);
   spyOn(pluginInstall, "isCopilotAvailable").mockResolvedValue(true);
   spyOn(pluginInstall, "isCursorCliAvailable").mockResolvedValue(true);
   spyOn(pluginInstall, "isOpencodeAvailable").mockResolvedValue(true);
