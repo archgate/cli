@@ -884,8 +884,6 @@ The `check` function receives a `RuleContext` object that provides everything a 
 | `ctx.readJSON(path)` | `Promise<unknown>`  | Read and parse a JSON file         |
 | `ctx.readTOML(path)` | `Promise<unknown>`  | Read and parse a TOML file         |
 
-| `ctx.readTOML(path)` | `Promise<unknown>`  | Read and parse a TOML file         |
-
 ### Search Operations
 
 | Method                             | Returns                | Description                                  |
@@ -5528,7 +5526,6 @@ interface RuleContext {
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
-  readTOML(path: string): Promise<unknown>;
   readYAML(path: string): Promise<ReadYamlResult>;
   ast(
     path: string,
@@ -5672,7 +5669,6 @@ For a **structural** comparison (ignoring comments and formatting) prefer `ast(p
 ```typescript
 readJSON(path: "package.json"): Promise<PackageJson>;
 readJSON(path: string): Promise<unknown>;
-readTOML(path: string): Promise<unknown>;
 ```
 
 Read and parse a JSON file. The path is relative to the project root. Returns the parsed value as `unknown` -- cast to the expected type in your rule. The literal path `"package.json"` matches a dedicated overload that returns the ambient `PackageJson` interface (`name`, `version`, `scripts`, `dependencies`, `devDependencies`, `peerDependencies`, `optionalDependencies`, `workspaces`, `engines`, ... plus an index signature), so the common case needs no cast.
