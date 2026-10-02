@@ -4854,8 +4854,8 @@ Print the plugin repository URL for manual tool configuration.
 archgate plugin url [options]
 ```
 
-| Option              | Default  | Description                                                         |
-| ------------------- | -------- | ------------------------------------------------------------------- |
+| Option              | Default  | Description                                                                  |
+| ------------------- | -------- | ---------------------------------------------------------------------------- |
 | `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`, `codex`) |
 
 The URL can be used to manually configure editor tools. Credentials are provided automatically by your git credential manager (stored during `archgate login`). For example, to add the Archgate marketplace in Claude Code:
