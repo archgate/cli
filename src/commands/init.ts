@@ -370,6 +370,15 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
         );
       }
       break;
+    case "codex":
+      logWarn("Codex CLI not found. To install the plugin manually, run:");
+      console.log(
+        `  ${styleText("bold", "codex plugin marketplace add")} https://plugins.archgate.dev/archgate/codex.git`
+      );
+      console.log(
+        `  ${styleText("bold", "codex plugin add")} archgate@archgate`
+      );
+      break;
     case "cursor":
       logWarn(
         "Failed to install Cursor components.",

@@ -37,6 +37,7 @@ let exitSpy: Mock<typeof process.exit>;
 let originalIsTTY: boolean | undefined;
 
 let installClaude: Mock<typeof pluginInstall.installClaudePlugin>;
+let installCodex: Mock<typeof pluginInstall.installCodexPlugin>;
 let installCopilot: Mock<typeof pluginInstall.installCopilotPlugin>;
 let installCursor: Mock<typeof pluginInstall.installCursorPlugin>;
 let installOpencode: Mock<typeof pluginInstall.installOpencodePlugin>;
@@ -74,6 +75,10 @@ beforeEach(() => {
   installClaude = spyOn(
     pluginInstall,
     "installClaudePlugin"
+  ).mockResolvedValue();
+  installCodex = spyOn(
+    pluginInstall,
+    "installCodexPlugin"
   ).mockResolvedValue();
   installCopilot = spyOn(
     pluginInstall,
@@ -155,6 +160,9 @@ function forceFailure(editor: EditorTarget): void {
     case "opencode":
       installOpencode.mockRejectedValue(boom);
       break;
+    case "codex":
+      installCodex.mockRejectedValue(boom);
+      break;
     case "vscode":
       // configureVscodeSettings runs before the CLI probe, so failing it
       // short-circuits the whole vscode branch.
@@ -201,6 +209,11 @@ const MANUAL_INSTRUCTION_CASES = [
     editor: "opencode" as const,
     heading: "Retry the install, or refresh your credentials",
     fallback: "archgate login refresh",
+  },
+  {
+    editor: "codex" as const,
+    heading: "To install the plugin manually, run:",
+    fallback: "codex plugin marketplace add",
   },
 ];
 
