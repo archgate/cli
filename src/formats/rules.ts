@@ -260,6 +260,15 @@ export interface RuleContext {
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
   /**
+   * Read and parse a TOML file at a project-relative path, using the same
+   * sandbox as `readFile`. Each call returns a fresh parsed value as
+   * `unknown`; narrow or cast it to the expected shape in your rule.
+   * Accepts any filename, including `.prototools`.
+   *
+   * @throws {Error} On invalid TOML, unreadable files, or sandbox violations.
+   */
+  readTOML(path: string): Promise<unknown>;
+  /**
    * Read a YAML file, or a Markdown file with YAML frontmatter, as one
    * {@link ReadYamlResult}. Dispatch is extension-based, so a multi-document
    * stream's `---` separators are never misread as frontmatter. `frontmatter`

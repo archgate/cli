@@ -229,6 +229,27 @@ const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
 };
 ```
 
+#### readTOML
+
+```typescript
+readTOML(path: string): Promise<unknown>;
+```
+
+Read and parse a TOML file with Bun's built-in parser. The path is relative to the project root and uses the same sandbox as `readFile`. Any filename is accepted, including `.prototools`. The parsed value is `unknown`; narrow or cast it to your expected shape.
+
+Each call returns a fresh parsed object, so mutations cannot leak into another call or rule. Invalid TOML and unreadable files throw, surfacing as a rule execution error with exit code 2.
+
+```typescript
+const doc = (await ctx.readTOML("pyproject.toml")) as {
+  project?: { dependencies?: string[] };
+  "dependency-groups"?: Record<string, string[]>;
+};
+const dependencies = doc.project?.dependencies ?? [];
+const workerDependencies = doc["dependency-groups"]?.worker ?? [];
+```
+
+Parsed values do not include source locations. Use `ctx.grep()` when a violation needs a line number; its matches include the line and column. A regex search finds text occurrences, so scope the search to the relevant table when keys repeat.
+
 #### readYAML
 
 ```typescript
