@@ -1,3 +1,10 @@
+## [0.59.0](https://github.com/archgate/cli/compare/v0.58.1...v0.59.0) (2026-10-03)
+
+### Features
+
+* install Archgate plugin in Codex ([#625](https://github.com/archgate/cli/issues/625)) ([9fac165](https://github.com/archgate/cli/commit/9fac16576326a96f27f00722e37191ed11f07195))
+* **rules:** add ctx.readTOML() ([#624](https://github.com/archgate/cli/issues/624)) ([637f9b2](https://github.com/archgate/cli/commit/637f9b231e5ab22a57efbce773cc0c7b85195f07)), closes [#623](https://github.com/archgate/cli/issues/623)
+
 ## [0.58.1](https://github.com/archgate/cli/compare/v0.58.0...v0.58.1) (2026-09-29)
 
 ### Bug Fixes
