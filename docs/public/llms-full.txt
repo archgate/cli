@@ -5526,6 +5526,7 @@ interface RuleContext {
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
+  readTOML(path: string): Promise<unknown>;
   readYAML(path: string): Promise<ReadYamlResult>;
   ast(
     path: string,
