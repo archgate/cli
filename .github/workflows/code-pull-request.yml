@@ -39,7 +39,7 @@ jobs:
         with:
           path: /home/runner/.bun/install/cache
           key: bun-packages-${{ runner.os }}-v1-${{ hashFiles('bun.lock') }}
-      - uses: ./.github/actions/setup-bun-project
+      - uses: $/.github/actions/setup-bun-project
         with:
           cache: "true"
           cache-base: main
@@ -190,7 +190,7 @@ jobs:
         with:
           go-version: "1.21"
           cache: false
-      - uses: ./.github/actions/setup-bun-project
+      - uses: $/.github/actions/setup-bun-project
         if: matrix.shim == 'winget'
       - name: Generate winget artifacts
         if: matrix.shim == 'winget'
@@ -227,12 +227,12 @@ jobs:
   smoke-windows:
     name: Smoke Test (Windows)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    uses: ./.github/workflows/smoke-test-windows.yml
+    uses: $/.github/workflows/smoke-test-windows.yml
 
   smoke-linux:
     name: Smoke Test (Linux)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
-    uses: ./.github/workflows/smoke-test-linux.yml
+    uses: $/.github/workflows/smoke-test-linux.yml
 
   # Uploads findings to the Security tab (GitHub Advanced Security, free for
   # public repos) rather than failing the build — there's an existing
@@ -311,7 +311,7 @@ jobs:
           # for change-scoped rules.
           fetch-depth: 0
           persist-credentials: false
-      - uses: ./.github/actions/setup-bun-project
+      - uses: $/.github/actions/setup-bun-project
       - name: Run archgate check (SARIF)
         # `check` exits 1 on violations, and strict mode (`.archgate/config.json`)
         # also escalates advisory findings — the results must still reach the
@@ -364,7 +364,7 @@ jobs:
         continue-on-error: true
       - name: Merge coverage and generate report
         id: coverage-report
-        uses: ./.github/actions/coverage-report
+        uses: $/.github/actions/coverage-report
         with:
           min-coverage: ${{ env.MIN_COVERAGE }}
           github-token: ${{ github.token }}
