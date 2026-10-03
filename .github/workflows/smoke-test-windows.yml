@@ -21,7 +21,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-bun-project
+      - uses: $/.github/actions/setup-bun-project
 
       - name: Lint
         run: bun run lint

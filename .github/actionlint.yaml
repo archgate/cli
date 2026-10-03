@@ -1,0 +1,8 @@
+# actionlint has no support yet for GitHub's `$/` self-repository `uses:` syntax
+# (https://github.com/rhysd/actionlint/issues/711). Suppress only the two
+# format errors it raises for `$/` references; every other `uses` check stays on.
+paths:
+  .github/workflows/**/*.{yml,yaml}:
+    ignore:
+      - 'specifying action "\$/[^"]*" in invalid format because ref is missing'
+      - 'reusable workflow call "\$/[^"]*" at "uses" is not following the format'
