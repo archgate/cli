@@ -71,6 +71,7 @@ interface RuleContext {
   fileAtBase(path: string): Promise<string | null>;
   readJSON(path: "package.json"): Promise<PackageJson>;
   readJSON(path: string): Promise<unknown>;
+  readTOML(path: string): Promise<unknown>;
   readYAML(path: string): Promise<ReadYamlResult>;
   ast(
     path: string,
@@ -228,6 +229,27 @@ const tsconfig = (await ctx.readJSON("tsconfig.json")) as {
   compilerOptions?: Record<string, unknown>;
 };
 ```
+
+#### readTOML
+
+```typescript
+readTOML(path: string): Promise<unknown>;
+```
+
+Lê e faz parse de um arquivo TOML com o parser integrado do Bun. O caminho é relativo à raiz do projeto e usa o mesmo sandbox de `readFile`. Qualquer nome de arquivo é aceito, incluindo `.prototools`. O valor retornado é `unknown`; restrinja ou converta o tipo para a estrutura esperada.
+
+Cada chamada retorna um novo objeto, de modo que mutações não afetam outra chamada ou regra. TOML inválido e arquivos que não podem ser lidos lançam uma exceção, resultando em um erro de execução de regra com código de saída 2.
+
+```typescript
+const doc = (await ctx.readTOML("pyproject.toml")) as {
+  project?: { dependencies?: string[] };
+  "dependency-groups"?: Record<string, string[]>;
+};
+const dependencies = doc.project?.dependencies ?? [];
+const workerDependencies = doc["dependency-groups"]?.worker ?? [];
+```
+
+Os valores retornados não incluem posições no arquivo. Use `ctx.grep()` quando uma violação precisar de um número de linha; os resultados incluem linha e coluna. Uma busca por regex encontra ocorrências de texto, então limite a busca à tabela relevante quando houver chaves repetidas.
 
 #### readYAML
 

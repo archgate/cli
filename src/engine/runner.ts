@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
+/* oxlint-disable max-lines -- RuleContext implementations are kept together. */
 import { relative, resolve } from "node:path";
 
 import type {
@@ -54,6 +55,7 @@ import { parseTsOrJsSource } from "./js-parser";
 import { type LoadResult, blockedToRuleResult } from "./loader";
 import { isWithinRoot, resolveUserPath, safePath } from "./safe-path";
 import { applySuppressions, type SuppressionWarning } from "./suppressions";
+import { parseTomlDocument } from "./toml-utils";
 import { parseYamlDocument } from "./yaml-utils";
 
 const RULE_TIMEOUT_MS = 30_000;
@@ -380,6 +382,15 @@ function createRuleContext(
 
     async readJSON(path: string): Promise<any> {
       return Bun.file(safePath(resolvedRoot, path)).json();
+    },
+
+    async readTOML(path: string): Promise<unknown> {
+      const absPath = safePath(resolvedRoot, path);
+      const text = await cachedFileText(absPath);
+      return parseTomlDocument(
+        text,
+        relative(resolvedRoot, absPath).replaceAll("\\", "/")
+      );
     },
 
     // YAML counterpart of readJSON: nullable `frontmatter` plus `content`
