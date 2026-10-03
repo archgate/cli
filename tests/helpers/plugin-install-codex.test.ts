@@ -47,11 +47,17 @@ function spawnedArgs(): string[][] {
 }
 
 describe("Codex plugin install helpers", () => {
-  test("isCodexCliAvailable reflects command resolution", async () => {
-    expect(await isCodexCliAvailable()).toBe(true);
-    resolveSpy.mockResolvedValue(null);
-    expect(await isCodexCliAvailable()).toBe(false);
-  });
+  test.each([
+    { resolved: "/bin/codex", expected: true },
+    { resolved: null, expected: false },
+  ])(
+    "isCodexCliAvailable is $expected when resolveCommand returns $resolved",
+    async ({ resolved, expected }) => {
+      resolveSpy.mockResolvedValue(resolved);
+
+      expect(await isCodexCliAvailable()).toBe(expected);
+    }
+  );
 
   test("installCodexPlugin adds the marketplace then the plugin", async () => {
     await installCodexPlugin();
