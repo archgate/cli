@@ -21,9 +21,9 @@ Exibe a URL do repositório de plugins para configuração manual de ferramentas
 archgate plugin url [options]
 ```
 
-| Opção               | Padrão   | Descrição                                                         |
-| ------------------- | -------- | ----------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| Opção               | Padrão   | Descrição                                                                  |
+| ------------------- | -------- | -------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`, `opencode`, `codex`) |
 
 A URL pode ser usada para configurar manualmente as ferramentas do editor. As credenciais são fornecidas automaticamente pelo seu gerenciador de credenciais git (armazenadas durante `archgate login`). Por exemplo, para adicionar o marketplace do Archgate no Claude Code:
 
@@ -46,9 +46,9 @@ Instala o plugin do Archgate para o editor especificado em um projeto já inicia
 archgate plugin install [options]
 ```
 
-| Opção               | Padrão   | Descrição                                                         |
-| ------------------- | -------- | ----------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| Opção               | Padrão   | Descrição                                                                  |
+| ------------------- | -------- | -------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Editor alvo (`claude`, `cursor`, `vscode`, `copilot`, `opencode`, `codex`) |
 
 O comportamento de instalação varia por editor:
 
@@ -57,6 +57,7 @@ O comportamento de instalação varia por editor:
 - **Cursor:** Faz o download de um tarball autenticado e extrai skills e agentes em `~/.cursor/`; também mescla uma entrada archgate em `~/.cursor/hooks.json` (gravado localmente pela CLI, e não parte do bundle baixado, preservando quaisquer hooks pré-existentes). Nenhuma detecção de CLI é necessária. Os arquivos são gravados diretamente no diretório de usuário do Cursor.
 - **VS Code:** Instala a extensão VS Code (`.vsix`) via CLI `code` se disponível; exibe instruções manuais caso contrário.
 - **opencode:** Detecta o opencode pela CLI `opencode` no PATH ou (se a CLI estiver ausente) pela presença do diretório de configuração compartilhado do opencode no escopo do usuário, também usado pelo aplicativo Desktop. Pula a instalação com uma mensagem clara quando nenhum dos dois é encontrado. Quando detectado, baixa um tarball autenticado de arquivos de agente e o extrai no diretório de agentes opencode do escopo do usuário. `archgate plugin url --editor opencode` exibe "N/A" -- opencode não tem URL de marketplace. Veja o [guia de integração com opencode](/guides/opencode-integration/) para detalhes.
+- **Codex:** Adiciona o marketplace autenticado do Archgate para Codex e instala o `archgate` pela CLI do Codex. O marketplace serve o manifesto e as skills do Codex a partir do serviço de plugins.
 
 ## Exemplos
 
@@ -82,4 +83,10 @@ Instalar o bundle de agentes para o opencode:
 
 ```bash
 archgate plugin install --editor opencode
+```
+
+Instalar o plugin do Codex:
+
+```bash
+archgate plugin install --editor codex
 ```

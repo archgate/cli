@@ -4854,9 +4854,9 @@ Print the plugin repository URL for manual tool configuration.
 archgate plugin url [options]
 ```
 
-| Option              | Default  | Description                                                         |
-| ------------------- | -------- | ------------------------------------------------------------------- |
-| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`) |
+| Option              | Default  | Description                                                                  |
+| ------------------- | -------- | ---------------------------------------------------------------------------- |
+| `--editor <editor>` | `claude` | Target editor (`claude`, `cursor`, `vscode`, `copilot`, `opencode`, `codex`) |
 
 The URL can be used to manually configure editor tools. Credentials are provided automatically by your git credential manager (stored during `archgate login`). For example, to add the Archgate marketplace in Claude Code:
 
@@ -4890,6 +4890,7 @@ Installation behavior varies by editor:
 - **Cursor:** Downloads an authenticated tarball and extracts skills and agents into `~/.cursor/`; also merges an archgate entry into `~/.cursor/hooks.json` (written locally by the CLI, not part of the downloaded bundle, and any pre-existing hooks are preserved). No CLI detection needed. Files are written directly to the Cursor user directory.
 - **VS Code:** Installs the VS Code extension (`.vsix`) via `code` CLI if available; prints manual instructions otherwise.
 - **opencode:** Detects opencode via the `opencode` CLI on PATH, or (if the CLI is absent) the presence of opencode's shared user-scope config directory, which the Desktop app also uses. Skips the install with a clear message when neither is found. When detected, downloads an authenticated tarball of agent files and extracts it into the user-scope opencode agents directory. `archgate plugin url --editor opencode` prints "N/A" because opencode has no marketplace URL. See the [opencode integration guide](/guides/opencode-integration/) for details.
+- **Codex:** Adds the authenticated Archgate Codex marketplace and installs `archgate` through the Codex CLI. The marketplace serves the Codex manifest and skills from the plugins service.
 
 ## Examples
 
@@ -4915,6 +4916,12 @@ Install the agent bundle for opencode:
 
 ```bash
 archgate plugin install --editor opencode
+```
+
+Install the Codex plugin:
+
+```bash
+archgate plugin install --editor codex
 ```
 
 ---

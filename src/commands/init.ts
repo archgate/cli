@@ -46,6 +46,7 @@ const EDITOR_DIRS: Record<EditorTarget, string> = {
   // Shown as a shorthand in the init summary; the resolved absolute path is
   // printed via `result.plugin.detail` when the install succeeds.
   opencode: "(user-scope)",
+  codex: "(user-scope)",
 };
 
 const editorOption = new Option(
@@ -368,6 +369,15 @@ function printManualInstructions(editor: EditorTarget, detail?: string): void {
           `  If the token has expired: ${styleText("bold", "archgate login refresh")}`
         );
       }
+      break;
+    case "codex":
+      logWarn("Codex CLI not found. To install the plugin manually, run:");
+      console.log(
+        `  ${styleText("bold", "codex plugin marketplace add")} https://plugins.archgate.dev/archgate/codex.git`
+      );
+      console.log(
+        `  ${styleText("bold", "codex plugin add")} archgate@archgate`
+      );
       break;
     case "cursor":
       logWarn(

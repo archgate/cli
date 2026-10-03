@@ -30,6 +30,30 @@ const MARKETPLACE_URL = `${PLUGINS_API}/archgate.git`;
 const VSCODE_MARKETPLACE_URL = `${PLUGINS_API}/archgate/vscode.git`;
 /** Cursor Team Marketplace URL — credentials are provided by the git credential manager. */
 const CURSOR_MARKETPLACE_URL = `${PLUGINS_API}/archgate/cursor.git`;
+/** Codex marketplace URL — credentials are provided by the git credential manager. */
+const CODEX_MARKETPLACE_URL = `${PLUGINS_API}/archgate/codex.git`;
+
+export function buildCodexMarketplaceUrl(): string {
+  return CODEX_MARKETPLACE_URL;
+}
+
+export async function isCodexCliAvailable(): Promise<boolean> {
+  return (await resolveCommand("codex")) !== null;
+}
+
+/** Install the Archgate Codex marketplace and plugin using the Codex CLI. */
+export async function installCodexPlugin(): Promise<void> {
+  const cmd = (await resolveCommand("codex")) ?? "codex";
+  const url = buildCodexMarketplaceUrl();
+  const add = await run([cmd, "plugin", "marketplace", "add", url]);
+  if (add.exitCode !== 0)
+    throw new UserError(
+      `codex plugin marketplace add failed (exit ${add.exitCode})`
+    );
+  const install = await run([cmd, "plugin", "add", "archgate@archgate"]);
+  if (install.exitCode !== 0)
+    throw new UserError(`codex plugin add failed (exit ${install.exitCode})`);
+}
 
 /**
  * Run a command using `Bun.spawn` (cross-platform, no shell — ARCH-007).

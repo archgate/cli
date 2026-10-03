@@ -26,6 +26,7 @@ export const EDITOR_TARGETS = [
   "vscode",
   "copilot",
   "opencode",
+  "codex",
 ] as const;
 
 export type EditorTarget = (typeof EDITOR_TARGETS)[number];
@@ -36,6 +37,7 @@ export const EDITOR_LABELS: Record<EditorTarget, string> = {
   vscode: "VS Code",
   copilot: "GitHub Copilot",
   opencode: "opencode",
+  codex: "Codex",
 };
 
 interface InitOptions {
@@ -173,6 +175,8 @@ async function configureEditorSettings(
       // summary has something meaningful to print. The opencode.json config
       // (default_agent) is set inside installOpencodePlugin() itself.
       return opencodeAgentsDir();
+    case "codex":
+      return "(user-scope)";
     case "claude":
       return configureClaudeSettings(projectRoot);
     default: {
@@ -333,6 +337,28 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
       // `printManualInstructions("opencode", detail)`, which prints a
       // retry hint to the user.
       logDebug("Failed to install opencode agent bundle:", error);
+      return {
+        installed: true,
+        detail: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  if (editor === "codex") {
+    const { isCodexCliAvailable, installCodexPlugin } =
+      await import("./plugin-install");
+
+    // Without the `codex` CLI there is nothing to register the marketplace
+    // with; `printManualInstructions("codex")` prints the manual commands.
+    if (!(await isCodexCliAvailable())) {
+      return { installed: true, detail: "not-found" };
+    }
+
+    try {
+      await installCodexPlugin();
+      return { installed: true, autoInstalled: true };
+    } catch (error) {
+      logDebug("Failed to auto-install Codex plugin:", error);
       return {
         installed: true,
         detail: error instanceof Error ? error.message : String(error),
