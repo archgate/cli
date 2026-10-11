@@ -52,7 +52,7 @@ Add-AppxPackage dist\msix\archgate-win32-x64.msix
 
 ## What the manifest declares
 
-- **`uap5:AppExecutionAlias`** puts `archgate` on PATH for every terminal. `AppListEntry="none"` keeps the CLI out of the Start menu.
+- **`uap5:AppExecutionAlias`** puts `archgate` on PATH for every terminal. The app also has a Start menu entry, which runs `archgate` with no arguments: hiding it with `AppListEntry="none"` makes the package a headless app, which the Store accepts only from publishers holding the `HeadlessAppBypass` waiver.
 - **`runFullTrust`** lets the binary run as an ordinary Win32 process.
 - **`desktop6:FileSystemWriteVirtualization` / `RegistryWriteVirtualization` = `disabled`**, with the `unvirtualizedResources` capability they require. Windows otherwise redirects a packaged app's new files under `%APPDATA%` into a package-private copy, and archgate writes files other programs read, such as VS Code's `%APPDATA%\Code\User\settings.json`. Both `runFullTrust` and `unvirtualizedResources` are restricted capabilities, so each submission states why they are needed (Submission options → Restricted capabilities).
 

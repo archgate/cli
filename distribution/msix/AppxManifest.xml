@@ -42,14 +42,15 @@
       Id="Archgate"
       Executable="archgate.exe"
       EntryPoint="Windows.FullTrustApplication">
-      <!-- AppListEntry="none": a CLI has no Start menu entry. -->
+      <!-- The app keeps its Start menu entry: the Store accepts
+           AppListEntry="none" only from publishers holding a headless-app
+           waiver. -->
       <uap:VisualElements
         DisplayName="Archgate CLI"
         Description="Enforce Architecture Decision Records as executable rules, for humans and AI agents."
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png"
-        AppListEntry="none" />
+        Square44x44Logo="Assets\Square44x44Logo.png" />
       <Extensions>
         <!-- Puts `archgate` on PATH for every terminal. -->
         <uap5:Extension Category="windows.appExecutionAlias">
