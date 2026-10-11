@@ -157,14 +157,10 @@ jobs:
           mvn clean deploy -P release -B --no-transfer-progress
 
   # Submits the release's MSIX to the Microsoft Store, which certifies and
-  # signs it. It fails loudly rather than continue-on-error: the other publish
-  # jobs only depend on wait-for-binaries, so a Store failure never blocks
-  # them, and a silent failure would let the Store drift versions behind
-  # unnoticed.
-  #
-  # Authentication is GitHub OIDC federation: the Entra application trusts
-  # tokens issued to the `microsoft-store` environment, so no Partner Center
-  # secret is stored. The client and tenant IDs are identifiers, not secrets.
+  # signs it (ARCH-017). It fails loudly rather than continue-on-error: no
+  # other publish job depends on it, and a silent failure would let the Store
+  # drift versions behind unnoticed. Sign-in is GitHub OIDC federation through
+  # the `microsoft-store` environment, so no Partner Center secret is stored.
   publish-msstore:
     needs: wait-for-binaries
     runs-on: ubuntu-latest

@@ -52,9 +52,9 @@ type Submission = z.infer<typeof SubmissionSchema>;
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
 /**
- * Replaces every package of a submission with the one being uploaded. A
- * submission starts as a copy of the published one, so the packages it lists
- * are the previous release's.
+ * Replaces every package of a submission with the one being uploaded. A new
+ * submission is a copy of the published one, so it lists the packages of the
+ * release currently in the Store.
  */
 export function replacePackages(
   submission: Submission,
