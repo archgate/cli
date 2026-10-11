@@ -74,6 +74,6 @@ The submission API updates a published product; the product and its first submis
 
 1. In [Partner Center](https://partner.microsoft.com/dashboard), reserve the product name. **Product identity** then shows the values this directory carries: `Package/Identity/Name`, `Package/Identity/Publisher`, and `Package/Properties/PublisherDisplayName` go into `AppxManifest.xml`; the **Store ID** goes into `store.json` and `install.ps1`.
 2. Build the package and create the first submission in Partner Center: upload the `.msix`, complete the age rating, the Store listing, and the restricted-capability justification, then submit for certification.
-3. Under **Account settings → User management → Microsoft Entra applications**, add an application with the Manager role. Create no client secret.
+3. Under **Account settings → User management → Microsoft Entra applications**, add an application with the Developer role, which can upload packages and submit apps. Create no client secret.
 4. In the [Microsoft Entra admin center](https://entra.microsoft.com), open that application's **Certificates & secrets → Federated credentials** and add a **GitHub Actions** credential for organization `archgate`, repository `cli`, entity type **Environment**, environment `microsoft-store`.
 5. Add the repository variables the publish job reads: `PARTNER_CENTER_CLIENT_ID` (the application ID) and `PARTNER_CENTER_TENANT_ID`. Without them the job logs a warning and skips the submission.
