@@ -32,7 +32,8 @@ export default {
       },
     },
     "shim-version-sync": {
-      description: "All shim package versions must match package.json version",
+      description:
+        "All shim package and Store package versions must match package.json version",
       severity: "error",
       async check(ctx) {
         const pkgJson = await ctx.readJSON("package.json");
@@ -90,37 +91,12 @@ export default {
             pattern: /VERSION\s*=\s*"([^"]+)"/u,
             label: "RubyGem version.rb",
           },
+          // MSIX versions carry four parts and the Store reserves the last,
+          // so the manifest states the release as `x.y.z.0`.
           {
-            file: "shims/winget/manifests/Archgate.Archgate.yaml",
-            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
-            label: "winget version manifest",
-            required: true,
-          },
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
-            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
-            label: "winget installer manifest",
-            required: true,
-          },
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
-            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
-            label: "winget locale manifest",
-            required: true,
-          },
-          // The two URLs embed the version too. A manifest whose
-          // PackageVersion is current but whose URL is stale points winget at
-          // the wrong release asset, so each is matched on its own.
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
-            pattern: /InstallerUrl:\s*"[^"]*\/releases\/download\/v([^/]+)/u,
-            label: "winget InstallerUrl",
-            required: true,
-          },
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
-            pattern: /ReleaseNotesUrl:\s*\S*\/releases\/tag\/v(\S+)/u,
-            label: "winget ReleaseNotesUrl",
+            file: "distribution/msix/AppxManifest.xml",
+            pattern: /<Identity\b[^>]*\bVersion="(\d+\.\d+\.\d+)\.0"/u,
+            label: "MSIX AppxManifest.xml",
             required: true,
           },
         ];

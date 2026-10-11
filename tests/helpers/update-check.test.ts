@@ -1,10 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, test, beforeEach, afterEach, mock } from "bun:test";
+import {
+  describe,
+  expect,
+  test,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as installInfo from "../../src/helpers/install-info";
+import { STORE_UPGRADE_COMMAND } from "../../src/helpers/msstore";
 import {
   checkForUpdatesIfNeeded,
   maybeCheckForUpdates,
@@ -122,6 +132,23 @@ describe("checkForUpdatesIfNeeded", () => {
     expect(result).toContain("0.1.0");
     expect(result).toContain("0.2.0");
     expect(result).toContain("archgate upgrade");
+  });
+
+  test("names the winget command for a Microsoft Store install", async () => {
+    const methodSpy = spyOn(installInfo, "detectInstallMethod").mockReturnValue(
+      "msstore"
+    );
+    const mockFetch = mock(async () => ({
+      ok: true,
+      json: async () => ({ tag_name: "v0.2.0" }),
+    }));
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const result = await checkForUpdatesIfNeeded("0.1.0");
+    expect(result).toContain(STORE_UPGRADE_COMMAND);
+    expect(result).not.toContain("archgate upgrade");
+    methodSpy.mockRestore();
   });
 
   test("returns null when GitHub API returns non-ok response", async () => {

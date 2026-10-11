@@ -128,7 +128,9 @@ describe("install-info", () => {
   describe("detectInstallMethod", () => {
     test("returns a valid install method string", () => {
       const method = detectInstallMethod();
-      expect(["binary", "proto", "local", "global-pm"]).toContain(method);
+      expect(["binary", "proto", "local", "global-pm", "msstore"]).toContain(
+        method
+      );
     });
 
     test("result is cached across calls", () => {
@@ -207,6 +209,16 @@ describe("install-info", () => {
           expect(detectInstallMethod()).toBe(method);
         }
       );
+
+      test("an executable beside an AppxManifest.xml is a Store install", () => {
+        // The package root wins over every prefix rule, so the fake package
+        // sits under ~/.archgate/bin, which would otherwise read as "binary".
+        const packageDir = join(tempHome, ".archgate", "bin");
+        mkdirSync(packageDir, { recursive: true });
+        writeFileSync(join(packageDir, "AppxManifest.xml"), "<Package />");
+        process.execPath = join(packageDir, "archgate.exe");
+        expect(detectInstallMethod()).toBe("msstore");
+      });
 
       test("an executable under PROTO_HOME/tools/archgate is a proto install", () => {
         const protoHome = join(tempHome, "custom-proto");

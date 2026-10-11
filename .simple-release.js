@@ -158,34 +158,18 @@ class ArchgateProject extends NpmProject {
         }
       }
 
-      // winget: manifests. No package is built from this directory — winget
-      // installs the executable from a release URL — so the version lives in
-      // the manifests themselves, both as PackageVersion and inside the two
-      // URLs that embed it.
-      const wingetManifestPaths = [
-        "shims/winget/manifests/Archgate.Archgate.yaml",
-        "shims/winget/manifests/Archgate.Archgate.installer.yaml",
-        "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
-      ];
-      for (const manifestPath of wingetManifestPaths) {
-        if (!existsSync(manifestPath)) continue;
-        const content = readFileSync(manifestPath, "utf8");
-        const updated = content
-          .replace(
-            /^PackageVersion:\s*"[^"]+"/mu,
-            `PackageVersion: "${version}"`
-          )
-          .replace(
-            /(InstallerUrl:\s*"[^"]*\/releases\/download\/)v[^/]+/u,
-            `$1v${version}`
-          )
-          .replace(
-            /(ReleaseNotesUrl:\s*\S*\/releases\/tag\/)v\S+/u,
-            `$1v${version}`
-          );
+      // MSIX: AppxManifest.xml. Package versions carry four parts and the
+      // Store reserves the last, so the release is written as `x.y.z.0`.
+      const msixManifestPath = "distribution/msix/AppxManifest.xml";
+      if (existsSync(msixManifestPath)) {
+        const content = readFileSync(msixManifestPath, "utf8");
+        const updated = content.replace(
+          /(<Identity\b[^>]*\bVersion=")\d+\.\d+\.\d+\.0"/u,
+          `$1${version}.0"`
+        );
         if (updated !== content) {
-          writeFileSync(manifestPath, updated);
-          this.changedFiles.push(manifestPath);
+          writeFileSync(msixManifestPath, updated);
+          this.changedFiles.push(msixManifestPath);
         }
       }
 

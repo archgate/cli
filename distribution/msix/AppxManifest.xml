@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 desktop6 rescap">
+
+  <!-- Name and Publisher are assigned by Partner Center when the app name is
+       reserved; the Store rejects a package whose identity differs. -->
+  <Identity
+    Name="BarretoTech.ArchgateCLI"
+    Publisher="CN=52AEAA9B-8639-4CFD-B7E8-1E7007C75EA5"
+    Version="0.59.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Archgate CLI</DisplayName>
+    <PublisherDisplayName>Barreto Tech</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <!-- archgate edits files other programs read, such as VS Code's
+         %APPDATA%\Code\User\settings.json. Virtualized, those writes would land
+         in a package-private copy nothing else sees. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily
+      Name="Windows.Desktop"
+      MinVersion="10.0.18362.0"
+      MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application
+      Id="Archgate"
+      Executable="archgate.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <!-- AppListEntry="none": a CLI has no Start menu entry. -->
+      <uap:VisualElements
+        DisplayName="Archgate CLI"
+        Description="Enforce Architecture Decision Records as executable rules, for humans and AI agents."
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        AppListEntry="none" />
+      <Extensions>
+        <!-- Puts `archgate` on PATH for every terminal. -->
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="archgate.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <!-- Required by the two virtualization opt-outs above. -->
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+</Package>
