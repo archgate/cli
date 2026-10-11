@@ -37,6 +37,9 @@ $WingetNoUpgradeExitCode = -1978335189
 $SkipReason = Get-WingetSkipReason
 if (-not $SkipReason) {
     Write-Host "Installing archgate from the Microsoft Store with winget..."
+    # A failing winget must reach the fallback below, so its exit code is read
+    # here even where the caller's session turns native failures into errors.
+    $PSNativeCommandUseErrorActionPreference = $false
     & winget install --id $StoreId --source msstore
     if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $WingetNoUpgradeExitCode) {
         $DirectBinary = Join-Path $HOME ".archgate/bin/archgate.exe"

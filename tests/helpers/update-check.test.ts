@@ -145,10 +145,13 @@ describe("checkForUpdatesIfNeeded", () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    const result = await checkForUpdatesIfNeeded("0.1.0");
-    expect(result).toContain(STORE_UPGRADE_COMMAND);
-    expect(result).not.toContain("archgate upgrade");
-    methodSpy.mockRestore();
+    try {
+      const result = await checkForUpdatesIfNeeded("0.1.0");
+      expect(result).toContain(STORE_UPGRADE_COMMAND);
+      expect(result).not.toContain("archgate upgrade");
+    } finally {
+      methodSpy.mockRestore();
+    }
   });
 
   test("returns null when GitHub API returns non-ok response", async () => {

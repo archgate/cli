@@ -162,7 +162,7 @@ describe("upgrade action handler (upgrade flow)", () => {
       .parseAsync(["node", "test", "upgrade"])
       .catch(() => {});
 
-    expect(exitSpy).toHaveBeenCalledWith(0);
+    expect(exitSpy).toHaveBeenCalledWith(1);
     expect(logSpy.mock.calls.flat().join(" ")).toContain(STORE_UPGRADE_COMMAND);
     expect(downloadSpy).not.toHaveBeenCalled();
     expect(replaceSpy).not.toHaveBeenCalled();

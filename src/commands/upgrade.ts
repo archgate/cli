@@ -442,7 +442,8 @@ export function registerUpgradeCommand(program: Command) {
 
   ${STORE_UPGRADE_COMMAND}`
           );
-          await exitWith(0);
+          // Nothing was upgraded, so a script must not read this as success.
+          await exitWith(1);
           return;
         }
 
