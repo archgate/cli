@@ -16,6 +16,7 @@ Every directory under [`shims/`](../../shims) is a thin package that downloads t
 | `Assets/`          | Logos the manifest references                                         |
 | `store.json`       | Store product ID, read by the CLI, the publish workflow, and the docs |
 | `build.ts`         | Stages the binary beside the manifest and packs it with `makeappx`    |
+| `publish.ts`       | Submits a packed MSIX through the Microsoft Store submission API      |
 
 The manifest's `Identity` `Version` is the release written as `x.y.z.0`. The `.simple-release.js` bump hook rewrites it with every other version, and `ARCH-013/shim-version-sync` fails the build on drift. `install.ps1` repeats the product ID as a literal because it is served standalone; `ARCH-017/store-identity` keeps the two equal.
 
@@ -57,19 +58,22 @@ Add-AppxPackage dist\msix\archgate-win32-x64.msix
 
 ## Publishing
 
-`release-binaries.yml` builds the package, attests it, and uploads it to the GitHub release. `publish-shims.yml` then submits that same file to the Store:
+`release-binaries.yml` builds the package, attests it, and uploads it to the GitHub release. `publish-shims.yml` then submits that same file to the Store through the [Microsoft Store submission API](https://learn.microsoft.com/windows/uwp/monetize/create-and-manage-submissions-using-windows-store-services):
 
 ```bash
-msstore publish archgate-win32-x64.msix --appId <productId>
+bun run publish:msstore --archive submission.zip
 ```
 
-The Store certifies the submission, signs the package, and publishes it — usually within a few business days, so the Store version trails the GitHub release until it clears.
+`publish.ts` removes any pending submission, creates a new one, replaces its package with the uploaded MSIX, and commits it. The Store then certifies the submission, signs the package, and publishes it — usually within a few business days, so the Store version trails the GitHub release until it clears.
+
+The job holds no Partner Center secret. It signs in to Microsoft Entra with GitHub's OIDC token (`azure/login`) and exchanges it for an access token scoped to `https://manage.devcenter.microsoft.com`, which `publish.ts` reads from `PARTNER_CENTER_ACCESS_TOKEN`.
 
 ### One-time Partner Center setup
 
-The [Microsoft Store Developer CLI](https://learn.microsoft.com/windows/apps/publish/msstore-dev-cli/overview) publishes updates only. The product and its first submission are created by hand:
+The submission API updates a published product; the product and its first submission are created by hand:
 
 1. In [Partner Center](https://partner.microsoft.com/dashboard), reserve the product name. **Product identity** then shows the values this directory carries: `Package/Identity/Name`, `Package/Identity/Publisher`, and `Package/Properties/PublisherDisplayName` go into `AppxManifest.xml`; the **Store ID** goes into `store.json` and `install.ps1`.
 2. Build the package and create the first submission in Partner Center: upload the `.msix`, complete the age rating, the Store listing, and the restricted-capability justification, then submit for certification.
-3. Under **Account settings → User management → Microsoft Entra applications**, add an application with the Manager role and create a client secret for it.
-4. Add the repository secrets the publish job reads: `PARTNER_CENTER_TENANT_ID`, `PARTNER_CENTER_SELLER_ID`, `PARTNER_CENTER_CLIENT_ID`, `PARTNER_CENTER_CLIENT_SECRET`. Without the client secret the job logs a warning and skips the submission.
+3. Under **Account settings → User management → Microsoft Entra applications**, add an application with the Manager role. Create no client secret.
+4. In the [Microsoft Entra admin center](https://entra.microsoft.com), open that application's **Certificates & secrets → Federated credentials** and add a **GitHub Actions** credential for organization `archgate`, repository `cli`, entity type **Environment**, environment `microsoft-store`.
+5. Add the repository variables the publish job reads: `PARTNER_CENTER_CLIENT_ID` (the application ID) and `PARTNER_CENTER_TENANT_ID`. Without them the job logs a warning and skips the submission.

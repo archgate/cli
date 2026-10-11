@@ -161,68 +161,67 @@ jobs:
   # jobs only depend on wait-for-binaries, so a Store failure never blocks
   # them, and a silent failure would let the Store drift versions behind
   # unnoticed.
+  #
+  # Authentication is GitHub OIDC federation: the Entra application trusts
+  # tokens issued to the `microsoft-store` environment, so no Partner Center
+  # secret is stored. The client and tenant IDs are identifiers, not secrets.
   publish-msstore:
     needs: wait-for-binaries
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: microsoft-store
     permissions:
       contents: read
+      id-token: write # Entra workload identity federation (OIDC)
+    env:
+      CLIENT_ID: ${{ vars.PARTNER_CENTER_CLIENT_ID }}
+      TENANT_ID: ${{ vars.PARTNER_CENTER_TENANT_ID }}
     steps:
+      - name: Check Partner Center configuration
+        id: config
+        run: |
+          if [ -z "$CLIENT_ID" ] || [ -z "$TENANT_ID" ]; then
+            echo "::warning::PARTNER_CENTER_CLIENT_ID / PARTNER_CENTER_TENANT_ID are not configured - skipping the Microsoft Store submission."
+            echo "::warning::See distribution/msix/README.md for the Partner Center setup."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.config.outputs.configured == 'true'
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
-          sparse-checkout: distribution/msix/store.json
-          sparse-checkout-cone-mode: false
 
-      - name: Check Partner Center credentials
-        id: credentials
-        shell: pwsh
-        env:
-          CLIENT_SECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
-        run: |
-          if (-not $env:CLIENT_SECRET) {
-            Write-Host "::warning::PARTNER_CENTER_CLIENT_SECRET is not configured - skipping the Microsoft Store submission."
-            Write-Host "::warning::See distribution/msix/README.md for the Partner Center setup."
-            "configured=false" >> $env:GITHUB_OUTPUT
-          } else {
-            "configured=true" >> $env:GITHUB_OUTPUT
-          }
+      - uses: $/.github/actions/setup-bun-project
+        if: steps.config.outputs.configured == 'true'
 
-      - name: Setup Microsoft Store Developer CLI
-        if: steps.credentials.outputs.configured == 'true'
-        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+      - name: Sign in to Microsoft Entra
+        if: steps.config.outputs.configured == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.PARTNER_CENTER_CLIENT_ID }}
+          tenant-id: ${{ vars.PARTNER_CENTER_TENANT_ID }}
+          allow-no-subscriptions: true
 
       - name: Submit MSIX to the Microsoft Store
-        if: steps.credentials.outputs.configured == 'true'
-        shell: pwsh
+        if: steps.config.outputs.configured == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
-          TENANT_ID: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
-          SELLER_ID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
-          CLIENT_ID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
-          CLIENT_SECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
         run: |
-          $productId = (Get-Content distribution/msix/store.json -Raw | ConvertFrom-Json).productId
+          gh release download "$TAG" --repo archgate/cli --pattern archgate-win32-x64.msix
+          # The submission API takes the package inside a ZIP archive.
+          zip submission.zip archgate-win32-x64.msix
 
-          gh release download $env:TAG --repo archgate/cli --pattern archgate-win32-x64.msix
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Could not download archgate-win32-x64.msix from $env:TAG"
-            exit 1
-          }
+          PARTNER_CENTER_ACCESS_TOKEN=$(az account get-access-token \
+            --resource https://manage.devcenter.microsoft.com \
+            --query accessToken --output tsv)
+          echo "::add-mask::$PARTNER_CENTER_ACCESS_TOKEN"
+          export PARTNER_CENTER_ACCESS_TOKEN
 
-          msstore reconfigure --tenantId $env:TENANT_ID --sellerId $env:SELLER_ID --clientId $env:CLIENT_ID --clientSecret $env:CLIENT_SECRET
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "msstore reconfigure exited with code $LASTEXITCODE"
-            exit 1
-          }
-
-          msstore publish archgate-win32-x64.msix --appId $productId
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "msstore publish exited with code $LASTEXITCODE"
-            exit 1
-          }
+          bun run publish:msstore --archive submission.zip
 
   publish-rubygem:
     needs: wait-for-binaries

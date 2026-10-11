@@ -57,6 +57,7 @@
     "lint": "bun run scripts/ensure-rules-dts.ts && oxlint --deny-warnings .",
     "profile:cpu": "bun --cpu-prof-md --cpu-prof-dir=.profiles src/cli.ts",
     "profile:heap": "bun --heap-prof-md --heap-prof-dir=.profiles src/cli.ts",
+    "publish:msstore": "bun run distribution/msix/publish.ts",
     "test": "bun test --timeout 60000 --parallel",
     "test:changed": "bun test --timeout 60000 --parallel --changed",
     "test:coverage": "bun test --timeout 60000 --coverage",
