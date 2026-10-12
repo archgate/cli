@@ -19,7 +19,7 @@ Both patterns compile, pass `oxlint`, and pass `bun test` — they are not caugh
 **Alternatives considered:**
 
 - **Add these as more Do's/Don'ts to ARCH-005** — Rejected: ARCH-005's own Compliance section already documents that its Do's and Don'ts section exceeds the `archgate review-context` briefing budget; appending more would push more of it out of every future briefing, including the parts already there.
-- **Enforce via a new oxlint plugin immediately** — Deferred, not rejected: this repo already has a precedent (`lint/expect-expect.ts`, `lint/no-bare-env-restore.ts`) for exactly this kind of AST-detectable test-shape rule, and it is the right enforcement layer for both patterns (syntax-detectable, not behavioral). Building it is out of scope for the session that produced this ADR, which only fixed existing instances; the rule is recorded as future work in Compliance and Enforcement below.
+- **Enforce via an oxlint plugin** — Adopted for the loop pattern: this repo's precedent (`lint/expect-expect.ts`, `lint/no-bare-env-restore.ts`) is exactly this kind of AST-detectable test-shape rule, and `lint/no-loop-test-cases.ts` follows it. The boolean-collapse pattern is syntax-detectable too and is a candidate for the same layer (Compliance and Enforcement below).
 - **Leave undocumented, rely on code review alone** — Rejected: the instances this ADR responds to were already written by reviewed, merged PRs; undocumented convention did not prevent the drift.
 
 ## Decision
@@ -41,20 +41,20 @@ A loop that only builds shared setup data or fixtures for a single overall asser
 
 ### Do
 
-- **DO** use `test.each(cases)("<title with %s/%p/%d>", (...args) => {...})` for the same check against independent inputs — each case becomes its own named, independently-reportable test.
-- **DO** use `describe.each(cases)(...)` when a case needs its own group of related tests, not just one assertion.
+- **DO** use `test.each(cases)("<title with %s/%p/%d>", (...args) => {...})` for the same check against independent inputs — each case becomes its own named test.
+- **DO** use `describe.each(cases)(...)` when a case needs a group of related tests, not one assertion.
 - **DO** pass array rows (`[a, b, expected]`) for positional destructuring, object rows (`{a, b, expected}`) for named fields (title with `$field`).
 - **DO** assert derived comparisons directly on the values: `expect(actual).toBe(expected)` / `.toEqual(expected)`.
-- **DO** match the matcher to the check: `.toContain()`/`.toMatch()` for substrings, `.toBeInstanceOf()` for type checks (including `Array.isArray` replacements), `.toHaveLength()` for counts, `.find(...)` + `.toBeDefined()`/`.toBeUndefined()` for "does any item satisfy X."
-- **DO** keep loop→`test.each()` conversions 1:1 — every assertion that ran per-iteration in the original loop must still run per-case; never drop or merge assertions.
+- **DO** match the matcher to the check: `.toContain()`/`.toMatch()` for substrings, `.toBeInstanceOf()` for type checks, `.toHaveLength()` for counts, `.find(...)` + `.toBeDefined()`/`.toBeUndefined()` for "does any item satisfy X."
+- **DO** keep loop→`test.each()` conversions 1:1 — every per-iteration assertion still runs per case; never drop or merge assertions.
 
 ### Don't
 
-- **DON'T** register a `test()`/`it()` or call `expect()` once per iteration inside a `for`/`.forEach` loop — use `test.each()`/`describe.each()` instead.
+- **DON'T** register `test()`/`it()`/`describe()` inside a loop, loop `expect()` over rows that exist at registration time (an array literal or `const` array), or let a loop carry a test's only `expect()` — use `test.each()`, or assert the collection outside the loop.
 - **DON'T** write `expect(a === b).toBe(true)` or `.toBe(false)` — assert `expect(a).toBe(b)` / `.not.toBe(b)` directly.
-- **DON'T** collapse `.some(predicate)`/`.every(predicate)` into `.toBe(true)` — it reports `false !== true` with no indication of which element (or none) satisfied the predicate. Use `.find(predicate)` + `.toBeDefined()`, a per-item `expect()` loop, or a matcher over the mapped values (e.g. `expect(arr.map(x => x.message)).toContain(...)`).
+- **DON'T** collapse `.some(predicate)`/`.every(predicate)` into `.toBe(true)` — it reports `false !== true` without saying which element satisfied the predicate. Use `.find(predicate)` + `.toBeDefined()`, a per-item `expect()` loop guarded by an assertion on the whole collection, or a matcher over the mapped values (e.g. `expect(arr.map(x => x.message)).toContain(...)`).
 - **DON'T** write `expect(Array.isArray(x)).toBe(true)` — use `expect(x).toBeInstanceOf(Array)`.
-- **DON'T** precompute a boolean just to assert it (`const equal = JSON.stringify(a) === JSON.stringify(b); expect(equal).toBe(true);`) — assert on the values directly with `.toEqual()`/`.toBe()` so a failure shows the actual diff.
+- **DON'T** precompute a boolean just to assert it (`const equal = a === b; expect(equal).toBe(true);`) — assert on the values directly with `.toEqual()`/`.toBe()` so a failure shows the actual diff.
 
 ## Implementation Pattern
 
@@ -111,8 +111,8 @@ expect(violations.some((v) => v.message.includes('"fetch" global'))).toBe(true);
 
 ### Risks
 
-- **No automated enforcement yet**: neither pattern is currently caught by `oxlint` or `archgate check`, so new instances can still be introduced and merged undetected, the same way the instances motivating this ADR were.
-  - **Mitigation:** tracked as future work in Compliance and Enforcement below (a candidate `oxlint` plugin following the existing `bun-test/expect-expect` precedent); until it exists, code review is the only enforcement layer, so reviewers MUST check new/changed test files against the Do's and Don'ts above.
+- **Boolean collapse has no automated enforcement**: `expect(<comparison>).toBe(true)` is caught by neither `oxlint` nor `archgate check`, so new instances can be introduced and merged undetected.
+  - **Mitigation:** a `test-cases/no-boolean-collapse` rule beside `no-loop-test-cases` is the intended layer (Compliance and Enforcement below); until it exists, reviewers MUST check new/changed test files against Manual Enforcement item 2.
 - **Existing violations elsewhere in the codebase may resurface**: this ADR's Context reflects a repository-wide audit at a point in time; files not covered by that audit, or added afterward, may still contain either anti-pattern.
   - **Mitigation:** treat any test file touched for an unrelated change as an opportunity to fix nearby instances of either pattern, consistent with ARCH-005's existing test-hygiene expectations.
 
@@ -120,13 +120,14 @@ expect(violations.some((v) => v.message.includes('"fetch" global'))).toBe(true);
 
 ### Automated Enforcement
 
-- **Not yet implemented.** No `oxlint` rule or `archgate` rule currently detects either anti-pattern. A future `oxlint` plugin (e.g. `bun-test/no-loop-test-cases` and `bun-test/no-boolean-collapse`, registered via `jsPlugins` in `.oxlintrc.json` alongside the existing `bun-test/expect-expect` and `test-isolation/no-bare-env-restore` plugins) is the intended enforcement layer once written, matching this repo's existing pattern of using oxlint for syntax-detectable test-shape rules and reserving `archgate` rules for structural/governance checks. This ADR's `rules: false` reflects that no companion `.rules.ts` exists.
+- **`test-cases/no-loop-test-cases`** (`lint/no-loop-test-cases.ts`, registered in `.oxlintrc.json` `jsPlugins` and enabled as an error for `tests/**/*.test.ts`) reports three shapes: a `test()`/`it()`/`describe()` registered inside a `for`/`for...in`/`for...of`/`while`/`do...while` body or an iteration callback (`.forEach`, `.map`, `.flatMap`, `.filter`, `.some`, `.every`); an `expect()` inside a `for...of` or iteration callback over rows that exist at registration time (a non-empty array literal, or a `const NAME = [...]` binding in module, `describe`, or test scope, including `as const`/`satisfies` forms); and a loop that carries a test's only `expect()` calls. A runtime-derived loop of per-item `expect()`s with an assertion on the collection outside the loop is not reported. Plugin names are unique within `jsPlugins`, so this plugin is `test-cases`.
+- **Boolean collapse is unenforced.** No rule detects `expect(<comparison>).toBe(true)`; a `test-cases/no-boolean-collapse` rule in the same plugin is the intended layer. `rules: false` reflects that no companion `.rules.ts` exists: both patterns are syntax-detectable, which this repo enforces with oxlint plugins, reserving `archgate` rules for structural checks.
 
 ### Manual Enforcement
 
 Code reviewers MUST verify, for any new or changed file under `tests/**/*.test.ts`:
 
-1. No `for`/`.forEach` loop registers a `test()`/`it()`/`describe()` call, and no `for`/`.forEach` loop inside a single test calls `expect()` once per logically independent case — either shape MUST be `test.each()`/`describe.each()` instead.
+1. Beyond what `test-cases/no-loop-test-cases` reports, no loop inside a test calls `expect()` once per logically independent case over rows that exist at registration time but are not an array literal or `const` array (for example rows returned by a helper call) — that shape MUST be `test.each()`/`describe.each()` too.
 2. No `expect(<comparison>).toBe(true)` or `.toBe(false)` where `<comparison>` is itself a boolean expression (`===`, `.some()`, `.every()`, `Array.isArray()`, `.includes()`) — the assertion MUST target the underlying values with a specific matcher.
 3. A `test.each()`/`describe.each()` conversion preserves every assertion that ran in the original loop — none dropped, none merged into a single case.
 

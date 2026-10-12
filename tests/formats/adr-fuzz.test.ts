@@ -69,37 +69,31 @@ describe("parseFrontmatter fuzz", () => {
     );
   });
 
-  test("handles null bytes and control characters", () => {
-    const inputs = [
-      "id: \0",
-      "title:  ",
-      "domain: éñüßαβγ☃\u{1F680}​﻿ ",
-      "rules: ﻿ true",
-      "​id: GEN-001",
-      "id: GEN-001\r\ntitle: test\r\nrules: true\r\ndomain: general",
-    ];
-    for (const input of inputs) {
-      try {
-        parseFrontmatter(input);
-      } catch (e: unknown) {
-        expect(e).toBeInstanceOf(Error);
-      }
+  test.each([
+    "id: \0",
+    "title:  ",
+    "domain: éñüßαβγ☃\u{1F680}​﻿ ",
+    "rules: ﻿ true",
+    "​id: GEN-001",
+    "id: GEN-001\r\ntitle: test\r\nrules: true\r\ndomain: general",
+  ])("handles null bytes and control characters (%j)", (input) => {
+    try {
+      parseFrontmatter(input);
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(Error);
     }
   });
 
-  test("handles deeply nested YAML structures", () => {
-    const inputs = [
-      "a: {b: {c: {d: {e: {f: {g: 1}}}}}}",
-      "a:\n  b:\n    c:\n      d:\n        e: 1",
-      "a: [[[[[[1]]]]]]",
-      "a: &anchor\n  b: 1\nc: *anchor",
-    ];
-    for (const input of inputs) {
-      try {
-        parseFrontmatter(input);
-      } catch (e: unknown) {
-        expect(e).toBeInstanceOf(Error);
-      }
+  test.each([
+    "a: {b: {c: {d: {e: {f: {g: 1}}}}}}",
+    "a:\n  b:\n    c:\n      d:\n        e: 1",
+    "a: [[[[[[1]]]]]]",
+    "a: &anchor\n  b: 1\nc: *anchor",
+  ])("handles deeply nested YAML structures (%j)", (input) => {
+    try {
+      parseFrontmatter(input);
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(Error);
     }
   });
 });
@@ -135,46 +129,40 @@ describe("parseAdr fuzz", () => {
     );
   });
 
-  test("handles adversarial frontmatter delimiters", () => {
-    const inputs = [
-      "------\nid: GEN-001\n------",
-      "---\n---",
-      "---\n\n---",
-      "---\r\nid: GEN-001\r\n---",
-      "--- \nid: GEN-001\n---",
-      "---\nid: GEN-001\n--- trailing",
-      "---\nid: GEN-001\n---\n---\nid: GEN-002\n---",
-      "\n---\nid: GEN-001\n---",
-      " ---\nid: GEN-001\n---",
-      "---\n".repeat(50),
-    ];
-    for (const input of inputs) {
-      try {
-        parseAdr(input, "adversarial.md");
-      } catch (e: unknown) {
-        expect(e).toBeInstanceOf(Error);
-      }
+  test.each([
+    "------\nid: GEN-001\n------",
+    "---\n---",
+    "---\n\n---",
+    "---\r\nid: GEN-001\r\n---",
+    "--- \nid: GEN-001\n---",
+    "---\nid: GEN-001\n--- trailing",
+    "---\nid: GEN-001\n---\n---\nid: GEN-002\n---",
+    "\n---\nid: GEN-001\n---",
+    " ---\nid: GEN-001\n---",
+    "---\n".repeat(50),
+  ])("handles adversarial frontmatter delimiters (%j)", (input) => {
+    try {
+      parseAdr(input, "adversarial.md");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(Error);
     }
   });
 
-  test("handles YAML injection attempts", () => {
-    const inputs = [
-      '---\nid: "GEN-001\\nrules: true"\ntitle: test\ndomain: general\nrules: false\n---',
-      "---\nid: !!python/object:os.system 'echo pwned'\ntitle: test\ndomain: general\nrules: true\n---",
-      "---\nid: !<!tag> value\ntitle: test\ndomain: general\nrules: true\n---",
-      "---\nid: &id GEN-001\ntitle: *id\ndomain: general\nrules: true\n---",
-      "---\nid: |\n  multi\n  line\ntitle: test\ndomain: general\nrules: true\n---",
-      "---\nid: >\n  folded\n  text\ntitle: test\ndomain: general\nrules: true\n---",
-    ];
-    for (const input of inputs) {
-      try {
-        const doc = parseAdr(input, "injection.md");
-        expect(doc).toHaveProperty("frontmatter");
-        expect(doc).toHaveProperty("body");
-        expect(doc).toHaveProperty("filePath");
-      } catch (e: unknown) {
-        expect(e).toBeInstanceOf(Error);
-      }
+  test.each([
+    '---\nid: "GEN-001\\nrules: true"\ntitle: test\ndomain: general\nrules: false\n---',
+    "---\nid: !!python/object:os.system 'echo pwned'\ntitle: test\ndomain: general\nrules: true\n---",
+    "---\nid: !<!tag> value\ntitle: test\ndomain: general\nrules: true\n---",
+    "---\nid: &id GEN-001\ntitle: *id\ndomain: general\nrules: true\n---",
+    "---\nid: |\n  multi\n  line\ntitle: test\ndomain: general\nrules: true\n---",
+    "---\nid: >\n  folded\n  text\ntitle: test\ndomain: general\nrules: true\n---",
+  ])("handles YAML injection attempts (%j)", (input) => {
+    try {
+      const doc = parseAdr(input, "injection.md");
+      expect(doc).toHaveProperty("frontmatter");
+      expect(doc).toHaveProperty("body");
+      expect(doc).toHaveProperty("filePath");
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(Error);
     }
   });
 });
@@ -223,23 +211,20 @@ describe("AdrFrontmatterSchema fuzz", () => {
     );
   });
 
-  test("handles extreme field values", () => {
-    const cases = [
-      { id: "", title: "", domain: "", rules: false },
-      {
-        id: "a".repeat(10_000),
-        title: "b".repeat(10_000),
-        domain: "c".repeat(10_000),
-        rules: true,
-      },
-      { id: "\0\0\0", title: "\n\r\t", domain: "﻿​", rules: true },
-      { id: 0, title: false, domain: [], rules: "yes" },
-      { id: null, title: undefined, domain: NaN, rules: Infinity },
-      { id: {}, title: [], domain: () => {}, rules: Symbol("test") },
-    ];
-    for (const c of cases) {
-      const result = AdrFrontmatterSchema.safeParse(c);
-      expect(result).toHaveProperty("success");
-    }
+  test.each([
+    { id: "", title: "", domain: "", rules: false },
+    {
+      id: "a".repeat(10_000),
+      title: "b".repeat(10_000),
+      domain: "c".repeat(10_000),
+      rules: true,
+    },
+    { id: "\0\0\0", title: "\n\r\t", domain: "﻿​", rules: true },
+    { id: 0, title: false, domain: [], rules: "yes" },
+    { id: null, title: undefined, domain: NaN, rules: Infinity },
+    { id: {}, title: [], domain: () => {}, rules: Symbol("test") },
+  ])("handles extreme field values (case %#)", (c) => {
+    const result = AdrFrontmatterSchema.safeParse(c);
+    expect(result).toHaveProperty("success");
   });
 });
