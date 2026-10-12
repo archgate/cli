@@ -563,7 +563,7 @@ Sob `archgate check --strict`, qualquer resultado com severidade `warning` falha
 
 ## Timeout de regras
 
-Cada regra tem um timeout de execução de 30 segundos. Se uma regra exceder esse limite, ela é tratada como erro. Isso impede que verificações descontroladas bloqueiem o pipeline.
+Cada regra tem um timeout de execução de 30 segundos que mede o trabalho da própria regra -- os ADRs são executados um após o outro, então o tempo gasto por outras regras nunca é cobrado dela. Se uma regra exceder esse limite, ela é tratada como erro. Isso impede que verificações descontroladas bloqueiem o pipeline.
 
 Mantenha as regras rápidas:
 

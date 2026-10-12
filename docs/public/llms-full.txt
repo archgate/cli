@@ -925,7 +925,7 @@ Use `ctx.report.violation()` for problems that must block merges. Use `ctx.repor
 
 ## Rule Timeout
 
-Each rule has a 30-second execution timeout. If a rule's `check` function does not complete within 30 seconds, it is terminated and reported as an error. This prevents runaway rules from blocking the pipeline indefinitely.
+Each rule has a 30-second execution timeout that measures the rule's own work: ADRs run one after another, so time spent by other rules is never charged to it. If a rule's `check` function does not complete within 30 seconds, it is terminated and reported as an error. This prevents runaway rules from blocking the pipeline indefinitely.
 
 ## Complete Example
 
@@ -975,7 +975,7 @@ ARCH-007/no-direct-fs-import  ERROR
 
 Rules execute with the following guarantees:
 
-- **Parallel across ADRs** -- Rules from different ADRs run concurrently for faster execution.
+- **Sequential across ADRs** -- ADRs run one after another, so each rule's reported duration and its 30-second timeout cover only that rule's own work.
 - **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
 - **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
 - **Changed files auto-detected** -- `ctx.changedFiles` is automatically populated with the branch diff against the base branch (e.g., `main`) plus uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). Use `--staged` for pre-commit hooks (staged files only) or `--base <ref>` for an explicit base. This enables cross-file dependency rules to work locally, not just in CI.
@@ -2188,8 +2188,8 @@ Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep
 ### What rules cannot do
 
 - **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
-- **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
-- **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
+- **Escape the 30-second timeout** -- each rule is killed after 30 seconds of its own execution time; ADRs run one after another, so no rule is charged for another rule's work.
+- **Affect other rules** -- ADRs run one after another, and rules share no mutable state through the context API.
 - **Reach outside the allowlist through a recognized path** -- a rule may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Imports of any other module, Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), subprocess or native-code access (`require`, `process.binding`), and code generation (`eval`, `new Function`) are rejected before execution in their direct, recognized forms. This is a static scan, not a jail: a capability assembled at runtime is a residual it cannot catch, which is why untrusted rule files still warrant review (see below).
 
 ## CI/CD best practices
@@ -3354,7 +3354,7 @@ Under `archgate check --strict`, any `warning`-severity finding fails the run (e
 
 ## Rule timeout
 
-Each rule has a 30-second execution timeout. If a rule exceeds this limit, it is treated as an error. This prevents runaway checks from blocking the pipeline.
+Each rule has a 30-second execution timeout that measures the rule's own work -- ADRs run one after another, so time spent by other rules is never charged to it. If a rule exceeds this limit, it is treated as an error. This prevents runaway checks from blocking the pipeline.
 
 Keep rules fast by:
 
@@ -5794,7 +5794,7 @@ interface AstOptions {
 
 Parse a source file into its language-native AST. The path is relative to the project root and passes through the same sandbox as `readFile`. Passing the language as a string literal selects a per-language overload, so the return type is already narrowed -- `program.body` is typed without a cast, and only a non-literal `AstLanguage` falls back to the `AstNode` union. TypeScript and JavaScript are parsed in-process; Python and Ruby are parsed by invoking the system interpreter's own standard-library AST facility as a subprocess. The returned tree shape differs per language -- see [AstNode](#astnode).
 
-Parse results are cached for the lifetime of a single `archgate check` run, keyed on `(path, language, rev, comments)`: repeated -- even concurrent -- identical calls across rules cost one parse (one interpreter spawn for Python/Ruby), and a failed parse rethrows the same error to every caller. Treat the returned tree as read-only -- it may be shared with other rules.
+Parse results are cached for the lifetime of a single `archgate check` run, keyed on `(path, language, rev, comments)`: repeated identical calls -- across rules, or concurrent within one rule -- cost one parse (one interpreter spawn for Python/Ruby), and a failed parse rethrows the same error to every caller. Treat the returned tree as read-only -- it may be shared with other rules.
 
 ```typescript
 const program = await ctx.ast("src/cli.ts", "typescript");

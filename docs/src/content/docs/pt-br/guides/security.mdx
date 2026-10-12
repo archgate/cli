@@ -48,8 +48,8 @@ Regras bem-comportadas usam apenas os métodos do `RuleContext` (`ctx.readFile`,
 ### O que as regras não podem fazer
 
 - **Escrever arquivos** -- a API do `RuleContext` é somente leitura. Regras reportam violações mas não podem modificar o codebase.
-- **Escapar do timeout de 30 segundos** -- cada regra é encerrada após 30 segundos de tempo de execução.
-- **Afetar outras regras** -- regras de ADRs diferentes rodam em paralelo mas não compartilham estado mutável através da API de contexto.
+- **Escapar do timeout de 30 segundos** -- cada regra é encerrada após 30 segundos do seu próprio tempo de execução; os ADRs são executados um após o outro, então nenhuma regra é cobrada pelo trabalho de outra.
+- **Afetar outras regras** -- os ADRs são executados um após o outro, e as regras não compartilham estado mutável através da API de contexto.
 - **Alcançar algo fora da allowlist por uma rota reconhecida** -- uma regra só pode importar `node:path`, `node:url`, `node:util` e `node:crypto`. Imports de qualquer outro módulo, APIs do Bun (`Bun.spawn`, `Bun.file`), acesso à rede (`fetch`), acesso a subprocessos ou código nativo (`require`, `process.binding`) e geração de código (`eval`, `new Function`) são rejeitados antes da execução em suas formas diretas e reconhecidas. Isto é uma varredura estática, não uma prisão: uma capacidade montada em tempo de execução é um resíduo que ela não consegue capturar, e por isso arquivos de regra não confiáveis ainda merecem revisão (veja abaixo).
 
 ## Boas práticas para CI/CD
