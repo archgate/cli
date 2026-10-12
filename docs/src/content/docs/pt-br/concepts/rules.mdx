@@ -163,7 +163,7 @@ ARCH-007/no-direct-fs-import  ERROR
 
 As regras são executadas com as seguintes garantias:
 
-- **Sequencial entre ADRs** -- Os ADRs são executados um após o outro, então a duração reportada de cada regra e seu timeout de 30 segundos cobrem apenas o trabalho da própria regra. A execução das regras é limitada pela CPU em uma única thread, então isso termina no mesmo momento ou antes que a execução concorrente.
+- **Sequencial entre ADRs** -- Os ADRs são executados um após o outro, então a duração reportada de cada regra e seu timeout de 30 segundos cobrem apenas o trabalho da própria regra.
 - **Sequencial dentro de um ADR** -- Regras pertencentes ao mesmo ADR são executadas uma após a outra, para que regras anteriores possam estabelecer contexto para as posteriores.
 - **Arquivos no escopo são pré-resolvidos** -- O array `ctx.scopedFiles` é preenchido antes que sua função `check` seja chamada, com base nos globs `files` do ADR.
 - **Arquivos alterados auto-detectados** -- `ctx.changedFiles` é automaticamente preenchido com o diff da branch contra a branch base (ex: `main`) mais as alterações não commitadas da árvore de trabalho (arquivos staged, não staged e não rastreados que não sejam ignorados). Use `--staged` para hooks de pre-commit (apenas arquivos staged) ou `--base <ref>` para uma base explícita. Isso permite que regras de dependência entre arquivos funcionem localmente, não apenas no CI.

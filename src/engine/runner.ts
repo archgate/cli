@@ -434,9 +434,15 @@ export async function runChecks(
      * describe a cap the consumer never saw. Defaults to the engine's.
      */
     maxSectionChars?: number;
+    /**
+     * Per-rule time budget. Tests inject a small value to exercise the
+     * timeout under load; production callers use the default.
+     */
+    ruleTimeoutMs?: number;
   } = {}
 ): Promise<CheckResult> {
   const startTime = performance.now();
+  const timeoutMs = options.ruleTimeoutMs ?? RULE_TIMEOUT_MS;
 
   // Tracked-file listing is independent of the base — start it first so it runs
   // concurrently with the merge-base resolution below.
@@ -516,10 +522,9 @@ export async function runChecks(
     astResults: new Map(),
   };
 
-  // ADRs run one after another. Rule work is synchronous CPU time on this
-  // thread, so this finishes no later than concurrent execution would, and it
-  // keeps a rule's timeout clock and durationMs from running during other
-  // rules' work. See archgate/cli#630.
+  // ADRs run one after another: rule work is synchronous CPU time on this
+  // thread, and sequencing keeps a rule's timeout clock and durationMs from
+  // running during other rules' work. See archgate/cli#630.
   for (const { adr, ruleSet } of loadedAdrs) {
     if (isUntouched(adr.frontmatter.files)) {
       logDebug(`Skipping ADR ${adr.frontmatter.id}: scope untouched`);
@@ -571,9 +576,9 @@ export async function runChecks(
           new Promise<never>((_, reject) => {
             timer = setTimeout(() => {
               reject(
-                new Error(`Rule ${ruleId} timed out after ${RULE_TIMEOUT_MS}ms`)
+                new Error(`Rule ${ruleId} timed out after ${timeoutMs}ms`)
               );
-            }, RULE_TIMEOUT_MS);
+            }, timeoutMs);
           }),
         ]).finally(() => {
           if (timer) clearTimeout(timer);
