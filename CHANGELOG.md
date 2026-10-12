@@ -1,3 +1,13 @@
+## [0.60.0](https://github.com/archgate/cli/compare/v0.59.0...v0.60.0) (2026-10-12)
+
+### Features
+
+* **lint:** enforce ARCH-025 loop shapes with no-loop-test-cases ([#634](https://github.com/archgate/cli/issues/634)) ([7bd679b](https://github.com/archgate/cli/commit/7bd679b0f7a9c2c7c004d7f8ec3d831355f6a7fc)), closes [#630](https://github.com/archgate/cli/issues/630)
+
+### Bug Fixes
+
+* **check:** run ADRs one after another so a rule's timeout and duration measure its own work ([#632](https://github.com/archgate/cli/issues/632)) ([f10ed89](https://github.com/archgate/cli/commit/f10ed896de96735a308804d27830b75b77fef352)), closes [#630](https://github.com/archgate/cli/issues/630)
+
 ## [0.59.0](https://github.com/archgate/cli/compare/v0.58.1...v0.59.0) (2026-10-03)
 
 ### Features

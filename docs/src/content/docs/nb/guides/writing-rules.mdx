@@ -563,7 +563,7 @@ Under `archgate check --strict` feiler ethvert funn med `warning`-alvorlighetsgr
 
 ## Tidsgrense for regler
 
-Hver regel har en kjøringstidsgrense på 30 sekunder. Hvis en regel overskrider denne grensen, behandles den som en feil. Dette forhindrer at uendelige sjekker blokkerer pipelinen.
+Hver regel har en kjøringstidsgrense på 30 sekunder som måler regelens eget arbeid -- ADR-er kjøres én etter én, så tid brukt av andre regler belastes aldri denne regelen. Hvis en regel overskrider denne grensen, behandles den som en feil. Dette forhindrer at uendelige sjekker blokkerer pipelinen.
 
 Hold reglene raske ved å:
 

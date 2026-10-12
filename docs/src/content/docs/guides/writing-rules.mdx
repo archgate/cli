@@ -563,7 +563,7 @@ Under `archgate check --strict`, any `warning`-severity finding fails the run (e
 
 ## Rule timeout
 
-Each rule has a 30-second execution timeout. If a rule exceeds this limit, it is treated as an error. This prevents runaway checks from blocking the pipeline.
+Each rule has a 30-second execution timeout that measures the rule's own work -- ADRs run one after another, so time spent by other rules is never charged to it. If a rule exceeds this limit, it is treated as an error. This prevents runaway checks from blocking the pipeline.
 
 Keep rules fast by:
 

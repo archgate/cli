@@ -113,7 +113,7 @@ Use `ctx.report.violation()` for problems that must block merges. Use `ctx.repor
 
 ## Rule Timeout
 
-Each rule has a 30-second execution timeout. If a rule's `check` function does not complete within 30 seconds, it is terminated and reported as an error. This prevents runaway rules from blocking the pipeline indefinitely.
+Each rule has a 30-second execution timeout that measures the rule's own work: ADRs run one after another, so time spent by other rules is never charged to it. If a rule's `check` function does not complete within 30 seconds, it is terminated and reported as an error. This prevents runaway rules from blocking the pipeline indefinitely.
 
 ## Complete Example
 
@@ -163,7 +163,7 @@ ARCH-007/no-direct-fs-import  ERROR
 
 Rules execute with the following guarantees:
 
-- **Parallel across ADRs** -- Rules from different ADRs run concurrently for faster execution.
+- **Sequential across ADRs** -- ADRs run one after another, so each rule's reported duration and its 30-second timeout cover only that rule's own work.
 - **Sequential within an ADR** -- Rules belonging to the same ADR run one after another, so earlier rules can establish context for later ones.
 - **Scoped files are pre-resolved** -- The `ctx.scopedFiles` array is populated before your `check` function is called, based on the ADR's `files` globs.
 - **Changed files auto-detected** -- `ctx.changedFiles` is automatically populated with the branch diff against the base branch (e.g., `main`) plus uncommitted working-tree changes (staged, unstaged, and untracked non-ignored files). Use `--staged` for pre-commit hooks (staged files only) or `--base <ref>` for an explicit base. This enables cross-file dependency rules to work locally, not just in CI.

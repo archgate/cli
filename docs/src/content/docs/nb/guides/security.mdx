@@ -48,8 +48,8 @@ Veloppførte regler bruker bare `RuleContext`-metodene (`ctx.readFile`, `ctx.gre
 ### Hva regler ikke kan gjøre
 
 - **Skrive filer** -- `RuleContext`-API-et er skrivebeskyttet. Regler rapporterer brudd, men kan ikke endre kodebasen.
-- **Unnslippe 30-sekunders tidsgrensen** -- hver regel termineres etter 30 sekunder veggtid.
-- **Påvirke andre regler** -- regler fra forskjellige ADR-er kjører parallelt, men deler ingen mutbar tilstand gjennom kontekst-API-et.
+- **Unnslippe 30-sekunders tidsgrensen** -- hver regel termineres etter 30 sekunder av sin egen kjøretid; ADR-er kjøres én etter én, så ingen regel belastes for en annen regels arbeid.
+- **Påvirke andre regler** -- ADR-er kjøres én etter én, og regler deler ingen mutbar tilstand gjennom kontekst-API-et.
 - **Nå utenfor tillatelseslisten via en gjenkjent rute** -- en regel kan bare importere `node:path`, `node:url`, `node:util` og `node:crypto`. Import av enhver annen modul, Bun-API-er (`Bun.spawn`, `Bun.file`), nettverkstilgang (`fetch`), underprosess- eller nativ kodetilgang (`require`, `process.binding`) og kodegenerering (`eval`, `new Function`) avvises før kjøring i sine direkte, gjenkjente former. Dette er en statisk skanning, ikke et fengsel: en evne som settes sammen ved kjøretid er en gjenværende risiko den ikke kan fange, og derfor bør regelfiler du ikke stoler på fortsatt gjennomgås (se nedenfor).
 
 ## Beste praksis for CI/CD

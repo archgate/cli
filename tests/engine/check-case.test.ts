@@ -89,11 +89,12 @@ describe("checkCase", () => {
     }
   );
 
-  test("empty string matches no scheme", () => {
-    for (const scheme of schemeKeys(cases)) {
+  test.each(schemeKeys(cases))(
+    "empty string matches no scheme (%s)",
+    (scheme) => {
       expect(checkCase("", scheme)).toBe(false);
     }
-  });
+  );
 
   test("non-ASCII letters are rejected", () => {
     expect(checkCase("café-menu", "kebab-case")).toBe(false);

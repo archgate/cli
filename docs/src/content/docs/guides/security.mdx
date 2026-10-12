@@ -48,8 +48,8 @@ Well-behaved rules only use the `RuleContext` methods (`ctx.readFile`, `ctx.grep
 ### What rules cannot do
 
 - **Write files** -- the `RuleContext` API is read-only. Rules report violations but cannot modify the codebase.
-- **Escape the 30-second timeout** -- each rule is killed after 30 seconds of wall-clock time.
-- **Affect other rules** -- rules from different ADRs run in parallel but share no mutable state through the context API.
+- **Escape the 30-second timeout** -- each rule is killed after 30 seconds of its own execution time; ADRs run one after another, so no rule is charged for another rule's work.
+- **Affect other rules** -- ADRs run one after another, and rules share no mutable state through the context API.
 - **Reach outside the allowlist through a recognized path** -- a rule may import only `node:path`, `node:url`, `node:util`, and `node:crypto`. Imports of any other module, Bun APIs (`Bun.spawn`, `Bun.file`), network access (`fetch`), subprocess or native-code access (`require`, `process.binding`), and code generation (`eval`, `new Function`) are rejected before execution in their direct, recognized forms. This is a static scan, not a jail: a capability assembled at runtime is a residual it cannot catch, which is why untrusted rule files still warrant review (see below).
 
 ## CI/CD best practices
