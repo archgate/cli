@@ -15,6 +15,17 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Arbitrary that produces strings resembling kebab-case domain names. */
+/** Run one fuzz input through a parser, keeping the thrown value apart from a result. */
+function attempt<T>(
+  run: () => T
+): { ok: true; value: T } | { ok: false; error: unknown } {
+  try {
+    return { ok: true, value: run() };
+  } catch (error: unknown) {
+    return { ok: false, error };
+  }
+}
+
 const domainArb = fc.oneof(
   fc.stringMatching(/^[a-z][a-z0-9-]{1,31}$/u),
   fc.constant(""),
@@ -77,10 +88,11 @@ describe("parseFrontmatter fuzz", () => {
     "​id: GEN-001",
     "id: GEN-001\r\ntitle: test\r\nrules: true\r\ndomain: general",
   ])("handles null bytes and control characters (%j)", (input) => {
-    try {
-      parseFrontmatter(input);
-    } catch (e: unknown) {
-      expect(e).toBeInstanceOf(Error);
+    const outcome = attempt(() => parseFrontmatter(input));
+    if (outcome.ok) {
+      expect(outcome.value).toBeDefined();
+    } else {
+      expect(outcome.error).toBeInstanceOf(Error);
     }
   });
 
@@ -90,10 +102,11 @@ describe("parseFrontmatter fuzz", () => {
     "a: [[[[[[1]]]]]]",
     "a: &anchor\n  b: 1\nc: *anchor",
   ])("handles deeply nested YAML structures (%j)", (input) => {
-    try {
-      parseFrontmatter(input);
-    } catch (e: unknown) {
-      expect(e).toBeInstanceOf(Error);
+    const outcome = attempt(() => parseFrontmatter(input));
+    if (outcome.ok) {
+      expect(outcome.value).toBeDefined();
+    } else {
+      expect(outcome.error).toBeInstanceOf(Error);
     }
   });
 });
@@ -141,10 +154,11 @@ describe("parseAdr fuzz", () => {
     " ---\nid: GEN-001\n---",
     "---\n".repeat(50),
   ])("handles adversarial frontmatter delimiters (%j)", (input) => {
-    try {
-      parseAdr(input, "adversarial.md");
-    } catch (e: unknown) {
-      expect(e).toBeInstanceOf(Error);
+    const outcome = attempt(() => parseAdr(input, "adversarial.md"));
+    if (outcome.ok) {
+      expect(outcome.value).toBeDefined();
+    } else {
+      expect(outcome.error).toBeInstanceOf(Error);
     }
   });
 
@@ -156,13 +170,13 @@ describe("parseAdr fuzz", () => {
     "---\nid: |\n  multi\n  line\ntitle: test\ndomain: general\nrules: true\n---",
     "---\nid: >\n  folded\n  text\ntitle: test\ndomain: general\nrules: true\n---",
   ])("handles YAML injection attempts (%j)", (input) => {
-    try {
-      const doc = parseAdr(input, "injection.md");
-      expect(doc).toHaveProperty("frontmatter");
-      expect(doc).toHaveProperty("body");
-      expect(doc).toHaveProperty("filePath");
-    } catch (e: unknown) {
-      expect(e).toBeInstanceOf(Error);
+    const outcome = attempt(() => parseAdr(input, "injection.md"));
+    if (outcome.ok) {
+      expect(outcome.value).toHaveProperty("frontmatter");
+      expect(outcome.value).toHaveProperty("body");
+      expect(outcome.value).toHaveProperty("filePath");
+    } else {
+      expect(outcome.error).toBeInstanceOf(Error);
     }
   });
 });
