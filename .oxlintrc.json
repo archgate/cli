@@ -7,6 +7,7 @@
     "./lint/no-bare-fetch.ts",
     "./lint/no-shared-module-mock.ts",
     "./lint/no-lowered-test-timeout.ts",
+    "./lint/no-loop-test-cases.ts",
     "./.archgate/lint/oxlint.ts"
   ],
   "options": { "typeAware": true },
@@ -141,7 +142,8 @@
         "bun-test/expect-expect": "error",
         "test-mocking/no-shared-module-mock": "error",
         "test-isolation/no-bare-env-restore": "error",
-        "test-timeout/no-lowered-test-timeout": "error"
+        "test-timeout/no-lowered-test-timeout": "error",
+        "test-cases/no-loop-test-cases": "error"
       }
     },
     {
