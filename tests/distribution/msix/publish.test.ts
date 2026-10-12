@@ -138,6 +138,18 @@ describe("publishToStore", () => {
     expect(calls[0]?.headers.Authorization).toBe("Bearer token");
   });
 
+  test("bounds every request with a timeout", async () => {
+    const signals: Array<AbortSignal | null | undefined> = [];
+    const { fetch } = fakeStore(happyScript(["PreProcessing"]));
+    await publish(async (url, init) => {
+      signals.push(init?.signal);
+      return fetch(url, init);
+    });
+
+    expect(signals).toHaveLength(6);
+    expect(signals.every((signal) => signal instanceof AbortSignal)).toBe(true);
+  });
+
   test("submits the replaced package list", async () => {
     const { fetch, calls } = fakeStore(happyScript(["PreProcessing"]));
     await publish(fetch);

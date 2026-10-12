@@ -27,6 +27,12 @@ export const STORE_API_RESOURCE = "https://manage.devcenter.microsoft.com";
 
 const API_ROOT = `${STORE_API_RESOURCE}/v1.0/my/applications`;
 
+/** A stalled request fails here, well inside the job's own timeout. */
+const API_TIMEOUT_MS = 60_000;
+
+/** The archive is tens of megabytes, so its upload gets a longer allowance. */
+const UPLOAD_TIMEOUT_MS = 10 * 60_000;
+
 const ApplicationSchema = z.object({
   pendingApplicationSubmission: z.object({ id: z.string() }).optional(),
 });
@@ -94,6 +100,7 @@ async function callApi<T>(
       Authorization: `Bearer ${options.token}`,
       "Content-Type": "application/json",
     },
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
     ...(request.body === undefined
       ? {}
       : { body: JSON.stringify(request.body) }),
@@ -179,6 +186,7 @@ export async function publishToStore(options: {
     method: "PUT",
     headers: { "x-ms-blob-type": "BlockBlob" },
     body: options.archive,
+    signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
   });
   if (!upload.ok) {
     throw new Error(`Package upload failed with ${upload.status}`);
