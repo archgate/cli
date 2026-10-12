@@ -63,9 +63,9 @@ const RULE_TIMEOUT_MS = 30_000;
 /**
  * Per-invocation caches shared across every rule context in a check run —
  * without them, 40+ rules repeat identical glob/read/parse work. Values are
- * promises so concurrent rules share in-flight work. Glob results are copied
- * on return; file text is immutable; AST trees are shared and read-only.
- * `readJSON` is NOT cached — sharing its mutable object would leak mutations.
+ * promises so concurrent calls within a rule share in-flight work. Glob
+ * results are copied on return; file text is immutable; AST trees are shared
+ * and read-only. `readJSON` is NOT cached: its mutable object would leak.
  */
 interface RunCaches {
   /** Glob results keyed by `tracked:`/`all:` + pattern. */
@@ -415,7 +415,8 @@ function createRuleContext(
 }
 
 /**
- * Run all rules from loaded ADRs. Parallel across ADRs, sequential within each ADR.
+ * Run all rules from loaded ADRs, one ADR after another and each ADR's rules
+ * in order, so a rule's `durationMs` and 30 s timeout measure its own work.
  * When a change set is resolved (`--staged`, or a `--base`/detected ref that
  * yields changed files), ADRs whose `files` globs match none of the changed
  * files are skipped entirely; ADRs without `files` always run.
@@ -515,99 +516,90 @@ export async function runChecks(
     astResults: new Map(),
   };
 
-  const adrResults = await Promise.allSettled(
-    loadedAdrs.map(async ({ adr, ruleSet }) => {
-      if (isUntouched(adr.frontmatter.files)) {
-        logDebug(`Skipping ADR ${adr.frontmatter.id}: scope untouched`);
-        return [];
-      }
+  // ADRs run one after another. Rule work is synchronous CPU time on this
+  // thread, so this finishes no later than concurrent execution would, and it
+  // keeps a rule's timeout clock and durationMs from running during other
+  // rules' work. See archgate/cli#630.
+  for (const { adr, ruleSet } of loadedAdrs) {
+    if (isUntouched(adr.frontmatter.files)) {
+      logDebug(`Skipping ADR ${adr.frontmatter.id}: scope untouched`);
+      continue;
+    }
 
-      const respectGitignore = adr.frontmatter.respectGitignore !== false;
-      const trackedFiles = respectGitignore ? allTrackedFiles : null;
+    const respectGitignore = adr.frontmatter.respectGitignore !== false;
+    const trackedFiles = respectGitignore ? allTrackedFiles : null;
 
-      let scopedFiles = await resolveScopedFiles(
+    // oxlint-disable-next-line no-await-in-loop -- ADRs run sequentially
+    let scopedFiles = await resolveScopedFiles(
+      projectRoot,
+      adr.frontmatter.files,
+      { respectGitignore, adrId: adr.frontmatter.id }
+    );
+
+    if (filterFiles) {
+      scopedFiles = scopedFiles.filter((f) => filterFiles.has(f));
+    }
+
+    if (filterFiles && scopedFiles.length === 0) {
+      continue;
+    }
+
+    for (const [ruleId, ruleConfig] of Object.entries(ruleSet.rules)) {
+      const violations: ViolationDetail[] = [];
+      const ruleStart = performance.now();
+
+      const ctx = createRuleContext(
         projectRoot,
-        adr.frontmatter.files,
-        { respectGitignore, adrId: adr.frontmatter.id }
+        scopedFiles,
+        changedFiles,
+        adr.frontmatter.id,
+        ruleId,
+        violations,
+        trackedFiles,
+        interpreterCache,
+        caches,
+        baseRev
       );
 
-      if (filterFiles) {
-        scopedFiles = scopedFiles.filter((f) => filterFiles.has(f));
-      }
+      try {
+        // Cancel the timeout when the rule resolves first — otherwise the
+        // timer keeps the event loop alive even after checks complete.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        // oxlint-disable-next-line no-await-in-loop -- ADRs and their rules run sequentially
+        await Promise.race([
+          ruleConfig.check(ctx),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              reject(
+                new Error(`Rule ${ruleId} timed out after ${RULE_TIMEOUT_MS}ms`)
+              );
+            }, RULE_TIMEOUT_MS);
+          }),
+        ]).finally(() => {
+          if (timer) clearTimeout(timer);
+        });
 
-      if (filterFiles && scopedFiles.length === 0) {
-        return [];
-      }
-
-      const adrRuleResults: RuleResult[] = [];
-
-      for (const [ruleId, ruleConfig] of Object.entries(ruleSet.rules)) {
-        const violations: ViolationDetail[] = [];
-        const ruleStart = performance.now();
-
-        const ctx = createRuleContext(
-          projectRoot,
-          scopedFiles,
-          changedFiles,
-          adr.frontmatter.id,
+        results.push({
           ruleId,
+          adrId: adr.frontmatter.id,
+          description: ruleConfig.description,
           violations,
-          trackedFiles,
-          interpreterCache,
-          caches,
-          baseRev
-        );
-
-        try {
-          // Cancel the timeout when the rule resolves first — otherwise the
-          // timer keeps the event loop alive even after checks complete.
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          // oxlint-disable-next-line no-await-in-loop -- rules within an ADR run sequentially
-          await Promise.race([
-            ruleConfig.check(ctx),
-            new Promise<never>((_, reject) => {
-              timer = setTimeout(() => {
-                reject(
-                  new Error(
-                    `Rule ${ruleId} timed out after ${RULE_TIMEOUT_MS}ms`
-                  )
-                );
-              }, RULE_TIMEOUT_MS);
-            }),
-          ]).finally(() => {
-            if (timer) clearTimeout(timer);
-          });
-
-          adrRuleResults.push({
-            ruleId,
-            adrId: adr.frontmatter.id,
-            description: ruleConfig.description,
-            violations,
-            durationMs: performance.now() - ruleStart,
-          });
-        } catch (err) {
-          adrRuleResults.push({
-            ruleId,
-            adrId: adr.frontmatter.id,
-            description: ruleConfig.description,
-            violations,
-            error: err instanceof Error ? err.message : String(err),
-            durationMs: performance.now() - ruleStart,
-          });
-        }
-
-        logDebug(
-          `Rule ${adr.frontmatter.id}/${ruleId}: ${violations.length} violations, ${(performance.now() - ruleStart).toFixed(0)}ms`
-        );
+          durationMs: performance.now() - ruleStart,
+        });
+      } catch (err) {
+        results.push({
+          ruleId,
+          adrId: adr.frontmatter.id,
+          description: ruleConfig.description,
+          violations,
+          error: err instanceof Error ? err.message : String(err),
+          durationMs: performance.now() - ruleStart,
+        });
       }
 
-      return adrRuleResults;
-    })
-  );
-
-  for (const result of adrResults) {
-    if (result.status === "fulfilled") {
-      for (const r of result.value) results.push(r);
+      logDebug(
+        `Rule ${adr.frontmatter.id}/${ruleId}: ${violations.length} violations, ${(performance.now() - ruleStart).toFixed(0)}ms`
+      );
     }
   }
 

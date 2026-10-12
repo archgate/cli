@@ -332,7 +332,7 @@ interface AstOptions {
 
 Parse en kildefil til dens språknative AST. Stien er relativ til prosjektroten og går gjennom samme sandkasse som `readFile`. Å sende språket som et bokstavelig strengliteral velger en per-språk-overload, så returtypen er allerede innsnevret -- `program.body` er typet uten cast, og det er bare en ikke-literal `AstLanguage` som faller tilbake til `AstNode`-unionen. TypeScript og JavaScript parses i prosessen; Python og Ruby parses ved å starte systemtolkens egen AST-fasilitet fra standardbiblioteket som en underprosess. Formen på det returnerte treet varierer per språk -- se [AstNode](#astnode).
 
-Parseresultater caches gjennom én enkelt `archgate check`-kjøring, med nøkkel `(path, language, rev, comments)`: gjentatte -- til og med samtidige -- identiske kall på tvers av regler koster én parse (én tolkoppstart for Python/Ruby), og en mislykket parse kaster den samme feilen på nytt til alle kallere. Behandle det returnerte treet som skrivebeskyttet -- det kan være delt med andre regler.
+Parseresultater caches gjennom én enkelt `archgate check`-kjøring, med nøkkel `(path, language, rev, comments)`: gjentatte identiske kall -- på tvers av regler, eller samtidige innenfor én regel -- koster én parse (én tolkoppstart for Python/Ruby), og en mislykket parse kaster den samme feilen på nytt til alle kallere. Behandle det returnerte treet som skrivebeskyttet -- det kan være delt med andre regler.
 
 ```typescript
 const program = await ctx.ast("src/cli.ts", "typescript");
