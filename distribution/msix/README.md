@@ -53,8 +53,8 @@ Add-AppxPackage dist\msix\archgate-win32-x64.msix
 ## What the manifest declares
 
 - **`uap5:AppExecutionAlias`** puts `archgate` on PATH for every terminal. The app also has a Start menu entry, which runs `archgate` with no arguments: hiding it with `AppListEntry="none"` makes the package a headless app, which the Store accepts only from publishers holding the `HeadlessAppBypass` waiver.
-- **`runFullTrust`** lets the binary run as an ordinary Win32 process.
-- **`desktop6:FileSystemWriteVirtualization` / `RegistryWriteVirtualization` = `disabled`**, with the `unvirtualizedResources` capability they require. Windows otherwise redirects a packaged app's new files under `%APPDATA%` into a package-private copy, and archgate writes files other programs read, such as VS Code's `%APPDATA%\Code\User\settings.json`. Both `runFullTrust` and `unvirtualizedResources` are restricted capabilities, so each submission states why they are needed (Submission options → Restricted capabilities).
+- **`runFullTrust`** lets the binary run as an ordinary Win32 process. It is a restricted capability, so each submission states why it is needed (Submission options → Restricted capabilities).
+- **`MinVersion` 10.0.18362 (Windows 10 version 1903).** From that release, edits a packaged app makes to an existing file under `%APPDATA%` reach the real file; only files it creates there are redirected into package-private storage. archgate relies on this to update VS Code's `%APPDATA%\Code\User\settings.json`, and on a Store install it does not create that file when it is missing — it prints the setting to add instead. Disabling virtualization would need `unvirtualizedResources`, which the Store denies for this use.
 
 ## Publishing
 

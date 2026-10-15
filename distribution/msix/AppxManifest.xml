@@ -3,9 +3,8 @@
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
-  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap5 desktop6 rescap">
+  IgnorableNamespaces="uap uap5 rescap">
 
   <!-- Name and Publisher are assigned by Partner Center when the app name is
        reserved; the Store rejects a package whose identity differs. -->
@@ -19,14 +18,11 @@
     <DisplayName>Archgate CLI</DisplayName>
     <PublisherDisplayName>Barreto Tech</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <!-- archgate edits files other programs read, such as VS Code's
-         %APPDATA%\Code\User\settings.json. Virtualized, those writes would land
-         in a package-private copy nothing else sees. -->
-    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
-    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
   </Properties>
 
   <Dependencies>
+    <!-- 1903 is the first release where edits to existing files under
+         %APPDATA% reach the real file instead of a package-private copy. -->
     <TargetDeviceFamily
       Name="Windows.Desktop"
       MinVersion="10.0.18362.0"
@@ -64,7 +60,5 @@
 
   <Capabilities>
     <rescap:Capability Name="runFullTrust" />
-    <!-- Required by the two virtualization opt-outs above. -->
-    <rescap:Capability Name="unvirtualizedResources" />
   </Capabilities>
 </Package>

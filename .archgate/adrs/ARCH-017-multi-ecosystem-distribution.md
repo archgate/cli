@@ -18,7 +18,7 @@ The Microsoft Store is the one channel that ships the binary itself. A Windows e
 Three properties of an installed MSIX shape the CLI:
 
 - **The package directory is read-only**, and Windows stops a packaged app before servicing it. The binary cannot replace itself, so `archgate upgrade` names the `winget upgrade` command and exits.
-- **File and registry writes are virtualized by default**, redirecting a new file under `%APPDATA%` into a package-private copy. archgate edits files other programs read — VS Code's user settings among them — so the manifest disables both redirections.
+- **Writes under `%APPDATA%` are virtualized.** From Windows 10 version 1903, the package's minimum, edits to an existing file there reach the real file, but a file the app creates lands in package-private storage that other programs never see. archgate therefore edits VS Code's user settings in place and, on a Store install, tells the user which setting to add when that file does not exist yet. Turning virtualization off needs the `unvirtualizedResources` capability, which the Store does not grant for this use.
 - **The binary runs from the package**, not from `~/.archgate/bin/`. A Store install neither reads nor fills the shared cache.
 
 `install.ps1` is the second way in. It runs `winget install` for the Store product and downloads the unsigned release archive only when winget cannot do the job — it is absent, the Store source is blocked, or the caller pinned a version or a directory, neither of which winget offers.
@@ -78,7 +78,7 @@ All shims produce identical user-facing error messages on stderr:
 - Don't use a different cache location per ecosystem
 - Don't skip SHA256 verification
 - Don't put a shim in the MSIX — the Store would sign a downloader, not the binary
-- Don't drop the manifest's virtualization opt-outs — a file archgate creates under `%APPDATA%` would be invisible to the editor that reads it
+- Don't create a file under `%APPDATA%` from a Store install — it lands in package-private storage, invisible to the program meant to read it
 - Don't give `distribution/msix/` a root-mirrored `README.md` or a `LICENSE.md` — nothing publishes them
 - Don't add a top-level `main` field to the root `package.json` — npm always includes the `main` entry point in the published tarball regardless of the `files` array, which would bundle the CLI source into the thin shim. The npm package exposes only `bin/archgate.cjs` (and sub-path exports like `./rules`); it needs no default entry point.
 
@@ -110,7 +110,7 @@ All shims produce identical user-facing error messages on stderr:
 
 ### Manual
 
-Code reviewers MUST verify new shims download (never bundle) the binary, add zero runtime dependencies, share the `~/.archgate/bin/` cache, and register their version file in `.simple-release.js` and the ARCH-013 companion rule. Changes to `distribution/msix/` MUST keep the compiled binary as the package payload and keep both virtualization opt-outs in the manifest.
+Code reviewers MUST verify new shims download (never bundle) the binary, add zero runtime dependencies, share the `~/.archgate/bin/` cache, and register their version file in `.simple-release.js` and the ARCH-013 companion rule. Changes to `distribution/msix/` MUST keep the compiled binary as the package payload and declare no restricted capability beyond `runFullTrust`. New code that writes under `%APPDATA%` MUST handle a Store install, where only edits to existing files reach the real file.
 
 ## References
 
