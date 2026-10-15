@@ -18,7 +18,7 @@ Every directory under [`shims/`](../../shims) is a thin package that downloads t
 | `build.ts`         | Stages the binary beside the manifest and packs it with `makeappx`    |
 | `publish.ts`       | Submits a packed MSIX through the Microsoft Store submission API      |
 
-The manifest's `Identity` `Version` is the release written as `x.y.z.0`. The `.simple-release.js` bump hook rewrites it with every other version, and `ARCH-013/shim-version-sync` fails the build on drift. `install.ps1` repeats the product ID as a literal because it is served standalone; `ARCH-017/store-identity` keeps the two equal.
+The manifest's `Identity` `Version` is release `x.y.z` written as `(x+1).y.z.0` (`toPackageVersion` in `build.ts`): the Store reserves the fourth part and rejects a first part of 0, so the major is offset by one. The Store therefore lists release 0.60.0 as 1.60.0.0. The `.simple-release.js` bump hook rewrites it with every other version, and `ARCH-013/shim-version-sync` fails the build on drift. `install.ps1` repeats the product ID as a literal because it is served standalone; `ARCH-017/store-identity` keeps the two equal.
 
 ## Building
 

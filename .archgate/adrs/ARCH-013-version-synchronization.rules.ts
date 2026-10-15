@@ -49,6 +49,8 @@ export default {
           pattern: RegExp;
           label: string;
           required?: boolean;
+          /** The value the file must carry, when it is not the version itself. */
+          derive?: (version: string) => string;
         }> = [
           {
             file: "shims/pypi/pyproject.toml",
@@ -91,17 +93,21 @@ export default {
             pattern: /VERSION\s*=\s*"([^"]+)"/u,
             label: "RubyGem version.rb",
           },
-          // MSIX versions carry four parts and the Store reserves the last,
-          // so the manifest states the release as `x.y.z.0`.
+          // The Store reserves the fourth part of a package version and
+          // rejects a first part of 0, so release x.y.z ships as (x+1).y.z.0.
           {
             file: "distribution/msix/AppxManifest.xml",
-            pattern: /<Identity\b[^>]*\bVersion="(\d+\.\d+\.\d+)\.0"/u,
+            pattern: /<Identity\b[^>]*\bVersion="(\d+\.\d+\.\d+\.\d+)"/u,
             label: "MSIX AppxManifest.xml",
             required: true,
+            derive: (version) => {
+              const [major = "", minor = "", patch = ""] = version.split(".");
+              return `${Number(major) + 1}.${minor}.${patch}.0`;
+            },
           },
         ];
 
-        for (const { file, pattern, label, required } of shimFiles) {
+        for (const { file, pattern, label, required, derive } of shimFiles) {
           let content: string;
           try {
             // oxlint-disable-next-line no-await-in-loop -- sequential read is intentional; files are few and order-independent but must check each
@@ -124,11 +130,12 @@ export default {
           }
 
           const shimVersion = match[1];
-          if (shimVersion !== expected) {
+          const want = derive === undefined ? expected : derive(expected);
+          if (shimVersion !== want) {
             ctx.report.violation({
-              message: `${label} version "${shimVersion}" does not match package.json version "${expected}"`,
+              message: `${label} version "${shimVersion}" does not match "${want}", derived from package.json version "${expected}"`,
               file,
-              fix: `Update version to "${expected}" in ${file} (automated by .simple-release.js)`,
+              fix: `Update version to "${want}" in ${file} (automated by .simple-release.js)`,
             });
           }
         }

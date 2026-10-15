@@ -147,7 +147,9 @@ describe("publishToStore", () => {
     });
 
     expect(signals).toHaveLength(6);
-    expect(signals.every((signal) => signal instanceof AbortSignal)).toBe(true);
+    expect(signals.map((signal) => signal?.constructor.name)).toEqual(
+      Array.from({ length: 6 }, () => "AbortSignal")
+    );
   });
 
   test("submits the replaced package list", async () => {

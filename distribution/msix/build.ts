@@ -29,22 +29,34 @@ const WINDOWS_KITS_BIN = join(
 );
 
 const IDENTITY_VERSION_PATTERN =
-  /<Identity\b[^>]*\bVersion="(\d+\.\d+\.\d+)\.0"/u;
+  /<Identity\b[^>]*\bVersion="(\d+)\.(\d+)\.(\d+)\.0"/u;
 
 /**
- * The `x.y.z` release an `AppxManifest.xml` declares. MSIX versions carry four
- * parts and the Store reserves the last, so it is always `0`.
+ * The package version for release `x.y.z`: `(x+1).y.z.0`. The Store reserves
+ * the fourth part and rejects a first part of 0, so the major is offset by one,
+ * which keeps every pre-1.0 release valid and the order of releases intact.
+ */
+export function toPackageVersion(release: string): string {
+  const [major = "", minor = "", patch = ""] = release.split(".");
+  return `${Number(major) + 1}.${minor}.${patch}.0`;
+}
+
+/**
+ * The `x.y.z` release an `AppxManifest.xml` declares, undoing
+ * {@link toPackageVersion}.
  *
- * @throws If the manifest has no `Identity` version of the form `x.y.z.0`.
+ * @throws If the manifest has no `Identity` version of the form `X.y.z.0` with
+ * `X` of at least 1.
  */
 export function readManifestVersion(manifestXml: string): string {
-  const version = IDENTITY_VERSION_PATTERN.exec(manifestXml)?.[1];
-  if (version === undefined) {
+  const match = IDENTITY_VERSION_PATTERN.exec(manifestXml);
+  const major = Number(match?.[1]);
+  if (match === null || !(major >= 1)) {
     throw new Error(
-      'AppxManifest.xml has no <Identity Version="x.y.z.0"> attribute'
+      'AppxManifest.xml has no <Identity Version="X.y.z.0"> attribute with X >= 1'
     );
   }
-  return version;
+  return `${major - 1}.${match[2]}.${match[3]}`;
 }
 
 /** Compares dotted numeric versions such as `10.0.26100.0`. */

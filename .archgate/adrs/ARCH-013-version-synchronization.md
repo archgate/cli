@@ -20,7 +20,7 @@ The CLI version appears in multiple locations that must stay in sync:
 6. `shims/go/internal/shim/shim.go` — Go `Version` constant
 7. `shims/maven/pom.xml` — Maven artifact version
 8. `shims/rubygem/lib/archgate/version.rb` — RubyGem `VERSION` constant
-9. `distribution/msix/AppxManifest.xml` — the Microsoft Store package `Identity` `Version`, written as `x.y.z.0` because MSIX versions carry four parts and the Store reserves the last
+9. `distribution/msix/AppxManifest.xml` — the Microsoft Store package `Identity` `Version`. Release `x.y.z` is written as `(x+1).y.z.0`: the Store reserves the fourth part and rejects a first part of 0, and offsetting the major keeps every release valid and in order
 
 When versions diverge, users installing via different package managers get mismatched binaries.
 

@@ -158,14 +158,17 @@ class ArchgateProject extends NpmProject {
         }
       }
 
-      // MSIX: AppxManifest.xml. Package versions carry four parts and the
-      // Store reserves the last, so the release is written as `x.y.z.0`.
+      // MSIX: AppxManifest.xml. Release x.y.z is written as (x+1).y.z.0: the
+      // Store reserves the fourth part and rejects a first part of 0
+      // (distribution/msix/build.ts toPackageVersion).
       const msixManifestPath = "distribution/msix/AppxManifest.xml";
       if (existsSync(msixManifestPath)) {
+        const [major, minor, patch] = version.split(".");
+        const packageVersion = `${Number(major) + 1}.${minor}.${patch}.0`;
         const content = readFileSync(msixManifestPath, "utf8");
         const updated = content.replace(
           /(<Identity\b[^>]*\bVersion=")\d+\.\d+\.\d+\.0"/u,
-          `$1${version}.0"`
+          `$1${packageVersion}"`
         );
         if (updated !== content) {
           writeFileSync(msixManifestPath, updated);

@@ -16,6 +16,7 @@ import {
   MSIX_ARTIFACT_NAME,
   parseArgs,
   readManifestVersion,
+  toPackageVersion,
   stagePackage,
 } from "../../../distribution/msix/build";
 import packageJson from "../../../package.json";
@@ -39,20 +40,31 @@ describe("MSIX_ARTIFACT_NAME", () => {
   });
 });
 
+describe("toPackageVersion", () => {
+  test.each([
+    ["0.60.0", "1.60.0.0"],
+    ["0.0.1", "1.0.1.0"],
+    ["1.0.0", "2.0.0.0"],
+    ["2.3.4", "3.3.4.0"],
+  ])("maps release %p to package version %p", (release, packageVersion) => {
+    expect(toPackageVersion(release)).toBe(packageVersion);
+  });
+});
+
 describe("readManifestVersion", () => {
-  test("drops the reserved fourth part", () => {
-    expect(readManifestVersion(manifest("1.2.3.0"))).toBe("1.2.3");
+  test("undoes the major offset and drops the reserved fourth part", () => {
+    expect(readManifestVersion(manifest("1.2.3.0"))).toBe("0.2.3");
   });
 
   test("reads the version when Identity spans several lines", () => {
     const xml = '<Identity\n  Name="N"\n  Version="10.20.30.0"\n  />';
-    expect(readManifestVersion(xml)).toBe("10.20.30");
+    expect(readManifestVersion(xml)).toBe("9.20.30");
   });
 
-  test.each(["1.2.3", "1.2.3.4", "v1.2.3.0"])(
+  test.each(["1.2.3", "1.2.3.4", "v1.2.3.0", "0.2.3.0"])(
     "rejects the version %p",
     (version) => {
-      expect(() => readManifestVersion(manifest(version))).toThrow("x.y.z.0");
+      expect(() => readManifestVersion(manifest(version))).toThrow("X >= 1");
     }
   );
 
