@@ -16,7 +16,7 @@ import {
   spyOn,
   test,
 } from "bun:test";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -26,6 +26,7 @@ import { registerUpgradeCommand } from "../../src/commands/upgrade";
 import * as binaryUpgrade from "../../src/helpers/binary-upgrade";
 import * as credentialStore from "../../src/helpers/credential-store";
 import * as exitModule from "../../src/helpers/exit";
+import { STORE_UPGRADE_COMMAND } from "../../src/helpers/msstore";
 import { internalPath } from "../../src/helpers/paths";
 import * as telemetryModule from "../../src/helpers/telemetry";
 
@@ -143,6 +144,28 @@ describe("upgrade action handler (upgrade flow)", () => {
       .map((c: unknown[]) => String(c[0]))
       .join("\n");
     expect(output).toContain("upgraded to 99.0.0");
+  });
+
+  // -- Microsoft Store install --
+
+  test("points a Store install at winget and leaves the package alone", async () => {
+    // An AppxManifest.xml beside the executable marks an MSIX package root.
+    writeFileSync(join(fakeExtractDir, "AppxManifest.xml"), "<Package />");
+    Object.defineProperty(process, "execPath", {
+      value: join(fakeExtractDir, "archgate.exe"),
+      writable: true,
+      configurable: true,
+    });
+
+    // The mocked exitWith throws; settle the action before reading the spies.
+    await makeProgram()
+      .parseAsync(["node", "test", "upgrade"])
+      .catch(() => {});
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(logSpy.mock.calls.flat().join(" ")).toContain(STORE_UPGRADE_COMMAND);
+    expect(downloadSpy).not.toHaveBeenCalled();
+    expect(replaceSpy).not.toHaveBeenCalled();
   });
 
   // -- Telemetry --

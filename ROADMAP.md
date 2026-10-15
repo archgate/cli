@@ -48,12 +48,6 @@ imports from any git URL, so your pack does not have to live in ours.
 Browsing plugins by editor, with per-editor install instructions, is the next platform
 milestone. Install instructions currently live in the docs site.
 
-### winget distribution
-
-Manifests are written and release automation is wired; the package has not yet been
-accepted into `microsoft/winget-pkgs`. Until then, Windows users can use the npm shim,
-the PowerShell install script, or a direct download from GitHub Releases.
-
 ### Repository opportunity score
 
 Analyze a repository's review friction and decision debt, get a governance score, and

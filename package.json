@@ -38,7 +38,7 @@
   "scripts": {
     "audit": "bun audit --ignore=GHSA-vfj7-8cjw-p6xm",
     "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
-    "build:winget": "bun run shims/winget/build.ts",
+    "build:msix": "bun run distribution/msix/build.ts",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
     "check": "bun run src/cli.ts check",
     "cli": "bun run src/cli.ts",
@@ -57,6 +57,7 @@
     "lint": "bun run scripts/ensure-rules-dts.ts && oxlint --deny-warnings .",
     "profile:cpu": "bun --cpu-prof-md --cpu-prof-dir=.profiles src/cli.ts",
     "profile:heap": "bun --heap-prof-md --heap-prof-dir=.profiles src/cli.ts",
+    "publish:msstore": "bun run distribution/msix/publish.ts",
     "test": "bun test --timeout 60000 --parallel",
     "test:changed": "bun test --timeout 60000 --parallel --changed",
     "test:coverage": "bun test --timeout 60000 --coverage",
