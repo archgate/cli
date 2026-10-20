@@ -409,8 +409,10 @@ export interface CopilotInstallResult {
    * `cli` — installed immediately via `copilot plugin install`.
    * `declarative` — declared in `~/.copilot/settings.json`; Copilot
    * auto-installs it on next launch (CLI not on PATH, e.g. desktop app).
+   * `existing` — `copilot plugin install` failed but the plugin is already
+   * installed (typically its files are locked by the running Copilot app).
    */
-  mode: "cli" | "declarative";
+  mode: "cli" | "declarative" | "existing";
 }
 
 /**
@@ -440,6 +442,15 @@ export async function installCopilotPlugin(): Promise<CopilotInstallResult> {
     "archgate@archgate",
   ]);
   if (installResult.exitCode !== 0) {
+    // Reinstalling over an existing install fails on Windows while the
+    // Copilot app holds the plugin's files open (os error 5, access denied).
+    // The plugin is already in place and declared, so that is not a failure.
+    if (await isCopilotPluginInstalled(cmd)) {
+      logDebug(
+        `copilot plugin install exited ${installResult.exitCode}; keeping the existing install`
+      );
+      return { mode: "existing" };
+    }
     // Exit code only: this message reaches logError, which feeds Sentry
     // breadcrumbs, and the CLI's output can carry auth state and local paths.
     throw new UserError(
@@ -447,6 +458,14 @@ export async function installCopilotPlugin(): Promise<CopilotInstallResult> {
     );
   }
   return { mode: "cli" };
+}
+
+/** Whether `copilot plugin list` reports archgate@archgate as installed. */
+async function isCopilotPluginInstalled(cmd: string): Promise<boolean> {
+  const listResult = await run([cmd, "plugin", "list"]);
+  return (
+    listResult.exitCode === 0 && listResult.stdout.includes("archgate@archgate")
+  );
 }
 
 // ---------------------------------------------------------------------------
