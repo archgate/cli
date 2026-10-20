@@ -221,7 +221,9 @@ describe("installCopilotPlugin", () => {
       Array.isArray(argv) && argv.includes("list")
         ? fakeSpawnResult(
             0,
-            "Installed plugins:\n  • archgate@archgate (v0.18.0)\n"
+            JSON.stringify([
+              { name: "archgate", marketplace: "archgate", version: "0.18.0" },
+            ])
           )
         : fakeSpawnResult(1, "", "Failed to install plugin: (os error 5)")
     );
@@ -230,27 +232,44 @@ describe("installCopilotPlugin", () => {
 
     expect(result).toEqual({ mode: "existing" });
     expect(spawnSpy).toHaveBeenCalledTimes(2);
-    expect(spawnSpy.mock.calls[1][0]).toEqual(["copilot", "plugin", "list"]);
+    expect(spawnSpy.mock.calls[1][0]).toEqual([
+      "copilot",
+      "plugin",
+      "list",
+      "--json",
+    ]);
   });
 
-  test("still throws when the install fails and the plugin is not installed", async () => {
-    mockResolveCommand.mockImplementation(async () => "copilot");
-    mkdirSync(copilotConfigDir(), { recursive: true });
-    spawnSpy.mockImplementation((argv) =>
-      Array.isArray(argv) && argv.includes("list")
-        ? fakeSpawnResult(0, "No plugins installed.\n")
-        : fakeSpawnResult(1)
-    );
+  test.each([
+    ["the plugin is not listed", 0, "[]"],
+    [
+      "only a different marketplace's archgate is listed",
+      0,
+      JSON.stringify([{ name: "archgate", marketplace: "archgate-dev" }]),
+    ],
+    ["the list output is not JSON", 0, "No plugins installed."],
+    ["the list command fails", 1, ""],
+  ])(
+    "still throws when the install fails and %s",
+    async (_case, listExit, listOut) => {
+      mockResolveCommand.mockImplementation(async () => "copilot");
+      mkdirSync(copilotConfigDir(), { recursive: true });
+      spawnSpy.mockImplementation((argv) =>
+        Array.isArray(argv) && argv.includes("list")
+          ? fakeSpawnResult(listExit, listOut)
+          : fakeSpawnResult(1)
+      );
 
-    const err = await installCopilotPlugin().then(
-      () => null,
-      (e: unknown) => e
-    );
-    expect(err).toBeInstanceOf(UserError);
-    expect(err instanceof Error ? err.message : "").toMatch(
-      /plugin install failed \(exit 1\)/u
-    );
-  });
+      const err = await installCopilotPlugin().then(
+        () => null,
+        (e: unknown) => e
+      );
+      expect(err).toBeInstanceOf(UserError);
+      expect(err instanceof Error ? err.message : "").toMatch(
+        /plugin install failed \(exit 1\)/u
+      );
+    }
+  );
 
   test("resolves the settings path via COPILOT_HOME when set", async () => {
     const copilotHome = join(tempHome, "custom-copilot-home");
