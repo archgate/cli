@@ -222,7 +222,14 @@ describe("installCopilotPlugin", () => {
         ? fakeSpawnResult(
             0,
             JSON.stringify([
-              { name: "archgate", marketplace: "archgate", version: "0.18.0" },
+              // A direct install carries no marketplace and must not reject the list.
+              { name: "local-tool", enabled: true },
+              {
+                name: "archgate",
+                marketplace: "archgate",
+                version: "0.18.0",
+                enabled: true,
+              },
             ])
           )
         : fakeSpawnResult(1, "", "Failed to install plugin: (os error 5)")
@@ -245,7 +252,16 @@ describe("installCopilotPlugin", () => {
     [
       "only a different marketplace's archgate is listed",
       0,
-      JSON.stringify([{ name: "archgate", marketplace: "archgate-dev" }]),
+      JSON.stringify([
+        { name: "archgate", marketplace: "archgate-dev", enabled: true },
+      ]),
+    ],
+    [
+      "the listed plugin is disabled",
+      0,
+      JSON.stringify([
+        { name: "archgate", marketplace: "archgate", enabled: false },
+      ]),
     ],
     ["the list output is not JSON", 0, "No plugins installed."],
     ["the list command fails", 1, ""],

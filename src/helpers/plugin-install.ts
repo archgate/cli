@@ -461,10 +461,14 @@ export async function installCopilotPlugin(): Promise<CopilotInstallResult> {
 }
 
 const CopilotPluginListSchema = z.array(
-  z.object({ name: z.string(), marketplace: z.string() })
+  z.object({
+    name: z.string(),
+    marketplace: z.string().optional(),
+    enabled: z.boolean().optional(),
+  })
 );
 
-/** Whether `copilot plugin list --json` reports archgate@archgate as installed. */
+/** Whether `copilot plugin list --json` reports archgate@archgate as installed and enabled. */
 async function isCopilotPluginInstalled(cmd: string): Promise<boolean> {
   const listResult = await run([cmd, "plugin", "list", "--json"]);
   if (listResult.exitCode !== 0) return false;
@@ -478,7 +482,10 @@ async function isCopilotPluginInstalled(cmd: string): Promise<boolean> {
   return (
     parsed.success &&
     parsed.data.some(
-      (p) => p.name === "archgate" && p.marketplace === "archgate"
+      (p) =>
+        p.name === "archgate" &&
+        p.marketplace === "archgate" &&
+        p.enabled === true
     )
   );
 }
