@@ -1,3 +1,10 @@
+## [0.60.1](https://github.com/archgate/cli/compare/v0.60.0...v0.60.1) (2026-10-22)
+
+### Bug Fixes
+
+* keep an existing Copilot plugin install when the reinstall is blocked ([#638](https://github.com/archgate/cli/issues/638)) ([23bb8ce](https://github.com/archgate/cli/commit/23bb8ce1e7e23484a4d7f36147afcb716a8992c1))
+* trust certificate authorities from the OS certificate store ([#640](https://github.com/archgate/cli/issues/640)) ([9c759d1](https://github.com/archgate/cli/commit/9c759d1c9b4ef159b4a68b2cda4b3557f5d73e95))
+
 ## [0.60.0](https://github.com/archgate/cli/compare/v0.59.0...v0.60.0) (2026-10-12)
 
 ### Features
