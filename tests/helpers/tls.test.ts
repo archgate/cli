@@ -46,6 +46,10 @@ describe("tlsHintMessage", () => {
     expect(tlsHintMessage()).toContain("NODE_EXTRA_CA_CERTS");
   });
 
+  test("mentions the operating system certificate store", () => {
+    expect(tlsHintMessage()).toContain("operating system");
+  });
+
   test("mentions corporate proxy", () => {
     expect(tlsHintMessage()).toContain("corporate proxy");
   });

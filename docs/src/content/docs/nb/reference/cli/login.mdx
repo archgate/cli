@@ -62,7 +62,9 @@ Run `archgate check` to validate your project against its ADRs.
 
 ### TLS/bedriftsproxy-feil
 
-Hvis `archgate login` feiler med en TLS-sertifikatfeil (vanlig bak bedriftsproxyer), pek kjøretidsmiljøet mot organisasjonens CA-sertifikatpakke ved å bruke miljøvariabelen `NODE_EXTRA_CA_CERTS`.
+Archgate stoler på sertifikatutstederne som er installert i operativsystemets sertifikatlager (Windows-sertifikatlageret, macOS-nøkkelringen eller systemets CA-pakke på Linux), så en bedrifts-CA som utfører TLS-inspeksjon fungerer når IT-avdelingen har installert den der.
+
+Hvis `archgate login` fortsatt feiler med en TLS-sertifikatfeil (vanlig bak bedriftsproxyer), ligger ikke CA-en i systemlageret. Installer den der, eller pek Archgate mot organisasjonens CA-sertifikatpakke ved å bruke miljøvariabelen `NODE_EXTRA_CA_CERTS`.
 
 På macOS/Linux:
 

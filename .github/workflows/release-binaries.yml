@@ -63,7 +63,7 @@ jobs:
 
       - name: Build binary
         run: |
-          bun build src/cli.ts --compile --bytecode --minify --target ${{ matrix.target }} --outfile dist/${{ matrix.artifact }}
+          bun build src/cli.ts --compile --bytecode --compile-exec-argv=--use-system-ca --minify --target ${{ matrix.target }} --outfile dist/${{ matrix.artifact }}
 
       - name: Prepare release asset (Unix)
         if: runner.os != 'Windows'
