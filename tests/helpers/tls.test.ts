@@ -48,6 +48,7 @@ describe("tlsHintMessage", () => {
 
   test("mentions the operating system certificate store", () => {
     expect(tlsHintMessage()).toContain("operating system");
+    expect(tlsHintMessage()).toContain("certificate store");
   });
 
   test("mentions corporate proxy", () => {
