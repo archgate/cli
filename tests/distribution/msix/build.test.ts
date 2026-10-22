@@ -68,6 +68,11 @@ describe("readManifestVersion", () => {
     }
   );
 
+  test("the committed manifest targets Windows 10 version 1903", async () => {
+    const xml = await Bun.file(join(SOURCE_DIR, "AppxManifest.xml")).text();
+    expect(/MinVersion="([^"]+)"/u.exec(xml)?.[1]).toBe("10.0.18362.0");
+  });
+
   test("the committed manifest carries the package.json version", async () => {
     const xml = await Bun.file(join(SOURCE_DIR, "AppxManifest.xml")).text();
     expect(readManifestVersion(xml)).toBe(packageJson.version);
