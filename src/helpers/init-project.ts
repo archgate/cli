@@ -386,7 +386,8 @@ async function tryInstallPlugin(editor: EditorTarget): Promise<PluginResult> {
 
     try {
       const { mode } = await installCopilotPlugin();
-      return mode === "cli"
+      // `existing` leaves a working install in place — report it as done.
+      return mode === "cli" || mode === "existing"
         ? { installed: true, autoInstalled: true }
         : {
             installed: true,

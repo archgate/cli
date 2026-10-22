@@ -270,6 +270,23 @@ describe("plugin install action", () => {
     expect(logged).toContain("Restart the GitHub Copilot app");
   });
 
+  test("reports an existing copilot install as success with a refresh hint", async () => {
+    mockLoadCredentials.mockImplementation(async () => ({
+      token: "tok",
+      github_user: "user",
+    }));
+    mockIsCopilotAvailable.mockImplementation(async () => true);
+    mockInstallCopilotPlugin.mockImplementation(async () => ({
+      mode: "existing" as const,
+    }));
+
+    await runInstall(["--editor", "copilot"]);
+
+    const logged = logSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain("already installed");
+    expect(logged).toContain("copilot plugin update archgate@archgate");
+  });
+
   test("prints manual instructions when Copilot is not installed", async () => {
     mockLoadCredentials.mockImplementation(async () => ({
       token: "tok",

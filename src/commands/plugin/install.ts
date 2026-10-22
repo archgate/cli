@@ -75,6 +75,11 @@ export async function installForEditor(
         const { mode } = await installCopilotPlugin();
         if (mode === "cli") {
           logInfo(`Archgate plugin installed for ${label}.`);
+        } else if (mode === "existing") {
+          logInfo(
+            `Archgate plugin already installed for ${label}.`,
+            "To refresh it, close the GitHub Copilot app and run: copilot plugin update archgate@archgate"
+          );
         } else {
           logInfo(
             `Archgate plugin configured for ${label}.`,

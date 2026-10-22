@@ -4774,7 +4774,9 @@ Run `archgate check` to validate your project against its ADRs.
 
 ### TLS/corporate proxy errors
 
-If `archgate login` fails with a TLS certificate error (common behind corporate proxies), point your runtime at your organization's CA bundle using the `NODE_EXTRA_CA_CERTS` environment variable.
+Archgate trusts the certificate authorities installed in your operating system's certificate store (the Windows certificate store, the macOS Keychain, or the system CA bundle on Linux), so a corporate CA that performs TLS inspection works once your IT team has installed it there.
+
+If `archgate login` still fails with a TLS certificate error (common behind corporate proxies), the CA is not in the system store. Install it there, or point Archgate at your organization's CA bundle using the `NODE_EXTRA_CA_CERTS` environment variable.
 
 On macOS/Linux:
 
