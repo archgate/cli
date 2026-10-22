@@ -24,7 +24,7 @@ jobs:
       - uses: $/.github/actions/setup-bun-project
 
       - name: Build Linux binary
-        run: bun build src/cli.ts --compile --bytecode --outfile dist/archgate-smoke-test
+        run: bun build src/cli.ts --compile --bytecode --compile-exec-argv=--use-system-ca --outfile dist/archgate-smoke-test
 
       - name: Smoke test binary
         run: |

@@ -62,7 +62,9 @@ Run `archgate check` to validate your project against its ADRs.
 
 ### Erros de TLS/proxy corporativo
 
-Se `archgate login` falhar com um erro de certificado TLS (comum em redes com proxy corporativo), aponte o runtime para o certificado CA da sua organização usando a variável de ambiente `NODE_EXTRA_CA_CERTS`.
+O Archgate confia nas autoridades certificadoras instaladas no repositório de certificados do sistema operacional (o repositório de certificados do Windows, o Keychain do macOS ou o pacote de CAs do sistema no Linux), então uma CA corporativa que faz inspeção TLS funciona assim que a equipe de TI a instala ali.
+
+Se `archgate login` ainda falhar com um erro de certificado TLS (comum em redes com proxy corporativo), a CA não está no repositório do sistema. Instale-a ali ou aponte o Archgate para o certificado CA da sua organização usando a variável de ambiente `NODE_EXTRA_CA_CERTS`.
 
 No macOS/Linux:
 

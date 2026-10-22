@@ -37,7 +37,7 @@
   "type": "module",
   "scripts": {
     "audit": "bun audit --ignore=GHSA-vfj7-8cjw-p6xm",
-    "build:check": "bun build src/cli.ts --compile --bytecode --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
+    "build:check": "bun build src/cli.ts --compile --bytecode --compile-exec-argv=--use-system-ca --outfile dist/.build-check && rm -f dist/.build-check dist/.build-check.exe",
     "build:winget": "bun run shims/winget/build.ts",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
     "check": "bun run src/cli.ts check",
