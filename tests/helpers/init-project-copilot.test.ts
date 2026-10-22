@@ -85,6 +85,31 @@ describe("tryInstallPlugin via initProject — copilot", () => {
     }
   });
 
+  test("copilot existing install reports success with no restart note", async () => {
+    credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
+    const availableSpy = spyOn(
+      pluginInstall,
+      "isCopilotAvailable"
+    ).mockResolvedValue(true);
+    const installSpy = spyOn(
+      pluginInstall,
+      "installCopilotPlugin"
+    ).mockResolvedValue({ mode: "existing" });
+    try {
+      const result = await initProject(tempDir, {
+        installPlugin: true,
+        editor: "copilot",
+      });
+      expect(result.plugin!.installed).toBe(true);
+      expect(result.plugin!.autoInstalled).toBe(true);
+      expect(result.plugin!.deferred).toBeUndefined();
+      expect(result.plugin!.detail).toBeUndefined();
+    } finally {
+      availableSpy.mockRestore();
+      installSpy.mockRestore();
+    }
+  });
+
   test("copilot not installed returns the not-found sentinel", async () => {
     credSpy.mockResolvedValue({ token: "tok", github_user: "user" });
     const availableSpy = spyOn(
