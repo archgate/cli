@@ -13,7 +13,7 @@ Inicia um OAuth 2.0 Device Authorization Grant (RFC 8628) na plataforma Archgate
 
 Nenhuma das duas etapas é obrigatória. Em CI, via SSH ou em uma máquina Linux nativa sem servidor gráfico (o WSL alcança a área de trabalho do Windows), a CLI pula ambas e apenas os exibe. Após a autorização, a CLI entrega os tokens ao git via `git credential approve`, então onde eles ficam depende do credential helper que você tem configurado. Um helper apoiado no gerenciador de credenciais do sistema operacional (macOS Keychain, Windows Credential Manager, libsecret no Linux) os mantém criptografados; o helper `store` embutido do git os grava em `~/.git-credentials` em texto puro. Verifique o seu com `git config --global credential.helper`.
 
-Os tokens de acesso têm vida curta. A CLI mantém um refresh token junto deles e renova o token de acesso automaticamente, então normalmente basta entrar uma vez. Se o próprio refresh token expirar ou for revogado, a CLI informa que a sessão expirou, e o `archgate login` a restabelece. Tokens de plugin do cadastro beta (`ag_beta_…`) não são aceitos por `plugins.archgate.dev`; execute `archgate login` para substituí-los por uma sessão da plataforma.
+Normalmente basta entrar uma vez: a CLI mantém sua sessão atualizada sozinha. Se a sessão expirar ou for revogada, a CLI avisa, e o `archgate login` faz seu login novamente.
 
 Entrar também registra `archgate credential` como um credential helper do git para `plugins.archgate.dev`, que é o que permite ao `git clone` de um repositório de plugin autenticar sem solicitar credenciais. Veja [`archgate credential`](/reference/cli/credential/).
 
