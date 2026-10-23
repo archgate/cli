@@ -217,6 +217,52 @@ describe("withRefreshLock", () => {
     expect(overlapped).toBe(false);
   });
 
+  // B lists the directory while A still has only its marker. A then files its
+  // older entry and drops the marker before B checks it. B must rescan rather
+  // than decide from the listing that predates A's entry.
+  test("rescans when a listed marker turns into an entry", async () => {
+    const markerName = "pending-00000000-0000-4000-8000-00000000000c";
+    const markerA = join(lockDir, markerName);
+    const entryA = join(lockDir, entryName(Date.now() - 5, "low"));
+    mkdirSync(lockDir, { recursive: true });
+    writeFileSync(markerA, "4242");
+
+    let aRunning = false;
+    let overlapped = false;
+    let bRan = false;
+    const original = fs.readdirSync;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const readSpy = spyOn(fs, "readdirSync").mockImplementationOnce(((
+      ...args: Parameters<typeof fs.readdirSync>
+    ) => {
+      const listing = original(...args);
+      // A files its entry, drops its marker and runs for a while.
+      writeFileSync(entryA, "4242");
+      fs.rmSync(markerA);
+      aRunning = true;
+      setTimeout(() => {
+        aRunning = false;
+        fs.rmSync(entryA);
+      }, 40);
+      return listing;
+    }) as typeof fs.readdirSync);
+    try {
+      await withRefreshLock(
+        async () => {
+          bRan = true;
+          if (aRunning) overlapped = true;
+        },
+        lockDir,
+        { pollMs: 2, waitMs: 5_000 }
+      );
+    } finally {
+      readSpy.mockRestore();
+    }
+
+    expect(bRan).toBe(true);
+    expect(overlapped).toBe(false);
+  });
+
   test("removes a marker abandoned by a dead process", async () => {
     mkdirSync(lockDir, { recursive: true });
     const marker = join(

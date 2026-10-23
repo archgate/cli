@@ -129,6 +129,9 @@ function holdsLock(dir: string, own: string, staleMs: number): boolean | null {
     try {
       age = Date.now() - statSync(join(dir, name)).mtimeMs;
     } catch {
+      // A vanished marker usually means its entry was just filed, after this
+      // listing was taken; only a fresh listing can show it.
+      if (MARKER_PATTERN.test(name)) return false;
       continue;
     }
     if (name !== own && age >= staleMs) {
