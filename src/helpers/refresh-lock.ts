@@ -191,19 +191,20 @@ export async function withRefreshLock<T>(
   /* oxlint-disable no-await-in-loop -- one wait, then polling in order */
   while (filed && Date.now() <= createdAt) await Bun.sleep(1);
   const deadline = Date.now() + waitMs;
-  // Others reap an entry untouched for `staleMs`, so a waiter whose refreshes
-  // keep failing withdraws halfway there, before it can be mistaken for dead.
+  // Others reap an entry untouched for `staleMs`. A waiter refreshes its entry
+  // at least every half of that, and withdraws once half has passed without a
+  // successful refresh, before it can be mistaken for dead.
+  const heartbeatMs = staleMs / 2;
   let lastAlive = Date.now();
   while (filed) {
-    const holds = holdsLock(dir, own, staleMs);
-    if (holds === true) break;
-    const touch = holds === null ? "gone" : touchEntry(dir, own);
-    if (touch === "touched") lastAlive = Date.now();
-    const withdraw =
-      holds === null ||
-      touch === "gone" ||
-      Date.now() >= deadline ||
-      Date.now() - lastAlive >= staleMs / 2;
+    let withdraw = Date.now() - lastAlive >= heartbeatMs;
+    if (!withdraw) {
+      const holds = holdsLock(dir, own, staleMs);
+      if (holds === true) break;
+      const touch = holds === null ? "gone" : touchEntry(dir, own);
+      if (touch === "touched") lastAlive = Date.now();
+      withdraw = touch === "gone" || Date.now() >= deadline;
+    }
     if (withdraw) {
       // Withdrawn so that waiters behind it do not wait on it.
       removeEntry(dir, own);
@@ -211,7 +212,8 @@ export async function withRefreshLock<T>(
       logDebug("refresh lock not acquired; renewing without it");
       break;
     }
-    await Bun.sleep(pollMs);
+    const untilOverdue = lastAlive + heartbeatMs - Date.now();
+    await Bun.sleep(Math.max(1, Math.min(pollMs, untilOverdue)));
   }
   /* oxlint-enable no-await-in-loop */
 

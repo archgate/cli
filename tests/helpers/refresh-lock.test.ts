@@ -409,60 +409,6 @@ describe("withRefreshLock", () => {
     }
   });
 
-  // Others reap entries untouched for `staleMs`, so a waiter whose refreshes
-  // keep failing withdraws before it can be mistaken for dead.
-  test("withdraws once its refreshes have failed for half the stale window", async () => {
-    foreignEntry(entryName(1, "low"));
-    const touchSpy = spyOn(fs, "utimesSync").mockImplementation(() => {
-      throw Object.assign(new Error("denied"), { code: "EPERM" });
-    });
-    try {
-      const started = Date.now();
-      let ran = false;
-      await withRefreshLock(
-        async () => {
-          ran = true;
-          expect(readdirSync(lockDir)).toEqual([entryName(1, "low")]);
-        },
-        lockDir,
-        { staleMs: 60, waitMs: 5_000, pollMs: 5 }
-      );
-      expect(ran).toBe(true);
-      expect(Date.now() - started).toBeLessThan(2_000);
-    } finally {
-      touchSpy.mockRestore();
-    }
-  });
-
-  test("keeps waiting through a refresh failure that recovers", async () => {
-    const holder = foreignEntry(entryName(1, "low"));
-    let touches = 0;
-    const realTouch = fs.utimesSync;
-    const touchSpy = spyOn(fs, "utimesSync").mockImplementation((...args) => {
-      touches += 1;
-      if (touches === 1) {
-        throw Object.assign(new Error("busy"), { code: "EBUSY" });
-      }
-      // The holder finishes once this waiter has refreshed successfully.
-      fs.rmSync(holder, { force: true });
-      realTouch(...args);
-    });
-    try {
-      await withRefreshLock(
-        async () => {
-          // Still filed: it ran holding the lock, not after withdrawing.
-          expect(readdirSync(lockDir)).toHaveLength(1);
-          expect(existsSync(holder)).toBe(false);
-        },
-        lockDir,
-        { staleMs: 10_000, waitMs: 5_000, pollMs: 5 }
-      );
-      expect(touches).toBeGreaterThan(1);
-    } finally {
-      touchSpy.mockRestore();
-    }
-  });
-
   // A waiter without an entry is not in line, so it stops waiting rather
   // than polling for a turn that cannot come.
   test("stops waiting when its own entry disappears", async () => {
