@@ -108,10 +108,37 @@ describe("withRefreshLock heartbeat", () => {
         { staleMs: 60, pollMs: 1_000, waitMs: 5_000 }
       );
       expect(Date.now() - started).toBeLessThan(900);
+      // Several refreshes, so the gap check below compares real intervals.
+      expect(touched.length).toBeGreaterThanOrEqual(3);
       const gaps = touched.slice(1).map((at, i) => at - (touched[i] ?? at));
       expect(gaps.filter((gap) => gap >= 60)).toEqual([]);
     } finally {
       touchSpy.mockRestore();
+    }
+  });
+
+  // Timers can fire late. A healthy waiter must still refresh before its
+  // withdrawal point rather than give up.
+  test("stays in line when its timers fire late", async () => {
+    const holder = holderEntry();
+    const realSleep = Bun.sleep;
+    const sleepSpy = spyOn(Bun, "sleep").mockImplementation(async (ms) =>
+      realSleep(Number(ms) + 10)
+    );
+    setTimeout(() => {
+      fs.rmSync(holder, { force: true });
+    }, 150);
+    try {
+      await withRefreshLock(
+        async () => {
+          // Still filed: it acquired the lock rather than withdrawing.
+          expect(readdirSync(lockDir)).toHaveLength(1);
+        },
+        lockDir,
+        { staleMs: 80, pollMs: 1_000, waitMs: 5_000 }
+      );
+    } finally {
+      sleepSpy.mockRestore();
     }
   });
 

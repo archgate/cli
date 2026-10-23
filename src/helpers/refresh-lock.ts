@@ -192,12 +192,13 @@ export async function withRefreshLock<T>(
   while (filed && Date.now() <= createdAt) await Bun.sleep(1);
   const deadline = Date.now() + waitMs;
   // Others reap an entry untouched for `staleMs`. A waiter refreshes its entry
-  // at least every half of that, and withdraws once half has passed without a
-  // successful refresh, before it can be mistaken for dead.
-  const heartbeatMs = staleMs / 2;
+  // once a quarter of that has passed, and withdraws only after half passes
+  // without a successful refresh, so a late timer still refreshes in time.
+  const refreshMs = staleMs / 4;
+  const withdrawMs = staleMs / 2;
   let lastAlive = Date.now();
   while (filed) {
-    let withdraw = Date.now() - lastAlive >= heartbeatMs;
+    let withdraw = Date.now() - lastAlive >= withdrawMs;
     if (!withdraw) {
       const holds = holdsLock(dir, own, staleMs);
       if (holds === true) break;
@@ -212,8 +213,12 @@ export async function withRefreshLock<T>(
       logDebug("refresh lock not acquired; renewing without it");
       break;
     }
-    const untilOverdue = lastAlive + heartbeatMs - Date.now();
-    await Bun.sleep(Math.max(1, Math.min(pollMs, untilOverdue)));
+    // After a failed refresh the next refresh time has passed, so the next
+    // wake-up is the withdrawal point instead.
+    const now = Date.now();
+    const nextRefresh = lastAlive + refreshMs;
+    const wakeAt = nextRefresh > now ? nextRefresh : lastAlive + withdrawMs;
+    await Bun.sleep(Math.max(1, Math.min(pollMs, wakeAt - now)));
   }
   /* oxlint-enable no-await-in-loop */
 
