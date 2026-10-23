@@ -24,13 +24,10 @@ import {
   type TokenSet,
 } from "./platform-auth";
 import { PLUGINS_HOST } from "./plugin-install";
+import { withRefreshLock } from "./refresh-lock";
 import { SessionExpiredError } from "./session-expired-error";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
-
-/** How often, and how far apart, a losing renewal re-reads the store. */
-const RENEWAL_REREADS = 4;
-const RENEWAL_REREAD_DELAY_MS = 250;
 
 /**
  * Account the platform session is filed under.
@@ -306,58 +303,80 @@ async function resolveWithStatus(): Promise<{
 }> {
   const { session, timedOut } = await readSession();
   if (!session) return { credentials: null, timedOut };
+  if (!isExpired(session.tokens.expiresAt)) {
+    return { credentials: sessionCredentials(session), timedOut: false };
+  }
+  return { credentials: await withRefreshLock(renew), timedOut: false };
+}
 
-  const credentials = isExpired(session.tokens.expiresAt)
-    ? await renew(session)
-    : { token: session.tokens.accessToken, github_user: session.user };
-  return { credentials, timedOut: false };
+function sessionCredentials(session: Session): StoredCredentials {
+  return { token: session.tokens.accessToken, github_user: session.user };
 }
 
 /**
- * Exchange a refresh token, tolerating a sibling process having rotated it.
+ * Renew the stored session; runs under the refresh lock. The session is
+ * re-read because a waiter usually finds it already renewed, and exchanging
+ * the old token then is a replay that revokes the grant. A refused session is
+ * removed so later lookups do not resend it.
  *
- * Git invokes the credential helper many times for one operation, so several
- * processes can read the same expired session and refresh concurrently. The
- * platform rotates the refresh token, which makes every exchange after the
- * first fail; re-reading the store recovers the token the winner saved.
- *
- * @param stale - The expired session as read before renewal.
- * @returns Credentials from this renewal, or from whichever process won.
- * @throws {UserError} When no usable session exists afterwards.
+ * @returns Credentials ready to send, or `null` when no session is stored.
+ * @throws {SessionExpiredError} When the platform refuses the refresh token.
  */
-async function renew(stale: Session): Promise<StoredCredentials> {
+async function renew(): Promise<StoredCredentials | null> {
+  const { session } = await readSession();
+  if (!session) return null;
+  if (!isExpired(session.tokens.expiresAt)) {
+    logDebug("token set was renewed by another process");
+    return sessionCredentials(session);
+  }
+
+  let renewed: TokenSet;
   try {
-    const renewed = await platformAuth.refreshAccessToken(
-      stale.tokens.refreshToken
+    renewed = await platformAuth.refreshAccessToken(
+      session.tokens.refreshToken
     );
-    if (!(await saveTokenSet(stale.user, renewed))) {
-      // The exchange rotated the refresh token, so the stored one is already
-      // dead: this request can finish, but the session cannot be renewed again.
-      logWarn(
-        "Renewed credentials could not be stored.",
-        "Run `archgate login` to sign in again."
-      );
-    }
-    return { token: renewed.accessToken, github_user: stale.user };
   } catch (error) {
-    // The winner stores its result only after its own exchange, so a loser
-    // can be refused before that write lands: re-read a few times first.
-    /* oxlint-disable no-await-in-loop -- bounded re-reads, in order */
-    for (let attempt = 0; attempt < RENEWAL_REREADS; attempt += 1) {
-      if (attempt > 0) await Bun.sleep(RENEWAL_REREAD_DELAY_MS);
-      const { session } = await readSession();
-      if (
-        session &&
-        session.tokens.refreshToken !== stale.tokens.refreshToken &&
-        !isExpired(session.tokens.expiresAt)
-      ) {
-        logDebug("token set was renewed by another process", { attempt });
-        return { token: session.tokens.accessToken, github_user: session.user };
-      }
-    }
-    /* oxlint-enable no-await-in-loop */
+    if (error instanceof SessionExpiredError) await discardSession(session);
     throw error;
   }
+
+  if (!(await saveTokenSet(session.user, renewed))) {
+    // The exchange rotated the refresh token, so the stored one is already
+    // dead: this request can finish, but the session cannot be renewed again.
+    logWarn(
+      "Renewed credentials could not be stored.",
+      "Run `archgate login` to sign in again."
+    );
+  }
+  return { token: renewed.accessToken, github_user: session.user };
+}
+
+/**
+ * Remove a session whose refresh token the platform refused.
+ *
+ * Only the record holding that very token is removed: `archgate login` does
+ * not take the refresh lock, so a sign-in finishing meanwhile may already
+ * have replaced it, and that new session must survive.
+ */
+async function discardSession(refused: Session): Promise<void> {
+  const { credentials } = await gitCredentialFill(AUTH_HOST, SESSION_ACCOUNT);
+  if (!credentials) return;
+  const stored = SessionSchema.safeParse(safeJsonParse(credentials.password));
+  if (
+    !stored.success ||
+    stored.data.tokens.refreshToken !== refused.tokens.refreshToken
+  ) {
+    return;
+  }
+  const removed = await gitCredential(
+    "reject",
+    AUTH_HOST,
+    credentials.username,
+    credentials.password
+  );
+  logDebug(
+    removed ? "refused session removed" : "refused session could not be removed"
+  );
 }
 
 /**
