@@ -259,24 +259,136 @@ describe("withRefreshLock", () => {
 
   test("waits when an abandoned guard cannot be removed", async () => {
     foreignLock(60_000);
-    // A directory in the guard's place: `wx` reports it as existing, and it
-    // cannot be unlinked as a file.
-    const guardPath = `${lockPath}.guard`;
-    mkdirSync(guardPath);
-    const then = new Date(Date.now() - 60_000);
-    utimesSync(guardPath, then, then);
-
-    let ran = false;
-    await withRefreshLock(
-      async () => {
-        ran = true;
-      },
-      lockPath,
-      { staleMs: 1_000, waitMs: 20, pollMs: 5 }
-    );
-
-    expect(ran).toBe(true);
+    foreignGuard(60_000);
+    const renameSpy = spyOn(fs, "renameSync").mockImplementation(() => {
+      throw Object.assign(new Error("denied"), { code: "EPERM" });
+    });
+    try {
+      let ran = false;
+      await withRefreshLock(
+        async () => {
+          ran = true;
+        },
+        lockPath,
+        { staleMs: 1_000, waitMs: 20, pollMs: 5 }
+      );
+      expect(ran).toBe(true);
+    } finally {
+      renameSpy.mockRestore();
+    }
     expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
+  });
+
+  // Two processes can both find the same guard abandoned. The one that
+  // reclaims second must not remove the guard the first has just created.
+  test("leaves a guard another reclaimer created after the stale check", async () => {
+    foreignLock(60_000);
+    foreignGuard(60_000);
+    const guardPath = `${lockPath}.guard`;
+    const original = fs.statSync;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const statSpy = spyOn(fs, "statSync").mockImplementationOnce(((
+      ...args: Parameters<typeof fs.statSync>
+    ) => {
+      // This process sees the abandoned guard; another reclaims it and
+      // creates its own before this one acts.
+      const seen = original(...args);
+      fs.rmSync(guardPath);
+      writeFileSync(guardPath, "other-reclaimer");
+      return seen;
+    }) as typeof fs.statSync);
+    try {
+      await withRefreshLock(async () => {}, lockPath, {
+        staleMs: 1_000,
+        waitMs: 20,
+        pollMs: 5,
+      });
+    } finally {
+      statSpy.mockRestore();
+    }
+
+    expect(readFileSync(guardPath, "utf8")).toBe("other-reclaimer");
+    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
+  });
+
+  test("gives way when a fresh guard cannot be put back", async () => {
+    foreignLock(60_000);
+    foreignGuard(60_000);
+    const guardPath = `${lockPath}.guard`;
+    const original = fs.statSync;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const statSpy = spyOn(fs, "statSync").mockImplementationOnce(((
+      ...args: Parameters<typeof fs.statSync>
+    ) => {
+      const seen = original(...args);
+      fs.rmSync(guardPath);
+      writeFileSync(guardPath, "other-reclaimer");
+      return seen;
+    }) as typeof fs.statSync);
+    const linkSpy = spyOn(fs, "linkSync").mockImplementationOnce(() => {
+      throw Object.assign(new Error("exists"), { code: "EEXIST" });
+    });
+    try {
+      let ran = false;
+      await withRefreshLock(
+        async () => {
+          ran = true;
+        },
+        lockPath,
+        { staleMs: 1_000, waitMs: 20, pollMs: 5 }
+      );
+      expect(ran).toBe(true);
+    } finally {
+      linkSpy.mockRestore();
+      statSpy.mockRestore();
+    }
+  });
+
+  test("removes a guard file it created but could not write", async () => {
+    let writes = 0;
+    const original = fs.writeSync;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const writeSpy = spyOn(fs, "writeSync").mockImplementation(((
+      ...args: Parameters<typeof fs.writeSync>
+    ) => {
+      writes += 1;
+      // The first write is the lock's token; the second is the release guard's.
+      if (writes === 2) {
+        throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+      }
+      return original(...args);
+    }) as typeof fs.writeSync);
+    try {
+      await withRefreshLock(async () => {}, lockPath);
+    } finally {
+      writeSpy.mockRestore();
+    }
+
+    expect(writes).toBeGreaterThan(2);
+    expect(existsSync(lockPath)).toBe(false);
+    expect(existsSync(`${lockPath}.guard`)).toBe(false);
+  });
+
+  test("keeps a guard whose token changed while it was held", async () => {
+    const guardPath = `${lockPath}.guard`;
+    const original = fs.readFileSync;
+    let reads = 0;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const readSpy = spyOn(fs, "readFileSync").mockImplementation(((
+      ...args: Parameters<typeof fs.readFileSync>
+    ) => {
+      reads += 1;
+      // The release reads the lock's token first; the guard is replaced then.
+      if (reads === 1) writeFileSync(guardPath, "replacement");
+      return original(...args);
+    }) as typeof fs.readFileSync);
+    try {
+      await withRefreshLock(async () => {}, lockPath);
+    } finally {
+      readSpy.mockRestore();
+    }
+
+    expect(readFileSync(guardPath, "utf8")).toBe("replacement");
   });
 
   // A release that never gets the guard leaves its lock to turn stale rather

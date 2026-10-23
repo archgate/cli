@@ -9,9 +9,11 @@
 
 import {
   closeSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
+  renameSync,
   statSync,
   unlinkSync,
   writeSync,
@@ -61,6 +63,66 @@ const GUARD_STALE_MS = 5_000;
 const RELEASE_GUARD_TRIES = 20;
 const RELEASE_GUARD_PAUSE_MS = 5;
 
+/** Create the guard carrying `token`; false when it exists or cannot be written. */
+function createGuard(guard: string, token: string): boolean {
+  let fd: number;
+  try {
+    fd = openSync(guard, "wx");
+  } catch {
+    return false;
+  }
+  try {
+    writeSync(fd, token);
+    return true;
+  } catch {
+    closeSync(fd);
+    fd = -1;
+    try {
+      unlinkSync(guard);
+    } catch {
+      // Left for the stale check to reclaim.
+    }
+    return false;
+  } finally {
+    if (fd !== -1) closeSync(fd);
+  }
+}
+
+/**
+ * Remove an abandoned guard; true when it is gone. The guard is renamed first,
+ * which only one process can do to a given file. If the renamed file turns
+ * out to be fresh, another reclaimer replaced the stale one in between, so it
+ * is linked back (`link` fails if a guard exists again) and this call yields.
+ */
+function reclaimGuard(guard: string): boolean {
+  try {
+    if (Date.now() - statSync(guard).mtimeMs < GUARD_STALE_MS) return false;
+    const moved = `${guard}.${crypto.randomUUID()}`;
+    renameSync(guard, moved);
+    const fresh = Date.now() - statSync(moved).mtimeMs < GUARD_STALE_MS;
+    if (fresh) {
+      try {
+        linkSync(moved, guard);
+      } catch {
+        // A newer guard already stands; the one moved here is lost.
+      }
+    }
+    unlinkSync(moved);
+    return !fresh;
+  } catch {
+    return false;
+  }
+}
+
+/** Delete the guard only while it still carries `token`. */
+function dropGuard(guard: string, token: string): void {
+  try {
+    if (readFileSync(guard, "utf8") === token) unlinkSync(guard);
+  } catch {
+    // Gone already; nothing left to release.
+  }
+}
+
 /**
  * Run `action` while holding the guard file next to the lock. Release and
  * reclaim check the lock and then unlink it; the guard keeps either from
@@ -71,28 +133,16 @@ const RELEASE_GUARD_PAUSE_MS = 5;
  */
 function withGuard(path: string, action: () => void): boolean {
   const guard = `${path}.guard`;
-  let fd: number;
-  try {
-    fd = openSync(guard, "wx");
-  } catch {
-    try {
-      if (Date.now() - statSync(guard).mtimeMs < GUARD_STALE_MS) return false;
-      unlinkSync(guard);
-      fd = openSync(guard, "wx");
-    } catch {
-      return false;
-    }
-  }
-  closeSync(fd);
+  const token = crypto.randomUUID();
+  const held =
+    createGuard(guard, token) ||
+    (reclaimGuard(guard) && createGuard(guard, token));
+  if (!held) return false;
   try {
     action();
     return true;
   } finally {
-    try {
-      unlinkSync(guard);
-    } catch {
-      // Removed as abandoned by another process; nothing left to release.
-    }
+    dropGuard(guard, token);
   }
 }
 
