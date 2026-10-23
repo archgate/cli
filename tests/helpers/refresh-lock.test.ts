@@ -6,6 +6,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   utimesSync,
   writeFileSync,
@@ -16,128 +17,179 @@ import { join } from "node:path";
 import { withRefreshLock } from "../../src/helpers/refresh-lock";
 import { rejectionMessage, restoreEnv, safeRmSync } from "../test-utils";
 
+/** An entry name for `stamp`, with a UUID that sorts first or last. */
+function entryName(stamp: number, uuid: "low" | "high"): string {
+  const id =
+    uuid === "low"
+      ? "00000000-0000-4000-8000-000000000000"
+      : "ffffffff-ffff-4fff-bfff-ffffffffffff";
+  return `${String(stamp).padStart(15, "0")}-${id}`;
+}
+
 describe("withRefreshLock", () => {
   let tempDir: string;
-  let lockPath: string;
+  let lockDir: string;
 
   beforeEach(() => {
     tempDir = mkdtempSync(join(tmpdir(), "archgate-refresh-lock-"));
-    lockPath = join(tempDir, "state", "refresh.lock");
+    lockDir = join(tempDir, "refresh-lock");
   });
 
   afterEach(() => {
     safeRmSync(tempDir);
   });
 
-  /** A lock file left by another process, optionally backdated. */
-  function foreignLock(ageMs = 0): void {
-    mkdirSync(join(tempDir, "state"), { recursive: true });
-    writeFileSync(lockPath, "4242:other");
+  /** An entry filed by another process, optionally backdated. */
+  function foreignEntry(name: string, ageMs = 0): string {
+    mkdirSync(lockDir, { recursive: true });
+    const path = join(lockDir, name);
+    writeFileSync(path, "4242");
     if (ageMs > 0) {
       const then = new Date(Date.now() - ageMs);
-      utimesSync(lockPath, then, then);
+      utimesSync(path, then, then);
     }
+    return path;
   }
 
-  test("holds the lock while the task runs and removes it afterwards", async () => {
+  test("files an entry while the task runs and removes it afterwards", async () => {
     const result = await withRefreshLock(async () => {
-      expect(existsSync(lockPath)).toBe(true);
+      const names = readdirSync(lockDir);
+      expect(names).toHaveLength(1);
+      expect(readFileSync(join(lockDir, names[0] ?? ""), "utf8")).toBe(
+        String(process.pid)
+      );
       return "done";
-    }, lockPath);
+    }, lockDir);
 
     expect(result).toBe("done");
-    expect(existsSync(lockPath)).toBe(false);
+    expect(readdirSync(lockDir)).toEqual([]);
   });
 
-  test("writes a token naming this process", async () => {
-    await withRefreshLock(async () => {
-      expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
-    }, lockPath);
-  });
-
-  test("removes the lock when the task throws", async () => {
+  test("removes its entry when the task throws", async () => {
     expect(
       await rejectionMessage(
         withRefreshLock(async () => {
           throw new Error("renewal failed");
-        }, lockPath)
+        }, lockDir)
       )
     ).toBe("renewal failed");
-    expect(existsSync(lockPath)).toBe(false);
+    expect(readdirSync(lockDir)).toEqual([]);
   });
 
-  test("runs concurrent tasks one at a time", async () => {
-    const events: string[] = [];
-    const task = (name: string) => async () => {
-      events.push(`${name}:start`);
-      await Bun.sleep(30);
-      events.push(`${name}:end`);
+  // The property the lock exists for: renewals never overlap, even when
+  // several start at once and an abandoned entry has to be cleared first.
+  test("never runs two tasks at once", async () => {
+    foreignEntry(entryName(1, "low"), 60_000);
+    let active = 0;
+    let peak = 0;
+    let finished = 0;
+    const task = async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await Bun.sleep(10);
+      active -= 1;
+      finished += 1;
     };
 
-    await Promise.all([
-      withRefreshLock(task("a"), lockPath, { pollMs: 5 }),
-      withRefreshLock(task("b"), lockPath, { pollMs: 5 }),
-    ]);
+    await Promise.all(
+      Array.from({ length: 6 }, async () =>
+        withRefreshLock(task, lockDir, { pollMs: 2, staleMs: 1_000 })
+      )
+    );
 
-    const [first] = events;
-    const second = first === "a:start" ? "b" : "a";
-    expect(events).toEqual([
-      first,
-      first.replace("start", "end"),
-      `${second}:start`,
-      `${second}:end`,
-    ]);
+    expect(finished).toBe(6);
+    expect(peak).toBe(1);
+    expect(readdirSync(lockDir)).toEqual([]);
   });
 
-  test("takes over a lock abandoned by a dead process", async () => {
-    foreignLock(60_000);
+  test("removes an entry abandoned by a dead process", async () => {
+    const abandoned = foreignEntry(entryName(1, "low"), 60_000);
 
     await withRefreshLock(
       async () => {
-        expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
+        expect(existsSync(abandoned)).toBe(false);
       },
-      lockPath,
+      lockDir,
       { staleMs: 1_000 }
     );
-
-    expect(existsSync(lockPath)).toBe(false);
-  });
-
-  // A holder that outlives the stale window must not delete a waiter's lock.
-  test("leaves a lock that carries another process's token", async () => {
-    await withRefreshLock(async () => {
-      writeFileSync(lockPath, "4242:taker");
-    }, lockPath);
-
-    expect(readFileSync(lockPath, "utf8")).toBe("4242:taker");
-  });
-
-  test("finishes cleanly when its lock was removed under it", async () => {
-    await withRefreshLock(async () => {
-      fs.rmSync(lockPath);
-    }, lockPath);
-
-    expect(existsSync(lockPath)).toBe(false);
   });
 
   // A slow holder must not block the git operation indefinitely.
-  test("runs without the lock once the wait runs out", async () => {
-    foreignLock();
+  test("runs without the lock once the wait for a live holder runs out", async () => {
+    const holder = foreignEntry(entryName(1, "low"));
 
     let ran = false;
     await withRefreshLock(
       async () => {
         ran = true;
+        // Withdrawn before running, so it does not hold up later waiters.
+        expect(readdirSync(lockDir)).toEqual([entryName(1, "low")]);
       },
-      lockPath,
+      lockDir,
       { waitMs: 20, pollMs: 5 }
     );
 
     expect(ran).toBe(true);
-    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
+    expect(existsSync(holder)).toBe(true);
   });
 
-  test("runs without the lock when the lock directory cannot be created", async () => {
+  test("is not held up by an entry filed after its own", async () => {
+    foreignEntry(entryName(Date.now() + 60_000, "low"));
+
+    let entries = 0;
+    await withRefreshLock(
+      async () => {
+        entries = readdirSync(lockDir).length;
+      },
+      lockDir,
+      { waitMs: 1_000 }
+    );
+
+    expect(entries).toBe(2);
+  });
+
+  // Two callers can file in the same millisecond, and the later one can sort
+  // first. The decision waits for the clock to move on, so the earlier one
+  // sees the later entry and yields instead of running alongside it.
+  test("yields to an entry filed in the same millisecond that sorts first", async () => {
+    const realNow = Date.now.bind(Date);
+    const stamp = realNow();
+    let calls = 0;
+    const nowSpy = spyOn(Date, "now").mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        foreignEntry(entryName(stamp, "low"));
+        return stamp;
+      }
+      return calls === 2 ? stamp : realNow();
+    });
+    try {
+      await withRefreshLock(
+        async () => {
+          expect(readdirSync(lockDir)).toEqual([entryName(stamp, "low")]);
+        },
+        lockDir,
+        { waitMs: 20, pollMs: 5 }
+      );
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  test("ignores files that are not entries", async () => {
+    mkdirSync(lockDir, { recursive: true });
+    writeFileSync(join(lockDir, "notes.txt"), "");
+
+    let entries: string[] = [];
+    await withRefreshLock(async () => {
+      entries = readdirSync(lockDir);
+    }, lockDir);
+
+    expect(entries).toHaveLength(2);
+    expect(readdirSync(lockDir)).toEqual(["notes.txt"]);
+  });
+
+  test("runs without the lock when the directory cannot be created", async () => {
     const blocker = join(tempDir, "not-a-dir");
     writeFileSync(blocker, "");
 
@@ -146,271 +198,88 @@ describe("withRefreshLock", () => {
       async () => {
         ran = true;
       },
-      join(blocker, "refresh.lock")
+      join(blocker, "refresh-lock")
     );
 
     expect(ran).toBe(true);
   });
 
-  // A lock nobody can identify would stall every waiter until it turned stale.
-  test("removes a lock file it created but could not write", async () => {
-    const writeSpy = spyOn(fs, "writeSync").mockImplementationOnce(() => {
-      throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+  test("withdraws and runs without the lock when the directory cannot be read", async () => {
+    const readSpy = spyOn(fs, "readdirSync").mockImplementationOnce(() => {
+      throw Object.assign(new Error("denied"), { code: "EACCES" });
     });
     try {
       let ran = false;
       await withRefreshLock(async () => {
         ran = true;
-        expect(existsSync(lockPath)).toBe(false);
-      }, lockPath);
+      }, lockDir);
       expect(ran).toBe(true);
-    } finally {
-      writeSpy.mockRestore();
-    }
-  });
-
-  // A lock that cannot be deleted is waited on like a live one, so the loop
-  // cannot spin.
-  test("waits out a stale lock it cannot remove", async () => {
-    foreignLock();
-    const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation(() => {
-      throw Object.assign(new Error("denied"), { code: "EPERM" });
-    });
-    try {
-      let ran = false;
-      await withRefreshLock(
-        async () => {
-          ran = true;
-        },
-        lockPath,
-        { waitMs: 20, pollMs: 5, staleMs: 0 }
-      );
-      expect(ran).toBe(true);
-    } finally {
-      unlinkSpy.mockRestore();
-    }
-    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
-  });
-
-  test("retries at once when a stale lock vanishes before its removal", async () => {
-    foreignLock();
-    const statSpy = spyOn(fs, "statSync").mockImplementationOnce(() => {
-      fs.rmSync(lockPath);
-      throw Object.assign(new Error("gone"), { code: "ENOENT" });
-    });
-    try {
-      await withRefreshLock(
-        async () => {
-          expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
-        },
-        lockPath,
-        { waitMs: 1_000, pollMs: 5 }
-      );
-    } finally {
-      statSpy.mockRestore();
-    }
-  });
-
-  /** A guard file left by another process, optionally backdated. */
-  function foreignGuard(ageMs = 0): void {
-    mkdirSync(join(tempDir, "state"), { recursive: true });
-    const guardPath = `${lockPath}.guard`;
-    writeFileSync(guardPath, "");
-    if (ageMs > 0) {
-      const then = new Date(Date.now() - ageMs);
-      utimesSync(guardPath, then, then);
-    }
-  }
-
-  // Another process is mid-check on the same stale lock, so this one waits
-  // instead of removing a file whose ownership may be changing.
-  test("does not reclaim a stale lock while another process holds the guard", async () => {
-    foreignLock(60_000);
-    foreignGuard();
-
-    let ran = false;
-    await withRefreshLock(
-      async () => {
-        ran = true;
-      },
-      lockPath,
-      { staleMs: 1_000, waitMs: 20, pollMs: 5 }
-    );
-
-    expect(ran).toBe(true);
-    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
-  });
-
-  test("takes over a guard abandoned by a dead process", async () => {
-    foreignLock(60_000);
-    foreignGuard(60_000);
-
-    await withRefreshLock(
-      async () => {
-        expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
-      },
-      lockPath,
-      { staleMs: 1_000, pollMs: 5 }
-    );
-
-    expect(existsSync(lockPath)).toBe(false);
-    expect(existsSync(`${lockPath}.guard`)).toBe(false);
-  });
-
-  test("waits when an abandoned guard cannot be removed", async () => {
-    foreignLock(60_000);
-    foreignGuard(60_000);
-    const renameSpy = spyOn(fs, "renameSync").mockImplementation(() => {
-      throw Object.assign(new Error("denied"), { code: "EPERM" });
-    });
-    try {
-      let ran = false;
-      await withRefreshLock(
-        async () => {
-          ran = true;
-        },
-        lockPath,
-        { staleMs: 1_000, waitMs: 20, pollMs: 5 }
-      );
-      expect(ran).toBe(true);
-    } finally {
-      renameSpy.mockRestore();
-    }
-    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
-  });
-
-  // Two processes can both find the same guard abandoned. The one that
-  // reclaims second must not remove the guard the first has just created.
-  test("leaves a guard another reclaimer created after the stale check", async () => {
-    foreignLock(60_000);
-    foreignGuard(60_000);
-    const guardPath = `${lockPath}.guard`;
-    const original = fs.statSync;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
-    const statSpy = spyOn(fs, "statSync").mockImplementationOnce(((
-      ...args: Parameters<typeof fs.statSync>
-    ) => {
-      // This process sees the abandoned guard; another reclaims it and
-      // creates its own before this one acts.
-      const seen = original(...args);
-      fs.rmSync(guardPath);
-      writeFileSync(guardPath, "other-reclaimer");
-      return seen;
-    }) as typeof fs.statSync);
-    try {
-      await withRefreshLock(async () => {}, lockPath, {
-        staleMs: 1_000,
-        waitMs: 20,
-        pollMs: 5,
-      });
-    } finally {
-      statSpy.mockRestore();
-    }
-
-    expect(readFileSync(guardPath, "utf8")).toBe("other-reclaimer");
-    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
-  });
-
-  test("gives way when a fresh guard cannot be put back", async () => {
-    foreignLock(60_000);
-    foreignGuard(60_000);
-    const guardPath = `${lockPath}.guard`;
-    const original = fs.statSync;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
-    const statSpy = spyOn(fs, "statSync").mockImplementationOnce(((
-      ...args: Parameters<typeof fs.statSync>
-    ) => {
-      const seen = original(...args);
-      fs.rmSync(guardPath);
-      writeFileSync(guardPath, "other-reclaimer");
-      return seen;
-    }) as typeof fs.statSync);
-    const linkSpy = spyOn(fs, "linkSync").mockImplementationOnce(() => {
-      throw Object.assign(new Error("exists"), { code: "EEXIST" });
-    });
-    try {
-      let ran = false;
-      await withRefreshLock(
-        async () => {
-          ran = true;
-        },
-        lockPath,
-        { staleMs: 1_000, waitMs: 20, pollMs: 5 }
-      );
-      expect(ran).toBe(true);
-    } finally {
-      linkSpy.mockRestore();
-      statSpy.mockRestore();
-    }
-  });
-
-  test("removes a guard file it created but could not write", async () => {
-    let writes = 0;
-    const original = fs.writeSync;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
-    const writeSpy = spyOn(fs, "writeSync").mockImplementation(((
-      ...args: Parameters<typeof fs.writeSync>
-    ) => {
-      writes += 1;
-      // The first write is the lock's token; the second is the release guard's.
-      if (writes === 2) {
-        throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
-      }
-      return original(...args);
-    }) as typeof fs.writeSync);
-    try {
-      await withRefreshLock(async () => {}, lockPath);
-    } finally {
-      writeSpy.mockRestore();
-    }
-
-    expect(writes).toBeGreaterThan(2);
-    expect(existsSync(lockPath)).toBe(false);
-    expect(existsSync(`${lockPath}.guard`)).toBe(false);
-  });
-
-  test("keeps a guard whose token changed while it was held", async () => {
-    const guardPath = `${lockPath}.guard`;
-    const original = fs.readFileSync;
-    let reads = 0;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
-    const readSpy = spyOn(fs, "readFileSync").mockImplementation(((
-      ...args: Parameters<typeof fs.readFileSync>
-    ) => {
-      reads += 1;
-      // The release reads the lock's token first; the guard is replaced then.
-      if (reads === 1) writeFileSync(guardPath, "replacement");
-      return original(...args);
-    }) as typeof fs.readFileSync);
-    try {
-      await withRefreshLock(async () => {}, lockPath);
     } finally {
       readSpy.mockRestore();
     }
-
-    expect(readFileSync(guardPath, "utf8")).toBe("replacement");
+    expect(readdirSync(lockDir)).toEqual([]);
   });
 
-  // A release that never gets the guard leaves its lock to turn stale rather
-  // than unlinking without the check.
-  test("leaves its lock in place when the guard stays busy", async () => {
-    await withRefreshLock(async () => {
-      foreignGuard();
-    }, lockPath);
+  test("skips an entry that vanishes while it is checked", async () => {
+    foreignEntry(entryName(1, "low"));
+    const statSpy = spyOn(fs, "statSync").mockImplementationOnce(() => {
+      throw Object.assign(new Error("gone"), { code: "ENOENT" });
+    });
+    try {
+      let ran = false;
+      await withRefreshLock(
+        async () => {
+          ran = true;
+        },
+        lockDir,
+        { waitMs: 1_000, pollMs: 5 }
+      );
+      expect(ran).toBe(true);
+    } finally {
+      statSpy.mockRestore();
+    }
+  });
 
-    expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
+  // A waiter without an entry is not in line, so it stops waiting rather
+  // than polling for a turn that cannot come.
+  test("stops waiting when its own entry disappears", async () => {
+    const holderName = entryName(1, "low");
+    foreignEntry(holderName);
+    const original = fs.readdirSync;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const readSpy = spyOn(fs, "readdirSync").mockImplementationOnce(((
+      ...args: Parameters<typeof fs.readdirSync>
+    ) => {
+      for (const name of original(lockDir)) {
+        if (name !== holderName) fs.rmSync(join(lockDir, name));
+      }
+      return original(...args);
+    }) as typeof fs.readdirSync);
+    try {
+      let ran = false;
+      await withRefreshLock(
+        async () => {
+          ran = true;
+        },
+        lockDir,
+        { waitMs: 60_000, pollMs: 5 }
+      );
+      expect(ran).toBe(true);
+    } finally {
+      readSpy.mockRestore();
+    }
   });
 
   // HOME is read by the path helper at call time, so overriding it is the
   // supported way to keep the default path inside the sandbox (ARCH-005).
-  test("defaults to the lock file in the archgate state directory", async () => {
+  test("defaults to the archgate state directory", async () => {
     const originalHome = Bun.env.HOME;
     Bun.env.HOME = tempDir;
     try {
       await withRefreshLock(async () => {
-        expect(existsSync(join(tempDir, ".archgate", "refresh.lock"))).toBe(
-          true
-        );
+        expect(
+          readdirSync(join(tempDir, ".archgate", "refresh-lock"))
+        ).toHaveLength(1);
       });
     } finally {
       restoreEnv("HOME", originalHome);
