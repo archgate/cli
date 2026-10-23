@@ -11,6 +11,7 @@ import {
   closeSync,
   mkdirSync,
   openSync,
+  readFileSync,
   statSync,
   unlinkSync,
   writeSync,
@@ -50,30 +51,52 @@ function errorCode(error: unknown): unknown {
   return error instanceof Error && "code" in error ? error.code : undefined;
 }
 
+/** The holder's token stored in the lock file, or `null` when unreadable. */
+function readToken(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Try once to create the lock file.
+ * Try once to create the lock file, writing `token` into it.
  *
  * @returns `"acquired"` when this process now holds it, `"held"` when another
  * process does, or `"unavailable"` when the file cannot be created at all.
  */
-function tryCreate(path: string): "acquired" | "held" | "unavailable" {
+function tryCreate(
+  path: string,
+  token: string
+): "acquired" | "held" | "unavailable" {
+  let fd: number;
   try {
-    const fd = openSync(path, "wx");
-    try {
-      writeSync(fd, String(process.pid));
-    } finally {
-      closeSync(fd);
-    }
-    return "acquired";
+    fd = openSync(path, "wx");
   } catch (error) {
     return errorCode(error) === "EEXIST" ? "held" : "unavailable";
+  }
+  try {
+    writeSync(fd, token);
+    return "acquired";
+  } catch {
+    // A lock nobody can identify as theirs would stall every waiter until it
+    // turns stale, so it is removed straight away.
+    release(path, null);
+    return "unavailable";
+  } finally {
+    closeSync(fd);
   }
 }
 
 /** Remove a lock older than `staleMs`; true when the create should be retried at once. */
 function removeIfStale(path: string, staleMs: number): boolean {
   try {
+    const token = readToken(path);
     if (Date.now() - statSync(path).mtimeMs < staleMs) return false;
+    // Another waiter may have taken the lock over since the read; only the
+    // abandoned holder's file is removed.
+    if (readToken(path) !== token) return true;
     unlinkSync(path);
     logDebug("removed an abandoned refresh lock");
     return true;
@@ -84,12 +107,16 @@ function removeIfStale(path: string, staleMs: number): boolean {
   }
 }
 
-/** Delete the lock this process holds; a missing file is fine. */
-function release(path: string): void {
+/**
+ * Delete the lock file if it still carries `token` (any file when `null`).
+ * A waiter that took the lock over as stale owns it now, so it is left alone.
+ */
+function release(path: string, token: string | null): void {
+  if (token !== null && readToken(path) !== token) return;
   try {
     unlinkSync(path);
   } catch {
-    // Taken over as stale by a waiter; nothing left to release.
+    // Already gone, or held open by another program; it turns stale either way.
   }
 }
 
@@ -116,29 +143,31 @@ export async function withRefreshLock<T>(
     // tryCreate reports the directory as unavailable below.
   }
 
+  const token = `${process.pid}:${crypto.randomUUID()}`;
   const deadline = Date.now() + waitMs;
   let held = false;
   /* oxlint-disable no-await-in-loop -- polling one lock, attempts in order */
-  while (!held) {
-    const outcome = tryCreate(path);
+  for (;;) {
+    const outcome = tryCreate(path, token);
     if (outcome === "acquired") {
       held = true;
-    } else if (outcome === "unavailable") {
+      break;
+    }
+    if (outcome === "unavailable") {
       logDebug("refresh lock unavailable; renewing without it");
       break;
-    } else if (!removeIfStale(path, staleMs)) {
-      if (Date.now() >= deadline) {
-        logDebug("refresh lock still held; renewing without it");
-        break;
-      }
-      await Bun.sleep(pollMs);
     }
+    if (Date.now() >= deadline) {
+      logDebug("refresh lock still held; renewing without it");
+      break;
+    }
+    if (!removeIfStale(path, staleMs)) await Bun.sleep(pollMs);
   }
   /* oxlint-enable no-await-in-loop */
 
   try {
     return await task();
   } finally {
-    if (held) release(path);
+    if (held) release(path, token);
   }
 }

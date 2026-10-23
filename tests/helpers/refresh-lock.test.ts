@@ -2,12 +2,19 @@
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as fs from "node:fs";
-import { existsSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { withRefreshLock } from "../../src/helpers/refresh-lock";
-import { restoreEnv, safeRmSync } from "../test-utils";
+import { rejectionMessage, restoreEnv, safeRmSync } from "../test-utils";
 
 describe("withRefreshLock", () => {
   let tempDir: string;
@@ -22,27 +29,40 @@ describe("withRefreshLock", () => {
     safeRmSync(tempDir);
   });
 
+  /** A lock file left by another process, optionally backdated. */
+  function foreignLock(ageMs = 0): void {
+    mkdirSync(join(tempDir, "state"), { recursive: true });
+    writeFileSync(lockPath, "4242:other");
+    if (ageMs > 0) {
+      const then = new Date(Date.now() - ageMs);
+      utimesSync(lockPath, then, then);
+    }
+  }
+
   test("holds the lock while the task runs and removes it afterwards", async () => {
-    let heldDuringTask = false;
     const result = await withRefreshLock(async () => {
-      heldDuringTask = existsSync(lockPath);
+      expect(existsSync(lockPath)).toBe(true);
       return "done";
     }, lockPath);
 
     expect(result).toBe("done");
-    expect(heldDuringTask).toBe(true);
     expect(existsSync(lockPath)).toBe(false);
   });
 
-  test("removes the lock when the task throws", async () => {
-    const run = withRefreshLock(async () => {
-      throw new Error("renewal failed");
+  test("writes a token naming this process", async () => {
+    await withRefreshLock(async () => {
+      expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
     }, lockPath);
+  });
 
-    expect(run).rejects.toThrow("renewal failed");
-    await run.catch(() => {
-      // Asserted above; awaited so the finally block has run.
-    });
+  test("removes the lock when the task throws", async () => {
+    expect(
+      await rejectionMessage(
+        withRefreshLock(async () => {
+          throw new Error("renewal failed");
+        }, lockPath)
+      )
+    ).toBe("renewal failed");
     expect(existsSync(lockPath)).toBe(false);
   });
 
@@ -59,34 +79,50 @@ describe("withRefreshLock", () => {
       withRefreshLock(task("b"), lockPath, { pollMs: 5 }),
     ]);
 
-    expect(events).toHaveLength(4);
-    expect(events[1]).toBe(events[0]?.replace("start", "end"));
-    expect(events[3]).toBe(events[2]?.replace("start", "end"));
+    const [first] = events;
+    const second = first === "a:start" ? "b" : "a";
+    expect(events).toEqual([
+      first,
+      first.replace("start", "end"),
+      `${second}:start`,
+      `${second}:end`,
+    ]);
   });
 
   test("takes over a lock abandoned by a dead process", async () => {
-    fs.mkdirSync(join(tempDir, "state"));
-    writeFileSync(lockPath, "4242");
-    const old = new Date(Date.now() - 60_000);
-    utimesSync(lockPath, old, old);
+    foreignLock(60_000);
 
-    let heldDuringTask = "";
     await withRefreshLock(
       async () => {
-        heldDuringTask = fs.readFileSync(lockPath, "utf8");
+        expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
       },
       lockPath,
       { staleMs: 1_000 }
     );
 
-    expect(heldDuringTask).toBe(String(process.pid));
+    expect(existsSync(lockPath)).toBe(false);
+  });
+
+  // A holder that outlives the stale window must not delete a waiter's lock.
+  test("leaves a lock that carries another process's token", async () => {
+    await withRefreshLock(async () => {
+      writeFileSync(lockPath, "4242:taker");
+    }, lockPath);
+
+    expect(readFileSync(lockPath, "utf8")).toBe("4242:taker");
+  });
+
+  test("finishes cleanly when its lock was removed under it", async () => {
+    await withRefreshLock(async () => {
+      fs.rmSync(lockPath);
+    }, lockPath);
+
     expect(existsSync(lockPath)).toBe(false);
   });
 
   // A slow holder must not block the git operation indefinitely.
   test("runs without the lock once the wait runs out", async () => {
-    fs.mkdirSync(join(tempDir, "state"));
-    writeFileSync(lockPath, "4242");
+    foreignLock();
 
     let ran = false;
     await withRefreshLock(
@@ -98,8 +134,7 @@ describe("withRefreshLock", () => {
     );
 
     expect(ran).toBe(true);
-    // The other holder's lock is left alone.
-    expect(fs.readFileSync(lockPath, "utf8")).toBe("4242");
+    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
   });
 
   test("runs without the lock when the lock directory cannot be created", async () => {
@@ -117,11 +152,27 @@ describe("withRefreshLock", () => {
     expect(ran).toBe(true);
   });
 
+  // A lock nobody can identify would stall every waiter until it turned stale.
+  test("removes a lock file it created but could not write", async () => {
+    const writeSpy = spyOn(fs, "writeSync").mockImplementationOnce(() => {
+      throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+    });
+    try {
+      let ran = false;
+      await withRefreshLock(async () => {
+        ran = true;
+        expect(existsSync(lockPath)).toBe(false);
+      }, lockPath);
+      expect(ran).toBe(true);
+    } finally {
+      writeSpy.mockRestore();
+    }
+  });
+
   // A lock that cannot be deleted is waited on like a live one, so the loop
   // cannot spin.
   test("waits out a stale lock it cannot remove", async () => {
-    fs.mkdirSync(join(tempDir, "state"));
-    writeFileSync(lockPath, "4242");
+    foreignLock();
     const unlinkSpy = spyOn(fs, "unlinkSync").mockImplementation(() => {
       throw Object.assign(new Error("denied"), { code: "EPERM" });
     });
@@ -138,28 +189,50 @@ describe("withRefreshLock", () => {
     } finally {
       unlinkSpy.mockRestore();
     }
-    expect(existsSync(lockPath)).toBe(true);
+    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
   });
 
   test("retries at once when a stale lock vanishes before its removal", async () => {
-    fs.mkdirSync(join(tempDir, "state"));
-    writeFileSync(lockPath, "4242");
+    foreignLock();
     const statSpy = spyOn(fs, "statSync").mockImplementationOnce(() => {
       fs.rmSync(lockPath);
       throw Object.assign(new Error("gone"), { code: "ENOENT" });
     });
     try {
-      let heldDuringTask = false;
       await withRefreshLock(
         async () => {
-          heldDuringTask = existsSync(lockPath);
+          expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
         },
         lockPath,
         { waitMs: 1_000, pollMs: 5 }
       );
-      expect(heldDuringTask).toBe(true);
     } finally {
       statSpy.mockRestore();
+    }
+  });
+
+  // Two waiters can find the same stale lock; the second must not delete the
+  // lock the first has just created.
+  test("leaves a stale lock that changed hands while it looked", async () => {
+    foreignLock(60_000);
+    const original = fs.readFileSync;
+    let reads = 0;
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
+    const readSpy = spyOn(fs, "readFileSync").mockImplementation(((
+      ...args: Parameters<typeof fs.readFileSync>
+    ) => {
+      reads += 1;
+      // The second read of the first stale check sees a new holder.
+      return reads === 2 ? "9999:newer" : original(...args);
+    }) as typeof fs.readFileSync);
+    try {
+      await withRefreshLock(async () => {}, lockPath, {
+        staleMs: 1_000,
+        pollMs: 5,
+      });
+      expect(reads).toBeGreaterThan(2);
+    } finally {
+      readSpy.mockRestore();
     }
   });
 
@@ -169,11 +242,11 @@ describe("withRefreshLock", () => {
     const originalHome = Bun.env.HOME;
     Bun.env.HOME = tempDir;
     try {
-      let heldDuringTask = false;
       await withRefreshLock(async () => {
-        heldDuringTask = existsSync(join(tempDir, ".archgate", "refresh.lock"));
+        expect(existsSync(join(tempDir, ".archgate", "refresh.lock"))).toBe(
+          true
+        );
       });
-      expect(heldDuringTask).toBe(true);
     } finally {
       restoreEnv("HOME", originalHome);
     }
