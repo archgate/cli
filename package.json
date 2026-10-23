@@ -84,7 +84,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "posthog-node": "5.53.0",
     "typescript": "7.0.2",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "readme": "README.md"
 }
