@@ -310,7 +310,7 @@ async function resolveWithStatus(): Promise<{
   if (!isExpired(session.tokens.expiresAt)) {
     return { credentials: sessionCredentials(session), timedOut: false };
   }
-  return { credentials: await withRefreshLock(renew), timedOut: false };
+  return withRefreshLock(renew);
 }
 
 function sessionCredentials(session: Session): StoredCredentials {
@@ -323,15 +323,19 @@ function sessionCredentials(session: Session): StoredCredentials {
  * the old token then is a replay that revokes the grant. A refused session is
  * removed so later lookups do not resend it.
  *
- * @returns Credentials ready to send, or `null` when no session is stored.
+ * @returns Credentials ready to send, or `null` when no session is stored,
+ * and whether the store's helper timed out on the read.
  * @throws {SessionExpiredError} When the platform refuses the refresh token.
  */
-async function renew(): Promise<StoredCredentials | null> {
-  const { session } = await readSession();
-  if (!session) return null;
+async function renew(): Promise<{
+  credentials: StoredCredentials | null;
+  timedOut: boolean;
+}> {
+  const { session, timedOut } = await readSession();
+  if (!session) return { credentials: null, timedOut };
   if (!isExpired(session.tokens.expiresAt)) {
     logDebug("token set was renewed by another process");
-    return sessionCredentials(session);
+    return { credentials: sessionCredentials(session), timedOut: false };
   }
 
   let renewed: TokenSet;
@@ -342,7 +346,9 @@ async function renew(): Promise<StoredCredentials | null> {
   } catch (error) {
     if (!(error instanceof SessionExpiredError)) throw error;
     const renewed = await sessionRenewedElsewhere(session);
-    if (renewed) return sessionCredentials(renewed);
+    if (renewed) {
+      return { credentials: sessionCredentials(renewed), timedOut: false };
+    }
     await discardSession(session);
     throw error;
   }
@@ -355,7 +361,10 @@ async function renew(): Promise<StoredCredentials | null> {
       "Run `archgate login` to sign in again."
     );
   }
-  return { token: renewed.accessToken, github_user: session.user };
+  return {
+    credentials: { token: renewed.accessToken, github_user: session.user },
+    timedOut: false,
+  };
 }
 
 /**

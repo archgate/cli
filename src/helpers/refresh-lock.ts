@@ -56,26 +56,44 @@ function refreshLockDir(): string {
   return internalPath("refresh-lock");
 }
 
-/** Delete one entry; a missing file is fine. */
-function removeEntry(dir: string, name: string): void {
+/** The `code` of a Node file-system error, or `undefined` for anything else. */
+function errorCode(error: unknown): unknown {
+  return error instanceof Error && "code" in error ? error.code : undefined;
+}
+
+/** Delete one entry; true when it is gone, including when it already was. */
+function removeEntry(dir: string, name: string): boolean {
   try {
     unlinkSync(join(dir, name));
-  } catch {
-    // Already gone.
+    return true;
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return true;
+    logDebug("could not remove a refresh lock entry", {
+      name,
+      code: errorCode(error),
+    });
+    return false;
   }
 }
 
 /**
- * Mark a waiting entry as alive, so the age check only ever catches entries
- * whose process stopped polling. False when the entry is gone.
+ * Mark a waiting entry as alive, so the age check only catches entries of
+ * processes that are not polling.
+ *
+ * @returns `"touched"`, `"gone"` when the entry does not exist, or
+ * `"failed"` when it exists but its time cannot be updated.
  */
-function touchEntry(dir: string, name: string): boolean {
+function touchEntry(dir: string, name: string): "touched" | "gone" | "failed" {
   const now = new Date();
   try {
     utimesSync(join(dir, name), now, now);
-    return true;
-  } catch {
-    return false;
+    return "touched";
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") return "gone";
+    logDebug("could not refresh a refresh lock entry", {
+      code: errorCode(error),
+    });
+    return "failed";
   }
 }
 
@@ -134,8 +152,7 @@ function holdsLock(dir: string, own: string, staleMs: number): boolean | null {
       if (MARKER_PATTERN.test(name)) return false;
       continue;
     }
-    if (name !== own && age >= staleMs) {
-      removeEntry(dir, name);
+    if (name !== own && age >= staleMs && removeEntry(dir, name)) {
       logDebug("removed an abandoned refresh lock entry");
     } else {
       live.push(name);
@@ -174,10 +191,20 @@ export async function withRefreshLock<T>(
   /* oxlint-disable no-await-in-loop -- one wait, then polling in order */
   while (filed && Date.now() <= createdAt) await Bun.sleep(1);
   const deadline = Date.now() + waitMs;
+  // Others reap an entry untouched for `staleMs`, so a waiter whose refreshes
+  // keep failing withdraws halfway there, before it can be mistaken for dead.
+  let lastAlive = Date.now();
   while (filed) {
     const holds = holdsLock(dir, own, staleMs);
     if (holds === true) break;
-    if (holds === null || Date.now() >= deadline || !touchEntry(dir, own)) {
+    const touch = holds === null ? "gone" : touchEntry(dir, own);
+    if (touch === "touched") lastAlive = Date.now();
+    const withdraw =
+      holds === null ||
+      touch === "gone" ||
+      Date.now() >= deadline ||
+      Date.now() - lastAlive >= staleMs / 2;
+    if (withdraw) {
       // Withdrawn so that waiters behind it do not wait on it.
       removeEntry(dir, own);
       filed = false;

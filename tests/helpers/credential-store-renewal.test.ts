@@ -367,6 +367,31 @@ describe("renewal under the refresh lock", () => {
     }
   });
 
+  // A helper that hangs on the re-read inside the lock times out once; the
+  // legacy lookup would only wait for the same helper again.
+  test("skips the legacy lookup when the re-read inside the lock times out", async () => {
+    let call = 0;
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      call += 1;
+      if (call === 1) return sessionRecord("octocat", expired);
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
+        stdout: new ReadableStream<Uint8Array>({ start() {} }),
+        exited: new Promise<number>(() => {}),
+        kill: () => {},
+      } as unknown as ReturnType<typeof Bun.spawn>;
+    });
+    const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
+    try {
+      expect(await loadCredentials()).toBeNull();
+      expect(call).toBe(2);
+      expect(refreshSpy).not.toHaveBeenCalled();
+    } finally {
+      refreshSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
   // Keeping a refused session would send the same dead token on every later
   // lookup.
   test("removes the session whose refresh token was refused", async () => {
