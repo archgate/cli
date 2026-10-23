@@ -13,7 +13,7 @@ Starter en OAuth 2.0 Device Authorization Grant (RFC 8628) mot Archgate-plattfor
 
 Ingen av delene er påkrevd. I CI, over SSH eller på en ren Linux-maskin uten skjermserver (WSL når Windows-skrivebordet) hopper CLI-en over begge og skriver dem bare ut. Når autorisasjonen er fullført, gir CLI-en tokenene til git via `git credential approve`, så hvor de havner avhenger av hvilken credential-helper du har konfigurert. En helper som bruker operativsystemets legitimasjonsbehandler (macOS Keychain, Windows Credential Manager, Linux libsecret) holder dem krypterte; gits innebygde `store`-helper skriver dem til `~/.git-credentials` i klartekst. Sjekk din med `git config --global credential.helper`.
 
-Det holder normalt å logge inn én gang: CLI-en holder økten din oppdatert av seg selv. Hvis økten utløper eller blir tilbakekalt, sier CLI-en fra, og `archgate login refresh` logger deg inn igjen.
+Det holder normalt å logge inn én gang: CLI-en holder økten din oppdatert av seg selv. Hvis økten utløper eller blir tilbakekalt, behandler CLI-en deg som utlogget, og `archgate login` logger deg inn igjen.
 
 Innlogging registrerer også `archgate credential` som en git credential helper for `plugins.archgate.dev`, som er det som lar `git clone` av et plugin-repositorium autentisere uten å spørre. Se [`archgate credential`](/reference/cli/credential/).
 
