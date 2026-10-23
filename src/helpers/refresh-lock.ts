@@ -51,12 +51,48 @@ function errorCode(error: unknown): unknown {
   return error instanceof Error && "code" in error ? error.code : undefined;
 }
 
-/** The holder's token stored in the lock file, or `null` when unreadable. */
-function readToken(path: string): string | null {
+/**
+ * How long a guard file may exist before it counts as abandoned. Its holder
+ * only reads, stats and unlinks one file with no `await` in between.
+ */
+const GUARD_STALE_MS = 5_000;
+
+/** Attempts, and the pause between them, to take a busy guard on release. */
+const RELEASE_GUARD_TRIES = 20;
+const RELEASE_GUARD_PAUSE_MS = 5;
+
+/**
+ * Run `action` while holding the guard file next to the lock. Release and
+ * reclaim check the lock and then unlink it; the guard keeps either from
+ * removing a lock that replaced the one it checked. Acquiring needs no guard,
+ * since `wx` cannot create the lock while the checked file still exists.
+ *
+ * @returns `false` when the guard is held elsewhere and `action` did not run.
+ */
+function withGuard(path: string, action: () => void): boolean {
+  const guard = `${path}.guard`;
+  let fd: number;
   try {
-    return readFileSync(path, "utf8");
+    fd = openSync(guard, "wx");
   } catch {
-    return null;
+    try {
+      if (Date.now() - statSync(guard).mtimeMs < GUARD_STALE_MS) return false;
+      unlinkSync(guard);
+      fd = openSync(guard, "wx");
+    } catch {
+      return false;
+    }
+  }
+  closeSync(fd);
+  try {
+    action();
+    return true;
+  } finally {
+    try {
+      unlinkSync(guard);
+    } catch {
+      // Removed as abandoned by another process; nothing left to release.
+    }
   }
 }
 
@@ -91,33 +127,41 @@ function tryCreate(
 
 /** Remove a lock older than `staleMs`; true when the create should be retried at once. */
 function removeIfStale(path: string, staleMs: number): boolean {
-  try {
-    const token = readToken(path);
-    if (Date.now() - statSync(path).mtimeMs < staleMs) return false;
-    // Another waiter may have taken the lock over since the read; only the
-    // abandoned holder's file is removed.
-    if (readToken(path) !== token) return true;
-    unlinkSync(path);
-    logDebug("removed an abandoned refresh lock");
-    return true;
-  } catch (error) {
-    // Gone already: retry at once. A lock that cannot be removed is waited
-    // on like a live one, so the deadline still applies.
-    return errorCode(error) === "ENOENT";
-  }
+  let retry = false;
+  const ran = withGuard(path, () => {
+    try {
+      if (Date.now() - statSync(path).mtimeMs < staleMs) return;
+      unlinkSync(path);
+      logDebug("removed an abandoned refresh lock");
+      retry = true;
+    } catch (error) {
+      // Gone already: retry at once. A lock that cannot be checked or removed
+      // is waited on like a live one, so the deadline still applies.
+      retry = errorCode(error) === "ENOENT";
+    }
+  });
+  return ran && retry;
 }
 
 /**
  * Delete the lock file if it still carries `token` (any file when `null`).
- * A waiter that took the lock over as stale owns it now, so it is left alone.
+ * A lock another process now holds, or one whose token cannot be read, is
+ * left alone; an unreleased lock turns stale.
  */
 function release(path: string, token: string | null): void {
-  if (token !== null && readToken(path) !== token) return;
-  try {
-    unlinkSync(path);
-  } catch {
-    // Already gone, or held open by another program; it turns stale either way.
+  const unlinkIfOurs = () => {
+    try {
+      if (token !== null && readFileSync(path, "utf8") !== token) return;
+      unlinkSync(path);
+    } catch {
+      // Already gone, unreadable or held open by another program.
+    }
+  };
+  for (let attempt = 0; attempt < RELEASE_GUARD_TRIES; attempt += 1) {
+    if (withGuard(path, unlinkIfOurs)) return;
+    Bun.sleepSync(RELEASE_GUARD_PAUSE_MS);
   }
+  logDebug("refresh lock guard stayed busy; leaving the lock to turn stale");
 }
 
 /**

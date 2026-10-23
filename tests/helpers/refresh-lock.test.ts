@@ -211,29 +211,82 @@ describe("withRefreshLock", () => {
     }
   });
 
-  // Two waiters can find the same stale lock; the second must not delete the
-  // lock the first has just created.
-  test("leaves a stale lock that changed hands while it looked", async () => {
-    foreignLock(60_000);
-    const original = fs.readFileSync;
-    let reads = 0;
-    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- one overload is all the code under test uses
-    const readSpy = spyOn(fs, "readFileSync").mockImplementation(((
-      ...args: Parameters<typeof fs.readFileSync>
-    ) => {
-      reads += 1;
-      // The second read of the first stale check sees a new holder.
-      return reads === 2 ? "9999:newer" : original(...args);
-    }) as typeof fs.readFileSync);
-    try {
-      await withRefreshLock(async () => {}, lockPath, {
-        staleMs: 1_000,
-        pollMs: 5,
-      });
-      expect(reads).toBeGreaterThan(2);
-    } finally {
-      readSpy.mockRestore();
+  /** A guard file left by another process, optionally backdated. */
+  function foreignGuard(ageMs = 0): void {
+    mkdirSync(join(tempDir, "state"), { recursive: true });
+    const guardPath = `${lockPath}.guard`;
+    writeFileSync(guardPath, "");
+    if (ageMs > 0) {
+      const then = new Date(Date.now() - ageMs);
+      utimesSync(guardPath, then, then);
     }
+  }
+
+  // Another process is mid-check on the same stale lock, so this one waits
+  // instead of removing a file whose ownership may be changing.
+  test("does not reclaim a stale lock while another process holds the guard", async () => {
+    foreignLock(60_000);
+    foreignGuard();
+
+    let ran = false;
+    await withRefreshLock(
+      async () => {
+        ran = true;
+      },
+      lockPath,
+      { staleMs: 1_000, waitMs: 20, pollMs: 5 }
+    );
+
+    expect(ran).toBe(true);
+    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
+  });
+
+  test("takes over a guard abandoned by a dead process", async () => {
+    foreignLock(60_000);
+    foreignGuard(60_000);
+
+    await withRefreshLock(
+      async () => {
+        expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
+      },
+      lockPath,
+      { staleMs: 1_000, pollMs: 5 }
+    );
+
+    expect(existsSync(lockPath)).toBe(false);
+    expect(existsSync(`${lockPath}.guard`)).toBe(false);
+  });
+
+  test("waits when an abandoned guard cannot be removed", async () => {
+    foreignLock(60_000);
+    // A directory in the guard's place: `wx` reports it as existing, and it
+    // cannot be unlinked as a file.
+    const guardPath = `${lockPath}.guard`;
+    mkdirSync(guardPath);
+    const then = new Date(Date.now() - 60_000);
+    utimesSync(guardPath, then, then);
+
+    let ran = false;
+    await withRefreshLock(
+      async () => {
+        ran = true;
+      },
+      lockPath,
+      { staleMs: 1_000, waitMs: 20, pollMs: 5 }
+    );
+
+    expect(ran).toBe(true);
+    expect(readFileSync(lockPath, "utf8")).toBe("4242:other");
+  });
+
+  // A release that never gets the guard leaves its lock to turn stale rather
+  // than unlinking without the check.
+  test("leaves its lock in place when the guard stays busy", async () => {
+    await withRefreshLock(async () => {
+      foreignGuard();
+    }, lockPath);
+
+    expect(readFileSync(lockPath, "utf8")).toStartWith(`${process.pid}:`);
   });
 
   // HOME is read by the path helper at call time, so overriding it is the

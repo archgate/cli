@@ -393,7 +393,7 @@ describe("renewal under the refresh lock", () => {
 
   // `archgate login` does not take the lock, so a sign-in can land between
   // the refused exchange and the removal.
-  test("keeps a session that replaced the refused one", async () => {
+  test("uses a session saved elsewhere after the refusal", async () => {
     let read = 0;
     const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
       read += 1;
@@ -404,9 +404,10 @@ describe("renewal under the refresh lock", () => {
       "refreshAccessToken"
     ).mockRejectedValue(new SessionExpiredError());
     try {
-      expect(await rejectionMessage(resolveAccessToken())).toContain(
-        "session has expired"
-      );
+      expect(await resolveAccessToken()).toEqual({
+        token: "ey.fromHolder",
+        github_user: "octocat",
+      });
       expect(await stdinOf(spawnSpy, "reject")).toHaveLength(0);
     } finally {
       refreshSpy.mockRestore();

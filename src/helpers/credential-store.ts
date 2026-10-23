@@ -29,6 +29,10 @@ import { SessionExpiredError } from "./session-expired-error";
 
 const CREDENTIAL_TIMEOUT_MS = 3_000;
 
+/** How often, and how far apart, a refused renewal re-reads the store. */
+const RENEWAL_REREADS = 4;
+const RENEWAL_REREAD_DELAY_MS = 250;
+
 /**
  * Account the platform session is filed under.
  *
@@ -336,7 +340,10 @@ async function renew(): Promise<StoredCredentials | null> {
       session.tokens.refreshToken
     );
   } catch (error) {
-    if (error instanceof SessionExpiredError) await discardSession(session);
+    if (!(error instanceof SessionExpiredError)) throw error;
+    const renewed = await sessionRenewedElsewhere(session);
+    if (renewed) return sessionCredentials(renewed);
+    await discardSession(session);
     throw error;
   }
 
@@ -349,6 +356,31 @@ async function renew(): Promise<StoredCredentials | null> {
     );
   }
   return { token: renewed.accessToken, github_user: session.user };
+}
+
+/**
+ * Wait briefly for a session another process saved after this one's exchange
+ * was refused. That happens when the refresh lock could not be had and two
+ * processes renewed at once; the winner writes only after its own exchange.
+ */
+async function sessionRenewedElsewhere(
+  refused: Session
+): Promise<Session | null> {
+  /* oxlint-disable no-await-in-loop -- bounded re-reads, in order */
+  for (let attempt = 0; attempt < RENEWAL_REREADS; attempt += 1) {
+    if (attempt > 0) await Bun.sleep(RENEWAL_REREAD_DELAY_MS);
+    const { session } = await readSession();
+    if (
+      session &&
+      session.tokens.refreshToken !== refused.tokens.refreshToken &&
+      !isExpired(session.tokens.expiresAt)
+    ) {
+      logDebug("token set was renewed by another process", { attempt });
+      return session;
+    }
+  }
+  /* oxlint-enable no-await-in-loop */
+  return null;
 }
 
 /**
