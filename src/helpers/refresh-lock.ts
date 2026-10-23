@@ -4,7 +4,8 @@
  * Cross-process lock around session renewal. Parallel credential-helper runs
  * would otherwise exchange the same refresh token, and the platform revokes
  * the whole grant on a replayed one. Each caller files a uniquely named entry
- * in a directory, and the oldest live entry holds the lock.
+ * in a directory, and the oldest live entry holds the lock once no caller is
+ * still choosing its place (the bakery algorithm).
  */
 
 import {
@@ -46,6 +47,10 @@ const STAMP_WIDTH = 15;
 /** Entry names: a sortable creation time, then a UUID so no name repeats. */
 const ENTRY_PATTERN = /^\d{15}-[0-9a-f-]{36}$/u;
 
+/** Marker a caller holds while it picks its timestamp and files its entry. */
+const MARKER_PREFIX = "pending-";
+const MARKER_PATTERN = /^pending-[0-9a-f-]{36}$/u;
+
 /** Where the entries live: next to the rest of the CLI's per-user state. */
 function refreshLockDir(): string {
   return internalPath("refresh-lock");
@@ -75,16 +80,46 @@ function touchEntry(dir: string, name: string): boolean {
 }
 
 /**
- * Whether `own` is the oldest live entry. Entries older than `staleMs` are
- * removed on the way: names never repeat, so deleting one can only ever
- * remove the abandoned entry itself.
+ * File this caller's entry. The marker exists before the timestamp is taken,
+ * so a caller that has read its timestamp but not yet filed is never
+ * invisible: anyone deciding meanwhile sees the marker and waits.
+ *
+ * @returns The entry name and its timestamp, or `null` when nothing could be filed.
+ */
+function fileEntry(dir: string): { own: string; createdAt: number } | null {
+  const id = crypto.randomUUID();
+  const marker = `${MARKER_PREFIX}${id}`;
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, marker), String(process.pid), { flag: "wx" });
+  } catch {
+    return null;
+  }
+  try {
+    const createdAt = Date.now();
+    const own = `${String(createdAt).padStart(STAMP_WIDTH, "0")}-${id}`;
+    writeFileSync(join(dir, own), String(process.pid), { flag: "wx" });
+    return { own, createdAt };
+  } catch {
+    return null;
+  } finally {
+    removeEntry(dir, marker);
+  }
+}
+
+/**
+ * Whether `own` is the oldest live entry and no other caller is still filing.
+ * Entries and markers older than `staleMs` are removed on the way: names never
+ * repeat, so deleting one can only ever remove the abandoned file itself.
  *
  * @returns `null` when the directory cannot be read.
  */
 function holdsLock(dir: string, own: string, staleMs: number): boolean | null {
   let names: string[];
   try {
-    names = readdirSync(dir).filter((name) => ENTRY_PATTERN.test(name));
+    names = readdirSync(dir).filter(
+      (name) => ENTRY_PATTERN.test(name) || MARKER_PATTERN.test(name)
+    );
   } catch {
     return null;
   }
@@ -103,6 +138,7 @@ function holdsLock(dir: string, own: string, staleMs: number): boolean | null {
       live.push(name);
     }
   }
+  if (live.some((name) => MARKER_PATTERN.test(name))) return false;
   return live.toSorted()[0] === own;
 }
 
@@ -123,21 +159,15 @@ export async function withRefreshLock<T>(
   timings: Partial<LockTimings> = {}
 ): Promise<T> {
   const { waitMs, pollMs, staleMs } = { ...DEFAULT_TIMINGS, ...timings };
-  const createdAt = Date.now();
-  const own = `${String(createdAt).padStart(STAMP_WIDTH, "0")}-${crypto.randomUUID()}`;
+  const entry = fileEntry(dir);
+  let filed = entry !== null;
+  if (!filed) logDebug("refresh lock unavailable; renewing without it");
+  const own = entry?.own ?? "";
+  const createdAt = entry?.createdAt ?? 0;
 
-  let filed = true;
-  try {
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, own), String(process.pid), { flag: "wx" });
-  } catch {
-    filed = false;
-    logDebug("refresh lock unavailable; renewing without it");
-  }
-
-  // A caller filed later in the same millisecond can sort first, so the
-  // decision waits until the clock has moved on: anyone filed after that
-  // sorts after this entry, and anyone filed before is already listed.
+  // Deciding only after the clock passes this entry's timestamp makes every
+  // caller who marks itself later take a strictly later timestamp, so it
+  // sorts after this entry; anyone who marked itself earlier is listed.
   /* oxlint-disable no-await-in-loop -- one wait, then polling in order */
   while (filed && Date.now() <= createdAt) await Bun.sleep(1);
   const deadline = Date.now() + waitMs;

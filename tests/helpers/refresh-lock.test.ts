@@ -176,6 +176,91 @@ describe("withRefreshLock", () => {
     }
   });
 
+  // Process A has marked itself and read its timestamp, but its entry is not
+  // filed yet. B must not start: once A files, A sorts first. A runs, then
+  // finishes, and only then does B's task start.
+  test("waits for a caller that marked itself but has not filed yet", async () => {
+    const stampA = Date.now() - 5;
+    const markerA = join(
+      lockDir,
+      "pending-00000000-0000-4000-8000-00000000000a"
+    );
+    const entryA = join(lockDir, entryName(stampA, "low"));
+    mkdirSync(lockDir, { recursive: true });
+    writeFileSync(markerA, "4242");
+
+    let aRunning = false;
+    let overlapped = false;
+    let bRan = false;
+    const b = withRefreshLock(
+      async () => {
+        bRan = true;
+        if (aRunning) overlapped = true;
+      },
+      lockDir,
+      { pollMs: 2, waitMs: 5_000 }
+    );
+
+    // A resumes: it files its older entry, drops its marker and runs.
+    await Bun.sleep(30);
+    expect(bRan).toBe(false);
+    writeFileSync(entryA, "4242");
+    fs.rmSync(markerA);
+    aRunning = true;
+    await Bun.sleep(30);
+    expect(bRan).toBe(false);
+    aRunning = false;
+    fs.rmSync(entryA);
+
+    await b;
+    expect(bRan).toBe(true);
+    expect(overlapped).toBe(false);
+  });
+
+  test("removes a marker abandoned by a dead process", async () => {
+    mkdirSync(lockDir, { recursive: true });
+    const marker = join(
+      lockDir,
+      "pending-00000000-0000-4000-8000-00000000000b"
+    );
+    writeFileSync(marker, "4242");
+    const then = new Date(Date.now() - 60_000);
+    utimesSync(marker, then, then);
+
+    await withRefreshLock(
+      async () => {
+        expect(existsSync(marker)).toBe(false);
+      },
+      lockDir,
+      { staleMs: 1_000 }
+    );
+  });
+
+  test("runs without the lock when its entry cannot be filed", async () => {
+    let writes = 0;
+    const original = fs.writeFileSync;
+    const writeSpy = spyOn(fs, "writeFileSync").mockImplementation(
+      (...args: Parameters<typeof fs.writeFileSync>) => {
+        writes += 1;
+        // The first write is the marker; the second is the entry.
+        if (writes === 2) {
+          throw Object.assign(new Error("disk full"), { code: "ENOSPC" });
+        }
+        original(...args);
+      }
+    );
+    try {
+      let ran = false;
+      await withRefreshLock(async () => {
+        ran = true;
+      }, lockDir);
+      expect(ran).toBe(true);
+    } finally {
+      writeSpy.mockRestore();
+    }
+    expect(readdirSync(lockDir)).toEqual([]);
+  });
+
   test("ignores files that are not entries", async () => {
     mkdirSync(lockDir, { recursive: true });
     writeFileSync(join(lockDir, "notes.txt"), "");
