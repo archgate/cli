@@ -12,7 +12,9 @@ env:
 jobs:
   windows:
     name: Windows
-    runs-on: windows-latest
+    # WINDOWS_RUNNER (org or repo variable) names a self-hosted Windows runner as
+    # JSON; unset, the job runs on GitHub's hosted image.
+    runs-on: ${{ fromJSON(vars.WINDOWS_RUNNER || '"windows-latest"') }}
     timeout-minutes: 15
     steps:
       - name: Checkout code

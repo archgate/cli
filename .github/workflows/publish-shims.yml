@@ -162,7 +162,7 @@ jobs:
   # failure would let winget drift versions behind unnoticed.
   publish-winget:
     needs: wait-for-binaries
-    runs-on: windows-latest
+    runs-on: ${{ fromJSON(vars.WINDOWS_RUNNER || '"windows-latest"') }}
     timeout-minutes: 15
     permissions: {}
     steps:

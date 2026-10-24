@@ -38,7 +38,7 @@ jobs:
             artifact: archgate-win32-x64
             os: windows-latest
             binary_name: archgate.exe
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'windows-latest' && fromJSON(vars.WINDOWS_RUNNER || '"windows-latest"') || matrix.os }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
