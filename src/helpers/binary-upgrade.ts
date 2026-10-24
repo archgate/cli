@@ -17,7 +17,7 @@ import type { ReadableStreamDefaultReader } from "node:stream/web";
 import { z } from "zod";
 
 import { logDebug } from "./log";
-import { internalPath } from "./paths";
+import { internalPath, usableEnv } from "./paths";
 import { isWindows } from "./platform";
 import { fetchWithUserAgent } from "./user-agent";
 import { UserError } from "./user-error";
@@ -274,10 +274,24 @@ export async function downloadReleaseBinary(
       // shim, each of which downloads `.zip` for win32 (ARCH-017).
       // `-ErrorAction Stop` promotes Expand-Archive's non-terminating error to
       // a terminating one; without it PowerShell exits 0 on a corrupt archive.
+      const windowsPowerShell = join(
+        usableEnv(Bun.env.SystemRoot) ?? "C:\\Windows",
+        "System32",
+        "WindowsPowerShell",
+        "v1.0",
+        "powershell.exe"
+      );
+      const shell = Bun.which("powershell") ?? Bun.which(windowsPowerShell);
+      if (shell === null) {
+        throw new UserError(
+          "Windows PowerShell is required to extract the upgrade ZIP.",
+          "Enable Windows PowerShell and add it to PATH, then run `archgate upgrade` again."
+        );
+      }
       const archivePath = join(tmpDir, `archgate${artifact.ext}`);
       await Bun.write(archivePath, buffer);
       const { exitCode } = await runCapture([
-        "powershell",
+        shell,
         "-NoProfile",
         "-Command",
         `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
