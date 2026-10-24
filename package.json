@@ -1,6 +1,6 @@
 {
   "name": "archgate",
-  "version": "0.60.1",
+  "version": "0.60.2",
   "description": "Enforce Architecture Decision Records as executable rules — for both humans and AI agents",
   "keywords": [
     "adr",
@@ -85,7 +85,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "posthog-node": "5.53.0",
     "typescript": "7.0.2",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "readme": "README.md"
 }

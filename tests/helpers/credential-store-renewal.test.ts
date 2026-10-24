@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import * as credentialStore from "../../src/helpers/credential-store";
 import {
@@ -12,6 +12,7 @@ import {
 import * as logMod from "../../src/helpers/log";
 import { platformAuth } from "../../src/helpers/platform-auth";
 import type { TokenSet } from "../../src/helpers/platform-auth";
+import * as refreshLock from "../../src/helpers/refresh-lock";
 import { SessionExpiredError } from "../../src/helpers/session-expired-error";
 import { UserError } from "../../src/helpers/user-error";
 import { rejectionMessage } from "../test-utils";
@@ -34,6 +35,33 @@ function sessionRecord(
   tokens: TokenSet
 ): ReturnType<typeof Bun.spawn> {
   return gitCredentialStub("archgate", JSON.stringify({ user, tokens }));
+}
+
+// The lock itself is covered in refresh-lock.test.ts; here it only has to
+// stay out of the real home directory.
+let lockSpy: ReturnType<typeof spyOn<typeof refreshLock, "withRefreshLock">>;
+beforeEach(() => {
+  lockSpy = spyOn(refreshLock, "withRefreshLock").mockImplementation(
+    async (task) => task()
+  );
+});
+afterEach(() => {
+  lockSpy.mockRestore();
+});
+
+/** The stdin of every `git credential <action>` call the spy recorded. */
+async function stdinOf(
+  spawnSpy: ReturnType<typeof spyOn<typeof Bun, "spawn">>,
+  action: string
+): Promise<string[]> {
+  return Promise.all(
+    spawnSpy.mock.calls
+      .filter((call) => [...call[0]].includes(action))
+      .map(async (call) => {
+        const stdin = (call[1] as { stdin?: unknown } | undefined)?.stdin;
+        return stdin instanceof Blob ? stdin.text() : "";
+      })
+  );
 }
 
 describe("credential renewal", () => {
@@ -251,67 +279,123 @@ describe("clearCredentials with an unresponsive helper", () => {
   });
 });
 
-// Git runs the helper many times per operation, so processes can race to
-// refresh the same expired token set. The platform rotates the refresh
-// token, so every exchange after the first fails.
-describe("concurrent renewal", () => {
+// Git runs the helper several times per operation, often in parallel. The
+// platform rotates the refresh token and revokes the grant when an old one is
+// replayed, so renewal runs under a lock and re-reads the session inside it.
+describe("renewal under the refresh lock", () => {
   const expired = {
     accessToken: "ey.stale",
     refreshToken: "refresh-old",
     expiresAt: Date.now() - 1_000,
   };
   const rotated = {
-    accessToken: "ey.fromWinner",
+    accessToken: "ey.fromHolder",
     refreshToken: "refresh-rotated",
     expiresAt: Date.now() + 3_600_000,
   };
 
-  test("uses the token another process already saved", async () => {
+  /** A `git credential` call that exits non-zero. */
+  function failingCall(): ReturnType<typeof Bun.spawn> {
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+    return {
+      stdout: new Response("").body,
+      exited: Promise.resolve(1),
+      kill: () => {
+        // Nothing to kill: the stub has already settled.
+      },
+    } as unknown as ReturnType<typeof Bun.spawn>;
+  }
+
+  test("runs the renewal inside the lock", async () => {
+    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+      sessionRecord("octocat", expired)
+    );
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockResolvedValue(rotated);
+    const saveSpy = spyOn(credentialStore, "saveTokenSet").mockResolvedValue(
+      true
+    );
+    try {
+      expect(await resolveAccessToken()).toEqual({
+        token: "ey.fromHolder",
+        github_user: "octocat",
+      });
+      expect(lockSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      saveSpy.mockRestore();
+      refreshSpy.mockRestore();
+      fillSpy.mockRestore();
+    }
+  });
+
+  test("uses the token set the lock holder saved, without exchanging", async () => {
     let read = 0;
     const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
       read += 1;
       return sessionRecord("octocat", read === 1 ? expired : rotated);
     });
-    const refreshSpy = spyOn(
-      platformAuth,
-      "refreshAccessToken"
-    ).mockRejectedValue(new SessionExpiredError());
+    const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
     try {
       expect(await resolveAccessToken()).toEqual({
-        token: "ey.fromWinner",
+        token: "ey.fromHolder",
         github_user: "octocat",
       });
+      expect(refreshSpy).not.toHaveBeenCalled();
     } finally {
       refreshSpy.mockRestore();
       fillSpy.mockRestore();
     }
   });
 
-  // The winner's write lands after its own exchange, so the loser may have
-  // to look more than once before the rotated record is there.
-  test("waits for a winner whose write lands late", async () => {
+  test("reports signed out when the session is gone once the lock is held", async () => {
     let read = 0;
     const fillSpy = spyOn(Bun, "spawn").mockImplementation(() => {
       read += 1;
-      return sessionRecord("octocat", read >= 3 ? rotated : expired);
+      return read === 1
+        ? sessionRecord("octocat", expired)
+        : gitCredentialStub("", "");
     });
-    const refreshSpy = spyOn(
-      platformAuth,
-      "refreshAccessToken"
-    ).mockRejectedValue(new SessionExpiredError());
+    const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
     try {
-      expect(await resolveAccessToken()).toEqual({
-        token: "ey.fromWinner",
-        github_user: "octocat",
-      });
+      expect(await resolveAccessToken()).toBeNull();
+      expect(refreshSpy).not.toHaveBeenCalled();
     } finally {
       refreshSpy.mockRestore();
       fillSpy.mockRestore();
     }
   });
 
-  test("rethrows when the stored token set did not change", async () => {
-    const fillSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+  // A helper that hangs on the re-read inside the lock times out once; the
+  // legacy lookup would only wait for the same helper again.
+  test("skips the legacy lookup when the re-read inside the lock times out", async () => {
+    let call = 0;
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      call += 1;
+      if (call === 1) return sessionRecord("octocat", expired);
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+      return {
+        stdout: new ReadableStream<Uint8Array>({ start() {} }),
+        exited: new Promise<number>(() => {}),
+        kill: () => {},
+      } as unknown as ReturnType<typeof Bun.spawn>;
+    });
+    const refreshSpy = spyOn(platformAuth, "refreshAccessToken");
+    try {
+      expect(await loadCredentials()).toBeNull();
+      expect(call).toBe(2);
+      expect(refreshSpy).not.toHaveBeenCalled();
+    } finally {
+      refreshSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
+  // Keeping a refused session would send the same dead token on every later
+  // lookup.
+  test("removes the session whose refresh token was refused", async () => {
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
       sessionRecord("octocat", expired)
     );
     const refreshSpy = spyOn(
@@ -322,9 +406,100 @@ describe("concurrent renewal", () => {
       expect(await rejectionMessage(resolveAccessToken())).toContain(
         "session has expired"
       );
+      const rejected = await stdinOf(spawnSpy, "reject");
+      expect(rejected).toHaveLength(1);
+      expect(rejected[0]).toContain("host=auth.archgate.dev");
+      expect(rejected[0]).toContain("refresh-old");
     } finally {
       refreshSpy.mockRestore();
-      fillSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
+  // `archgate login` does not take the lock, so a sign-in can land between
+  // the refused exchange and the removal.
+  test("uses a session saved elsewhere after the refusal", async () => {
+    let read = 0;
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      read += 1;
+      return sessionRecord("octocat", read <= 2 ? expired : rotated);
+    });
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await resolveAccessToken()).toEqual({
+        token: "ey.fromHolder",
+        github_user: "octocat",
+      });
+      expect(await stdinOf(spawnSpy, "reject")).toHaveLength(0);
+    } finally {
+      refreshSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
+  test.each([
+    ["no record", () => gitCredentialStub("", "")],
+    ["an unreadable record", () => gitCredentialStub("archgate", "not-json")],
+  ])("removes nothing when the store then holds %s", async (_label, later) => {
+    let read = 0;
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      read += 1;
+      return read <= 2 ? sessionRecord("octocat", expired) : later();
+    });
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await rejectionMessage(resolveAccessToken())).toContain(
+        "session has expired"
+      );
+      expect(await stdinOf(spawnSpy, "reject")).toHaveLength(0);
+    } finally {
+      refreshSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
+  test("still reports signed out when the removal fails", async () => {
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation((cmd) =>
+      Array.isArray(cmd) && cmd.includes("reject")
+        ? failingCall()
+        : sessionRecord("octocat", expired)
+    );
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new SessionExpiredError());
+    try {
+      expect(await loadCredentials()).toBeNull();
+      expect(await stdinOf(spawnSpy, "reject")).toHaveLength(1);
+    } finally {
+      refreshSpy.mockRestore();
+      spawnSpy.mockRestore();
+    }
+  });
+
+  // Only a refused grant ends the session; a service failure must leave it.
+  test("keeps the session when renewal fails for another reason", async () => {
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() =>
+      sessionRecord("octocat", expired)
+    );
+    const refreshSpy = spyOn(
+      platformAuth,
+      "refreshAccessToken"
+    ).mockRejectedValue(new UserError("Could not reach the sign-in service."));
+    try {
+      expect(await rejectionMessage(resolveAccessToken())).toContain(
+        "Could not reach"
+      );
+      expect(await stdinOf(spawnSpy, "reject")).toHaveLength(0);
+    } finally {
+      refreshSpy.mockRestore();
+      spawnSpy.mockRestore();
     }
   });
 });

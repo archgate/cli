@@ -1,3 +1,9 @@
+## [0.60.2](https://github.com/archgate/cli/compare/v0.60.1...v0.60.2) (2026-10-24)
+
+### Bug Fixes
+
+* **auth:** serialize session renewal and drop refused sessions ([#643](https://github.com/archgate/cli/issues/643)) ([d755bd7](https://github.com/archgate/cli/commit/d755bd73b7f24edb942589034213b45ea7276fda))
+
 ## [0.60.1](https://github.com/archgate/cli/compare/v0.60.0...v0.60.1) (2026-10-22)
 
 ### Bug Fixes
