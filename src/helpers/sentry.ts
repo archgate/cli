@@ -30,7 +30,7 @@ const SENTRY_DSN =
  * Sentry tunnel — routes envelopes through our own domain instead of
  * hitting ingest.de.sentry.io directly. Better reputation with corporate
  * proxies and ad-blockers, matching the PostHog proxy at n.archgate.dev.
- * The tunnel server lives in services/sentry-tunnel/ and runs on Railway.
+ * The tunnel server is services/sentry-tunnel/ in archgate/services.
  */
 const SENTRY_TUNNEL = "https://s.archgate.dev/tunnel";
 
