@@ -82,6 +82,17 @@ jobs:
           Remove-Item "archgate.exe"
           (Get-FileHash "${{ matrix.artifact }}.zip" -Algorithm SHA256).Hash.ToLower() + "  ${{ matrix.artifact }}.zip" | Out-File -Encoding ascii "${{ matrix.artifact }}.zip.sha256"
 
+      # The package submitted to the Microsoft Store, which signs it during
+      # certification. It ships here unsigned so the Store submission has a
+      # release asset with provenance behind it.
+      - name: Build MSIX (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          bun run build:msix --binary "dist/${{ matrix.artifact }}.exe" --out-dir dist/msix
+          Copy-Item "dist/msix/${{ matrix.artifact }}.msix" "${{ matrix.artifact }}.msix"
+          (Get-FileHash "${{ matrix.artifact }}.msix" -Algorithm SHA256).Hash.ToLower() + "  ${{ matrix.artifact }}.msix" | Out-File -Encoding ascii "${{ matrix.artifact }}.msix.sha256"
+
       - name: Attest build provenance (Unix)
         if: runner.os != 'Windows'
         id: attest-unix
@@ -95,6 +106,13 @@ jobs:
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ${{ matrix.artifact }}.zip
+
+      - name: Attest build provenance (MSIX)
+        if: runner.os == 'Windows'
+        id: attest-msix
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ matrix.artifact }}.msix
 
       - name: Upload release asset (Unix)
         if: runner.os != 'Windows'
@@ -121,6 +139,17 @@ jobs:
           Copy-Item "$env:BUNDLE_PATH" "${{ matrix.artifact }}.zip.sigstore.json"
           gh release upload "$env:TAG" "${{ matrix.artifact }}.zip" "${{ matrix.artifact }}.zip.sha256" "${{ matrix.artifact }}.zip.sigstore.json" --clobber
 
+      - name: Upload release asset (MSIX)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          BUNDLE_PATH: ${{ steps.attest-msix.outputs.bundle-path }}
+        run: |
+          Copy-Item "$env:BUNDLE_PATH" "${{ matrix.artifact }}.msix.sigstore.json"
+          gh release upload "$env:TAG" "${{ matrix.artifact }}.msix" "${{ matrix.artifact }}.msix.sha256" "${{ matrix.artifact }}.msix.sigstore.json" --clobber
+
       - name: Upload digest for SLSA provenance (Unix)
         if: runner.os != 'Windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -135,72 +164,16 @@ jobs:
           name: digest-${{ matrix.artifact }}
           path: ${{ matrix.artifact }}.zip.sha256
 
-  # Portable executable winget installs. Cross-compiled from the Go shim, so it
-  # builds on Linux even though the artifact is Windows-only.
-  winget-shim:
-    name: Build winget shim
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: write
-      id-token: write
-      attestations: write
-    env:
-      ARTIFACT: archgate-shim-win32-x64.exe
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
-          persist-credentials: false
-
-      - uses: moonrepo/setup-toolchain@261c62cb5b0f580c7be7c8cd0f023a2e96756095 # v0.6.4
-        with:
-          auto-install: true
-          cache: false
-
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "1.21"
-          cache: false
-
-      - run: bun install --frozen-lockfile
-
-      - name: Build shim and manifests
-        run: bun run build:winget --out-dir dist/winget
-
-      - name: Prepare release asset
-        run: |
-          cp "dist/winget/$ARTIFACT" "$ARTIFACT"
-          shasum -a 256 "$ARTIFACT" > "$ARTIFACT.sha256"
-
-      - name: Attest build provenance
-        id: attest
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: archgate-shim-win32-x64.exe
-
-      - name: Upload release asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
-          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
-        run: |
-          cp "$BUNDLE_PATH" "$ARTIFACT.sigstore.json"
-          gh release upload "$TAG" \
-            "$ARTIFACT" \
-            "$ARTIFACT.sha256" \
-            "$ARTIFACT.sigstore.json" \
-            --clobber
-
-      - name: Upload digest for SLSA provenance
+      - name: Upload digest for SLSA provenance (MSIX)
+        if: runner.os == 'Windows'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: digest-archgate-shim-win32-x64
-          path: archgate-shim-win32-x64.exe.sha256
+          name: digest-${{ matrix.artifact }}-msix
+          path: ${{ matrix.artifact }}.msix.sha256
 
   combine-hashes:
     name: Combine hashes for provenance
-    needs: [build, winget-shim]
+    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
