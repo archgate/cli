@@ -1,7 +1,7 @@
 bun = "1.4.2"
 node = "24"
-npm = "12.1.0"
-gh = "2.101.0"
+npm = "12.2.1"
+gh = "2.102.0"
 
 [settings]
 auto-install = true
