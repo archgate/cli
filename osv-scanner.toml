@@ -1,0 +1,10 @@
+# OSV ignore list, read by OSV-Scanner and the Scorecard Vulnerabilities check.
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2027-01-31
+reason = """
+braces <=3.0.3 stack exhaustion on deeply nested patterns; no patched release exists. \
+Reached only via the dev-only release tool @simple-release/npm -> fast-glob -> micromatch, \
+which expands repository-authored glob patterns and never untrusted input. Not shipped in the CLI.\
+"""

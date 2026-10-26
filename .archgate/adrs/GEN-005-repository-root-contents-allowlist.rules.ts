@@ -21,6 +21,7 @@ const ALLOWED_ROOT_FILES = new Set([
   ".simple-release.js",
   "renovate.json",
   "zizmor.yml",
+  "osv-scanner.toml",
 
   // Governance / community-health documents
   "README.md",
