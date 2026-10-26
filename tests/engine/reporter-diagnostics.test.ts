@@ -29,7 +29,7 @@ describe("reporter diagnostics rendering", () => {
   let consoleSpy: Mock<typeof console.log>;
 
   function output(): string {
-    return logs.join("\n").replace(ANSI_PATTERN, "");
+    return logs.join("\n").replaceAll(ANSI_PATTERN, "");
   }
 
   beforeEach(() => {

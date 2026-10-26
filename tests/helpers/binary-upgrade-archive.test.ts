@@ -9,7 +9,7 @@ import {
   beforeEach,
   afterEach,
 } from "bun:test";
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { join } from "node:path";
 
@@ -17,7 +17,8 @@ import {
   type ArtifactInfo,
   downloadReleaseBinary,
 } from "../../src/helpers/binary-upgrade";
-import { rejectionMessage } from "../test-utils";
+import { UserError } from "../../src/helpers/user-error";
+import { rejectionMessage, restoreEnv } from "../test-utils";
 
 const TAR_ARTIFACT: ArtifactInfo = {
   name: "archgate-linux-x64",
@@ -191,16 +192,20 @@ function stubSpawn(
 
 describe("downloadReleaseBinary archive handling", () => {
   let originalFetch: typeof fetch;
+  let originalSystemRoot: string | undefined;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    originalSystemRoot = Bun.env.SystemRoot;
     sandbox = mkdtempSync(join(os.tmpdir(), "archgate-upgrade-archive-"));
     spyOn(os, "tmpdir").mockReturnValue(sandbox);
+    spyOn(Bun, "which").mockReturnValue("powershell");
   });
 
   afterEach(() => {
     // mock.restore() does not undo a direct assignment to globalThis.fetch.
     globalThis.fetch = originalFetch;
+    restoreEnv("SystemRoot", originalSystemRoot);
     mock.restore();
     rmSync(sandbox, { recursive: true, force: true });
   });
@@ -305,6 +310,94 @@ describe("downloadReleaseBinary archive handling", () => {
     );
 
     expect(message).toBe("Failed to extract archive (PowerShell exit code 3)");
+  });
+
+  test("uses the resolved PATH executable before the standard installation", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4]));
+    const shell = join(sandbox, "path-shell", "powershell.exe");
+    const which = spyOn(Bun, "which").mockReturnValue(shell);
+    const calls = stubSpawn(3);
+
+    const message = await rejectionWithoutLeak(
+      downloadReleaseBinary("v0.60.0", ZIP_ARTIFACT)
+    );
+    expect(message).toBe("Failed to extract archive (PowerShell exit code 3)");
+    expect(calls[0][0]).toBe(shell);
+    expect(which).toHaveBeenCalledTimes(1);
+    expect(which).toHaveBeenCalledWith("powershell");
+  });
+
+  test.each([
+    {
+      name: "custom SystemRoot",
+      systemRoot: "C:\\Custom Windows",
+      root: "C:\\Custom Windows",
+    },
+    { name: "unset SystemRoot", systemRoot: undefined, root: "C:\\Windows" },
+    { name: "empty SystemRoot", systemRoot: "", root: "C:\\Windows" },
+    {
+      name: "literal undefined SystemRoot",
+      systemRoot: "undefined",
+      root: "C:\\Windows",
+    },
+  ])(
+    "extracts with installed Windows PowerShell outside PATH: $name",
+    async ({ systemRoot, root }) => {
+      restoreEnv("SystemRoot", systemRoot);
+      mockArchiveDownload(new Uint8Array([1, 2, 3, 4]));
+      const shell = join(
+        root,
+        "System32",
+        "WindowsPowerShell",
+        "v1.0",
+        "powershell.exe"
+      );
+      const which = spyOn(Bun, "which").mockImplementation((name) =>
+        name === shell ? shell : null
+      );
+      const calls = stubSpawn((argv) => {
+        const script = argv.at(-1)!;
+        const destination = /-DestinationPath '([^']+)'/u.exec(script)![1];
+        writeFileSync(join(destination, "archgate.exe"), "binary payload");
+        return { exitCode: 0 };
+      });
+
+      const result = await downloadReleaseBinary("v0.60.0", ZIP_ARTIFACT);
+      expect(calls[0][0]).toBe(shell);
+      expect(which.mock.calls).toEqual([["powershell"], [shell]]);
+      expect(await Bun.file(result.binaryPath).text()).toBe("binary payload");
+      rmSync(result.tmpDir, { recursive: true, force: true });
+    }
+  );
+
+  test("reports missing PowerShell as an actionable user error and cleans up", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4]));
+    spyOn(Bun, "which").mockReturnValue(null);
+    const spawnSpy = spyOn(Bun, "spawn").mockImplementation(() => {
+      throw new Error('Executable not found in $PATH: "powershell"');
+    });
+
+    const error = await downloadReleaseBinary("v0.60.0", ZIP_ARTIFACT).catch(
+      (err: unknown) => err
+    );
+    expect(error).toBeInstanceOf(UserError);
+    expect(error instanceof Error ? error.message : "").toContain("PowerShell");
+    expect(error instanceof Error ? error.message : "").toContain("PATH");
+    expect(spawnSpy).not.toHaveBeenCalled();
+    expect(readdirSync(sandbox)).toEqual([]);
+  });
+
+  test("preserves unrelated extraction spawn failures and cleans up", async () => {
+    mockArchiveDownload(new Uint8Array([1, 2, 3, 4]));
+    const failure = new TypeError("unexpected spawn failure");
+    spyOn(Bun, "spawn").mockImplementation(() => {
+      throw failure;
+    });
+    const error = await downloadReleaseBinary("v0.60.0", ZIP_ARTIFACT).catch(
+      (err: unknown) => err
+    );
+    expect(error).toBe(failure);
+    expect(readdirSync(sandbox)).toEqual([]);
   });
 
   test("stops PowerShell on a non-terminating Expand-Archive error", async () => {
