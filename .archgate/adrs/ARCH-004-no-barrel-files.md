@@ -70,8 +70,8 @@ Files named `index.ts` that contain actual logic are **not** barrel files and ar
 ```typescript
 // src/commands/check.ts — imports point directly to source modules
 import { loadRuleAdrs } from "../engine/loader";
-import { runChecks } from "../engine/runner";
 import { reportConsole, reportJSON, getExitCode } from "../engine/reporter";
+import { runChecks } from "../engine/runner";
 ```
 
 ### Bad Example
@@ -91,6 +91,7 @@ import { loadRuleAdrs, runChecks, reportConsole } from "../engine/index";
 ```typescript
 // src/commands/adr/index.ts — PERMITTED: defines a function with composition logic
 import type { Command } from "@commander-js/extra-typings";
+
 import { registerAdrCreateCommand } from "./create";
 import { registerAdrListCommand } from "./list";
 

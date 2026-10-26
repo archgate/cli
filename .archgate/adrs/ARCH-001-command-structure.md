@@ -56,9 +56,10 @@ Commands live in src/commands/ and export a register\*Command(program) function.
 ```typescript
 // src/commands/check.ts — thin command that delegates to engine
 import type { Command } from "@commander-js/extra-typings";
+
 import { loadRuleAdrs } from "../engine/loader";
-import { runChecks } from "../engine/runner";
 import { reportConsole, reportJSON, getExitCode } from "../engine/reporter";
+import { runChecks } from "../engine/runner";
 import { exitWith, handleCommandError } from "../helpers/exit";
 
 export function registerCheckCommand(program: Command) {
@@ -112,9 +113,9 @@ export function registerCheckCommand(program: Command) {
 bun build --compile --bytecode — the command used to produce standalone binaries — rejects top-level await at parse time, even though bun run and tsc both accept it. All async bootstrap logic in src/cli.ts MUST be wrapped in an async function main().
 
 ```typescript
+import { exitWith } from "./helpers/exit";
 // src/cli.ts — GOOD: all async logic wrapped in main()
 import { logError } from "./helpers/log";
-import { exitWith } from "./helpers/exit";
 import { captureException } from "./helpers/sentry";
 import { UserError } from "./helpers/user-error";
 
@@ -161,6 +162,7 @@ await program.parseAsync(process.argv); // also breaks
 ```typescript
 // src/commands/adr/index.ts — composes subcommand group (contains real logic)
 import type { Command } from "@commander-js/extra-typings";
+
 import { registerAdrCreateCommand } from "./create";
 import { registerAdrListCommand } from "./list";
 
