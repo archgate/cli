@@ -39,6 +39,12 @@ class TestPlatformDetection(TestCase):
             mp.machine.return_value = "aarch64"
             self.assertEqual(_detect_artifact(), "archgate-darwin-arm64")
 
+    def test_darwin_x86_64(self):
+        with mock.patch("archgate._shim.platform") as mp:
+            mp.system.return_value = "Darwin"
+            mp.machine.return_value = "x86_64"
+            self.assertEqual(_detect_artifact(), "archgate-darwin-x64")
+
     def test_linux_x86_64(self):
         with mock.patch("archgate._shim.platform") as mp:
             mp.system.return_value = "Linux"
@@ -78,6 +84,7 @@ class TestArtifactNaming(TestCase):
     def test_artifact_names_in_platform_map(self):
         expected_artifacts = {
             "archgate-darwin-arm64",
+            "archgate-darwin-x64",
             "archgate-linux-x64",
             "archgate-win32-x64",
         }

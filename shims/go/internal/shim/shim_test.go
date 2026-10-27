@@ -17,6 +17,8 @@ func TestGetArtifactName(t *testing.T) {
 	switch runtime.GOOS + "/" + runtime.GOARCH {
 	case "darwin/arm64":
 		expected = "archgate-darwin-arm64"
+	case "darwin/amd64":
+		expected = "archgate-darwin-x64"
 	case "linux/amd64":
 		expected = "archgate-linux-x64"
 	case "windows/amd64":

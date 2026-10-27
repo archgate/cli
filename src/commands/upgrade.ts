@@ -270,7 +270,7 @@ async function upgradeBinary(tag: string): Promise<void> {
   if (!artifact) {
     logError(
       `Unsupported platform: ${getPlatformInfo().runtime}/${process.arch}`,
-      "archgate supports darwin/arm64, linux/x64, and win32/x64."
+      "archgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64."
     );
     await exitWith(1);
     return;

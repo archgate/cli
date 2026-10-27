@@ -76,6 +76,8 @@ internal static class Program
 
         if (isMacOS && arch == Architecture.Arm64)
             return "archgate-darwin-arm64";
+        if (isMacOS && arch == Architecture.X64)
+            return "archgate-darwin-x64";
         if (isLinux && arch == Architecture.X64)
             return "archgate-linux-x64";
         if (isWindows && arch == Architecture.X64)
@@ -85,7 +87,7 @@ internal static class Program
         string archName = arch.ToString().ToLowerInvariant();
         throw new PlatformNotSupportedException(
             $"Unsupported platform: {os}/{archName}\n"
-            + "archgate supports darwin/arm64, linux/x64, and win32/x64."
+            + "archgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64."
         );
     }
 

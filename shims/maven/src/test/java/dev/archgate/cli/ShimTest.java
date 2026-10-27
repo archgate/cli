@@ -20,6 +20,12 @@ class ShimTest {
     }
 
     @Test
+    void darwinX64ArtifactName() {
+        String result = withSystemProperties("Mac OS X", "x86_64", Platform::getArtifactName);
+        assertEquals("archgate-darwin-x64", result);
+    }
+
+    @Test
     void linuxX64ArtifactName() {
         String result = withSystemProperties("Linux", "amd64", Platform::getArtifactName);
         assertEquals("archgate-linux-x64", result);

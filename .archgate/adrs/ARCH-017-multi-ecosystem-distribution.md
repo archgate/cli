@@ -25,7 +25,7 @@ All distribution shims live under `shims/` in the main repository. Each shim is 
 
 Every shim implements the same algorithm:
 
-1. Detect platform/architecture and map to artifact name (`archgate-darwin-arm64`, `archgate-linux-x64`, `archgate-win32-x64`)
+1. Detect platform/architecture and map to artifact name (`archgate-darwin-arm64`, `archgate-darwin-x64`, `archgate-linux-x64`, `archgate-win32-x64`)
 2. Check for cached binary at `~/.archgate/bin/archgate[.exe]`
 3. If missing, download from `https://github.com/archgate/cli/releases/download/v{VERSION}/{artifact}.{ext}`
 4. Verify SHA256 checksum against the companion `.sha256` file
@@ -41,7 +41,7 @@ All shim packages share the same cache directory (`~/.archgate/bin/`). If the bi
 
 All shims produce identical user-facing error messages on stderr:
 
-- Unsupported platform: `archgate: Unsupported platform: {os}/{arch}\narchgate supports darwin/arm64, linux/x64, and win32/x64.`
+- Unsupported platform: `archgate: Unsupported platform: {os}/{arch}\narchgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64.`
 - Download failure: `archgate: failed to download binary: {detail}\nVisit https://cli.archgate.dev/getting-started/installation/ for alternative install methods.`
 - Checksum mismatch: `archgate: checksum verification failed for v{version} (expected {expected}, got {actual})`
 - Download started: `archgate: binary not found, downloading v{version}...`
