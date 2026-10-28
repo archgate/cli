@@ -34,7 +34,7 @@ jobs:
             ASSETS=$(gh release view "$TAG" --repo archgate/cli --json assets --jq '.assets[].name')
             ALL_FOUND=true
             for asset in "${REQUIRED_ASSETS[@]}"; do
-              if ! echo "$ASSETS" | grep -qF "$asset"; then
+              if ! echo "$ASSETS" | grep -qxF "$asset"; then
                 ALL_FOUND=false
                 break
               fi
