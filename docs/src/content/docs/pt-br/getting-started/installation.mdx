@@ -1,6 +1,6 @@
 ---
 title: Instalação
-description: Instale o Archgate CLI no macOS, Linux ou Windows via instalador, winget, npm, pip, dotnet, go, gem ou binário standalone. Comece a aplicar ADRs como regras de código executáveis em minutos.
+description: Instale o Archgate CLI no macOS, Linux ou Windows via instalador, winget e Microsoft Store, npm, pip, dotnet, go, gem ou binário standalone. Comece a aplicar ADRs como regras de código executáveis em minutos.
 ---
 
 ## Instalação standalone (recomendado)
@@ -11,41 +11,36 @@ A forma mais rápida de instalar o Archgate, sem necessidade de Node.js ou geren
 # macOS / Linux
 curl -fsSL https://cli.archgate.dev/install-unix | sh
 
-# Windows (PowerShell)
-irm https://cli.archgate.dev/install-windows | iex
+# Windows
+winget install --id 9MSZ1ZDKSW8Z
 
 # Windows (Git Bash / MSYS2)
 curl -fsSL https://cli.archgate.dev/install-unix | sh
 ```
 
-Isso baixa um binário pré-compilado para sua plataforma e instala em `~/.archgate/bin/`. O instalador detecta os perfis do seu shell e oferece adicionar o diretório ao seu PATH.
+No macOS e no Linux, o instalador baixa um binário pré-compilado para sua plataforma e instala em `~/.archgate/bin/`. Ele detecta os perfis do seu shell e oferece adicionar o diretório ao seu PATH.
 
-No Windows, o instalador PowerShell também detecta perfis de shell do Git Bash (`.bashrc`, `.bash_profile`, `.profile`) e oferece configurar o PATH neles.
+No Windows, o [winget](https://learn.microsoft.com/windows/package-manager/) instala o Archgate a partir da Microsoft Store. O pacote é assinado pela Microsoft e adiciona `archgate` ao PATH em todo novo terminal. Atualize com `winget upgrade --id 9MSZ1ZDKSW8Z`.
 
-Você pode personalizar a instalação com variáveis de ambiente:
-
-| Variável               | Descrição                                      | Padrão            |
-| ---------------------- | ---------------------------------------------- | ----------------- |
-| `ARCHGATE_VERSION`     | Instalar uma versão específica (ex: `v0.11.2`) | Última versão     |
-| `ARCHGATE_INSTALL_DIR` | Diretório de instalação personalizado          | `~/.archgate/bin` |
-
-Você também pode baixar os binários diretamente das [GitHub Releases](https://github.com/archgate/cli/releases).
-
-## Instalar via winget (Windows)
-
-:::note[Aguardando revisão do winget-pkgs]
-O `Archgate.Archgate` está na fila para ser aceito no [repositório da comunidade winget](https://github.com/microsoft/winget-pkgs). Enquanto não for publicado lá, este comando retorna "No package found" — use o instalador standalone acima nesse meio-tempo.
-:::
-
-No Windows, instale o Archgate com o [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/):
+## Instalar via script PowerShell (Windows)
 
 ```powershell
-winget install Archgate.Archgate
+irm https://cli.archgate.dev/install-windows | iex
 ```
 
-Isso instala um pequeno wrapper portátil e adiciona `archgate` ao seu PATH. Na primeira execução, ele baixa o binário da plataforma, verifica o checksum e o armazena em `~/.archgate/bin/` — o mesmo cache usado por todos os outros métodos de instalação, então alternar entre eles não baixa nada novamente.
+O script executa o mesmo `winget install` para você. Onde o winget não existe ou a Microsoft Store está bloqueada, ele baixa o binário das GitHub Releases para `~/.archgate/bin/` e oferece adicionar esse diretório ao PATH, inclusive nos perfis de shell do Git Bash (`.bashrc`, `.bash_profile`, `.profile`). O binário baixado não tem assinatura de código.
 
-Atualize com `winget upgrade Archgate.Archgate`.
+Os dois scripts de instalação leem estas variáveis de ambiente:
+
+| Variável               | Descrição                                                          | Padrão            |
+| ---------------------- | ------------------------------------------------------------------ | ----------------- |
+| `ARCHGATE_VERSION`     | Instalar uma versão específica (ex: `v0.11.2`)                     | Última versão     |
+| `ARCHGATE_INSTALL_DIR` | Diretório de instalação personalizado                              | `~/.archgate/bin` |
+| `ARCHGATE_NO_WINGET`   | Defina como `1` para pular o winget e baixar diretamente (Windows) | Não definida      |
+
+O winget não instala uma versão fixada nem em um diretório escolhido, então definir `ARCHGATE_VERSION` ou `ARCHGATE_INSTALL_DIR` no Windows também seleciona o download direto.
+
+Você também pode baixar os binários diretamente das [GitHub Releases](https://github.com/archgate/cli/releases).
 
 ## Instalar via npm
 

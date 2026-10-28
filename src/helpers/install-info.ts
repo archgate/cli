@@ -8,7 +8,7 @@
  */
 
 import { existsSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { internalPath, tryCurrentDir } from "./paths";
 import { resolvedProjectPaths } from "./project-config";
@@ -63,7 +63,22 @@ export function selfInvokeArgv(args: string[]): string[] {
  * type, which carries the command needed to perform an upgrade; this one only
  * names the source.
  */
-export type InstallMethod = "binary" | "proto" | "local" | "global-pm";
+export type InstallMethod =
+  | "binary"
+  | "proto"
+  | "local"
+  | "global-pm"
+  | "msstore";
+
+/**
+ * True when `selfPath` sits in an installed MSIX package. Windows lays every
+ * package out with its `AppxManifest.xml` at the root, next to the executable,
+ * and the package directory is read-only — so the binary there cannot replace
+ * itself and updates arrive through the Microsoft Store.
+ */
+export function isMsixPackagedInstall(selfPath: string): boolean {
+  return existsSync(join(dirname(selfPath), "AppxManifest.xml"));
+}
 
 let cachedInstallMethod: InstallMethod | null = null;
 
@@ -74,6 +89,11 @@ export function detectInstallMethod(): InstallMethod {
   if (cachedInstallMethod !== null) return cachedInstallMethod;
 
   const selfPath = archgatePath();
+
+  if (isMsixPackagedInstall(selfPath)) {
+    cachedInstallMethod = "msstore";
+    return cachedInstallMethod;
+  }
 
   const binDir = internalPath("bin");
   if (selfPath.startsWith(binDir)) {
