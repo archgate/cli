@@ -47,6 +47,13 @@ export function getArtifactInfo(): ArtifactInfo | null {
       binaryName: "archgate",
     };
   }
+  if (platform === "darwin" && arch === "x64") {
+    return {
+      name: "archgate-darwin-x64",
+      ext: ".tar.gz",
+      binaryName: "archgate",
+    };
+  }
   if (platform === "linux" && arch === "x64") {
     return {
       name: "archgate-linux-x64",

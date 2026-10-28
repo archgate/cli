@@ -18,7 +18,7 @@ detect_platform() {
     MINGW*|MSYS*) platform="win32" ;;
     *)
       echo "Error: unsupported OS: $os" >&2
-      echo "archgate supports macOS (ARM64), Linux (x86_64), and Windows (x64)." >&2
+      echo "archgate supports macOS (ARM64, x86_64), Linux (x86_64), and Windows (x64)." >&2
       exit 1
       ;;
   esac
@@ -28,16 +28,12 @@ detect_platform() {
     x86_64|amd64)  arch="x64" ;;
     *)
       echo "Error: unsupported architecture: $arch" >&2
-      echo "archgate supports arm64 (macOS) and x64 (Linux, Windows)." >&2
+      echo "archgate supports arm64 (macOS) and x64 (macOS, Linux, Windows)." >&2
       exit 1
       ;;
   esac
 
-  # Validate supported combinations
-  if [ "$platform" = "darwin" ] && [ "$arch" != "arm64" ]; then
-    echo "Error: macOS is only supported on ARM64 (Apple Silicon)." >&2
-    exit 1
-  fi
+  # Validate supported combinations (macOS ships both arm64 and x64)
   if [ "$platform" = "linux" ] && [ "$arch" != "x64" ]; then
     echo "Error: Linux is only supported on x86_64." >&2
     exit 1

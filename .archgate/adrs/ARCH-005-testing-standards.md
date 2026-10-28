@@ -65,8 +65,8 @@ Use Bun's built-in test runner (`bun test`) for all tests. Test files live in `t
 // tests/engine/runner.test.ts
 import { describe, it, expect, afterEach } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { git } from "../test-utils";
 

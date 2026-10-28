@@ -21,6 +21,7 @@ module Archgate
     # Platform mapping: [os_pattern, arch_pattern] => artifact name
     PLATFORM_MAP = [
       [/darwin|mac/i, /arm64|aarch64/i, "archgate-darwin-arm64"],
+      [/darwin|mac/i, /x86_64|x64|amd64/i, "archgate-darwin-x64"],
       [/linux/i, /x86_64|x64|amd64/i, "archgate-linux-x64"],
       [/mswin|mingw|cygwin/i, /x86_64|x64|amd64/i, "archgate-win32-x64"]
     ].freeze
@@ -63,7 +64,7 @@ module Archgate
         end
 
         $stderr.puts "archgate: Unsupported platform: #{host_os}/#{host_cpu}"
-        $stderr.puts "archgate supports darwin/arm64, linux/x64, and win32/x64."
+        $stderr.puts "archgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64."
         exit 2
       end
 

@@ -57,6 +57,7 @@ Options that require type narrowing beyond plain strings MUST use `new Option()`
 ```typescript
 import type { Command } from "@commander-js/extra-typings";
 import { Option } from "@commander-js/extra-typings";
+
 import { EDITOR_TARGETS } from "../helpers/init-project";
 
 // EDITOR_TARGETS is the shared editor list — reference it instead of

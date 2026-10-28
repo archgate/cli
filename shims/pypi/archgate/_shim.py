@@ -25,6 +25,7 @@ from archgate._version import __version__
 _PLATFORM_MAP = {
     ("Darwin", "arm64"): "archgate-darwin-arm64",
     ("Darwin", "aarch64"): "archgate-darwin-arm64",
+    ("Darwin", "x86_64"): "archgate-darwin-x64",
     ("Linux", "x86_64"): "archgate-linux-x64",
     ("Linux", "AMD64"): "archgate-linux-x64",
     ("Windows", "AMD64"): "archgate-win32-x64",
@@ -40,7 +41,7 @@ def _detect_artifact():  # type: () -> str
     if artifact is None:
         print(
             "archgate: Unsupported platform: {os}/{arch}\n"
-            "archgate supports darwin/arm64, linux/x64, and win32/x64.".format(
+            "archgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64.".format(
                 os=os_name, arch=arch
             ),
             file=sys.stderr,

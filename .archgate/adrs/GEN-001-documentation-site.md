@@ -99,10 +99,10 @@ docs/
 ### Content Layer Configuration
 
 ```typescript
-// docs/src/content.config.ts — Required for Astro 5
-import { defineCollection } from "astro:content";
 import { docsLoader } from "@astrojs/starlight/loaders";
 import { docsSchema } from "@astrojs/starlight/schema";
+// docs/src/content.config.ts — Required for Astro 5
+import { defineCollection } from "astro:content";
 
 export const collections = {
   docs: defineCollection({ loader: docsLoader(), schema: docsSchema() }),

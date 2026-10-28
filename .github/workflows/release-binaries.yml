@@ -30,6 +30,10 @@ jobs:
             artifact: archgate-darwin-arm64
             os: macos-latest
             binary_name: archgate
+          - target: bun-darwin-x64
+            artifact: archgate-darwin-x64
+            os: macos-15-intel
+            binary_name: archgate
           - target: bun-linux-x64
             artifact: archgate-linux-x64
             os: ubuntu-latest

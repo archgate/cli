@@ -23,6 +23,9 @@ public final class Platform {
         if (osName.startsWith("Mac") && "aarch64".equals(osArch)) {
             return "archgate-darwin-arm64";
         }
+        if (osName.startsWith("Mac") && ("x86_64".equals(osArch) || "amd64".equals(osArch))) {
+            return "archgate-darwin-x64";
+        }
         if (osName.startsWith("Linux") && "amd64".equals(osArch)) {
             return "archgate-linux-x64";
         }
@@ -32,7 +35,7 @@ public final class Platform {
 
         throw new UnsupportedOperationException(
                 "Unsupported platform: " + osName + "/" + osArch
-                        + "\narchgate supports darwin/arm64, linux/x64, and win32/x64.");
+                        + "\narchgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64.");
     }
 
     /**

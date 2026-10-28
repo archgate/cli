@@ -27,6 +27,10 @@ class TestPlatformDetection < Minitest::Test
     assert_equal "archgate-darwin-arm64", detect_with("darwin23", "aarch64")
   end
 
+  def test_darwin_x86_64
+    assert_equal "archgate-darwin-x64", detect_with("darwin23", "x86_64")
+  end
+
   def test_linux_x86_64
     assert_equal "archgate-linux-x64", detect_with("linux-gnu", "x86_64")
   end

@@ -38,7 +38,7 @@ describe("getArtifactInfo", () => {
 
       expect(info).not.toBeNull();
       expect(info!.name).toMatch(
-        /^archgate-(darwin-arm64|linux-x64|win32-x64)$/u
+        /^archgate-(darwin-arm64|darwin-x64|linux-x64|win32-x64)$/u
       );
       expect(info!.ext).toMatch(/^\.(tar\.gz|zip)$/u);
       expect(info!.binaryName).toMatch(/^archgate(\.exe)?$/u);
@@ -46,10 +46,11 @@ describe("getArtifactInfo", () => {
   );
 
   // Every published release target, resolved from a single runner. Gating each
-  // one on the real OS would leave two of the three uncovered on both CI
-  // platforms, since a skipped test counts for neither.
+  // one on the real OS would leave most of them uncovered on every CI
+  // platform, since a skipped test counts for none of them.
   const targets = [
     ["darwin", "arm64", "archgate-darwin-arm64", ".tar.gz", "archgate"],
+    ["darwin", "x64", "archgate-darwin-x64", ".tar.gz", "archgate"],
     ["linux", "x64", "archgate-linux-x64", ".tar.gz", "archgate"],
     ["win32", "x64", "archgate-win32-x64", ".zip", "archgate.exe"],
   ] as const;
@@ -67,7 +68,7 @@ describe("getArtifactInfo", () => {
   // at all — both fall through to the "no artifact" result that `upgrade`
   // turns into a manual-install hint.
   const unsupportedTargets = [
-    ["darwin", "x64"],
+    ["darwin", "ia32"],
     ["linux", "arm64"],
     ["win32", "arm64"],
     ["freebsd", "x64"],

@@ -7,6 +7,7 @@ public class ShimTests
 {
     [Theory]
     [InlineData("darwin", "Arm64", "archgate-darwin-arm64")]
+    [InlineData("darwin", "X64", "archgate-darwin-x64")]
     [InlineData("linux", "X64", "archgate-linux-x64")]
     [InlineData("win32", "X64", "archgate-win32-x64")]
     public void GetArtifactName_ReturnsPlatformSpecificName(string expectedOs, string arch, string expectedArtifact)
@@ -38,6 +39,7 @@ public class ShimTests
         Assert.Contains(artifact, new[]
         {
             "archgate-darwin-arm64",
+            "archgate-darwin-x64",
             "archgate-linux-x64",
             "archgate-win32-x64",
         });
