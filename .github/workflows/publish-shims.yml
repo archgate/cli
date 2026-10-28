@@ -29,12 +29,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
-          REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip" "archgate-shim-win32-x64.exe")
+          REQUIRED_ASSETS=("archgate-darwin-arm64.tar.gz" "archgate-darwin-x64.tar.gz" "archgate-linux-x64.tar.gz" "archgate-win32-x64.zip" "archgate-shim-win32-x64.exe")
           for i in $(seq 1 10); do
             ASSETS=$(gh release view "$TAG" --repo archgate/cli --json assets --jq '.assets[].name')
             ALL_FOUND=true
             for asset in "${REQUIRED_ASSETS[@]}"; do
-              if ! echo "$ASSETS" | grep -qF "$asset"; then
+              if ! echo "$ASSETS" | grep -qxF "$asset"; then
                 ALL_FOUND=false
                 break
               fi

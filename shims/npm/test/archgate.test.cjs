@@ -26,6 +26,10 @@ describe("getArtifactName", () => {
     assert.equal(getArtifactName("darwin", "arm64"), "archgate-darwin-arm64");
   });
 
+  it("darwin/x64 → archgate-darwin-x64", () => {
+    assert.equal(getArtifactName("darwin", "x64"), "archgate-darwin-x64");
+  });
+
   it("linux/x64 → archgate-linux-x64", () => {
     assert.equal(getArtifactName("linux", "x64"), "archgate-linux-x64");
   });
@@ -46,14 +50,16 @@ describe("getArtifactName", () => {
     });
   });
 
-  it("covers all three supported artifacts", () => {
+  it("covers all four supported artifacts", () => {
     const artifacts = new Set([
       getArtifactName("darwin", "arm64"),
+      getArtifactName("darwin", "x64"),
       getArtifactName("linux", "x64"),
       getArtifactName("win32", "x64"),
     ]);
-    assert.equal(artifacts.size, 3);
+    assert.equal(artifacts.size, 4);
     assert.ok(artifacts.has("archgate-darwin-arm64"));
+    assert.ok(artifacts.has("archgate-darwin-x64"));
     assert.ok(artifacts.has("archgate-linux-x64"));
     assert.ok(artifacts.has("archgate-win32-x64"));
   });

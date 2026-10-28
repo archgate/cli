@@ -14,6 +14,8 @@ func GetArtifactName() (string, error) {
 	switch key {
 	case "darwin/arm64":
 		return "archgate-darwin-arm64", nil
+	case "darwin/amd64":
+		return "archgate-darwin-x64", nil
 	case "linux/amd64":
 		return "archgate-linux-x64", nil
 	case "windows/amd64":

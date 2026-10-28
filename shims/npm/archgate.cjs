@@ -13,10 +13,11 @@ function getArtifactName(platform, arch) {
   const p = platform || process.platform;
   const a = arch || process.arch;
   if (p === "darwin" && a === "arm64") return "archgate-darwin-arm64";
+  if (p === "darwin" && a === "x64") return "archgate-darwin-x64";
   if (p === "linux" && a === "x64") return "archgate-linux-x64";
   if (p === "win32" && a === "x64") return "archgate-win32-x64";
   throw new Error(
-    `Unsupported platform: ${p}/${a}\narchgate supports darwin/arm64, linux/x64, and win32/x64.`
+    `Unsupported platform: ${p}/${a}\narchgate supports darwin/arm64, darwin/x64, linux/x64, and win32/x64.`
   );
 }
 
