@@ -1,3 +1,13 @@
+## [0.61.0](https://github.com/archgate/cli/compare/v0.60.2...v0.61.0) (2026-10-28)
+
+### Features
+
+* publish Intel macOS (darwin-x64) binaries ([#658](https://github.com/archgate/cli/issues/658)) ([3b9d851](https://github.com/archgate/cli/commit/3b9d85179fb46962000a5e72aedaa9762772f457))
+
+### Bug Fixes
+
+* **upgrade:** discover installed Windows PowerShell for ZIP extraction ([#647](https://github.com/archgate/cli/issues/647)) ([f90760c](https://github.com/archgate/cli/commit/f90760c1b6b594701f697cc66f4004f449176e54)), closes [#621](https://github.com/archgate/cli/issues/621), references [#631](https://github.com/archgate/cli/issues/631) [#641](https://github.com/archgate/cli/issues/641)
+
 ## [0.60.2](https://github.com/archgate/cli/compare/v0.60.1...v0.60.2) (2026-10-24)
 
 ### Bug Fixes

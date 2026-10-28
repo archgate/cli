@@ -11,7 +11,7 @@
   <Identity
     Name="BarretoTech.ArchgateCLI"
     Publisher="CN=52AEAA9B-8639-4CFD-B7E8-1E7007C75EA5"
-    Version="1.60.2.0"
+    Version="1.61.0.0"
     ProcessorArchitecture="x64" />
 
   <Properties>
