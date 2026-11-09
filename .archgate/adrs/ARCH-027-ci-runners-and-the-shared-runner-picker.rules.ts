@@ -55,11 +55,72 @@ function strings(value: Yaml | undefined): string[] {
   return value === null || value === undefined ? [] : [String(value)];
 }
 
-/** The 1-based line of the first line at or after `from` that matches `pattern`, or 1. */
-function lineOf(lines: string[], pattern: RegExp, from = 0): number {
-  for (let index = from; index < lines.length; index++)
-    if (pattern.test(lines.at(index) ?? "")) return index + 1;
-  return 1;
+/** The indentation of a line. */
+function indentOf(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+/** The mapping key a line opens, unquoted, or undefined for a comment, item or blank line. */
+function keyOf(line: string): string | undefined {
+  const text = line.trimStart();
+  if (text === "" || text.startsWith("#") || text.startsWith("-"))
+    return undefined;
+  const colon = text.indexOf(":");
+  return colon > 0
+    ? text.slice(0, colon).replaceAll(/^["']|["']$/gu, "")
+    : undefined;
+}
+
+/** The value of a `uses:` line, unquoted and without a trailing comment, or undefined. */
+function usesOf(line: string): string | undefined {
+  const text = line.trimStart().replace(/^-\s+/u, "");
+  if (!text.startsWith("uses:")) return undefined;
+  return text
+    .slice("uses:".length)
+    .replace(/\s+#.*$/u, "")
+    .trim()
+    .replaceAll(/^["']|["']$/gu, "");
+}
+
+/** Each job's line range under the top-level `jobs:` key, as [first, end) indexes, by name. */
+function jobBlocks(lines: string[]): Map<string, readonly [number, number]> {
+  const blocks = new Map<string, readonly [number, number]>();
+  const top = lines.findIndex(
+    (line) => indentOf(line) === 0 && keyOf(line) === "jobs"
+  );
+  if (top < 0) return blocks;
+  let depth: number | undefined;
+  let open: { name: string; first: number } | undefined;
+  let index = top + 1;
+  for (; index < lines.length; index++) {
+    const line = lines.at(index) ?? "";
+    if (line.trim() === "" || line.trimStart().startsWith("#")) continue;
+    const indent = indentOf(line);
+    if (indent === 0) break;
+    depth ??= indent;
+    const key = indent === depth ? keyOf(line) : undefined;
+    if (key === undefined) continue;
+    if (open !== undefined) blocks.set(open.name, [open.first, index]);
+    open = { name: key, first: index };
+  }
+  if (open !== undefined) blocks.set(open.name, [open.first, index]);
+  return blocks;
+}
+
+/** The index of the job's own `runs-on:` key within its block, or the job's first line. */
+function runsOnIndex(
+  lines: string[],
+  [first, end]: readonly [number, number]
+): number {
+  const child = lines
+    .slice(first + 1, end)
+    .find((line) => line.trim() !== "" && !line.trimStart().startsWith("#"));
+  const depth = child === undefined ? -1 : indentOf(child);
+  for (let index = first + 1; index < end; index++) {
+    const line = lines.at(index) ?? "";
+    if (indentOf(line) === depth && keyOf(line) === "runs-on") return index;
+  }
+  return first;
 }
 
 /** The text of a `runs-on` value, as one string. */
@@ -101,22 +162,32 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
   const jobs: Job[] = [];
   for (const { file, lines, content } of parsed) {
     if (!isMapping(content)) continue;
+    // Steps are read in document order, so the nth step using an action is on
+    // the nth line using it.
+    const seen = new Map<string, number>();
     const collect = (list: Yaml | undefined): Step[] =>
       (Array.isArray(list) ? list : []).flatMap((step) => {
         if (!isMapping(step)) return [];
         const uses = field(step, "uses");
         if (typeof uses !== "string") return [];
+        const action = uses.trim();
+        const nth = seen.get(action) ?? 0;
+        seen.set(action, nth + 1);
+        const at = lines
+          .map((line, index) => (usesOf(line) === action ? index : -1))
+          .filter((index) => index >= 0)
+          .at(nth);
         const inputs = field(step, "with");
-        const escaped = uses.replaceAll(/[.*+?^${}()|[\]\\/]/gu, "\\$&");
         return [
           {
             file,
-            line: lineOf(lines, new RegExp(`uses:\\s*["']?${escaped}`, "u")),
-            uses: uses.trim(),
+            line: at === undefined ? 1 : at + 1,
+            uses: action,
             with: isMapping(inputs) ? inputs : {},
           },
         ];
       });
+    const blocks = jobBlocks(lines);
     const runs = field(content, "runs");
     if (isMapping(runs)) steps.push(...collect(field(runs, "steps")));
     const declaredJobs = field(content, "jobs");
@@ -125,14 +196,8 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
       if (!isMapping(job)) continue;
       const jobSteps = collect(field(job, "steps"));
       steps.push(...jobSteps);
-      const jobLine = lineOf(
-        lines,
-        new RegExp(
-          `^\\s+${name.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")}:\\s*(?:#.*)?$`,
-          "u"
-        )
-      );
-      const runsOnLine = lineOf(lines, /^\s*runs-on:/u, jobLine);
+      const block = blocks.get(name);
+      const at = block === undefined ? 0 : runsOnIndex(lines, block);
       const runsOn = runsOnText(job["runs-on"]);
       jobs.push({
         file,
@@ -140,8 +205,8 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
         runsOn: [runsOn, ...matrixValues(runsOn, field(job, "strategy"))].join(
           "\n"
         ),
-        line: runsOnLine,
-        exempt: runsOnLine > 1 && EXEMPT.test(lines.at(runsOnLine - 2) ?? ""),
+        line: at + 1,
+        exempt: at > 0 && EXEMPT.test(lines.at(at - 1) ?? ""),
         needs: strings(field(job, "needs")),
         picker: jobSteps.some((step) => PICKER_REF.test(step.uses)),
       });
@@ -150,10 +215,19 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
   return { steps, jobs };
 }
 
-/** Whether the repository declares itself public in REPOSITORY_FILE. */
-async function isPublic(ctx: RuleContext): Promise<boolean> {
-  const declared = await ctx.readJSON(REPOSITORY_FILE).catch(() => null);
-  return isMapping(declared) && field(declared, "visibility") === "public";
+/** The visibility REPOSITORY_FILE records, or undefined when it is missing or unreadable. */
+async function visibilityOf(ctx: RuleContext): Promise<string | undefined> {
+  const declared: unknown = await ctx
+    .readJSON(REPOSITORY_FILE)
+    .catch(() => null);
+  const visibility = isMapping(declared)
+    ? field(declared, "visibility")
+    : undefined;
+  return visibility === "public" ||
+    visibility === "private" ||
+    visibility === "internal"
+    ? visibility
+    : undefined;
 }
 
 export default {
@@ -191,7 +265,7 @@ export default {
             const value = step.with[input];
             if (typeof value !== "string" || !expected.test(value.trim())) {
               ctx.report.violation({
-                message: `The runner picker step's \`with: ${input}\` is not set as ARCH-001 requires`,
+                message: `The runner picker step's \`with: ${input}\` is not set as the ci-runners ADR requires`,
                 file: step.file,
                 line: step.line,
                 fix: "Under the step's `with:`, set `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`",
@@ -236,7 +310,16 @@ export default {
       description:
         "A public repository uses neither the runner picker nor a self-hosted or Blacksmith runner",
       async check(ctx) {
-        if (!(await isPublic(ctx))) return;
+        const visibility = await visibilityOf(ctx);
+        if (visibility === undefined) {
+          ctx.report.violation({
+            message: `${REPOSITORY_FILE} is missing or does not record the repository's visibility, so the public-repository rule cannot be checked`,
+            file: REPOSITORY_FILE,
+            fix: 'Write { "visibility": "public" | "private" | "internal" } as GitHub reports it; the enterprise-adrs Sync workflow keeps the file current',
+          });
+          return;
+        }
+        if (visibility !== "public") return;
         const { steps, jobs } = await load(ctx);
         for (const step of steps.filter((item) => PICKER_REF.test(item.uses))) {
           ctx.report.violation({
