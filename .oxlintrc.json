@@ -24,10 +24,7 @@
   // type-aware analysis in this context — attempted JSDoc annotations
   // cascaded into unrelated "error"-typed inference across the whole file
   // rather than fixing anything.
-  "ignorePatterns": [
-    "docs/**",
-    ".simple-release.js"
-  ],
+  "ignorePatterns": ["docs/**", ".simple-release.js"],
   "categories": {
     "correctness": "error",
     "pedantic": "error",
