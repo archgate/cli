@@ -1,7 +1,8 @@
 /// <reference path="../rules.d.ts" />
 
 /** A `uses:` line of any runner-picker action, with the reference after `@`. */
-const PICKER_USES = /^\s*(?:-\s+)?uses:\s*["']?([\w.-]+\/runner-picker)@([^\s"'#]+)/u;
+const PICKER_USES =
+  /^\s*(?:-\s+)?uses:\s*["']?([\w.-]+\/runner-picker)@([^\s"'#]+)/u;
 /** The one picker action the enterprise uses. */
 const PICKER_ACTION = "barretotech/runner-picker";
 /** A full commit SHA. */
@@ -9,7 +10,8 @@ const COMMIT_SHA = /^[0-9a-f]{40}$/u;
 /** A `runs-on:` line and its value. */
 const RUNS_ON = /^(\s*)runs-on:\s*(.*)$/u;
 /** A runner value that targets the shared pool or Blacksmith: a label or a runner variable. */
-const POOL_TARGET = /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER\b/iu;
+const POOL_TARGET =
+  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER\b/iu;
 /** A runner value that reads a picker job's output. */
 const PICKER_OUTPUT = /\bneeds\.[\w-]+\.outputs\.runs-on\b/u;
 /** The marker of a job whose purpose is the self-hosted machine itself. */
@@ -43,14 +45,19 @@ function stepBlock(lines: string[], at: number): string {
   while (start > 0 && !lines[start].trimStart().startsWith("- ")) start--;
   const dash = depthOf(lines[start]);
   let end = start + 1;
-  while (end < lines.length && (lines[end].trim() === "" || depthOf(lines[end]) > dash)) end++;
+  while (
+    end < lines.length &&
+    (lines[end].trim() === "" || depthOf(lines[end]) > dash)
+  )
+    end++;
   return lines.slice(start, end).join("\n");
 }
 
 export default {
   rules: {
     "picker-pin": {
-      description: "Runner pickers are barretotech/runner-picker pinned to a full commit SHA",
+      description:
+        "Runner pickers are barretotech/runner-picker pinned to a full commit SHA",
       async check(ctx) {
         for (const file of workflowFiles(ctx)) {
           const lines = (await ctx.readFile(file)).split(/\r?\n/u);
@@ -58,7 +65,10 @@ export default {
             const match = line.match(PICKER_USES);
             if (!match) return;
             const [, action, ref] = match;
-            if (action.toLowerCase() !== PICKER_ACTION || !COMMIT_SHA.test(ref)) {
+            if (
+              action.toLowerCase() !== PICKER_ACTION ||
+              !COMMIT_SHA.test(ref)
+            ) {
               ctx.report.violation({
                 message: `${action}@${ref} is not ${PICKER_ACTION} pinned to a full commit SHA`,
                 file,
@@ -71,7 +81,8 @@ export default {
       },
     },
     "picker-service": {
-      description: "Each picker step asks the capacity service through the tailnet",
+      description:
+        "Each picker step asks the capacity service through the tailnet",
       async check(ctx) {
         for (const file of workflowFiles(ctx)) {
           const lines = (await ctx.readFile(file)).split(/\r?\n/u);

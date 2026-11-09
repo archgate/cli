@@ -3,7 +3,13 @@ id: ARCH-027
 title: CI Runners and the Shared Runner Picker
 domain: architecture
 rules: true
-files: [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/actions/**/action.yml", ".github/actions/**/action.yaml"]
+files:
+  [
+    ".github/workflows/*.yml",
+    ".github/workflows/*.yaml",
+    ".github/actions/**/action.yml",
+    ".github/actions/**/action.yaml",
+  ]
 ---
 
 # CI Runners and the Shared Runner Picker
