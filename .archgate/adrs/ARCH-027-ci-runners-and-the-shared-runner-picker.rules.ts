@@ -10,9 +10,18 @@ const COMMIT_SHA = /^[0-9a-f]{40}$/u;
 const POOL_TARGET =
   /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER(?:_\w+)?\b/iu;
 /** A job output read in a `runs-on` expression, with the job's name. */
-const OUTPUT_REF = /needs\.([\w-]+)\.outputs\.runs-on/giu;
-/** A job output combined with `&&`, which makes the next operand win whenever the output is set. */
-const OUTPUT_AND = /needs\.[\w-]+\.outputs\.runs-on\s*&&/iu;
+const OUTPUT_REF =
+  /needs(?:\.([\w-]+)|\[\s*['"]([\w-]+)['"]\s*\])\s*\.outputs(?:\.runs-on|\[\s*['"]runs-on['"]\s*\])/giu;
+/** What a job output reference reads as once replaced, to test the operators around it. */
+const OUTPUT_MARK = "@picker-output@";
+/**
+ * An output used as anything but a value with a fallback: followed by `&&`
+ * (the next operand wins whenever it is set) or compared, which discards it.
+ */
+const OUTPUT_MISUSE =
+  /@picker-output@\s*(?:&&|[=!]=|[<>])|(?:[=!]=|[<>]=?)\s*@picker-output@/u;
+/** An output followed by `||`, the fallback a skipped or failed picker leaves room for. */
+const OUTPUT_FALLBACK = /@picker-output@\s*\|\|/gu;
 /** A `runs-on` that reads a matrix value. */
 const MATRIX_VALUE = /\bmatrix\.([\w-]+)/giu;
 /** The marker of a job whose purpose is the self-hosted machine itself. */
@@ -73,7 +82,7 @@ function keyOf(line: string): string | undefined {
 }
 
 /** A key whose value is a block scalar (`run: |`, `script: >-`). */
-const BLOCK_SCALAR = /:\s*[|>][+-]?\d*\s*(?:#.*)?$/u;
+const BLOCK_SCALAR = /:\s*[|>](?:[+-]\d?|\d[+-]?)?\s*(?:#.*)?$/u;
 
 /** A quoted value that opens on a line: the text from its opening quote on. */
 const QUOTED_VALUE = /(?:^|:\s+|-\s+)(["'])(.*)$/u;
@@ -303,22 +312,43 @@ function matrixValues(
   );
 }
 
-/** The workflow and composite-action files of the repository, read once. */
-async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
+/** A workflow or composite action, parsed, or the reason it could not be. */
+type Parsed =
+  | { file: string; lines: string[]; content: Yaml }
+  | { file: string; error: string };
+
+/**
+ * The workflow and composite-action files of the repository, read once. A file
+ * that does not parse is listed in `unreadable` and the others are still read.
+ */
+async function load(
+  ctx: RuleContext
+): Promise<{
+  steps: Step[];
+  jobs: Job[];
+  unreadable: { file: string; error: string }[];
+}> {
   const files = ctx.scopedFiles.filter((file) => /\.ya?ml$/u.test(file));
-  const parsed = await Promise.all(
-    files.map(async (file) => {
-      const content: Yaml = (await ctx.readYAML(file)).content;
-      return {
-        file,
-        lines: (await ctx.readFile(file)).split(/\r?\n/u),
-        content,
-      };
+  const parsed: Parsed[] = await Promise.all(
+    files.map(async (file): Promise<Parsed> => {
+      try {
+        const content: Yaml = (await ctx.readYAML(file)).content;
+        return {
+          file,
+          lines: (await ctx.readFile(file)).split(/\r?\n/u),
+          content,
+        };
+      } catch (error) {
+        return { file, error: String(error) };
+      }
     })
   );
+  const unreadable = parsed.flatMap((item) => ("error" in item ? [item] : []));
   const steps: Step[] = [];
   const jobs: Job[] = [];
-  for (const { file, lines, content } of parsed) {
+  for (const item of parsed) {
+    if ("error" in item) continue;
+    const { file, lines, content } = item;
     if (!isMapping(content)) continue;
     // Steps are read in document order, so the nth step using an action is on
     // the nth structural line using it; script text never counts.
@@ -362,7 +392,10 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
       // job is reported at its own line and is never exempt.
       const key = block === undefined ? undefined : runsOnIndex(lines, block);
       const at = key ?? block?.[0] ?? 0;
-      const own = runsOnUnits(job["runs-on"]);
+      // A reusable-workflow call passes its runner as an input instead.
+      const own = runsOnUnits(job["runs-on"]).concat(
+        "uses" in job ? runsOnUnits(field(job, "with")) : []
+      );
       jobs.push({
         file,
         name,
@@ -379,33 +412,50 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
       });
     }
   }
-  return { steps, jobs };
+  return { steps, jobs, unreadable };
 }
 
 /** Whether a job targets the pool or Blacksmith in any `runs-on` unit or matrix value it reads. */
 const targetsPool = (job: Job): boolean =>
   job.units.some((unit) => POOL_TARGET.test(unit));
 
+/** A `runs-on` unit with each job output reference replaced by OUTPUT_MARK. */
+const marked = (unit: string): string =>
+  unit.replaceAll(OUTPUT_REF, OUTPUT_MARK);
+
+/** Whether every job output a unit reads is followed by a `||` fallback. */
+function hasFallbacks(unit: string): boolean {
+  const text = marked(unit);
+  return (
+    text.split(OUTPUT_MARK).length - 1 ===
+    [...text.matchAll(OUTPUT_FALLBACK)].length
+  );
+}
+
 /**
  * Whether one `runs-on` unit that names the pool takes it from picker jobs: it
  * reads at least one job output, every output it reads is a picker job's that
- * the job needs, no pool label or runner variable comes before the first
- * output, and no output is combined with `&&`.
+ * the job needs and has a fallback, no pool label or runner variable comes
+ * before the first output, and no output is combined with `&&` or compared.
  */
 function routedUnit(unit: string, job: Job, jobs: readonly Job[]): boolean {
   const refs = [...unit.matchAll(OUTPUT_REF)];
   const first = refs.at(0);
-  if (first === undefined || OUTPUT_AND.test(unit)) return false;
+  if (first === undefined || OUTPUT_MISUSE.test(marked(unit))) return false;
   const pool = POOL_TARGET.exec(unit);
   if (pool !== null && pool.index < first.index) return false;
   return refs.every((ref) => {
-    const name = ref.at(1) ?? "";
+    const name = ref.at(1) ?? ref.at(2) ?? "";
     const source = jobs.find(
       (other) => other.file === job.file && other.name === name
     );
     return source !== undefined && source.picker && job.needs.includes(name);
   });
 }
+
+/** Whether a job reads a picker output with no fallback, which leaves `runs-on` empty when the picker gives none. */
+const lacksFallback = (job: Job): boolean =>
+  job.units.some((unit) => unit.search(OUTPUT_REF) >= 0 && !hasFallbacks(unit));
 
 /**
  * Whether every unit of a job that names the pool is routed. A matrix leg may
@@ -492,12 +542,22 @@ export default {
       description:
         "Jobs reach the shared pool or Blacksmith only through a picker job's output, unless marked exempt",
       async check(ctx) {
-        const { jobs } = await load(ctx);
-        for (const job of jobs) {
-          if (!targetsPool(job) || job.exempt) continue;
-          if (routed(job, jobs)) continue;
+        const { jobs, unreadable } = await load(ctx);
+        for (const { file, error } of unreadable) {
           ctx.report.violation({
-            message: `Job \`${job.name}\` targets the self-hosted pool or Blacksmith without taking its runner from a picker job it needs`,
+            message: `${file} could not be read as YAML, so its runners are unchecked (${error})`,
+            file,
+            fix: "Fix the YAML syntax",
+          });
+        }
+        for (const job of jobs) {
+          if (job.exempt) continue;
+          const unrouted = targetsPool(job) && !routed(job, jobs);
+          if (!unrouted && !lacksFallback(job)) continue;
+          ctx.report.violation({
+            message: unrouted
+              ? `Job \`${job.name}\` targets the self-hosted pool or Blacksmith without taking its runner from a picker job it needs`
+              : `Job \`${job.name}\` reads a picker output with no fallback, so it has no runner when the picker gives none`,
             file: job.file,
             line: job.line,
             fix: "runs-on: ${{ fromJSON(needs.<picker job>.outputs.runs-on || <fallback>) }}, with the picker job in `needs`. A job whose purpose is the self-hosted machine itself carries `# runner-picker: exempt - <reason>` on the line before runs-on.",
