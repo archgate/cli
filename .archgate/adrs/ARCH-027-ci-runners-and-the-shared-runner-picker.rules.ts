@@ -502,6 +502,7 @@ export default {
           ctx.report.violation({
             message: `${file} could not be read as YAML, so its runners are unchecked (${error})`,
             file,
+            line: 1,
             fix: "Fix the YAML syntax",
           });
         }
@@ -529,6 +530,7 @@ export default {
           ctx.report.violation({
             message: `${record.problem}, so the public-repository rule cannot be checked`,
             file: REPOSITORY_FILE,
+            line: 1,
             fix: 'Write { "visibility": "public" | "private" | "internal" } as GitHub reports it; the enterprise-adrs Sync workflow keeps the file current',
           });
           return;
