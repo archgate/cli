@@ -1,56 +1,150 @@
 /// <reference path="../rules.d.ts" />
 
-/** A `uses:` line of any runner-picker action, with the reference after `@`. */
-const PICKER_USES =
-  /^\s*(?:-\s+)?uses:\s*["']?([\w.-]+\/runner-picker)@([^\s"'#]+)/u;
 /** The one picker action the enterprise uses. */
 const PICKER_ACTION = "barretotech/runner-picker";
+/** Any runner-picker action reference, with or without a subpath: owner, repository, subpath, ref. */
+const PICKER_REF = /^([\w.-]+)\/(runner-picker)((?:\/[^@]*)?)@(.+)$/iu;
 /** A full commit SHA. */
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
-/** A `runs-on:` line and its value. */
-const RUNS_ON = /^(\s*)runs-on:\s*(.*)$/u;
-/** A runner value that targets the shared pool or Blacksmith: a label or a runner variable. */
+/** A runner label or expression that targets the shared pool or Blacksmith. */
 const POOL_TARGET =
-  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER\b/iu;
-/** A runner value that reads a picker job's output. */
-const PICKER_OUTPUT = /\bneeds\.[\w-]+\.outputs\.runs-on\b/u;
+  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER\w*/iu;
+/** A `runs-on` that is the picker output, alone or as the first operand of a fallback. */
+const ROUTED =
+  /^\$\{\{\s*(?:fromJSON\(\s*)?needs\.([\w-]+)\.outputs\.runs-on\s*(?:\|\||\)|\}\})/iu;
+/** A `runs-on` that reads a matrix value. */
+const MATRIX_VALUE = /\bmatrix\.([\w-]+)/giu;
 /** The marker of a job whose purpose is the self-hosted machine itself. */
 const EXEMPT = /#\s*runner-picker:\s*exempt\b\s*[-:]\s*\S/iu;
-/** The inputs a picker step must set. */
+/** The inputs a picker step must set: the input name and what its value must read. */
 const REQUIRED_INPUTS: readonly (readonly [string, RegExp])[] = [
-  ["source: service", /^\s*source:\s*["']?service["']?\s*$/mu],
-  [
-    "capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}",
-    /^\s*capacity-url:\s*\$\{\{\s*vars\.RUNNER_CAPACITY_URL\s*\}\}\s*$/mu,
-  ],
-  [
-    "tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}",
-    /^\s*tailnet-client-id:\s*\$\{\{\s*vars\.TAILNET_CLIENT_ID_PICKER\s*\}\}\s*$/mu,
-  ],
+  ["source", /^service$/u],
+  ["capacity-url", /^\$\{\{\s*vars\.RUNNER_CAPACITY_URL\s*\}\}$/u],
+  ["tailnet-client-id", /^\$\{\{\s*vars\.TAILNET_CLIENT_ID_PICKER\s*\}\}$/u],
 ];
+/** The file the enterprise-adrs Sync workflow keeps current with the repository's visibility. */
+const REPOSITORY_FILE = ".archgate/repository.json";
 
-/** Workflow and composite-action files in scope. */
-function workflowFiles(ctx: RuleContext): string[] {
-  return ctx.scopedFiles.filter((file) => /\.ya?ml$/u.test(file));
+type Yaml = string | number | boolean | null | Yaml[] | { [key: string]: Yaml };
+type Mapping = { [key: string]: Yaml };
+type Step = { file: string; line: number; uses: string; with: Mapping };
+type Job = {
+  file: string;
+  name: string;
+  runsOn: string;
+  line: number;
+  exempt: boolean;
+  needs: string[];
+  picker: boolean;
+};
+
+const isMapping = (value: unknown): value is Mapping =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** Every string inside a YAML value, however deep. */
+function strings(value: Yaml | undefined): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((item) => strings(item));
+  if (isMapping(value))
+    return Object.values(value).flatMap((item) => strings(item));
+  return value === null || value === undefined ? [] : [String(value)];
 }
 
-/** The indentation of `line`. */
-function depthOf(line: string): number {
-  return line.match(/^\s*/u)?.[0].length ?? 0;
+/** The 1-based line of the first line at or after `from` that matches `pattern`, or 1. */
+function lineOf(lines: string[], pattern: RegExp, from = 0): number {
+  for (let index = from; index < lines.length; index++)
+    if (pattern.test(lines[index])) return index + 1;
+  return 1;
 }
 
-/** The text of the step whose `uses:` is at line index `at`: from its `- ` line to the next line at that depth or shallower. */
-function stepBlock(lines: string[], at: number): string {
-  let start = at;
-  while (start > 0 && !lines[start].trimStart().startsWith("- ")) start--;
-  const dash = depthOf(lines[start]);
-  let end = start + 1;
-  while (
-    end < lines.length &&
-    (lines[end].trim() === "" || depthOf(lines[end]) > dash)
-  )
-    end++;
-  return lines.slice(start, end).join("\n");
+/** The text of a `runs-on` value, as one string. */
+function runsOnText(value: Yaml | undefined): string {
+  if (typeof value === "string") return value.trim();
+  return JSON.stringify(value ?? "");
+}
+
+/** The values a `runs-on` takes from the job's matrix, including `include` entries. */
+function matrixValues(runsOn: string, strategy: Yaml | undefined): string[] {
+  const matrix = isMapping(strategy) ? strategy.matrix : undefined;
+  if (!isMapping(matrix)) return [];
+  const keys = [...runsOn.matchAll(MATRIX_VALUE)].map((match) => match[1]);
+  const include = Array.isArray(matrix.include) ? matrix.include : [];
+  return keys.flatMap((key) =>
+    strings(matrix[key]).concat(
+      include.flatMap((entry) => (isMapping(entry) ? strings(entry[key]) : []))
+    )
+  );
+}
+
+/** The workflow and composite-action files of the repository, read once. */
+async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
+  const files = ctx.scopedFiles.filter((file) => /\.ya?ml$/u.test(file));
+  const parsed = await Promise.all(
+    files.map(async (file) => {
+      const content: Yaml = (await ctx.readYAML(file)).content;
+      return {
+        file,
+        lines: (await ctx.readFile(file)).split(/\r?\n/u),
+        content,
+      };
+    })
+  );
+  const steps: Step[] = [];
+  const jobs: Job[] = [];
+  for (const { file, lines, content } of parsed) {
+    if (!isMapping(content)) continue;
+    const collect = (list: Yaml | undefined): Step[] =>
+      (Array.isArray(list) ? list : []).flatMap((step) =>
+        isMapping(step) && typeof step.uses === "string"
+          ? [
+              {
+                file,
+                line: lineOf(
+                  lines,
+                  new RegExp(
+                    `uses:\\s*["']?${step.uses.replaceAll(/[.*+?^${}()|[\]\\/]/gu, "\\$&")}`,
+                    "u"
+                  )
+                ),
+                uses: step.uses.trim(),
+                with: isMapping(step.with) ? step.with : {},
+              },
+            ]
+          : []
+      );
+    if (isMapping(content.runs)) steps.push(...collect(content.runs.steps));
+    if (!isMapping(content.jobs)) continue;
+    for (const [name, job] of Object.entries(content.jobs)) {
+      if (!isMapping(job)) continue;
+      const jobSteps = collect(job.steps);
+      steps.push(...jobSteps);
+      const jobLine = lineOf(
+        lines,
+        new RegExp(
+          `^\\s+${name.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&")}:\\s*(?:#.*)?$`,
+          "u"
+        )
+      );
+      const runsOnLine = lineOf(lines, /^\s*runs-on:/u, jobLine);
+      const runsOn = runsOnText(job["runs-on"]);
+      jobs.push({
+        file,
+        name,
+        runsOn: [runsOn, ...matrixValues(runsOn, job.strategy)].join("\n"),
+        line: runsOnLine,
+        exempt: runsOnLine > 1 && EXEMPT.test(lines[runsOnLine - 2]),
+        needs: strings(job.needs),
+        picker: jobSteps.some((step) => PICKER_REF.test(step.uses)),
+      });
+    }
+  }
+  return { steps, jobs };
+}
+
+/** Whether the repository declares itself public in REPOSITORY_FILE. */
+async function isPublic(ctx: RuleContext): Promise<boolean> {
+  const declared = await ctx.readJSON(REPOSITORY_FILE).catch(() => null);
+  return isMapping(declared) && declared.visibility === "public";
 }
 
 export default {
@@ -59,24 +153,22 @@ export default {
       description:
         "Runner pickers are barretotech/runner-picker pinned to a full commit SHA",
       async check(ctx) {
-        for (const file of workflowFiles(ctx)) {
-          const lines = (await ctx.readFile(file)).split(/\r?\n/u);
-          lines.forEach((line, index) => {
-            const match = line.match(PICKER_USES);
-            if (!match) return;
-            const [, action, ref] = match;
-            if (
-              action.toLowerCase() !== PICKER_ACTION ||
-              !COMMIT_SHA.test(ref)
-            ) {
-              ctx.report.violation({
-                message: `${action}@${ref} is not ${PICKER_ACTION} pinned to a full commit SHA`,
-                file,
-                line: index + 1,
-                fix: `uses: ${PICKER_ACTION}@<40-character SHA of the release> # vX.Y.Z`,
-              });
-            }
-          });
+        for (const step of (await load(ctx)).steps) {
+          const match = PICKER_REF.exec(step.uses);
+          if (!match) continue;
+          const [, owner, repository, subpath, ref] = match;
+          if (
+            `${owner}/${repository}`.toLowerCase() !== PICKER_ACTION ||
+            subpath !== "" ||
+            !COMMIT_SHA.test(ref)
+          ) {
+            ctx.report.violation({
+              message: `${step.uses} is not ${PICKER_ACTION} pinned to a full commit SHA`,
+              file: step.file,
+              line: step.line,
+              fix: `uses: ${PICKER_ACTION}@<40-character SHA of the release> # vX.Y.Z`,
+            });
+          }
         }
       },
     },
@@ -84,50 +176,73 @@ export default {
       description:
         "Each picker step asks the capacity service through the tailnet",
       async check(ctx) {
-        for (const file of workflowFiles(ctx)) {
-          const lines = (await ctx.readFile(file)).split(/\r?\n/u);
-          lines.forEach((line, index) => {
-            if (!PICKER_USES.test(line)) return;
-            const block = stepBlock(lines, index);
-            for (const [input, pattern] of REQUIRED_INPUTS) {
-              if (!pattern.test(block)) {
-                ctx.report.violation({
-                  message: `The runner picker step does not set ${input}`,
-                  file,
-                  line: index + 1,
-                  fix: `Add \`${input}\` under the step's \`with:\``,
-                });
-              }
+        for (const step of (await load(ctx)).steps) {
+          if (!PICKER_REF.test(step.uses)) continue;
+          for (const [input, expected] of REQUIRED_INPUTS) {
+            const value = step.with[input];
+            if (typeof value !== "string" || !expected.test(value.trim())) {
+              ctx.report.violation({
+                message: `The runner picker step's \`with: ${input}\` is not set as ARCH-001 requires`,
+                file: step.file,
+                line: step.line,
+                fix: "Under the step's `with:`, set `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`",
+              });
             }
-          });
+          }
         }
       },
     },
     "routed-runs-on": {
       description:
-        "Jobs reach the shared pool or Blacksmith only through a picker output, unless marked exempt",
+        "Jobs reach the shared pool or Blacksmith only through a picker job's output, unless marked exempt",
       async check(ctx) {
-        for (const file of workflowFiles(ctx)) {
-          const lines = (await ctx.readFile(file)).split(/\r?\n/u);
-          lines.forEach((line, index) => {
-            const match = line.match(RUNS_ON);
-            if (!match) return;
-            let value = match[2];
-            // A block value: the indented lines after `runs-on:`.
-            for (let i = index + 1; i < lines.length; i++) {
-              const depth = lines[i].match(/^\s*/u)?.[0].length ?? 0;
-              if (lines[i].trim() !== "" && depth <= match[1].length) break;
-              value += `\n${lines[i]}`;
-            }
-            if (!POOL_TARGET.test(value) || PICKER_OUTPUT.test(value)) return;
-            if (index > 0 && EXEMPT.test(lines[index - 1])) return;
-            ctx.report.violation({
-              message:
-                "This job targets the self-hosted pool or Blacksmith without asking the runner picker",
-              file,
-              line: index + 1,
-              fix: "Read the runner from a picker job: runs-on: ${{ fromJSON(needs.<picker>.outputs.runs-on || <fallback>) }}. A job whose purpose is the self-hosted machine itself carries `# runner-picker: exempt - <reason>` on the line before runs-on.",
-            });
+        const { jobs } = await load(ctx);
+        for (const job of jobs) {
+          if (!POOL_TARGET.test(job.runsOn) || job.exempt) continue;
+          const routed = ROUTED.exec(job.runsOn.split("\n")[0]);
+          const picker =
+            routed === null
+              ? undefined
+              : jobs.find(
+                  (other) => other.file === job.file && other.name === routed[1]
+                );
+          if (
+            picker !== undefined &&
+            picker.picker &&
+            job.needs.includes(picker.name)
+          )
+            continue;
+          ctx.report.violation({
+            message: `Job \`${job.name}\` targets the self-hosted pool or Blacksmith without taking its runner from a picker job it needs`,
+            file: job.file,
+            line: job.line,
+            fix: "runs-on: ${{ fromJSON(needs.<picker job>.outputs.runs-on || <fallback>) }}, with the picker job in `needs`. A job whose purpose is the self-hosted machine itself carries `# runner-picker: exempt - <reason>` on the line before runs-on.",
+          });
+        }
+      },
+    },
+    "public-hosted-only": {
+      description:
+        "A public repository uses neither the runner picker nor a self-hosted or Blacksmith runner",
+      async check(ctx) {
+        if (!(await isPublic(ctx))) return;
+        const { steps, jobs } = await load(ctx);
+        for (const step of steps.filter((item) => PICKER_REF.test(item.uses))) {
+          ctx.report.violation({
+            message: "A public repository does not use the runner picker",
+            file: step.file,
+            line: step.line,
+            fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
+          });
+        }
+        for (const job of jobs.filter((item) =>
+          POOL_TARGET.test(item.runsOn)
+        )) {
+          ctx.report.violation({
+            message: `Job \`${job.name}\` of a public repository targets a self-hosted or Blacksmith runner`,
+            file: job.file,
+            line: job.line,
+            fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
           });
         }
       },

@@ -24,12 +24,9 @@
   // type-aware analysis in this context — attempted JSDoc annotations
   // cascaded into unrelated "error"-typed inference across the whole file
   // rather than fixing anything.
-  // The ci-runners ADR rules are synced from archgate/enterprise-adrs
-  // (tracked in .archgate/imports.json) and are not edited here.
   "ignorePatterns": [
     "docs/**",
-    ".simple-release.js",
-    ".archgate/adrs/ARCH-027-ci-runners-and-the-shared-runner-picker.rules.ts"
+    ".simple-release.js"
   ],
   "categories": {
     "correctness": "error",

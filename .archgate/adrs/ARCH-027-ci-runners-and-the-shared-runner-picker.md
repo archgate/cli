@@ -4,12 +4,10 @@ title: CI Runners and the Shared Runner Picker
 domain: architecture
 rules: true
 files:
-  [
-    ".github/workflows/*.yml",
-    ".github/workflows/*.yaml",
-    ".github/actions/**/action.yml",
-    ".github/actions/**/action.yaml",
-  ]
+  - ".github/workflows/*.yml"
+  - ".github/workflows/*.yaml"
+  - "**/action.yml"
+  - "**/action.yaml"
 ---
 
 # CI Runners and the Shared Runner Picker
@@ -39,7 +37,7 @@ GitHub-hosted minutes cost nothing for public repositories, and a self-hosted ru
 
 - **DO** give the picker job `permissions: { id-token: write }` at job level, `timeout-minutes: 3`, and `runs-on: ubuntu-slim`.
 - **DO** write the consuming job's `runs-on` as `${{ fromJSON(needs.<picker>.outputs.runs-on || <fallback>) }}` and its condition as `!cancelled() && ...`, so a skipped or failed picker still runs the job.
-- **DO** skip the picker for pull requests from forks: `github.event.pull_request.head.repo.full_name == github.repository`.
+- **DO** skip the picker only for pull requests from forks, which cannot mint the tailnet identity: `github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository`. Every other event runs it.
 - **DO** keep the action pinned by full SHA. Verify the SHA against `barretotech/runner-picker`'s release tag when adopting or upgrading it.
 
 ### Don't
@@ -65,16 +63,18 @@ GitHub-hosted minutes cost nothing for public repositories, and a self-hosted ru
 
 - **The service is unreachable.** The picker answers self-hosted with "no answer from the capacity service", and the job waits for the pool. The TatuiCloud watchdog opens an incident when picker jobs fall back.
 - **Exemptions spread.** An exempt job takes runners without asking. Each exemption carries its reason on the line before `runs-on`.
+- **Fallbacks bypass the service.** A job whose picker was skipped (a fork's pull request) or gave no answer runs on its fallback. A self-hosted fallback then takes the first free runner, which can be one the service is holding for another job. A hosted fallback avoids that, at the cost of included minutes.
 
 ## Compliance and Enforcement
 
-The companion rules check every workflow and composite action:
+The companion rules read every workflow and every composite action (`action.yml` anywhere in the repository) as YAML, so comments never count:
 
-- `picker-pin`: any `runner-picker` action is `barretotech/runner-picker@<40-hex SHA>`.
-- `picker-service`: each picker step sets `source: service` and reads `vars.RUNNER_CAPACITY_URL` and `vars.TAILNET_CLIENT_ID_PICKER`.
-- `routed-runs-on`: a `runs-on` that names a self-hosted, `tatuicloud*` or `blacksmith-*` label, or reads a `vars.*RUNNER` variable, also reads a picker output (`needs.<job>.outputs.runs-on`), unless the line before it carries the exemption marker.
+- `picker-pin`: any `runner-picker` action, with or without a subpath, is `barretotech/runner-picker@<40-hex SHA>`.
+- `picker-service`: each picker step's `with:` sets `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`.
+- `routed-runs-on`: a job whose `runs-on`, or a matrix value it reads, names a self-hosted, `tatuicloud*` or `blacksmith-*` label or a `vars.*RUNNER*` variable takes its runner from a picker job: the `runs-on` starts with `needs.<job>.outputs.runs-on`, the job lists `<job>` in `needs`, and `<job>` runs the picker. The exemption marker on the line before `runs-on` waives it.
+- `public-hosted-only`: in a repository whose `.archgate/repository.json` says `"visibility": "public"`, no step uses a runner picker and no job targets a self-hosted or Blacksmith runner, exempt or not. The enterprise-adrs Sync workflow writes that file from GitHub's record of the repository.
 
-GitHub enforces the public-repository rule: the enterprise runner group `tatuicloud` does not serve public repositories, and the picker's organization variables are visible to private and internal repositories only.
+GitHub enforces the same boundary: the enterprise runner group `tatuicloud` does not serve public repositories, and the picker's organization variables are visible to private and internal repositories only.
 
 ## References
 
