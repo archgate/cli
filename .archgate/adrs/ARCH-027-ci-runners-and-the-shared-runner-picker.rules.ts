@@ -9,9 +9,10 @@ const COMMIT_SHA = /^[0-9a-f]{40}$/u;
 /** A runner label or expression that targets the shared pool or Blacksmith. */
 const POOL_TARGET =
   /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER\w*/iu;
-/** A `runs-on` that is the picker output, alone or as the first operand of a fallback. */
-const ROUTED =
-  /^\$\{\{\s*(?:fromJSON\(\s*)?needs\.([\w-]+)\.outputs\.runs-on\s*(?:\|\||\)|\}\})/iu;
+/** A job output read in a `runs-on` expression, with the job's name. */
+const OUTPUT_REF = /needs\.([\w-]+)\.outputs\.runs-on/giu;
+/** A job output combined with `&&`, which makes the next operand win whenever the output is set. */
+const OUTPUT_AND = /needs\.[\w-]+\.outputs\.runs-on\s*&&/iu;
 /** A `runs-on` that reads a matrix value. */
 const MATRIX_VALUE = /\bmatrix\.([\w-]+)/giu;
 /** The marker of a job whose purpose is the self-hosted machine itself. */
@@ -32,6 +33,7 @@ type Job = {
   file: string;
   name: string;
   runsOn: string;
+  ownRunsOn: string;
   line: number;
   exempt: boolean;
   needs: string[];
@@ -205,6 +207,7 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
         runsOn: [runsOn, ...matrixValues(runsOn, field(job, "strategy"))].join(
           "\n"
         ),
+        ownRunsOn: runsOn,
         line: at + 1,
         exempt: at > 0 && EXEMPT.test(lines.at(at - 1) ?? ""),
         needs: strings(field(job, "needs")),
@@ -213,6 +216,27 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
     }
   }
   return { steps, jobs };
+}
+
+/**
+ * Whether a job takes its runner from picker jobs: its own `runs-on` reads at
+ * least one job output, every output it reads is a picker job's that the job
+ * needs, no pool label or runner variable comes before the first output, and
+ * no output is combined with `&&`. A matrix leg may read its own picker.
+ */
+function routed(job: Job, jobs: readonly Job[]): boolean {
+  const refs = [...job.ownRunsOn.matchAll(OUTPUT_REF)];
+  const first = refs.at(0);
+  if (first === undefined || OUTPUT_AND.test(job.ownRunsOn)) return false;
+  const pool = POOL_TARGET.exec(job.ownRunsOn);
+  if (pool !== null && pool.index < first.index) return false;
+  return refs.every((ref) => {
+    const name = ref.at(1) ?? "";
+    const source = jobs.find(
+      (other) => other.file === job.file && other.name === name
+    );
+    return source !== undefined && source.picker && job.needs.includes(name);
+  });
 }
 
 /** The visibility REPOSITORY_FILE records, or undefined when it is missing or unreadable. */
@@ -282,21 +306,7 @@ export default {
         const { jobs } = await load(ctx);
         for (const job of jobs) {
           if (!POOL_TARGET.test(job.runsOn) || job.exempt) continue;
-          const routedJob = ROUTED.exec(job.runsOn.split("\n").at(0) ?? "")?.at(
-            1
-          );
-          const picker =
-            routedJob === undefined
-              ? undefined
-              : jobs.find(
-                  (other) => other.file === job.file && other.name === routedJob
-                );
-          if (
-            picker !== undefined &&
-            picker.picker &&
-            job.needs.includes(picker.name)
-          )
-            continue;
+          if (routed(job, jobs)) continue;
           ctx.report.violation({
             message: `Job \`${job.name}\` targets the self-hosted pool or Blacksmith without taking its runner from a picker job it needs`,
             file: job.file,
