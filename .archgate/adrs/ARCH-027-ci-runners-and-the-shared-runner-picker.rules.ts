@@ -125,131 +125,33 @@ function structural(lines: string[]): boolean[] {
   });
 }
 
-type Literal = boolean | number | string | null;
-/** A token of a constant expression: literals, operators and parentheses only. */
+/** A token of a literal-only expression: literals, operators and parentheses. */
 const TOKEN =
-  /\s*(\(|\)|==|!=|<=|>=|<|>|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
+  /\s*(?:\(|\)|==|!=|<=|>=|<|>|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
 
-/** GitHub's number coercion of a literal. */
-function numberOf(value: Literal): number {
-  if (value === null) return 0;
-  if (typeof value === "boolean") return value ? 1 : 0;
-  return typeof value === "number"
-    ? value
-    : value.trim() === ""
-      ? 0
-      : Number(value);
-}
-
-/** GitHub's truthiness of a literal. */
-const truthy = (value: Literal): boolean =>
-  value !== false &&
-  value !== null &&
-  value !== "" &&
-  value !== 0 &&
-  !Number.isNaN(value);
-
-/** GitHub's loose equality of two literals: strings case-insensitively, otherwise as numbers. */
-function equal(left: Literal, right: Literal): boolean {
-  if (typeof left === "string" && typeof right === "string")
-    return left.toLowerCase() === right.toLowerCase();
-  return numberOf(left) === numberOf(right);
-}
-
-const COMPARISONS = new Set(["==", "!=", "<", "<=", ">", ">="]);
-
-/** GitHub's comparison of two literals: strings case-insensitively, otherwise as numbers. */
-function compare(op: string, left: Literal, right: Literal): boolean {
-  if (op === "==" || op === "!=") return equal(left, right) === (op === "==");
-  const strings = typeof left === "string" && typeof right === "string";
-  const a = strings ? left.toLowerCase() : numberOf(left);
-  const b = strings ? right.toLowerCase() : numberOf(right);
-  if (op === "<") return a < b;
-  if (op === "<=") return a <= b;
-  return op === ">" ? a > b : a >= b;
-}
-
-/** The value of an expression made only of literals, or undefined when it reads any context. */
-function constantValue(expression: string): Literal | undefined {
-  const tokens: string[] = [];
+/** Whether an expression is made only of literals, so it reads no context at all. */
+function literalOnly(expression: string): boolean {
   let read = 0;
   TOKEN.lastIndex = 0;
   for (
     let match = TOKEN.exec(expression);
     match !== null;
     match = TOKEN.exec(expression)
-  ) {
-    tokens.push(match.at(1) ?? "");
+  )
     read = TOKEN.lastIndex;
-  }
-  if (expression.slice(read).trim() !== "" || tokens.length === 0)
-    return undefined;
-  let at = 0;
-  const primary = (): Literal | undefined => {
-    const token = tokens.at(at++);
-    if (token === "(") {
-      const value = or();
-      return tokens.at(at++) === ")" ? value : undefined;
-    }
-    if (token === "!") {
-      const value = primary();
-      return value === undefined ? undefined : !truthy(value);
-    }
-    if (token === "true" || token === "false") return token === "true";
-    if (token === "null") return null;
-    if (token?.startsWith("'") === true)
-      return token.slice(1, -1).replaceAll("''", "'");
-    return token === undefined || Number.isNaN(Number(token))
-      ? undefined
-      : Number(token);
-  };
-  const comparison = (): Literal | undefined => {
-    let left = primary();
-    for (
-      let op = tokens.at(at);
-      op !== undefined && COMPARISONS.has(op);
-      op = tokens.at(at)
-    ) {
-      at++;
-      const right = primary();
-      if (left === undefined || right === undefined) return undefined;
-      left = compare(op, left, right);
-    }
-    return left;
-  };
-  const and = (): Literal | undefined => {
-    let left = comparison();
-    while (tokens.at(at) === "&&") {
-      at++;
-      const right = comparison();
-      if (left === undefined || right === undefined) return undefined;
-      left = truthy(left) ? right : left;
-    }
-    return left;
-  };
-  const or = (): Literal | undefined => {
-    let left = and();
-    while (tokens.at(at) === "||") {
-      at++;
-      const right = and();
-      if (left === undefined || right === undefined) return undefined;
-      left = truthy(left) ? left : right;
-    }
-    return left;
-  };
-  const value = or();
-  return at === tokens.length ? value : undefined;
+  return read > 0 && expression.slice(read).trim() === "";
 }
 
-/** A job condition that is constantly false, such as `false` or `${{ !true }}`, so the job never runs. */
-function neverRuns(condition: Yaml | undefined): boolean {
+/**
+ * Whether a job condition is a constant, such as `false`, `${{ !true }}` or
+ * `${{ 1 > 2 }}`. A picker job only counts when its condition reads context
+ * (the fork guard, say): a constant one either never runs or guards nothing.
+ */
+function constantCondition(condition: Yaml | undefined): boolean {
   if (condition === undefined || condition === null) return false;
-  if (typeof condition === "boolean" || typeof condition === "number")
-    return !truthy(condition);
-  if (typeof condition !== "string") return false;
+  if (typeof condition !== "string") return true;
   const wrapped = /^\s*\$\{\{([\s\S]*)\}\}\s*$/u.exec(condition);
-  const value = constantValue(wrapped?.at(1) ?? condition);
-  return value !== undefined && !truthy(value);
+  return literalOnly(wrapped?.at(1) ?? condition);
 }
 
 /**
@@ -440,7 +342,7 @@ async function load(
         needs: strings(field(job, "needs")),
         picker:
           forwardsPicker(jobSteps, field(job, "outputs")) &&
-          !neverRuns(field(job, "if")),
+          !constantCondition(field(job, "if")),
         group:
           isMapping(job["runs-on"]) &&
           field(job["runs-on"], "group") !== undefined,
