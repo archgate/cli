@@ -53,7 +53,7 @@ function strings(value: Yaml | undefined): string[] {
 /** The 1-based line of the first line at or after `from` that matches `pattern`, or 1. */
 function lineOf(lines: string[], pattern: RegExp, from = 0): number {
   for (let index = from; index < lines.length; index++)
-    if (pattern.test(lines[index])) return index + 1;
+    if (pattern.test(lines[index] ?? "")) return index + 1;
   return 1;
 }
 
@@ -65,10 +65,13 @@ function runsOnText(value: Yaml | undefined): string {
 
 /** The values a `runs-on` takes from the job's matrix, including `include` entries. */
 function matrixValues(runsOn: string, strategy: Yaml | undefined): string[] {
-  const matrix = isMapping(strategy) ? strategy.matrix : undefined;
+  const matrix = isMapping(strategy) ? strategy["matrix"] : undefined;
   if (!isMapping(matrix)) return [];
-  const keys = [...runsOn.matchAll(MATRIX_VALUE)].map((match) => match[1]);
-  const include = Array.isArray(matrix.include) ? matrix.include : [];
+  const keys = [...runsOn.matchAll(MATRIX_VALUE)].map(
+    (match) => match[1] ?? ""
+  );
+  const listed = matrix["include"];
+  const include = Array.isArray(listed) ? listed : [];
   return keys.flatMap((key) =>
     strings(matrix[key]).concat(
       include.flatMap((entry) => (isMapping(entry) ? strings(entry[key]) : []))
@@ -94,29 +97,28 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
   for (const { file, lines, content } of parsed) {
     if (!isMapping(content)) continue;
     const collect = (list: Yaml | undefined): Step[] =>
-      (Array.isArray(list) ? list : []).flatMap((step) =>
-        isMapping(step) && typeof step.uses === "string"
-          ? [
-              {
-                file,
-                line: lineOf(
-                  lines,
-                  new RegExp(
-                    `uses:\\s*["']?${step.uses.replaceAll(/[.*+?^${}()|[\]\\/]/gu, "\\$&")}`,
-                    "u"
-                  )
-                ),
-                uses: step.uses.trim(),
-                with: isMapping(step.with) ? step.with : {},
-              },
-            ]
-          : []
-      );
-    if (isMapping(content.runs)) steps.push(...collect(content.runs.steps));
-    if (!isMapping(content.jobs)) continue;
-    for (const [name, job] of Object.entries(content.jobs)) {
+      (Array.isArray(list) ? list : []).flatMap((step) => {
+        if (!isMapping(step)) return [];
+        const uses = step["uses"];
+        if (typeof uses !== "string") return [];
+        const inputs = step["with"];
+        const escaped = uses.replaceAll(/[.*+?^${}()|[\]\\/]/gu, "\\$&");
+        return [
+          {
+            file,
+            line: lineOf(lines, new RegExp(`uses:\\s*["']?${escaped}`, "u")),
+            uses: uses.trim(),
+            with: isMapping(inputs) ? inputs : {},
+          },
+        ];
+      });
+    const runs = content["runs"];
+    if (isMapping(runs)) steps.push(...collect(runs["steps"]));
+    const declaredJobs = content["jobs"];
+    if (!isMapping(declaredJobs)) continue;
+    for (const [name, job] of Object.entries(declaredJobs)) {
       if (!isMapping(job)) continue;
-      const jobSteps = collect(job.steps);
+      const jobSteps = collect(job["steps"]);
       steps.push(...jobSteps);
       const jobLine = lineOf(
         lines,
@@ -130,10 +132,10 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
       jobs.push({
         file,
         name,
-        runsOn: [runsOn, ...matrixValues(runsOn, job.strategy)].join("\n"),
+        runsOn: [runsOn, ...matrixValues(runsOn, job["strategy"])].join("\n"),
         line: runsOnLine,
-        exempt: runsOnLine > 1 && EXEMPT.test(lines[runsOnLine - 2]),
-        needs: strings(job.needs),
+        exempt: runsOnLine > 1 && EXEMPT.test(lines[runsOnLine - 2] ?? ""),
+        needs: strings(job["needs"]),
         picker: jobSteps.some((step) => PICKER_REF.test(step.uses)),
       });
     }
@@ -144,7 +146,7 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
 /** Whether the repository declares itself public in REPOSITORY_FILE. */
 async function isPublic(ctx: RuleContext): Promise<boolean> {
   const declared = await ctx.readJSON(REPOSITORY_FILE).catch(() => null);
-  return isMapping(declared) && declared.visibility === "public";
+  return isMapping(declared) && declared["visibility"] === "public";
 }
 
 export default {
@@ -156,7 +158,7 @@ export default {
         for (const step of (await load(ctx)).steps) {
           const match = PICKER_REF.exec(step.uses);
           if (!match) continue;
-          const [, owner, repository, subpath, ref] = match;
+          const [, owner = "", repository = "", subpath = "", ref = ""] = match;
           if (
             `${owner}/${repository}`.toLowerCase() !== PICKER_ACTION ||
             subpath !== "" ||
@@ -199,12 +201,12 @@ export default {
         const { jobs } = await load(ctx);
         for (const job of jobs) {
           if (!POOL_TARGET.test(job.runsOn) || job.exempt) continue;
-          const routed = ROUTED.exec(job.runsOn.split("\n")[0]);
+          const routedJob = ROUTED.exec(job.runsOn.split("\n")[0] ?? "")?.[1];
           const picker =
-            routed === null
+            routedJob === undefined
               ? undefined
               : jobs.find(
-                  (other) => other.file === job.file && other.name === routed[1]
+                  (other) => other.file === job.file && other.name === routedJob
                 );
           if (
             picker !== undefined &&
