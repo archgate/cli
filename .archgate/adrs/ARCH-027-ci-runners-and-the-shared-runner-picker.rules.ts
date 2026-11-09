@@ -8,7 +8,7 @@ const PICKER_REF = /^([\w.-]+)\/(runner-picker)((?:\/[^@]*)?)@(.+)$/iu;
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
 /** A runner label or expression that targets the shared pool or Blacksmith. */
 const POOL_TARGET =
-  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER\w*/iu;
+  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER(?:_\w+)?\b/iu;
 /** A job output read in a `runs-on` expression, with the job's name. */
 const OUTPUT_REF = /needs\.([\w-]+)\.outputs\.runs-on/giu;
 /** A job output combined with `&&`, which makes the next operand win whenever the output is set. */
@@ -34,6 +34,7 @@ type Job = {
   name: string;
   runsOn: string;
   ownRunsOn: string;
+  matrixRunsOn: string;
   line: number;
   exempt: boolean;
   needs: string[];
@@ -96,10 +97,14 @@ function neverRuns(condition: Yaml | undefined): boolean {
   );
 }
 
-/** The value of a `uses:` line, unquoted and without a trailing comment, or undefined. */
+/**
+ * The value of a `uses:` key line, unquoted and without a trailing comment, or
+ * undefined. A key needs a space after its colon, so plain-scalar text such as
+ * `uses:owner/action` never counts.
+ */
 function usesOf(line: string): string | undefined {
   const text = line.trimStart().replace(/^-\s+/u, "");
-  if (!text.startsWith("uses:")) return undefined;
+  if (!/^uses:(?:\s|$)/u.test(text)) return undefined;
   return text
     .slice("uses:".length)
     .replace(/\s+#.*$/u, "")
@@ -132,11 +137,11 @@ function jobBlocks(lines: string[]): Map<string, readonly [number, number]> {
   return blocks;
 }
 
-/** The index of the job's own `runs-on:` key within its block, or the job's first line. */
+/** The index of the job's own block `runs-on:` key, or undefined for a flow-style job. */
 function runsOnIndex(
   lines: string[],
   [first, end]: readonly [number, number]
-): number {
+): number | undefined {
   const child = lines
     .slice(first + 1, end)
     .find((line) => line.trim() !== "" && !line.trimStart().startsWith("#"));
@@ -145,7 +150,7 @@ function runsOnIndex(
     const line = lines.at(index) ?? "";
     if (indentOf(line) === depth && keyOf(line) === "runs-on") return index;
   }
-  return first;
+  return undefined;
 }
 
 /** The text of a `runs-on` value, as one string. */
@@ -225,17 +230,21 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
       const jobSteps = collect(field(job, "steps"));
       steps.push(...jobSteps);
       const block = blocks.get(name);
-      const at = block === undefined ? 0 : runsOnIndex(lines, block);
+      // Only a block `runs-on:` key can carry the exemption marker; a flow-style
+      // job is reported at its own line and is never exempt.
+      const key = block === undefined ? undefined : runsOnIndex(lines, block);
+      const at = key ?? block?.[0] ?? 0;
       const runsOn = runsOnText(job["runs-on"]);
+      const matrix = matrixValues(runsOn, field(job, "strategy"));
       jobs.push({
         file,
         name,
-        runsOn: [runsOn, ...matrixValues(runsOn, field(job, "strategy"))].join(
-          "\n"
-        ),
+        runsOn: [runsOn, ...matrix].join("\n"),
         ownRunsOn: runsOn,
+        matrixRunsOn: matrix.join("\n"),
         line: at + 1,
-        exempt: at > 0 && EXEMPT.test(lines.at(at - 1) ?? ""),
+        exempt:
+          key !== undefined && key > 0 && EXEMPT.test(lines.at(key - 1) ?? ""),
         needs: strings(field(job, "needs")),
         picker:
           jobSteps.some((step) => PICKER_REF.test(step.uses)) &&
@@ -250,9 +259,11 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
  * Whether a job takes its runner from picker jobs: its own `runs-on` reads at
  * least one job output, every output it reads is a picker job's that the job
  * needs, no pool label or runner variable comes before the first output, and
- * no output is combined with `&&`. A matrix leg may read its own picker.
+ * no output is combined with `&&`. A matrix leg may read its own picker, but a
+ * matrix value naming the pool is a label used directly, so it never routes.
  */
 function routed(job: Job, jobs: readonly Job[]): boolean {
+  if (POOL_TARGET.test(job.matrixRunsOn)) return false;
   const refs = [...job.ownRunsOn.matchAll(OUTPUT_REF)];
   const first = refs.at(0);
   if (first === undefined || OUTPUT_AND.test(job.ownRunsOn)) return false;
@@ -267,19 +278,30 @@ function routed(job: Job, jobs: readonly Job[]): boolean {
   });
 }
 
-/** The visibility REPOSITORY_FILE records, or undefined when it is missing or unreadable. */
-async function visibilityOf(ctx: RuleContext): Promise<string | undefined> {
-  const declared: unknown = await ctx
-    .readJSON(REPOSITORY_FILE)
-    .catch(() => null);
+/** The visibility REPOSITORY_FILE records, or why it cannot be read. */
+async function visibilityOf(
+  ctx: RuleContext
+): Promise<{ visibility: string } | { problem: string }> {
+  const text = await ctx.readFile(REPOSITORY_FILE).catch(() => null);
+  if (text === null) return { problem: `${REPOSITORY_FILE} is missing` };
+  let declared: unknown;
+  try {
+    declared = JSON.parse(text);
+  } catch (error) {
+    return {
+      problem: `${REPOSITORY_FILE} is not valid JSON (${String(error)})`,
+    };
+  }
   const visibility = isMapping(declared)
     ? field(declared, "visibility")
     : undefined;
   return visibility === "public" ||
     visibility === "private" ||
     visibility === "internal"
-    ? visibility
-    : undefined;
+    ? { visibility }
+    : {
+        problem: `${REPOSITORY_FILE} does not record "visibility" as public, private or internal`,
+      };
 }
 
 export default {
@@ -348,16 +370,16 @@ export default {
       description:
         "A public repository uses neither the runner picker nor a self-hosted or Blacksmith runner",
       async check(ctx) {
-        const visibility = await visibilityOf(ctx);
-        if (visibility === undefined) {
+        const record = await visibilityOf(ctx);
+        if ("problem" in record) {
           ctx.report.violation({
-            message: `${REPOSITORY_FILE} is missing or does not record the repository's visibility, so the public-repository rule cannot be checked`,
+            message: `${record.problem}, so the public-repository rule cannot be checked`,
             file: REPOSITORY_FILE,
             fix: 'Write { "visibility": "public" | "private" | "internal" } as GitHub reports it; the enterprise-adrs Sync workflow keeps the file current',
           });
           return;
         }
-        if (visibility !== "public") return;
+        if (record.visibility !== "public") return;
         const { steps, jobs } = await load(ctx);
         for (const step of steps.filter((item) => PICKER_REF.test(item.uses))) {
           ctx.report.violation({
