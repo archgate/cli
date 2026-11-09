@@ -13,10 +13,13 @@ Place linter plugin files here, named by tool:
 ## Usage with oxlint
 
 1. Create `.archgate/lint/oxlint.js` exporting your plugin rules.
-2. Reference it in your oxlint config:
+2. Load it with `jsPlugins` in your oxlint config, and turn its rules on under `rules`, prefixed with the plugin's `meta.name`:
 
 ```json
-{ "plugins": [".archgate/lint/oxlint.js"] }
+{
+  "jsPlugins": ["./.archgate/lint/oxlint.js"],
+  "rules": { "<plugin name>/<rule name>": "error" }
+}
 ```
 
 ## Why here?
