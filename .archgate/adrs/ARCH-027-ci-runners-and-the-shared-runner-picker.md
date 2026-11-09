@@ -51,7 +51,7 @@ GitHub-hosted minutes cost nothing for public repositories, and a self-hosted ru
 ### Positive
 
 - A full pool overflows to Blacksmith or GitHub-hosted instead of queueing, within the free minutes of each.
-- No job takes a runner the service has handed to another job, so the service's view of the pool stays accurate.
+- A routed job runs where the service sent it, so the service's view of the pool stays accurate apart from fallbacks and exempt jobs (see Risks).
 - One pinned action across the enterprise means one upgrade path and one place to audit.
 
 ### Negative
@@ -74,7 +74,7 @@ The companion rules read every workflow and every composite action (`action.yml`
 - `routed-runs-on`: a job whose `runs-on`, or a matrix value it reads, names a self-hosted, `tatuicloud*` or `blacksmith-*` label or a `vars.*RUNNER*` variable takes its runner from a picker job: the `runs-on` starts with `needs.<job>.outputs.runs-on`, the job lists `<job>` in `needs`, and `<job>` runs the picker. The exemption marker on the line before `runs-on` waives it.
 - `public-hosted-only`: in a repository whose `.archgate/repository.json` says `"visibility": "public"`, no step uses a runner picker and no job targets a self-hosted or Blacksmith runner, exempt or not. The enterprise-adrs Sync workflow writes that file from GitHub's record of the repository.
 
-GitHub enforces the same boundary: the enterprise runner group `tatuicloud` does not serve public repositories, and the picker's organization variables are visible to private and internal repositories only.
+GitHub limits what a public workflow that breaks the rule can reach, without rejecting the workflow itself: the enterprise runner group `tatuicloud` does not serve public repositories, so a job naming its labels never gets a runner, and the picker's organization variables are visible to private and internal repositories only, so a picker step there has no service to ask. `public-hosted-only` is what rejects such a workflow.
 
 ## References
 
