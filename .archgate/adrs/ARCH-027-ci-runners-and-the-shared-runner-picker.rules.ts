@@ -73,6 +73,29 @@ function keyOf(line: string): string | undefined {
     : undefined;
 }
 
+/** A key whose value is a block scalar (`run: |`, `script: >-`). */
+const BLOCK_SCALAR = /:\s*[|>][+-]?\d*\s*(?:#.*)?$/u;
+
+/** Which lines are YAML structure rather than the contents of a block scalar. */
+function structural(lines: string[]): boolean[] {
+  let block: number | undefined;
+  return lines.map((line) => {
+    const blank = line.trim() === "";
+    if (block !== undefined && (blank || indentOf(line) > block)) return false;
+    block = BLOCK_SCALAR.test(line) ? indentOf(line) : undefined;
+    return !blank;
+  });
+}
+
+/** A job condition that is constantly false, so the job never runs. */
+function neverRuns(condition: Yaml | undefined): boolean {
+  if (condition === false || condition === 0) return true;
+  if (typeof condition !== "string") return false;
+  return /^\s*(?:\$\{\{\s*)?(?:false|0|''|"")\s*(?:\}\})?\s*$/iu.test(
+    condition
+  );
+}
+
 /** The value of a `uses:` line, unquoted and without a trailing comment, or undefined. */
 function usesOf(line: string): string | undefined {
   const text = line.trimStart().replace(/^-\s+/u, "");
@@ -165,7 +188,8 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
   for (const { file, lines, content } of parsed) {
     if (!isMapping(content)) continue;
     // Steps are read in document order, so the nth step using an action is on
-    // the nth line using it.
+    // the nth structural line using it; script text never counts.
+    const yaml = structural(lines);
     const seen = new Map<string, number>();
     const collect = (list: Yaml | undefined): Step[] =>
       (Array.isArray(list) ? list : []).flatMap((step) => {
@@ -176,7 +200,9 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
         const nth = seen.get(action) ?? 0;
         seen.set(action, nth + 1);
         const at = lines
-          .map((line, index) => (usesOf(line) === action ? index : -1))
+          .map((line, index) =>
+            yaml.at(index) === true && usesOf(line) === action ? index : -1
+          )
           .filter((index) => index >= 0)
           .at(nth);
         const inputs = field(step, "with");
@@ -211,7 +237,9 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
         line: at + 1,
         exempt: at > 0 && EXEMPT.test(lines.at(at - 1) ?? ""),
         needs: strings(field(job, "needs")),
-        picker: jobSteps.some((step) => PICKER_REF.test(step.uses)),
+        picker:
+          jobSteps.some((step) => PICKER_REF.test(step.uses)) &&
+          !neverRuns(field(job, "if")),
       });
     }
   }
