@@ -18,9 +18,7 @@ Place linter plugin files here, named by tool:
 ```json
 {
   "jsPlugins": ["./.archgate/lint/oxlint.js"],
-  "rules": {
-    "<plugin name>/<rule name>": "error"
-  }
+  "rules": { "<plugin name>/<rule name>": "error" }
 }
 ```
 
