@@ -8,10 +8,10 @@ const PICKER_REF = /^([\w.-]+)\/(runner-picker)((?:\/[^@]*)?)@(.+)$/iu;
 const COMMIT_SHA = /^[0-9a-f]{40}$/u;
 /** A runner label or expression that targets the shared pool or Blacksmith. */
 const POOL_TARGET =
-  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars\.\w*RUNNER(?:_\w+)?\b/iu;
-/** A job output read in a `runs-on` expression, with the job's name. */
+  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars(?:\.\w*RUNNER(?:_\w+)?\b|\[\s*['"]\w*RUNNER(?:_\w+)?['"]\s*\])/iu;
+/** A job's `runs-on` output read in an expression, with the job's name; `runs-on-cache` is another output. */
 const OUTPUT_REF =
-  /needs(?:\.([\w-]+)|\[\s*['"]([\w-]+)['"]\s*\])\s*\.outputs(?:\.runs-on|\[\s*['"]runs-on['"]\s*\])/giu;
+  /needs(?:\.([\w-]+)|\[\s*['"]([\w-]+)['"]\s*\])\s*\.outputs(?:\.runs-on(?![\w-])|\[\s*['"]runs-on['"]\s*\])/giu;
 /** What a job output reference reads as once replaced, to test the operators around it. */
 const OUTPUT_MARK = "@picker-output@";
 /**
@@ -19,11 +19,11 @@ const OUTPUT_MARK = "@picker-output@";
  * (the next operand wins whenever it is set) or compared, which discards it.
  */
 const OUTPUT_MISUSE =
-  /@picker-output@\s*(?:&&|[=!]=|[<>])|(?:[=!]=|[<>]=?)\s*@picker-output@/u;
+  /@picker-output@[\s)]*(?:&&|[=!]=|[<>])|(?:[=!]=|[<>]=?)[\s(]*@picker-output@/u;
 /** An output followed by `||`, the fallback a skipped or failed picker leaves room for. */
 const OUTPUT_FALLBACK = /@picker-output@\s*\|\|/gu;
 /** A `runs-on` that reads a matrix value. */
-const MATRIX_VALUE = /\bmatrix\.([\w-]+)/giu;
+const MATRIX_VALUE = /\bmatrix(?:\.([\w-]+)|\[\s*['"]([\w-]+)['"]\s*\])/giu;
 /** The marker of a job whose purpose is the self-hosted machine itself. */
 const EXEMPT = /#\s*runner-picker:\s*exempt\b\s*[-:]\s*\S/iu;
 /** The inputs a picker step must set: the input name and what its value must read. */
@@ -37,7 +37,13 @@ const REPOSITORY_FILE = ".archgate/repository.json";
 
 type Yaml = string | number | boolean | null | Yaml[] | { [key: string]: Yaml };
 type Mapping = { [key: string]: Yaml };
-type Step = { file: string; line: number; uses: string; with: Mapping };
+type Step = {
+  file: string;
+  line: number;
+  uses: string;
+  with: Mapping;
+  id: string;
+};
 type Job = {
   file: string;
   name: string;
@@ -46,6 +52,7 @@ type Job = {
   exempt: boolean;
   needs: string[];
   picker: boolean;
+  group: boolean;
 };
 
 const isMapping = (value: unknown): value is Mapping =>
@@ -111,7 +118,7 @@ function structural(lines: string[]): boolean[] {
     const blank = line.trim() === "";
     if (block !== undefined && (blank || indentOf(line) > block)) return false;
     block = BLOCK_SCALAR.test(line) ? indentOf(line) : undefined;
-    const opened = QUOTED_VALUE.exec(line.trimStart().replace(/\s+#.*$/u, ""));
+    const opened = QUOTED_VALUE.exec(line.trimStart());
     const mark = opened?.at(1);
     if (mark !== undefined && !closes(opened?.at(2) ?? "", mark)) quote = mark;
     return !blank;
@@ -121,7 +128,7 @@ function structural(lines: string[]): boolean[] {
 type Literal = boolean | number | string | null;
 /** A token of a constant expression: literals, operators and parentheses only. */
 const TOKEN =
-  /\s*(\(|\)|==|!=|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
+  /\s*(\(|\)|==|!=|<=|>=|<|>|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
 
 /** GitHub's number coercion of a literal. */
 function numberOf(value: Literal): number {
@@ -147,6 +154,19 @@ function equal(left: Literal, right: Literal): boolean {
   if (typeof left === "string" && typeof right === "string")
     return left.toLowerCase() === right.toLowerCase();
   return numberOf(left) === numberOf(right);
+}
+
+const COMPARISONS = new Set(["==", "!=", "<", "<=", ">", ">="]);
+
+/** GitHub's comparison of two literals: strings case-insensitively, otherwise as numbers. */
+function compare(op: string, left: Literal, right: Literal): boolean {
+  if (op === "==" || op === "!=") return equal(left, right) === (op === "==");
+  const strings = typeof left === "string" && typeof right === "string";
+  const a = strings ? left.toLowerCase() : numberOf(left);
+  const b = strings ? right.toLowerCase() : numberOf(right);
+  if (op === "<") return a < b;
+  if (op === "<=") return a <= b;
+  return op === ">" ? a > b : a >= b;
 }
 
 /** The value of an expression made only of literals, or undefined when it reads any context. */
@@ -185,11 +205,15 @@ function constantValue(expression: string): Literal | undefined {
   };
   const comparison = (): Literal | undefined => {
     let left = primary();
-    while (tokens.at(at) === "==" || tokens.at(at) === "!=") {
-      const negate = tokens.at(at++) === "!=";
+    for (
+      let op = tokens.at(at);
+      op !== undefined && COMPARISONS.has(op);
+      op = tokens.at(at)
+    ) {
+      at++;
       const right = primary();
       if (left === undefined || right === undefined) return undefined;
-      left = equal(left, right) !== negate;
+      left = compare(op, left, right);
     }
     return left;
   };
@@ -273,6 +297,8 @@ function runsOnIndex(
   lines: string[],
   [first, end]: readonly [number, number]
 ): number | undefined {
+  // A job whose value opens a flow mapping (`job: {`) has no block keys, however it is wrapped.
+  if (/:\s*\{/u.test(lines.at(first) ?? "")) return undefined;
   const child = lines
     .slice(first + 1, end)
     .find((line) => line.trim() !== "" && !line.trimStart().startsWith("#"));
@@ -299,13 +325,18 @@ function matrixValues(
   strategy: Yaml | undefined
 ): string[] {
   const matrix = isMapping(strategy) ? field(strategy, "matrix") : undefined;
-  if (!isMapping(matrix)) return [];
   const keys = units.flatMap((unit) =>
-    [...unit.matchAll(MATRIX_VALUE)].map((match) => match.at(1) ?? "")
+    [...unit.matchAll(MATRIX_VALUE)].map(
+      (match) => match.at(1) ?? match.at(2) ?? ""
+    )
   );
+  if (keys.length === 0) return [];
+  // A matrix built by an expression (`matrix: ${{ fromJSON(...) }}`) is read as its text.
+  if (!isMapping(matrix)) return strings(matrix);
   const listed = field(matrix, "include");
   const include = Array.isArray(listed) ? listed : [];
   return keys.flatMap((key) =>
+    // A key whose values come from an expression is likewise read as its text.
     strings(matrix[key]).concat(
       include.flatMap((entry) => (isMapping(entry) ? strings(entry[key]) : []))
     )
@@ -374,6 +405,7 @@ async function load(
             file,
             line: at === undefined ? 1 : at + 1,
             uses: action,
+            id: strings(field(step, "id")).at(0) ?? "",
             with: isMapping(inputs) ? inputs : {},
           },
         ];
@@ -407,12 +439,33 @@ async function load(
           key !== undefined && key > 0 && EXEMPT.test(lines.at(key - 1) ?? ""),
         needs: strings(field(job, "needs")),
         picker:
-          jobSteps.some((step) => PICKER_REF.test(step.uses)) &&
+          forwardsPicker(jobSteps, field(job, "outputs")) &&
           !neverRuns(field(job, "if")),
+        group:
+          isMapping(job["runs-on"]) &&
+          field(job["runs-on"], "group") !== undefined,
       });
     }
   }
   return { steps, jobs, unreadable };
+}
+
+/**
+ * Whether a job is a picker job: its `runs-on` output forwards the `runs-on`
+ * output of one of its runner-picker steps, `${{ steps.<id>.outputs.runs-on }}`.
+ */
+function forwardsPicker(
+  steps: readonly Step[],
+  outputs: Yaml | undefined
+): boolean {
+  const forwarded = isMapping(outputs) ? field(outputs, "runs-on") : undefined;
+  if (typeof forwarded !== "string") return false;
+  return steps.some(
+    (step) =>
+      PICKER_REF.test(step.uses) &&
+      step.id !== "" &&
+      forwarded.trim() === `\${{ steps.${step.id}.outputs.runs-on }}`
+  );
 }
 
 /** Whether a job targets the pool or Blacksmith in any `runs-on` unit or matrix value it reads. */
@@ -588,9 +641,11 @@ export default {
             fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
           });
         }
-        for (const job of jobs.filter((item) => targetsPool(item))) {
+        for (const job of jobs.filter(
+          (item) => targetsPool(item) || item.group
+        )) {
           ctx.report.violation({
-            message: `Job \`${job.name}\` of a public repository targets a self-hosted or Blacksmith runner`,
+            message: `Job \`${job.name}\` of a public repository targets a self-hosted, Blacksmith or runner-group runner`,
             file: job.file,
             line: job.line,
             fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
