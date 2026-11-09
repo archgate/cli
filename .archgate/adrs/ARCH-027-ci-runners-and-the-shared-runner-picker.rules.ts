@@ -1,0 +1,559 @@
+/// <reference path="../rules.d.ts" />
+
+/** The one picker action the enterprise uses. */
+const PICKER_ACTION = "barretotech/runner-picker";
+/** Any runner-picker action reference, with or without a subpath: owner, repository, subpath, ref. */
+const PICKER_REF = /^([\w.-]+)\/(runner-picker)((?:\/[^@]*)?)@(.+)$/iu;
+/** A full commit SHA. */
+const COMMIT_SHA = /^[0-9a-f]{40}$/u;
+/** A runner label or expression that targets the shared pool or Blacksmith. */
+const POOL_TARGET =
+  /\bself-hosted\b|\btatuicloud[\w-]*|\bblacksmith-[\w.-]+|\bvars(?:\.\w*RUNNER(?:_\w+)?\b|\[\s*['"]\w*RUNNER(?:_\w+)?['"]\s*\])/iu;
+/** A job's `runs-on` output read in an expression, with the job's name; `runs-on-cache` is another output. */
+const OUTPUT_REF =
+  /needs(?:\.([\w-]+)|\[\s*['"]([\w-]+)['"]\s*\])\s*\.outputs(?:\.runs-on(?![\w-])|\[\s*['"]runs-on['"]\s*\])/giu;
+/** What a job output reference reads as once replaced, to test the operators around it. */
+const OUTPUT_MARK = "@picker-output@";
+/**
+ * An output used as anything but a value with a fallback: followed by `&&`
+ * (the next operand wins whenever it is set) or compared, which discards it.
+ */
+const OUTPUT_MISUSE =
+  /@picker-output@[\s)]*(?:&&|[=!]=|[<>])|(?:[=!]=|[<>]=?)[\s(]*@picker-output@/u;
+/** An output followed by `||`, the fallback a skipped or failed picker leaves room for. */
+const OUTPUT_FALLBACK = /@picker-output@\s*\|\|/gu;
+/** A `runs-on` that reads a matrix value. */
+const MATRIX_VALUE = /\bmatrix(?:\.([\w-]+)|\[\s*['"]([\w-]+)['"]\s*\])/giu;
+/** The marker of a job whose purpose is the self-hosted machine itself. */
+const EXEMPT = /#\s*runner-picker:\s*exempt\b\s*[-:]\s*\S/iu;
+/** The inputs a picker step must set: the input name and what its value must read. */
+const REQUIRED_INPUTS: readonly (readonly [string, RegExp])[] = [
+  ["source", /^service$/u],
+  ["capacity-url", /^\$\{\{\s*vars\.RUNNER_CAPACITY_URL\s*\}\}$/u],
+  ["tailnet-client-id", /^\$\{\{\s*vars\.TAILNET_CLIENT_ID_PICKER\s*\}\}$/u],
+];
+/** The file the enterprise-adrs Sync workflow keeps current with the repository's visibility. */
+const REPOSITORY_FILE = ".archgate/repository.json";
+
+type Yaml = string | number | boolean | null | Yaml[] | { [key: string]: Yaml };
+type Mapping = { [key: string]: Yaml };
+type Step = {
+  file: string;
+  line: number;
+  uses: string;
+  with: Mapping;
+  id: string;
+};
+type Job = {
+  file: string;
+  name: string;
+  units: string[];
+  line: number;
+  exempt: boolean;
+  needs: string[];
+  picker: boolean;
+  group: boolean;
+};
+
+const isMapping = (value: unknown): value is Mapping =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The value under `key` in a parsed YAML mapping, absent when the key is. */
+function field(mapping: Mapping, key: string): Yaml | undefined {
+  return mapping[key];
+}
+
+/** Every string inside a YAML value, however deep. */
+function strings(value: Yaml | undefined): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((item) => strings(item));
+  if (isMapping(value))
+    return Object.values(value).flatMap((item) => strings(item));
+  return value === null || value === undefined ? [] : [String(value)];
+}
+
+/** The indentation of a line. */
+function indentOf(line: string): number {
+  return line.length - line.trimStart().length;
+}
+
+/** The mapping key a line opens, unquoted, or undefined for a comment, item or blank line. */
+function keyOf(line: string): string | undefined {
+  const text = line.trimStart();
+  if (text === "" || text.startsWith("#") || text.startsWith("-"))
+    return undefined;
+  const colon = text.indexOf(":");
+  return colon > 0
+    ? text.slice(0, colon).replaceAll(/^["']|["']$/gu, "")
+    : undefined;
+}
+
+/** A key whose value is a block scalar (`run: |`, `script: >-`). */
+const BLOCK_SCALAR = /:\s*[|>](?:[+-]\d?|\d[+-]?)?\s*(?:#.*)?$/u;
+
+/** A quoted value that opens on a line: the text from its opening quote on. */
+const QUOTED_VALUE = /(?:^|:\s+|-\s+)(["'])(.*)$/u;
+
+/** Whether `text`, inside a scalar quoted with `quote`, contains the closing quote. */
+function closes(text: string, quote: string): boolean {
+  for (let index = 0; index < text.length; index++) {
+    const char = text.charAt(index);
+    if (quote === '"' && char === "\\") index++;
+    else if (char === quote && quote === "'" && text.charAt(index + 1) === "'")
+      index++;
+    else if (char === quote) return true;
+  }
+  return false;
+}
+
+/** Which lines are YAML structure rather than the inside of a block or multi-line quoted scalar. */
+function structural(lines: string[]): boolean[] {
+  let block: number | undefined;
+  let quote: string | undefined;
+  return lines.map((line) => {
+    if (quote !== undefined) {
+      if (closes(line, quote)) quote = undefined;
+      return false;
+    }
+    const blank = line.trim() === "";
+    if (block !== undefined && (blank || indentOf(line) > block)) return false;
+    block = BLOCK_SCALAR.test(line) ? indentOf(line) : undefined;
+    const opened = QUOTED_VALUE.exec(line.trimStart());
+    const mark = opened?.at(1);
+    if (mark !== undefined && !closes(opened?.at(2) ?? "", mark)) quote = mark;
+    return !blank;
+  });
+}
+
+/** A token of a literal-only expression: literals, operators and parentheses. */
+const TOKEN =
+  /\s*(?:\(|\)|==|!=|<=|>=|<|>|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
+
+/** Whether an expression is made only of literals, so it reads no context at all. */
+function literalOnly(expression: string): boolean {
+  let read = 0;
+  TOKEN.lastIndex = 0;
+  for (
+    let match = TOKEN.exec(expression);
+    match !== null;
+    match = TOKEN.exec(expression)
+  )
+    read = TOKEN.lastIndex;
+  return read > 0 && expression.slice(read).trim() === "";
+}
+
+/**
+ * Whether a job condition is a constant, such as `false`, `${{ !true }}` or
+ * `${{ 1 > 2 }}`. A picker job only counts when its condition reads context
+ * (the fork guard, say): a constant one either never runs or guards nothing.
+ */
+function constantCondition(condition: Yaml | undefined): boolean {
+  if (condition === undefined || condition === null) return false;
+  if (typeof condition !== "string") return true;
+  const wrapped = /^\s*\$\{\{([\s\S]*)\}\}\s*$/u.exec(condition);
+  return literalOnly(wrapped?.at(1) ?? condition);
+}
+
+/**
+ * The value of a `uses:` key line, unquoted and without a trailing comment, or
+ * undefined. A key needs a space after its colon, so plain-scalar text such as
+ * `uses:owner/action` never counts.
+ */
+function usesOf(line: string): string | undefined {
+  const text = line.trimStart().replace(/^-\s+/u, "");
+  if (!/^uses:(?:\s|$)/u.test(text)) return undefined;
+  return text
+    .slice("uses:".length)
+    .replace(/\s+#.*$/u, "")
+    .trim()
+    .replaceAll(/^["']|["']$/gu, "");
+}
+
+/** Each job's line range under the top-level `jobs:` key, as [first, end) indexes, by name. */
+function jobBlocks(lines: string[]): Map<string, readonly [number, number]> {
+  const blocks = new Map<string, readonly [number, number]>();
+  const top = lines.findIndex(
+    (line) => indentOf(line) === 0 && keyOf(line) === "jobs"
+  );
+  if (top < 0) return blocks;
+  let depth: number | undefined;
+  let open: { name: string; first: number } | undefined;
+  let index = top + 1;
+  for (; index < lines.length; index++) {
+    const line = lines.at(index) ?? "";
+    if (line.trim() === "" || line.trimStart().startsWith("#")) continue;
+    const indent = indentOf(line);
+    if (indent === 0) break;
+    depth ??= indent;
+    const key = indent === depth ? keyOf(line) : undefined;
+    if (key === undefined) continue;
+    if (open !== undefined) blocks.set(open.name, [open.first, index]);
+    open = { name: key, first: index };
+  }
+  if (open !== undefined) blocks.set(open.name, [open.first, index]);
+  return blocks;
+}
+
+/** The index of the job's own block `runs-on:` key, or undefined for a flow-style job. */
+function runsOnIndex(
+  lines: string[],
+  [first, end]: readonly [number, number]
+): number | undefined {
+  // A job whose value opens a flow mapping (`job: {`) has no block keys, however it is wrapped.
+  if (/:\s*\{/u.test(lines.at(first) ?? "")) return undefined;
+  const child = lines
+    .slice(first + 1, end)
+    .find((line) => line.trim() !== "" && !line.trimStart().startsWith("#"));
+  const depth = child === undefined ? -1 : indentOf(child);
+  for (let index = first + 1; index < end; index++) {
+    const line = lines.at(index) ?? "";
+    if (indentOf(line) === depth && keyOf(line) === "runs-on") return index;
+  }
+  return undefined;
+}
+
+/**
+ * The units of a `runs-on` value, each checked on its own: the string, each
+ * label of a list, and each field of a `group`/`labels` mapping. GitHub applies
+ * a mapping's fields together, so their order means nothing.
+ */
+function runsOnUnits(value: Yaml | undefined): string[] {
+  return strings(value).map((unit) => unit.trim());
+}
+
+/** The values a `runs-on` takes from the job's matrix, including `include` entries. */
+function matrixValues(
+  units: readonly string[],
+  strategy: Yaml | undefined
+): string[] {
+  const matrix = isMapping(strategy) ? field(strategy, "matrix") : undefined;
+  const keys = units.flatMap((unit) =>
+    [...unit.matchAll(MATRIX_VALUE)].map(
+      (match) => match.at(1) ?? match.at(2) ?? ""
+    )
+  );
+  if (keys.length === 0) return [];
+  // A matrix built by an expression (`matrix: ${{ fromJSON(...) }}`) is read as its text.
+  if (!isMapping(matrix)) return strings(matrix);
+  const listed = field(matrix, "include");
+  const include = Array.isArray(listed) ? listed : [];
+  return keys.flatMap((key) =>
+    // A key whose values come from an expression is likewise read as its text.
+    strings(matrix[key]).concat(
+      include.flatMap((entry) => (isMapping(entry) ? strings(entry[key]) : []))
+    )
+  );
+}
+
+/** A workflow or composite action, parsed, or the reason it could not be. */
+type Parsed =
+  | { file: string; lines: string[]; content: Yaml }
+  | { file: string; error: string };
+
+/**
+ * The workflow and composite-action files of the repository, read once. A file
+ * that does not parse is listed in `unreadable` and the others are still read.
+ */
+async function load(
+  ctx: RuleContext
+): Promise<{
+  steps: Step[];
+  jobs: Job[];
+  unreadable: { file: string; error: string }[];
+}> {
+  const files = ctx.scopedFiles.filter((file) => /\.ya?ml$/u.test(file));
+  const parsed: Parsed[] = await Promise.all(
+    files.map(async (file): Promise<Parsed> => {
+      try {
+        const content: Yaml = (await ctx.readYAML(file)).content;
+        return {
+          file,
+          lines: (await ctx.readFile(file)).split(/\r?\n/u),
+          content,
+        };
+      } catch (error) {
+        return { file, error: String(error) };
+      }
+    })
+  );
+  const unreadable = parsed.flatMap((item) => ("error" in item ? [item] : []));
+  const steps: Step[] = [];
+  const jobs: Job[] = [];
+  for (const item of parsed) {
+    if ("error" in item) continue;
+    const { file, lines, content } = item;
+    if (!isMapping(content)) continue;
+    // Steps are read in document order, so the nth step using an action is on
+    // the nth structural line using it; script text never counts.
+    const yaml = structural(lines);
+    const seen = new Map<string, number>();
+    const collect = (list: Yaml | undefined): Step[] =>
+      (Array.isArray(list) ? list : []).flatMap((step) => {
+        if (!isMapping(step)) return [];
+        const uses = field(step, "uses");
+        if (typeof uses !== "string") return [];
+        const action = uses.trim();
+        const nth = seen.get(action) ?? 0;
+        seen.set(action, nth + 1);
+        const at = lines
+          .map((line, index) =>
+            yaml.at(index) === true && usesOf(line) === action ? index : -1
+          )
+          .filter((index) => index >= 0)
+          .at(nth);
+        const inputs = field(step, "with");
+        return [
+          {
+            file,
+            line: at === undefined ? 1 : at + 1,
+            uses: action,
+            id: strings(field(step, "id")).at(0) ?? "",
+            with: isMapping(inputs) ? inputs : {},
+          },
+        ];
+      });
+    const blocks = jobBlocks(lines);
+    const runs = field(content, "runs");
+    if (isMapping(runs)) steps.push(...collect(field(runs, "steps")));
+    const declaredJobs = field(content, "jobs");
+    if (!isMapping(declaredJobs)) continue;
+    for (const [name, job] of Object.entries(declaredJobs)) {
+      if (!isMapping(job)) continue;
+      const jobSteps = collect(field(job, "steps"));
+      steps.push(...jobSteps);
+      const block = blocks.get(name);
+      // Only a block `runs-on:` key can carry the exemption marker; a flow-style
+      // job is reported at its own line and is never exempt.
+      const key = block === undefined ? undefined : runsOnIndex(lines, block);
+      const at = key ?? block?.[0] ?? 0;
+      // A reusable-workflow call passes its runner as an input instead.
+      const own = runsOnUnits(job["runs-on"]).concat(
+        "uses" in job ? runsOnUnits(field(job, "with")) : []
+      );
+      jobs.push({
+        file,
+        name,
+        units: own.concat(
+          matrixValues(own, field(job, "strategy")).map((unit) => unit.trim())
+        ),
+        line: at + 1,
+        exempt:
+          key !== undefined && key > 0 && EXEMPT.test(lines.at(key - 1) ?? ""),
+        needs: strings(field(job, "needs")),
+        picker:
+          forwardsPicker(jobSteps, field(job, "outputs")) &&
+          !constantCondition(field(job, "if")),
+        group:
+          isMapping(job["runs-on"]) &&
+          field(job["runs-on"], "group") !== undefined,
+      });
+    }
+  }
+  return { steps, jobs, unreadable };
+}
+
+/**
+ * Whether a job is a picker job: its `runs-on` output forwards the `runs-on`
+ * output of one of its runner-picker steps, `${{ steps.<id>.outputs.runs-on }}`.
+ */
+function forwardsPicker(
+  steps: readonly Step[],
+  outputs: Yaml | undefined
+): boolean {
+  const forwarded = isMapping(outputs) ? field(outputs, "runs-on") : undefined;
+  if (typeof forwarded !== "string") return false;
+  return steps.some(
+    (step) =>
+      PICKER_REF.test(step.uses) &&
+      step.id !== "" &&
+      forwarded.trim() === `\${{ steps.${step.id}.outputs.runs-on }}`
+  );
+}
+
+/** Whether a job targets the pool or Blacksmith in any `runs-on` unit or matrix value it reads. */
+const targetsPool = (job: Job): boolean =>
+  job.units.some((unit) => POOL_TARGET.test(unit));
+
+/** A `runs-on` unit with each job output reference replaced by OUTPUT_MARK. */
+const marked = (unit: string): string =>
+  unit.replaceAll(OUTPUT_REF, OUTPUT_MARK);
+
+/** Whether every job output a unit reads is followed by a `||` fallback. */
+function hasFallbacks(unit: string): boolean {
+  const text = marked(unit);
+  return (
+    text.split(OUTPUT_MARK).length - 1 ===
+    [...text.matchAll(OUTPUT_FALLBACK)].length
+  );
+}
+
+/**
+ * Whether one `runs-on` unit that names the pool takes it from picker jobs: it
+ * reads at least one job output, every output it reads is a picker job's that
+ * the job needs and has a fallback, no pool label or runner variable comes
+ * before the first output, and no output is combined with `&&` or compared.
+ */
+function routedUnit(unit: string, job: Job, jobs: readonly Job[]): boolean {
+  const refs = [...unit.matchAll(OUTPUT_REF)];
+  const first = refs.at(0);
+  if (first === undefined || OUTPUT_MISUSE.test(marked(unit))) return false;
+  const pool = POOL_TARGET.exec(unit);
+  if (pool !== null && pool.index < first.index) return false;
+  return refs.every((ref) => {
+    const name = ref.at(1) ?? ref.at(2) ?? "";
+    const source = jobs.find(
+      (other) => other.file === job.file && other.name === name
+    );
+    return source !== undefined && source.picker && job.needs.includes(name);
+  });
+}
+
+/** Whether a job reads a picker output with no fallback, which leaves `runs-on` empty when the picker gives none. */
+const lacksFallback = (job: Job): boolean =>
+  job.units.some((unit) => unit.search(OUTPUT_REF) >= 0 && !hasFallbacks(unit));
+
+/**
+ * Whether every unit of a job that names the pool is routed. A matrix leg may
+ * read its own picker; a matrix value that names the pool without one is a
+ * label used directly.
+ */
+const routed = (job: Job, jobs: readonly Job[]): boolean =>
+  job.units.every(
+    (unit) => !POOL_TARGET.test(unit) || routedUnit(unit, job, jobs)
+  );
+
+/** The visibility REPOSITORY_FILE records, or why it cannot be read. */
+async function visibilityOf(
+  ctx: RuleContext
+): Promise<{ visibility: string } | { problem: string }> {
+  const text = await ctx.readFile(REPOSITORY_FILE).catch(() => null);
+  if (text === null) return { problem: `${REPOSITORY_FILE} is missing` };
+  let declared: unknown;
+  try {
+    declared = JSON.parse(text);
+  } catch (error) {
+    return {
+      problem: `${REPOSITORY_FILE} is not valid JSON (${String(error)})`,
+    };
+  }
+  const visibility = isMapping(declared)
+    ? field(declared, "visibility")
+    : undefined;
+  return visibility === "public" ||
+    visibility === "private" ||
+    visibility === "internal"
+    ? { visibility }
+    : {
+        problem: `${REPOSITORY_FILE} does not record "visibility" as public, private or internal`,
+      };
+}
+
+export default {
+  rules: {
+    "picker-pin": {
+      description:
+        "Runner pickers are barretotech/runner-picker pinned to a full commit SHA",
+      async check(ctx) {
+        for (const step of (await load(ctx)).steps) {
+          const match = PICKER_REF.exec(step.uses);
+          if (!match) continue;
+          const [, owner = "", repository = "", subpath = "", ref = ""] = match;
+          if (
+            `${owner}/${repository}`.toLowerCase() !== PICKER_ACTION ||
+            subpath !== "" ||
+            !COMMIT_SHA.test(ref)
+          ) {
+            ctx.report.violation({
+              message: `${step.uses} is not ${PICKER_ACTION} pinned to a full commit SHA`,
+              file: step.file,
+              line: step.line,
+              fix: `uses: ${PICKER_ACTION}@<40-character SHA of the release> # vX.Y.Z`,
+            });
+          }
+        }
+      },
+    },
+    "picker-service": {
+      description:
+        "Each picker step asks the capacity service through the tailnet",
+      async check(ctx) {
+        for (const step of (await load(ctx)).steps) {
+          if (!PICKER_REF.test(step.uses)) continue;
+          for (const [input, expected] of REQUIRED_INPUTS) {
+            const value = step.with[input];
+            if (typeof value !== "string" || !expected.test(value.trim())) {
+              ctx.report.violation({
+                message: `The runner picker step's \`with: ${input}\` is not set as the ci-runners ADR requires`,
+                file: step.file,
+                line: step.line,
+                fix: "Under the step's `with:`, set `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`",
+              });
+            }
+          }
+        }
+      },
+    },
+    "routed-runs-on": {
+      description:
+        "Jobs reach the shared pool or Blacksmith only through a picker job's output, unless marked exempt",
+      async check(ctx) {
+        const { jobs, unreadable } = await load(ctx);
+        for (const { file, error } of unreadable) {
+          ctx.report.violation({
+            message: `${file} could not be read as YAML, so its runners are unchecked (${error})`,
+            file,
+            fix: "Fix the YAML syntax",
+          });
+        }
+        for (const job of jobs) {
+          if (job.exempt) continue;
+          const unrouted = targetsPool(job) && !routed(job, jobs);
+          if (!unrouted && !lacksFallback(job)) continue;
+          ctx.report.violation({
+            message: unrouted
+              ? `Job \`${job.name}\` targets the self-hosted pool or Blacksmith without taking its runner from a picker job it needs`
+              : `Job \`${job.name}\` reads a picker output with no fallback, so it has no runner when the picker gives none`,
+            file: job.file,
+            line: job.line,
+            fix: "runs-on: ${{ fromJSON(needs.<picker job>.outputs.runs-on || <fallback>) }}, with the picker job in `needs`. A job whose purpose is the self-hosted machine itself carries `# runner-picker: exempt - <reason>` on the line before runs-on.",
+          });
+        }
+      },
+    },
+    "public-hosted-only": {
+      description:
+        "A public repository uses neither the runner picker nor a self-hosted or Blacksmith runner",
+      async check(ctx) {
+        const record = await visibilityOf(ctx);
+        if ("problem" in record) {
+          ctx.report.violation({
+            message: `${record.problem}, so the public-repository rule cannot be checked`,
+            file: REPOSITORY_FILE,
+            fix: 'Write { "visibility": "public" | "private" | "internal" } as GitHub reports it; the enterprise-adrs Sync workflow keeps the file current',
+          });
+          return;
+        }
+        if (record.visibility !== "public") return;
+        const { steps, jobs } = await load(ctx);
+        for (const step of steps.filter((item) => PICKER_REF.test(item.uses))) {
+          ctx.report.violation({
+            message: "A public repository does not use the runner picker",
+            file: step.file,
+            line: step.line,
+            fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
+          });
+        }
+        for (const job of jobs.filter(
+          (item) => targetsPool(item) || item.group
+        )) {
+          ctx.report.violation({
+            message: `Job \`${job.name}\` of a public repository targets a self-hosted, Blacksmith or runner-group runner`,
+            file: job.file,
+            line: job.line,
+            fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
+          });
+        }
+      },
+    },
+  },
+} satisfies RuleSet;
