@@ -32,9 +32,7 @@ type Step = { file: string; line: number; uses: string; with: Mapping };
 type Job = {
   file: string;
   name: string;
-  runsOn: string;
-  ownRunsOn: string;
-  matrixRunsOn: string;
+  units: string[];
   line: number;
   exempt: boolean;
   needs: string[];
@@ -77,24 +75,148 @@ function keyOf(line: string): string | undefined {
 /** A key whose value is a block scalar (`run: |`, `script: >-`). */
 const BLOCK_SCALAR = /:\s*[|>][+-]?\d*\s*(?:#.*)?$/u;
 
-/** Which lines are YAML structure rather than the contents of a block scalar. */
+/** A quoted value that opens on a line: the text from its opening quote on. */
+const QUOTED_VALUE = /(?:^|:\s+|-\s+)(["'])(.*)$/u;
+
+/** Whether `text`, inside a scalar quoted with `quote`, contains the closing quote. */
+function closes(text: string, quote: string): boolean {
+  for (let index = 0; index < text.length; index++) {
+    const char = text.charAt(index);
+    if (quote === '"' && char === "\\") index++;
+    else if (char === quote && quote === "'" && text.charAt(index + 1) === "'")
+      index++;
+    else if (char === quote) return true;
+  }
+  return false;
+}
+
+/** Which lines are YAML structure rather than the inside of a block or multi-line quoted scalar. */
 function structural(lines: string[]): boolean[] {
   let block: number | undefined;
+  let quote: string | undefined;
   return lines.map((line) => {
+    if (quote !== undefined) {
+      if (closes(line, quote)) quote = undefined;
+      return false;
+    }
     const blank = line.trim() === "";
     if (block !== undefined && (blank || indentOf(line) > block)) return false;
     block = BLOCK_SCALAR.test(line) ? indentOf(line) : undefined;
+    const opened = QUOTED_VALUE.exec(line.trimStart().replace(/\s+#.*$/u, ""));
+    const mark = opened?.at(1);
+    if (mark !== undefined && !closes(opened?.at(2) ?? "", mark)) quote = mark;
     return !blank;
   });
 }
 
-/** A job condition that is constantly false, so the job never runs. */
+type Literal = boolean | number | string | null;
+/** A token of a constant expression: literals, operators and parentheses only. */
+const TOKEN =
+  /\s*(\(|\)|==|!=|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
+
+/** GitHub's number coercion of a literal. */
+function numberOf(value: Literal): number {
+  if (value === null) return 0;
+  if (typeof value === "boolean") return value ? 1 : 0;
+  return typeof value === "number"
+    ? value
+    : value.trim() === ""
+      ? 0
+      : Number(value);
+}
+
+/** GitHub's truthiness of a literal. */
+const truthy = (value: Literal): boolean =>
+  value !== false &&
+  value !== null &&
+  value !== "" &&
+  value !== 0 &&
+  !Number.isNaN(value);
+
+/** GitHub's loose equality of two literals: strings case-insensitively, otherwise as numbers. */
+function equal(left: Literal, right: Literal): boolean {
+  if (typeof left === "string" && typeof right === "string")
+    return left.toLowerCase() === right.toLowerCase();
+  return numberOf(left) === numberOf(right);
+}
+
+/** The value of an expression made only of literals, or undefined when it reads any context. */
+function constantValue(expression: string): Literal | undefined {
+  const tokens: string[] = [];
+  let read = 0;
+  TOKEN.lastIndex = 0;
+  for (
+    let match = TOKEN.exec(expression);
+    match !== null;
+    match = TOKEN.exec(expression)
+  ) {
+    tokens.push(match.at(1) ?? "");
+    read = TOKEN.lastIndex;
+  }
+  if (expression.slice(read).trim() !== "" || tokens.length === 0)
+    return undefined;
+  let at = 0;
+  const primary = (): Literal | undefined => {
+    const token = tokens.at(at++);
+    if (token === "(") {
+      const value = or();
+      return tokens.at(at++) === ")" ? value : undefined;
+    }
+    if (token === "!") {
+      const value = primary();
+      return value === undefined ? undefined : !truthy(value);
+    }
+    if (token === "true" || token === "false") return token === "true";
+    if (token === "null") return null;
+    if (token?.startsWith("'") === true)
+      return token.slice(1, -1).replaceAll("''", "'");
+    return token === undefined || Number.isNaN(Number(token))
+      ? undefined
+      : Number(token);
+  };
+  const comparison = (): Literal | undefined => {
+    let left = primary();
+    while (tokens.at(at) === "==" || tokens.at(at) === "!=") {
+      const negate = tokens.at(at++) === "!=";
+      const right = primary();
+      if (left === undefined || right === undefined) return undefined;
+      left = equal(left, right) !== negate;
+    }
+    return left;
+  };
+  const and = (): Literal | undefined => {
+    let left = comparison();
+    while (tokens.at(at) === "&&") {
+      at++;
+      const right = comparison();
+      if (left === undefined || right === undefined) return undefined;
+      left = truthy(left) ? right : left;
+    }
+    return left;
+  };
+  const or = (): Literal | undefined => {
+    let left = and();
+    while (tokens.at(at) === "||") {
+      at++;
+      const right = and();
+      if (left === undefined || right === undefined) return undefined;
+      left = truthy(left) ? left : right;
+    }
+    return left;
+  };
+  const value = or();
+  return at === tokens.length ? value : undefined;
+}
+
+/** A job condition that is constantly false, such as `false` or `${{ !true }}`, so the job never runs. */
 function neverRuns(condition: Yaml | undefined): boolean {
-  if (condition === false || condition === 0) return true;
+  if (condition === undefined || condition === null) return false;
+  if (typeof condition === "boolean" || typeof condition === "number")
+    return !truthy(condition);
   if (typeof condition !== "string") return false;
-  return /^\s*(?:\$\{\{\s*)?(?:false|0|''|"")\s*(?:\}\})?\s*$/iu.test(
-    condition
-  );
+  const wrapped = /^\s*\$\{\{([\s\S]*)\}\}\s*$/u.exec(condition);
+  const value = constantValue(wrapped?.at(1) ?? condition);
+  return value !== undefined && !truthy(value);
 }
 
 /**
@@ -153,18 +275,24 @@ function runsOnIndex(
   return undefined;
 }
 
-/** The text of a `runs-on` value, as one string. */
-function runsOnText(value: Yaml | undefined): string {
-  if (typeof value === "string") return value.trim();
-  return JSON.stringify(value ?? "");
+/**
+ * The units of a `runs-on` value, each checked on its own: the string, each
+ * label of a list, and each field of a `group`/`labels` mapping. GitHub applies
+ * a mapping's fields together, so their order means nothing.
+ */
+function runsOnUnits(value: Yaml | undefined): string[] {
+  return strings(value).map((unit) => unit.trim());
 }
 
 /** The values a `runs-on` takes from the job's matrix, including `include` entries. */
-function matrixValues(runsOn: string, strategy: Yaml | undefined): string[] {
+function matrixValues(
+  units: readonly string[],
+  strategy: Yaml | undefined
+): string[] {
   const matrix = isMapping(strategy) ? field(strategy, "matrix") : undefined;
   if (!isMapping(matrix)) return [];
-  const keys = [...runsOn.matchAll(MATRIX_VALUE)].map(
-    (match) => match.at(1) ?? ""
+  const keys = units.flatMap((unit) =>
+    [...unit.matchAll(MATRIX_VALUE)].map((match) => match.at(1) ?? "")
   );
   const listed = field(matrix, "include");
   const include = Array.isArray(listed) ? listed : [];
@@ -234,14 +362,13 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
       // job is reported at its own line and is never exempt.
       const key = block === undefined ? undefined : runsOnIndex(lines, block);
       const at = key ?? block?.[0] ?? 0;
-      const runsOn = runsOnText(job["runs-on"]);
-      const matrix = matrixValues(runsOn, field(job, "strategy"));
+      const own = runsOnUnits(job["runs-on"]);
       jobs.push({
         file,
         name,
-        runsOn: [runsOn, ...matrix].join("\n"),
-        ownRunsOn: runsOn,
-        matrixRunsOn: matrix.join("\n"),
+        units: own.concat(
+          matrixValues(own, field(job, "strategy")).map((unit) => unit.trim())
+        ),
         line: at + 1,
         exempt:
           key !== undefined && key > 0 && EXEMPT.test(lines.at(key - 1) ?? ""),
@@ -255,19 +382,21 @@ async function load(ctx: RuleContext): Promise<{ steps: Step[]; jobs: Job[] }> {
   return { steps, jobs };
 }
 
+/** Whether a job targets the pool or Blacksmith in any `runs-on` unit or matrix value it reads. */
+const targetsPool = (job: Job): boolean =>
+  job.units.some((unit) => POOL_TARGET.test(unit));
+
 /**
- * Whether a job takes its runner from picker jobs: its own `runs-on` reads at
- * least one job output, every output it reads is a picker job's that the job
- * needs, no pool label or runner variable comes before the first output, and
- * no output is combined with `&&`. A matrix leg may read its own picker, but a
- * matrix value naming the pool is a label used directly, so it never routes.
+ * Whether one `runs-on` unit that names the pool takes it from picker jobs: it
+ * reads at least one job output, every output it reads is a picker job's that
+ * the job needs, no pool label or runner variable comes before the first
+ * output, and no output is combined with `&&`.
  */
-function routed(job: Job, jobs: readonly Job[]): boolean {
-  if (POOL_TARGET.test(job.matrixRunsOn)) return false;
-  const refs = [...job.ownRunsOn.matchAll(OUTPUT_REF)];
+function routedUnit(unit: string, job: Job, jobs: readonly Job[]): boolean {
+  const refs = [...unit.matchAll(OUTPUT_REF)];
   const first = refs.at(0);
-  if (first === undefined || OUTPUT_AND.test(job.ownRunsOn)) return false;
-  const pool = POOL_TARGET.exec(job.ownRunsOn);
+  if (first === undefined || OUTPUT_AND.test(unit)) return false;
+  const pool = POOL_TARGET.exec(unit);
   if (pool !== null && pool.index < first.index) return false;
   return refs.every((ref) => {
     const name = ref.at(1) ?? "";
@@ -277,6 +406,16 @@ function routed(job: Job, jobs: readonly Job[]): boolean {
     return source !== undefined && source.picker && job.needs.includes(name);
   });
 }
+
+/**
+ * Whether every unit of a job that names the pool is routed. A matrix leg may
+ * read its own picker; a matrix value that names the pool without one is a
+ * label used directly.
+ */
+const routed = (job: Job, jobs: readonly Job[]): boolean =>
+  job.units.every(
+    (unit) => !POOL_TARGET.test(unit) || routedUnit(unit, job, jobs)
+  );
 
 /** The visibility REPOSITORY_FILE records, or why it cannot be read. */
 async function visibilityOf(
@@ -355,7 +494,7 @@ export default {
       async check(ctx) {
         const { jobs } = await load(ctx);
         for (const job of jobs) {
-          if (!POOL_TARGET.test(job.runsOn) || job.exempt) continue;
+          if (!targetsPool(job) || job.exempt) continue;
           if (routed(job, jobs)) continue;
           ctx.report.violation({
             message: `Job \`${job.name}\` targets the self-hosted pool or Blacksmith without taking its runner from a picker job it needs`,
@@ -389,9 +528,7 @@ export default {
             fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
           });
         }
-        for (const job of jobs.filter((item) =>
-          POOL_TARGET.test(item.runsOn)
-        )) {
+        for (const job of jobs.filter((item) => targetsPool(item))) {
           ctx.report.violation({
             message: `Job \`${job.name}\` of a public repository targets a self-hosted or Blacksmith runner`,
             file: job.file,
