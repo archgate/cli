@@ -15,7 +15,7 @@ files:
 
 ## Context
 
-The archgate enterprise (the `archgate` and `jack-for-work` organizations) shares one pool of self-hosted runners on TatuiCloud: Linux runners labelled `tatuicloud`, merge-queue runners labelled `tatuicloud-merge-queue`, and ephemeral Windows VMs labelled `tatuicloud-windows`. GitHub has no fallback for a busy self-hosted label, so a job sent straight to a full pool waits for as long as the pool stays full.
+The `barretotech` enterprise (the `archgate`, `jack-for-work` and `BarretoTech` organizations) shares one pool of self-hosted runners on TatuiCloud: Linux runners labelled `tatuicloud`, merge-queue runners labelled `tatuicloud-merge-queue`, and ephemeral Windows VMs labelled `tatuicloud-windows`. GitHub has no fallback for a busy self-hosted label, so a job sent straight to a full pool waits for as long as the pool stays full.
 
 The capacity service `ci-capacity` (on TatuiCloud's `ci-cache`) answers, per job, where it should run. It picks the first of these that fits: a free self-hosted runner, a Blacksmith runner while the organization's free Blacksmith minutes last, GitHub-hosted while the included Actions minutes last, or a wait for the self-hosted pool. A runner it hands out is held for 60 seconds. GitHub knows nothing of that hold, so a job that targets a self-hosted label without asking can take the runner the service just gave another job.
 
