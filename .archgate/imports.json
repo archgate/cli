@@ -2,8 +2,8 @@
   "imports": [
     {
       "source": "archgate/enterprise-adrs/packs/ci-runners",
-      "version": "1.2.9",
-      "importedAt": "2026-11-10T11:42:58.804Z",
+      "version": "1.3.1",
+      "importedAt": "2026-11-11T22:33:45.003Z",
       "adrIds": ["ARCH-027"]
     }
   ]
