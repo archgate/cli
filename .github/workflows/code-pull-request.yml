@@ -224,6 +224,65 @@ jobs:
           echo "Generated winget artifacts:"
           ls -la dist/winget
 
+  docs-changes:
+    name: Detect Docs Changes
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    outputs:
+      docs_changed: ${{ steps.changes.outputs.docs_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check for docs changes
+        id: changes
+        env:
+          # Passed via env, not inlined into the script, to avoid template-injection
+          # (zizmor: code injection via template expansion).
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # This workflow file is included so a change to the docs-build job
+          # runs the job it changes (GEN-001).
+          PATHS=(docs/ .github/workflows/code-pull-request.yml)
+          RANGE=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            RANGE="origin/$BASE_REF...HEAD"
+          elif [ "$EVENT_NAME" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="$BEFORE..HEAD"
+          fi
+          # Without a range, or when the diff fails, the docs are built: only a
+          # successful comparison can establish that no docs changed.
+          DOCS_CHANGED=true
+          if [ -n "$RANGE" ] && CHANGED=$(git diff --name-only "$RANGE" -- "${PATHS[@]}"); then
+            if [ -z "$CHANGED" ]; then DOCS_CHANGED=false; fi
+          fi
+          echo "docs_changed=$DOCS_CHANGED" >> "$GITHUB_OUTPUT"
+
+  # Builds the docs with the same commands Cloudflare Pages runs, so a change
+  # that would break the cli.archgate.dev deploy cannot merge (GEN-001).
+  docs-build:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: docs-changes
+    if: needs.docs-changes.outputs.docs_changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup-bun-project
+      - name: Install docs dependencies
+        working-directory: docs
+        run: bun install --frozen-lockfile
+      - name: Build docs
+        working-directory: docs
+        run: bun run build
+
   smoke-windows:
     name: Smoke Test (Windows)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -405,6 +464,8 @@ jobs:
         validate,
         shim-changes,
         shim-tests,
+        docs-changes,
+        docs-build,
         smoke-windows,
         smoke-linux,
         zizmor,
@@ -414,13 +475,23 @@ jobs:
       ]
     steps:
       - name: Check job results
+        env:
+          # Passed via env, not inlined into the script, to avoid template-injection
+          # (zizmor: code injection via template expansion).
+          DOCS_BUILD_RESULT: ${{ needs.docs-build.result }}
+          DOCS_CHANGES_RESULT: ${{ needs.docs-changes.result }}
+          DOCS_CHANGED: ${{ needs.docs-changes.outputs.docs_changed }}
         run: |
           # shim-tests is skipped when no shim files changed — treat skipped as success.
           SHIM_OK="${{ needs.shim-tests.result }}"
           if [[ "$SHIM_OK" == "skipped" ]]; then SHIM_OK="success"; fi
+          # docs-build is skipped when nothing under docs/ changed. A skip is only
+          # a pass when docs-changes itself succeeded and found no change.
+          DOCS_OK="$DOCS_BUILD_RESULT"
+          if [[ "$DOCS_OK" == "skipped" && "$DOCS_CHANGES_RESULT" == "success" && "$DOCS_CHANGED" == "false" ]]; then DOCS_OK="success"; fi
 
           if [[ "${{ needs.validate.result }}" != "success" ]] || \
-             [[ "$SHIM_OK" != "success" ]] || \
+             [[ "$SHIM_OK" != "success" ]] ||              [[ "$DOCS_OK" != "success" ]] || \
              [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
              [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
              [[ "${{ needs.zizmor.result }}" != "success" ]] || \
@@ -430,6 +501,7 @@ jobs:
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
             echo "  shim-tests: ${{ needs.shim-tests.result }}"
+            echo "  docs-build: ${{ needs.docs-build.result }}"
             echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
             echo "  zizmor: ${{ needs.zizmor.result }}"
