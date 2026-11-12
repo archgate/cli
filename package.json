@@ -86,5 +86,8 @@
     "typescript": "7.0.2",
     "zod": "4.6.7"
   },
-  "readme": "README.md"
+  "readme": "README.md",
+  "dependencies": {
+    "chalk": "6.0.1"
+  }
 }
