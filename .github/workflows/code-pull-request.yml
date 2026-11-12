@@ -224,6 +224,63 @@ jobs:
           echo "Generated winget artifacts:"
           ls -la dist/winget
 
+  docs-changes:
+    name: Detect Docs Changes
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    outputs:
+      docs_changed: ${{ steps.changes.outputs.docs_changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check for docs changes
+        id: changes
+        env:
+          # Passed via env, not inlined into the script, to avoid template-injection
+          # (zizmor: code injection via template expansion).
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # This workflow file is included so a change to the docs-build job
+          # runs the job it changes (GEN-001).
+          PATHS=(docs/ .github/workflows/code-pull-request.yml)
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- "${PATHS[@]}" || true)
+          elif [ "$EVENT_NAME" = "push" ]; then
+            CHANGED=$(git diff --name-only HEAD~1 -- "${PATHS[@]}" || true)
+          else
+            CHANGED=all
+          fi
+          if [ -n "$CHANGED" ]; then
+            echo "docs_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Builds the docs with the same commands Cloudflare Pages runs, so a change
+  # that would break the cli.archgate.dev deploy cannot merge (GEN-001).
+  docs-build:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: docs-changes
+    if: needs.docs-changes.outputs.docs_changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: $/.github/actions/setup-bun-project
+      - name: Install docs dependencies
+        working-directory: docs
+        run: bun install --frozen-lockfile
+      - name: Build docs
+        working-directory: docs
+        run: bun run build
+
   smoke-windows:
     name: Smoke Test (Windows)
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -405,6 +462,8 @@ jobs:
         validate,
         shim-changes,
         shim-tests,
+        docs-changes,
+        docs-build,
         smoke-windows,
         smoke-linux,
         zizmor,
@@ -418,9 +477,13 @@ jobs:
           # shim-tests is skipped when no shim files changed — treat skipped as success.
           SHIM_OK="${{ needs.shim-tests.result }}"
           if [[ "$SHIM_OK" == "skipped" ]]; then SHIM_OK="success"; fi
+          # docs-build is skipped when nothing under docs/ changed. A skip is only
+          # a pass when docs-changes itself succeeded and found no change.
+          DOCS_OK="${{ needs.docs-build.result }}"
+          if [[ "$DOCS_OK" == "skipped" && "${{ needs.docs-changes.result }}" == "success" && "${{ needs.docs-changes.outputs.docs_changed }}" == "false" ]]; then DOCS_OK="success"; fi
 
           if [[ "${{ needs.validate.result }}" != "success" ]] || \
-             [[ "$SHIM_OK" != "success" ]] || \
+             [[ "$SHIM_OK" != "success" ]] ||              [[ "$DOCS_OK" != "success" ]] || \
              [[ "${{ needs.smoke-windows.result }}" != "success" ]] || \
              [[ "${{ needs.smoke-linux.result }}" != "success" ]] || \
              [[ "${{ needs.zizmor.result }}" != "success" ]] || \
@@ -430,6 +493,7 @@ jobs:
             echo "::error::One or more jobs failed:"
             echo "  validate: ${{ needs.validate.result }}"
             echo "  shim-tests: ${{ needs.shim-tests.result }}"
+            echo "  docs-build: ${{ needs.docs-build.result }}"
             echo "  smoke-windows: ${{ needs.smoke-windows.result }}"
             echo "  smoke-linux: ${{ needs.smoke-linux.result }}"
             echo "  zizmor: ${{ needs.zizmor.result }}"
