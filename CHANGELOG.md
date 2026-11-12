@@ -1,3 +1,10 @@
+## [0.61.1](https://github.com/archgate/cli/compare/v0.61.0...v0.61.1) (2026-11-12)
+
+### Bug Fixes
+
+* **docs:** drop empty code block that breaks the docs build ([#668](https://github.com/archgate/cli/issues/668)) ([ee9fcac](https://github.com/archgate/cli/commit/ee9fcac2fa19820910caf09d1ecfa2af7e99950d)), references [#660](https://github.com/archgate/cli/issues/660)
+* **init:** load the oxlint plugin with jsPlugins in the lint README ([#662](https://github.com/archgate/cli/issues/662)) ([5c7fc3d](https://github.com/archgate/cli/commit/5c7fc3d3cc8aeeffd8febc68297705fd5415e2f2))
+
 ## [0.61.0](https://github.com/archgate/cli/compare/v0.60.2...v0.61.0) (2026-10-28)
 
 ### Features
