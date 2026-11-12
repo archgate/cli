@@ -4526,10 +4526,6 @@ archgate login logout
 printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get
 ```
 
-```
-
-```
-
 ## Troubleshooting
 
 ### `git clone` prompts for a username and password
