@@ -242,23 +242,25 @@ jobs:
           # Passed via env, not inlined into the script, to avoid template-injection
           # (zizmor: code injection via template expansion).
           BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           # This workflow file is included so a change to the docs-build job
           # runs the job it changes (GEN-001).
           PATHS=(docs/ .github/workflows/code-pull-request.yml)
+          RANGE=""
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            CHANGED=$(git diff --name-only "origin/$BASE_REF...HEAD" -- "${PATHS[@]}" || true)
-          elif [ "$EVENT_NAME" = "push" ]; then
-            CHANGED=$(git diff --name-only HEAD~1 -- "${PATHS[@]}" || true)
-          else
-            CHANGED=all
+            RANGE="origin/$BASE_REF...HEAD"
+          elif [ "$EVENT_NAME" = "push" ] && [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="$BEFORE..HEAD"
           fi
-          if [ -n "$CHANGED" ]; then
-            echo "docs_changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "docs_changed=false" >> "$GITHUB_OUTPUT"
+          # Without a range, or when the diff fails, the docs are built: only a
+          # successful comparison can establish that no docs changed.
+          DOCS_CHANGED=true
+          if [ -n "$RANGE" ] && CHANGED=$(git diff --name-only "$RANGE" -- "${PATHS[@]}"); then
+            if [ -z "$CHANGED" ]; then DOCS_CHANGED=false; fi
           fi
+          echo "docs_changed=$DOCS_CHANGED" >> "$GITHUB_OUTPUT"
 
   # Builds the docs with the same commands Cloudflare Pages runs, so a change
   # that would break the cli.archgate.dev deploy cannot merge (GEN-001).
@@ -473,14 +475,20 @@ jobs:
       ]
     steps:
       - name: Check job results
+        env:
+          # Passed via env, not inlined into the script, to avoid template-injection
+          # (zizmor: code injection via template expansion).
+          DOCS_BUILD_RESULT: ${{ needs.docs-build.result }}
+          DOCS_CHANGES_RESULT: ${{ needs.docs-changes.result }}
+          DOCS_CHANGED: ${{ needs.docs-changes.outputs.docs_changed }}
         run: |
           # shim-tests is skipped when no shim files changed — treat skipped as success.
           SHIM_OK="${{ needs.shim-tests.result }}"
           if [[ "$SHIM_OK" == "skipped" ]]; then SHIM_OK="success"; fi
           # docs-build is skipped when nothing under docs/ changed. A skip is only
           # a pass when docs-changes itself succeeded and found no change.
-          DOCS_OK="${{ needs.docs-build.result }}"
-          if [[ "$DOCS_OK" == "skipped" && "${{ needs.docs-changes.result }}" == "success" && "${{ needs.docs-changes.outputs.docs_changed }}" == "false" ]]; then DOCS_OK="success"; fi
+          DOCS_OK="$DOCS_BUILD_RESULT"
+          if [[ "$DOCS_OK" == "skipped" && "$DOCS_CHANGES_RESULT" == "success" && "$DOCS_CHANGED" == "false" ]]; then DOCS_OK="success"; fi
 
           if [[ "${{ needs.validate.result }}" != "success" ]] || \
              [[ "$SHIM_OK" != "success" ]] ||              [[ "$DOCS_OK" != "success" ]] || \
