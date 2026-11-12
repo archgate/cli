@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install the Archgate CLI on macOS, Linux, or Windows via a one-line installer, winget, npm, pip, dotnet, go, gem, or standalone binary. Start enforcing ADRs as executable code rules in minutes.
+description: Install the Archgate CLI on macOS, Linux, or Windows via a one-line installer, winget and the Microsoft Store, npm, pip, dotnet, go, gem, or standalone binary. Start enforcing ADRs as executable code rules in minutes.
 ---
 
 ## Install standalone (recommended)
@@ -11,41 +11,36 @@ The fastest way to install Archgate. No Node.js or package manager required:
 # macOS / Linux
 curl -fsSL https://cli.archgate.dev/install-unix | sh
 
-# Windows (PowerShell)
-irm https://cli.archgate.dev/install-windows | iex
+# Windows
+winget install --id 9MSZ1ZDKSW8Z
 
 # Windows (Git Bash / MSYS2)
 curl -fsSL https://cli.archgate.dev/install-unix | sh
 ```
 
-This downloads a pre-built binary for your platform and installs it to `~/.archgate/bin/`. The installer detects your shell profiles and offers to add the directory to your PATH.
+On macOS and Linux, the installer downloads a pre-built binary for your platform and installs it to `~/.archgate/bin/`. It detects your shell profiles and offers to add the directory to your PATH.
 
-On Windows, the PowerShell installer also detects Git Bash shell profiles (`.bashrc`, `.bash_profile`, `.profile`) and offers to configure PATH there as well.
+On Windows, [winget](https://learn.microsoft.com/windows/package-manager/) installs Archgate from the Microsoft Store. The package is signed by Microsoft and puts `archgate` on your PATH in every new terminal. Update it with `winget upgrade --id 9MSZ1ZDKSW8Z`.
 
-You can customize the install with environment variables:
-
-| Variable               | Description                                 | Default           |
-| ---------------------- | ------------------------------------------- | ----------------- |
-| `ARCHGATE_VERSION`     | Install a specific version (e.g. `v0.11.2`) | Latest release    |
-| `ARCHGATE_INSTALL_DIR` | Custom install directory                    | `~/.archgate/bin` |
-
-You can also download binaries directly from [GitHub Releases](https://github.com/archgate/cli/releases).
-
-## Install via winget (Windows)
-
-:::note[Awaiting winget-pkgs review]
-`Archgate.Archgate` is queued for acceptance into the [winget community repository](https://github.com/microsoft/winget-pkgs). Until it is published there, this command returns "No package found" — use the standalone installer above in the meantime.
-:::
-
-On Windows, install Archgate with the [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/):
+## Install via PowerShell script (Windows)
 
 ```powershell
-winget install Archgate.Archgate
+irm https://cli.archgate.dev/install-windows | iex
 ```
 
-This installs a small portable wrapper and puts `archgate` on your PATH. On first run it downloads the platform binary, verifies its checksum, and caches it to `~/.archgate/bin/` — the same cache every other install method uses, so switching between them re-downloads nothing.
+The script runs the same `winget install` for you. Where winget is missing or the Microsoft Store is blocked, it downloads the binary from GitHub Releases to `~/.archgate/bin/` and offers to add that directory to your PATH, including in Git Bash shell profiles (`.bashrc`, `.bash_profile`, `.profile`). The downloaded binary is not code-signed.
 
-Upgrade with `winget upgrade Archgate.Archgate`.
+Both installer scripts read these environment variables:
+
+| Variable               | Description                                               | Default           |
+| ---------------------- | --------------------------------------------------------- | ----------------- |
+| `ARCHGATE_VERSION`     | Install a specific version (e.g. `v0.11.2`)               | Latest release    |
+| `ARCHGATE_INSTALL_DIR` | Custom install directory                                  | `~/.archgate/bin` |
+| `ARCHGATE_NO_WINGET`   | Set to `1` to skip winget and download directly (Windows) | Unset             |
+
+winget installs neither a pinned version nor into a chosen directory, so setting `ARCHGATE_VERSION` or `ARCHGATE_INSTALL_DIR` on Windows also selects the direct download.
+
+You can also download binaries directly from [GitHub Releases](https://github.com/archgate/cli/releases).
 
 ## Install via npm
 

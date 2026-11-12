@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import { detectInstallMethod } from "./install-info";
+import { logWarn } from "./log";
 import {
   getWindowsHomeDirFromWSL,
   isMacOS,
@@ -141,16 +143,25 @@ export async function configureVscodeSettings(
 /**
  * Add the marketplace URL to VS Code's user-level settings.json.
  *
- * Reads the existing file with `Bun.JSONC.parse` (supports comments and
- * trailing commas), merges the marketplace URL, and writes back as standard
- * JSON. Comments in the original file are not preserved — VS Code re-reads
- * the file without issue.
+ * Reads the file as JSONC, merges the URL, and writes standard JSON back
+ * (comments are not preserved). A Store install only edits an existing file:
+ * one it creates under `%APPDATA%` lands where VS Code never looks (ARCH-017).
+ *
+ * @returns The settings file path, or `null` when nothing was written.
  */
 export async function addMarketplaceToUserSettings(
   marketplaceUrl: string
-): Promise<string> {
+): Promise<string | null> {
   const settingsPath = await getVscodeUserSettingsPath();
   const settingsDir = join(settingsPath, "..");
+
+  if (detectInstallMethod() === "msstore" && !existsSync(settingsPath)) {
+    logWarn(
+      `VS Code user settings were not found at ${settingsPath}.`,
+      `Open VS Code, run "Preferences: Open User Settings (JSON)", and add ${marketplaceUrl} to "chat.plugins.marketplaces".`
+    );
+    return null;
+  }
 
   let existing: VscodeUserSettings = {};
   if (existsSync(settingsPath)) {

@@ -111,67 +111,81 @@ jobs:
           }
           Remove-Item -Path $projectDir -Recurse -Force -ErrorAction SilentlyContinue
 
-      - name: Setup Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version: "1.21"
-          cache: false
+      - name: Build MSIX
+        run: bun run build:msix --binary dist/archgate-smoke-test.exe --out-dir dist/msix
 
-      - name: Build winget shim
-        run: bun run build:winget --out-dir dist/winget
-
-      - name: Smoke test winget shim
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Windows PowerShell, not pwsh: the Appx module loads natively only there.
+      - name: Smoke test MSIX install
+        shell: powershell
         run: |
-          $exe = "dist/winget/archgate-shim-win32-x64.exe"
-          if (-not (Test-Path $exe)) {
-            Write-Error "Shim executable not found at $exe"
-            exit 1
-          }
-
-          # The shim pins the version in package.json, so it can only be executed
-          # end-to-end once that release has its Windows binary uploaded.
+          $ErrorActionPreference = "Stop"
+          $msix = "dist\msix\archgate-win32-x64.msix"
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $assets = gh release view "v$version" --json assets --jq '.assets[].name' 2>$null
-          $found = $false
-          if ($LASTEXITCODE -eq 0) {
-            $found = [bool]($assets -match [regex]::Escape("archgate-win32-x64.zip"))
-          }
-          if (-not $found) {
-            Write-Host "::warning::Release v$version has no Windows binary yet, skipping shim execution"
-            exit 0
-          }
+          [xml]$manifest = Get-Content distribution\msix\AppxManifest.xml
+          $identity = $manifest.Package.Identity
 
-          # Point the shim at an empty home so it performs a real download
-          # instead of reusing a cached binary. PowerShell runs `finally` when a
-          # `try` body calls `exit`, so the profile is removed on every path.
-          $shimHome = Join-Path $env:TEMP "archgate-winget-smoke-$(Get-Random)"
-          $realProfile = $env:USERPROFILE
+          # The Store signs the released package. Here a throwaway certificate
+          # issued to the manifest's Publisher stands in for that signature.
+          $cert = New-SelfSignedCertificate -Type Custom -Subject $identity.Publisher `
+            -KeyUsage DigitalSignature -FriendlyName "archgate smoke test" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3", "2.5.29.19={text}")
+          $cer = Join-Path $env:RUNNER_TEMP "archgate-smoke.cer"
+          Export-Certificate -Cert $cert -FilePath $cer | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
+
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+            Sort-Object { [version]$_.Directory.Parent.Name } | Select-Object -Last 1
+          & $signtool.FullName sign /fd SHA256 /sha1 $cert.Thumbprint $msix
+          if ($LASTEXITCODE -ne 0) { throw "signtool exited with code $LASTEXITCODE" }
+
           try {
-            New-Item -Path $shimHome -ItemType Directory -Force | Out-Null
-            $env:USERPROFILE = $shimHome
+            Add-AppxPackage -Path $msix
 
-            $output = & $exe --version 2>&1
-            Write-Host "winget shim output: $output"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error "Shim exited with code $LASTEXITCODE"
-              exit 1
-            }
-            if ("$output" -notmatch [regex]::Escape($version)) {
-              Write-Error "Expected version $version in shim output"
-              exit 1
-            }
+            # The execution alias is what puts `archgate` on PATH.
+            $alias = Join-Path $env:LOCALAPPDATA "Microsoft\WindowsApps\archgate.exe"
+            if (-not (Test-Path $alias)) { throw "Execution alias not created at $alias" }
 
-            $cached = Join-Path $shimHome ".archgate" "bin" "archgate.exe"
-            if (-not (Test-Path $cached)) {
-              Write-Error "Shim did not cache the binary at $cached"
-              exit 1
+            $output = & $alias --version
+            Write-Host "MSIX archgate version: $output"
+            if ($LASTEXITCODE -ne 0) { throw "Packaged binary exited with code $LASTEXITCODE" }
+            if ("$output" -notmatch [regex]::Escape($version)) { throw "Expected version $version in output" }
+
+            $doctor = (& $alias doctor --json | Out-String) | ConvertFrom-Json
+            Write-Host "Detected install method: $($doctor.archgate.install_method)"
+            if ($doctor.archgate.install_method -ne "msstore") {
+              throw "Expected install method msstore, got $($doctor.archgate.install_method)"
             }
           } finally {
-            $env:USERPROFILE = $realProfile
-            Remove-Item -Path $shimHome -Recurse -Force -ErrorAction SilentlyContinue
+            Get-AppxPackage -Name $identity.Name | Remove-AppxPackage
+            Remove-Item "Cert:\LocalMachine\TrustedPeople\$($cert.Thumbprint)" -ErrorAction SilentlyContinue
+          }
+
+      # A stub stands in for winget: the real one would install from the Store.
+      - name: Smoke test install.ps1 winget delegation
+        shell: pwsh
+        env:
+          CI: ""
+        run: |
+          $stubDir = Join-Path $env:RUNNER_TEMP "winget-stub"
+          New-Item -Path $stubDir -ItemType Directory -Force | Out-Null
+          $argsFile = Join-Path $stubDir "args.txt"
+          Set-Content -Path (Join-Path $stubDir "winget.cmd") -Value "@echo %* > `"$argsFile`"`r`n@exit /b 0"
+          $env:Path = "$stubDir;$env:Path"
+
+          $output = & "$env:GITHUB_WORKSPACE\install.ps1" *>&1 | Out-String
+          Write-Host $output
+
+          $storeId = (Get-Content distribution/msix/store.json -Raw | ConvertFrom-Json).productId
+          $expected = "install --id $storeId --source msstore"
+          $actual = if (Test-Path $argsFile) { (Get-Content $argsFile -Raw).Trim() } else { "" }
+          if ($actual -ne $expected) {
+            Write-Error "Expected install.ps1 to run 'winget $expected', got '$actual'"
+            exit 1
+          }
+          if ($output -match "Using the direct download") {
+            Write-Error "install.ps1 fell back to the direct download after winget succeeded"
+            exit 1
           }
 
       - name: Smoke test install.ps1

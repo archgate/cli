@@ -1,6 +1,6 @@
 ---
 title: Installasjon
-description: Installer Archgate CLI på macOS, Linux eller Windows via en enlinje-installatør, winget, npm eller frittstående binærfil. Begynn å håndheve ADR-er som kjørbare koderegler på minutter.
+description: Installer Archgate CLI på macOS, Linux eller Windows via en enlinje-installatør, winget og Microsoft Store, npm eller frittstående binærfil. Begynn å håndheve ADR-er som kjørbare koderegler på minutter.
 ---
 
 ## Frittstående installasjon (anbefalt)
@@ -11,41 +11,36 @@ Den raskeste måten å installere Archgate på. Ingen Node.js eller pakkebehandl
 # macOS / Linux
 curl -fsSL https://cli.archgate.dev/install-unix | sh
 
-# Windows (PowerShell)
-irm https://cli.archgate.dev/install-windows | iex
+# Windows
+winget install --id 9MSZ1ZDKSW8Z
 
 # Windows (Git Bash / MSYS2)
 curl -fsSL https://cli.archgate.dev/install-unix | sh
 ```
 
-Dette laster ned en forhåndskompilert binærfil for din plattform og installerer den til `~/.archgate/bin/`. Installatøren oppdager shell-profilene dine og tilbyr å legge mappen til PATH.
+På macOS og Linux laster installatøren ned en forhåndskompilert binærfil for din plattform og installerer den til `~/.archgate/bin/`. Den oppdager shell-profilene dine og tilbyr å legge mappen til PATH.
 
-På Windows oppdager PowerShell-installatøren også Git Bash shell-profiler (`.bashrc`, `.bash_profile`, `.profile`) og tilbyr å konfigurere PATH der også.
+På Windows installerer [winget](https://learn.microsoft.com/windows/package-manager/) Archgate fra Microsoft Store. Pakken er signert av Microsoft og legger `archgate` i PATH i alle nye terminaler. Oppdater med `winget upgrade --id 9MSZ1ZDKSW8Z`.
 
-Du kan tilpasse installasjonen med miljøvariabler:
-
-| Variabel               | Beskrivelse                                     | Standard          |
-| ---------------------- | ----------------------------------------------- | ----------------- |
-| `ARCHGATE_VERSION`     | Installer en bestemt versjon (f.eks. `v0.11.2`) | Siste versjon     |
-| `ARCHGATE_INSTALL_DIR` | Egendefinert installasjonsmappe                 | `~/.archgate/bin` |
-
-Du kan også laste ned binærfiler direkte fra [GitHub Releases](https://github.com/archgate/cli/releases).
-
-## Installer via winget (Windows)
-
-:::note[Venter på gjennomgang i winget-pkgs]
-`Archgate.Archgate` står i kø for å bli tatt inn i [winget-fellesskapets repositorium](https://github.com/microsoft/winget-pkgs). Inntil pakken er publisert der, returnerer denne kommandoen "No package found" — bruk den frittstående installatøren over i mellomtiden.
-:::
-
-På Windows kan du installere Archgate med [Windows Package Manager](https://learn.microsoft.com/windows/package-manager/):
+## Installer via PowerShell-skript (Windows)
 
 ```powershell
-winget install Archgate.Archgate
+irm https://cli.archgate.dev/install-windows | iex
 ```
 
-Dette installerer en liten, portabel wrapper og legger `archgate` i PATH. Ved første kjøring lastes plattformbinærfilen ned, sjekksummen verifiseres, og filen mellomlagres i `~/.archgate/bin/` — samme cache som alle andre installasjonsmetoder bruker, så du laster ikke ned noe på nytt når du bytter mellom dem.
+Skriptet kjører den samme `winget install`-kommandoen for deg. Der winget mangler eller Microsoft Store er blokkert, laster det ned binærfilen fra GitHub Releases til `~/.archgate/bin/` og tilbyr å legge mappen til PATH, også i Git Bash shell-profiler (`.bashrc`, `.bash_profile`, `.profile`). Den nedlastede binærfilen er ikke kodesignert.
 
-Oppgrader med `winget upgrade Archgate.Archgate`.
+Begge installasjonsskriptene leser disse miljøvariablene:
+
+| Variabel               | Beskrivelse                                                         | Standard          |
+| ---------------------- | ------------------------------------------------------------------- | ----------------- |
+| `ARCHGATE_VERSION`     | Installer en bestemt versjon (f.eks. `v0.11.2`)                     | Siste versjon     |
+| `ARCHGATE_INSTALL_DIR` | Egendefinert installasjonsmappe                                     | `~/.archgate/bin` |
+| `ARCHGATE_NO_WINGET`   | Sett til `1` for å hoppe over winget og laste ned direkte (Windows) | Ikke satt         |
+
+winget kan verken installere en låst versjon eller installere til en valgt mappe, så `ARCHGATE_VERSION` eller `ARCHGATE_INSTALL_DIR` på Windows velger også direkte nedlasting.
+
+Du kan også laste ned binærfiler direkte fra [GitHub Releases](https://github.com/archgate/cli/releases).
 
 ## Installer via npm
 

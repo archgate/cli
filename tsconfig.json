@@ -34,7 +34,8 @@
     "lint/",
     ".archgate/adrs/*.rules.ts",
     "scripts/",
-    "shims/winget/",
+    "distribution/msix/",
+    "distribution/msix/store.json",
     "package.json"
   ],
   "exclude": ["node_modules", "dist", "tsbuild", "tests/fixtures"]

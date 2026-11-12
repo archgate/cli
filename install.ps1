@@ -1,8 +1,10 @@
 # Archgate installer for Windows
-# Usage: irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex
+# Usage: irm https://cli.archgate.dev/install-windows | iex
 $ErrorActionPreference = "Stop"
 
 $Repo = "archgate/cli"
+# Microsoft Store product ID, mirrored from distribution/msix/store.json.
+$StoreId = "9MSZ1ZDKSW8Z"
 $Artifact = "archgate-win32-x64"
 $InstallDir = if ($env:ARCHGATE_INSTALL_DIR) { $env:ARCHGATE_INSTALL_DIR } else { "$HOME\.archgate\bin" }
 
@@ -13,6 +15,47 @@ if ($Arch -ne "AMD64") {
     Write-Error "Error: unsupported architecture: $Arch. archgate supports x64 only on Windows."
     exit 1
 }
+
+# --- Prefer the Microsoft Store package ---
+#
+# The Store package is signed by Microsoft and updates through winget. The
+# direct download below is unsigned, so it is used only when winget cannot do
+# the job: it installs neither a pinned release nor into a chosen directory.
+
+function Get-WingetSkipReason {
+    if ($env:ARCHGATE_NO_WINGET -and $env:ARCHGATE_NO_WINGET -ne "0") { return "ARCHGATE_NO_WINGET is set" }
+    if ($env:ARCHGATE_VERSION) { return "ARCHGATE_VERSION pins a release" }
+    if ($env:ARCHGATE_INSTALL_DIR) { return "ARCHGATE_INSTALL_DIR selects a directory" }
+    if ($env:CI) { return "running in CI" }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { return "winget is not available" }
+    return $null
+}
+
+# winget reports "already installed, no newer version" as a failure code.
+$WingetNoUpgradeExitCode = -1978335189
+
+$SkipReason = Get-WingetSkipReason
+if (-not $SkipReason) {
+    Write-Host "Installing archgate from the Microsoft Store with winget..."
+    # A failing winget must reach the fallback below, so its exit code is read
+    # here even where the caller's session turns native failures into errors.
+    $PSNativeCommandUseErrorActionPreference = $false
+    & winget install --id $StoreId --source msstore
+    if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $WingetNoUpgradeExitCode) {
+        $DirectBinary = Join-Path $HOME ".archgate/bin/archgate.exe"
+        if (Test-Path $DirectBinary) {
+            Write-Host ""
+            Write-Warning "A direct-download copy at $DirectBinary comes first on PATH and hides the Store install. Delete it to use the Store version."
+        }
+        Write-Host ""
+        Write-Host "Open a new terminal, then run 'archgate --help' to get started."
+        Write-Host "Update later with: winget upgrade --id $StoreId"
+        return
+    }
+    $SkipReason = "winget exited with code $LASTEXITCODE"
+}
+
+Write-Host "Using the direct download: $SkipReason."
 
 # --- Release asset helpers ---
 

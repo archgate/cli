@@ -32,7 +32,8 @@ export default {
       },
     },
     "shim-version-sync": {
-      description: "All shim package versions must match package.json version",
+      description:
+        "All shim package and Store package versions must match package.json version",
       severity: "error",
       async check(ctx) {
         const pkgJson = await ctx.readJSON("package.json");
@@ -48,6 +49,8 @@ export default {
           pattern: RegExp;
           label: string;
           required?: boolean;
+          /** The value the file must carry, when it is not the version itself. */
+          derive?: (version: string) => string;
         }> = [
           {
             file: "shims/pypi/pyproject.toml",
@@ -90,42 +93,21 @@ export default {
             pattern: /VERSION\s*=\s*"([^"]+)"/u,
             label: "RubyGem version.rb",
           },
+          // The Store reserves the fourth part of a package version and
+          // rejects a first part of 0, so release x.y.z ships as (x+1).y.z.0.
           {
-            file: "shims/winget/manifests/Archgate.Archgate.yaml",
-            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
-            label: "winget version manifest",
+            file: "distribution/msix/AppxManifest.xml",
+            pattern: /<Identity\b[^>]*\bVersion="(\d+\.\d+\.\d+\.\d+)"/u,
+            label: "MSIX AppxManifest.xml",
             required: true,
-          },
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
-            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
-            label: "winget installer manifest",
-            required: true,
-          },
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
-            pattern: /^PackageVersion:\s*"([^"]+)"/mu,
-            label: "winget locale manifest",
-            required: true,
-          },
-          // The two URLs embed the version too. A manifest whose
-          // PackageVersion is current but whose URL is stale points winget at
-          // the wrong release asset, so each is matched on its own.
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.installer.yaml",
-            pattern: /InstallerUrl:\s*"[^"]*\/releases\/download\/v([^/]+)/u,
-            label: "winget InstallerUrl",
-            required: true,
-          },
-          {
-            file: "shims/winget/manifests/Archgate.Archgate.locale.en-US.yaml",
-            pattern: /ReleaseNotesUrl:\s*\S*\/releases\/tag\/v(\S+)/u,
-            label: "winget ReleaseNotesUrl",
-            required: true,
+            derive: (version) => {
+              const [major = "", minor = "", patch = ""] = version.split(".");
+              return `${Number(major) + 1}.${minor}.${patch}.0`;
+            },
           },
         ];
 
-        for (const { file, pattern, label, required } of shimFiles) {
+        for (const { file, pattern, label, required, derive } of shimFiles) {
           let content: string;
           try {
             // oxlint-disable-next-line no-await-in-loop -- sequential read is intentional; files are few and order-independent but must check each
@@ -148,11 +130,12 @@ export default {
           }
 
           const shimVersion = match[1];
-          if (shimVersion !== expected) {
+          const want = derive === undefined ? expected : derive(expected);
+          if (shimVersion !== want) {
             ctx.report.violation({
-              message: `${label} version "${shimVersion}" does not match package.json version "${expected}"`,
+              message: `${label} version "${shimVersion}" does not match "${want}", derived from package.json version "${expected}"`,
               file,
-              fix: `Update version to "${expected}" in ${file} (automated by .simple-release.js)`,
+              fix: `Update version to "${want}" in ${file} (automated by .simple-release.js)`,
             });
           }
         }
