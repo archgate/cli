@@ -32,11 +32,21 @@ const REQUIRED_INPUTS: readonly (readonly [string, RegExp])[] = [
   ["capacity-url", /^\$\{\{\s*vars\.RUNNER_CAPACITY_URL\s*\}\}$/u],
   ["tailnet-client-id", /^\$\{\{\s*vars\.TAILNET_CLIENT_ID_PICKER\s*\}\}$/u],
 ];
+/** The command that lifts the hosted Ubuntu images' AppArmor block on unprivileged user namespaces. */
+const USERNS = /sysctl\s+-w\s+kernel\.apparmor_restrict_unprivileged_userns=0/u;
+/** A `runs-on` unit that names only Windows or macOS runners. */
+const notLinux = (unit: string): boolean =>
+  /windows|macos/iu.test(unit) && !/ubuntu|linux/iu.test(unit);
 /** The file the enterprise-adrs Sync workflow keeps current with the repository's visibility. */
 const REPOSITORY_FILE = ".archgate/repository.json";
+/** The fix for a public repository's job: a GitHub-hosted runner. */
+const HOSTED_FIX =
+  "Run the job on a GitHub-hosted runner such as ubuntu-latest";
 
 type Yaml = string | number | boolean | null | Yaml[] | { [key: string]: Yaml };
 type Mapping = { [key: string]: Yaml };
+/** A line range as [first, end) indexes. */
+type Range = readonly [number, number];
 type Step = {
   file: string;
   line: number;
@@ -53,16 +63,13 @@ type Job = {
   needs: string[];
   picker: boolean;
   group: boolean;
+  userns: boolean;
 };
 
 const isMapping = (value: unknown): value is Mapping =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
 /** The value under `key` in a parsed YAML mapping, absent when the key is. */
-function field(mapping: Mapping, key: string): Yaml | undefined {
-  return mapping[key];
-}
-
+const field = (mapping: Mapping, key: string): Yaml | undefined => mapping[key];
 /** Every string inside a YAML value, however deep. */
 function strings(value: Yaml | undefined): string[] {
   if (typeof value === "string") return [value];
@@ -73,10 +80,8 @@ function strings(value: Yaml | undefined): string[] {
 }
 
 /** The indentation of a line. */
-function indentOf(line: string): number {
-  return line.length - line.trimStart().length;
-}
-
+const indentOf = (line: string): number =>
+  line.length - line.trimStart().length;
 /** The mapping key a line opens, unquoted, or undefined for a comment, item or blank line. */
 function keyOf(line: string): string | undefined {
   const text = line.trimStart();
@@ -90,7 +95,6 @@ function keyOf(line: string): string | undefined {
 
 /** A key whose value is a block scalar (`run: |`, `script: >-`). */
 const BLOCK_SCALAR = /:\s*[|>](?:[+-]\d?|\d[+-]?)?\s*(?:#.*)?$/u;
-
 /** A quoted value that opens on a line: the text from its opening quote on. */
 const QUOTED_VALUE = /(?:^|:\s+|-\s+)(["'])(.*)$/u;
 
@@ -133,12 +137,7 @@ const TOKEN =
 function literalOnly(expression: string): boolean {
   let read = 0;
   TOKEN.lastIndex = 0;
-  for (
-    let match = TOKEN.exec(expression);
-    match !== null;
-    match = TOKEN.exec(expression)
-  )
-    read = TOKEN.lastIndex;
+  while (TOKEN.exec(expression) !== null) read = TOKEN.lastIndex;
   return read > 0 && expression.slice(read).trim() === "";
 }
 
@@ -170,8 +169,8 @@ function usesOf(line: string): string | undefined {
 }
 
 /** Each job's line range under the top-level `jobs:` key, as [first, end) indexes, by name. */
-function jobBlocks(lines: string[]): Map<string, readonly [number, number]> {
-  const blocks = new Map<string, readonly [number, number]>();
+function jobBlocks(lines: string[]): Map<string, Range> {
+  const blocks = new Map<string, Range>();
   const top = lines.findIndex(
     (line) => indentOf(line) === 0 && keyOf(line) === "jobs"
   );
@@ -195,10 +194,7 @@ function jobBlocks(lines: string[]): Map<string, readonly [number, number]> {
 }
 
 /** The index of the job's own block `runs-on:` key, or undefined for a flow-style job. */
-function runsOnIndex(
-  lines: string[],
-  [first, end]: readonly [number, number]
-): number | undefined {
+function runsOnIndex(lines: string[], [first, end]: Range): number | undefined {
   // A job whose value opens a flow mapping (`job: {`) has no block keys, however it is wrapped.
   if (/:\s*\{/u.test(lines.at(first) ?? "")) return undefined;
   const child = lines
@@ -212,20 +208,8 @@ function runsOnIndex(
   return undefined;
 }
 
-/**
- * The units of a `runs-on` value, each checked on its own: the string, each
- * label of a list, and each field of a `group`/`labels` mapping. GitHub applies
- * a mapping's fields together, so their order means nothing.
- */
-function runsOnUnits(value: Yaml | undefined): string[] {
-  return strings(value).map((unit) => unit.trim());
-}
-
 /** The values a `runs-on` takes from the job's matrix, including `include` entries. */
-function matrixValues(
-  units: readonly string[],
-  strategy: Yaml | undefined
-): string[] {
+function matrixValues(units: string[], strategy?: Yaml): string[] {
   const matrix = isMapping(strategy) ? field(strategy, "matrix") : undefined;
   const keys = units.flatMap((unit) =>
     [...unit.matchAll(MATRIX_VALUE)].map(
@@ -245,32 +229,25 @@ function matrixValues(
   );
 }
 
+/** A file that could not be parsed, and why. */
+type Failure = { file: string; error: string };
 /** A workflow or composite action, parsed, or the reason it could not be. */
-type Parsed =
-  | { file: string; lines: string[]; content: Yaml }
-  | { file: string; error: string };
+type Parsed = Failure | { file: string; lines: string[]; content: Yaml };
+/** What the rules read from the workflow and composite-action files. */
+type Loaded = { steps: Step[]; jobs: Job[]; unreadable: Failure[] };
 
 /**
  * The workflow and composite-action files of the repository, read once. A file
  * that does not parse is listed in `unreadable` and the others are still read.
  */
-async function load(
-  ctx: RuleContext
-): Promise<{
-  steps: Step[];
-  jobs: Job[];
-  unreadable: { file: string; error: string }[];
-}> {
+async function load(ctx: RuleContext): Promise<Loaded> {
   const files = ctx.scopedFiles.filter((file) => /\.ya?ml$/u.test(file));
   const parsed: Parsed[] = await Promise.all(
     files.map(async (file): Promise<Parsed> => {
       try {
         const content: Yaml = (await ctx.readYAML(file)).content;
-        return {
-          file,
-          lines: (await ctx.readFile(file)).split(/\r?\n/u),
-          content,
-        };
+        const lines = (await ctx.readFile(file)).split(/\r?\n/u);
+        return { file, lines, content };
       } catch (error) {
         return { file, error: String(error) };
       }
@@ -320,22 +297,25 @@ async function load(
     for (const [name, job] of Object.entries(declaredJobs)) {
       if (!isMapping(job)) continue;
       const jobSteps = collect(field(job, "steps"));
+      const firstStep = [field(job, "steps")].flat().at(0);
       steps.push(...jobSteps);
       const block = blocks.get(name);
       // Only a block `runs-on:` key can carry the exemption marker; a flow-style
       // job is reported at its own line and is never exempt.
       const key = block === undefined ? undefined : runsOnIndex(lines, block);
       const at = key ?? block?.[0] ?? 0;
-      // A reusable-workflow call passes its runner as an input instead.
-      const own = runsOnUnits(job["runs-on"]).concat(
-        "uses" in job ? runsOnUnits(field(job, "with")) : []
+      // The units of `runs-on`, each checked on its own: the string, each label
+      // of a list, and each field of a `group`/`labels` mapping, whose order
+      // means nothing. A reusable-workflow call passes its runner as an input.
+      const own = strings(job["runs-on"]).concat(
+        "uses" in job ? strings(field(job, "with")) : []
       );
       jobs.push({
         file,
         name,
-        units: own.concat(
-          matrixValues(own, field(job, "strategy")).map((unit) => unit.trim())
-        ),
+        units: own
+          .concat(matrixValues(own, field(job, "strategy")))
+          .map((unit) => unit.trim()),
         line: at + 1,
         exempt:
           key !== undefined && key > 0 && EXEMPT.test(lines.at(key - 1) ?? ""),
@@ -346,6 +326,11 @@ async function load(
         group:
           isMapping(job["runs-on"]) &&
           field(job["runs-on"], "group") !== undefined,
+        // A reusable-workflow call's own jobs carry the step.
+        userns:
+          "uses" in job ||
+          (isMapping(firstStep) &&
+            USERNS.test(strings(field(firstStep, "run")).join(" "))),
       });
     }
   }
@@ -356,10 +341,7 @@ async function load(
  * Whether a job is a picker job: its `runs-on` output forwards the `runs-on`
  * output of one of its runner-picker steps, `${{ steps.<id>.outputs.runs-on }}`.
  */
-function forwardsPicker(
-  steps: readonly Step[],
-  outputs: Yaml | undefined
-): boolean {
+function forwardsPicker(steps: Step[], outputs?: Yaml): boolean {
   const forwarded = isMapping(outputs) ? field(outputs, "runs-on") : undefined;
   if (typeof forwarded !== "string") return false;
   return steps.some(
@@ -373,7 +355,6 @@ function forwardsPicker(
 /** Whether a job targets the pool or Blacksmith in any `runs-on` unit or matrix value it reads. */
 const targetsPool = (job: Job): boolean =>
   job.units.some((unit) => POOL_TARGET.test(unit));
-
 /** A `runs-on` unit with each job output reference replaced by OUTPUT_MARK. */
 const marked = (unit: string): string =>
   unit.replaceAll(OUTPUT_REF, OUTPUT_MARK);
@@ -411,7 +392,6 @@ function routedUnit(unit: string, job: Job, jobs: readonly Job[]): boolean {
 /** Whether a job reads a picker output with no fallback, which leaves `runs-on` empty when the picker gives none. */
 const lacksFallback = (job: Job): boolean =>
   job.units.some((unit) => unit.search(OUTPUT_REF) >= 0 && !hasFallbacks(unit));
-
 /**
  * Whether every unit of a job that names the pool is routed. A matrix leg may
  * read its own picker; a matrix value that names the pool without one is a
@@ -521,6 +501,22 @@ export default {
         }
       },
     },
+    "hosted-userns": {
+      description:
+        "A job that can land on a GitHub-hosted Linux runner lifts the user-namespace restriction first",
+      async check(ctx) {
+        for (const job of (await load(ctx)).jobs) {
+          const picked = job.units.some((unit) => unit.search(OUTPUT_REF) >= 0);
+          if (!picked || job.userns || job.units.every(notLinux)) continue;
+          ctx.report.violation({
+            message: `Job \`${job.name}\` can run on a GitHub-hosted Linux runner, whose Ubuntu image refuses unprivileged user namespaces, and its first step does not lift that`,
+            file: job.file,
+            line: job.line,
+            fix: "Make the job's first step `run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` with `if: runner.os == 'Linux' && runner.environment == 'github-hosted'`",
+          });
+        }
+      },
+    },
     "public-hosted-only": {
       description:
         "A public repository uses neither the runner picker nor a self-hosted or Blacksmith runner",
@@ -542,7 +538,7 @@ export default {
             message: "A public repository does not use the runner picker",
             file: step.file,
             line: step.line,
-            fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
+            fix: HOSTED_FIX,
           });
         }
         for (const job of jobs.filter(
@@ -552,7 +548,7 @@ export default {
             message: `Job \`${job.name}\` of a public repository targets a self-hosted, Blacksmith or runner-group runner`,
             file: job.file,
             line: job.line,
-            fix: "Run the job on a GitHub-hosted runner such as ubuntu-latest",
+            fix: HOSTED_FIX,
           });
         }
       },
