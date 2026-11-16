@@ -14,7 +14,7 @@ Archgate lets teams write an ADR once and enforce it everywhere. ADRs are Markdo
 
 ## Installation
 
-Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh` (macOS/Linux) or `irm https://raw.githubusercontent.com/archgate/cli/main/install.ps1 | iex` (Windows PowerShell). Also available via npm (`npm install -g archgate`) or direct download from GitHub Releases.
+Install standalone (no Node.js required): `curl -fsSL https://raw.githubusercontent.com/archgate/cli/main/install.sh | sh` (macOS/Linux) or `winget install --id 9MSZ1ZDKSW8Z` (Windows, signed Microsoft Store package). Also available via npm (`npm install -g archgate`) or direct download from GitHub Releases.
 
 ## Documentation
 

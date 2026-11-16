@@ -40,7 +40,7 @@ When a rule is violated, `archgate check` reports the file, line, and which ADR 
 
 ## Installation
 
-Install via standalone script, npm, pip, dotnet, Go, gem, Maven, or proto. See the **[installation guide](https://cli.archgate.dev/getting-started/installation/)** for all options and platform support.
+Install via standalone script, winget, npm, pip, dotnet, Go, gem, Maven, or proto. See the **[installation guide](https://cli.archgate.dev/getting-started/installation/)** for all options and platform support.
 
 ## Quick start
 

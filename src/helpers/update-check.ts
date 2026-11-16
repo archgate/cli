@@ -3,7 +3,9 @@
 import { semver } from "bun";
 
 import { fetchLatestGitHubVersion } from "./binary-upgrade";
+import { detectInstallMethod } from "./install-info";
 import { logDebug } from "./log";
+import { STORE_UPGRADE_COMMAND } from "./msstore";
 import { internalPath } from "./paths";
 
 const CACHE_FILE = "last-update-check";
@@ -69,7 +71,11 @@ export async function checkForUpdatesIfNeeded(
       return null;
     }
 
-    return `\nArchgate update available: ${currentVersion} -> ${latestVersion}\nRun \`archgate upgrade\` to update.`;
+    const command =
+      detectInstallMethod() === "msstore"
+        ? STORE_UPGRADE_COMMAND
+        : "archgate upgrade";
+    return `\nArchgate update available: ${currentVersion} -> ${latestVersion}\nRun \`${command}\` to update.`;
   } catch (err) {
     logDebug("Update check error (non-fatal):", err);
     return null;
