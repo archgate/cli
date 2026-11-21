@@ -162,6 +162,7 @@ async function rejectionWithoutLeak(run: Promise<unknown>): Promise<string> {
 interface SpawnReply {
   exitCode: number;
   stdout?: string;
+  stderr?: string;
 }
 
 /**
@@ -180,10 +181,10 @@ function stubSpawn(
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   spawnSpy.mockImplementation(((argv: string[]) => {
     calls.push(argv);
-    const { exitCode, stdout }: SpawnReply = respond(argv);
+    const { exitCode, stdout, stderr }: SpawnReply = respond(argv);
     return {
       stdout: stdout ?? "",
-      stderr: "",
+      stderr: stderr ?? "",
       exited: Promise.resolve(exitCode),
     };
   }) as unknown as typeof Bun.spawn);
@@ -299,17 +300,22 @@ describe("downloadReleaseBinary archive handling", () => {
     expect(message).toContain("Failed to extract archive (");
   });
 
-  test("reports the PowerShell exit code when zip extraction fails", async () => {
+  test("reports the PowerShell exit code and stderr when zip extraction fails", async () => {
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
     // Stubbing the spawn reaches the failure branch on every runner rather
     // than only on Windows, the sole platform shipping `.zip` releases.
-    stubSpawn(3);
+    stubSpawn(() => ({
+      exitCode: 3,
+      stderr: "ExtractToDirectory: Invalid archive.\r\n",
+    }));
 
     const message = await rejectionWithoutLeak(
       downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT)
     );
 
-    expect(message).toBe("Failed to extract archive (PowerShell exit code 3)");
+    expect(message).toBe(
+      "Failed to extract archive (PowerShell exit code 3):\nExtractToDirectory: Invalid archive."
+    );
   });
 
   test("uses the resolved PATH executable before the standard installation", async () => {
@@ -357,7 +363,9 @@ describe("downloadReleaseBinary archive handling", () => {
       );
       const calls = stubSpawn((argv) => {
         const script = argv.at(-1)!;
-        const destination = /-DestinationPath '([^']+)'/u.exec(script)![1];
+        const destination = /ExtractToDirectory\('.+', '(.+)'\)$/u
+          .exec(script)![1]
+          .replaceAll("''", "'");
         writeFileSync(join(destination, "archgate.exe"), "binary payload");
         return { exitCode: 0 };
       });
@@ -400,16 +408,14 @@ describe("downloadReleaseBinary archive handling", () => {
     expect(readdirSync(sandbox)).toEqual([]);
   });
 
-  test("stops PowerShell on a non-terminating Expand-Archive error", async () => {
+  test("makes ZIP extraction errors terminate PowerShell", async () => {
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
     const calls = stubSpawn(0);
 
     await rejectionWithoutLeak(downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT));
 
-    // Without `-ErrorAction Stop`, Expand-Archive reports a corrupt archive as
-    // a non-terminating error and `powershell -Command` still exits 0.
     expect(calls[0]).toContain("powershell");
-    expect(calls[0].at(-1)).toContain("-ErrorAction Stop");
+    expect(calls[0].at(-1)).toContain("$ErrorActionPreference = 'Stop'");
   });
 
   test("rejects when extraction reports success but produces no binary", async () => {

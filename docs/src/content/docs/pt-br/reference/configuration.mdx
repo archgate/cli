@@ -14,7 +14,8 @@ Este arquivo é criado automaticamente pelo `archgate init` (para armazenar o br
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
   "baseBranch": "main",
-  "strict": true
+  "strict": true,
+  "briefingMaxSectionChars": 4200
 }
 ```
 
@@ -59,6 +60,10 @@ A ordem de resolução é: flag de linha de comando, depois este valor de config
 ```json
 { "strict": true }
 ```
+
+### `briefingMaxSectionChars`
+
+Limite de caracteres para cada seção `Decision` e `Do's and Don'ts` de um ADR em `archgate review-context --verbose`. `archgate check` e `archgate review-context --run-checks` relatam as seções que ultrapassam o mesmo limite, e o modo estrito continua falhando quando há esses diagnósticos. Use um número inteiro positivo; o padrão é `2000`.
 
 ### `paths`
 

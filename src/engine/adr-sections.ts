@@ -3,6 +3,7 @@
 import { relative } from "node:path";
 
 import type { AdrDocument } from "../formats/adr";
+import { loadProjectConfig } from "../helpers/project-config";
 import { getSkippedAdrs, parseAllAdrs } from "./loader";
 
 /**
@@ -13,6 +14,17 @@ export const BRIEFED_SECTIONS = ["Decision", "Do's and Don'ts"] as const;
 
 /** Max chars per briefed section before truncation. 0 = unlimited. */
 export const DEFAULT_MAX_SECTION_CHARS = 2000;
+
+export function resolveBriefingSectionLimit(
+  projectRoot: string,
+  override?: number
+): number {
+  return (
+    override ??
+    loadProjectConfig(projectRoot).briefingMaxSectionChars ??
+    DEFAULT_MAX_SECTION_CHARS
+  );
+}
 
 /**
  * Extract named `##` sections from ADR markdown body.
@@ -119,7 +131,7 @@ export function collectBriefingBudgetWarnings(
 /**
  * Budget diagnostics for a project, project-relative, covering every ADR.
  *
- * @param maxChars - Cap the caller truncates at; defaults to the engine's.
+ * @param maxChars - Cap the caller truncates at; otherwise uses project config.
  * @returns Over-budget sections, plus ADRs that failed to parse.
  */
 export async function collectBriefingDiagnostics(
@@ -132,7 +144,7 @@ export async function collectBriefingDiagnostics(
   const parsed = await parseAllAdrs(projectRoot);
   const briefingWarnings = collectBriefingBudgetWarnings(
     parsed.map((entry) => entry.adr),
-    maxChars
+    resolveBriefingSectionLimit(projectRoot, maxChars)
   ).map((w) => ({
     adrId: w.adrId,
     file: relative(projectRoot, w.file).replaceAll("\\", "/"),

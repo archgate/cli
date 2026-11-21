@@ -225,4 +225,22 @@ describe("collectBriefingDiagnostics", () => {
     const loose = await collectBriefingDiagnostics(dir, 0);
     expect(loose.briefingWarnings).toEqual([]);
   });
+
+  test("checks every briefed section against the configured cap", async () => {
+    await Bun.write(
+      join(dir, ".archgate", "config.json"),
+      JSON.stringify({ strict: true, briefingMaxSectionChars: 8 })
+    );
+    await writeAdrFile(
+      "ARCH-001-x.md",
+      "---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\n12345678\n\n## Do's and Don'ts\n123456789\n"
+    );
+    const { briefingWarnings } = await collectBriefingDiagnostics(dir);
+    expect(briefingWarnings).toHaveLength(1);
+    expect(briefingWarnings[0]).toMatchObject({
+      section: "Do's and Don'ts",
+      cap: 8,
+      length: 9,
+    });
+  });
 });

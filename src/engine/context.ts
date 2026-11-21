@@ -6,6 +6,7 @@ import {
   DEFAULT_MAX_SECTION_CHARS,
   collectBriefingDiagnostics,
   extractAdrSections,
+  resolveBriefingSectionLimit,
   truncateSection,
 } from "./adr-sections";
 import {
@@ -200,7 +201,10 @@ export async function buildReviewContext(
 ): Promise<ReviewContext> {
   const staged = options?.staged ?? false;
   const maxFiles = options?.maxChangedFiles ?? 200;
-  const maxSectionChars = options?.maxSectionChars ?? DEFAULT_MAX_SECTION_CHARS;
+  const maxSectionChars = resolveBriefingSectionLimit(
+    projectRoot,
+    options?.maxSectionChars
+  );
   const maxViolationsPerRule = options?.maxViolationsPerRule ?? 20;
 
   const base = options?.base;
