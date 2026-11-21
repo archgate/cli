@@ -27,6 +27,16 @@ GitHub-hosted minutes cost nothing for public repositories, and a self-hosted ru
 
 ## Decision
 
+1. Public repositories use GitHub-hosted runners only.
+2. Private and internal build, test and deploy jobs ask a dedicated picker on `ubuntu-slim` and consume its `runs-on` output with a fallback.
+3. Use `barretotech/runner-picker` pinned to a full SHA, with `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`.
+4. Linux offers Blacksmith first, then `hosted: ${{ vars.HOSTED_LINUX_RUNNER || '"ubuntu-latest"' }}` with `weight: ${{ vars.HOSTED_LINUX_WEIGHT || 1 }}`. Before using a Linux weight other than 1, deploy and verify matching SKU accounting in ci-capacity; until then keep the standard hosted offer and weight 1. Windows offers `"windows-latest"` at weight 2 without Blacksmith; macOS offers `"macos-latest"` at weight 10. Configuration and accounting details below are part of this policy.
+5. Jobs taking seconds, including pickers, run directly on `ubuntu-slim`.
+6. A job whose purpose is the self-hosted machine itself may target its label directly, with `# runner-picker: exempt - <reason>` immediately before `runs-on`.
+7. Routed jobs behave the same on every pool. Linux-capable jobs first lift the hosted user-namespace restriction on GitHub-hosted Linux only, using the step below. Close other pool differences on the runner side or in this ADR.
+
+## Runner policy details
+
 1. **Public repositories run on GitHub-hosted runners only.** They never name a self-hosted label, a Blacksmith label, or the runner picker.
 2. **Private and internal repositories ask the runner picker for every job that builds, tests or deploys.** The picker job runs on `ubuntu-slim` and the consuming job reads its `runs-on` output, with a fallback for when the picker gives no answer.
 3. **One action, one pin.** The picker is `barretotech/runner-picker`, pinned to a full commit SHA with its release tag as a comment, and called with `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`.
