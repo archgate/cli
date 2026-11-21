@@ -12,7 +12,7 @@ import {
   buildReviewContext,
 } from "../../src/engine/context";
 import type { AdrDocument, AdrDomain } from "../../src/formats/adr";
-import { safeRmSync } from "../test-utils";
+import { git, safeRmSync } from "../test-utils";
 
 function makeAdr(
   overrides: Partial<AdrDocument["frontmatter"]> = {},
@@ -370,6 +370,26 @@ export default {
     expect(ctx.checkSummary).not.toBeNull();
     expect(ctx.checkSummary!.pass).toBe(true);
     expect(ctx.checkSummary!.total).toBe(0);
+  });
+
+  test("uses the configured limit for both briefings and strict diagnostics", async () => {
+    await git(["init"], tempDir);
+    writeAdr("ARCH-001", "architecture");
+    writeFileSync(
+      join(tempDir, ".archgate", "config.json"),
+      JSON.stringify({ briefingMaxSectionChars: 8 })
+    );
+    await git(["add", "."], tempDir);
+    const ctx = await buildReviewContext(tempDir, {
+      briefings: true,
+      runChecks: true,
+      staged: true,
+      strict: true,
+    });
+    expect(ctx.domains[0].adrs[0].decision).toStartWith("Use ARCH\n\n");
+    expect(ctx.truncatedBriefings).toEqual(["ARCH-001"]);
+    expect(ctx.checkSummary?.briefingWarnings).toHaveLength(2);
+    expect(ctx.checkSummary?.strictAdvisoryExceeded).toBe(true);
   });
 
   test("omits check summary when runChecks: false", async () => {

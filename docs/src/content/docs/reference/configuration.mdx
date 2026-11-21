@@ -14,7 +14,8 @@ This file is created automatically by `archgate init` (to store the auto-detecte
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
   "baseBranch": "main",
-  "strict": true
+  "strict": true,
+  "briefingMaxSectionChars": 4200
 }
 ```
 
@@ -59,6 +60,10 @@ Resolution order is CLI flag, then this config value, then `false`. There is no 
 ```json
 { "strict": true }
 ```
+
+### `briefingMaxSectionChars`
+
+Maximum characters per ADR `Decision` and `Do's and Don'ts` section in `archgate review-context --verbose`. `archgate check` and `archgate review-context --run-checks` report sections exceeding the same limit, and strict mode still fails on those findings. Set a positive integer; the default is `2000`.
 
 ### `paths`
 

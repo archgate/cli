@@ -49,6 +49,7 @@ export const ProjectConfigSchema = z
     paths: PathsConfigSchema.optional(),
     baseBranch: z.string().min(1).optional(),
     strict: z.boolean().optional(),
+    briefingMaxSectionChars: z.int().positive().optional(),
   })
   .default({ domains: {} });
 
