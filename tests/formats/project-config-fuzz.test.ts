@@ -228,6 +228,18 @@ describe("ProjectConfigSchema fuzz", () => {
     expect(ProjectConfigSchema.safeParse(c).success).toBe(true);
   });
 
+  test.each([0, -1, 1.5, "8"])(
+    "preserves strict mode when the briefing cap is %j",
+    (briefingMaxSectionChars) => {
+      const config = ProjectConfigSchema.parse({
+        strict: true,
+        briefingMaxSectionChars,
+      });
+      expect(config.strict).toBe(true);
+      expect(config.briefingMaxSectionChars).toBeUndefined();
+    }
+  );
+
   test.each([
     { domains: {}, strict: "yes" },
     { domains: {}, strict: 1 },

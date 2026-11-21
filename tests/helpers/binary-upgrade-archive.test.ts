@@ -306,7 +306,7 @@ describe("downloadReleaseBinary archive handling", () => {
     // than only on Windows, the sole platform shipping `.zip` releases.
     stubSpawn(() => ({
       exitCode: 3,
-      stderr: "Expand-Archive: Invalid archive.\r\n",
+      stderr: "ExtractToDirectory: Invalid archive.\r\n",
     }));
 
     const message = await rejectionWithoutLeak(
@@ -314,7 +314,7 @@ describe("downloadReleaseBinary archive handling", () => {
     );
 
     expect(message).toBe(
-      "Failed to extract archive (PowerShell exit code 3):\nExpand-Archive: Invalid archive."
+      "Failed to extract archive (PowerShell exit code 3):\nExtractToDirectory: Invalid archive."
     );
   });
 
@@ -363,7 +363,9 @@ describe("downloadReleaseBinary archive handling", () => {
       );
       const calls = stubSpawn((argv) => {
         const script = argv.at(-1)!;
-        const destination = /-DestinationPath '([^']+)'/u.exec(script)![1];
+        const destination = /ExtractToDirectory\('.+', '(.+)'\)$/u
+          .exec(script)![1]
+          .replaceAll("''", "'");
         writeFileSync(join(destination, "archgate.exe"), "binary payload");
         return { exitCode: 0 };
       });
@@ -406,16 +408,14 @@ describe("downloadReleaseBinary archive handling", () => {
     expect(readdirSync(sandbox)).toEqual([]);
   });
 
-  test("stops PowerShell on a non-terminating Expand-Archive error", async () => {
+  test("makes ZIP extraction errors terminate PowerShell", async () => {
     mockArchiveDownload(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]));
     const calls = stubSpawn(0);
 
     await rejectionWithoutLeak(downloadReleaseBinary("v1.0.0", ZIP_ARTIFACT));
 
-    // Without `-ErrorAction Stop`, Expand-Archive reports a corrupt archive as
-    // a non-terminating error and `powershell -Command` still exits 0.
     expect(calls[0]).toContain("powershell");
-    expect(calls[0].at(-1)).toContain("-ErrorAction Stop");
+    expect(calls[0].at(-1)).toContain("$ErrorActionPreference = 'Stop'");
   });
 
   test("rejects when extraction reports success but produces no binary", async () => {

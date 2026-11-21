@@ -229,18 +229,18 @@ describe("collectBriefingDiagnostics", () => {
   test("checks every briefed section against the configured cap", async () => {
     await Bun.write(
       join(dir, ".archgate", "config.json"),
-      JSON.stringify({ strict: true, briefingMaxSectionChars: 4200 })
+      JSON.stringify({ strict: true, briefingMaxSectionChars: 8 })
     );
     await writeAdrFile(
       "ARCH-001-x.md",
-      `---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\n${"A".repeat(4200)}\n\n## Do's and Don'ts\n${"B".repeat(4201)}\n`
+      "---\nid: ARCH-001\ntitle: X\ndomain: architecture\nrules: false\n---\n\n## Decision\n12345678\n\n## Do's and Don'ts\n123456789\n"
     );
     const { briefingWarnings } = await collectBriefingDiagnostics(dir);
     expect(briefingWarnings).toHaveLength(1);
     expect(briefingWarnings[0]).toMatchObject({
       section: "Do's and Don'ts",
-      cap: 4200,
-      length: 4201,
+      cap: 8,
+      length: 9,
     });
   });
 });
