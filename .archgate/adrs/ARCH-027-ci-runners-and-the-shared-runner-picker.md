@@ -28,7 +28,7 @@ GitHub-hosted minutes cost nothing for public repositories, and a self-hosted ru
 ## Decision
 
 1. Public repositories use GitHub-hosted runners only.
-2. Private and internal build, test and deploy jobs ask a dedicated picker on `ubuntu-slim` and consume its `runs-on` output with a fallback.
+2. Private and internal build, test and deploy jobs ask a dedicated picker on `ubuntu-slim` and consume its `runs-on` output with a fallback. The TatuiCloud jobs listed below use GitHub-hosted runners to preserve network isolation.
 3. Use `barretotech/runner-picker` pinned to a full SHA, with `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`.
 4. Linux offers Blacksmith first, then `hosted: ${{ vars.HOSTED_LINUX_RUNNER || '"ubuntu-latest"' }}` with `weight: ${{ vars.HOSTED_LINUX_WEIGHT || 1 }}`. Before using a Linux weight other than 1, deploy and verify matching SKU accounting in ci-capacity; until then keep the standard hosted offer and weight 1. Windows offers `"windows-latest"` at weight 2 without Blacksmith; macOS offers `"macos-latest"` at weight 10. Configuration and accounting details below are part of this policy.
 5. Jobs taking seconds, including pickers, run directly on `ubuntu-slim`.
@@ -39,6 +39,9 @@ GitHub-hosted minutes cost nothing for public repositories, and a self-hosted ru
 
 1. **Public repositories run on GitHub-hosted runners only.** They never name a self-hosted label, a Blacksmith label, or the runner picker.
 2. **Private and internal repositories ask the runner picker for every job that builds, tests or deploys.** The picker job runs on `ubuntu-slim` and the consuming job reads its `runs-on` output, with a fallback for when the picker gives no answer.
+
+   In `BarretoTech/tatuicloud`, the `line-endings`, `shell`, `ansible` and `tofu` jobs in `.github/workflows/ci.yml` run on GitHub-hosted runners without a route to the homelab and use no deployment credentials. The `apply` job in `.github/workflows/tailnet.yml` also runs on GitHub-hosted and uses the API-scoped OIDC identity from its protected `tailnet` environment. These five jobs are the TatuiCloud network-isolation exception to picker routing.
+
 3. **One action, one pin.** The picker is `barretotech/runner-picker`, pinned to a full commit SHA with its release tag as a comment, and called with `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`.
 4. **Overflow order per platform.** Linux offers `"blacksmith-2vcpu-ubuntu-2404"` as `overflow`. Its GitHub-hosted offer and billing weight come from organization variables, with standard-runner defaults:
 
@@ -118,7 +121,7 @@ The companion rules read every workflow and every composite action (`action.yml`
 
 GitHub limits what a public workflow that breaks the rule can reach, without rejecting the workflow itself: the enterprise runner group `tatuicloud` does not serve public repositories, so a job naming its labels never gets a runner, and the picker's organization variables are visible to private and internal repositories only, so a picker step there has no service to ask. `public-hosted-only` is what rejects such a workflow.
 
-The rules check the pool side of the decision: a job that names no self-hosted, `tatuicloud*` or `blacksmith-*` runner is not checked, so whether a private repository's build job on a hosted label should ask the picker instead is left to review.
+The rules check pool labels. During review, verify that directly hosted private and internal jobs meet the short-job policy or the TatuiCloud network-isolation exception. For the exception, match both the workflow path and job ID, and verify that the validation jobs use no deployment credentials and that the apply job uses the protected `tailnet` environment.
 
 ## References
 
