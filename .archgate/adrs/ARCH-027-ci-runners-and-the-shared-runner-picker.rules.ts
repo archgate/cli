@@ -1,5 +1,4 @@
 /// <reference path="../rules.d.ts" />
-
 /** The one picker action the enterprise uses. */
 const PICKER_ACTION = "barretotech/runner-picker";
 /** Any runner-picker action reference, with or without a subpath: owner, repository, subpath, ref. */
@@ -31,6 +30,11 @@ const REQUIRED_INPUTS: readonly (readonly [string, RegExp])[] = [
   ["source", /^service$/u],
   ["capacity-url", /^\$\{\{\s*vars\.RUNNER_CAPACITY_URL\s*\}\}$/u],
   ["tailnet-client-id", /^\$\{\{\s*vars\.TAILNET_CLIENT_ID_PICKER\s*\}\}$/u],
+  [
+    "hosted",
+    /^\$\{\{\s*vars\.HOSTED_LINUX_RUNNER\s*\|\|\s*'"ubuntu-latest"'\s*\}\}$/u,
+  ],
+  ["weight", /^\$\{\{\s*vars\.HOSTED_LINUX_WEIGHT\s*\|\|\s*1\s*\}\}$/u],
 ];
 /** The command that lifts the hosted Ubuntu images' AppArmor block on unprivileged user namespaces. */
 const USERNS = /sysctl\s+-w\s+kernel\.apparmor_restrict_unprivileged_userns=0/u;
@@ -78,7 +82,6 @@ function strings(value: Yaml | undefined): string[] {
     return Object.values(value).flatMap((item) => strings(item));
   return value === null || value === undefined ? [] : [String(value)];
 }
-
 /** The indentation of a line. */
 const indentOf = (line: string): number =>
   line.length - line.trimStart().length;
@@ -92,12 +95,10 @@ function keyOf(line: string): string | undefined {
     ? text.slice(0, colon).replaceAll(/^["']|["']$/gu, "")
     : undefined;
 }
-
 /** A key whose value is a block scalar (`run: |`, `script: >-`). */
 const BLOCK_SCALAR = /:\s*[|>](?:[+-]\d?|\d[+-]?)?\s*(?:#.*)?$/u;
 /** A quoted value that opens on a line: the text from its opening quote on. */
 const QUOTED_VALUE = /(?:^|:\s+|-\s+)(["'])(.*)$/u;
-
 /** Whether `text`, inside a scalar quoted with `quote`, contains the closing quote. */
 function closes(text: string, quote: string): boolean {
   for (let index = 0; index < text.length; index++) {
@@ -109,7 +110,6 @@ function closes(text: string, quote: string): boolean {
   }
   return false;
 }
-
 /** Which lines are YAML structure rather than the inside of a block or multi-line quoted scalar. */
 function structural(lines: string[]): boolean[] {
   let block: number | undefined;
@@ -128,7 +128,6 @@ function structural(lines: string[]): boolean[] {
     return !blank;
   });
 }
-
 /** A token of a literal-only expression: literals, operators and parentheses. */
 const TOKEN =
   /\s*(?:\(|\)|==|!=|<=|>=|<|>|&&|\|\||!|true\b|false\b|null\b|-?\d+(?:\.\d+)?|'(?:[^']|'')*')/uy;
@@ -432,7 +431,7 @@ export default {
   rules: {
     "picker-pin": {
       description:
-        "Runner pickers are barretotech/runner-picker pinned to a full commit SHA",
+        "Runner pickers use the enterprise action pinned to a full SHA",
       async check(ctx) {
         for (const step of (await load(ctx)).steps) {
           const match = PICKER_REF.exec(step.uses);
@@ -459,14 +458,22 @@ export default {
       async check(ctx) {
         for (const step of (await load(ctx)).steps) {
           if (!PICKER_REF.test(step.uses)) continue;
+          const labels = strings(step.with["self-hosted"]).join(" ");
+          // Direct matrix platform references need call-site review; other expressions stay checked.
+          const skipLinux =
+            /^\$\{\{\s*matrix(?:\.[\w-]+|\[\s*['"][\w-]+['"]\s*\])\s*\}\}$/u.test(
+              labels
+            ) || notLinux(labels);
           for (const [input, expected] of REQUIRED_INPUTS) {
+            if (skipLinux && (input === "hosted" || input === "weight"))
+              continue;
             const value = step.with[input];
             if (typeof value !== "string" || !expected.test(value.trim())) {
               ctx.report.violation({
                 message: `The runner picker step's \`with: ${input}\` is not set as the ci-runners ADR requires`,
                 file: step.file,
                 line: step.line,
-                fix: "Under the step's `with:`, set `source: service`, `capacity-url: ${{ vars.RUNNER_CAPACITY_URL }}` and `tailnet-client-id: ${{ vars.TAILNET_CLIENT_ID_PICKER }}`",
+                fix: `Set \`${input}\` as shown in Decisions 3 and 4 of the ci-runners ADR`,
               });
             }
           }
@@ -474,8 +481,7 @@ export default {
       },
     },
     "routed-runs-on": {
-      description:
-        "Jobs reach the shared pool or Blacksmith only through a picker job's output, unless marked exempt",
+      description: "Pool jobs use a needed picker output, unless exempt",
       async check(ctx) {
         const { jobs, unreadable } = await load(ctx);
         for (const { file, error } of unreadable) {
@@ -503,7 +509,7 @@ export default {
     },
     "hosted-userns": {
       description:
-        "A job that can land on a GitHub-hosted Linux runner lifts the user-namespace restriction first",
+        "Routed Linux jobs lift the hosted user-namespace restriction",
       async check(ctx) {
         for (const job of (await load(ctx)).jobs) {
           const picked = job.units.some((unit) => unit.search(OUTPUT_REF) >= 0);
@@ -518,8 +524,7 @@ export default {
       },
     },
     "public-hosted-only": {
-      description:
-        "A public repository uses neither the runner picker nor a self-hosted or Blacksmith runner",
+      description: "Public repositories use GitHub-hosted runners only",
       async check(ctx) {
         const record = await visibilityOf(ctx);
         if ("problem" in record) {
