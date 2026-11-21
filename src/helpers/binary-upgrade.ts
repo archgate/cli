@@ -297,15 +297,16 @@ export async function downloadReleaseBinary(
       }
       const archivePath = join(tmpDir, `archgate${artifact.ext}`);
       await Bun.write(archivePath, buffer);
-      const { exitCode } = await runCapture([
+      const { exitCode, stderr } = await runCapture([
         shell,
         "-NoProfile",
         "-Command",
         `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
       ]);
       if (exitCode !== 0) {
+        const detail = stderr.trim();
         throw new UserError(
-          `Failed to extract archive (PowerShell exit code ${exitCode})`
+          `Failed to extract archive (PowerShell exit code ${exitCode})${detail ? `:\n${detail}` : ""}`
         );
       }
     }
