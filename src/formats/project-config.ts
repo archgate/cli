@@ -49,6 +49,9 @@ export const ProjectConfigSchema = z
     paths: PathsConfigSchema.optional(),
     baseBranch: z.string().min(1).optional(),
     strict: z.boolean().optional(),
+    // An invalid optional cap must leave other settings, including strict, usable.
+    // oxlint-disable-next-line unicorn/no-useless-undefined
+    briefingMaxSectionChars: z.int().positive().optional().catch(undefined),
   })
   .default({ domains: {} });
 

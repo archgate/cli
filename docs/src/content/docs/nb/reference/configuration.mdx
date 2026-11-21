@@ -14,7 +14,8 @@ Denne filen opprettes automatisk av `archgate init` (for å lagre den autodetekt
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
   "baseBranch": "main",
-  "strict": true
+  "strict": true,
+  "briefingMaxSectionChars": 4200
 }
 ```
 
@@ -59,6 +60,10 @@ Løsningsrekkefølgen er kommandolinjevalg, deretter denne konfigurasjonsverdien
 ```json
 { "strict": true }
 ```
+
+### `briefingMaxSectionChars`
+
+Maksimalt antall tegn per `Decision`- og `Do's and Don'ts`-del i en ADR ved bruk av `archgate review-context --verbose`. `archgate check` og `archgate review-context --run-checks` rapporterer deler som overskrider den samme grensen. Streng modus feiler fortsatt ved slike funn. Bruk et positivt heltall. Standardverdien er `2000`.
 
 ### `paths`
 

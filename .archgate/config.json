@@ -1,1 +1,6 @@
-{ "domains": { "ci": "CI" }, "baseBranch": "origin/main", "strict": true }
+{
+  "domains": { "ci": "CI" },
+  "baseBranch": "origin/main",
+  "strict": true,
+  "briefingMaxSectionChars": 4200
+}
