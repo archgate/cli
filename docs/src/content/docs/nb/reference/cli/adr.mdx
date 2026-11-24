@@ -231,12 +231,14 @@ Kommandoen kloner kilden, leser ADR-filer, omtilordner ID-er for å passe inn i 
 
 ### Valg
 
-| Valg        | Beskrivelse                         |
-| ----------- | ----------------------------------- |
-| `--yes`     | Hopp over bekreftelsesprompt        |
-| `--json`    | Utdata som JSON                     |
-| `--dry-run` | Forhåndsvis endringer uten å skrive |
-| `--list`    | List tidligere importerte ADR-er    |
+| Valg                | Beskrivelse                                      |
+| ------------------- | ------------------------------------------------ |
+| `--yes`             | Hopp over bekreftelsesprompt                     |
+| `--json`            | Utdata som JSON                                  |
+| `--dry-run`         | Forhåndsvis endringer uten å skrive              |
+| `--list`            | List tidligere importerte ADR-er                 |
+| `--only <id...>`    | Importer bare disse ADR-ID-ene fra kilden        |
+| `--exclude <id...>` | Importer alt unntatt disse ADR-ID-ene fra kilden |
 
 ### Eksempler
 
@@ -256,6 +258,12 @@ Forhåndsvis hva som ville bli importert uten å skrive noen filer:
 
 ```bash
 archgate adr import archgate/packs/typescript --dry-run
+```
+
+Importer en pakke uten én av ADR-ene (ID-ene er pakkens egne, slik de vises i `--dry-run`-forhåndsvisningen):
+
+```bash
+archgate adr import archgate/packs/typescript --exclude TS-003
 ```
 
 Importer ikke-interaktivt (hopp over bekreftelse):

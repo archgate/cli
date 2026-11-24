@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
-import { existsSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { basename, join } from "node:path";
 
 import { scanImportedRuleSource } from "../engine/rule-scanner";
@@ -303,20 +310,21 @@ export function updateImportsManifest(
   adrsToImport: AdrToImport[],
   idMap: IdMapping[]
 ): void {
-  const sourceGroups = new Map<string, { version?: string; ids: string[] }>();
+  const sourceGroups = new Map<
+    string,
+    { version?: string; ids: string[]; originalIds: Record<string, string> }
+  >();
 
   for (let i = 0; i < adrsToImport.length; i++) {
     const adr = adrsToImport[i];
     const mapping = idMap[i];
-    const existing = sourceGroups.get(adr.source);
-    if (existing) {
-      existing.ids.push(mapping.newId);
-    } else {
-      sourceGroups.set(adr.source, {
-        version: adr.packVersion,
-        ids: [mapping.newId],
-      });
+    let group = sourceGroups.get(adr.source);
+    if (!group) {
+      group = { version: adr.packVersion, ids: [], originalIds: {} };
+      sourceGroups.set(adr.source, group);
     }
+    group.ids.push(mapping.newId);
+    group.originalIds[mapping.newId] = adr.originalId;
   }
 
   for (const [source, group] of sourceGroups) {
@@ -325,8 +333,87 @@ export function updateImportsManifest(
       version: group.version,
       importedAt: new Date().toISOString(),
       adrIds: group.ids,
+      originalIds: group.originalIds,
     });
   }
+}
+
+// ---------- Selection filters ----------
+
+export interface ImportFilter {
+  only?: readonly string[];
+  exclude?: readonly string[];
+}
+
+/**
+ * Split variadic option values that may also be comma-separated
+ * (`--exclude A B` and `--exclude A,B` are equivalent).
+ */
+export function parseIdList(values: readonly string[] | undefined): string[] {
+  if (values === undefined) return [];
+  return values
+    .flatMap((v) => v.split(","))
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+}
+
+/**
+ * Narrow the collected ADRs by their source IDs. Matching is
+ * case-insensitive. An ID that matches no collected ADR is a UserError, so a
+ * typo cannot silently import the wrong set.
+ */
+export function filterAdrsToImport(
+  adrs: AdrToImport[],
+  filter: ImportFilter
+): AdrToImport[] {
+  const only = (filter.only ?? []).map((id) => id.toUpperCase());
+  const exclude = (filter.exclude ?? []).map((id) => id.toUpperCase());
+  if (only.length === 0 && exclude.length === 0) return adrs;
+
+  const available = new Set(adrs.map((a) => a.originalId.toUpperCase()));
+  const unknown = [...only, ...exclude].filter((id) => !available.has(id));
+  if (unknown.length > 0) {
+    const known = [...available].sort().join(", ");
+    throw new UserError(
+      `No ADR with ID ${unknown.join(", ")} in the given source(s). Available IDs: ${known}`
+    );
+  }
+
+  if (only.length > 0) {
+    const keep = new Set(only);
+    return adrs.filter((a) => keep.has(a.originalId.toUpperCase()));
+  }
+  const drop = new Set(exclude);
+  return adrs.filter((a) => !drop.has(a.originalId.toUpperCase()));
+}
+
+// ---------- Upstream lookup ----------
+
+/**
+ * Find the upstream ADR file whose frontmatter `id` equals `originalId`.
+ * Returns null when no file in `upstreamAdrsDir` carries that ID.
+ */
+export function findUpstreamAdrById(
+  upstreamAdrsDir: string,
+  originalId: string
+): string | null {
+  const files = readdirSync(upstreamAdrsDir)
+    .filter((f) => f.endsWith(".md"))
+    .sort();
+  for (const file of files) {
+    const path = join(upstreamAdrsDir, file);
+    try {
+      if (
+        parseAdr(readFileSync(path, "utf-8"), path).frontmatter.id ===
+        originalId
+      ) {
+        return path;
+      }
+    } catch {
+      logDebug("Skipping unparseable upstream ADR:", path);
+    }
+  }
+  return null;
 }
 
 // ---------- Cleanup ----------

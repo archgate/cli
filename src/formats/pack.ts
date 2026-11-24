@@ -67,6 +67,8 @@ export const ImportEntrySchema = z.object({
   version: z.string().optional(),
   importedAt: z.iso.datetime(),
   adrIds: z.array(z.string()),
+  /** Local ADR ID → the ID it carries in the source, so sync can pair them. */
+  originalIds: z.record(z.string(), z.string()).optional(),
 });
 
 export const ImportsManifestSchema = z.object({
