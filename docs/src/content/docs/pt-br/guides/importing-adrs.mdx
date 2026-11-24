@@ -43,6 +43,22 @@ archgate adr import packs/security/adrs/SEC-001-no-secrets-in-code
 
 Apenas esse ADR (e seu arquivo de regras complementar, se existir) será importado.
 
+## Importando parte de um pack
+
+Para aproveitar a maior parte de um pack, pule os ADRs que você não quer com `--exclude`:
+
+```bash
+archgate adr import packs/security --exclude SEC-004
+```
+
+Para aproveitar apenas alguns, informe-os com `--only`:
+
+```bash
+archgate adr import packs/security --only SEC-001 SEC-002
+```
+
+As duas flags recebem os IDs dos ADRs como aparecem no pack de origem (a coluna **Original ID** do preview de `--dry-run`), separados por espaço ou vírgula e sem diferenciar maiúsculas de minúsculas. Coloque-as depois das origens. Elas não podem ser combinadas, e um ID que não corresponde a nenhum ADR das origens interrompe a importação antes de qualquer arquivo ser gravado.
+
 ## Importando de repositórios de terceiros
 
 Qualquer repositório GitHub com arquivos ADR funciona como fonte. Use a sintaxe `org/repo/path` com três segmentos:
@@ -113,19 +129,26 @@ Cada importação é registrada em `.archgate/imports.json`:
       "source": "packs/typescript-strict",
       "version": "0.3.0",
       "importedAt": "2026-05-10T14:32:00.000Z",
-      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"]
+      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"],
+      "originalIds": {
+        "ARCH-006": "TS-001",
+        "ARCH-007": "TS-002",
+        "ARCH-008": "TS-004"
+      }
     }
   ]
 }
 ```
 
-Este manifesto permite rastrear a proveniência: de onde cada ADR importado veio e quando. Faça commit dele no controle de versão junto com seus ADRs.
+Este manifesto permite rastrear a proveniência: de onde cada ADR importado veio e quando. `originalIds` mapeia cada ID local para o ID que ele tem na origem, e é assim que [`archgate adr sync`](/reference/cli/adr/#archgate-adr-sync) encontra o correspondente upstream de cada ADR importado. Faça commit dele no controle de versão junto com seus ADRs.
 
 ## Referência de opções do comando
 
-| Opção       | Descrição                           |
-| ----------- | ----------------------------------- |
-| `--yes`     | Pula o prompt de confirmação        |
-| `--json`    | Saída em formato JSON               |
-| `--dry-run` | Preview sem escrever arquivos       |
-| `--list`    | Lista ADRs importados anteriormente |
+| Opção               | Descrição                                      |
+| ------------------- | ---------------------------------------------- |
+| `--yes`             | Pula o prompt de confirmação                   |
+| `--json`            | Saída em formato JSON                          |
+| `--dry-run`         | Preview sem escrever arquivos                  |
+| `--list`            | Lista ADRs importados anteriormente            |
+| `--only <id...>`    | Importa apenas estes IDs de ADR da origem      |
+| `--exclude <id...>` | Importa tudo exceto estes IDs de ADR da origem |

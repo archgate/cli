@@ -43,6 +43,22 @@ archgate adr import packs/security/adrs/SEC-001-no-secrets-in-code
 
 Bare den ene ADR-en (og dens tilhørende regelfil, hvis den finnes) vil bli importert.
 
+## Importere deler av en pakke
+
+For å ta det meste av en pakke, hopp over ADR-ene du ikke vil ha med `--exclude`:
+
+```bash
+archgate adr import packs/security --exclude SEC-004
+```
+
+For å ta bare noen få, oppgi dem med `--only`:
+
+```bash
+archgate adr import packs/security --only SEC-001 SEC-002
+```
+
+Begge flaggene tar ADR-ID-ene slik de står i kildepakken (kolonnen **Original ID** i `--dry-run`-forhåndsvisningen), skilt med mellomrom eller komma, uten å skille mellom store og små bokstaver. Plasser dem etter kildene. De kan ikke kombineres, og en ID som ikke matcher noen ADR i kildene stopper importen før noe blir skrevet.
+
 ## Importere fra tredjepartsrepositorier
 
 Ethvert GitHub-repositorium med ADR-filer fungerer som kilde. Bruk syntaksen med tre segmenter `org/repo/sti`:
@@ -113,19 +129,26 @@ Hver import registreres i `.archgate/imports.json`:
       "source": "packs/typescript-strict",
       "version": "0.3.0",
       "importedAt": "2026-05-10T14:32:00.000Z",
-      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"]
+      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"],
+      "originalIds": {
+        "ARCH-006": "TS-001",
+        "ARCH-007": "TS-002",
+        "ARCH-008": "TS-004"
+      }
     }
   ]
 }
 ```
 
-Dette manifestet lar deg spore opprinnelse -- hvor hver importerte ADR kom fra og når. Commit det til versjonskontroll sammen med ADR-ene dine.
+Dette manifestet lar deg spore opprinnelse -- hvor hver importerte ADR kom fra og når. `originalIds` kobler hver lokale ID til ID-en den har i kilden, og det er slik [`archgate adr sync`](/reference/cli/adr/#archgate-adr-sync) finner oppstrømsmotparten til hver importerte ADR. Commit det til versjonskontroll sammen med ADR-ene dine.
 
 ## Referanse for kommandoalternativer
 
-| Alternativ  | Beskrivelse                               |
-| ----------- | ----------------------------------------- |
-| `--yes`     | Hopp over bekreftelsesdialogen            |
-| `--json`    | Skriv ut resultater som JSON              |
-| `--dry-run` | Forhåndsvis endringer uten å skrive filer |
-| `--list`    | List tidligere importerte ADR-er          |
+| Alternativ          | Beskrivelse                                      |
+| ------------------- | ------------------------------------------------ |
+| `--yes`             | Hopp over bekreftelsesdialogen                   |
+| `--json`            | Skriv ut resultater som JSON                     |
+| `--dry-run`         | Forhåndsvis endringer uten å skrive filer        |
+| `--list`            | List tidligere importerte ADR-er                 |
+| `--only <id...>`    | Importer bare disse ADR-ID-ene fra kilden        |
+| `--exclude <id...>` | Importer alt unntatt disse ADR-ID-ene fra kilden |

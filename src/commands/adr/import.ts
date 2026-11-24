@@ -3,13 +3,15 @@
 import { mkdirSync } from "node:fs";
 import { styleText } from "node:util";
 
-import type { Command } from "@commander-js/extra-typings";
+import { Option, type Command } from "@commander-js/extra-typings";
 
 import {
   buildIdMap,
   cleanupTempDirs,
   collectAdrsToImport,
+  filterAdrsToImport,
   loadImportsManifest,
+  parseIdList,
   resolveAndCloneSources,
   saveImportsManifest,
   updateImportsManifest,
@@ -34,6 +36,18 @@ export function registerAdrImportCommand(adr: Command) {
     .option("--json", "Output as JSON", false)
     .option("--dry-run", "Preview changes without writing", false)
     .option("--list", "List previously imported ADRs", false)
+    .addOption(
+      new Option(
+        "--only <id...>",
+        "Import only these ADR IDs (source IDs, space- or comma-separated)"
+      ).conflicts("exclude")
+    )
+    .addOption(
+      new Option(
+        "--exclude <id...>",
+        "Skip these ADR IDs (source IDs, space- or comma-separated)"
+      )
+    )
     .action(async (sources, opts) => {
       let tempDirs: string[] = [];
       try {
@@ -64,14 +78,34 @@ export function registerAdrImportCommand(adr: Command) {
           return;
         }
 
+        const printNothingToImport = (message: string) => {
+          if (!useJson) {
+            console.log(message);
+            return;
+          }
+          const empty = opts.dryRun
+            ? { dryRun: true, adrs: [] }
+            : { imported: [] };
+          console.log(formatJSON(empty, opts.json ? true : undefined));
+        };
+
+        const filter = {
+          only: parseIdList(opts.only, "--only"),
+          exclude: parseIdList(opts.exclude, "--exclude"),
+        };
         const cloned = await resolveAndCloneSources(sources);
         const { resolved } = cloned;
         tempDirs = cloned.tempDirs;
 
-        const adrsToImport = await collectAdrsToImport(resolved);
+        const collected = await collectAdrsToImport(resolved);
+        const adrsToImport = filterAdrsToImport(collected, filter);
 
         if (adrsToImport.length === 0) {
-          console.log("No ADRs found to import.");
+          printNothingToImport(
+            collected.length === 0
+              ? "No ADRs found to import."
+              : "No ADRs left to import after applying --exclude."
+          );
           return;
         }
 
