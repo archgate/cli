@@ -240,6 +240,8 @@ Kommandoen kloner kilden, leser ADR-filer, omtilordner ID-er for å passe inn i 
 | `--only <id...>`    | Importer bare disse ADR-ID-ene fra kilden        |
 | `--exclude <id...>` | Importer alt unntatt disse ADR-ID-ene fra kilden |
 
+`--only` og `--exclude` tar ADR-ID-er slik de står i kilden (kolonnen **Original ID** i forhåndsvisningen), skilt med mellomrom eller komma, uten å skille mellom store og små bokstaver. De kan ikke kombineres, og en ID som ikke matcher noen ADR i kildene stopper importen før noe blir skrevet.
+
 ### Eksempler
 
 Importer fra registeret:

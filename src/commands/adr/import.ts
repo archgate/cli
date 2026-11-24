@@ -78,6 +78,17 @@ export function registerAdrImportCommand(adr: Command) {
           return;
         }
 
+        const printNothingToImport = (message: string) => {
+          if (!useJson) {
+            console.log(message);
+            return;
+          }
+          const empty = opts.dryRun
+            ? { dryRun: true, adrs: [] }
+            : { imported: [] };
+          console.log(formatJSON(empty, opts.json ? true : undefined));
+        };
+
         const cloned = await resolveAndCloneSources(sources);
         const { resolved } = cloned;
         tempDirs = cloned.tempDirs;
@@ -85,7 +96,7 @@ export function registerAdrImportCommand(adr: Command) {
         const collected = await collectAdrsToImport(resolved);
 
         if (collected.length === 0) {
-          console.log("No ADRs found to import.");
+          printNothingToImport("No ADRs found to import.");
           return;
         }
 
@@ -95,7 +106,9 @@ export function registerAdrImportCommand(adr: Command) {
         });
 
         if (adrsToImport.length === 0) {
-          console.log("No ADRs left to import after applying --exclude.");
+          printNothingToImport(
+            "No ADRs left to import after applying --exclude."
+          );
           return;
         }
 

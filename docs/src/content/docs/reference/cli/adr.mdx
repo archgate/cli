@@ -240,6 +240,8 @@ The command clones the source, reads ADR files, remaps IDs to fit the local proj
 | `--only <id...>`    | Import only these source ADR IDs              |
 | `--exclude <id...>` | Import everything except these source ADR IDs |
 
+`--only` and `--exclude` take ADR IDs as they appear in the source (the **Original ID** column of the preview), space- or comma-separated and case-insensitive. They cannot be combined, and an ID that matches no ADR in the sources stops the import before anything is written.
+
 ### Examples
 
 Import from the registry:

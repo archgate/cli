@@ -240,6 +240,8 @@ O comando clona a fonte, lê os arquivos ADR, remapeia os IDs para a sequência 
 | `--only <id...>`    | Importa apenas estes IDs de ADR da origem      |
 | `--exclude <id...>` | Importa tudo exceto estes IDs de ADR da origem |
 
+`--only` e `--exclude` recebem IDs de ADR como aparecem na origem (a coluna **Original ID** do preview), separados por espaço ou vírgula e sem diferenciar maiúsculas de minúsculas. Elas não podem ser combinadas, e um ID que não corresponde a nenhum ADR das origens interrompe a importação antes de qualquer arquivo ser gravado.
+
 ### Exemplos
 
 Importar do registro:

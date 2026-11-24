@@ -162,7 +162,7 @@ describe("adr import --only / --exclude", () => {
 
   test("--only and --exclude together are rejected", async () => {
     expect(
-      runImport("--only", "SEC-001", "--exclude", "SEC-002")
+      runImport("--dry-run", "--only", "SEC-001", "--exclude", "SEC-002")
     ).rejects.toThrow();
     expect(localAdrs()).toHaveLength(0);
   });
@@ -173,6 +173,11 @@ describe("adr import --only / --exclude", () => {
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(localAdrs()).toHaveLength(0);
+  });
+
+  test("excluding every ADR prints an empty JSON result", async () => {
+    await runImport("--yes", "--json", "--exclude", ...PACK_IDS);
+    expect(JSON.parse(output())).toEqual({ imported: [] });
   });
 
   test("excluding every ADR writes nothing", async () => {
