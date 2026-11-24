@@ -10,7 +10,7 @@ import {
   ImportsManifestSchema,
   type ImportsManifest,
 } from "../../formats/pack";
-import { findUpstreamAdrById } from "../../helpers/adr-import";
+import { indexUpstreamAdrs } from "../../helpers/adr-import";
 import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logDebug, logWarn } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
@@ -195,6 +195,7 @@ export function registerAdrSyncCommand(adr: Command) {
         // Clone upstream repos and compare
         const tempDirs: string[] = [];
         const cloneCache = new Map<string, string>();
+        const upstreamIndexes = new Map<string, Map<string, string>>();
         const result: SyncResult = {
           checked: 0,
           withChanges: 0,
@@ -267,7 +268,12 @@ export function registerAdrSyncCommand(adr: Command) {
                   ? join(upstreamAdrsDir, upstreamFiles.sort()[adrIndex])
                   : null;
             } else {
-              upstreamFile = findUpstreamAdrById(upstreamAdrsDir, originalId);
+              let index = upstreamIndexes.get(upstreamAdrsDir);
+              if (index === undefined) {
+                index = indexUpstreamAdrs(upstreamAdrsDir);
+                upstreamIndexes.set(upstreamAdrsDir, index);
+              }
+              upstreamFile = index.get(originalId) ?? null;
             }
 
             if (upstreamFile === null || !existsSync(upstreamFile)) {

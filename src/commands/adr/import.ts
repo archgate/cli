@@ -94,12 +94,6 @@ export function registerAdrImportCommand(adr: Command) {
         tempDirs = cloned.tempDirs;
 
         const collected = await collectAdrsToImport(resolved);
-
-        if (collected.length === 0) {
-          printNothingToImport("No ADRs found to import.");
-          return;
-        }
-
         const adrsToImport = filterAdrsToImport(collected, {
           only: parseIdList(opts.only),
           exclude: parseIdList(opts.exclude),
@@ -107,7 +101,9 @@ export function registerAdrImportCommand(adr: Command) {
 
         if (adrsToImport.length === 0) {
           printNothingToImport(
-            "No ADRs left to import after applying --exclude."
+            collected.length === 0
+              ? "No ADRs found to import."
+              : "No ADRs left to import after applying --exclude."
           );
           return;
         }

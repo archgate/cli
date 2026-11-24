@@ -8,7 +8,7 @@ import { join } from "node:path";
 import type { ImportsManifest } from "../../src/formats/pack";
 import {
   filterAdrsToImport,
-  findUpstreamAdrById,
+  indexUpstreamAdrs,
   parseIdList,
   updateImportsManifest,
   type AdrToImport,
@@ -102,17 +102,21 @@ describe("updateImportsManifest", () => {
   });
 });
 
-describe("findUpstreamAdrById", () => {
+describe("indexUpstreamAdrs", () => {
   let dir: string;
 
+  const write = (file: string, id: string) => {
+    writeFileSync(
+      join(dir, file),
+      `---\nid: ${id}\ntitle: T\ndomain: architecture\nrules: false\n---\n\n## Context\n`
+    );
+  };
+
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), "archgate-upstream-find-"));
-    for (const id of ["SEC-001", "SEC-002"]) {
-      writeFileSync(
-        join(dir, `${id}-x.md`),
-        `---\nid: ${id}\ntitle: T\ndomain: architecture\nrules: false\n---\n\n## Context\n`
-      );
-    }
+    dir = mkdtempSync(join(tmpdir(), "archgate-upstream-index-"));
+    write("SEC-001-x.md", "SEC-001");
+    write("SEC-002-x.md", "SEC-002");
+    write("SEC-002-z-duplicate.md", "SEC-002");
     writeFileSync(join(dir, "broken.md"), "no frontmatter");
   });
 
@@ -120,11 +124,12 @@ describe("findUpstreamAdrById", () => {
     safeRmSync(dir);
   });
 
-  test("returns the file whose frontmatter id matches", () => {
-    expect(findUpstreamAdrById(dir, "SEC-002")).toBe(join(dir, "SEC-002-x.md"));
-  });
-
-  test("returns null when no file carries the id", () => {
-    expect(findUpstreamAdrById(dir, "SEC-404")).toBeNull();
+  test("maps each id to its file, first sorted match wins", () => {
+    expect(indexUpstreamAdrs(dir)).toEqual(
+      new Map([
+        ["SEC-001", join(dir, "SEC-001-x.md")],
+        ["SEC-002", join(dir, "SEC-002-x.md")],
+      ])
+    );
   });
 });

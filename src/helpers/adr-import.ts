@@ -390,30 +390,27 @@ export function filterAdrsToImport(
 // ---------- Upstream lookup ----------
 
 /**
- * Find the upstream ADR file whose frontmatter `id` equals `originalId`.
- * Returns null when no file in `upstreamAdrsDir` carries that ID.
+ * Map each frontmatter `id` in `upstreamAdrsDir` to its file path. Files are
+ * read in sorted order and the first file carrying an ID wins; unparseable
+ * files are skipped.
  */
-export function findUpstreamAdrById(
-  upstreamAdrsDir: string,
-  originalId: string
-): string | null {
+export function indexUpstreamAdrs(
+  upstreamAdrsDir: string
+): Map<string, string> {
+  const index = new Map<string, string>();
   const files = readdirSync(upstreamAdrsDir)
     .filter((f) => f.endsWith(".md"))
     .sort();
   for (const file of files) {
     const path = join(upstreamAdrsDir, file);
     try {
-      if (
-        parseAdr(readFileSync(path, "utf-8"), path).frontmatter.id ===
-        originalId
-      ) {
-        return path;
-      }
+      const { id } = parseAdr(readFileSync(path, "utf-8"), path).frontmatter;
+      if (!index.has(id)) index.set(id, path);
     } catch {
       logDebug("Skipping unparseable upstream ADR:", path);
     }
   }
-  return null;
+  return index;
 }
 
 // ---------- Cleanup ----------

@@ -28,7 +28,7 @@ import { registerAdrImportCommand } from "../../../src/commands/adr/import";
 import { registerAdrSyncCommand } from "../../../src/commands/adr/sync";
 import { ImportsManifestSchema } from "../../../src/formats/pack";
 import * as registryMod from "../../../src/helpers/registry";
-import { safeRmSync } from "../../test-utils";
+import { restoreEnv, safeRmSync } from "../../test-utils";
 
 const DryRunJsonSchema = z.object({
   dryRun: z.boolean(),
@@ -53,6 +53,7 @@ describe("adr import --only / --exclude", () => {
   let tempDir: string;
   let upstreamDir: string;
   let originalCwd: string;
+  let originalCeiling: string | undefined;
   let logSpy: Mock<typeof console.log>;
   let exitSpy: Mock<typeof process.exit>;
 
@@ -62,6 +63,7 @@ describe("adr import --only / --exclude", () => {
       mkdtempSync(join(tmpdir(), "archgate-upstream-"))
     );
     originalCwd = process.cwd();
+    originalCeiling = Bun.env.ARCHGATE_PROJECT_CEILING;
     Bun.env.ARCHGATE_PROJECT_CEILING = tempDir;
     logSpy = spyOn(console, "log").mockImplementation(() => {});
     spyOn(console, "error").mockImplementation(() => {});
@@ -101,7 +103,7 @@ describe("adr import --only / --exclude", () => {
 
   afterEach(() => {
     process.chdir(originalCwd);
-    delete Bun.env.ARCHGATE_PROJECT_CEILING;
+    restoreEnv("ARCHGATE_PROJECT_CEILING", originalCeiling);
     safeRmSync(tempDir);
     safeRmSync(upstreamDir);
     mock.restore();
@@ -178,6 +180,27 @@ describe("adr import --only / --exclude", () => {
   test("excluding every ADR prints an empty JSON result", async () => {
     await runImport("--yes", "--json", "--exclude", ...PACK_IDS);
     expect(JSON.parse(output())).toEqual({ imported: [] });
+  });
+
+  test("an unknown ID fails even when the source has no ADRs", async () => {
+    spyOn(registryMod, "detectTarget").mockResolvedValue({
+      kind: "pack",
+      packMeta: {
+        name: "sec",
+        version: "1.0.0",
+        description: "Security pack for filter tests.",
+        maintainers: [{ github: "testuser" }],
+        tags: [],
+        requires: [],
+      },
+      adrFiles: [],
+      rulesFiles: [],
+      baseDir: join(upstreamDir, SUBPATH, "adrs"),
+    });
+    expect(runImport("--yes", "--only", "SEC-999")).rejects.toThrow(
+      "process.exit"
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   test("excluding every ADR writes nothing", async () => {
