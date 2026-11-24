@@ -347,14 +347,23 @@ export interface ImportFilter {
 
 /**
  * Split variadic option values that may also be comma-separated
- * (`--exclude A B` and `--exclude A,B` are equivalent).
+ * (`--exclude A B` and `--exclude A,B` are equivalent). An omitted option
+ * yields `[]`; a supplied option holding no ID is a UserError, so
+ * `--only ","` cannot fall through to importing the whole pack.
  */
-export function parseIdList(values: readonly string[] | undefined): string[] {
+export function parseIdList(
+  values: readonly string[] | undefined,
+  option: string
+): string[] {
   if (values === undefined) return [];
-  return values
+  const ids = values
     .flatMap((v) => v.split(","))
     .map((v) => v.trim())
     .filter((v) => v.length > 0);
+  if (ids.length === 0) {
+    throw new UserError(`${option} needs at least one ADR ID.`);
+  }
+  return ids;
 }
 
 /**
@@ -391,8 +400,8 @@ export function filterAdrsToImport(
 
 /**
  * Map each frontmatter `id` in `upstreamAdrsDir` to its file path. Files are
- * read in sorted order and the first file carrying an ID wins; unparseable
- * files are skipped.
+ * read in sorted order and the first file carrying an ID wins. Files with
+ * missing or invalid frontmatter are skipped; read errors propagate.
  */
 export function indexUpstreamAdrs(
   upstreamAdrsDir: string
@@ -406,7 +415,8 @@ export function indexUpstreamAdrs(
     try {
       const { id } = parseAdr(readFileSync(path, "utf-8"), path).frontmatter;
       if (!index.has(id)) index.set(id, path);
-    } catch {
+    } catch (err) {
+      if (!(err instanceof UserError || err instanceof SyntaxError)) throw err;
       logDebug("Skipping unparseable upstream ADR:", path);
     }
   }

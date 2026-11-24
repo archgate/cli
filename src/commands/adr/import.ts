@@ -89,15 +89,16 @@ export function registerAdrImportCommand(adr: Command) {
           console.log(formatJSON(empty, opts.json ? true : undefined));
         };
 
+        const filter = {
+          only: parseIdList(opts.only, "--only"),
+          exclude: parseIdList(opts.exclude, "--exclude"),
+        };
         const cloned = await resolveAndCloneSources(sources);
         const { resolved } = cloned;
         tempDirs = cloned.tempDirs;
 
         const collected = await collectAdrsToImport(resolved);
-        const adrsToImport = filterAdrsToImport(collected, {
-          only: parseIdList(opts.only),
-          exclude: parseIdList(opts.exclude),
-        });
+        const adrsToImport = filterAdrsToImport(collected, filter);
 
         if (adrsToImport.length === 0) {
           printNothingToImport(

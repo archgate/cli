@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2026 Archgate
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -38,8 +38,17 @@ describe("parseIdList", () => {
     { input: ["A,B", "C"], expected: ["A", "B", "C"] },
     { input: [" A , ,B "], expected: ["A", "B"] },
   ])("parses $input", ({ input, expected }) => {
-    expect(parseIdList(input)).toEqual([...expected]);
+    expect(parseIdList(input, "--only")).toEqual([...expected]);
   });
+
+  test.each([[[","]], [[" "]], [[" , "]]])(
+    "rejects a supplied option with no ID (%j)",
+    (input) => {
+      expect(() => parseIdList(input, "--only")).toThrow(
+        "--only needs at least one ADR ID."
+      );
+    }
+  );
 });
 
 describe("filterAdrsToImport", () => {
@@ -118,6 +127,7 @@ describe("indexUpstreamAdrs", () => {
     write("SEC-002-x.md", "SEC-002");
     write("SEC-002-z-duplicate.md", "SEC-002");
     writeFileSync(join(dir, "broken.md"), "no frontmatter");
+    writeFileSync(join(dir, "bad-yaml.md"), "---\nid: [\n---\n");
   });
 
   afterEach(() => {
@@ -131,5 +141,10 @@ describe("indexUpstreamAdrs", () => {
         ["SEC-002", join(dir, "SEC-002-x.md")],
       ])
     );
+  });
+
+  test("propagates read errors instead of skipping the file", () => {
+    mkdirSync(join(dir, "SEC-003-dir.md"));
+    expect(() => indexUpstreamAdrs(dir)).toThrow();
   });
 });
