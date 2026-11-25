@@ -94,6 +94,16 @@ describe("install method detection", () => {
     });
   });
 
+  describe("_detectInstallMethod for a Store install", () => {
+    test("an executable beside an AppxManifest.xml is msstore", async () => {
+      const packageDir = join(tempDir, "WindowsApps", "Archgate_1.0.0.0_x64");
+      mkdirSync(packageDir, { recursive: true });
+      writeFileSync(join(packageDir, "AppxManifest.xml"), "<Package />");
+      setExecPath(join(packageDir, "archgate.exe"));
+      expect((await _detectInstallMethod()).type).toBe("msstore");
+    });
+  });
+
   describe("_isProtoInstall", () => {
     test("returns true when execPath is under ~/.proto/tools/archgate/", () => {
       setExecPath(

@@ -71,7 +71,7 @@ Zod schemas are the single source of truth. Types derived via `z.infer<>` — ne
 
 ## Distribution
 
-Archgate ships as a compiled binary (`bun build --compile`) published to GitHub Releases, plus **thin shim** packages for each supported ecosystem — npm (`shims/npm/archgate.cjs`), PyPI, RubyGems, Maven, NuGet, and Go (all under `shims/`). A shim bundles no binary: on first run it detects the platform, downloads the matching binary from GitHub Releases, verifies its SHA256 checksum, caches it to `~/.archgate/bin/`, and forwards to it (see ARCH-017). Runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary, so they belong in `devDependencies`, not `dependencies`.
+Archgate ships as a compiled binary (`bun build --compile`) published to GitHub Releases, plus **thin shim** packages for each supported ecosystem — npm (`shims/npm/archgate.cjs`), PyPI, RubyGems, Maven, NuGet, and Go (all under `shims/`). A shim bundles no binary: on first run it detects the platform, downloads the matching binary from GitHub Releases, verifies its SHA256 checksum, caches it to `~/.archgate/bin/`, and forwards to it (see ARCH-017). Windows also gets a Microsoft Store MSIX holding the compiled binary itself (`distribution/msix/`), installed with `winget`; the Store signs it, and `install.ps1` runs that `winget install` before falling back to the direct download. Runtime dependencies (commander, inquirer, zod) are bundled into the compiled binary, so they belong in `devDependencies`, not `dependencies`.
 
 ## Conventions
 

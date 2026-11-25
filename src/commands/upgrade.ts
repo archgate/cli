@@ -17,7 +17,9 @@ import {
 } from "../helpers/binary-upgrade";
 import { exitWith, handleCommandError } from "../helpers/exit";
 import type { EditorTarget } from "../helpers/init-project";
+import { isMsixPackagedInstall } from "../helpers/install-info";
 import { logDebug, logError, logInfo } from "../helpers/log";
+import { STORE_UPGRADE_COMMAND } from "../helpers/msstore";
 import { internalPath } from "../helpers/paths";
 import { getPlatformInfo, resolveCommand } from "../helpers/platform";
 import { captureException } from "../helpers/sentry";
@@ -25,6 +27,7 @@ import { trackUpgradeResult } from "../helpers/telemetry";
 import { UserError } from "../helpers/user-error";
 
 type InstallMethod =
+  | { type: "msstore" }
   | { type: "binary"; binaryPath: string }
   | { type: "proto"; protoCmd: string }
   | { type: "local"; cmd: string; args: string[]; manualHint: string }
@@ -143,6 +146,11 @@ async function getGlobalBinDir(cmd: string[]): Promise<string | null> {
 
 async function detectInstallMethod(): Promise<InstallMethod> {
   logDebug("Detecting install method, execPath:", process.execPath);
+
+  if (isMsixPackagedInstall(process.execPath)) {
+    logDebug("Install method: msstore");
+    return { type: "msstore" };
+  }
 
   if (isBinaryInstall()) {
     logDebug("Install method: binary");
@@ -423,10 +431,23 @@ export function registerUpgradeCommand(program: Command) {
           return;
         }
 
-        console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
-
         const method = await detectInstallMethod();
         logDebug("Upgrade method:", method.type);
+
+        if (method.type === "msstore") {
+          // The package directory is read-only and Windows stops a packaged
+          // app before servicing it, so the update runs outside this process.
+          console.log(
+            `Archgate ${latestVersion} is available. This install comes from the Microsoft Store — update it with:
+
+  ${STORE_UPGRADE_COMMAND}`
+          );
+          // Nothing was upgraded, so a script must not read this as success.
+          await exitWith(1);
+          return;
+        }
+
+        console.log(`Upgrading ${currentVersion} -> ${latestVersion}...`);
 
         if (method.type === "binary") {
           await upgradeBinary(tag);
