@@ -1,3 +1,15 @@
+## [0.62.0](https://github.com/archgate/cli/compare/v0.61.0...v0.62.0) (2026-11-24)
+
+### Features
+
+* **adr import:** add --only and --exclude filters ([#679](https://github.com/archgate/cli/issues/679)) ([fc35b8b](https://github.com/archgate/cli/commit/fc35b8b284b27b32246ffd3c5d6df4c9bdc3df23)), closes [#678](https://github.com/archgate/cli/issues/678)
+* allow projects to configure ADR briefing limits ([#673](https://github.com/archgate/cli/issues/673)) ([7d7da29](https://github.com/archgate/cli/commit/7d7da299abe7b9f9e1313dade9e2bba7f119da24)), references [#672](https://github.com/archgate/cli/issues/672)
+
+### Bug Fixes
+
+* **docs:** drop empty code block that breaks the docs build ([#668](https://github.com/archgate/cli/issues/668)) ([ee9fcac](https://github.com/archgate/cli/commit/ee9fcac2fa19820910caf09d1ecfa2af7e99950d)), references [#660](https://github.com/archgate/cli/issues/660)
+* **init:** load the oxlint plugin with jsPlugins in the lint README ([#662](https://github.com/archgate/cli/issues/662)) ([5c7fc3d](https://github.com/archgate/cli/commit/5c7fc3d3cc8aeeffd8febc68297705fd5415e2f2))
+
 ## [0.61.0](https://github.com/archgate/cli/compare/v0.60.2...v0.61.0) (2026-10-28)
 
 ### Features
