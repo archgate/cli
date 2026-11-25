@@ -10,6 +10,7 @@ import {
   ImportsManifestSchema,
   type ImportsManifest,
 } from "../../formats/pack";
+import { indexUpstreamAdrs } from "../../helpers/adr-import";
 import { exitWith, handleCommandError } from "../../helpers/exit";
 import { logDebug, logWarn } from "../../helpers/log";
 import { formatJSON, isAgentContext } from "../../helpers/output";
@@ -194,6 +195,7 @@ export function registerAdrSyncCommand(adr: Command) {
         // Clone upstream repos and compare
         const tempDirs: string[] = [];
         const cloneCache = new Map<string, string>();
+        const upstreamIndexes = new Map<string, Map<string, string>>();
         const result: SyncResult = {
           checked: 0,
           withChanges: 0,
@@ -254,15 +256,25 @@ export function registerAdrSyncCommand(adr: Command) {
               f.endsWith(".md")
             );
 
-            // We need to find the upstream file. Since IDs were remapped on import,
-            // we compare content structure. For simplicity, match by position in the
-            // import list or by comparing titles/content.
-            // A reasonable heuristic: use the order in adrIds vs the sorted upstream files.
-            const adrIndex = entry.adrIds.indexOf(adrId);
-            const upstreamFile =
-              adrIndex < upstreamFiles.length
-                ? join(upstreamAdrsDir, upstreamFiles.sort()[adrIndex])
-                : null;
+            // IDs are remapped on import. Entries that record each ADR's source
+            // ID are paired by it; entries without one fall back to pairing by
+            // position in adrIds against the sorted upstream files.
+            const originalId = entry.originalIds?.[adrId];
+            let upstreamFile: string | null;
+            if (originalId === undefined) {
+              const adrIndex = entry.adrIds.indexOf(adrId);
+              upstreamFile =
+                adrIndex < upstreamFiles.length
+                  ? join(upstreamAdrsDir, upstreamFiles.sort()[adrIndex])
+                  : null;
+            } else {
+              let index = upstreamIndexes.get(upstreamAdrsDir);
+              if (index === undefined) {
+                index = indexUpstreamAdrs(upstreamAdrsDir);
+                upstreamIndexes.set(upstreamAdrsDir, index);
+              }
+              upstreamFile = index.get(originalId) ?? null;
+            }
 
             if (upstreamFile === null || !existsSync(upstreamFile)) {
               logDebug(`Upstream ADR file not found for ${adrId}`);

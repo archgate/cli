@@ -231,12 +231,16 @@ O comando clona a fonte, lê os arquivos ADR, remapeia os IDs para a sequência 
 
 ### Opções
 
-| Opção       | Descrição                           |
-| ----------- | ----------------------------------- |
-| `--yes`     | Pula o prompt de confirmação        |
-| `--json`    | Saída como JSON                     |
-| `--dry-run` | Visualiza alterações sem gravar     |
-| `--list`    | Lista ADRs importados anteriormente |
+| Opção               | Descrição                                      |
+| ------------------- | ---------------------------------------------- |
+| `--yes`             | Pula o prompt de confirmação                   |
+| `--json`            | Saída como JSON                                |
+| `--dry-run`         | Visualiza alterações sem gravar                |
+| `--list`            | Lista ADRs importados anteriormente            |
+| `--only <id...>`    | Importa apenas estes IDs de ADR da origem      |
+| `--exclude <id...>` | Importa tudo exceto estes IDs de ADR da origem |
+
+`--only` e `--exclude` recebem IDs de ADR como aparecem na origem (a coluna **Original ID** do preview), separados por espaço ou vírgula e sem diferenciar maiúsculas de minúsculas. Elas não podem ser combinadas, e um ID que não corresponde a nenhum ADR das origens interrompe a importação antes de qualquer arquivo ser gravado.
 
 ### Exemplos
 
@@ -256,6 +260,12 @@ Visualizar o que seria importado sem gravar arquivos:
 
 ```bash
 archgate adr import archgate/packs/typescript --dry-run
+```
+
+Importar um pack sem um dos seus ADRs (os IDs são os do próprio pack, como aparecem no preview de `--dry-run`):
+
+```bash
+archgate adr import archgate/packs/typescript --exclude TS-003
 ```
 
 Importar de forma não interativa (pula confirmação):

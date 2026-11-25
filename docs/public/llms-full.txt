@@ -1806,6 +1806,22 @@ archgate adr import packs/security/adrs/SEC-001-no-secrets-in-code
 
 Only that single ADR (and its companion rules file, if present) will be imported.
 
+## Importing part of a pack
+
+To take most of a pack, skip the ADRs you don't want with `--exclude`:
+
+```bash
+archgate adr import packs/security --exclude SEC-004
+```
+
+To take a few, name them with `--only`:
+
+```bash
+archgate adr import packs/security --only SEC-001 SEC-002
+```
+
+Both flags take the ADR IDs as they appear in the source pack (the **Original ID** column of the `--dry-run` preview), space- or comma-separated and case-insensitive. Place them after the sources. They cannot be combined, and an ID that matches no ADR in the sources stops the import before anything is written.
+
 ## Importing from third-party repos
 
 Any GitHub repository with ADR files works as a source. Use the three-segment `org/repo/path` syntax:
@@ -1876,22 +1892,29 @@ Every import is recorded in `.archgate/imports.json`:
       "source": "packs/typescript-strict",
       "version": "0.3.0",
       "importedAt": "2026-05-10T14:32:00.000Z",
-      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"]
+      "adrIds": ["ARCH-006", "ARCH-007", "ARCH-008"],
+      "originalIds": {
+        "ARCH-006": "TS-001",
+        "ARCH-007": "TS-002",
+        "ARCH-008": "TS-004"
+      }
     }
   ]
 }
 ```
 
-This manifest lets you track provenance: where each imported ADR came from and when. Commit it to version control alongside your ADRs.
+This manifest lets you track provenance: where each imported ADR came from and when. `originalIds` maps each local ID to the ID it carries in the source, which is how [`archgate adr sync`](/reference/cli/adr/#archgate-adr-sync) finds the upstream counterpart of each imported ADR. Commit it to version control alongside your ADRs.
 
 ## Command options reference
 
-| Option      | Description                           |
-| ----------- | ------------------------------------- |
-| `--yes`     | Skip the confirmation prompt          |
-| `--json`    | Output results as JSON                |
-| `--dry-run` | Preview changes without writing files |
-| `--list`    | List previously imported ADRs         |
+| Option              | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `--yes`             | Skip the confirmation prompt                  |
+| `--json`            | Output results as JSON                        |
+| `--dry-run`         | Preview changes without writing files         |
+| `--list`            | List previously imported ADRs                 |
+| `--only <id...>`    | Import only these source ADR IDs              |
+| `--exclude <id...>` | Import everything except these source ADR IDs |
 
 ---
 
@@ -4061,12 +4084,16 @@ The command clones the source, reads ADR files, remaps IDs to fit the local proj
 
 ### Options
 
-| Option      | Description                     |
-| ----------- | ------------------------------- |
-| `--yes`     | Skip confirmation prompt        |
-| `--json`    | Output as JSON                  |
-| `--dry-run` | Preview changes without writing |
-| `--list`    | List previously imported ADRs   |
+| Option              | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `--yes`             | Skip confirmation prompt                      |
+| `--json`            | Output as JSON                                |
+| `--dry-run`         | Preview changes without writing               |
+| `--list`            | List previously imported ADRs                 |
+| `--only <id...>`    | Import only these source ADR IDs              |
+| `--exclude <id...>` | Import everything except these source ADR IDs |
+
+`--only` and `--exclude` take ADR IDs as they appear in the source (the **Original ID** column of the preview), space- or comma-separated and case-insensitive. They cannot be combined, and an ID that matches no ADR in the sources stops the import before anything is written.
 
 ### Examples
 
@@ -4086,6 +4113,12 @@ Preview what would be imported without writing any files:
 
 ```bash
 archgate adr import archgate/packs/typescript --dry-run
+```
+
+Import a pack without one of its ADRs (IDs are the pack's own, as shown in the `--dry-run` preview):
+
+```bash
+archgate adr import archgate/packs/typescript --exclude TS-003
 ```
 
 Import non-interactively (skip confirmation):
@@ -4521,10 +4554,6 @@ When you are signed out, the command prints nothing and exits successfully, whic
 ```bash
 archgate login logout
 printf 'protocol=https\nhost=plugins.archgate.dev\n\n' | archgate credential get
-```
-
-```
-
 ```
 
 ## Troubleshooting
@@ -5285,7 +5314,8 @@ This file is created automatically by `archgate init` (to store the auto-detecte
   "domains": { "security": "SEC", "compliance": "COMP" },
   "paths": { "adrs": "docs/adrs", "rules": "docs/adrs" },
   "baseBranch": "main",
-  "strict": true
+  "strict": true,
+  "briefingMaxSectionChars": 4200
 }
 ```
 
@@ -5330,6 +5360,10 @@ Resolution order is CLI flag, then this config value, then `false`. There is no 
 ```json
 { "strict": true }
 ```
+
+### `briefingMaxSectionChars`
+
+Maximum characters per ADR `Decision` and `Do's and Don'ts` section in `archgate review-context --verbose`. `archgate check` and `archgate review-context --run-checks` report sections exceeding the same limit, and strict mode still fails on those findings. Set a positive integer; the default is `2000`.
 
 ### `paths`
 

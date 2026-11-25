@@ -25,7 +25,9 @@ Starlight is the natural choice for Archgate: it aligns with the Bun-first toolc
 
 ## Decision
 
-The documentation site MUST be an Astro 5 / Starlight project in the `docs/` directory. The docs site is a **separate concern** from the CLI codebase — it has its own `package.json`, `tsconfig.json`, `bun.lock`, and build pipeline. It does NOT participate in the CLI's `bun run validate` pipeline. Deployment is handled externally via Cloudflare Pages and is not managed by this repository.
+The documentation site MUST be an Astro 5 / Starlight project in the `docs/` directory. The docs site is a **separate concern** from the CLI codebase — it has its own `package.json`, `tsconfig.json`, `bun.lock`, and build pipeline. It does NOT participate in the CLI's `bun run validate` script. Deployment is handled externally via Cloudflare Pages and is not managed by this repository.
+
+**CI gate:** the `Docs Build` job in the Validate workflow runs the Cloudflare Pages build (`bun run build` in `docs/`) whenever a change touches `docs/` or that workflow, and `Validate Code` requires it. CLI-only changes skip it.
 
 **Scope:** the site's structure, tooling, and content organization. NOT the content itself (what to document) — that is editorial, not architectural.
 
@@ -65,9 +67,9 @@ Every content page MUST appear both in the file system (`docs/src/content/docs/<
 
 ### Don't
 
-- **DON'T** add the docs build to the CLI `validate` pipeline — docs build failures MUST NOT block CLI development or CI
+- **DON'T** add the docs build to `bun run validate` — docs failures MUST NOT block CLI-only changes or the offline pre-push hook
+- **DON'T** drop `Docs Build` from the `Validate Code` gate, narrow its trigger below `docs/`, or let its commands drift from the Cloudflare Pages build
 - **DON'T** share `tsconfig.json` with the CLI project — docs use `astro/tsconfigs/strict`, the CLI its own
-- **DON'T** use bare `{}` in MDX content — always escape as `\{\}` for literal curly braces in prose or code fence labels
 - **DON'T** add CLI source dependencies (`@commander-js/extra-typings`, `zod`, `@modelcontextprotocol/sdk`, `inquirer`) to `docs/package.json`
 - **DON'T** create content files outside `docs/src/content/docs/` — `docsLoader()` expects exactly this directory structure
 - **DON'T** use auto-generated content collections — Astro 5 requires an explicit `docs/src/content.config.ts` with `docsLoader()` and `docsSchema()`
@@ -167,7 +169,7 @@ Code reviewers MUST verify during docs PRs:
 3. Curly braces in prose are escaped (`\{\}`) when showing template syntax
 4. Reference pages are updated when the corresponding CLI API changes
 5. No CLI source dependencies are added to `docs/package.json`
-6. The docs build succeeds locally (`bun run docs:build`) before merging
+6. The `Docs Build` job in the Validate workflow passed on the pull request
 
 ## References
 

@@ -276,11 +276,9 @@ export async function downloadReleaseBinary(
         );
       }
     } else {
-      // Bun.Archive reads tar and tar.gz only, so the Windows `.zip` release
-      // keeps PowerShell; switching the artifact to tar.gz would break every
-      // shim, each of which downloads `.zip` for win32 (ARCH-017).
-      // `-ErrorAction Stop` promotes Expand-Archive's non-terminating error to
-      // a terminating one; without it PowerShell exits 0 on a corrupt archive.
+      // Windows releases use ZIP for the shims (ARCH-017). Call the
+      // two-argument .NET Framework API because PowerShell 5.1 lacks the
+      // overwrite overload used by newer Microsoft.PowerShell.Archive versions.
       const windowsPowerShell = join(
         usableEnv(Bun.env.SystemRoot) ?? "C:\\Windows",
         "System32",
@@ -297,15 +295,20 @@ export async function downloadReleaseBinary(
       }
       const archivePath = join(tmpDir, `archgate${artifact.ext}`);
       await Bun.write(archivePath, buffer);
-      const { exitCode } = await runCapture([
+      const source = archivePath.replaceAll("'", "''");
+      const destination = tmpDir.replaceAll("'", "''");
+      const { exitCode, stderr } = await runCapture([
         shell,
         "-NoProfile",
         "-Command",
-        `Expand-Archive -Path '${archivePath}' -DestinationPath '${tmpDir}' -Force -ErrorAction Stop`,
+        "$ErrorActionPreference = 'Stop'; " +
+          "Add-Type -AssemblyName System.IO.Compression.FileSystem; " +
+          `[System.IO.Compression.ZipFile]::ExtractToDirectory('${source}', '${destination}')`,
       ]);
       if (exitCode !== 0) {
+        const detail = stderr.trim();
         throw new UserError(
-          `Failed to extract archive (PowerShell exit code ${exitCode})`
+          `Failed to extract archive (PowerShell exit code ${exitCode})${detail ? `:\n${detail}` : ""}`
         );
       }
     }

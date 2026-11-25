@@ -231,12 +231,16 @@ The command clones the source, reads ADR files, remaps IDs to fit the local proj
 
 ### Options
 
-| Option      | Description                     |
-| ----------- | ------------------------------- |
-| `--yes`     | Skip confirmation prompt        |
-| `--json`    | Output as JSON                  |
-| `--dry-run` | Preview changes without writing |
-| `--list`    | List previously imported ADRs   |
+| Option              | Description                                   |
+| ------------------- | --------------------------------------------- |
+| `--yes`             | Skip confirmation prompt                      |
+| `--json`            | Output as JSON                                |
+| `--dry-run`         | Preview changes without writing               |
+| `--list`            | List previously imported ADRs                 |
+| `--only <id...>`    | Import only these source ADR IDs              |
+| `--exclude <id...>` | Import everything except these source ADR IDs |
+
+`--only` and `--exclude` take ADR IDs as they appear in the source (the **Original ID** column of the preview), space- or comma-separated and case-insensitive. They cannot be combined, and an ID that matches no ADR in the sources stops the import before anything is written.
 
 ### Examples
 
@@ -256,6 +260,12 @@ Preview what would be imported without writing any files:
 
 ```bash
 archgate adr import archgate/packs/typescript --dry-run
+```
+
+Import a pack without one of its ADRs (IDs are the pack's own, as shown in the `--dry-run` preview):
+
+```bash
+archgate adr import archgate/packs/typescript --exclude TS-003
 ```
 
 Import non-interactively (skip confirmation):
